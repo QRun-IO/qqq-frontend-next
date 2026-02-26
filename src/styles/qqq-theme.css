@@ -1,0 +1,163 @@
+/* QQQ Theme Token Definitions */
+/* 60+ CSS custom properties for theming and customization */
+/* These are the default values — overridden by ThemeProvider from backend metadata */
+
+:root {
+  /* === Brand Colors === */
+  --qqq-primary-color: #0062ff;
+  --qqq-secondary-color: #9c27b0;
+  --qqq-accent-color: #0062ff;
+
+  /* Shorthand aliases used by Tailwind */
+  --color-primary: #0062ff;
+  --color-accent: #c0d6f7;
+
+  /* === Semantic Colors === */
+  --qqq-success-color: #10b981;
+  --qqq-warning-color: #f59e0b;
+  --qqq-error-color: #dc2626;
+  --qqq-info-color: #3b82f6;
+
+  --color-error: #dc2626;
+  --color-warning: #f59e0b;
+  --color-success: #10b981;
+  --color-info: #3b82f6;
+
+  /* === Text Colors === */
+  --color-text: #1f2937;
+  --color-text-light: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f9fafb;
+
+  /* === Sidebar === */
+  --qqq-sidebar-background: #1e293b;
+  --qqq-sidebar-text: #e2e8f0;
+  --qqq-sidebar-text-muted: #94a3b8;
+  --qqq-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --qqq-sidebar-active: var(--qqq-accent-color);
+  --qqq-sidebar-active-bg: rgba(0, 98, 255, 0.15);
+  --qqq-sidebar-border: #334155;
+  --qqq-sidebar-width: 256px;
+  --qqq-sidebar-width-mini: 80px;
+  --sidebar-width: 256px;
+  --sidebar-width-mini: 80px;
+
+  /* === Header === */
+  --qqq-header-background: #ffffff;
+  --qqq-header-text: #1e293b;
+  --qqq-header-border: #e2e8f0;
+  --qqq-header-height: 64px;
+  --header-height: 64px;
+
+  /* === Grid / DataGrid === */
+  --qqq-grid-header-bg: #f8fafc;
+  --qqq-grid-header-text: #475569;
+  --qqq-grid-row-hover: #f1f5f9;
+  --qqq-grid-row-selected: #eff6ff;
+  --qqq-grid-border: #e2e8f0;
+  --qqq-grid-text: #1e293b;
+  --qqq-grid-text-muted: #64748b;
+
+  /* === Forms === */
+  --qqq-input-border: #d1d5db;
+  --qqq-input-focus-border: #0062ff;
+  --qqq-input-focus-shadow: 0 0 0 3px rgba(0, 98, 255, 0.1);
+  --qqq-input-background: #ffffff;
+  --qqq-input-text: #1f2937;
+  --qqq-input-placeholder: #9ca3af;
+  --qqq-label-text: #374151;
+
+  /* === Banners === */
+  --qqq-banner-height: 40px;
+  --banner-height: 40px;
+  --qqq-banner-info-bg: #eff6ff;
+  --qqq-banner-info-border: #bfdbfe;
+  --qqq-banner-info-text: #1d4ed8;
+  --qqq-banner-warning-bg: #fffbeb;
+  --qqq-banner-warning-border: #fde68a;
+  --qqq-banner-warning-text: #92400e;
+  --qqq-banner-error-bg: #fef2f2;
+  --qqq-banner-error-border: #fecaca;
+  --qqq-banner-error-text: #991b1b;
+
+  /* === Typography === */
+  --qqq-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --qqq-font-size-xs: 0.75rem;     /* 12px */
+  --qqq-font-size-sm: 0.875rem;    /* 14px */
+  --qqq-font-size-base: 1rem;      /* 16px */
+  --qqq-font-size-lg: 1.125rem;    /* 18px */
+  --qqq-font-size-xl: 1.25rem;     /* 20px */
+  --qqq-font-size-2xl: 1.5rem;     /* 24px */
+  --qqq-font-size-3xl: 1.875rem;   /* 30px */
+
+  --qqq-font-weight-normal: 400;
+  --qqq-font-weight-medium: 500;
+  --qqq-font-weight-semibold: 600;
+  --qqq-font-weight-bold: 700;
+
+  --qqq-line-height-tight: 1.25;
+  --qqq-line-height-normal: 1.5;
+  --qqq-line-height-relaxed: 1.75;
+
+  /* === Shadows === */
+  --qqq-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --qqq-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --qqq-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --qqq-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --qqq-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* === Border Radius === */
+  --qqq-radius-none: 0;
+  --qqq-radius-xs: 0.125rem;
+  --qqq-radius-sm: 0.375rem;
+  --qqq-radius-md: 0.5rem;
+  --qqq-radius-lg: 0.75rem;
+  --qqq-radius-xl: 1rem;
+  --qqq-radius-full: 9999px;
+
+  /* === Transitions === */
+  --qqq-transition-fast: 100ms ease;
+  --qqq-transition-normal: 200ms ease;
+  --qqq-transition-slow: 300ms ease;
+
+  /* === Z-Index Layers === */
+  --qqq-z-dropdown: 50;
+  --qqq-z-sidebar: 100;
+  --qqq-z-header: 200;
+  --qqq-z-banner: 300;
+  --qqq-z-overlay: 400;
+  --qqq-z-modal: 1000;
+  --qqq-z-toast: 2000;
+  --qqq-z-tooltip: 3000;
+}
+
+/* === Dark Mode Overrides === */
+[data-theme="dark"],
+.dark {
+  --color-text: #f3f4f6;
+  --color-text-light: #d1d5db;
+  --color-text-muted: #6b7280;
+  --color-border: #374151;
+  --color-bg: #111827;
+  --color-bg-subtle: #1f2937;
+
+  --qqq-grid-header-bg: #1e293b;
+  --qqq-grid-header-text: #94a3b8;
+  --qqq-grid-row-hover: #1e293b;
+  --qqq-grid-row-selected: #1e3a5f;
+  --qqq-grid-border: #334155;
+  --qqq-grid-text: #f1f5f9;
+  --qqq-grid-text-muted: #94a3b8;
+
+  --qqq-header-background: #1e293b;
+  --qqq-header-text: #f1f5f9;
+  --qqq-header-border: #334155;
+
+  --qqq-input-border: #4b5563;
+  --qqq-input-background: #1f2937;
+  --qqq-input-text: #f9fafb;
+  --qqq-input-placeholder: #6b7280;
+  --qqq-label-text: #d1d5db;
+}

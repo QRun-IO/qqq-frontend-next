@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "./qqq-theme.css";
+
+/* Base layer customizations */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--qqq-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  }
+
+  body {
+    color: var(--color-text, #1f2937);
+    background: var(--color-bg, #ffffff);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Dark mode body */
+  .dark body,
+  [data-theme="dark"] body {
+    color: var(--color-text-dark, #f3f4f6);
+    background: var(--color-bg-dark, #111827);
+  }
+
+  /* Focus visible styles */
+  :focus-visible {
+    outline: 2px solid var(--qqq-primary-color, #0062ff);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}

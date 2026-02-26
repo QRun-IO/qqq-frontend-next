@@ -817,6 +817,55 @@ export function useCustomCSS(customCss: string | undefined) {
 
 ---
 
+## Mock API Layer (MSW)
+
+A full **MSW (Mock Service Worker) v2** mock is implemented at `src/mocks/`. It intercepts all `/qqq/v1/*` requests and returns realistic fixture data, enabling frontend development with no backend required.
+
+### Activating the Mock
+
+```bash
+cp .env.mock .env.local && pnpm dev
+# OR
+NEXT_PUBLIC_MOCK_API=true pnpm dev
+```
+
+### Mock Data Available
+
+| App | Table | Records |
+|-----|-------|---------|
+| CRM | `person` (People) | 25 |
+| CRM | `company` (Companies) | 10 |
+| CRM | `order` (Orders) | 20 |
+| Inventory | `product` (Products) | 15 |
+| Inventory | `supplier` (Suppliers) | 8 |
+
+Auth type is `FULLY_ANONYMOUS` — the app auto-sessions with no login interaction.
+
+Dashboard widgets: 4 statistics tiles, bar chart, line chart, record grid.
+
+### Adding Handlers for New Packages
+
+When a new package introduces new API endpoints (e.g., a new process, a new widget type), **add a corresponding handler** in `src/mocks/handlers/`. The existing handlers show the pattern:
+
+```
+src/mocks/handlers/
+├── auth.ts           # /metaData/authentication, /manageSession, /logout
+├── metadata.ts       # /metaData, /metaData/table/:name, /metaData/process/:name
+├── tables.ts         # /table/:name/query|count|:pk (full CRUD, in-memory store)
+├── processes.ts      # /processes/:name/init|step|status|cancel
+├── widgets.ts        # /widget/:widgetName
+├── possible-values.ts
+└── index.ts          # combines all handlers
+```
+
+In-memory mutations (POST/PUT/DELETE) persist within the browser session and reset on reload.
+
+### Vitest Integration
+
+The MSW node server is wired into the Vitest setup (`tests/setup.ts`). Unit tests automatically intercept API calls — no real network requests are made.
+
+---
+
 ## Summary
 
 These conventions ensure:
