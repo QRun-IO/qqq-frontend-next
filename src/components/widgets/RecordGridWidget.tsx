@@ -53,8 +53,8 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
         className="flex flex-col items-center justify-center gap-2 py-8 text-center"
         data-qqq-id={`record-grid-empty-${widgetName}`}
       >
-        <Inbox className="h-8 w-8 text-gray-300" aria-hidden="true" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">No records</p>
+        <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+        <p className="text-sm text-muted-foreground">No records</p>
       </div>
     )
   }
@@ -77,11 +77,11 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
         aria-label={`${widgetName} record grid`}
       >
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+          <tr className="border-b border-border bg-muted">
             {resolvedFields.map((f) => (
               <th
                 key={f.name}
-                className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300"
+                className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground"
                 data-qqq-id={`widget-grid-header-${f.name}`}
               >
                 {f.label}
@@ -93,7 +93,7 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
           {qRecords.map((record, rowIdx) => (
             <tr
               key={rowIdx}
-              className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50"
+              className="border-b border-border transition-colors hover:bg-accent"
               data-qqq-id={`widget-grid-row-${widgetName}-${rowIdx}`}
             >
               {resolvedFields.map((field) => (
@@ -117,7 +117,7 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
 
       {data.totalCount !== undefined && data.totalCount > records.length && (
         <p
-          className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400"
+          className="mt-2 text-center text-xs text-muted-foreground"
           data-qqq-id={`widget-grid-more-${widgetName}`}
         >
           Showing {records.length} of {data.totalCount.toLocaleString()} records

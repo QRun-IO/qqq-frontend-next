@@ -25,19 +25,19 @@ export default function GlobalError({
 
   if (is401) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+      <div className="flex min-h-screen items-center justify-center bg-muted">
+        <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
           <div className="flex flex-col items-center gap-4 text-center">
             <AlertCircle className="h-12 w-12 text-amber-500" aria-hidden="true" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl font-bold text-foreground">
               Session Expired
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               Your session has expired. Please log in again to continue.
             </p>
             <Link
               href="/login"
-              className="mt-2 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               data-qqq-id="button-go-to-login"
             >
               Go to Login
@@ -49,23 +49,23 @@ export default function GlobalError({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="flex flex-col items-center gap-4 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <AlertCircle className="h-12 w-12 text-destructive" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-foreground">
             Something went wrong
           </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {error.message || 'An unexpected error occurred.'}
           </p>
           {error.digest && (
-            <p className="text-xs text-gray-400">Error ID: {error.digest}</p>
+            <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
           )}
           <div className="flex gap-3">
             <button
               onClick={reset}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               data-qqq-id="button-try-again"
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -73,7 +73,7 @@ export default function GlobalError({
             </button>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-qqq-id="link-go-home"
             >
               Go Home

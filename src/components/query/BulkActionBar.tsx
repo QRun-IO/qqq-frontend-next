@@ -40,7 +40,7 @@ export function BulkActionBar({
 
   return (
     <div
-      className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 dark:border-blue-700 dark:bg-blue-950"
+      className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-2"
       role="region"
       aria-label="Bulk actions"
       aria-live="polite"
@@ -48,13 +48,13 @@ export function BulkActionBar({
     >
       {/* Selection info */}
       <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+        <span className="text-sm font-medium text-primary">
           {selectedCount} of {totalCount.toLocaleString()} selected
         </span>
         <button
           type="button"
           onClick={onClearSelection}
-          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:text-blue-400"
+          className="flex items-center gap-1 text-xs text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
           aria-label="Clear selection"
           data-qqq-id="bulk-clear-selection"
         >
@@ -69,7 +69,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={onExportSelected}
-            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Export selected records"
             data-qqq-id="bulk-export"
           >
@@ -82,7 +82,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={onDeleteSelected}
-            className="flex items-center gap-1.5 rounded border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-red-700 dark:bg-gray-800"
+            className="flex items-center gap-1.5 rounded border border-destructive bg-background px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-destructive"
             aria-label={`Delete ${selectedCount} selected record${selectedCount !== 1 ? 's' : ''}`}
             data-qqq-id="bulk-delete"
           >

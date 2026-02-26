@@ -18,7 +18,7 @@ function Bar({ className }: SkeletonBaseProps) {
   return (
     <div
       className={cn(
-        'animate-pulse rounded bg-gray-200 dark:bg-gray-700',
+        'animate-pulse rounded bg-muted',
         className
       )}
       aria-hidden="true"
@@ -57,7 +57,7 @@ function Card({ className }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900',
+        'rounded-xl border border-border bg-card p-5',
         className
       )}
       role="status"
@@ -95,13 +95,13 @@ interface TableProps {
 function Table({ rows = 5, cols = 4, className }: TableProps) {
   return (
     <div
-      className={cn('overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700', className)}
+      className={cn('overflow-hidden rounded-lg border border-border', className)}
       role="status"
       aria-label="Loading table"
       aria-busy="true"
     >
       {/* Header row */}
-      <div className="flex animate-pulse gap-4 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex animate-pulse gap-4 border-b border-border bg-muted px-4 py-3">
         {Array.from({ length: cols }).map((_, i) => (
           <Bar key={i} className="h-4 flex-1" />
         ))}
@@ -110,7 +110,7 @@ function Table({ rows = 5, cols = 4, className }: TableProps) {
       {Array.from({ length: rows }).map((_, row) => (
         <div
           key={row}
-          className="flex animate-pulse gap-4 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800"
+          className="flex animate-pulse gap-4 border-b border-border px-4 py-3 last:border-0"
         >
           {Array.from({ length: cols }).map((_, col) => (
             <Bar

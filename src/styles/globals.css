@@ -1,4 +1,47 @@
 @import "tailwindcss";
+
+/* Register semantic colors with Tailwind v4's utility system */
+@theme {
+  /* Surface colors */
+  --color-background: #f8f9fb;
+  --color-foreground: #1a1a2e;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a2e;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1a2e;
+
+  /* Brand */
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+
+  /* Neutral surfaces */
+  --color-secondary: #f0f2f6;
+  --color-secondary-foreground: #1a1a2e;
+  --color-muted: #f0f2f6;
+  --color-muted-foreground: #6b7280;
+  --color-accent: #eef1f6;
+  --color-accent-foreground: #1a1a2e;
+
+  /* Feedback */
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+
+  /* Borders & inputs */
+  --color-border: #e2e5eb;
+  --color-input: #dfe2e8;
+  --color-ring: #2563eb;
+
+  /* Sidebar surface */
+  --color-sidebar: #f0f2f6;
+
+  /* Chart palette */
+  --color-chart-1: #2563eb;
+  --color-chart-2: #10b981;
+  --color-chart-3: #f59e0b;
+  --color-chart-4: #8b5cf6;
+  --color-chart-5: #ec4899;
+}
+
 @import "./qqq-theme.css";
 
 /* Base layer customizations */
@@ -9,26 +52,19 @@
 
   html {
     scroll-behavior: smooth;
-    font-family: var(--qqq-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+    font-family: var(--font-inter, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   }
 
   body {
-    color: var(--color-text, #1f2937);
-    background: var(--color-bg, #ffffff);
+    color: var(--color-foreground);
+    background: var(--color-background);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Dark mode body */
-  .dark body,
-  [data-theme="dark"] body {
-    color: var(--color-text-dark, #f3f4f6);
-    background: var(--color-bg-dark, #111827);
-  }
-
   /* Focus visible styles */
   :focus-visible {
-    outline: 2px solid var(--qqq-primary-color, #0062ff);
+    outline: 3px solid color-mix(in oklch, var(--color-ring) 50%, transparent);
     outline-offset: 2px;
     border-radius: 2px;
   }

@@ -4,13 +4,9 @@
 
 :root {
   /* === Brand Colors === */
-  --qqq-primary-color: #0062ff;
+  --qqq-primary-color: #2563eb;
   --qqq-secondary-color: #9c27b0;
-  --qqq-accent-color: #0062ff;
-
-  /* Shorthand aliases used by Tailwind */
-  --color-primary: #0062ff;
-  --color-accent: #c0d6f7;
+  --qqq-accent-color: #2563eb;
 
   /* === Semantic Colors === */
   --qqq-success-color: #10b981;
@@ -18,31 +14,16 @@
   --qqq-error-color: #dc2626;
   --qqq-info-color: #3b82f6;
 
-  --color-error: #dc2626;
-  --color-warning: #f59e0b;
-  --color-success: #10b981;
-  --color-info: #3b82f6;
-
-  /* === Text Colors === */
-  --color-text: #1f2937;
-  --color-text-light: #6b7280;
-  --color-text-muted: #9ca3af;
-  --color-border: #e5e7eb;
-  --color-bg: #ffffff;
-  --color-bg-subtle: #f9fafb;
-
   /* === Sidebar === */
-  --qqq-sidebar-background: #1e293b;
-  --qqq-sidebar-text: #e2e8f0;
-  --qqq-sidebar-text-muted: #94a3b8;
-  --qqq-sidebar-hover: rgba(255, 255, 255, 0.08);
-  --qqq-sidebar-active: var(--qqq-accent-color);
-  --qqq-sidebar-active-bg: rgba(0, 98, 255, 0.15);
-  --qqq-sidebar-border: #334155;
+  --qqq-sidebar-background: #f0f2f6;
+  --qqq-sidebar-text: #4b5563;
+  --qqq-sidebar-text-muted: #6b7280;
+  --qqq-sidebar-hover: #e5e8ee;
+  --qqq-sidebar-active: #ffffff;
+  --qqq-sidebar-active-bg: #2563eb;
+  --qqq-sidebar-border: #e2e5eb;
   --qqq-sidebar-width: 256px;
-  --qqq-sidebar-width-mini: 80px;
   --sidebar-width: 256px;
-  --sidebar-width-mini: 80px;
 
   /* === Header === */
   --qqq-header-background: #ffffff;
@@ -106,7 +87,7 @@
   --qqq-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   --qqq-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --qqq-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --qqq-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --qqq-shadow-xl: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
   /* === Border Radius === */
   --qqq-radius-none: 0;
@@ -136,12 +117,40 @@
 /* === Dark Mode Overrides === */
 [data-theme="dark"],
 .dark {
-  --color-text: #f3f4f6;
-  --color-text-light: #d1d5db;
-  --color-text-muted: #6b7280;
-  --color-border: #374151;
-  --color-bg: #111827;
-  --color-bg-subtle: #1f2937;
+  /* Tailwind v4 dark semantic tokens */
+  --color-background: #0f1117;
+  --color-foreground: #f0f2f5;
+  --color-card: #181a24;
+  --color-card-foreground: #f0f2f5;
+  --color-popover: #181a24;
+  --color-popover-foreground: #f0f2f5;
+  --color-primary: #5b8def;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1e2130;
+  --color-secondary-foreground: #f0f2f5;
+  --color-muted: #1e2130;
+  --color-muted-foreground: #8b8fa3;
+  --color-accent: #1e2130;
+  --color-accent-foreground: #f0f2f5;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #2a2d3d;
+  --color-input: #2a2d3d;
+  --color-ring: #5b8def;
+  --color-sidebar: #181a24;
+  --color-chart-1: #5b8def;
+  --color-chart-2: #34d399;
+  --color-chart-3: #fbbf24;
+  --color-chart-4: #a78bfa;
+  --color-chart-5: #f472b6;
+
+  --qqq-sidebar-background: #0a0a0a;
+  --qqq-sidebar-text: #a3a3a3;
+  --qqq-sidebar-text-muted: #737373;
+  --qqq-sidebar-hover: #262626;
+  --qqq-sidebar-active: #ffffff;
+  --qqq-sidebar-active-bg: #3b82f6;
+  --qqq-sidebar-border: #262626;
 
   --qqq-grid-header-bg: #1e293b;
   --qqq-grid-header-text: #94a3b8;

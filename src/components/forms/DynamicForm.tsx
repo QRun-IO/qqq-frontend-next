@@ -114,9 +114,9 @@ export function DynamicForm({
   if (hasSections && tableMetaData) {
     const resolvedSections = sections ?? tableMetaData.sections
     return (
-      <div className={cn('space-y-8', className)} data-qqq-id="dynamic-form">
+      <div className={cn('space-y-6', className)} data-qqq-id="dynamic-form">
         {formLabel && (
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{formLabel}</h3>
+          <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
         )}
         {resolvedSections
           .filter((s) => !s.isHidden)
@@ -141,8 +141,8 @@ export function DynamicForm({
                 data-qqq-id={`form-section-${section.name}`}
               >
                 {section.label && (
-                  <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide dark:text-gray-400">
+                  <div className="border-b border-border pb-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
                       {section.label}
                     </h4>
                   </div>
@@ -186,7 +186,7 @@ export function DynamicForm({
   return (
     <div className={cn('space-y-4', className)} data-qqq-id="dynamic-form">
       {formLabel && (
-        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{formLabel}</h3>
+        <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
       )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {resolvedFields.map((f) => (

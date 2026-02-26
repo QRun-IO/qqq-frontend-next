@@ -49,16 +49,16 @@ function CallbackContent() {
   }, [searchParams, handleOAuthCallback, router])
 
   return (
-    <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+    <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
       <div className="flex flex-col items-center gap-4 text-center">
         <div
-          className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
           aria-hidden="true"
         />
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1 className="text-xl font-semibold text-foreground">
           Completing login...
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Please wait while we complete authentication.
         </p>
       </div>
@@ -68,12 +68,12 @@ function CallbackContent() {
 
 export default function CallbackPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
       <Suspense
         fallback={
-          <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           </div>
         }

@@ -73,27 +73,27 @@ export function ValidationReviewStep({
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {totalRecords > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white p-4 text-center dark:border-gray-700 dark:bg-gray-800">
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{totalRecords}</div>
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">Total Records</div>
+          <div className="rounded-xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-bold text-foreground">{totalRecords}</div>
+            <div className="mt-1 text-xs text-muted-foreground">Total Records</div>
           </div>
         )}
         {validRecords > 0 && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-900 dark:bg-green-900/20">
-            <div className="text-2xl font-bold text-green-700 dark:text-green-400">{validRecords}</div>
-            <div className="mt-1 text-xs text-green-600 dark:text-green-500">Valid</div>
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center">
+            <div className="text-2xl font-bold text-green-700">{validRecords}</div>
+            <div className="mt-1 text-xs text-green-600">Valid</div>
           </div>
         )}
         {warningCount > 0 && (
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center dark:border-yellow-900 dark:bg-yellow-900/20">
-            <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{warningCount}</div>
-            <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-500">Warnings</div>
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-700">{warningCount}</div>
+            <div className="mt-1 text-xs text-yellow-600">Warnings</div>
           </div>
         )}
         {errorCount > 0 && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900 dark:bg-red-900/20">
-            <div className="text-2xl font-bold text-red-700 dark:text-red-400">{errorCount}</div>
-            <div className="mt-1 text-xs text-red-600 dark:text-red-500">Errors</div>
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-center">
+            <div className="text-2xl font-bold text-destructive">{errorCount}</div>
+            <div className="mt-1 text-xs text-destructive">Errors</div>
           </div>
         )}
       </div>
@@ -102,7 +102,7 @@ export function ValidationReviewStep({
       {hasErrors ? (
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+          className="flex items-center gap-3 rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           data-qqq-id="validation-error-alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
@@ -114,7 +114,7 @@ export function ValidationReviewStep({
       ) : warningCount > 0 ? (
         <div
           role="status"
-          className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
+          className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700"
           data-qqq-id="validation-warning-alert"
         >
           <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
@@ -126,7 +126,7 @@ export function ValidationReviewStep({
       ) : (
         <div
           role="status"
-          className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+          className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
           data-qqq-id="validation-success-alert"
         >
           <CheckCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
@@ -136,72 +136,72 @@ export function ValidationReviewStep({
 
       {/* Validation rows table */}
       {rows.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-hidden rounded-xl border border-border">
           <table
-            className="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+            className="min-w-full divide-y divide-border"
             data-qqq-id="validation-table"
           >
-            <thead className="bg-gray-50 dark:bg-gray-800">
+            <thead className="bg-muted">
               <tr>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                 >
                   Type
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                 >
                   Row
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                 >
                   Field
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                 >
                   Message
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
+            <tbody className="divide-y divide-border bg-card">
               {rows.map((row, idx) => (
                 <tr
                   key={idx}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="hover:bg-accent"
                   data-qqq-id={`validation-row-${idx}`}
                 >
                   <td className="px-4 py-3 text-sm">
                     {row.type === 'ERROR' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
                         <AlertCircle className="h-3 w-3" aria-hidden="true" />
                         Error
                       </span>
                     )}
                     {row.type === 'WARNING' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                         Warning
                       </span>
                     )}
                     {row.type === 'INFO' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                         Info
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {row.rowNumber ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
                     {row.fieldName ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                  <td className="px-4 py-3 text-sm text-foreground">
                     {row.message}
                   </td>
                 </tr>
@@ -212,7 +212,7 @@ export function ValidationReviewStep({
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -220,11 +220,10 @@ export function ValidationReviewStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -240,11 +239,10 @@ export function ValidationReviewStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -259,8 +257,8 @@ export function ValidationReviewStep({
               data-qqq-id="button-proceed"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

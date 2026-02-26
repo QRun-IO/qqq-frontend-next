@@ -123,7 +123,7 @@ export function ProcessBulkEditStep({
       {helpTextComponents.map((comp, idx) => (
         <div
           key={idx}
-          className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-300"
+          className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary"
           data-qqq-id={`process-help-text-${step.name}-${idx}`}
         >
           {String(comp.values?.text ?? '')}
@@ -131,10 +131,10 @@ export function ProcessBulkEditStep({
       ))}
 
       {/* Field selection info */}
-      <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+      <div className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
         Select the fields you want to update. Only checked fields will be modified.
         {enabledCount > 0 && (
-          <span className="ml-1 font-medium text-blue-600 dark:text-blue-400">
+          <span className="ml-1 font-medium text-primary">
             {enabledCount} field{enabledCount !== 1 ? 's' : ''} selected.
           </span>
         )}
@@ -149,8 +149,8 @@ export function ProcessBulkEditStep({
               className={cn(
                 'rounded-lg border p-4 transition-colors duration-150',
                 enabledFields[field.name]
-                  ? 'border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10'
-                  : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
+                  ? 'border-primary/20 bg-primary/5'
+                  : 'border-border bg-card'
               )}
               data-qqq-id={`bulk-edit-field-${field.name}`}
             >
@@ -161,14 +161,14 @@ export function ProcessBulkEditStep({
                   checked={enabledFields[field.name] ?? false}
                   onChange={() => toggleField(field.name)}
                   disabled={isLoading}
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-ring"
                   aria-label={`Include ${field.label} in bulk edit`}
                   data-qqq-id={`bulk-edit-toggle-${field.name}`}
                 />
                 <div className="flex-1">
                   <label
                     htmlFor={`bulk-edit-toggle-${field.name}`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer"
+                    className="text-sm font-medium text-foreground cursor-pointer"
                   >
                     {field.label}
                   </label>
@@ -190,13 +190,13 @@ export function ProcessBulkEditStep({
           ))}
         </div>
       ) : (
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           No fields available for bulk editing.
         </div>
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -204,11 +204,10 @@ export function ProcessBulkEditStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -224,11 +223,10 @@ export function ProcessBulkEditStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -242,8 +240,8 @@ export function ProcessBulkEditStep({
               data-qqq-id="button-next"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

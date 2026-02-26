@@ -108,8 +108,8 @@ export function RecordCardView({
         className="flex flex-col items-center justify-center py-12 text-center"
         data-qqq-id={`record-card-view-empty-${tableName}`}
       >
-        <Inbox className="h-10 w-10 text-gray-300" aria-hidden="true" />
-        <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+        <Inbox className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+        <p className="mt-3 text-sm font-medium text-muted-foreground">
           No records found
         </p>
       </div>
@@ -140,10 +140,10 @@ export function RecordCardView({
                 handleCardClick(record)
               }
             }}
-            className={`cursor-pointer rounded-lg border p-4 transition-colors hover:border-blue-300 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+            className={`cursor-pointer rounded-xl border p-4 transition-colors hover:border-primary/30 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
               isSelected
-                ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950'
-                : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
+                ? 'border-primary bg-primary/5'
+                : 'border-border bg-card'
             }`}
             data-qqq-id={`record-card-${recordId}`}
           >
@@ -158,12 +158,12 @@ export function RecordCardView({
                 }}
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Select ${recordLabel}`}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-ring cursor-pointer"
                 data-qqq-id={`card-select-${recordId}`}
               />
               <div className="min-w-0 flex-1">
                 <h3
-                  className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100"
+                  className="truncate text-sm font-semibold text-card-foreground"
                   data-qqq-id={`card-title-${recordId}`}
                 >
                   {recordLabel}
@@ -181,10 +181,10 @@ export function RecordCardView({
 
                 return (
                   <div key={field.name} className="flex items-baseline gap-2 text-sm">
-                    <dt className="shrink-0 text-gray-500 dark:text-gray-400">
+                    <dt className="shrink-0 text-muted-foreground">
                       {field.label}:
                     </dt>
-                    <dd className="min-w-0 truncate text-gray-900 dark:text-gray-100">
+                    <dd className="min-w-0 truncate text-card-foreground">
                       {getDisplayValue(record, field)}
                     </dd>
                   </div>

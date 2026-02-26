@@ -39,12 +39,12 @@ export default function RecordDeveloperViewPage() {
   return (
     <div className="space-y-6" data-qqq-id={`record-dev-${slug}-${recordId}`}>
       <div className="flex items-center gap-3">
-        <Code className="h-6 w-6 text-gray-400" aria-hidden="true" />
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <Code className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <h2 className="text-2xl font-semibold text-foreground">
           Record Developer View:{' '}
-          <span className="font-mono text-blue-600">{slug}</span>
+          <span className="font-mono text-primary">{slug}</span>
           {' '}
-          <span className="font-mono text-gray-500">#{recordId}</span>
+          <span className="font-mono text-muted-foreground">#{recordId}</span>
         </h2>
       </div>
 
@@ -55,13 +55,13 @@ export default function RecordDeveloperViewPage() {
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       )}
 
       {recordError && (
         <div
-          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
           role="alert"
         >
           Failed to load record: {recordError instanceof Error ? recordError.message : 'Unknown error'}
@@ -72,17 +72,17 @@ export default function RecordDeveloperViewPage() {
         <div className="space-y-4">
           {/* Field values summary */}
           {metaData && (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto rounded-xl border border-border">
               <table className="min-w-full text-sm" data-qqq-id="record-dev-field-table">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
+                    <th className="px-4 py-2 text-left font-medium text-foreground">
                       Field
                     </th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
+                    <th className="px-4 py-2 text-left font-medium text-foreground">
                       Type
                     </th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
+                    <th className="px-4 py-2 text-left font-medium text-foreground">
                       Value
                     </th>
                   </tr>
@@ -93,17 +93,17 @@ export default function RecordDeveloperViewPage() {
                     return (
                       <tr
                         key={fieldName}
-                        className="border-t border-gray-100 dark:border-gray-800"
+                        className="border-t border-border"
                       >
-                        <td className="px-4 py-2 font-mono text-xs text-blue-600 dark:text-blue-400">
+                        <td className="px-4 py-2 font-mono text-xs text-primary">
                           {fieldName}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
+                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
                           {field?.type ?? '—'}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-gray-900 dark:text-gray-100">
+                        <td className="px-4 py-2 font-mono text-xs text-foreground">
                           {value === null || value === undefined
-                            ? <span className="text-gray-400 italic">null</span>
+                            ? <span className="text-muted-foreground italic">null</span>
                             : String(value)}
                         </td>
                       </tr>
@@ -134,11 +134,11 @@ function JsonBlock({
   const [open, setOpen] = React.useState(defaultOpen)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        className="flex w-full items-center justify-between bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring"
         aria-expanded={open}
         data-qqq-id="button-json-block-toggle"
       >
@@ -154,7 +154,7 @@ function JsonBlock({
       </button>
       {open && (
         <pre
-          className="overflow-x-auto bg-gray-900 p-4 text-xs text-green-300 dark:bg-black"
+          className="overflow-x-auto bg-gray-900 p-4 text-xs text-green-300"
           data-qqq-id="json-output"
         >
           {JSON.stringify(value, null, 2)}

@@ -60,8 +60,7 @@ export function DeleteConfirmDialog({
           aria-describedby="delete-dialog-description"
           className={cn(
             'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg bg-white shadow-xl',
-            'dark:bg-gray-900 dark:border dark:border-gray-700',
+            'rounded-lg border border-border bg-card shadow-lg',
             'focus:outline-none'
           )}
           onEscapeKeyDown={onClose}
@@ -77,7 +76,7 @@ export function DeleteConfirmDialog({
                 <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
               </div>
               <h2
-                className="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                className="text-lg font-semibold text-foreground"
               >
                 Delete {tableMetaData.label}
               </h2>
@@ -87,9 +86,8 @@ export function DeleteConfirmDialog({
                 type="button"
                 aria-label="Close dialog"
                 className={cn(
-                  'rounded-md p-1 text-gray-400 hover:text-gray-600',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500',
-                  'dark:text-gray-500 dark:hover:text-gray-300'
+                  'rounded-md p-1 text-muted-foreground hover:text-foreground',
+                  'focus:outline-none focus:ring-2 focus:ring-ring'
                 )}
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -99,9 +97,9 @@ export function DeleteConfirmDialog({
 
           {/* Body */}
           <div className="px-6 pb-4">
-            <p id="delete-dialog-description" className="text-sm text-gray-600 dark:text-gray-400">
+            <p id="delete-dialog-description" className="text-sm text-muted-foreground">
               Are you sure you want to delete{' '}
-              <strong className="text-gray-900 dark:text-gray-100">{recordLabel}</strong>?
+              <strong className="text-foreground">{recordLabel}</strong>?
               This action cannot be undone.
             </p>
 
@@ -116,18 +114,17 @@ export function DeleteConfirmDialog({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 rounded-b-lg bg-gray-50 px-6 py-4 dark:bg-gray-800/50">
+          <div className="flex items-center justify-end gap-3 rounded-b-lg bg-muted px-6 py-4">
             <button
               type="button"
               onClick={onClose}
               disabled={deleteMutation.isPending}
               data-qqq-id="button-cancel"
               className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                'text-gray-700 bg-white hover:bg-gray-50',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
+                'text-foreground bg-card hover:bg-accent',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
-                'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                 'transition-colors duration-150'
               )}
             >
@@ -140,8 +137,8 @@ export function DeleteConfirmDialog({
               data-qqq-id="button-delete-confirm"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-red-600 hover:bg-red-700',
-                'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                'text-destructive-foreground bg-destructive hover:bg-destructive/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

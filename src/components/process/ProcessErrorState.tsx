@@ -28,9 +28,9 @@ export function ProcessErrorState({
     >
       {/* Error icon */}
       <div className="flex justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
           <XCircle
-            className="h-10 w-10 text-red-600 dark:text-red-400"
+            className="h-10 w-10 text-destructive"
             aria-hidden="true"
           />
         </div>
@@ -38,17 +38,17 @@ export function ProcessErrorState({
 
       {/* Error heading */}
       <div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-xl font-semibold text-foreground">
           Process Error
         </h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           An error occurred while running the process.
         </p>
       </div>
 
       {/* Error details */}
       {error && (
-        <div className="mx-auto max-w-lg rounded-md border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div className="mx-auto max-w-lg rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-left text-sm text-destructive">
           <p className="font-medium">Error details:</p>
           <p className="mt-1 font-mono text-xs break-all">{error}</p>
         </div>
@@ -61,10 +61,9 @@ export function ProcessErrorState({
           onClick={onCancel}
           data-qqq-id="button-cancel"
           className={cn(
-            'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-            'text-gray-700 bg-white hover:bg-gray-50',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-            'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+            'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+            'text-foreground bg-card hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'transition-colors duration-150'
           )}
         >
@@ -79,8 +78,8 @@ export function ProcessErrorState({
             data-qqq-id="button-retry"
             className={cn(
               'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-              'text-white bg-red-600 hover:bg-red-700',
-              'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+              'text-destructive-foreground bg-destructive hover:bg-destructive/90',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
           >

@@ -72,7 +72,7 @@ export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   if (entries.length === 0) {
     return (
       <p
-        className="text-sm text-gray-500 dark:text-gray-400"
+        className="text-sm text-muted-foreground"
         data-qqq-id={`line-chart-empty-${widgetName}`}
       >
         No chart data available
@@ -83,7 +83,7 @@ export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   return (
     <div data-qqq-id={`line-chart-${widgetName}`}>
       {data.title && (
-        <p className="mb-3 text-xs font-medium text-gray-600 dark:text-gray-400">
+        <p className="mb-3 text-xs font-medium text-muted-foreground">
           {data.title}
         </p>
       )}

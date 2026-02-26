@@ -53,9 +53,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                 data-qqq-id="button-edit"
                 aria-label={`Edit ${tableMetaData.label} record`}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'transition-colors duration-150'
                 )}
               >
@@ -75,9 +75,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                 data-qqq-id="button-copy"
                 aria-label={`Copy ${tableMetaData.label} record`}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'transition-colors duration-150'
                 )}
               >
@@ -93,9 +93,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                 data-qqq-id="button-delete"
                 aria-label={`Delete ${tableMetaData.label} record`}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium',
-                  'text-red-600 bg-white hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:bg-gray-800 dark:hover:bg-red-900/20',
-                  'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-destructive/30 px-3 py-2 text-sm font-medium',
+                  'text-destructive bg-card hover:bg-destructive/10',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'transition-colors duration-150'
                 )}
               >
@@ -117,9 +117,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                 data-qqq-id="button-edit"
                 aria-label={`Edit ${tableMetaData.label} record`}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'transition-colors duration-150'
                 )}
               >
@@ -135,9 +135,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                   data-qqq-id="record-action-menu"
                   aria-label="Record actions menu"
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-                    'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                    'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium',
+                    'text-foreground bg-card hover:bg-accent',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                     'transition-colors duration-150'
                   )}
                 >
@@ -151,8 +151,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                   align="end"
                   sideOffset={4}
                   className={cn(
-                    'z-50 min-w-[180px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg',
-                    'dark:border-gray-700 dark:bg-gray-900',
+                    'z-50 min-w-[180px] overflow-hidden rounded-md border border-border bg-card shadow-lg',
                     'animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2'
                   )}
                 >
@@ -163,8 +162,8 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                       data-qqq-id="record-action-edit"
                       className={cn(
                         'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-gray-700 dark:text-gray-300',
-                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'text-foreground',
+                        'outline-none data-[highlighted]:bg-accent',
                         'transition-colors duration-100'
                       )}
                     >
@@ -180,8 +179,8 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                       data-qqq-id="record-action-copy"
                       className={cn(
                         'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-gray-700 dark:text-gray-300',
-                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'text-foreground',
+                        'outline-none data-[highlighted]:bg-accent',
                         'transition-colors duration-100'
                       )}
                     >
@@ -192,7 +191,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
 
                   {/* Separator before processes — only if there are menu items above */}
                   {(canEdit || canInsert) && (
-                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />
                   )}
 
                   {/* Processes */}
@@ -207,8 +206,8 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                       data-qqq-id={`record-action-${process.name}`}
                       className={cn(
                         'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-gray-700 dark:text-gray-300',
-                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'text-foreground',
+                        'outline-none data-[highlighted]:bg-accent',
                         'transition-colors duration-100'
                       )}
                     >
@@ -219,7 +218,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
 
                   {/* Separator before delete — only if there are menu items above */}
                   {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
-                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />
                   )}
 
                   {/* Delete (destructive) */}
@@ -229,8 +228,8 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                       data-qqq-id="record-action-delete"
                       className={cn(
                         'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-red-600 dark:text-red-400',
-                        'outline-none data-[highlighted]:bg-red-50 dark:data-[highlighted]:bg-red-900/20',
+                        'text-destructive',
+                        'outline-none data-[highlighted]:bg-destructive/10',
                         'transition-colors duration-100'
                       )}
                     >

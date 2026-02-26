@@ -47,22 +47,22 @@ export function Pagination({
 
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 px-4 py-3 dark:border-gray-700"
+      className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-4 py-3"
       data-qqq-id="pagination"
     >
       {/* Left: record count summary */}
-      <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span aria-live="polite" aria-atomic="true">
           {totalCount === 0 ? (
             'No records'
           ) : (
             <>
               Showing{' '}
-              <span className="font-medium text-gray-900 dark:text-gray-100">
+              <span className="font-medium text-foreground">
                 {startRecord}–{endRecord}
               </span>{' '}
               of{' '}
-              <span className="font-medium text-gray-900 dark:text-gray-100">
+              <span className="font-medium text-foreground">
                 {totalCount.toLocaleString()}
               </span>
             </>
@@ -71,11 +71,11 @@ export function Pagination({
 
         {/* Page size selector */}
         <label className="flex items-center gap-1.5 text-sm">
-          <span className="text-gray-500">Rows:</span>
+          <span className="text-muted-foreground">Rows:</span>
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSize)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="rounded border border-input bg-background px-2 py-1 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label="Rows per page"
             data-qqq-id="pagination-page-size"
           >
@@ -95,7 +95,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(1)}
           disabled={pageNum <= 1 || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="First page"
           data-qqq-id="pagination-first"
         >
@@ -107,7 +107,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(pageNum - 1)}
           disabled={pageNum <= 1 || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Previous page"
           data-qqq-id="pagination-prev"
         >
@@ -115,7 +115,7 @@ export function Pagination({
         </button>
 
         {/* Page indicator */}
-        <span className="px-3 text-sm text-gray-700 dark:text-gray-300" aria-current="page">
+        <span className="px-3 text-sm text-foreground" aria-current="page">
           {pageNum} / {totalPages}
         </span>
 
@@ -124,7 +124,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(pageNum + 1)}
           disabled={pageNum >= totalPages || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Next page"
           data-qqq-id="pagination-next"
         >
@@ -136,7 +136,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(totalPages)}
           disabled={pageNum >= totalPages || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Last page"
           data-qqq-id="pagination-last"
         >
@@ -146,7 +146,7 @@ export function Pagination({
         {/* Go to page input */}
         {totalPages > 5 && (
           <div className="ml-2 flex items-center gap-1.5">
-            <label htmlFor="goto-page" className="text-sm text-gray-500">
+            <label htmlFor="goto-page" className="text-sm text-muted-foreground">
               Go to:
             </label>
             <input
@@ -158,7 +158,7 @@ export function Pagination({
               onChange={(e) => setGoToPage(e.target.value)}
               onKeyDown={handleGoToPageKeyDown}
               onBlur={handleGoToPage}
-              className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-center text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+              className="w-16 rounded border border-input bg-background px-2 py-1 text-center text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
               aria-label="Go to page number"
               data-qqq-id="pagination-goto"
             />

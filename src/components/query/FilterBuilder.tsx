@@ -68,13 +68,13 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: Filt
         tableName={tableMetaData.name}
       />
 
-      <div className="flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
+      <div className="flex items-center justify-between border-t border-border pt-3">
         <button
           type="button"
           onClick={() => {
             onChange(emptyFilter(filter.limit))
           }}
-          className="text-sm text-gray-500 underline hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="text-sm text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           data-qqq-id="button-clear-filter"
         >
           Clear all
@@ -84,7 +84,7 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: Filt
           <button
             type="button"
             onClick={onClose}
-            className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
             data-qqq-id="button-apply-filter"
           >
             Apply
@@ -108,7 +108,7 @@ interface FilterGroupProps {
 }
 
 function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroupProps) {
-  const indent = depth > 0 ? 'ml-4 border-l-2 border-blue-200 pl-3' : ''
+  const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
   // Stable ID generation for criteria rows to avoid React reconciliation bugs with index keys
   const criteriaIdCounterRef = useRef(0)
@@ -190,13 +190,13 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
       {/* Boolean operator selector */}
       {(filter.criteria.length > 1 || (filter.subFilters ?? []).length > 0) && (
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">Match</span>
+          <span className="text-muted-foreground">Match</span>
           <select
             value={filter.booleanOperator}
             onChange={(e) =>
               onChange({ ...filter, booleanOperator: e.target.value as 'AND' | 'OR' })
             }
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+            className="rounded border border-input bg-background px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label="Boolean operator"
             data-qqq-id={`filter-boolean-op-${depth}`}
           >
@@ -233,7 +233,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
           <button
             type="button"
             onClick={() => removeSubFilter(idx)}
-            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-gray-400 shadow hover:text-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:bg-gray-900"
+            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-card text-muted-foreground shadow hover:text-destructive focus:outline-none focus:ring-1 focus:ring-destructive"
             aria-label="Remove filter group"
             data-qqq-id={`filter-remove-group-${idx}`}
           >
@@ -247,7 +247,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
         <button
           type="button"
           onClick={addCriterion}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex items-center gap-1 text-sm text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
           data-qqq-id={`filter-add-criterion-${depth}`}
         >
           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -258,7 +258,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
           <button
             type="button"
             onClick={addSubFilter}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             data-qqq-id={`filter-add-group-${depth}`}
           >
             <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -318,7 +318,7 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tabl
       <select
         value={criterion.fieldName}
         onChange={(e) => handleFieldChange(e.target.value)}
-        className="min-w-[140px] rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        className="min-w-[140px] rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         aria-label="Filter field"
         data-qqq-id={`filter-field-${depth}-${index}`}
       >
@@ -333,7 +333,7 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tabl
       <select
         value={criterion.operator}
         onChange={(e) => handleOperatorChange(e.target.value as QCriteriaOperator)}
-        className="min-w-[160px] rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        className="min-w-[160px] rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         aria-label="Filter operator"
         data-qqq-id={`filter-operator-${depth}-${index}`}
       >
@@ -365,7 +365,7 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tabl
       <button
         type="button"
         onClick={onRemove}
-        className="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus:outline-none focus:ring-1 focus:ring-destructive"
         aria-label={`Remove filter condition ${index + 1}`}
         data-qqq-id={`filter-remove-${depth}-${index}`}
       >
@@ -409,7 +409,7 @@ function FilterValueInput({ field, operator, values, onChange, depth, index, tab
           aria-label={`Filter value from for ${field.label}`}
           data-qqq-id={`filter-value-from-${depth}-${index}`}
         />
-        <span className="text-sm text-gray-500">and</span>
+        <span className="text-sm text-muted-foreground">and</span>
         <TypedInput
           fieldType={field.type}
           value={values[1] ?? ''}
@@ -454,7 +454,7 @@ function FilterValueInput({ field, operator, values, onChange, depth, index, tab
       <select
         value={values[0] ?? ''}
         onChange={(e) => onChange([e.target.value])}
-        className="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        className="rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
         aria-label={`Filter value for ${field.label}`}
         data-qqq-id={`filter-value-${depth}-${index}`}
       >
@@ -617,10 +617,10 @@ function PossibleValueSingleSelect({
             setTimeout(() => inputRef.current?.focus(), 50)
           }
         }}
-        className="flex min-w-[180px] cursor-pointer items-center justify-between rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        className="flex min-w-[180px] cursor-pointer items-center justify-between rounded border border-input bg-background px-2 py-1.5 text-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring"
         data-qqq-id={dataId ? `${dataId}-combobox` : undefined}
       >
-        <span className={`flex-1 truncate ${displayText ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}`}>
+        <span className={`flex-1 truncate ${displayText ? 'text-foreground' : 'text-muted-foreground'}`}>
           {displayText || 'Select...'}
         </span>
         <div className="flex items-center gap-0.5">
@@ -631,19 +631,19 @@ function PossibleValueSingleSelect({
                 e.stopPropagation()
                 handleClear()
               }}
-              className="rounded p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
               aria-label={`Clear ${fieldLabel} filter value`}
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
-          <ChevronDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         </div>
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-200 p-1.5 dark:border-gray-700">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-border bg-popover shadow-sm">
+          <div className="border-b border-border p-1.5">
             <input
               ref={inputRef}
               type="text"
@@ -653,7 +653,7 @@ function PossibleValueSingleSelect({
                 debouncedFetch(e.target.value)
               }}
               placeholder="Search..."
-              className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              className="w-full rounded border border-border bg-muted px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               aria-label={`Search ${fieldLabel} options`}
             />
           </div>
@@ -663,12 +663,12 @@ function PossibleValueSingleSelect({
             className="max-h-44 overflow-y-auto"
           >
             {isLoading ? (
-              <li className="flex items-center justify-center py-3 text-sm text-gray-500">
+              <li className="flex items-center justify-center py-3 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 Loading...
               </li>
             ) : options.length === 0 ? (
-              <li className="py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+              <li className="py-3 text-center text-sm text-muted-foreground">
                 No options found
               </li>
             ) : (
@@ -680,12 +680,12 @@ function PossibleValueSingleSelect({
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(option)}
-                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      isSelected ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm hover:bg-accent ${
+                      isSelected ? 'bg-primary/5 text-primary' : 'text-popover-foreground'
                     }`}
                   >
                     <span className="truncate">{option.label}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />}
+                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />}
                   </li>
                 )
               })
@@ -820,7 +820,7 @@ function PossibleValueMultiSelect({
   return (
     <div ref={containerRef} className="relative" data-qqq-id={dataId}>
       <div
-        className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-gray-300 bg-white p-1 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 cursor-pointer"
+        className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-input bg-background p-1 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring cursor-pointer"
         onClick={() => {
           setIsOpen((o) => !o)
           if (!isOpen) {
@@ -835,7 +835,7 @@ function PossibleValueMultiSelect({
         {values.map((val) => (
           <span
             key={val}
-            className="flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+            className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary"
           >
             {labelMap[val] ?? val}
             <button
@@ -844,7 +844,7 @@ function PossibleValueMultiSelect({
                 e.stopPropagation()
                 handleRemoveValue(val)
               }}
-              className="text-blue-600 hover:text-blue-900 focus:outline-none"
+              className="text-primary hover:text-primary/70 focus:outline-none"
               aria-label={`Remove ${labelMap[val] ?? val}`}
             >
               <X className="h-3 w-3" aria-hidden="true" />
@@ -852,14 +852,14 @@ function PossibleValueMultiSelect({
           </span>
         ))}
         {values.length === 0 && (
-          <span className="px-1 text-sm text-gray-400">Select values...</span>
+          <span className="px-1 text-sm text-muted-foreground">Select values...</span>
         )}
-        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-200 p-1.5 dark:border-gray-700">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-border bg-popover shadow-sm">
+          <div className="border-b border-border p-1.5">
             <input
               ref={inputRef}
               type="text"
@@ -869,7 +869,7 @@ function PossibleValueMultiSelect({
                 debouncedFetch(e.target.value)
               }}
               placeholder="Search..."
-              className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              className="w-full rounded border border-border bg-muted px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               aria-label={`Search ${fieldLabel} options`}
               onClick={(e) => e.stopPropagation()}
             />
@@ -881,12 +881,12 @@ function PossibleValueMultiSelect({
             className="max-h-44 overflow-y-auto"
           >
             {isLoading ? (
-              <li className="flex items-center justify-center py-3 text-sm text-gray-500">
+              <li className="flex items-center justify-center py-3 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 Loading...
               </li>
             ) : options.length === 0 ? (
-              <li className="py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+              <li className="py-3 text-center text-sm text-muted-foreground">
                 No options found
               </li>
             ) : (
@@ -901,20 +901,20 @@ function PossibleValueMultiSelect({
                       e.stopPropagation()
                       handleToggleValue(option)
                     }}
-                    className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+                    className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent ${
+                      isSelected ? 'bg-primary/5' : ''
                     }`}
                   >
                     <div
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-600 text-white'
-                          : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-input bg-background'
                       }`}
                     >
                       {isSelected && <Check className="h-3 w-3" aria-hidden="true" />}
                     </div>
-                    <span className="truncate text-gray-700 dark:text-gray-300">{option.label}</span>
+                    <span className="truncate text-popover-foreground">{option.label}</span>
                   </li>
                 )
               })
@@ -948,7 +948,7 @@ function TypedInput({
   'data-qqq-id': dataId,
 }: TypedInputProps) {
   const baseClass =
-    'rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800'
+    'rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring'
 
   if (fieldType === 'DATE') {
     return (
@@ -1064,19 +1064,19 @@ function TagInput({
 
   return (
     <div
-      className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-gray-300 bg-white p-1 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+      className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-input bg-background p-1 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring"
       data-qqq-id={dataId}
     >
       {values.map((tag, i) => (
         <span
           key={i}
-          className="flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+          className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary"
         >
           {tag}
           <button
             type="button"
             onClick={() => removeTag(i)}
-            className="text-blue-600 hover:text-blue-900 focus:outline-none"
+            className="text-primary hover:text-primary/70 focus:outline-none"
             aria-label={`Remove ${tag}`}
           >
             <X className="h-3 w-3" aria-hidden="true" />

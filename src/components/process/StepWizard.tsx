@@ -66,11 +66,11 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
                     stepState === 'completed' &&
-                      'bg-blue-600 text-white',
+                      'bg-primary text-primary-foreground',
                     stepState === 'active' &&
-                      'border-2 border-blue-600 bg-white text-blue-600 dark:bg-gray-900',
+                      'border-2 border-primary bg-card text-primary',
                     stepState === 'pending' &&
-                      'border-2 border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-500'
+                      'border-2 border-border bg-card text-muted-foreground'
                   )}
                 >
                   {stepState === 'completed' ? (
@@ -82,9 +82,9 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
                 <span
                   className={cn(
                     'mt-1 text-xs font-medium whitespace-nowrap',
-                    stepState === 'completed' && 'text-blue-600 dark:text-blue-400',
-                    stepState === 'active' && 'text-blue-700 dark:text-blue-300',
-                    stepState === 'pending' && 'text-gray-400 dark:text-gray-500'
+                    stepState === 'completed' && 'text-primary',
+                    stepState === 'active' && 'text-primary',
+                    stepState === 'pending' && 'text-muted-foreground'
                   )}
                 >
                   {step.label}
@@ -97,8 +97,8 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
                   className={cn(
                     'mx-2 h-0.5 flex-1 transition-colors duration-200',
                     stepState === 'completed'
-                      ? 'bg-blue-600'
-                      : 'bg-gray-200 dark:bg-gray-700'
+                      ? 'bg-primary'
+                      : 'bg-border'
                   )}
                   aria-hidden="true"
                 />

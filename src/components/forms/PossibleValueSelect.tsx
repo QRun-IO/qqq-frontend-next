@@ -111,11 +111,11 @@ export function PossibleValueSelect({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={id}
-        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
+        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
       </label>
       <Controller
         name={name}
@@ -160,19 +160,19 @@ export function PossibleValueSelect({
                 }}
                 className={cn(
                   'flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2',
-                  'bg-white text-sm dark:bg-gray-800',
-                  'focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500',
+                  'bg-background text-sm',
+                  'focus-within:ring-2 focus-within:ring-ring focus-within:border-ring',
                   'transition-colors duration-150',
-                  disabled && 'cursor-not-allowed opacity-50 bg-gray-100 dark:bg-gray-700',
-                  error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  disabled && 'cursor-not-allowed opacity-50 bg-muted',
+                  error ? 'border-destructive' : 'border-input'
                 )}
               >
                 <span
                   className={cn(
                     'flex-1 truncate text-sm',
                     displayValue
-                      ? 'text-gray-900 dark:text-gray-100'
-                      : 'text-gray-400 dark:text-gray-500'
+                      ? 'text-foreground'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {displayValue || placeholder || `-- Select ${label} --`}
@@ -183,14 +183,14 @@ export function PossibleValueSelect({
                       type="button"
                       aria-label={`Clear ${label}`}
                       onClick={handleClear}
-                      className="rounded p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <X className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   )}
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-gray-400 transition-transform duration-150',
+                      'h-4 w-4 text-muted-foreground transition-transform duration-150',
                       isOpen && 'rotate-180'
                     )}
                     aria-hidden="true"
@@ -202,11 +202,11 @@ export function PossibleValueSelect({
                 <div
                   className={cn(
                     'absolute left-0 right-0 top-full z-50 mt-1',
-                    'rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800',
+                    'rounded-md border border-border bg-background shadow-lg',
                     'max-h-60 overflow-hidden'
                   )}
                 >
-                  <div className="border-b border-gray-200 p-2 dark:border-gray-700">
+                  <div className="border-b border-border p-2">
                     <input
                       ref={inputRef}
                       type="text"
@@ -215,10 +215,10 @@ export function PossibleValueSelect({
                       placeholder="Search..."
                       aria-label={`Search ${label} options`}
                       className={cn(
-                        'w-full rounded border border-gray-200 px-2 py-1 text-sm',
-                        'bg-gray-50 text-gray-900 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600',
-                        'focus:outline-none focus:ring-1 focus:ring-blue-500',
-                        'placeholder:text-gray-400'
+                        'w-full rounded border border-input px-2 py-1 text-sm',
+                        'bg-muted text-foreground',
+                        'focus:outline-none focus:ring-1 focus:ring-ring',
+                        'placeholder:text-muted-foreground'
                       )}
                     />
                   </div>
@@ -229,12 +229,12 @@ export function PossibleValueSelect({
                     className="max-h-44 overflow-y-auto"
                   >
                     {isLoading ? (
-                      <li className="flex items-center justify-center py-4 text-sm text-gray-500">
+                      <li className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                         Loading...
                       </li>
                     ) : options.length === 0 ? (
-                      <li className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <li className="py-4 text-center text-sm text-muted-foreground">
                         No options found
                       </li>
                     ) : (
@@ -248,13 +248,13 @@ export function PossibleValueSelect({
                             onClick={() => handleSelect(option)}
                             className={cn(
                               'flex cursor-pointer items-center justify-between px-3 py-2 text-sm',
-                              'hover:bg-gray-100 dark:hover:bg-gray-700',
-                              isSelected && 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                              'hover:bg-accent',
+                              isSelected && 'bg-accent text-primary'
                             )}
                           >
                             <span>{option.label}</span>
                             {isSelected && (
-                              <Check className="h-4 w-4 text-blue-600" aria-hidden="true" />
+                              <Check className="h-4 w-4 text-primary" aria-hidden="true" />
                             )}
                           </li>
                         )
@@ -268,7 +268,7 @@ export function PossibleValueSelect({
         }}
       />
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}
         </p>
       )}

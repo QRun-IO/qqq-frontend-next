@@ -1,15 +1,18 @@
 'use client'
 
 // Breadcrumbs component — auto-generates from current pathname using pathToLabelMap
+// Injects parent app name for flat URLs (e.g. /app/Products → Dashboard / Inventory / Products)
 
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, Home } from 'lucide-react'
+
+import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
 export interface BreadcrumbsProps {
   pathToLabelMap: Record<string, string>
-  separator?: string
+  /** Maps flat leaf paths to their parent app for breadcrumb injection */
+  parentAppMap?: Record<string, ParentAppInfo>
 }
 
 interface Breadcrumb {
@@ -17,19 +20,30 @@ interface Breadcrumb {
   label: string
 }
 
-export default function Breadcrumbs({ pathToLabelMap }: BreadcrumbsProps) {
+export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: BreadcrumbsProps) {
   const pathname = usePathname()
   const segments = pathname.split('/').filter(Boolean)
 
-  const breadcrumbs: Breadcrumb[] = segments
+  const rawBreadcrumbs: Breadcrumb[] = segments
     .map((_, index) => {
       const path = '/' + segments.slice(0, index + 1).join('/')
       const rawLabel = pathToLabelMap[path]
       const label = rawLabel ?? segments[index]
       return { path, label }
     })
-    // Skip route group segments like (dashboard), (auth)
-    .filter(({ path, label }) => !label.startsWith('(') && path !== '/(dashboard)')
+    // Skip route group segments and the /app root (parent app replaces it)
+    .filter(({ path, label }) => !label.startsWith('(') && path !== '/app')
+
+  // Inject parent app at the start if the first crumb is a flat leaf (e.g. /app/Products)
+  const breadcrumbs: Breadcrumb[] = []
+  if (rawBreadcrumbs.length > 0) {
+    const firstPath = rawBreadcrumbs[0].path
+    const parentInfo = parentAppMap[firstPath] ?? findParentForDynamicPath(firstPath, parentAppMap)
+    if (parentInfo) {
+      breadcrumbs.push({ path: parentInfo.path, label: parentInfo.label })
+    }
+  }
+  breadcrumbs.push(...rawBreadcrumbs)
 
   if (breadcrumbs.length === 0) {
     return null
@@ -37,29 +51,18 @@ export default function Breadcrumbs({ pathToLabelMap }: BreadcrumbsProps) {
 
   return (
     <nav
-      className="flex items-center gap-1 text-sm"
+      className="flex items-center gap-2 text-sm"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
-      <Link
-        href="/"
-        className="flex items-center gap-1 text-gray-500 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-        aria-label="Home"
-        data-qqq-id="breadcrumb-link-home"
-      >
-        <Home className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="sr-only">Home</span>
-      </Link>
-
       {breadcrumbs.map((crumb, index) => (
-        <React.Fragment key={crumb.path}>
-          <ChevronRight
-            className="h-3.5 w-3.5 flex-shrink-0 text-gray-400"
-            aria-hidden="true"
-          />
+        <React.Fragment key={crumb.path + index}>
+          {index > 0 && (
+            <span className="text-muted-foreground/60" aria-hidden="true">/</span>
+          )}
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="font-medium text-gray-900 dark:text-gray-100"
+              className="font-semibold text-foreground"
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >
@@ -68,7 +71,7 @@ export default function Breadcrumbs({ pathToLabelMap }: BreadcrumbsProps) {
           ) : (
             <Link
               href={crumb.path}
-              className="text-gray-500 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-qqq-id={`breadcrumb-link-${index}`}
             >
               {crumb.label}
@@ -78,4 +81,20 @@ export default function Breadcrumbs({ pathToLabelMap }: BreadcrumbsProps) {
       ))}
     </nav>
   )
+}
+
+/** For dynamic paths like /app/Products/123, find parent by matching /app/Products */
+function findParentForDynamicPath(
+  path: string,
+  parentAppMap: Record<string, ParentAppInfo>
+): ParentAppInfo | undefined {
+  // Try progressively shorter prefixes
+  const parts = path.split('/')
+  for (let i = parts.length - 1; i >= 2; i--) {
+    const prefix = parts.slice(0, i).join('/')
+    if (parentAppMap[prefix]) {
+      return parentAppMap[prefix]
+    }
+  }
+  return undefined
 }

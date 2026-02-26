@@ -29,7 +29,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
   if (value === null || value === undefined || value === '') {
     return (
       <span
-        className={cn('text-gray-400 dark:text-gray-600 italic text-sm', className)}
+        className={cn('text-muted-foreground text-sm', className)}
         data-qqq-id={`field-value-${field.name}`}
       >
         —
@@ -58,8 +58,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          'inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 underline',
-          'dark:text-blue-400 dark:hover:text-blue-300',
+          'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
           className
         )}
         data-qqq-id={`field-value-${field.name}`}
@@ -78,8 +77,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
         href={href}
         download
         className={cn(
-          'inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 underline',
-          'dark:text-blue-400 dark:hover:text-blue-300',
+          'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
           className
         )}
         data-qqq-id={`field-value-${field.name}`}
@@ -96,7 +94,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
     const formatted = formatBytes(bytes)
     return (
       <span
-        className={cn('text-sm text-gray-900 dark:text-gray-100', className)}
+        className={cn('text-sm text-foreground', className)}
         data-qqq-id={`field-value-${field.name}`}
       >
         {formatted}
@@ -139,13 +137,12 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
     return (
       <pre
         className={cn(
-          'overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3 text-sm',
-          'dark:border-gray-700 dark:bg-gray-800',
+          'overflow-auto rounded-md border border-border bg-muted p-3 text-sm',
           className
         )}
         data-qqq-id={`field-value-${field.name}`}
       >
-        <code className="font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+        <code className="font-mono text-foreground whitespace-pre-wrap">
           {String(value)}
         </code>
       </pre>
@@ -167,7 +164,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
             <TooltipPrimitive.Trigger asChild>
               <span
                 className={cn(
-                  'text-sm text-gray-900 dark:text-gray-100 cursor-help underline decoration-dotted decoration-gray-400',
+                  'text-sm text-foreground cursor-help underline decoration-dotted decoration-muted-foreground',
                   className
                 )}
                 data-qqq-id={`field-value-${field.name}`}
@@ -181,13 +178,13 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
                 side="top"
                 sideOffset={4}
                 className={cn(
-                  'z-50 max-w-xs rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-md',
-                  'text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300',
+                  'z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm shadow-md',
+                  'text-foreground',
                   'animate-in fade-in-0 zoom-in-95'
                 )}
               >
                 {tooltipText}
-                <TooltipPrimitive.Arrow className="fill-gray-200 dark:fill-gray-700" />
+                <TooltipPrimitive.Arrow className="fill-border" />
               </TooltipPrimitive.Content>
             </TooltipPrimitive.Portal>
           </TooltipPrimitive.Root>
@@ -216,11 +213,11 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
         )}
         data-qqq-id={`field-value-${field.name}`}
       >
-        <AlertCircle className="h-4 w-4 shrink-0 text-red-500 dark:text-red-400" aria-hidden="true" />
-        <span className="text-red-600 dark:text-red-400">
+        <AlertCircle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+        <span className="text-destructive">
           {String(value)}
           {errorText && (
-            <span className="ml-1 text-xs text-red-500 dark:text-red-400">({errorText})</span>
+            <span className="ml-1 text-xs text-destructive">({errorText})</span>
           )}
         </span>
       </span>
@@ -237,7 +234,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
             'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
             boolVal
               ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+              : 'bg-muted text-muted-foreground',
             className
           )}
           data-qqq-id={`field-value-${field.name}`}
@@ -259,8 +256,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
             href={value}
             download
             className={cn(
-              'inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 underline',
-              'dark:text-blue-400 dark:hover:text-blue-300',
+              'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
               className
             )}
             data-qqq-id={`field-value-${field.name}`}
@@ -272,7 +268,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
       }
       return (
         <span
-          className={cn('text-sm text-gray-500 dark:text-gray-400 italic', className)}
+          className={cn('text-sm text-muted-foreground', className)}
           data-qqq-id={`field-value-${field.name}`}
         >
           [Binary data]
@@ -283,7 +279,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
     case 'TEXT': {
       return (
         <div
-          className={cn('whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100', className)}
+          className={cn('whitespace-pre-wrap text-sm text-foreground', className)}
           data-qqq-id={`field-value-${field.name}`}
         >
           {String(value)}
@@ -299,7 +295,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
 
       return (
         <span
-          className={cn('text-sm text-gray-900 dark:text-gray-100', className)}
+          className={cn('text-sm text-foreground', className)}
           data-qqq-id={`field-value-${field.name}`}
         >
           {String(value)}
@@ -324,7 +320,7 @@ function RevealField({
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
       <span
-        className="text-sm text-gray-900 dark:text-gray-100 font-mono"
+        className="text-sm text-foreground font-mono"
         data-qqq-id={`field-value-${fieldName}`}
       >
         {revealed ? value : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
@@ -333,7 +329,7 @@ function RevealField({
         type="button"
         onClick={() => setRevealed((r) => !r)}
         aria-label={revealed ? 'Hide value' : 'Show value'}
-        className="rounded p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       >
         {revealed ? (
           <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
@@ -363,7 +359,7 @@ function getChipClasses(color: string): string {
     blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    gray: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+    gray: 'bg-muted text-muted-foreground',
   }
   return colorMap[color.toLowerCase()] ?? colorMap.gray
 }

@@ -53,7 +53,7 @@ export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
   if (blocks.length === 0) {
     return (
       <p
-        className="text-sm text-gray-500 dark:text-gray-400"
+        className="text-sm text-muted-foreground"
         data-qqq-id={`block-widget-empty-${widgetName}`}
       >
         No block content available
@@ -87,7 +87,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
     case 'text':
       return (
         <p
-          className="text-sm text-gray-700 dark:text-gray-300"
+          className="text-sm text-foreground"
           style={block.styles}
           data-qqq-id={`block-text-${widgetName}-${index}`}
         >
@@ -101,11 +101,11 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
           className="flex flex-col items-center gap-1"
           data-qqq-id={`block-big-number-${widgetName}-${index}`}
         >
-          <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <span className="text-3xl font-bold text-foreground">
             {block.value}
           </span>
           {block.label && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-muted-foreground">
               {block.label}
             </span>
           )}
@@ -121,25 +121,25 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
         >
           {isUp ? (
             <ArrowUp
-              className="h-4 w-4 text-green-600 dark:text-green-400"
+              className="h-4 w-4 text-green-600"
               aria-label="Up"
             />
           ) : (
             <ArrowDown
-              className="h-4 w-4 text-red-600 dark:text-red-400"
+              className="h-4 w-4 text-destructive"
               aria-label="Down"
             />
           )}
           <span
             className={cn(
               'text-lg font-semibold',
-              isUp ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              isUp ? 'text-green-600' : 'text-destructive'
             )}
           >
             {block.value}
           </span>
           {block.label && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-muted-foreground">
               {block.label}
             </span>
           )}
@@ -155,12 +155,12 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
           data-qqq-id={`block-progress-${widgetName}-${index}`}
         >
           {block.label && (
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+            <span className="text-xs font-medium text-muted-foreground">
               {block.label}
             </span>
           )}
           <div
-            className="h-2.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+            className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
             role="progressbar"
             aria-valuenow={block.value}
             aria-valuemin={0}
@@ -168,11 +168,11 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
             aria-label={block.label ?? `Progress: ${percentage}%`}
           >
             <div
-              className="h-full rounded-full bg-blue-600 transition-all dark:bg-blue-500"
+              className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${percentage}%` }}
             />
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {percentage}%
           </span>
         </div>
@@ -183,7 +183,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
       return (
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id={`block-button-${block.label}`}
           data-action-code={block.actionCode}
           aria-label={block.label}
@@ -200,7 +200,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
           aria-label={block.iconName}
         >
           <HelpCircle
-            className="text-gray-500 dark:text-gray-400"
+            className="text-muted-foreground"
             style={{
               color: block.color ?? undefined,
               width: block.size ?? 24,
@@ -227,7 +227,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
       return (
         <div data-qqq-id={`block-audio-${widgetName}-${index}`}>
           {block.label && (
-            <p className="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               {block.label}
             </p>
           )}
@@ -246,7 +246,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
     case 'divider':
       return (
         <hr
-          className="border-gray-200 dark:border-gray-700"
+          className="border-border"
           data-qqq-id={`block-divider-${widgetName}-${index}`}
         />
       )
@@ -259,7 +259,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
         >
           <label
             htmlFor={`block-input-${widgetName}-${block.name}`}
-            className="text-xs font-medium text-gray-600 dark:text-gray-400"
+            className="text-xs font-medium text-muted-foreground"
           >
             {block.label}
           </label>
@@ -268,7 +268,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
             name={block.name}
             type={block.inputType ?? 'text'}
             defaultValue={block.defaultValue ?? ''}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="rounded-md border border-input px-3 py-1.5 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label={block.label}
             data-qqq-id={`block-input-field-${widgetName}-${block.name}`}
           />
@@ -289,7 +289,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
       // TypeScript will flag this assignment as an error.
       const _exhaustive: never = block
       return (
-        <p className="text-xs text-gray-400" data-qqq-id={`block-unknown-${widgetName}-${index}`}>
+        <p className="text-xs text-muted-foreground" data-qqq-id={`block-unknown-${widgetName}-${index}`}>
           Unknown block type: {(_exhaustive as BlockData).type}
         </p>
       )

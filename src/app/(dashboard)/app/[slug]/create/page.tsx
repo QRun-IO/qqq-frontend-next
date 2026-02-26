@@ -35,7 +35,7 @@ export default function EntityCreatePage() {
   if (!tableMetaData) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -43,10 +43,10 @@ export default function EntityCreatePage() {
   if (!tableMetaData.insertPermission) {
     return (
       <div
-        className="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center dark:border-yellow-800 dark:bg-yellow-900/20"
+        className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
       >
-        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+        <p className="text-sm text-yellow-700">
           You do not have permission to create {tableMetaData.label} records.
         </p>
       </div>

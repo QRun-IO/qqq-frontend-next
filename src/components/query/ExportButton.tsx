@@ -98,7 +98,7 @@ export function ExportButton({
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={exporting}
-        className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Export records"
         aria-haspopup="true"
         aria-expanded={open}
@@ -117,7 +117,7 @@ export function ExportButton({
             aria-hidden="true"
           />
           <div
-            className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-border bg-popover shadow-sm"
             role="menu"
             aria-label="Export options"
           >
@@ -125,7 +125,7 @@ export function ExportButton({
               type="button"
               onClick={() => exportToCSV('all')}
               role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
               data-qqq-id="export-all"
             >
               All records (CSV)
@@ -134,7 +134,7 @@ export function ExportButton({
               type="button"
               onClick={() => exportToCSV('page')}
               role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
               data-qqq-id="export-page"
             >
               Current page (CSV)
@@ -144,7 +144,7 @@ export function ExportButton({
                 type="button"
                 onClick={() => exportToCSV('selected')}
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
                 data-qqq-id="export-selected"
               >
                 Selected ({selectedRecordIds.length}) (CSV)

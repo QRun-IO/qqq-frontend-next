@@ -57,10 +57,13 @@ export function ThemeProvider({
       if (theme.primaryColor) {
         root.style.setProperty('--color-primary', theme.primaryColor)
         root.style.setProperty('--qqq-primary-color', theme.primaryColor)
+        root.style.setProperty('--primary', theme.primaryColor)
+        root.style.setProperty('--ring', theme.primaryColor)
       }
       if (theme.accentColor) {
         root.style.setProperty('--color-accent', theme.accentColor)
         root.style.setProperty('--qqq-accent-color', theme.accentColor)
+        root.style.setProperty('--qqq-sidebar-active-bg', theme.accentColor)
       }
 
       // Apply any custom tokens

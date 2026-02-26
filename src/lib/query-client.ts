@@ -58,4 +58,9 @@ export const queryKeys = {
   possibleValues: () => [...queryKeys.all(), 'possibleValues'] as const,
   tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string) =>
     [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm] as const,
+
+  // Search
+  search: () => [...queryKeys.all(), 'search'] as const,
+  globalSearch: (searchTerm: string) =>
+    [...queryKeys.search(), searchTerm] as const,
 }

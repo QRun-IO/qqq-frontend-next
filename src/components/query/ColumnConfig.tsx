@@ -128,18 +128,18 @@ export function ColumnConfig({
 
   return (
     <div
-      className="flex flex-col bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 w-72"
+      className="flex flex-col bg-card rounded-xl shadow-sm border border-border w-72"
       data-qqq-id="column-config"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h3 className="text-base font-semibold text-foreground">
           Configure Columns
         </h3>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           aria-label="Close column configuration"
           data-qqq-id="column-config-close"
         >
@@ -148,20 +148,20 @@ export function ColumnConfig({
       </div>
 
       {/* Show/hide all buttons */}
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 dark:border-gray-700">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <button
           type="button"
           onClick={showAll}
-          className="text-xs text-blue-600 underline hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="text-xs text-primary underline hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
           data-qqq-id="column-config-show-all"
         >
           Show all
         </button>
-        <span className="text-gray-300">|</span>
+        <span className="text-muted-foreground">|</span>
         <button
           type="button"
           onClick={hideAll}
-          className="text-xs text-blue-600 underline hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="text-xs text-primary underline hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
           data-qqq-id="column-config-hide-all"
         >
           Hide all
@@ -188,13 +188,13 @@ export function ColumnConfig({
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
-              className={`flex items-center gap-2 px-4 py-2 transition-colors ${isDragging ? 'opacity-50 bg-gray-100 dark:bg-gray-800' : ''} ${isDragOver ? 'border-t-2 border-blue-500' : ''} hover:bg-gray-50 dark:hover:bg-gray-800`}
+              className={`flex items-center gap-2 px-4 py-2 transition-colors ${isDragging ? 'opacity-50 bg-muted' : ''} ${isDragOver ? 'border-t-2 border-primary' : ''} hover:bg-accent`}
               data-qqq-id={`column-config-item-${field.name}`}
             >
               {/* Drag handle */}
               <button
                 type="button"
-                className="cursor-grab text-gray-300 hover:text-gray-500 focus:outline-none"
+                className="cursor-grab text-muted-foreground hover:text-foreground focus:outline-none"
                 aria-label={`Drag to reorder ${field.label}`}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowUp') { e.preventDefault(); moveUp(index) }
@@ -209,15 +209,15 @@ export function ColumnConfig({
               <button
                 type="button"
                 onClick={() => toggleVisibility(field.name)}
-                className={`flex flex-1 items-center gap-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${isVisible ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 line-through'}`}
+                className={`flex flex-1 items-center gap-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${isVisible ? 'text-foreground' : 'text-muted-foreground line-through'}`}
                 aria-pressed={isVisible}
                 aria-label={`${isVisible ? 'Hide' : 'Show'} column ${field.label}`}
                 data-qqq-id={`column-toggle-${field.name}`}
               >
                 {isVisible ? (
-                  <Eye className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
                 ) : (
-                  <EyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                  <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 )}
                 <span className="truncate">{field.label}</span>
               </button>

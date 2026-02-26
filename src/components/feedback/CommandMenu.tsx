@@ -111,7 +111,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
 
       {/* Command palette */}
       <div
-        className="relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+        className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card shadow-lg"
         data-qqq-id="command-menu"
         role="dialog"
         aria-label="Command palette"
@@ -119,20 +119,20 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
       >
         <Command shouldFilter={true} label="Command palette">
           {/* Search input */}
-          <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-            <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Command.Input
               value={search}
               onValueChange={setSearch}
               placeholder="Search pages, tables, processes..."
-              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100"
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
               data-qqq-id="command-menu-search"
             />
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:text-gray-300"
+              className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Close command palette"
               data-qqq-id="button-command-menu-close"
             >
@@ -146,14 +146,14 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
             aria-label="Navigation results"
             aria-live="polite"
           >
-            <Command.Empty className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
               No results found.
             </Command.Empty>
 
             {items.length > 0 && (
               <Command.Group
                 heading={
-                  <span className="px-4 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <span className="px-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Navigation
                   </span>
                 }
@@ -165,10 +165,9 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
                     onSelect={() => handleSelect(item.path)}
                     className={cn(
                       'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm',
-                      'text-gray-700 dark:text-gray-200',
-                      'hover:bg-gray-100 dark:hover:bg-gray-800',
-                      'aria-selected:bg-blue-50 aria-selected:text-blue-700',
-                      'dark:aria-selected:bg-blue-950 dark:aria-selected:text-blue-300',
+                      'text-foreground',
+                      'hover:bg-accent',
+                      'aria-selected:bg-primary/10 aria-selected:text-primary',
                       'outline-none transition-colors'
                     )}
                     data-qqq-id={`command-item-${item.id.replace(/\//g, '-')}`}
@@ -176,7 +175,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
                     <TypeIcon type={item.type} />
                     <span className="flex-1 truncate font-medium">{item.label}</span>
                     {item.breadcrumb && (
-                      <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                      <span className="shrink-0 text-xs text-muted-foreground">
                         {item.breadcrumb}
                       </span>
                     )}
@@ -187,18 +186,18 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
           </Command.List>
 
           {/* Footer hint */}
-          <div className="border-t border-gray-100 px-4 py-2 dark:border-gray-800">
-            <div className="flex gap-4 text-xs text-gray-400">
+          <div className="border-t border-border px-4 py-2">
+            <div className="flex gap-4 text-xs text-muted-foreground">
               <span>
-                <kbd className="rounded border border-gray-200 px-1 py-0.5 font-mono dark:border-gray-700">↑↓</kbd>{' '}
+                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↑↓</kbd>{' '}
                 navigate
               </span>
               <span>
-                <kbd className="rounded border border-gray-200 px-1 py-0.5 font-mono dark:border-gray-700">↵</kbd>{' '}
+                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd>{' '}
                 open
               </span>
               <span>
-                <kbd className="rounded border border-gray-200 px-1 py-0.5 font-mono dark:border-gray-700">esc</kbd>{' '}
+                <kbd className="rounded border border-border px-1 py-0.5 font-mono">esc</kbd>{' '}
                 close
               </span>
             </div>

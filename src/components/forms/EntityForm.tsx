@@ -235,8 +235,8 @@ export function EntityForm({
     >
       {/* Heading — only if not modal */}
       {!isModal && (
-        <div className="border-b border-gray-200 pb-4 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
+        <div className="border-b border-border pb-4">
+          <h2 className="text-xl font-semibold text-foreground">{heading}</h2>
         </div>
       )}
 
@@ -244,7 +244,7 @@ export function EntityForm({
       {mutationError && (
         <div
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+          className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <strong>Error: </strong>
           {mutationError.message || 'An error occurred while saving.'}
@@ -265,10 +265,9 @@ export function EntityForm({
       {/* Actions — sticky on mobile, static on desktop */}
       <div
         className={cn(
-          'sticky bottom-0 z-10 bg-white border-t border-gray-200 py-3 mt-4 -mx-6 px-6',
+          'sticky bottom-0 z-10 bg-background border-t border-border py-3 mt-4 -mx-6 px-6',
           'flex items-center justify-end gap-3',
-          'md:static md:border-t md:mt-6 md:mx-0 md:px-0',
-          'dark:border-gray-700 dark:bg-gray-900'
+          'md:static md:border-t md:mt-6 md:mx-0 md:px-0'
         )}
         data-qqq-id="entity-form-actions"
       >
@@ -278,11 +277,10 @@ export function EntityForm({
           disabled={isSubmitting}
           data-qqq-id="button-cancel"
           className={cn(
-            'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-            'text-gray-700 bg-white hover:bg-gray-50',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+            'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
+            'text-foreground bg-background hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
             'transition-colors duration-150'
           )}
         >
@@ -295,8 +293,8 @@ export function EntityForm({
           data-qqq-id="button-save"
           className={cn(
             'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-            'text-white bg-blue-600 hover:bg-blue-700',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+            'text-primary-foreground bg-primary hover:bg-primary/90',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'transition-colors duration-150'
           )}
@@ -316,8 +314,8 @@ export function EntityForm({
     <>
       {isModal ? (
         <div data-qqq-id={`entity-form-modal-${tableMetaData.name}`}>
-          <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
+          <div className="border-b border-border px-6 py-4">
+            <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
           </div>
           <div className="p-6">{formContent}</div>
         </div>

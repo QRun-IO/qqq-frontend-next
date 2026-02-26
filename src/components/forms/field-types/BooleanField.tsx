@@ -98,13 +98,13 @@ export function BooleanField({
                 className={cn(
                   'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center',
                   'rounded-full border-2 border-transparent',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'transition-colors duration-200',
                   boolState === true
                     ? 'bg-green-600'
                     : boolState === false
-                      ? 'bg-gray-200 dark:bg-gray-600'
-                      : 'bg-gray-300 dark:bg-gray-500',
+                      ? 'bg-muted'
+                      : 'bg-muted',
                   disabled && 'cursor-not-allowed opacity-50'
                 )}
               >
@@ -122,7 +122,7 @@ export function BooleanField({
                 >
                   {/* Show dash indicator for null/indeterminate state */}
                   {boolState === null && (
-                    <Minus className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                    <Minus className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                   )}
                 </span>
               </button>
@@ -132,17 +132,17 @@ export function BooleanField({
         <label
           htmlFor={id}
           className={cn(
-            'text-sm font-medium text-gray-700 dark:text-gray-300',
+            'text-sm font-medium text-foreground',
             disabled && 'opacity-50'
           )}
           data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
         >
           {label}
-          {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
+          {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
         </label>
       </div>
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}
         </p>
       )}

@@ -78,7 +78,7 @@ export function ProcessLauncherMenu({
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Run process"
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -97,7 +97,7 @@ export function ProcessLauncherMenu({
             aria-hidden="true"
           />
           <div
-            className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-border bg-popover shadow-sm"
             role="menu"
             aria-label="Available processes"
           >
@@ -108,10 +108,10 @@ export function ProcessLauncherMenu({
                   type="button"
                   role="menuitem"
                   onClick={() => handleProcessClick(process)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none dark:text-gray-300 dark:hover:bg-gray-800 dark:focus:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
                   data-qqq-id={`process-launcher-item-${process.name}`}
                 >
-                  <Play className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                  <Play className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="truncate">{process.label}</span>
                 </button>
               ))}

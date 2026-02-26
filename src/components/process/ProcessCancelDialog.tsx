@@ -64,7 +64,7 @@ export function ProcessCancelDialog({
     <dialog
       ref={dialogRef}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 m-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/50 dark:border-gray-700 dark:bg-gray-900"
+      className="fixed inset-0 z-50 m-auto w-full max-w-md rounded-xl border border-border bg-card p-0 shadow-lg backdrop:bg-black/50"
       data-qqq-id="process-cancel-dialog"
       aria-labelledby="cancel-dialog-title"
       aria-describedby="cancel-dialog-description"
@@ -72,22 +72,22 @@ export function ProcessCancelDialog({
       <div className="w-full max-w-md p-6">
         {/* Icon and title */}
         <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100">
             <AlertTriangle
-              className="h-5 w-5 text-yellow-600 dark:text-yellow-400"
+              className="h-5 w-5 text-yellow-600"
               aria-hidden="true"
             />
           </div>
           <div>
             <h2
               id="cancel-dialog-title"
-              className="text-base font-semibold text-gray-900 dark:text-gray-100"
+              className="text-base font-semibold text-foreground"
             >
               Cancel Process?
             </h2>
             <p
               id="cancel-dialog-description"
-              className="mt-1 text-sm text-gray-600 dark:text-gray-400"
+              className="mt-1 text-sm text-muted-foreground"
             >
               Are you sure you want to cancel? Any unsaved progress will be lost.
             </p>
@@ -102,10 +102,9 @@ export function ProcessCancelDialog({
             onClick={() => onOpenChange(false)}
             data-qqq-id="cancel-dialog-stay"
             className={cn(
-              'inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+              'inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
           >
@@ -120,8 +119,8 @@ export function ProcessCancelDialog({
             data-qqq-id="cancel-dialog-confirm"
             className={cn(
               'inline-flex items-center rounded-md px-4 py-2 text-sm font-medium',
-              'text-white bg-red-600 hover:bg-red-700',
-              'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+              'text-destructive-foreground bg-destructive hover:bg-destructive/90',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
           >

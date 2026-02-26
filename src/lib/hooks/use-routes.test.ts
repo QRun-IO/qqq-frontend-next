@@ -52,8 +52,10 @@ describe('useAppTreeRoutes', () => {
 
     const { result } = renderHook(() => useAppTreeRoutes(makeMetaData(appTree)))
 
-    expect(result.current.sidebarRoutes).toHaveLength(1)
-    expect(result.current.sidebarRoutes[0]).toMatchObject({
+    // First route is the Dashboard, second is the app
+    const appRoute = result.current.sidebarRoutes.find((r) => r.path === '/app/myApp')
+    expect(appRoute).toBeDefined()
+    expect(appRoute).toMatchObject({
       name: 'My App',
       path: '/app/myApp',
       type: 'collapse',
@@ -148,7 +150,8 @@ describe('useAppTreeRoutes', () => {
 
     const { result } = renderHook(() => useAppTreeRoutes(makeMetaData(appTree)))
 
-    expect(result.current.sidebarRoutes.length).toBeGreaterThanOrEqual(1)
+    // Dashboard + at least one app
+    expect(result.current.sidebarRoutes.length).toBeGreaterThanOrEqual(2)
 
     const mainApp = result.current.sidebarRoutes.find((r) => r.path === '/app/mainApp')
     expect(mainApp).toBeDefined()

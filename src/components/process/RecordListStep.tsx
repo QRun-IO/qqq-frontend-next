@@ -85,7 +85,7 @@ export function RecordListStep({
   return (
     <div className="space-y-6" data-qqq-id={`process-record-list-step-${step.name}`}>
       {/* Record count summary */}
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-muted-foreground">
         {totalRecords > 0 ? (
           <span>
             Showing <strong>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalRecords)}</strong> of{' '}
@@ -98,18 +98,18 @@ export function RecordListStep({
 
       {/* Table */}
       {columns.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table
-            className="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+            className="min-w-full divide-y divide-border"
             data-qqq-id="record-list-table"
           >
-            <thead className="bg-gray-50 dark:bg-gray-800">
+            <thead className="bg-muted">
               <tr>
                 {columns.map((col) => (
                   <th
                     key={col.name}
                     scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                    className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                     data-qqq-id={`record-list-header-${col.name}`}
                   >
                     {col.label}
@@ -117,18 +117,18 @@ export function RecordListStep({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
+            <tbody className="divide-y divide-border bg-card">
               {pageRecords.length > 0 ? (
                 pageRecords.map((record, rowIdx) => (
                   <tr
                     key={rowIdx}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="hover:bg-accent"
                     data-qqq-id={`record-list-row-${page * PAGE_SIZE + rowIdx}`}
                   >
                     {columns.map((col) => (
                       <td
                         key={col.name}
-                        className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
+                        className="px-4 py-3 text-sm text-foreground"
                         data-qqq-id={`record-list-cell-${col.name}`}
                       >
                         {getDisplayValue(record, col.name)}
@@ -140,7 +140,7 @@ export function RecordListStep({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
+                    className="px-4 py-8 text-center text-sm text-muted-foreground"
                   >
                     No records
                   </td>
@@ -150,7 +150,7 @@ export function RecordListStep({
           </table>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+        <div className="rounded-xl border border-dashed border-border bg-muted p-8 text-center text-sm text-muted-foreground">
           No records to display for this step.
         </div>
       )}
@@ -165,17 +165,16 @@ export function RecordListStep({
             aria-label="Previous page"
             data-qqq-id="button-page-prev"
             className={cn(
-              'inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800'
+              'inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             Previous
           </button>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
+          <span className="text-sm text-muted-foreground">
             Page {page + 1} of {totalPages}
           </span>
           <button
@@ -185,11 +184,10 @@ export function RecordListStep({
             aria-label="Next page"
             data-qqq-id="button-page-next"
             className={cn(
-              'inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800'
+              'inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >
             Next
@@ -199,7 +197,7 @@ export function RecordListStep({
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -207,11 +205,10 @@ export function RecordListStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -227,11 +224,10 @@ export function RecordListStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -246,8 +242,8 @@ export function RecordListStep({
               data-qqq-id="button-confirm"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

@@ -1,100 +1,65 @@
 'use client'
 
-// Header component — displays page title, user info, logout button
+// Header component — single top bar: breadcrumbs left, global search + notifications right
+// Matches ME design: breadcrumbs ARE the header row
 // Mobile: shows hamburger button to toggle sidebar drawer
 
-import React from 'react'
-import { LogOut, Moon, Sun, Menu } from 'lucide-react'
+import React, { useState } from 'react'
+import { Bell, Menu } from 'lucide-react'
 
-import { useQContext } from '@/lib/context/q-context'
-import { useTheme } from '@/lib/theme/theme-provider'
+import { GlobalSearch } from '@/components/layout/GlobalSearch'
+import Breadcrumbs from '@/components/layout/Breadcrumbs'
+import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
 export interface HeaderProps {
   appName?: string
-  onLogout?: () => void
-  userName?: string
-  userEmail?: string
   /** Mobile: called when the hamburger menu button is clicked */
   onMenuOpen?: () => void
+  /** Path-to-label map for breadcrumbs */
+  pathToLabelMap?: Record<string, string>
+  /** Maps flat child paths to their parent app for breadcrumb injection */
+  parentAppMap?: Record<string, ParentAppInfo>
 }
 
-export default function Header({ appName, onLogout, userName, userEmail, onMenuOpen }: HeaderProps) {
-  const { pageHeader } = useQContext()
-  const { isDarkMode, toggleDarkMode } = useTheme()
-
-  const displayTitle = pageHeader || appName || 'QQQ Admin'
+export default function Header({ appName, onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
+  const [notificationCount] = useState(0)
 
   return (
     <header
-      className="flex items-center justify-between border-b px-4 md:px-6"
-      style={{
-        height: 'var(--qqq-header-height)',
-        background: 'var(--qqq-header-background)',
-        borderColor: 'var(--qqq-header-border)',
-        color: 'var(--qqq-header-text)',
-      }}
+      className="flex items-center justify-between border-b border-border bg-card px-4 md:px-6"
+      style={{ height: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + page title */}
+      {/* Left: mobile menu + breadcrumbs */}
       <div className="flex items-center gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
           onClick={onMenuOpen}
-          className="flex md:hidden items-center justify-center rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open navigation menu"
           data-qqq-id="button-mobile-menu"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-semibold" data-qqq-id="header-title">
-          {displayTitle}
-        </h1>
+        <Breadcrumbs pathToLabelMap={pathToLabelMap} parentAppMap={parentAppMap} />
       </div>
 
-      {/* Right section: dark mode, user info, logout */}
-      <div className="flex items-center gap-4">
-        {/* Dark mode toggle */}
+      {/* Right section: search + notifications */}
+      <div className="flex items-center gap-3">
+        {/* Global search — hidden on mobile */}
+        <GlobalSearch className="hidden md:block" />
+
+        {/* Notifications bell */}
         <button
-          onClick={toggleDarkMode}
-          className="rounded p-2 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          data-qqq-id="button-dark-mode-toggle"
+          className="relative rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={notificationCount > 0 ? `${notificationCount} notifications` : 'No notifications'}
+          data-qqq-id="button-notifications"
         >
-          {isDarkMode ? (
-            <Sun className="h-4 w-4" aria-hidden="true" />
-          ) : (
-            <Moon className="h-4 w-4" aria-hidden="true" />
+          <Bell className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+          {notificationCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-destructive" />
           )}
         </button>
-
-        {/* User info */}
-        {(userName || userEmail) && (
-          <div className="flex flex-col text-right" data-qqq-id="header-user">
-            {userName && (
-              <span className="text-sm font-medium" data-qqq-id="header-user-name">
-                {userName}
-              </span>
-            )}
-            {userEmail && (
-              <span className="text-xs opacity-60" data-qqq-id="header-user-email">
-                {userEmail}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Logout button */}
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/20"
-            aria-label="Logout"
-            data-qqq-id="button-logout"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            <span>Logout</span>
-          </button>
-        )}
       </div>
     </header>
   )

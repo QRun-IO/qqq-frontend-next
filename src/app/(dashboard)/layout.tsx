@@ -15,9 +15,9 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
-import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import BannerComponent from '@/components/layout/Banner'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
+import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
 
 // Inner layout content — needs QContextProvider to be set up first
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -30,6 +30,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
+
+  // Keyboard shortcuts help dialog state
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // Load full application metadata
   const {
@@ -44,7 +47,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // Generate sidebar routes and path map from app tree
-  const { sidebarRoutes, pathToLabelMap } = useAppTreeRoutes(metaData)
+  const { sidebarRoutes, pathToLabelMap, parentAppMap } = useAppTreeRoutes(metaData)
 
   // Sync pathToLabelMap to QContext
   useEffect(() => {
@@ -66,6 +69,18 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         )
         document.documentElement.style.setProperty(
           '--color-primary',
+          metaData.branding.accentColor
+        )
+        document.documentElement.style.setProperty(
+          '--primary',
+          metaData.branding.accentColor
+        )
+        document.documentElement.style.setProperty(
+          '--ring',
+          metaData.branding.accentColor
+        )
+        document.documentElement.style.setProperty(
+          '--qqq-sidebar-active-bg',
           metaData.branding.accentColor
         )
       }
@@ -114,7 +129,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, authLoading, router])
 
-  // Global keyboard shortcut: Cmd+K / Ctrl+K → command palette
+  // Guard: check if focus is in a text input, textarea, select, or contentEditable
+  const isInputFocused = useCallback(() => {
+    const tag = (document.activeElement?.tagName || '').toLowerCase()
+    const type = (document.activeElement as HTMLInputElement)?.type || ''
+    const isEditable = (document.activeElement as HTMLElement)?.isContentEditable
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || type === 'search' || isEditable
+  }, [])
+
+  // Global keyboard shortcut: Cmd+K / Ctrl+K → command palette, "." → quick nav, "?" → help
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
@@ -122,9 +145,22 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
     if (e.key === 'Escape') {
       setCommandOpen(false)
+      setHelpOpen(false)
       setSidebarOpen(false)
     }
-  }, [])
+
+    // Single-key shortcuts — only when not focused in a text field
+    if (!isInputFocused() && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key === '.') {
+        e.preventDefault()
+        setCommandOpen(true)
+      }
+      if (e.key === '?') {
+        e.preventDefault()
+        setHelpOpen(true)
+      }
+    }
+  }, [isInputFocused])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown)
@@ -136,7 +172,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div
-          className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
           role="status"
           aria-label="Loading"
         />
@@ -154,8 +190,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600">Failed to load application metadata.</p>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-destructive">Failed to load application metadata.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             {metaError instanceof Error ? metaError.message : 'Unknown error'}
           </p>
         </div>
@@ -164,11 +200,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-bg)' }}>
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Skip to main content — accessibility */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         data-qqq-id="skip-to-content"
       >
         Skip to main content
@@ -179,6 +215,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         routes={sidebarRoutes}
         branding={metaData?.branding}
         logout={logout}
+        userName={user?.name}
+        userEmail={user?.email}
         data-qqq-id="sidebar-container"
       />
 
@@ -187,6 +225,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         routes={sidebarRoutes}
         branding={metaData?.branding}
         logout={logout}
+        userName={user?.name}
+        userEmail={user?.email}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         data-qqq-id="sidebar-mobile"
@@ -200,25 +240,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <BannerComponent banners={metaData.branding.banners} />
           )}
 
-        {/* Header */}
+        {/* Header — breadcrumbs + search in one row */}
         <Header
           appName={metaData?.branding?.appName}
-          onLogout={logout}
-          userName={user?.name}
-          userEmail={user?.email}
           onMenuOpen={() => setSidebarOpen(true)}
+          pathToLabelMap={pathToLabelMap}
+          parentAppMap={parentAppMap}
         />
-
-        {/* Breadcrumbs */}
-        <div
-          className="border-b px-6 py-2"
-          style={{
-            background: 'var(--color-bg-subtle, #f9fafb)',
-            borderColor: 'var(--color-border)',
-          }}
-        >
-          <Breadcrumbs pathToLabelMap={pathToLabelMap} />
-        </div>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
@@ -229,7 +257,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               aria-label="Loading content"
               aria-live="polite"
             >
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           ) : (
             children
@@ -239,6 +267,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Command Palette */}
       <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} />
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

@@ -38,11 +38,11 @@ export function FileUploadField({
   return (
     <div className="flex flex-col gap-1">
       <label
-        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
+        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
       </label>
       <Controller
         name={name}
@@ -75,10 +75,10 @@ export function FileUploadField({
                 className={cn(
                   'flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center',
                   'transition-colors duration-150 cursor-pointer',
-                  dragOver && !disabled ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600',
+                  dragOver && !disabled ? 'border-primary bg-accent' : 'border-input',
                   disabled && 'cursor-not-allowed opacity-50',
-                  error && 'border-red-400',
-                  'hover:border-blue-400 dark:hover:border-blue-500'
+                  error && 'border-destructive',
+                  'hover:border-primary'
                 )}
                 onClick={() => !disabled && inputRef.current?.click()}
                 onKeyDown={(e) => {
@@ -90,8 +90,8 @@ export function FileUploadField({
                 tabIndex={disabled ? -1 : 0}
               >
                 {displayName ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <FileIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
+                  <div className="flex items-center gap-2 text-sm text-foreground">
+                    <FileIcon className="h-5 w-5 text-primary" aria-hidden="true" />
                     <span className="max-w-[200px] truncate">{displayName}</span>
                     {!disabled && (
                       <button
@@ -102,7 +102,7 @@ export function FileUploadField({
                           field.onChange(null)
                           if (inputRef.current) inputRef.current.value = ''
                         }}
-                        className="ml-1 rounded p-0.5 text-gray-400 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="ml-1 rounded p-0.5 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-2 focus:ring-destructive"
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -110,13 +110,13 @@ export function FileUploadField({
                   </div>
                 ) : (
                   <>
-                    <Upload className="mb-2 h-8 w-8 text-gray-400" aria-hidden="true" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">Click to upload</span>{' '}
+                    <Upload className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-primary">Click to upload</span>{' '}
                       or drag and drop
                     </p>
                     {accept && (
-                      <p className="mt-1 text-xs text-gray-400">{accept}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{accept}</p>
                     )}
                   </>
                 )}
@@ -137,7 +137,7 @@ export function FileUploadField({
         }}
       />
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}
         </p>
       )}

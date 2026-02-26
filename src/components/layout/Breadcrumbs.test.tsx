@@ -26,9 +26,11 @@ describe('Breadcrumbs', () => {
     expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument()
   })
 
-  it('should render home link', () => {
+  it('should render intermediate paths as links', () => {
     render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument()
+    // The first breadcrumb segment should be a link (not the current page)
+    const link = screen.getByRole('link', { name: 'My Application' })
+    expect(link).toBeInTheDocument()
   })
 
   it('should mark current page with aria-current="page"', () => {
@@ -37,7 +39,7 @@ describe('Breadcrumbs', () => {
     expect(currentElement).toHaveAttribute('aria-current', 'page')
   })
 
-  it('should render intermediate paths as links', () => {
+  it('should link intermediate paths to correct href', () => {
     render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
     const link = screen.getByRole('link', { name: 'My Application' })
     expect(link).toBeInTheDocument()

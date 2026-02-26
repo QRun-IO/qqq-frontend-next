@@ -22,7 +22,7 @@ export function CompositeWidget({ widgetMetaData, childWidgets }: CompositeWidge
   if (childWidgets.length === 0) {
     return (
       <p
-        className="text-sm text-gray-500 dark:text-gray-400"
+        className="text-sm text-muted-foreground"
         data-qqq-id={`composite-widget-empty-${widgetMetaData.name}`}
       >
         No child widgets configured

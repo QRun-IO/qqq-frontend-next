@@ -137,7 +137,7 @@ export function DataGrid({
           }}
           onChange={table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all rows on this page"
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          className="h-4 w-4 rounded border-input text-primary focus:ring-ring cursor-pointer"
           data-qqq-id="grid-select-all"
           onClick={(e) => e.stopPropagation()}
         />
@@ -148,7 +148,7 @@ export function DataGrid({
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
           aria-label={`Select ${row.original.recordLabel ?? 'record'}`}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          className="h-4 w-4 rounded border-input text-primary focus:ring-ring cursor-pointer"
           data-qqq-id={`grid-select-row-${row.index}`}
           onClick={(e) => e.stopPropagation()}
         />
@@ -168,7 +168,7 @@ export function DataGrid({
           return (
             <button
               type="button"
-              className="flex w-full items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex w-full items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
               onClick={() => handleSortColumn(field.name)}
               aria-label={`Sort by ${field.label}`}
               data-qqq-id={`grid-header-${field.name}`}
@@ -176,12 +176,12 @@ export function DataGrid({
               <span className="truncate">{field.label}</span>
               {isSorted ? (
                 sortInfo.isAscending ? (
-                  <ArrowUp className="h-3 w-3 shrink-0 text-blue-600" aria-hidden="true" />
+                  <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                 ) : (
-                  <ArrowDown className="h-3 w-3 shrink-0 text-blue-600" aria-hidden="true" />
+                  <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                 )
               ) : (
-                <ArrowUpDown className="h-3 w-3 shrink-0 text-gray-400 opacity-0 group-hover:opacity-100" aria-hidden="true" />
+                <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden="true" />
               )}
             </button>
           )
@@ -277,21 +277,21 @@ export function DataGrid({
       <div className="w-full overflow-x-auto" data-qqq-id="grid-loading">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
+            <tr className="border-b border-border bg-muted">
               {[...Array(5)].map((_, i) => (
                 <th key={i} className="px-4 py-3">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 bg-muted rounded animate-pulse" />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {[...Array(pageSize > 10 ? 10 : pageSize)].map((_, i) => (
-              <tr key={i} className="border-b border-gray-100">
+              <tr key={i} className="border-b border-border">
                 {[...Array(5)].map((_, j) => (
                   <td key={j} className="px-4 py-3">
                     <div
-                      className="h-4 bg-gray-100 rounded animate-pulse"
+                      className="h-4 bg-muted rounded animate-pulse"
                       style={{ width: `${60 + (j * 20) % 40}%` }}
                     />
                   </td>
@@ -313,15 +313,15 @@ export function DataGrid({
         className="flex flex-col items-center justify-center py-16 text-center"
         data-qqq-id="grid-empty"
       >
-        <Inbox className="h-12 w-12 text-gray-300" aria-hidden="true" />
-        <p className="mt-4 text-lg font-medium text-gray-600">No records found</p>
-        <p className="mt-1 text-sm text-gray-400">
+        <Inbox className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
+        <p className="mt-4 text-lg font-medium text-muted-foreground">No records found</p>
+        <p className="mt-1 text-sm text-muted-foreground">
           Try adjusting your filters or clearing the search.
         </p>
         <button
           type="button"
           onClick={onResetFilter}
-          className="mt-4 text-sm text-blue-600 underline hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-4 text-sm text-primary underline hover:text-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="button-clear-filters"
         >
           Clear filters
@@ -336,8 +336,8 @@ export function DataGrid({
   return (
     <div className="relative w-full overflow-x-auto" data-qqq-id={`grid-${tableName}`}>
       {isFetching && (
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-200 overflow-hidden z-10">
-          <div className="h-full bg-blue-600 animate-[slideRight_1s_ease-in-out_infinite]" />
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-primary/20 overflow-hidden z-10">
+          <div className="h-full bg-primary animate-[slideRight_1s_ease-in-out_infinite]" />
         </div>
       )}
 
@@ -346,7 +346,7 @@ export function DataGrid({
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
-              className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"
+              className="border-b border-border bg-muted"
             >
               {headerGroup.headers.map((header) => {
                 // Compute aria-sort for sortable columns
@@ -367,7 +367,7 @@ export function DataGrid({
                   <th
                     key={header.id}
                     scope="col"
-                    className={`group relative text-left font-semibold text-gray-700 dark:text-gray-300 select-none ${cellClass}`}
+                    className={`group relative text-left font-semibold text-foreground select-none ${cellClass}`}
                     style={{ width: `${header.getSize()}px` }}
                     aria-sort={ariaSortValue}
                   >
@@ -378,7 +378,7 @@ export function DataGrid({
                     {/* Column resize handle */}
                     {!isSelectCol && (
                       <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-blue-400 active:bg-blue-600"
+                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/40 active:bg-primary"
                         onMouseDown={(e) =>
                           handleResizeMouseDown(e, header.id, header.getSize())
                         }
@@ -396,7 +396,7 @@ export function DataGrid({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className={`border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${rowClass} ${row.getIsSelected() ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+              className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${row.getIsSelected() ? 'bg-primary/5' : ''}`}
               onClick={() => handleRowClick(row.original)}
               data-qqq-id={`grid-row-${row.index}`}
             >

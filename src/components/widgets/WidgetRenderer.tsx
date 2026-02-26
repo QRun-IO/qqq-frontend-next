@@ -149,9 +149,9 @@ export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
           className="flex flex-col items-center justify-center gap-2 py-6 text-center"
           data-qqq-id={`widget-unknown-${name}`}
         >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Unknown widget type:{' '}
-            <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs dark:bg-gray-800">
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
               {String(resolvedType ?? 'unknown')}
             </code>
           </p>

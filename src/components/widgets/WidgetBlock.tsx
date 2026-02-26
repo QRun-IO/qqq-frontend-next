@@ -67,17 +67,17 @@ export function WidgetBlock({
   return (
     <section
       className={cn(
-        'flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900',
+        'flex flex-col rounded-xl border border-border bg-card shadow-sm',
         className
       )}
       data-qqq-id={`widget-${name}`}
       aria-label={label}
     >
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-6 py-4">
         <div className="flex items-center gap-2">
           <h3
-            className="text-sm font-semibold text-gray-800 dark:text-gray-200"
+            className="text-base font-semibold text-card-foreground"
             data-qqq-id={`widget-label-${name}`}
           >
             {label}
@@ -87,7 +87,7 @@ export function WidgetBlock({
               type="button"
               aria-label={`Help for ${label}`}
               title={helpContent.content}
-              className="rounded p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               data-qqq-id={`button-widget-help-${name}`}
             >
               <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -102,7 +102,7 @@ export function WidgetBlock({
               key={dropdown.name}
               value={dropdownValues?.[dropdown.name] ?? ''}
               onChange={(e) => onDropdownChange?.(dropdown.name, e.target.value)}
-              className="text-sm border rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+              className="text-sm border border-input rounded px-2 py-1 bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label={dropdown.label}
               data-qqq-id={`widget-dropdown-${dropdown.name}`}
             >
@@ -119,7 +119,7 @@ export function WidgetBlock({
               type="button"
               onClick={onExport}
               aria-label={`Export ${label}`}
-              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               data-qqq-id={`button-widget-export-${name}`}
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -133,7 +133,7 @@ export function WidgetBlock({
               onClick={onReload}
               aria-label={`Reload ${label}`}
               disabled={isLoading}
-              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               data-qqq-id={`button-widget-reload-${name}`}
             >
               <RefreshCw
@@ -146,7 +146,7 @@ export function WidgetBlock({
       </div>
 
       {/* Body */}
-      <div className="flex-1 p-5" data-qqq-id={`widget-content-${name}`}>
+      <div className="flex-1 p-6" data-qqq-id={`widget-content-${name}`}>
         <WidgetErrorBoundary widgetName={name}>
           {isLoading ? (
             <WidgetSkeleton />
@@ -167,10 +167,10 @@ export function WidgetBlock({
 function WidgetSkeleton() {
   return (
     <div className="space-y-3 animate-pulse" aria-busy="true" aria-label="Loading widget">
-      <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
-      <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-gray-700" />
-      <div className="h-20 w-full rounded bg-gray-100 dark:bg-gray-800" />
-      <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
+      <div className="h-4 w-3/4 rounded bg-muted" />
+      <div className="h-4 w-1/2 rounded bg-muted" />
+      <div className="h-20 w-full rounded bg-muted" />
+      <div className="h-4 w-2/3 rounded bg-muted" />
     </div>
   )
 }
@@ -193,14 +193,14 @@ function WidgetErrorState({
       role="alert"
       data-qqq-id={`widget-error-state-${widgetName}`}
     >
-      <p className="text-sm text-red-600 dark:text-red-400">
+      <p className="text-sm text-destructive">
         {error?.message ?? 'Failed to load widget data'}
       </p>
       {onReload && (
         <button
           type="button"
           onClick={onReload}
-          className="inline-flex items-center gap-1.5 text-xs text-blue-600 underline hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+          className="inline-flex items-center gap-1.5 text-xs text-primary underline hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id={`button-widget-retry-inline-${widgetName}`}
         >
           <RefreshCw className="h-3 w-3" aria-hidden="true" />

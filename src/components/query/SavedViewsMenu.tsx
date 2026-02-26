@@ -45,7 +45,7 @@ export function SavedViewsMenu({
           setOpen((o) => !o)
           setSaveMode(false)
         }}
-        className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Saved views"
         aria-haspopup="true"
         aria-expanded={open}
@@ -54,7 +54,7 @@ export function SavedViewsMenu({
         <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
         Views
         {savedViews.length > 0 && (
-          <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+          <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
             {savedViews.length}
           </span>
         )}
@@ -71,7 +71,7 @@ export function SavedViewsMenu({
 
           {/* Dropdown */}
           <div
-            className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-border bg-popover shadow-sm"
             role="dialog"
             aria-label="Saved views"
           >
@@ -80,15 +80,15 @@ export function SavedViewsMenu({
               <button
                 type="button"
                 onClick={() => setSaveMode(true)}
-                className="flex w-full items-center gap-2 border-b border-gray-100 px-4 py-2.5 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:hover:bg-blue-950"
+                className="flex w-full items-center gap-2 border-b border-border px-4 py-2.5 text-left text-sm font-medium text-primary hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
                 data-qqq-id="saved-views-save-current"
               >
                 <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
                 Save current view...
               </button>
             ) : (
-              <div className="border-b border-gray-100 p-3 dark:border-gray-700">
-                <p className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+              <div className="border-b border-border p-3">
+                <p className="mb-2 text-xs font-medium text-foreground">
                   Name this view
                 </p>
                 <div className="flex gap-1.5">
@@ -101,7 +101,7 @@ export function SavedViewsMenu({
                       if (e.key === 'Escape') setSaveMode(false)
                     }}
                     placeholder="View name..."
-                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                    className="flex-1 rounded border border-input px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                     aria-label="New view name"
                     autoFocus
                     data-qqq-id="saved-views-name-input"
@@ -110,7 +110,7 @@ export function SavedViewsMenu({
                     type="button"
                     onClick={handleSave}
                     disabled={!newViewName.trim()}
-                    className="flex h-7 w-7 items-center justify-center rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-ring"
                     aria-label="Confirm save"
                     data-qqq-id="saved-views-confirm-save"
                   >
@@ -122,7 +122,7 @@ export function SavedViewsMenu({
 
             {/* Saved views list */}
             {savedViews.length === 0 ? (
-              <p className="px-4 py-3 text-center text-sm text-gray-400">
+              <p className="px-4 py-3 text-center text-sm text-muted-foreground">
                 No saved views yet
               </p>
             ) : (
@@ -130,18 +130,18 @@ export function SavedViewsMenu({
                 {savedViews.map((view) => (
                   <li
                     key={view.id}
-                    className="group flex items-center justify-between px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="group flex items-center justify-between px-4 py-2 hover:bg-accent"
                     data-qqq-id={`saved-view-item-${view.id}`}
                   >
                     <button
                       type="button"
                       onClick={() => handleLoadView(view)}
-                      className="flex-1 text-left text-sm text-gray-800 hover:text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-200"
+                      className="flex-1 text-left text-sm text-popover-foreground hover:text-primary focus:outline-none focus:ring-1 focus:ring-ring"
                       aria-label={`Load view: ${view.name}`}
                       data-qqq-id={`saved-view-load-${view.id}`}
                     >
                       <span className="truncate">{view.name}</span>
-                      <span className="ml-2 text-xs text-gray-400">
+                      <span className="ml-2 text-xs text-muted-foreground">
                         {new Date(view.createdAt).toLocaleDateString()}
                       </span>
                     </button>
@@ -151,7 +151,7 @@ export function SavedViewsMenu({
                         e.stopPropagation()
                         onDelete(view.id)
                       }}
-                      className="ml-2 flex h-6 w-6 items-center justify-center rounded text-gray-400 opacity-0 hover:text-red-500 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-red-500 group-hover:opacity-100"
+                      className="ml-2 flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 hover:text-destructive focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-destructive group-hover:opacity-100"
                       aria-label={`Delete saved view: ${view.name}`}
                       data-qqq-id={`saved-view-delete-${view.id}`}
                     >

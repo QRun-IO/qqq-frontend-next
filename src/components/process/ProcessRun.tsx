@@ -175,8 +175,8 @@ export function ProcessRun({
         className={cn('flex items-center justify-center py-16', className)}
         data-qqq-id={`process-run-${processName}`}
       >
-        <div className="flex flex-col items-center gap-3 text-gray-500 dark:text-gray-400">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" aria-hidden="true" />
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           <p className="text-sm">Starting {processMetaData.label}...</p>
         </div>
       </div>
@@ -206,10 +206,10 @@ export function ProcessRun({
   if (state.status === 'complete') {
     return (
       <div className={cn('mx-auto max-w-2xl', className)} data-qqq-id={`process-run-${processName}`}>
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           {/* Step wizard at top -- all steps shown as completed */}
           {steps.length > 1 && (
-            <div className="border-b border-gray-200 px-6 pt-6 pb-4 dark:border-gray-700">
+            <div className="border-b border-border px-6 pt-6 pb-4">
               <StepWizard
                 steps={steps}
                 currentStepName={null}
@@ -247,8 +247,8 @@ export function ProcessRun({
         className={cn('flex items-center justify-center py-16', className)}
         data-qqq-id={`process-run-${processName}`}
       >
-        <div className="flex flex-col items-center gap-4 text-gray-500 dark:text-gray-400">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" aria-hidden="true" />
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           <p className="text-sm">{pollingMessage ?? 'Processing...'}</p>
 
           {/* Progress bar when current/total data is available */}
@@ -262,13 +262,13 @@ export function ProcessRun({
               aria-label="Process progress"
               data-qqq-id="process-progress-bar"
             >
-              <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+              <div className="h-2 rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                  className="h-full rounded-full bg-primary transition-all duration-300"
                   style={{ width: `${Math.min(100, (pollingCurrent / pollingTotal) * 100)}%` }}
                 />
               </div>
-              <p className="mt-1 text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-center text-sm text-muted-foreground">
                 {pollingCurrent} of {pollingTotal}
               </p>
             </div>
@@ -296,10 +296,10 @@ export function ProcessRun({
       className={cn('mx-auto max-w-3xl', className)}
       data-qqq-id={`process-run-${processName}`}
     >
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {/* Step wizard */}
         {steps.length > 1 && (
-          <div className="border-b border-gray-200 px-6 pt-6 pb-4 dark:border-gray-700">
+          <div className="border-b border-border px-6 pt-6 pb-4">
             <StepWizard
               steps={steps}
               currentStepName={currentStep.name}
@@ -308,12 +308,12 @@ export function ProcessRun({
         )}
 
         {/* Step header */}
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="border-b border-border px-6 py-4">
+          <h3 className="text-base font-semibold text-foreground">
             {currentStep.label}
           </h3>
           {steps.length > 1 && (
-            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Step {currentIdx + 1} of {steps.length}
             </p>
           )}
@@ -321,13 +321,13 @@ export function ProcessRun({
 
         {/* Polling overlay with progress (Fix 6: MED-21 + P4-40) */}
         {state.status === 'polling' && (
-          <div className="border-b border-blue-200 bg-blue-50 px-6 py-3 dark:border-blue-900 dark:bg-blue-900/20">
+          <div className="border-b border-primary/20 bg-primary/5 px-6 py-3">
             <div className="flex items-center gap-3">
               <Loader2
-                className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400"
+                className="h-4 w-4 animate-spin text-primary"
                 aria-hidden="true"
               />
-              <span className="text-sm text-blue-700 dark:text-blue-300">
+              <span className="text-sm text-primary">
                 {(state.stepValues.message as string) ?? 'Processing, please wait...'}
               </span>
             </div>
@@ -413,13 +413,13 @@ function renderPollingProgress(stepValues: Record<string, unknown>): React.React
       aria-label="Process progress"
       data-qqq-id="process-polling-progress"
     >
-      <div className="h-2 rounded-full bg-blue-200 dark:bg-blue-900">
+      <div className="h-2 rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-blue-600 transition-all duration-300"
+          className="h-full rounded-full bg-primary transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+      <p className="mt-1 text-xs text-primary">
         {current} of {total}
       </p>
     </div>

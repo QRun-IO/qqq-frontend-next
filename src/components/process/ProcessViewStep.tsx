@@ -67,7 +67,7 @@ export function ProcessViewStep({
       {helpTextComponents.map((comp, idx) => (
         <div
           key={idx}
-          className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-300"
+          className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary"
           data-qqq-id={`process-help-text-${step.name}-${idx}`}
         >
           {String(comp.values?.text ?? '')}
@@ -77,7 +77,7 @@ export function ProcessViewStep({
       {/* View fields as read-only display */}
       {viewFields.length > 0 ? (
         <dl
-          className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+          className="divide-y divide-border rounded-xl border border-border"
           data-qqq-id="process-view-fields"
         >
           {viewFields.map((field) => (
@@ -86,13 +86,13 @@ export function ProcessViewStep({
               className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
               data-qqq-id={`process-view-field-${field.name}`}
             >
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 sm:flex-shrink-0">
+              <dt className="text-sm font-medium text-muted-foreground sm:w-1/3 sm:flex-shrink-0">
                 {field.label}
               </dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100 sm:flex-1">
+              <dd className="text-sm text-foreground sm:flex-1">
                 {field.type === 'HTML' ? (
                   <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
+                    className="prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{
                       __html: stripScripts(String(stepValues[field.name] ?? '')),
                     }}
@@ -105,13 +105,13 @@ export function ProcessViewStep({
           ))}
         </dl>
       ) : (
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           No fields to display for this step.
         </div>
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -119,11 +119,10 @@ export function ProcessViewStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -139,11 +138,10 @@ export function ProcessViewStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -158,8 +156,8 @@ export function ProcessViewStep({
               data-qqq-id="button-next"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

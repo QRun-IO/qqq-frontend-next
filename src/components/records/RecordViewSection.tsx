@@ -17,6 +17,10 @@ interface RecordViewSectionProps {
   record: QRecord
   /** Widget metadata map for resolving section.widgetName */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Compact mode — single column, tighter spacing for list view */
+  compact?: boolean
+  /** Stacked mode — single column with vertical field stacking (for card grid layout) */
+  stacked?: boolean
   className?: string
 }
 
@@ -25,6 +29,8 @@ export function RecordViewSection({
   tableMetaData,
   record,
   widgetMetaDataMap,
+  compact = false,
+  stacked = false,
   className,
 }: RecordViewSectionProps) {
   if (section.isHidden) return null
@@ -43,10 +49,10 @@ export function RecordViewSection({
           aria-labelledby={`section-heading-${section.name}`}
         >
           {section.label && (
-            <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+            <div className="border-b border-border/50 pb-2">
               <h3
                 id={`section-heading-${section.name}`}
-                className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                className="text-lg font-bold text-foreground"
               >
                 {section.label}
               </h3>
@@ -71,16 +77,16 @@ export function RecordViewSection({
         aria-labelledby={`section-heading-${section.name}`}
       >
         {section.label && (
-          <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+          <div className="border-b border-border/50 pb-2">
             <h3
               id={`section-heading-${section.name}`}
-              className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+              className="text-lg font-bold text-foreground"
             >
               {section.label}
             </h3>
           </div>
         )}
-        <div className="rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+        <div className="rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
           Widget: {section.widgetName}
         </div>
       </section>
@@ -98,56 +104,111 @@ export function RecordViewSection({
 
   return (
     <section
-      className={cn('space-y-4', className)}
+      className={cn(compact ? 'space-y-2' : 'space-y-4', className)}
       data-qqq-id={`record-section-${section.name}`}
       aria-labelledby={`section-heading-${section.name}`}
     >
       {section.label && (
-        <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+        <div className={cn(compact ? 'pb-1' : 'border-b border-border/50 pb-2')}>
           <h3
             id={`section-heading-${section.name}`}
-            className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+            className={cn(
+              compact
+                ? 'text-sm font-semibold text-foreground'
+                : 'text-lg font-bold text-foreground'
+            )}
           >
             {section.label}
           </h3>
         </div>
       )}
-      <dl
-        className={cn(
-          'grid gap-x-6 gap-y-4',
-          gridCols === 1
-            ? 'grid-cols-1'
-            : gridCols === 2
-              ? 'grid-cols-1 sm:grid-cols-2'
-              : gridCols === 3
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-        )}
-      >
-        {visibleFields.map((field) => {
-          if (!field) return null
-          return (
-            <div
-              key={field.name}
-              className={cn(
-                'flex flex-col gap-1',
-                field.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
-              )}
-              data-qqq-id={`record-field-${field.name}`}
-            >
-              <dt
-                className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                data-qqq-id={`field-label-${field.name}`}
+      {compact ? (
+        /* Compact list layout — label: value on each row */
+        <dl className="divide-y divide-border/40">
+          {visibleFields.map((field) => {
+            if (!field) return null
+            return (
+              <div
+                key={field.name}
+                className="flex items-baseline gap-4 py-1.5"
+                data-qqq-id={`record-field-${field.name}`}
               >
-                {field.label}
-              </dt>
-              <dd>
-                <FieldValue field={field} record={record} />
-              </dd>
-            </div>
-          )
-        })}
-      </dl>
+                <dt
+                  className="w-40 flex-shrink-0 text-sm text-muted-foreground"
+                  data-qqq-id={`field-label-${field.name}`}
+                >
+                  {field.label}
+                </dt>
+                <dd className="flex-1 text-sm text-foreground">
+                  <FieldValue field={field} record={record} />
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
+      ) : stacked ? (
+        /* Stacked vertical layout — fields listed top-to-bottom, label above value */
+        <dl className="space-y-4">
+          {visibleFields.map((field) => {
+            if (!field) return null
+            return (
+              <div
+                key={field.name}
+                className="flex flex-col gap-0.5"
+                data-qqq-id={`record-field-${field.name}`}
+              >
+                <dt
+                  className="text-sm font-semibold text-foreground"
+                  data-qqq-id={`field-label-${field.name}`}
+                >
+                  {field.label}
+                </dt>
+                <dd className="text-sm text-foreground">
+                  <FieldValue field={field} record={record} />
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
+      ) : (
+        /* Default grid layout */
+        <dl
+          className={cn(
+            'grid gap-x-8 gap-y-6',
+            gridCols === 1
+              ? 'grid-cols-1'
+              : gridCols === 2
+                ? 'grid-cols-1 sm:grid-cols-2'
+                : gridCols === 3
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+          )}
+        >
+          {visibleFields.map((field) => {
+            if (!field) return null
+            return (
+              <div
+                key={field.name}
+                className={cn(
+                  'flex flex-col gap-0.5',
+                  field.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
+                )}
+                data-qqq-id={`record-field-${field.name}`}
+              >
+                <dt
+                  className="text-sm font-semibold text-foreground"
+                  data-qqq-id={`field-label-${field.name}`}
+                >
+                  {field.label}
+                </dt>
+                <dd>
+                  <FieldValue field={field} record={record} />
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
+      )}
     </section>
   )
 }

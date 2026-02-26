@@ -55,7 +55,7 @@ export default function SlugPage() {
   if (!metaData) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -79,7 +79,7 @@ export default function SlugPage() {
   if (isTable && !table) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -93,7 +93,7 @@ export default function SlugPage() {
   if (isProcess && !process) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -103,13 +103,13 @@ export default function SlugPage() {
     return (
       <div className="space-y-6" data-qqq-id={`report-run-${slug}`}>
         <div className="flex items-center gap-3">
-          <FileBarChart className="h-6 w-6 text-gray-400" aria-hidden="true" />
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          <FileBarChart className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          <h2 className="text-2xl font-semibold text-foreground">
             {(report as { label?: string })?.label ?? slug}
           </h2>
         </div>
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-12 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
+        <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
+          <p className="mt-4 text-muted-foreground">
             Report — implemented in a future package
           </p>
         </div>
@@ -120,9 +120,9 @@ export default function SlugPage() {
   // Unknown slug
   return (
     <div className="space-y-4" data-qqq-id={`unknown-slug-${slug}`}>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{slug}</h2>
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-12 text-center dark:border-gray-700 dark:bg-gray-800">
-        <p className="text-gray-600 dark:text-gray-400">
+      <h2 className="text-2xl font-semibold text-foreground">{slug}</h2>
+      <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
+        <p className="text-muted-foreground">
           Unknown resource: <code className="font-mono">{slug}</code>
         </p>
       </div>

@@ -47,19 +47,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       return (
         <div
           className={cn(
-            'flex flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 p-8 text-center',
-            'dark:border-red-800 dark:bg-red-900/10',
+            'flex flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 p-8 text-center',
             this.props.className
           )}
           role="alert"
           data-qqq-id="error-boundary"
         >
-          <AlertCircle className="mb-3 h-10 w-10 text-red-400" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-red-700 dark:text-red-400">
+          <AlertCircle className="mb-3 h-10 w-10 text-destructive" aria-hidden="true" />
+          <h3 className="text-base font-semibold text-destructive">
             Something went wrong
           </h3>
           {this.state.error && (
-            <p className="mt-1 max-w-xs text-sm text-red-600 dark:text-red-400">
+            <p className="mt-1 max-w-xs text-sm text-destructive">
               {this.state.error.message}
             </p>
           )}
@@ -68,8 +67,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             onClick={this.handleReset}
             className={cn(
               'mt-4 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-              'bg-red-600 text-white hover:bg-red-700',
-              'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+              'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
             data-qqq-id="button-error-boundary-retry"

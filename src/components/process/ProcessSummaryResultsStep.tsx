@@ -46,22 +46,22 @@ function parseResultStats(stepValues: Record<string, unknown>): ResultStat[] {
   const processed = stepValues.processedCount ?? stepValues.totalProcessed
 
   if (inserted !== undefined && Number(inserted) > 0) {
-    stats.push({ label: 'Records Inserted', value: Number(inserted), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Records Inserted', value: Number(inserted), color: 'text-green-600' })
   }
   if (updated !== undefined && Number(updated) > 0) {
-    stats.push({ label: 'Records Updated', value: Number(updated), color: 'text-blue-600 dark:text-blue-400' })
+    stats.push({ label: 'Records Updated', value: Number(updated), color: 'text-primary' })
   }
   if (deleted !== undefined && Number(deleted) > 0) {
-    stats.push({ label: 'Records Deleted', value: Number(deleted), color: 'text-red-600 dark:text-red-400' })
+    stats.push({ label: 'Records Deleted', value: Number(deleted), color: 'text-destructive' })
   }
   if (sent !== undefined && Number(sent) > 0) {
-    stats.push({ label: 'Sent', value: Number(sent), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Sent', value: Number(sent), color: 'text-green-600' })
   }
   if (failed !== undefined && Number(failed) > 0) {
-    stats.push({ label: 'Failed', value: Number(failed), color: 'text-red-600 dark:text-red-400' })
+    stats.push({ label: 'Failed', value: Number(failed), color: 'text-destructive' })
   }
   if (processed !== undefined && stats.length === 0) {
-    stats.push({ label: 'Records Processed', value: Number(processed), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Records Processed', value: Number(processed), color: 'text-green-600' })
   }
 
   return stats
@@ -99,14 +99,14 @@ export function ProcessSummaryResultsStep({
     <div className="space-y-6" data-qqq-id="process-summary-results-step">
       {/* Success icon and message */}
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
           <CheckCircle
-            className="h-7 w-7 text-green-600 dark:text-green-400"
+            className="h-7 w-7 text-green-600"
             aria-hidden="true"
           />
         </div>
         {successMessage && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">{successMessage}</p>
+          <p className="text-sm text-muted-foreground">{successMessage}</p>
         )}
       </div>
 
@@ -119,7 +119,7 @@ export function ProcessSummaryResultsStep({
           {stats.map((stat, idx) => (
             <div key={idx} className="text-center">
               <div className={cn('text-3xl font-bold', stat.color)}>{stat.value}</div>
-              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{stat.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -128,7 +128,7 @@ export function ProcessSummaryResultsStep({
       {/* View fields as detail display */}
       {viewFields.length > 0 && (
         <dl
-          className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+          className="divide-y divide-border rounded-xl border border-border"
           data-qqq-id="process-summary-view-fields"
         >
           {viewFields.map((field) => (
@@ -136,13 +136,13 @@ export function ProcessSummaryResultsStep({
               key={field.name}
               className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
             >
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 sm:flex-shrink-0">
+              <dt className="text-sm font-medium text-muted-foreground sm:w-1/3 sm:flex-shrink-0">
                 {field.label}
               </dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100 sm:flex-1">
+              <dd className="text-sm text-foreground sm:flex-1">
                 {field.type === 'HTML' ? (
                   <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
+                    className="prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{
                       __html: stripScripts(String(stepValues[field.name] ?? '')),
                     }}
@@ -157,7 +157,7 @@ export function ProcessSummaryResultsStep({
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -165,11 +165,10 @@ export function ProcessSummaryResultsStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -185,11 +184,10 @@ export function ProcessSummaryResultsStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -204,8 +202,8 @@ export function ProcessSummaryResultsStep({
               data-qqq-id="button-next"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

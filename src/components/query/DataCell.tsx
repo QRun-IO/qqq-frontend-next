@@ -25,7 +25,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
           return (
             <a
               href={url}
-              className="text-blue-600 underline hover:text-blue-800"
+              className="text-primary underline hover:text-primary/90"
               target="_blank"
               rel="noopener noreferrer"
               data-qqq-id={`grid-cell-${field.name}`}
@@ -61,7 +61,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
 
       case 'SIZE': {
         return (
-          <span data-qqq-id={`grid-cell-${field.name}`} className="text-sm text-gray-600">
+          <span data-qqq-id={`grid-cell-${field.name}`} className="text-sm text-muted-foreground">
             {formatBytes(typeof value === 'number' ? value : Number(value))}
           </span>
         )
@@ -104,7 +104,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
             <a
               href={downloadUrl}
               download
-              className="text-blue-600 underline hover:text-blue-800 text-sm"
+              className="text-primary underline hover:text-primary/90 text-sm"
               data-qqq-id={`grid-cell-${field.name}`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -120,7 +120,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
         return (
           <span
             title={tooltip ?? display}
-            className="cursor-help border-b border-dashed border-gray-400 text-sm"
+            className="cursor-help border-b border-dashed border-border text-sm"
             data-qqq-id={`grid-cell-${field.name}`}
           >
             {display}
@@ -139,7 +139,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       const boolVal = value === true || value === 'true' || value === 1
       return (
         <span
-          className={`text-sm font-medium ${boolVal ? 'text-green-700' : 'text-gray-500'}`}
+          className={`text-sm font-medium ${boolVal ? 'text-green-700' : 'text-muted-foreground'}`}
           data-qqq-id={`grid-cell-${field.name}`}
         >
           {boolVal ? 'Yes' : 'No'}
@@ -150,7 +150,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
     case 'DATE': {
       if (!value) return <EmptyCell fieldName={field.name} />
       return (
-        <span className="text-sm text-gray-900" data-qqq-id={`grid-cell-${field.name}`}>
+        <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
           {display || formatDate(String(value))}
         </span>
       )
@@ -159,7 +159,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
     case 'DATE_TIME': {
       if (!value) return <EmptyCell fieldName={field.name} />
       return (
-        <span className="text-sm text-gray-900" data-qqq-id={`grid-cell-${field.name}`}>
+        <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
           {display || formatDateTime(String(value))}
         </span>
       )
@@ -167,7 +167,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
 
     case 'PASSWORD': {
       return (
-        <span className="text-sm text-gray-500" data-qqq-id={`grid-cell-${field.name}`}>
+        <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${field.name}`}>
           ••••••••
         </span>
       )
@@ -176,7 +176,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
     case 'BLOB': {
       if (!value) return <EmptyCell fieldName={field.name} />
       return (
-        <span className="text-sm text-gray-500 italic" data-qqq-id={`grid-cell-${field.name}`}>
+        <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${field.name}`}>
           [Binary data]
         </span>
       )
@@ -198,7 +198,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       if (value == null || value === '') return <EmptyCell fieldName={field.name} />
       return (
         <span
-          className="text-sm text-gray-900 tabular-nums"
+          className="text-sm text-foreground tabular-nums"
           data-qqq-id={`grid-cell-${field.name}`}
         >
           {display || String(value)}
@@ -211,7 +211,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       if (value == null || value === '') return <EmptyCell fieldName={field.name} />
       return (
         <span
-          className="text-sm text-gray-900 truncate block max-w-xs"
+          className="text-sm text-foreground truncate block max-w-xs"
           title={display}
           data-qqq-id={`grid-cell-${field.name}`}
         >
@@ -228,7 +228,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
 
 function EmptyCell({ fieldName }: { fieldName: string }) {
   return (
-    <span className="text-sm text-gray-400" data-qqq-id={`grid-cell-${fieldName}`}>
+    <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${fieldName}`}>
       —
     </span>
   )
@@ -243,7 +243,7 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
         e.stopPropagation()
         setRevealed((r) => !r)
       }}
-      className="text-sm text-gray-600 underline cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="text-sm text-muted-foreground underline cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
       aria-label={revealed ? `Hide ${fieldName}` : `Reveal ${fieldName}`}
       data-qqq-id={`grid-cell-${fieldName}`}
     >

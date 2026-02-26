@@ -51,10 +51,11 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
   })
 
   return (
-    <div className="space-y-8" data-qqq-id={`app-home-${name}`}>
-      {/* App label */}
+    <div className="space-y-6" data-qqq-id={`app-home-${name}`}>
+      {/* App heading */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{label}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{label}</h1>
+        <p className="text-sm text-muted-foreground">Welcome to your {label} dashboard</p>
       </div>
 
       {/* Widget grid */}
@@ -73,7 +74,7 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
               aria-label={section.label}
               data-qqq-id={`app-section-${section.name}`}
             >
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
                 {section.label}
               </h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -81,10 +82,10 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
                   <Link
                     key={tableName}
                     href={`/app/${tableName}`}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600 dark:hover:bg-blue-950/20 dark:hover:text-blue-400"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-ring"
                     data-qqq-id={`app-section-table-${tableName}`}
                   >
-                    <Table2 className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <Table2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     {tableName}
                   </Link>
                 ))}
@@ -92,10 +93,10 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
                   <Link
                     key={processName}
                     href={`/app/${processName}`}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm font-medium text-gray-700 transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-purple-600 dark:hover:bg-purple-950/20 dark:hover:text-purple-400"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm font-medium text-foreground transition-colors hover:border-accent-foreground/30 hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     data-qqq-id={`app-section-process-${processName}`}
                   >
-                    <Workflow className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <Workflow className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     {processName}
                   </Link>
                 ))}
@@ -108,10 +109,10 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
       {/* Empty state when no widgets and no sections */}
       {widgetItems.length === 0 && (!sections || sections.every((s) => s.tables.length === 0 && s.processes.length === 0)) && (
         <div
-          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center dark:border-gray-700 dark:bg-gray-800/30"
+          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 py-16 text-center"
           data-qqq-id={`app-home-empty-${name}`}
         >
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-muted-foreground">
             No dashboard content configured for this app
           </p>
         </div>

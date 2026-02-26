@@ -7,9 +7,10 @@
 // - Collapsible sections on mobile
 // - T2 sections collapsed by default
 
-import React from 'react'
+import React, { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'
 import { AxiosError } from 'axios'
 
 import type { QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
@@ -19,6 +20,15 @@ import { RecordViewSection } from './RecordViewSection'
 import { RecordActions } from './RecordActions'
 import { AssociatedRecords } from './AssociatedRecords'
 import { FieldValue } from './FieldValue'
+
+/** Extract up to two uppercase initials from a label string */
+function getInitials(label: string): string {
+  const words = label.trim().split(/\s+/)
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase()
+  }
+  return label.slice(0, 2).toUpperCase()
+}
 
 interface RecordViewProps {
   tableMetaData: QTableMetaData
@@ -78,8 +88,8 @@ export function RecordView({
         aria-busy="true"
       >
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" aria-hidden="true" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+          <p className="text-sm text-muted-foreground">
             Loading {tableMetaData.label}...
           </p>
         </div>
@@ -132,17 +142,17 @@ export function RecordView({
       return (
         <div
           className={cn(
-            'flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-12 text-center dark:border-gray-700 dark:bg-gray-800/30',
+            'flex flex-col items-center justify-center rounded-xl border border-border bg-muted p-12 text-center',
             className
           )}
           data-qqq-id={`record-view-not-found-${tableMetaData.name}`}
           role="alert"
         >
-          <FileQuestion className="mb-3 h-10 w-10 text-gray-400" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">
+          <FileQuestion className="mb-3 h-10 w-10 text-muted-foreground" aria-hidden="true" />
+          <h3 className="text-base font-semibold text-foreground">
             Record Not Found
           </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             The {tableMetaData.label} record you are looking for does not exist or has been deleted.
           </p>
           <button
@@ -150,10 +160,9 @@ export function RecordView({
             onClick={() => router.push(`/app/${tableMetaData.name}`)}
             data-qqq-id="button-back-to-table"
             className={cn(
-              'mt-4 inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+              'mt-4 inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
           >
@@ -208,132 +217,291 @@ export function RecordView({
   const primarySections = visibleSections.filter((s) => !s.tier || s.tier === 'T1' || s.tier === 'basic')
   const secondarySections = visibleSections.filter((s) => s.tier === 'T2' || s.tier === 'advanced')
 
-  // If no sections, render all visible fields in a single group
-  const hasAnySections = visibleSections.length > 0
-
   // Exposed joins with associated records
   const exposedJoins = tableMetaData.exposedJoins ?? []
   const manyJoins = exposedJoins.filter((j) => j.isMany && j.joinTable)
   const oneJoins = exposedJoins.filter((j) => !j.isMany && j.joinTable)
 
+  // Build tabs — "Overview" shows all T2 sections in a card grid,
+  // plus individual tabs for specific content if needed
+  type TabDef = { id: string; label: string }
+  const tabs: TabDef[] = []
+  if (secondarySections.length > 0) {
+    tabs.push({ id: 'overview', label: 'Overview' })
+  }
+  // Each T2 section also gets its own tab for focused view
+  for (const s of secondarySections) {
+    tabs.push({ id: `section-${s.name}`, label: s.label })
+  }
+  if (manyJoins.length > 0) {
+    tabs.push({ id: 'related', label: 'Related' })
+  }
+
+  return (
+    <RecordViewContent
+      tableMetaData={tableMetaData}
+      record={record}
+      hideActions={hideActions}
+      widgetMetaDataMap={widgetMetaDataMap}
+      className={className}
+      tabs={tabs}
+      primarySections={primarySections}
+      secondarySections={secondarySections}
+      visibleSections={visibleSections}
+      oneJoins={oneJoins}
+      manyJoins={manyJoins}
+    />
+  )
+}
+
+/** Inner component that uses useState for tab selection and view mode */
+function RecordViewContent({
+  tableMetaData,
+  record,
+  hideActions,
+  widgetMetaDataMap,
+  className,
+  tabs,
+  primarySections,
+  secondarySections,
+  visibleSections,
+  oneJoins,
+  manyJoins,
+}: {
+  tableMetaData: QTableMetaData
+  record: QRecord
+  hideActions: boolean
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  className?: string
+  tabs: Array<{ id: string; label: string }>
+  primarySections: typeof tableMetaData.sections
+  secondarySections: typeof tableMetaData.sections
+  visibleSections: typeof tableMetaData.sections
+  oneJoins: typeof tableMetaData.exposedJoins
+  manyJoins: typeof tableMetaData.exposedJoins
+}) {
+  const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? '')
+  const [viewMode, setViewMode] = useState<'tabs' | 'list'>('tabs')
+
+  const t1Sections = primarySections.length > 0 ? primarySections : visibleSections
+
+  // Collect T1 fields, excluding those whose values are part of the record label
+  const recordLabel = record.recordLabel ?? ''
+  const t1Fields = t1Sections.flatMap((section) =>
+    section.fieldNames
+      .map((fn) => tableMetaData.fields[fn])
+      .filter((f) => {
+        if (!f || f.isHidden || f.isHeavy) return false
+        // Skip the primary key — already implied
+        if (f.name === tableMetaData.primaryKeyField) return false
+        // Skip fields whose display value is contained in the record label
+        if (recordLabel) {
+          const displayVal = record.displayValues?.[f.name]
+          const rawVal = record.values[f.name]
+          const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
+          if (val && recordLabel.includes(val)) return false
+        }
+        return true
+      })
+  )
+
   return (
     <div
-      className={cn('space-y-8', className)}
+      className={cn('space-y-5', className)}
       data-qqq-id={`record-view-${tableMetaData.name}`}
     >
-      {/* Header with record label and actions */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+      {/* Back link */}
+      <Link
+        href={`/app/${tableMetaData.name}`}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        data-qqq-id="link-back-to-table"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to {tableMetaData.label}
+      </Link>
+
+      {/* Record header — avatar + name + actions */}
+      <div className="flex items-start gap-4">
+        <div
+          className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
+          aria-hidden="true"
+          data-qqq-id="record-avatar"
+        >
+          {getInitials(
+            record.recordLabel ||
+            `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {tableMetaData.label}
-          </p>
+          {/* T1 fields as a compact grid under the name */}
+          {t1Fields.length > 0 && (
+            <dl
+              className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4"
+              data-qqq-id="record-primary-sections"
+            >
+              {t1Fields.map((field) => {
+                const displayVal = record.displayValues?.[field.name]
+                const rawVal = record.values[field.name]
+                const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
+                return (
+                  <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
+                    <dt className="text-xs text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>{field.label}</dt>
+                    <dd className="text-sm text-foreground">{val ?? '\u2014'}</dd>
+                  </div>
+                )
+              })}
+              {/* One-to-one join fields */}
+              {oneJoins.map((join) => {
+                const joinRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
+                if (joinRecords.length === 0) return null
+                const joinRecord = joinRecords[0]
+                return Object.values(join.joinTable!.fields)
+                  .filter((f) => !f.isHidden && !f.isHeavy)
+                  .slice(0, 3)
+                  .map((field) => {
+                    const val = joinRecord.displayValues?.[field.name] ??
+                      (joinRecord.values[field.name] != null ? String(joinRecord.values[field.name]) : null)
+                    return (
+                      <div key={`${join.label}-${field.name}`} className="flex flex-col">
+                        <dt className="text-xs text-muted-foreground">{field.label}</dt>
+                        <dd className="text-sm text-foreground">{val ?? '\u2014'}</dd>
+                      </div>
+                    )
+                  })
+              })}
+            </dl>
+          )}
         </div>
-        {!hideActions && (
-          <RecordActions tableMetaData={tableMetaData} record={record} />
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* View mode toggle */}
+          <div
+            className="flex rounded-lg border border-border bg-muted/50 p-0.5"
+            role="radiogroup"
+            aria-label="View mode"
+            data-qqq-id="record-view-mode-toggle"
+          >
+            <button
+              role="radio"
+              aria-checked={viewMode === 'tabs'}
+              aria-label="Card view"
+              onClick={() => setViewMode('tabs')}
+              className={cn(
+                'rounded-md p-1.5 transition-colors',
+                viewMode === 'tabs'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              role="radio"
+              aria-checked={viewMode === 'list'}
+              aria-label="List view"
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'rounded-md p-1.5 transition-colors',
+                viewMode === 'list'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <List className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          {!hideActions && (
+            <RecordActions tableMetaData={tableMetaData} record={record} />
+          )}
+        </div>
       </div>
 
       {/* Record errors/warnings */}
       {(record.errors?.length ?? 0) > 0 && (
-        <div
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20"
-        >
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
           <ul className="list-inside list-disc space-y-1">
             {record.errors!.map((err, i) => (
-              <li key={i} className="text-sm text-red-700 dark:text-red-400">
-                {err}
-              </li>
+              <li key={i} className="text-sm text-red-700">{err}</li>
             ))}
           </ul>
         </div>
       )}
       {(record.warnings?.length ?? 0) > 0 && (
-        <div
-          role="status"
-          className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 dark:border-yellow-800 dark:bg-yellow-900/20"
-        >
+        <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
           <ul className="list-inside list-disc space-y-1">
             {record.warnings!.map((warn, i) => (
-              <li key={i} className="text-sm text-yellow-700 dark:text-yellow-400">
-                {warn}
-              </li>
+              <li key={i} className="text-sm text-yellow-700">{warn}</li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* One-to-one join fields inline */}
-      {oneJoins.length > 0 && oneJoins.map((join) => {
-        const joinRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-        if (joinRecords.length === 0) return null
-        const joinRecord = joinRecords[0]
-        return (
+      {/* === View mode: Tabs (default) === */}
+      {viewMode === 'tabs' && tabs.length > 0 && (
+        <>
+          {/* Tab bar — pill-style */}
           <div
-            key={join.label}
-            className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/30"
-            data-qqq-id={`join-section-${join.label}`}
+            className="flex rounded-xl border border-border bg-muted/50 p-1"
+            role="tablist"
+            data-qqq-id="record-view-tabs"
           >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {join.label}
-            </p>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-              {Object.values(join.joinTable!.fields)
-                .filter((f) => !f.isHidden && !f.isHeavy)
-                .slice(0, 6)
-                .map((field) => (
-                  <div key={field.name} className="flex flex-col gap-1">
-                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                      {field.label}
-                    </dt>
-                    <dd>
-                      <span className="text-sm text-gray-900 dark:text-gray-100">
-                        {joinRecord.displayValues?.[field.name] ??
-                          (joinRecord.values[field.name] !== undefined &&
-                          joinRecord.values[field.name] !== null
-                            ? String(joinRecord.values[field.name])
-                            : '\u2014')}
-                      </span>
-                    </dd>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )
-      })}
-
-      {/* Field sections */}
-      {hasAnySections ? (
-        <div className="space-y-8">
-          {/* Primary sections — open by default on all devices, collapsible on mobile */}
-          {(primarySections.length > 0 ? primarySections : visibleSections).map((section) => (
-            <div
-              key={section.name}
-              className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900"
-            >
-              {/* On mobile: collapsible via details/summary; on desktop: always visible */}
-              <details
-                open
-                className="group md:[&>summary]:hidden md:[&>summary]:pointer-events-none"
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                data-qqq-id={`record-tab-${tab.id}`}
               >
-                <summary
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content: Overview — all T2 sections in 2-column card grid */}
+          {activeTab === 'overview' && (
+            <div
+              className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+              role="tabpanel"
+              data-qqq-id="record-tab-panel-overview"
+            >
+              {secondarySections.map((section) => (
+                <div
+                  key={section.name}
                   className={cn(
-                    'flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold',
-                    'text-gray-700 dark:text-gray-300',
-                    'md:hidden',
-                    '[&::-webkit-details-marker]:hidden'
+                    'rounded-xl border border-border bg-card p-6 shadow-sm',
+                    (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
                   )}
-                  data-qqq-id={`section-toggle-${section.name}`}
                 >
-                  <span>{section.label || section.name}</span>
-                  <span className="text-gray-400 group-open:rotate-180 transition-transform" aria-hidden="true">
-                    &#9660;
-                  </span>
-                </summary>
-                <div className="p-6 md:pt-6">
+                  <RecordViewSection
+                    section={section}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    stacked
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tab content: Individual T2 section tabs */}
+          {secondarySections.map((section) => (
+            activeTab === `section-${section.name}` && (
+              <div
+                key={section.name}
+                role="tabpanel"
+                data-qqq-id={`record-tab-panel-${section.name}`}
+              >
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <RecordViewSection
                     section={section}
                     tableMetaData={tableMetaData}
@@ -341,79 +509,70 @@ export function RecordView({
                     widgetMetaDataMap={widgetMetaDataMap}
                   />
                 </div>
-              </details>
+              </div>
+            )
+          ))}
+
+          {/* Tab content: Related (many-to-many / one-to-many) */}
+          {activeTab === 'related' && (
+            <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
+              {manyJoins.map((join) => {
+                const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
+                return (
+                  <div key={join.label} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                    <AssociatedRecords
+                      join={join}
+                      records={assocRecords}
+                      parentTableMetaData={tableMetaData}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* === View mode: List (compact top-to-bottom data view) === */}
+      {viewMode === 'list' && (
+        <div className="space-y-4" data-qqq-id="record-view-list-mode">
+          {/* T1 sections as compact cards */}
+          {t1Sections.length > 0 && t1Sections.map((section) => (
+            <div
+              key={section.name}
+              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+            >
+              <RecordViewSection
+                section={section}
+                tableMetaData={tableMetaData}
+                record={record}
+                widgetMetaDataMap={widgetMetaDataMap}
+                compact
+              />
             </div>
           ))}
 
-          {/* Secondary/advanced sections — collapsed by default */}
-          {secondarySections.length > 0 && (
-            <details className="group">
-              <summary
-                className={cn(
-                  'flex cursor-pointer list-none items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium',
-                  'text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500',
-                  'transition-colors duration-150'
-                )}
-              >
-                <span className="group-open:hidden">Show advanced fields</span>
-                <span className="hidden group-open:inline">Hide advanced fields</span>
-              </summary>
-              <div className="mt-4 space-y-4">
-                {secondarySections.map((section) => (
-                  <div
-                    key={section.name}
-                    className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    <RecordViewSection
-                      section={section}
-                      tableMetaData={tableMetaData}
-                      record={record}
-                      widgetMetaDataMap={widgetMetaDataMap}
-                    />
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-        </div>
-      ) : (
-        // No sections — render all visible fields in a simple grid
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-            {Object.values(tableMetaData.fields)
-              .filter((f) => !f.isHidden && !f.isHeavy)
-              .map((field) => (
-                <div
-                  key={field.name}
-                  className="flex flex-col gap-1"
-                  data-qqq-id={`record-field-${field.name}`}
-                >
-                  <dt
-                    className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                    data-qqq-id={`field-label-${field.name}`}
-                  >
-                    {field.label}
-                  </dt>
-                  <dd>
-                    <FieldValue field={field} record={record} />
-                  </dd>
-                </div>
-              ))}
-          </dl>
-        </div>
-      )}
+          {/* T2 sections as compact cards */}
+          {secondarySections.map((section) => (
+            <div
+              key={section.name}
+              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+            >
+              <RecordViewSection
+                section={section}
+                tableMetaData={tableMetaData}
+                record={record}
+                widgetMetaDataMap={widgetMetaDataMap}
+                compact
+              />
+            </div>
+          ))}
 
-      {/* Many-to-many / one-to-many associated records */}
-      {manyJoins.length > 0 && (
-        <div className="space-y-6">
+          {/* Related records */}
           {manyJoins.map((join) => {
             const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
             return (
-              <div
-                key={join.label}
-                className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-              >
+              <div key={join.label} className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
                 <AssociatedRecords
                   join={join}
                   records={assocRecords}
@@ -422,6 +581,26 @@ export function RecordView({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* No tabs/sections — just show all fields if nothing to tab */}
+      {tabs.length === 0 && secondarySections.length === 0 && t1Fields.length === 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
+            {Object.values(tableMetaData.fields)
+              .filter((f) => !f.isHidden && !f.isHeavy)
+              .map((field) => (
+                <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
+                  <dt className="text-sm font-semibold text-foreground" data-qqq-id={`field-label-${field.name}`}>
+                    {field.label}
+                  </dt>
+                  <dd>
+                    <FieldValue field={field} record={record} />
+                  </dd>
+                </div>
+              ))}
+          </dl>
         </div>
       )}
     </div>

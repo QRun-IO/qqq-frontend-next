@@ -28,11 +28,11 @@ export function DateTimeField({
     <div className="flex flex-col gap-1">
       <label
         htmlFor={id}
-        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
+        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
       </label>
       <input
         id={id}
@@ -44,18 +44,18 @@ export function DateTimeField({
         aria-describedby={error ? `${id}-error` : undefined}
         data-qqq-id={dataQqqId}
         className={cn(
-          'w-full rounded-md border px-3 py-2 text-sm text-gray-900',
-          'bg-white dark:bg-gray-800 dark:text-gray-100',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-          'disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-700',
+          'w-full rounded-md border px-3 py-2 text-sm text-foreground',
+          'bg-background',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring',
+          'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
           'transition-colors duration-150',
           error
-            ? 'border-red-500 focus:ring-red-500'
-            : 'border-gray-300 dark:border-gray-600'
+            ? 'border-destructive focus:ring-destructive'
+            : 'border-input'
         )}
       />
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}
         </p>
       )}

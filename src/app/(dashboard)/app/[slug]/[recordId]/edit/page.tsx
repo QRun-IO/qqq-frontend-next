@@ -42,7 +42,7 @@ export default function EntityEditPage() {
   if (!tableMetaData || isLoading) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -50,10 +50,10 @@ export default function EntityEditPage() {
   if (!tableMetaData.editPermission) {
     return (
       <div
-        className="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center dark:border-yellow-800 dark:bg-yellow-900/20"
+        className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
       >
-        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+        <p className="text-sm text-yellow-700">
           You do not have permission to edit {tableMetaData.label} records.
         </p>
       </div>
@@ -63,10 +63,10 @@ export default function EntityEditPage() {
   if (isError || !record) {
     return (
       <div
-        className="rounded-lg border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-900/20"
+        className="rounded-xl border border-destructive/30 bg-destructive/10 p-8 text-center"
         role="alert"
       >
-        <p className="text-sm text-red-700 dark:text-red-400">
+        <p className="text-sm text-destructive">
           {error?.message ?? `Failed to load ${tableMetaData.label} #${recordId}`}
         </p>
       </div>

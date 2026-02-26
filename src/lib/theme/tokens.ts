@@ -2,10 +2,10 @@
 
 export const QQQ_THEME_TOKENS = {
   // Primary brand colors
-  '--qqq-primary-color': '#0062ff',
+  '--qqq-primary-color': '#2563eb',
   '--qqq-secondary-color': '#9c27b0',
-  '--qqq-accent-color': '#0062ff',
-  '--qqq-accent-hover': '#0052d9',
+  '--qqq-accent-color': '#2563eb',
+  '--qqq-accent-hover': '#2f5ec4',
 
   // Semantic colors
   '--qqq-success-color': '#10b981',
@@ -14,20 +14,19 @@ export const QQQ_THEME_TOKENS = {
   '--qqq-info-color': '#3b82f6',
 
   // Sidebar tokens
-  '--qqq-sidebar-background': '#1e293b',
-  '--qqq-sidebar-text': '#e2e8f0',
-  '--qqq-sidebar-hover': 'rgba(255, 255, 255, 0.1)',
-  '--qqq-sidebar-active': 'var(--qqq-accent-color)',
-  '--qqq-sidebar-active-bg': 'rgba(0, 98, 255, 0.15)',
-  '--qqq-sidebar-border': '#334155',
+  '--qqq-sidebar-background': '#f0f2f6',
+  '--qqq-sidebar-text': '#4b5563',
+  '--qqq-sidebar-hover': '#e5e8ee',
+  '--qqq-sidebar-active': '#ffffff',
+  '--qqq-sidebar-active-bg': '#2563eb',
+  '--qqq-sidebar-border': '#e2e5eb',
   '--qqq-sidebar-width': '256px',
-  '--qqq-sidebar-width-mini': '80px',
 
   // Header tokens
   '--qqq-header-background': '#ffffff',
   '--qqq-header-text': '#1e293b',
   '--qqq-header-border': '#e2e8f0',
-  '--qqq-header-height': '64px',
+  '--qqq-header-height': '80px',
 
   // Grid/Table tokens
   '--qqq-grid-header-bg': '#f8fafc',

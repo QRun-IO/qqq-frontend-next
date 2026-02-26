@@ -23,16 +23,16 @@ export function DividerWidget({ data, widgetName }: DividerWidgetProps) {
         role="separator"
         aria-label={data.label}
       >
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{data.label}</span>
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs font-medium text-muted-foreground">{data.label}</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
     )
   }
 
   return (
     <hr
-      className="border-t border-gray-200 dark:border-gray-700"
+      className="border-t border-border"
       data-qqq-id={`divider-${widgetName}`}
     />
   )

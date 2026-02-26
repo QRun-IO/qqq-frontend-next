@@ -30,9 +30,9 @@ export default function TableDeveloperViewPage() {
   return (
     <div className="space-y-6" data-qqq-id={`table-dev-${slug}`}>
       <div className="flex items-center gap-3">
-        <Code className="h-6 w-6 text-gray-400" aria-hidden="true" />
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-          Table Developer View: <span className="font-mono text-blue-600">{slug}</span>
+        <Code className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <h2 className="text-2xl font-semibold text-foreground">
+          Table Developer View: <span className="font-mono text-primary">{slug}</span>
         </h2>
       </div>
 
@@ -43,13 +43,13 @@ export default function TableDeveloperViewPage() {
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
       )}
 
       {error && (
         <div
-          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
           role="alert"
         >
           Failed to load metadata: {error instanceof Error ? error.message : 'Unknown error'}
@@ -85,11 +85,11 @@ export default function TableDeveloperViewPage() {
 
 function MetaStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-xs font-medium text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+      <p className="mt-1 text-lg font-semibold text-foreground">
         {value}
       </p>
     </div>
@@ -108,11 +108,11 @@ function JsonBlock({
   const [open, setOpen] = React.useState(defaultOpen)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        className="flex w-full items-center justify-between bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring"
         aria-expanded={open}
         data-qqq-id="button-json-block-toggle"
       >
@@ -128,7 +128,7 @@ function JsonBlock({
       </button>
       {open && (
         <pre
-          className="overflow-x-auto bg-gray-900 p-4 text-xs text-green-300 dark:bg-black"
+          className="overflow-x-auto bg-gray-900 p-4 text-xs text-green-300"
           data-qqq-id="json-output"
         >
           {JSON.stringify(value, null, 2)}

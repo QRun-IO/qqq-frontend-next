@@ -49,8 +49,8 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
             aria-label={`Help for ${field.label}`}
             className={cn(
               'ml-1 inline-flex items-center rounded-full p-0.5',
-              'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500'
+              'text-muted-foreground hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring'
             )}
           >
             <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -62,8 +62,8 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
             side="top"
             sideOffset={4}
             className={cn(
-              'z-50 max-w-xs rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-md',
-              'text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300',
+              'z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-sm shadow-md',
+              'text-popover-foreground',
               'animate-in fade-in-0 zoom-in-95'
             )}
           >
@@ -79,14 +79,14 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-xs text-blue-600 hover:underline dark:text-blue-400"
+                    className="block text-xs text-primary hover:underline"
                   >
                     {link.label}
                   </a>
                 ))}
               </div>
             )}
-            <TooltipPrimitive.Arrow className="fill-gray-200 dark:fill-gray-700" />
+            <TooltipPrimitive.Arrow className="fill-border" />
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>
       </TooltipPrimitive.Root>
@@ -205,12 +205,12 @@ export function DynamicFormField({
             <div className="flex items-center">
               <label
                 htmlFor={fieldId}
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="text-sm font-medium text-foreground"
                 data-qqq-id={`field-label-${dataQqqId}`}
               >
                 {field.label}
                 {field.isRequired && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                  <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                 )}
               </label>
               {hasHelp && <FieldHelpTooltip field={field} />}
@@ -228,12 +228,12 @@ export function DynamicFormField({
               }
               data-qqq-id={dataQqqId}
               rows={4}
-              className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-700 transition-colors duration-150 resize-y ${
-                fieldError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
+              className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:bg-muted transition-colors duration-150 resize-y ${
+                fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
               }`}
             />
             {fieldError && (
-              <p id={`${fieldId}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+              <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
                 {fieldError.message}
               </p>
             )}
@@ -332,12 +332,12 @@ export function DynamicFormField({
             <div className="flex items-center">
               <label
                 htmlFor={fieldId}
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="text-sm font-medium text-foreground"
                 data-qqq-id={`field-label-${dataQqqId}`}
               >
                 {field.label}
                 {field.isRequired && (
-                  <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+                  <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                 )}
               </label>
               {hasHelp && <FieldHelpTooltip field={field} />}
@@ -355,12 +355,12 @@ export function DynamicFormField({
                   .join(' ') || undefined
               }
               data-qqq-id={dataQqqId}
-              className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-700 transition-colors duration-150 ${
-                fieldError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
+              className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:bg-muted transition-colors duration-150 ${
+                fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
               }`}
             />
             {fieldError && (
-              <p id={`${fieldId}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
+              <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
                 {fieldError.message}
               </p>
             )}

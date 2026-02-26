@@ -14,9 +14,17 @@ export interface SidebarRoute {
   children?: SidebarRoute[]
 }
 
+/** Maps a flat leaf path (e.g. /app/Products) to its parent app label + path */
+export interface ParentAppInfo {
+  label: string
+  path: string
+}
+
 export interface RouteMap {
   sidebarRoutes: SidebarRoute[]
   pathToLabelMap: Record<string, string>
+  /** Maps flat child paths to their parent app info for breadcrumbs */
+  parentAppMap: Record<string, ParentAppInfo>
   defaultRoute: string
 }
 
@@ -31,18 +39,30 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
       return {
         sidebarRoutes: [],
         pathToLabelMap: {},
+        parentAppMap: {},
         defaultRoute: '/no-apps',
       }
     }
 
-    const sidebarRoutes: SidebarRoute[] = []
-    const pathToLabelMap: Record<string, string> = {}
-    let defaultRoute = '/no-apps'
+    const sidebarRoutes: SidebarRoute[] = [
+      {
+        name: 'Dashboard',
+        path: '/app',
+        icon: 'dashboard',
+        type: 'item',
+      },
+    ]
+    const pathToLabelMap: Record<string, string> = {
+      '/app': 'Dashboard',
+    }
+    const parentAppMap: Record<string, ParentAppInfo> = {}
+    let defaultRoute = '/app'
     let foundFirstApp = false
 
     // QQQ URL scheme is flat: /app/{name} for all node types.
     // App hierarchy is only for sidebar visual grouping — not reflected in URLs.
-    function buildRoutes(nodes: QAppTreeNode[], parentPath: string, depth: number) {
+    // parentApp tracks the enclosing APP node so we can map leaves back to their parent.
+    function buildRoutes(nodes: QAppTreeNode[], parentPath: string, depth: number, parentApp?: { label: string; path: string }) {
       if (depth > 2) return
 
       for (const node of nodes) {
@@ -59,9 +79,10 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
             foundFirstApp = true
           }
 
+          const appInfo = { label: node.label, path }
           const children: SidebarRoute[] = []
           if (node.children && depth < 2) {
-            buildRoutes(node.children, path, depth + 1)
+            buildRoutes(node.children, path, depth + 1, appInfo)
 
             // Build sidebar children using each child's resolved flat path
             for (const child of node.children) {
@@ -96,16 +117,28 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
           for (const [routePath, label] of tableRoutes) {
             pathToLabelMap[routePath] = label
           }
+          // Map this flat path back to its parent app for breadcrumbs
+          if (parentApp) {
+            parentAppMap[path] = parentApp
+            // Also map sub-routes (create, edit, view) to the same parent
+            parentAppMap[`${path}/create`] = parentApp
+          }
         } else if (node.type === 'PROCESS') {
           pathToLabelMap[path] = node.label
+          if (parentApp) {
+            parentAppMap[path] = parentApp
+          }
         } else if (node.type === 'REPORT') {
           pathToLabelMap[path] = node.label
+          if (parentApp) {
+            parentAppMap[path] = parentApp
+          }
         }
       }
     }
 
     buildRoutes(metaData.appTree, '/app', 0)
 
-    return { sidebarRoutes, pathToLabelMap, defaultRoute }
+    return { sidebarRoutes, pathToLabelMap, parentAppMap, defaultRoute }
   }, [metaData])
 }

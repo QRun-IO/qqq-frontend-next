@@ -34,22 +34,22 @@ function parseResultStats(resultValues: Record<string, unknown>): ResultStat[] {
   const processed = resultValues.processedCount ?? resultValues.totalProcessed
 
   if (inserted !== undefined && Number(inserted) > 0) {
-    stats.push({ label: 'Records Inserted', value: Number(inserted), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Records Inserted', value: Number(inserted), color: 'text-green-600' })
   }
   if (updated !== undefined && Number(updated) > 0) {
-    stats.push({ label: 'Records Updated', value: Number(updated), color: 'text-blue-600 dark:text-blue-400' })
+    stats.push({ label: 'Records Updated', value: Number(updated), color: 'text-primary' })
   }
   if (deleted !== undefined && Number(deleted) > 0) {
-    stats.push({ label: 'Records Deleted', value: Number(deleted), color: 'text-red-600 dark:text-red-400' })
+    stats.push({ label: 'Records Deleted', value: Number(deleted), color: 'text-destructive' })
   }
   if (sent !== undefined) {
-    stats.push({ label: 'Sent', value: Number(sent), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Sent', value: Number(sent), color: 'text-green-600' })
   }
   if (failed !== undefined && Number(failed) > 0) {
-    stats.push({ label: 'Failed', value: Number(failed), color: 'text-red-600 dark:text-red-400' })
+    stats.push({ label: 'Failed', value: Number(failed), color: 'text-destructive' })
   }
   if (processed !== undefined && stats.length === 0) {
-    stats.push({ label: 'Records Processed', value: Number(processed), color: 'text-green-600 dark:text-green-400' })
+    stats.push({ label: 'Records Processed', value: Number(processed), color: 'text-green-600' })
   }
 
   return stats
@@ -81,9 +81,9 @@ export function ProcessResultStep({
     >
       {/* Success icon */}
       <div className="flex justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <CheckCircle
-            className="h-10 w-10 text-green-600 dark:text-green-400"
+            className="h-10 w-10 text-green-600"
             aria-hidden="true"
           />
         </div>
@@ -91,10 +91,10 @@ export function ProcessResultStep({
 
       {/* Success heading */}
       <div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-xl font-semibold text-foreground">
           {processMetaData?.label ?? 'Process'} Complete
         </h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{successMessage}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{successMessage}</p>
       </div>
 
       {/* Result stats */}
@@ -106,7 +106,7 @@ export function ProcessResultStep({
           {stats.map((stat, idx) => (
             <div key={idx} className="text-center">
               <div className={cn('text-3xl font-bold', stat.color)}>{stat.value}</div>
-              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{stat.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -119,10 +119,9 @@ export function ProcessResultStep({
             <Link
               href={`/app/${tableName}`}
               className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                'text-gray-700 bg-white hover:bg-gray-50',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-                'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+                'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                'text-foreground bg-card hover:bg-accent',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'transition-colors duration-150'
               )}
               data-qqq-id="button-back-to-table"
@@ -135,8 +134,8 @@ export function ProcessResultStep({
               href={`/app/${tableName}`}
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'transition-colors duration-150'
               )}
               data-qqq-id="button-view-records"
@@ -151,10 +150,9 @@ export function ProcessResultStep({
           <Link
             href="/app"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
             )}
             data-qqq-id="button-back-to-home"

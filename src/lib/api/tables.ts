@@ -109,3 +109,29 @@ export async function deleteRecord(
     `/table/${encodeURIComponent(tableName)}/${primaryKey}`
   )
 }
+
+export interface GlobalSearchResult {
+  tableName: string
+  tableLabel: string
+  recordId: string
+  recordLabel: string
+}
+
+/**
+ * Global search across tables. Posts to /search endpoint.
+ * Falls back to empty results if the endpoint returns 404.
+ */
+export async function globalSearch(
+  searchTerm: string,
+  tableNames: string[] = []
+): Promise<GlobalSearchResult[]> {
+  try {
+    return await apiClient.post<GlobalSearchResult[]>('/search', {
+      searchTerm,
+      tableNames,
+    })
+  } catch {
+    // If /search endpoint is not available (404), return empty results
+    return []
+  }
+}

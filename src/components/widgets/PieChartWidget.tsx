@@ -62,7 +62,7 @@ export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   if (entries.length === 0) {
     return (
       <p
-        className="text-sm text-gray-500 dark:text-gray-400"
+        className="text-sm text-muted-foreground"
         data-qqq-id={`pie-chart-empty-${widgetName}`}
       >
         No chart data available
@@ -73,7 +73,7 @@ export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   return (
     <div data-qqq-id={`pie-chart-${widgetName}`}>
       {data.title && (
-        <p className="mb-3 text-xs font-medium text-gray-600 dark:text-gray-400">
+        <p className="mb-3 text-xs font-medium text-muted-foreground">
           {data.title}
         </p>
       )}

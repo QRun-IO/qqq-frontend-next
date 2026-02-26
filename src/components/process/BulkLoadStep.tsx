@@ -96,7 +96,7 @@ export function BulkLoadStep({
       {helpTextComponents.map((comp, idx) => (
         <div
           key={idx}
-          className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-300"
+          className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary"
         >
           {String(comp.values?.text ?? '')}
         </div>
@@ -119,9 +119,9 @@ export function BulkLoadStep({
           'relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center',
           'cursor-pointer transition-colors duration-150',
           isDragOver
-            ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
-            : 'border-gray-300 bg-gray-50 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-800/50',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            ? 'border-primary bg-primary/5'
+            : 'border-border bg-muted hover:border-border',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
         )}
         data-qqq-id="bulk-load-dropzone"
       >
@@ -137,11 +137,11 @@ export function BulkLoadStep({
 
         {selectedFile ? (
           <div className="flex flex-col items-center gap-2">
-            <File className="h-10 w-10 text-blue-500" aria-hidden="true" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <File className="h-10 w-10 text-primary" aria-hidden="true" />
+            <p className="text-sm font-medium text-foreground">
               {selectedFile.name}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               {(selectedFile.size / 1024).toFixed(1)} KB
             </p>
             <button
@@ -152,7 +152,7 @@ export function BulkLoadStep({
               }}
               aria-label="Remove selected file"
               data-qqq-id="button-remove-file"
-              className="mt-1 inline-flex items-center gap-1 rounded text-xs text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:text-red-400"
+              className="mt-1 inline-flex items-center gap-1 rounded text-xs text-destructive hover:text-destructive/80 focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <X className="h-3 w-3" aria-hidden="true" />
               Remove
@@ -160,12 +160,12 @@ export function BulkLoadStep({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <Upload className="h-10 w-10 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            <Upload className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <p className="text-sm font-medium text-foreground">
                 Drop your CSV file here, or click to browse
               </p>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Accepts .csv, .tsv, .txt files
               </p>
             </div>
@@ -178,7 +178,7 @@ export function BulkLoadStep({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="bulk-load-upload-mode"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="text-sm font-medium text-foreground"
           >
             Upload Mode
           </label>
@@ -187,7 +187,7 @@ export function BulkLoadStep({
             {...register('uploadMode')}
             disabled={isLoading}
             data-qqq-id="bulk-load-upload-mode"
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted"
           >
             <option value="INSERT_ONLY">Insert only (skip duplicates)</option>
             <option value="UPDATE_ONLY">Update only (skip new records)</option>
@@ -198,7 +198,7 @@ export function BulkLoadStep({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="bulk-load-duplicate-handling"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="text-sm font-medium text-foreground"
           >
             Duplicate Handling
           </label>
@@ -207,7 +207,7 @@ export function BulkLoadStep({
             {...register('duplicateHandling')}
             disabled={isLoading}
             data-qqq-id="bulk-load-duplicate-handling"
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted"
           >
             <option value="OVERWRITE">Overwrite</option>
             <option value="SKIP">Skip</option>
@@ -217,7 +217,7 @@ export function BulkLoadStep({
       </div>
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-900">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -225,11 +225,10 @@ export function BulkLoadStep({
             disabled={isLoading}
             data-qqq-id="button-cancel"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
               'transition-colors duration-150'
             )}
           >
@@ -245,11 +244,10 @@ export function BulkLoadStep({
                 disabled={isLoading}
                 data-qqq-id="button-back"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
-                  'text-gray-700 bg-white hover:bg-gray-50',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                   'disabled:cursor-not-allowed disabled:opacity-50',
-                  'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
                   'transition-colors duration-150'
                 )}
               >
@@ -263,8 +261,8 @@ export function BulkLoadStep({
               data-qqq-id="button-upload"
               className={cn(
                 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-white bg-blue-600 hover:bg-blue-700',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'text-primary-foreground bg-primary hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'transition-colors duration-150'
               )}

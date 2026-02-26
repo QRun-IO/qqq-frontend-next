@@ -7,6 +7,7 @@ import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
+import { addRecentRecord } from '@/lib/utils/recent-records'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -44,10 +45,23 @@ export default function RecordViewPage() {
     }
   }, [record, tableMetaData, slug, recordId, setPageHeader, setTableMetaData])
 
+  // Track recently viewed records for global search
+  useEffect(() => {
+    if (record && tableMetaData) {
+      addRecentRecord({
+        tableName: tableMetaData.name,
+        tableLabel: tableMetaData.label,
+        recordId: String(record.values[tableMetaData.primaryKeyField]),
+        recordLabel: record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`,
+        path: `/app/${tableMetaData.name}/${record.values[tableMetaData.primaryKeyField]}`,
+      })
+    }
+  }, [record, tableMetaData])
+
   if (!tableMetaData) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }

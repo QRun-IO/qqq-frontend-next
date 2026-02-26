@@ -63,7 +63,13 @@ export function StatisticsWidget({ data, widgetName }: StatisticsWidgetProps) {
     <div
       className={cn(
         'grid gap-4',
-        tiles.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'
+        tiles.length === 1
+          ? 'grid-cols-1'
+          : tiles.length === 2
+            ? 'grid-cols-1 sm:grid-cols-2'
+            : tiles.length === 3
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
       )}
       data-qqq-id={`statistics-grid-${widgetName}`}
     >
@@ -89,45 +95,40 @@ interface StatTileCardProps {
 }
 
 function StatTileCard({ tile, widgetName, index }: StatTileCardProps) {
-  const { label, value, description, unit, trend, color } = tile
-
-  const accentStyle = color ? { borderLeftColor: color } : undefined
+  const { label, value, description, unit, trend } = tile
 
   return (
     <div
-      className="flex flex-col gap-1 rounded-lg border-l-4 border-l-blue-500 bg-gray-50 p-4 dark:bg-gray-800"
-      style={accentStyle}
+      className="flex flex-col gap-2 rounded-xl border border-border bg-card p-6 shadow-sm"
       data-qqq-id={`stat-tile-${widgetName}-${index}`}
     >
-      {/* Value */}
-      <div className="flex items-baseline gap-1.5">
-        <span
-          className="text-2xl font-bold text-gray-900 dark:text-gray-100"
-          data-qqq-id={`stat-value-${widgetName}-${index}`}
-        >
-          {value}
-        </span>
-        {unit && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">{unit}</span>
-        )}
-      </div>
-
-      {/* Label */}
+      {/* Title row */}
       <span
-        className="text-xs font-medium text-gray-600 dark:text-gray-400"
+        className="text-sm font-medium text-muted-foreground"
         data-qqq-id={`stat-label-${widgetName}-${index}`}
       >
         {label}
       </span>
 
-      {/* Description */}
-      {description && (
-        <span className="text-xs text-gray-500 dark:text-gray-500">{description}</span>
-      )}
+      {/* Big value */}
+      <div className="flex items-baseline gap-1.5">
+        <span
+          className="text-3xl font-bold text-foreground"
+          data-qqq-id={`stat-value-${widgetName}-${index}`}
+        >
+          {value}
+        </span>
+        {unit && (
+          <span className="text-sm text-muted-foreground">{unit}</span>
+        )}
+      </div>
 
-      {/* Trend */}
+      {/* Trend / description */}
       {trend && (
         <TrendBadge direction={trend.direction} value={trend.value} label={trend.label} />
+      )}
+      {description && !trend && (
+        <span className="text-sm text-muted-foreground">{description}</span>
       )}
     </div>
   )
@@ -148,17 +149,17 @@ function TrendBadge({
   const config = {
     up: {
       icon: TrendingUp,
-      classes: 'text-emerald-600 dark:text-emerald-400',
+      classes: 'text-emerald-600',
       label: `+${value}%`,
     },
     down: {
       icon: TrendingDown,
-      classes: 'text-red-600 dark:text-red-400',
+      classes: 'text-destructive',
       label: `-${value}%`,
     },
     flat: {
       icon: Minus,
-      classes: 'text-gray-500 dark:text-gray-400',
+      classes: 'text-muted-foreground',
       label: `${value}%`,
     },
   }[direction]
@@ -166,10 +167,10 @@ function TrendBadge({
   const Icon = config.icon
 
   return (
-    <div className="flex items-center gap-1 pt-0.5">
+    <div className="flex items-center gap-1">
       <Icon className={cn('h-3.5 w-3.5 shrink-0', config.classes)} aria-hidden="true" />
-      <span className={cn('text-xs font-medium', config.classes)}>{config.label}</span>
-      {label && <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>}
+      <span className={cn('text-sm font-medium', config.classes)}>{config.label}</span>
+      {label && <span className="text-sm text-muted-foreground">{label}</span>}
     </div>
   )
 }

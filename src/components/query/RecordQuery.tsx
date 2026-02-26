@@ -123,7 +123,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   }, [rq])
 
   return (
-    <div className="flex flex-col gap-3" data-qqq-id={`record-query-${tableName}`}>
+    <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`}>
       {/* ============================================================
           Toolbar
       ============================================================ */}
@@ -133,7 +133,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           <button
             type="button"
             onClick={handleCreateRecord}
-            className="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
             aria-label={`Create new ${tableMetaData.label} record`}
             data-qqq-id="button-create"
           >
@@ -148,7 +148,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
             Search {tableMetaData.label}
           </label>
           <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <input
@@ -158,7 +158,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
             value={localSearchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={`Search ${tableMetaData.label}...`}
-            className="w-full rounded border border-gray-300 bg-white py-1.5 pl-9 pr-9 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="w-full rounded border border-input bg-background py-1.5 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label={`Quick search ${tableMetaData.label}`}
             data-qqq-id="quick-search"
           />
@@ -170,7 +170,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
                 rq.setQuickSearch('')
                 quickSearchRef.current?.focus()
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
               aria-label="Clear search"
               data-qqq-id="quick-search-clear"
             >
@@ -183,10 +183,10 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         <button
           type="button"
           onClick={handleFilterToggle}
-          className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
             rq.filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
-              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950 dark:text-blue-300'
-              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-input bg-background text-foreground hover:bg-accent'
           }`}
           aria-label="Toggle advanced filter panel"
           aria-expanded={rq.filterPanelOpen || mobileFilterOpen}
@@ -195,7 +195,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           <Filter className="h-4 w-4" aria-hidden="true" />
           Filter
           {activeFilterCount > 0 && (
-            <span className="ml-1 rounded-full bg-blue-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+            <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
               {activeFilterCount}
             </span>
           )}
@@ -233,14 +233,14 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         />
 
         {/* View mode toggle: grid / card */}
-        <div className="flex items-center rounded border border-gray-300 dark:border-gray-600" data-qqq-id="view-mode-toggle">
+        <div className="flex items-center rounded border border-input" data-qqq-id="view-mode-toggle">
           <button
             type="button"
             onClick={() => setViewMode('grid')}
-            className={`flex h-8 w-8 items-center justify-center rounded-l transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`flex h-8 w-8 items-center justify-center rounded-l transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
               viewMode === 'grid'
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-background text-muted-foreground hover:bg-accent'
             }`}
             aria-label="Table view"
             aria-pressed={viewMode === 'grid'}
@@ -251,10 +251,10 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           <button
             type="button"
             onClick={() => setViewMode('card')}
-            className={`flex h-8 w-8 items-center justify-center rounded-r border-l border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 ${
+            className={`flex h-8 w-8 items-center justify-center rounded-r border-l border-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
               viewMode === 'card'
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-background text-muted-foreground hover:bg-accent'
             }`}
             aria-label="Card view"
             aria-pressed={viewMode === 'card'}
@@ -269,7 +269,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           <button
             type="button"
             onClick={() => setDensityOpen((o) => !o)}
-            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Select display density"
             aria-haspopup="listbox"
             aria-expanded={densityOpen}
@@ -286,7 +286,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
                 aria-hidden="true"
               />
               <div
-                className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                className="absolute right-0 z-20 mt-1 w-36 rounded-xl border border-border bg-popover shadow-sm"
                 role="listbox"
                 aria-label="Display density"
               >
@@ -300,10 +300,10 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
                       rq.setDensity(opt.value)
                       setDensityOpen(false)
                     }}
-                    className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
                       rq.density === opt.value
-                        ? 'bg-blue-50 text-blue-700 font-medium dark:bg-blue-950'
-                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-popover-foreground hover:bg-accent'
                     }`}
                     data-qqq-id={`density-option-${opt.value}`}
                   >
@@ -320,10 +320,10 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           <button
             type="button"
             onClick={rq.toggleColumnConfig}
-            className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
               rq.columnConfigOpen
-                ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950 dark:text-blue-300'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-input bg-background text-foreground hover:bg-accent'
             }`}
             aria-label="Configure columns"
             aria-expanded={rq.columnConfigOpen}
@@ -357,12 +357,12 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         <button
           type="button"
           onClick={handleRefresh}
-          className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          className="flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
           aria-label="Refresh data"
           data-qqq-id="button-refresh"
         >
           <RefreshCw
-            className={`h-4 w-4 ${rq.isFetching ? 'animate-spin text-blue-600' : ''}`}
+            className={`h-4 w-4 ${rq.isFetching ? 'animate-spin text-primary' : ''}`}
             aria-hidden="true"
           />
         </button>
@@ -370,7 +370,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         {/* Settings / more */}
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          className="flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
           aria-label="More options"
           data-qqq-id="button-more-options"
         >
@@ -382,15 +382,15 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           Filter Panel (advanced) — desktop inline
       ============================================================ */}
       {rq.filterPanelOpen && (
-        <div className="hidden md:block rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-950">
-          <div className="flex items-center justify-between border-b border-blue-200 px-4 py-2 dark:border-blue-700">
-            <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+        <div className="hidden md:block rounded-xl border border-primary/20 bg-primary/5">
+          <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
+            <span className="text-base font-semibold text-primary">
               Advanced Filters
             </span>
             <button
               type="button"
               onClick={rq.toggleFilterPanel}
-              className="text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
               aria-label="Close filter panel"
               data-qqq-id="filter-panel-close"
             >
@@ -419,19 +419,19 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           />
           {/* Bottom sheet */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-border bg-card shadow-sm"
             role="dialog"
             aria-modal="true"
             aria-label="Filter panel"
           >
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <span className="text-base font-semibold text-foreground">
                 Advanced Filters
               </span>
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-gray-800"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label="Close filter panel"
                 data-qqq-id="mobile-filter-close"
               >
@@ -439,7 +439,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
               </button>
             </div>
             {/* Drag indicator */}
-            <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-gray-300 dark:bg-gray-600" aria-hidden="true" />
+            <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-muted-foreground/30" aria-hidden="true" />
             <FilterBuilder
               tableMetaData={tableMetaData}
               filter={rq.userFilter}
@@ -469,7 +469,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
       ============================================================ */}
       {rq.isError && (
         <div
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300"
+          className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           role="alert"
           data-qqq-id="grid-error"
         >
@@ -507,7 +507,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           Data Grid / Card View
       ============================================================ */}
       {(rq.isLoading || rq.records.length > 0) && (
-      <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="overflow-hidden rounded-xl border border-border">
         {/* DataGrid: shown when viewMode is 'grid' */}
         {viewMode === 'grid' && (
           <DataGrid

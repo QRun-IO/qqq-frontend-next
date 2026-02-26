@@ -34,16 +34,16 @@ function LoginContent() {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="flex flex-col items-center gap-4 text-center">
           <div
-            className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+            className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
             aria-hidden="true"
           />
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <h1 className="text-xl font-semibold text-foreground">
             Authenticating...
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {authMetadata
               ? `Setting up ${authMetadata.type} session...`
               : 'Checking authentication...'}
@@ -55,22 +55,22 @@ function LoginContent() {
 
   // If not loading and not authenticated, show login state
   return (
-    <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+    <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
       <div className="flex flex-col items-center gap-4 text-center">
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-xl font-bold text-white"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground"
           aria-hidden="true"
         >
           Q
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">QQQ Admin</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <h1 className="text-xl font-semibold text-foreground">QQQ Admin</h1>
+        <p className="text-sm text-muted-foreground">
           {authMetadata?.type === 'FULLY_ANONYMOUS' || authMetadata?.type === 'MOCK'
             ? 'Setting up anonymous session...'
             : 'Redirecting to authentication provider...'}
         </p>
         <div
-          className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"
+          className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"
           aria-hidden="true"
         />
       </div>
@@ -80,12 +80,12 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
       <Suspense
         fallback={
-          <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md dark:bg-gray-800">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           </div>
         }
