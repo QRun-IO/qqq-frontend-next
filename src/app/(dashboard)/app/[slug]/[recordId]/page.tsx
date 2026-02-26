@@ -8,6 +8,7 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
 import { addRecentRecord } from '@/lib/utils/recent-records'
+import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -66,6 +67,8 @@ export default function RecordViewPage() {
     )
   }
 
+  const tableProcesses = metaData ? getProcessesForTable(metaData, slug) : []
+
   return (
     <RecordView
       tableMetaData={tableMetaData}
@@ -74,6 +77,7 @@ export default function RecordViewPage() {
       isError={isError}
       error={error}
       onRefetch={refetch}
+      processes={tableProcesses}
     />
   )
 }

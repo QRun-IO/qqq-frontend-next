@@ -173,6 +173,64 @@ const companyTable: QTableMetaData = {
   variantTableLabel: '',
 }
 
+// ─── order line table ─────────────────────────────────────────────────────────
+
+const orderLineTable: QTableMetaData = {
+  name: 'orderLine',
+  label: 'Order Lines',
+  isHidden: false,
+  primaryKeyField: 'id',
+  fields: {
+    id: field('id', 'ID', 'INTEGER', { isEditable: false }),
+    orderId: field('orderId', 'Order', 'INTEGER', {
+      possibleValueSourceName: 'order',
+    }),
+    productId: field('productId', 'Product', 'INTEGER', {
+      possibleValueSourceName: 'product',
+    }),
+    sku: field('sku', 'SKU', 'STRING', { isEditable: false, maxLength: 50 }),
+    productName: field('productName', 'Product Name', 'STRING', { isEditable: false }),
+    quantity: field('quantity', 'Qty', 'INTEGER', { isRequired: true }),
+    unitPrice: field('unitPrice', 'Unit Price', 'DECIMAL', { displayFormat: 'CURRENCY' }),
+    lineTotal: field('lineTotal', 'Line Total', 'DECIMAL', { displayFormat: 'CURRENCY', isEditable: false }),
+  },
+  sections: [
+    {
+      name: 'line',
+      label: 'Line Item',
+      tier: 'T1',
+      iconName: 'shopping_cart',
+      fieldNames: ['sku', 'productName', 'quantity', 'unitPrice', 'lineTotal'],
+      isHidden: false,
+      gridColumns: 2,
+    },
+    {
+      name: 'references',
+      label: 'References',
+      tier: 'T2',
+      iconName: 'info',
+      fieldNames: ['orderId', 'productId'],
+      isHidden: false,
+      gridColumns: 2,
+    },
+  ],
+  exposedJoins: [],
+  capabilities: [
+    'TABLE_QUERY',
+    'TABLE_GET',
+    'TABLE_COUNT',
+    'TABLE_INSERT',
+    'TABLE_UPDATE',
+    'TABLE_DELETE',
+  ],
+  readPermission: true,
+  insertPermission: true,
+  editPermission: true,
+  deletePermission: true,
+  usesVariants: false,
+  variantTableLabel: '',
+}
+
 // ─── order table ──────────────────────────────────────────────────────────────
 
 const orderTable: QTableMetaData = {
@@ -233,7 +291,13 @@ const orderTable: QTableMetaData = {
       gridColumns: 1,
     },
   ],
-  exposedJoins: [],
+  exposedJoins: [
+    {
+      label: 'Order Lines',
+      isMany: true,
+      joinTable: orderLineTable,
+    },
+  ],
   capabilities: [
     'TABLE_QUERY',
     'TABLE_GET',
@@ -466,6 +530,97 @@ const sendEmailProcess: QProcessMetaData = {
   ],
 }
 
+const fulfillOrderProcess: QProcessMetaData = {
+  name: 'fulfillOrder',
+  label: 'Fulfill Order',
+  tableName: 'order',
+  isHidden: false,
+  iconName: 'local_shipping',
+  hasPermission: true,
+  stepFlow: 'LINEAR',
+  minInputRecords: 1,
+  maxInputRecords: 1,
+  frontendSteps: [
+    {
+      name: 'confirm',
+      label: 'Confirm Fulfillment',
+      components: [{ type: 'EDIT_FORM' }],
+      formFields: [
+        field('trackingNumber', 'Tracking Number', 'STRING', { isRequired: true, maxLength: 100 }),
+        field('carrier', 'Carrier', 'STRING', { isRequired: true, maxLength: 100 }),
+        field('notes', 'Notes', 'TEXT'),
+      ],
+    },
+    {
+      name: 'result',
+      label: 'Fulfilled',
+      components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+    },
+  ],
+}
+
+const cancelOrderProcess: QProcessMetaData = {
+  name: 'cancelOrder',
+  label: 'Cancel Order',
+  tableName: 'order',
+  isHidden: false,
+  iconName: 'cancel',
+  hasPermission: true,
+  stepFlow: 'LINEAR',
+  minInputRecords: 1,
+  maxInputRecords: 1,
+  frontendSteps: [
+    {
+      name: 'reason',
+      label: 'Cancel Reason',
+      components: [{ type: 'EDIT_FORM' }],
+      formFields: [
+        field('reason', 'Cancellation Reason', 'TEXT', { isRequired: true }),
+      ],
+    },
+    {
+      name: 'result',
+      label: 'Cancelled',
+      components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+    },
+  ],
+}
+
+const bulkUpdateStatusProcess: QProcessMetaData = {
+  name: 'bulkUpdateOrderStatus',
+  label: 'Update Status',
+  tableName: 'order',
+  isHidden: false,
+  iconName: 'sync',
+  hasPermission: true,
+  stepFlow: 'LINEAR',
+  minInputRecords: 1,
+  maxInputRecords: 1000,
+  frontendSteps: [
+    {
+      name: 'selectStatus',
+      label: 'Select New Status',
+      components: [{ type: 'EDIT_FORM' }],
+      formFields: [
+        field('newStatus', 'New Status', 'STRING', {
+          isRequired: true,
+          possibleValueSourceName: 'orderStatus',
+        }),
+      ],
+    },
+    {
+      name: 'review',
+      label: 'Review',
+      components: [{ type: 'RECORD_LIST' }],
+    },
+    {
+      name: 'result',
+      label: 'Updated',
+      components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+    },
+  ],
+}
+
 // ─── Widgets ─────────────────────────────────────────────────────────────────
 
 const crmWidgets: Record<string, QWidgetMetaData> = {
@@ -526,6 +681,8 @@ const crmTreeNode: QAppTreeNode = {
     { name: 'order', label: 'Orders', type: 'TABLE', iconName: 'shopping_cart' },
     { name: 'importPeople', label: 'Import People', type: 'PROCESS', iconName: 'upload_file' },
     { name: 'sendEmail', label: 'Send Email', type: 'PROCESS', iconName: 'email' },
+    { name: 'fulfillOrder', label: 'Fulfill Order', type: 'PROCESS', iconName: 'local_shipping' },
+    { name: 'bulkUpdateOrderStatus', label: 'Update Status', type: 'PROCESS', iconName: 'sync' },
   ],
 }
 
@@ -570,7 +727,7 @@ const crmApp: QAppMetaData = {
       label: 'Sales',
       icon: { name: 'attach_money' },
       tables: ['order'],
-      processes: ['importPeople', 'sendEmail'],
+      processes: ['importPeople', 'sendEmail', 'fulfillOrder', 'cancelOrder', 'bulkUpdateOrderStatus'],
       reports: [],
     },
   ],
@@ -606,12 +763,16 @@ export const qInstance: QInstance = {
     person: personTable,
     company: companyTable,
     order: orderTable,
+    orderLine: orderLineTable,
     product: productTable,
     supplier: supplierTable,
   },
   processes: {
     importPeople: importPeopleProcess,
     sendEmail: sendEmailProcess,
+    fulfillOrder: fulfillOrderProcess,
+    cancelOrder: cancelOrderProcess,
+    bulkUpdateOrderStatus: bulkUpdateStatusProcess,
   },
   reports: {},
   widgets: crmWidgets,

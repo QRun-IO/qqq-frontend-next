@@ -6,6 +6,7 @@ import type { QRecord } from '@/types'
 import { personRecords } from '../fixtures/records/person'
 import { companyRecords } from '../fixtures/records/company'
 import { orderRecords } from '../fixtures/records/order'
+import { orderLineRecords } from '../fixtures/records/order-line'
 import { productRecords } from '../fixtures/records/product'
 import { supplierRecords } from '../fixtures/records/supplier'
 
@@ -22,6 +23,7 @@ const store: Record<string, QRecord[]> = {
   person: deepClone(personRecords),
   company: deepClone(companyRecords),
   order: deepClone(orderRecords),
+  orderLine: deepClone(orderLineRecords),
   product: deepClone(productRecords),
   supplier: deepClone(supplierRecords),
 }
@@ -31,6 +33,7 @@ const nextId: Record<string, number> = {
   person: 26,
   company: 11,
   order: 21,
+  orderLine: 21,
   product: 16,
   supplier: 9,
 }
@@ -125,6 +128,7 @@ const primaryKeyFields: Record<string, string> = {
   person: 'id',
   company: 'id',
   order: 'id',
+  orderLine: 'id',
   product: 'id',
   supplier: 'id',
 }
@@ -154,6 +158,8 @@ function buildRecordLabel(tableName: string, values: Record<string, unknown>): s
       return String(values['orderNumber'] ?? '')
     case 'product':
       return String(values['name'] ?? '')
+    case 'orderLine':
+      return `Line ${values['id'] ?? ''} — ${values['productName'] ?? ''}`
     default:
       return String(values['id'] ?? '')
   }
@@ -248,7 +254,7 @@ export const tableHandlers = [
   }),
 
   // GET /table/:tableName/:primaryKey
-  http.get(`${BASE}/table/:tableName/:primaryKey`, ({ params }) => {
+  http.get(`${BASE}/table/:tableName/:primaryKey`, ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -264,6 +270,28 @@ export const tableHandlers = [
         { error: `Record '${primaryKey}' not found in table '${tableName}'` },
         { status: 404 }
       )
+    }
+
+    // If includeAssociations is requested, attach child records
+    const url = new URL(request.url)
+    const includeAssociations = url.searchParams.get('includeAssociations')
+
+    if (includeAssociations === 'true') {
+      const associatedRecords: Record<string, QRecord[]> = {}
+
+      // Look up child records based on known relationships
+      if (tableName === 'order') {
+        const orderLines = store['orderLine']?.filter(
+          (r) => String(r.values['orderId']) === primaryKey
+        ) ?? []
+        if (orderLines.length > 0) {
+          associatedRecords['orderLine'] = orderLines
+        }
+      }
+
+      if (Object.keys(associatedRecords).length > 0) {
+        return HttpResponse.json({ ...record, associatedRecords })
+      }
     }
 
     return HttpResponse.json(record)

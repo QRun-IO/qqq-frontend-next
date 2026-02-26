@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'
 import { AxiosError } from 'axios'
 
-import type { QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -41,6 +41,8 @@ interface RecordViewProps {
   hideActions?: boolean
   /** Widget metadata map for sections that render widgets */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Processes available for this table (single-record actions) */
+  processes?: QProcessMetaData[]
   className?: string
 }
 
@@ -74,6 +76,7 @@ export function RecordView({
   onRefetch,
   hideActions = false,
   widgetMetaDataMap,
+  processes,
   className,
 }: RecordViewProps) {
   const router = useRouter()
@@ -243,6 +246,7 @@ export function RecordView({
       record={record}
       hideActions={hideActions}
       widgetMetaDataMap={widgetMetaDataMap}
+      processes={processes}
       className={className}
       tabs={tabs}
       primarySections={primarySections}
@@ -260,6 +264,7 @@ function RecordViewContent({
   record,
   hideActions,
   widgetMetaDataMap,
+  processes,
   className,
   tabs,
   primarySections,
@@ -272,6 +277,7 @@ function RecordViewContent({
   record: QRecord
   hideActions: boolean
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  processes?: QProcessMetaData[]
   className?: string
   tabs: Array<{ id: string; label: string }>
   primarySections: typeof tableMetaData.sections
@@ -413,7 +419,7 @@ function RecordViewContent({
             </button>
           </div>
           {!hideActions && (
-            <RecordActions tableMetaData={tableMetaData} record={record} />
+            <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
           )}
         </div>
       </div>

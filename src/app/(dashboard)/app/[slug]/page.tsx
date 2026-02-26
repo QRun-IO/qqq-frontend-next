@@ -11,6 +11,7 @@ import { FileBarChart } from 'lucide-react'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
+import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
@@ -72,7 +73,8 @@ export default function SlugPage() {
 
   // Table record query — Package 2 implementation
   if (isTable && table) {
-    return <RecordQuery tableName={slug} tableMetaData={table} />
+    const tableProcesses = getProcessesForTable(metaData, slug)
+    return <RecordQuery tableName={slug} tableMetaData={table} processes={tableProcesses} />
   }
 
   // Table loading state (table found but metadata not yet available)
