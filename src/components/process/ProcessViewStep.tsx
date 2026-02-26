@@ -1,104 +1,68 @@
 'use client'
 
-// ProcessFormStep — renders a FORM step using DynamicForm from Package 3
+// ProcessViewStep -- renders a VIEW_FORM step as read-only field display
+// Iterates step.viewFields and shows label/value pairs from stepValues
 
-import React, { useState, useMemo } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, ChevronRight, X } from 'lucide-react'
+import React, { useState } from 'react'
+import { ChevronRight, X } from 'lucide-react'
 
-import type { QFrontendStepMetaData } from '@/types'
-import { zodSchemaFromFields } from '@/lib/utils/zod-from-metadata'
+import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
-import { DynamicForm } from '@/components/forms/DynamicForm'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
-export interface ProcessFormStepProps {
+// TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
+// Minimal sanitization: strip script tags to prevent XSS from injected HTML
+function stripScripts(html: string): string {
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+}
+
+export interface ProcessViewStepProps {
   step: QFrontendStepMetaData
-  processName: string
   stepValues: Record<string, unknown>
-  isLastStep: boolean
   isLoading: boolean
-  onSubmit: (values: Record<string, unknown>, file?: File) => Promise<void>
+  onSubmit: (values: Record<string, unknown>) => Promise<void>
   onCancel: () => void
   onBack?: () => void
   canGoBack: boolean
+  isLastStep: boolean
 }
 
-export function ProcessFormStep({
+function formatFieldValue(field: QFieldMetaData, value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '\u2014'
+  }
+
+  switch (field.type) {
+    case 'BOOLEAN':
+      return value === true || value === 'true' || value === 1 ? 'Yes' : 'No'
+    case 'DATE':
+    case 'DATE_TIME':
+    case 'TIME':
+      return String(value)
+    default:
+      return String(value)
+  }
+}
+
+export function ProcessViewStep({
   step,
-  processName,
   stepValues,
-  isLastStep,
   isLoading,
   onSubmit,
   onCancel,
   onBack,
   canGoBack,
-}: ProcessFormStepProps) {
+  isLastStep,
+}: ProcessViewStepProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const fields = step.formFields ?? []
-
-  // Build Zod schema from field metadata
-  const schema = useMemo(
-    () => zodSchemaFromFields(fields),
-    [fields]
-  )
-
-  // Build default values from existing step values
-  const defaultValues: Record<string, unknown> = {}
-  for (const field of fields) {
-    const existing = stepValues[field.name]
-    if (existing !== undefined) {
-      defaultValues[field.name] = existing
-    } else if (field.defaultValue !== undefined) {
-      defaultValues[field.name] = field.defaultValue
-    } else if (field.type === 'BOOLEAN') {
-      defaultValues[field.name] = false
-    } else {
-      defaultValues[field.name] = ''
-    }
-  }
-
-  const {
-    register,
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(schema),
-    defaultValues,
-  })
-
-  const onFormSubmit = async (values: Record<string, unknown>) => {
-    // Extract file from values if any FILE_UPLOAD field exists
-    let file: File | undefined
-    const fileField = fields.find((f) =>
-      f.adornments?.some((a) => a.type === 'FILE_UPLOAD') || f.type === 'BLOB'
-    )
-    if (fileField && values[fileField.name] instanceof File) {
-      file = values[fileField.name] as File
-      // Remove file from values — it's sent separately as multipart
-      const valuesWithoutFile = Object.fromEntries(
-        Object.entries(values).filter(([k]) => k !== fileField.name)
-      )
-      await onSubmit(valuesWithoutFile, file)
-    } else {
-      await onSubmit(values)
-    }
-  }
+  const viewFields = step.viewFields ?? []
 
   // Help text from HELP_TEXT components
   const helpTextComponents = step.components.filter((c) => c.type === 'HELP_TEXT')
 
   return (
-    <form
-      onSubmit={handleSubmit(onFormSubmit)}
-      noValidate
-      className="space-y-6"
-      data-qqq-id={`process-form-step-${step.name}`}
-    >
+    <div className="space-y-6" data-qqq-id="process-view-step">
       {/* Help text */}
       {helpTextComponents.map((comp, idx) => (
         <div
@@ -110,21 +74,39 @@ export function ProcessFormStep({
         </div>
       ))}
 
-      {/* Dynamic form fields */}
-      {fields.length > 0 && (
-        <DynamicForm
-          register={register}
-          control={control}
-          errors={errors}
-          fields={fields}
-          possibleValueContext={{ type: 'process', processName }}
-          disabled={isLoading}
-        />
-      )}
-
-      {fields.length === 0 && helpTextComponents.length === 0 && (
+      {/* View fields as read-only display */}
+      {viewFields.length > 0 ? (
+        <dl
+          className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+          data-qqq-id="process-view-fields"
+        >
+          {viewFields.map((field) => (
+            <div
+              key={field.name}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
+              data-qqq-id={`process-view-field-${field.name}`}
+            >
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 sm:flex-shrink-0">
+                {field.label}
+              </dt>
+              <dd className="text-sm text-gray-900 dark:text-gray-100 sm:flex-1">
+                {field.type === 'HTML' ? (
+                  <div
+                    className="prose prose-sm max-w-none dark:prose-invert"
+                    dangerouslySetInnerHTML={{
+                      __html: stripScripts(String(stepValues[field.name] ?? '')),
+                    }}
+                  />
+                ) : (
+                  formatFieldValue(field, stepValues[field.name])
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          No fields to fill in for this step.
+          No fields to display for this step.
         </div>
       )}
 
@@ -170,7 +152,8 @@ export function ProcessFormStep({
             )}
 
             <button
-              type="submit"
+              type="button"
+              onClick={() => onSubmit(stepValues)}
               disabled={isLoading}
               data-qqq-id="button-next"
               className={cn(
@@ -181,12 +164,8 @@ export function ProcessFormStep({
                 'transition-colors duration-150'
               )}
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              )}
-              {isLoading ? 'Processing...' : isLastStep ? 'Submit' : 'Next'}
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              {isLastStep ? 'Submit' : 'Next'}
             </button>
           </div>
         </div>
@@ -197,6 +176,6 @@ export function ProcessFormStep({
         onOpenChange={setShowCancelDialog}
         onConfirm={onCancel}
       />
-    </form>
+    </div>
   )
 }

@@ -1,9 +1,10 @@
 'use client'
 
 // FilterBuilder — advanced filter UI with recursive group support
+// Supports possible value fields via async combobox search
 
-import React, { useState, useCallback } from 'react'
-import { Plus, Trash2, PlusCircle } from 'lucide-react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
+import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X } from 'lucide-react'
 
 import type {
   QTableMetaData,
@@ -11,6 +12,8 @@ import type {
   QFilterCriteria,
   QCriteriaOperator,
   QFieldType,
+  QFieldMetaData,
+  QPossibleValue,
 } from '@/types'
 import {
   OPERATOR_CONFIG,
@@ -18,10 +21,14 @@ import {
   getDefaultOperatorForFieldType,
   emptyFilter,
 } from '@/lib/utils/filter-utils'
+import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 
 // ------------------------------------------------------------------
 // Types
 // ------------------------------------------------------------------
+
+/** Subset of QFieldMetaData used throughout FilterBuilder */
+type FilterField = Pick<QFieldMetaData, 'name' | 'label' | 'type' | 'possibleValueSourceName'>
 
 interface FilterBuilderProps {
   tableMetaData: QTableMetaData
@@ -35,7 +42,14 @@ interface FilterBuilderProps {
 // ------------------------------------------------------------------
 
 export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: FilterBuilderProps) {
-  const fields = Object.values(tableMetaData.fields).filter((f) => !f.isHidden && !f.isHeavy)
+  const fields: FilterField[] = Object.values(tableMetaData.fields)
+    .filter((f) => !f.isHidden && !f.isHeavy)
+    .map((f) => ({
+      name: f.name,
+      label: f.label,
+      type: f.type,
+      possibleValueSourceName: f.possibleValueSourceName,
+    }))
 
   const handleFilterChange = useCallback(
     (updated: QQueryFilter) => {
@@ -87,14 +101,38 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: Filt
 
 interface FilterGroupProps {
   filter: QQueryFilter
-  fields: ReturnType<typeof Object.values<{ name: string; label: string; type: QFieldType }>>
+  fields: FilterField[]
   onChange: (updated: QQueryFilter) => void
   depth: number
   tableName: string
 }
 
-function FilterGroup({ filter, fields, onChange, depth }: FilterGroupProps) {
+function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-blue-200 pl-3' : ''
+
+  // Stable ID generation for criteria rows to avoid React reconciliation bugs with index keys
+  const criteriaIdCounterRef = useRef(0)
+  const criteriaIdMapRef = useRef(new WeakMap<QFilterCriteria, string>())
+
+  const getCriterionKey = useCallback((criterion: QFilterCriteria): string => {
+    const existing = criteriaIdMapRef.current.get(criterion)
+    if (existing) return existing
+    const id = `criterion-${depth}-${criteriaIdCounterRef.current++}`
+    criteriaIdMapRef.current.set(criterion, id)
+    return id
+  }, [depth])
+
+  // Same for sub-filters
+  const subFilterIdCounterRef = useRef(0)
+  const subFilterIdMapRef = useRef(new WeakMap<QQueryFilter, string>())
+
+  const getSubFilterKey = useCallback((subFilter: QQueryFilter): string => {
+    const existing = subFilterIdMapRef.current.get(subFilter)
+    if (existing) return existing
+    const id = `subfilter-${depth}-${subFilterIdCounterRef.current++}`
+    subFilterIdMapRef.current.set(subFilter, id)
+    return id
+  }, [depth])
 
   const addCriterion = () => {
     const firstField = fields[0]
@@ -171,25 +209,26 @@ function FilterGroup({ filter, fields, onChange, depth }: FilterGroupProps) {
       {/* Criteria rows */}
       {filter.criteria.map((criterion, idx) => (
         <CriteriaRow
-          key={idx}
+          key={getCriterionKey(criterion)}
           index={idx}
           criterion={criterion}
           fields={fields}
           onChange={(updated) => updateCriterion(idx, updated)}
           onRemove={() => removeCriterion(idx)}
           depth={depth}
+          tableName={tableName}
         />
       ))}
 
       {/* Sub-filter groups */}
       {(filter.subFilters ?? []).map((sub, idx) => (
-        <div key={idx} className="relative">
+        <div key={getSubFilterKey(sub)} className="relative">
           <FilterGroup
             filter={sub}
             fields={fields}
             onChange={(updated) => updateSubFilter(idx, updated)}
             depth={depth + 1}
-            tableName=""
+            tableName={tableName}
           />
           <button
             type="button"
@@ -238,13 +277,14 @@ function FilterGroup({ filter, fields, onChange, depth }: FilterGroupProps) {
 interface CriteriaRowProps {
   index: number
   criterion: QFilterCriteria
-  fields: ReturnType<typeof Object.values<{ name: string; label: string; type: QFieldType }>>
+  fields: FilterField[]
   onChange: (updated: QFilterCriteria) => void
   onRemove: () => void
   depth: number
+  tableName: string
 }
 
-function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth }: CriteriaRowProps) {
+function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tableName }: CriteriaRowProps) {
   const selectedField = fields.find((f) => f.name === criterion.fieldName) ?? fields[0]
   const fieldType = selectedField?.type ?? 'STRING'
   const availableOps = getOperatorsForFieldType(fieldType)
@@ -309,10 +349,15 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth }: Cr
         <FilterValueInput
           field={selectedField ?? fields[0]}
           operator={criterion.operator}
-          values={criterion.values as string[]}
+          values={
+            Array.isArray(criterion.values) && criterion.values.every((v): v is string => typeof v === 'string')
+              ? criterion.values
+              : (criterion.values ?? []).map((v) => String(v ?? ''))
+          }
           onChange={(values) => onChange({ ...criterion, values })}
           depth={depth}
           index={index}
+          tableName={tableName}
         />
       )}
 
@@ -332,23 +377,27 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth }: Cr
 
 // ------------------------------------------------------------------
 // FilterValueInput — type-appropriate value input
+// Detects possibleValueSourceName and renders a combobox when present
 // ------------------------------------------------------------------
 
 interface FilterValueInputProps {
-  field: { name: string; label: string; type: QFieldType }
+  field: FilterField
   operator: QCriteriaOperator
   values: string[]
   onChange: (values: string[]) => void
   depth: number
   index: number
+  tableName: string
 }
 
-function FilterValueInput({ field, operator, values, onChange, depth, index }: FilterValueInputProps) {
+function FilterValueInput({ field, operator, values, onChange, depth, index, tableName }: FilterValueInputProps) {
   const config = OPERATOR_CONFIG[operator]
 
   if (config.valueCount === 'none') return null
 
-  // BETWEEN / NOT_BETWEEN: two inputs
+  const hasPossibleValues = Boolean(field.possibleValueSourceName)
+
+  // BETWEEN / NOT_BETWEEN: two inputs (possible values not applicable for range)
   if (config.valueCount === 'range') {
     return (
       <div className="flex items-center gap-1">
@@ -373,8 +422,21 @@ function FilterValueInput({ field, operator, values, onChange, depth, index }: F
     )
   }
 
-  // IN / NOT_IN: tag-style multi-value input
+  // IN / NOT_IN: multi-value
   if (config.valueCount === 'multiple') {
+    if (hasPossibleValues) {
+      return (
+        <PossibleValueMultiSelect
+          tableName={tableName}
+          fieldName={field.name}
+          fieldLabel={field.label}
+          values={values}
+          onChange={onChange}
+          data-qqq-id={`filter-value-${depth}-${index}`}
+        />
+      )
+    }
+
     return (
       <TagInput
         values={values}
@@ -386,7 +448,7 @@ function FilterValueInput({ field, operator, values, onChange, depth, index }: F
     )
   }
 
-  // Boolean: select True/False
+  // Boolean: select True/False (never uses possible values)
   if (field.type === 'BOOLEAN') {
     return (
       <select
@@ -403,7 +465,21 @@ function FilterValueInput({ field, operator, values, onChange, depth, index }: F
     )
   }
 
-  // Single value
+  // Single value with possible values: combobox
+  if (hasPossibleValues) {
+    return (
+      <PossibleValueSingleSelect
+        tableName={tableName}
+        fieldName={field.name}
+        fieldLabel={field.label}
+        value={values[0] ?? ''}
+        onChange={(v) => onChange([v])}
+        data-qqq-id={`filter-value-${depth}-${index}`}
+      />
+    )
+  }
+
+  // Single value: typed input
   return (
     <TypedInput
       fieldType={field.type}
@@ -413,6 +489,440 @@ function FilterValueInput({ field, operator, values, onChange, depth, index }: F
       aria-label={`Filter value for ${field.label}`}
       data-qqq-id={`filter-value-${depth}-${index}`}
     />
+  )
+}
+
+// ------------------------------------------------------------------
+// PossibleValueSingleSelect — async combobox for single-value filter
+// ------------------------------------------------------------------
+
+interface PossibleValueSingleSelectProps {
+  tableName: string
+  fieldName: string
+  fieldLabel: string
+  value: string
+  onChange: (value: string) => void
+  'data-qqq-id'?: string
+}
+
+function PossibleValueSingleSelect({
+  tableName,
+  fieldName,
+  fieldLabel,
+  value,
+  onChange,
+  'data-qqq-id': dataId,
+}: PossibleValueSingleSelectProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [options, setOptions] = useState<QPossibleValue[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedLabel, setSelectedLabel] = useState<string>('')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const fetchOptions = useCallback(
+    async (term: string) => {
+      // Abort any in-flight request to prevent stale responses from overwriting newer results
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      setIsLoading(true)
+      try {
+        const results = await fetchTablePossibleValues(tableName, fieldName, {
+          searchTerm: term || undefined,
+        })
+        // Only apply results if this request was not aborted
+        if (!controller.signal.aborted) {
+          setOptions(results)
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setOptions([])
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
+      }
+    },
+    [tableName, fieldName]
+  )
+
+  const debouncedFetch = useCallback(
+    (term: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => fetchOptions(term), 300)
+    },
+    [fetchOptions]
+  )
+
+  // Fetch on open
+  useEffect(() => {
+    if (isOpen) {
+      fetchOptions(searchTerm)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Clean up debounce and abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (abortControllerRef.current) abortControllerRef.current.abort()
+    }
+  }, [])
+
+  const handleSelect = (option: QPossibleValue) => {
+    onChange(String(option.id))
+    setSelectedLabel(option.label)
+    setIsOpen(false)
+    setSearchTerm('')
+  }
+
+  const handleClear = () => {
+    onChange('')
+    setSelectedLabel('')
+    setSearchTerm('')
+  }
+
+  const displayText = selectedLabel || (value ? String(value) : '')
+
+  return (
+    <div ref={containerRef} className="relative" data-qqq-id={dataId}>
+      <div
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={`Filter value for ${fieldLabel}`}
+        onClick={() => {
+          setIsOpen((o) => !o)
+          if (!isOpen) {
+            setTimeout(() => inputRef.current?.focus(), 50)
+          }
+        }}
+        className="flex min-w-[180px] cursor-pointer items-center justify-between rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        data-qqq-id={dataId ? `${dataId}-combobox` : undefined}
+      >
+        <span className={`flex-1 truncate ${displayText ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}`}>
+          {displayText || 'Select...'}
+        </span>
+        <div className="flex items-center gap-0.5">
+          {displayText && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleClear()
+              }}
+              className="rounded p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+              aria-label={`Clear ${fieldLabel} filter value`}
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+          <ChevronDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          <div className="border-b border-gray-200 p-1.5 dark:border-gray-700">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                debouncedFetch(e.target.value)
+              }}
+              placeholder="Search..."
+              className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              aria-label={`Search ${fieldLabel} options`}
+            />
+          </div>
+          <ul
+            role="listbox"
+            aria-label={`${fieldLabel} options`}
+            className="max-h-44 overflow-y-auto"
+          >
+            {isLoading ? (
+              <li className="flex items-center justify-center py-3 text-sm text-gray-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading...
+              </li>
+            ) : options.length === 0 ? (
+              <li className="py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                No options found
+              </li>
+            ) : (
+              options.map((option) => {
+                const isSelected = String(value) === String(option.id)
+                return (
+                  <li
+                    key={String(option.id)}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(option)}
+                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      isSelected ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <span className="truncate">{option.label}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />}
+                  </li>
+                )
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------
+// PossibleValueMultiSelect — async combobox for multi-value filter (IN/NOT_IN)
+// ------------------------------------------------------------------
+
+interface PossibleValueMultiSelectProps {
+  tableName: string
+  fieldName: string
+  fieldLabel: string
+  values: string[]
+  onChange: (values: string[]) => void
+  'data-qqq-id'?: string
+}
+
+function PossibleValueMultiSelect({
+  tableName,
+  fieldName,
+  fieldLabel,
+  values,
+  onChange,
+  'data-qqq-id': dataId,
+}: PossibleValueMultiSelectProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [options, setOptions] = useState<QPossibleValue[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  // Map of value id -> label for display in tags
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({})
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const fetchOptions = useCallback(
+    async (term: string) => {
+      // Abort any in-flight request to prevent stale responses from overwriting newer results
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      setIsLoading(true)
+      try {
+        const results = await fetchTablePossibleValues(tableName, fieldName, {
+          searchTerm: term || undefined,
+        })
+        // Only apply results if this request was not aborted
+        if (!controller.signal.aborted) {
+          setOptions(results)
+          // Update label map with fetched options
+          setLabelMap((prev) => {
+            const next = { ...prev }
+            for (const opt of results) {
+              next[String(opt.id)] = opt.label
+            }
+            return next
+          })
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setOptions([])
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
+      }
+    },
+    [tableName, fieldName]
+  )
+
+  const debouncedFetch = useCallback(
+    (term: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => fetchOptions(term), 300)
+    },
+    [fetchOptions]
+  )
+
+  // Fetch on open
+  useEffect(() => {
+    if (isOpen) {
+      fetchOptions(searchTerm)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Clean up debounce and abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (abortControllerRef.current) abortControllerRef.current.abort()
+    }
+  }, [])
+
+  const handleToggleValue = (option: QPossibleValue) => {
+    const id = String(option.id)
+    setLabelMap((prev) => ({ ...prev, [id]: option.label }))
+    if (values.includes(id)) {
+      onChange(values.filter((v) => v !== id))
+    } else {
+      onChange([...values, id])
+    }
+  }
+
+  const handleRemoveValue = (id: string) => {
+    onChange(values.filter((v) => v !== id))
+  }
+
+  return (
+    <div ref={containerRef} className="relative" data-qqq-id={dataId}>
+      <div
+        className="flex min-w-[200px] flex-wrap items-center gap-1 rounded border border-gray-300 bg-white p-1 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 cursor-pointer"
+        onClick={() => {
+          setIsOpen((o) => !o)
+          if (!isOpen) {
+            setTimeout(() => inputRef.current?.focus(), 50)
+          }
+        }}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={`Filter values for ${fieldLabel}`}
+      >
+        {values.map((val) => (
+          <span
+            key={val}
+            className="flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+          >
+            {labelMap[val] ?? val}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRemoveValue(val)
+              }}
+              className="text-blue-600 hover:text-blue-900 focus:outline-none"
+              aria-label={`Remove ${labelMap[val] ?? val}`}
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+        {values.length === 0 && (
+          <span className="px-1 text-sm text-gray-400">Select values...</span>
+        )}
+        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[220px] rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          <div className="border-b border-gray-200 p-1.5 dark:border-gray-700">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                debouncedFetch(e.target.value)
+              }}
+              placeholder="Search..."
+              className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              aria-label={`Search ${fieldLabel} options`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <ul
+            role="listbox"
+            aria-label={`${fieldLabel} options`}
+            aria-multiselectable="true"
+            className="max-h-44 overflow-y-auto"
+          >
+            {isLoading ? (
+              <li className="flex items-center justify-center py-3 text-sm text-gray-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading...
+              </li>
+            ) : options.length === 0 ? (
+              <li className="py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                No options found
+              </li>
+            ) : (
+              options.map((option) => {
+                const isSelected = values.includes(String(option.id))
+                return (
+                  <li
+                    key={String(option.id)}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleToggleValue(option)
+                    }}
+                    className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+                    }`}
+                  >
+                    <div
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800'
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3 w-3" aria-hidden="true" />}
+                    </div>
+                    <span className="truncate text-gray-700 dark:text-gray-300">{option.label}</span>
+                  </li>
+                )
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -569,7 +1079,7 @@ function TagInput({
             className="text-blue-600 hover:text-blue-900 focus:outline-none"
             aria-label={`Remove ${tag}`}
           >
-            ×
+            <X className="h-3 w-3" aria-hidden="true" />
           </button>
         </span>
       ))}

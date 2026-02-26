@@ -12,6 +12,7 @@ import type {
   QRecord,
   QQueryFilter,
   QFilterOrderBy,
+  QueryJoin,
 } from '@/types'
 import { queryRecords, countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
@@ -338,6 +339,20 @@ export function useRecordQuery({
   }, [state.userFilter, state.quickSearchTerm, tableMetaData, state.columnVisibility])
 
   // ------------------------------------------------------------------
+  // Build joins from exposedJoins metadata
+  // ------------------------------------------------------------------
+  const joins = useMemo<QueryJoin[] | undefined>(() => {
+    if (!tableMetaData?.exposedJoins?.length) return undefined
+    return tableMetaData.exposedJoins
+      .filter((ej) => ej.joinTable?.name)
+      .map((ej): QueryJoin => ({
+        joinTable: ej.joinTable!.name,
+        select: true,
+        type: ej.isMany ? 'LEFT' : 'INNER',
+      }))
+  }, [tableMetaData])
+
+  // ------------------------------------------------------------------
   // TanStack Query: records
   // ------------------------------------------------------------------
   const recordsQuery = useQuery({
@@ -345,10 +360,12 @@ export function useRecordQuery({
       ...queryKeys.tableRecords(tableName),
       'query',
       JSON.stringify(effectiveFilter),
+      JSON.stringify(joins ?? null),
     ],
     queryFn: () =>
       queryRecords(tableName, {
         filter: effectiveFilter,
+        joins,
       }),
     staleTime: 30 * 1000,
     placeholderData: (prev) => prev,
@@ -363,10 +380,12 @@ export function useRecordQuery({
       ...queryKeys.tableRecords(tableName),
       'count',
       JSON.stringify(countFilter),
+      JSON.stringify(joins ?? null),
     ],
     queryFn: () =>
       countRecords(tableName, {
         filter: countFilter,
+        joins,
       }),
     staleTime: 30 * 1000,
     placeholderData: (prev) => prev,

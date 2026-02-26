@@ -37,3 +37,6 @@ export type { AlertWidgetPayload, AlertSeverity } from './AlertWidget'
 
 export { ProcessSummaryWidget } from './ProcessSummaryWidget'
 export type { ProcessSummaryWidgetPayload, ProcessRun, ProcessRunStatus } from './ProcessSummaryWidget'
+
+export { CompositeWidget } from './CompositeWidget'
+export type { CompositeWidgetProps } from './CompositeWidget'

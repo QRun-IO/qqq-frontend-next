@@ -1,18 +1,22 @@
 'use client'
 
 // RecordViewSection — renders a group of fields from a table section
+// When section.widgetName is set, renders a widget instead of field list
 
 import React from 'react'
 
-import type { QTableMetaData, QTableSection, QRecord } from '@/types'
+import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
-import { FieldValue } from './FieldValue'
+import { FieldValue } from '@/components/records/FieldValue'
+import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
 
 interface RecordViewSectionProps {
   section: QTableSection
   tableMetaData: QTableMetaData
   record: QRecord
+  /** Widget metadata map for resolving section.widgetName */
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
   className?: string
 }
 
@@ -20,9 +24,68 @@ export function RecordViewSection({
   section,
   tableMetaData,
   record,
+  widgetMetaDataMap,
   className,
 }: RecordViewSectionProps) {
   if (section.isHidden) return null
+
+  // If this section has a widgetName, render a widget instead of the field list
+  if (section.widgetName) {
+    const widgetMeta = widgetMetaDataMap?.[section.widgetName]
+
+    if (widgetMeta) {
+      // We have full widget metadata -- render the ConnectedWidget
+      const primaryKey = record.values[tableMetaData.primaryKeyField]
+      return (
+        <section
+          className={cn('space-y-4', className)}
+          data-qqq-id={`section-widget-${section.widgetName}`}
+          aria-labelledby={`section-heading-${section.name}`}
+        >
+          {section.label && (
+            <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+              <h3
+                id={`section-heading-${section.name}`}
+                className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+              >
+                {section.label}
+              </h3>
+            </div>
+          )}
+          <ConnectedWidget
+            widgetMetaData={widgetMeta}
+            params={{
+              tableName: tableMetaData.name,
+              id: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : '',
+            }}
+          />
+        </section>
+      )
+    }
+
+    // Widget metadata not available -- render a placeholder integration point
+    return (
+      <section
+        className={cn('space-y-4', className)}
+        data-qqq-id={`section-widget-${section.widgetName}`}
+        aria-labelledby={`section-heading-${section.name}`}
+      >
+        {section.label && (
+          <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+            <h3
+              id={`section-heading-${section.name}`}
+              className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+            >
+              {section.label}
+            </h3>
+          </div>
+        )}
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+          Widget: {section.widgetName}
+        </div>
+      </section>
+    )
+  }
 
   // Filter to visible fields
   const visibleFields = section.fieldNames

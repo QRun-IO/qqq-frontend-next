@@ -43,7 +43,9 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
       className={cn('w-full', className)}
       data-qqq-id="step-wizard"
     >
-      <ol className="flex items-center">
+      {/* Horizontal scroll wrapper for narrow screens with many steps (Fix: HIGH-11) */}
+      <div className="overflow-x-auto">
+        <ol className="flex items-center">
         {steps.map((step, idx) => {
           const stepState = getStepState(step.name, currentStepName, steps, isComplete)
           const isLast = idx === steps.length - 1
@@ -104,7 +106,8 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
             </li>
           )
         })}
-      </ol>
+        </ol>
+      </div>
     </nav>
   )
 }

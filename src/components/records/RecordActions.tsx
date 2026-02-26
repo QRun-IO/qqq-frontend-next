@@ -1,12 +1,14 @@
 'use client'
 
 // RecordActions — edit/delete/copy action buttons for a record view page
+// Includes an "Actions" dropdown menu when processes are available
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Copy, Trash2 } from 'lucide-react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
+import { Pencil, Copy, Trash2, MoreVertical, Play } from 'lucide-react'
 
-import type { QTableMetaData, QRecord } from '@/types'
+import type { QTableMetaData, QRecord, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
@@ -14,10 +16,11 @@ import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 interface RecordActionsProps {
   tableMetaData: QTableMetaData
   record: QRecord
+  processes?: QProcessMetaData[]
   className?: string
 }
 
-export function RecordActions({ tableMetaData, record, className }: RecordActionsProps) {
+export function RecordActions({ tableMetaData, record, processes, className }: RecordActionsProps) {
   const router = useRouter()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -27,68 +30,218 @@ export function RecordActions({ tableMetaData, record, className }: RecordAction
   const canDelete = tableMetaData.deletePermission
   const canInsert = tableMetaData.insertPermission
 
+  // Filter to visible, permitted processes that accept single records
+  const availableProcesses = (processes ?? []).filter(
+    (p) => !p.isHidden && p.hasPermission && p.maxInputRecords >= 1
+  )
+
+  const hasProcesses = availableProcesses.length > 0
+
   return (
     <>
       <div
         className={cn('flex items-center gap-2', className)}
         data-qqq-id={`record-actions-${tableMetaData.name}`}
       >
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
-            data-qqq-id="button-edit"
-            aria-label={`Edit ${tableMetaData.label} record`}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'transition-colors duration-150'
+        {/* Standalone buttons shown when no processes exist */}
+        {!hasProcesses && (
+          <>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
+                data-qqq-id="button-edit"
+                aria-label={`Edit ${tableMetaData.label} record`}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
+                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Edit
+              </button>
             )}
-          >
-            <Pencil className="h-4 w-4" aria-hidden="true" />
-            Edit
-          </button>
+
+            {canInsert && (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/app/${tableMetaData.name}/${primaryKey}/copy`
+                  )
+                }
+                data-qqq-id="button-copy"
+                aria-label={`Copy ${tableMetaData.label} record`}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
+                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+                Copy
+              </button>
+            )}
+
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteDialog(true)}
+                data-qqq-id="button-delete"
+                aria-label={`Delete ${tableMetaData.label} record`}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium',
+                  'text-red-600 bg-white hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:bg-gray-800 dark:hover:bg-red-900/20',
+                  'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Delete
+              </button>
+            )}
+          </>
         )}
 
-        {canInsert && (
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                `/app/${tableMetaData.name}/${primaryKey}/copy`
-              )
-            }
-            data-qqq-id="button-copy"
-            aria-label={`Copy ${tableMetaData.label} record`}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
-              'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-              'transition-colors duration-150'
+        {/* Dropdown menu shown when processes are available */}
+        {hasProcesses && (
+          <>
+            {/* Keep Edit as a standalone button for quick access */}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
+                data-qqq-id="button-edit"
+                aria-label={`Edit ${tableMetaData.label} record`}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
+                  'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Edit
+              </button>
             )}
-          >
-            <Copy className="h-4 w-4" aria-hidden="true" />
-            Copy
-          </button>
-        )}
 
-        {canDelete && (
-          <button
-            type="button"
-            onClick={() => setShowDeleteDialog(true)}
-            data-qqq-id="button-delete"
-            aria-label={`Delete ${tableMetaData.label} record`}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium',
-              'text-red-600 bg-white hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:bg-gray-800 dark:hover:bg-red-900/20',
-              'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-              'transition-colors duration-150'
-            )}
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Delete
-          </button>
+            <DropdownMenuPrimitive.Root>
+              <DropdownMenuPrimitive.Trigger asChild>
+                <button
+                  type="button"
+                  data-qqq-id="record-action-menu"
+                  aria-label="Record actions menu"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium',
+                    'text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                    'transition-colors duration-150'
+                  )}
+                >
+                  Actions
+                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuPrimitive.Trigger>
+
+              <DropdownMenuPrimitive.Portal>
+                <DropdownMenuPrimitive.Content
+                  align="end"
+                  sideOffset={4}
+                  className={cn(
+                    'z-50 min-w-[180px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg',
+                    'dark:border-gray-700 dark:bg-gray-900',
+                    'animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2'
+                  )}
+                >
+                  {/* Edit */}
+                  {canEdit && (
+                    <DropdownMenuPrimitive.Item
+                      onSelect={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
+                      data-qqq-id="record-action-edit"
+                      className={cn(
+                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
+                        'text-gray-700 dark:text-gray-300',
+                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'transition-colors duration-100'
+                      )}
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                      Edit
+                    </DropdownMenuPrimitive.Item>
+                  )}
+
+                  {/* Copy */}
+                  {canInsert && (
+                    <DropdownMenuPrimitive.Item
+                      onSelect={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/copy`)}
+                      data-qqq-id="record-action-copy"
+                      className={cn(
+                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
+                        'text-gray-700 dark:text-gray-300',
+                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'transition-colors duration-100'
+                      )}
+                    >
+                      <Copy className="h-4 w-4" aria-hidden="true" />
+                      Copy
+                    </DropdownMenuPrimitive.Item>
+                  )}
+
+                  {/* Separator before processes — only if there are menu items above */}
+                  {(canEdit || canInsert) && (
+                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  )}
+
+                  {/* Processes */}
+                  {availableProcesses.map((process) => (
+                    <DropdownMenuPrimitive.Item
+                      key={process.name}
+                      onSelect={() =>
+                        router.push(
+                          `/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`
+                        )
+                      }
+                      data-qqq-id={`record-action-${process.name}`}
+                      className={cn(
+                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
+                        'text-gray-700 dark:text-gray-300',
+                        'outline-none data-[highlighted]:bg-gray-100 dark:data-[highlighted]:bg-gray-800',
+                        'transition-colors duration-100'
+                      )}
+                    >
+                      <Play className="h-4 w-4" aria-hidden="true" />
+                      {process.label}
+                    </DropdownMenuPrimitive.Item>
+                  ))}
+
+                  {/* Separator before delete — only if there are menu items above */}
+                  {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
+                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  )}
+
+                  {/* Delete (destructive) */}
+                  {canDelete && (
+                    <DropdownMenuPrimitive.Item
+                      onSelect={() => setShowDeleteDialog(true)}
+                      data-qqq-id="record-action-delete"
+                      className={cn(
+                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
+                        'text-red-600 dark:text-red-400',
+                        'outline-none data-[highlighted]:bg-red-50 dark:data-[highlighted]:bg-red-900/20',
+                        'transition-colors duration-100'
+                      )}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Delete
+                    </DropdownMenuPrimitive.Item>
+                  )}
+                </DropdownMenuPrimitive.Content>
+              </DropdownMenuPrimitive.Portal>
+            </DropdownMenuPrimitive.Root>
+          </>
         )}
       </div>
 

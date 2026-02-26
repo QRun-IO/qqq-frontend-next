@@ -218,9 +218,9 @@ export function DataGrid({
     manualPagination: true,
     rowCount: totalCount,
     manualSorting: true,
-    getRowId: (row) => {
+    getRowId: (row, index) => {
       const pk = tableMetaData.primaryKeyField
-      return row.values[pk] != null ? String(row.values[pk]) : String(Math.random())
+      return row.values[pk] != null ? String(row.values[pk]) : `row-${index}`
     },
   })
 
@@ -341,35 +341,53 @@ export function DataGrid({
         </div>
       )}
 
-      <table className="w-full border-collapse table-fixed min-w-[600px]">
+      <table className="w-full border-collapse table-fixed min-w-[600px]" role="grid" aria-label={`${tableMetaData.label} records`}>
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
               className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"
             >
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className={`group relative text-left font-semibold text-gray-700 dark:text-gray-300 select-none ${cellClass}`}
-                  style={{ width: `${header.getSize()}px` }}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
+              {headerGroup.headers.map((header) => {
+                // Compute aria-sort for sortable columns
+                const isSelectCol = header.id === '_select'
+                const sortInfo = !isSelectCol
+                  ? sortOrder.find((s) => s.fieldName === header.id)
+                  : undefined
+                const isSortable = !isSelectCol
+                const ariaSortValue: 'ascending' | 'descending' | 'none' | undefined = !isSortable
+                  ? undefined
+                  : sortInfo
+                    ? sortInfo.isAscending
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
 
-                  {/* Column resize handle */}
-                  {header.id !== '_select' && (
-                    <div
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-blue-400 active:bg-blue-600"
-                      onMouseDown={(e) =>
-                        handleResizeMouseDown(e, header.id, header.getSize())
-                      }
-                      aria-hidden="true"
-                    />
-                  )}
-                </th>
-              ))}
+                return (
+                  <th
+                    key={header.id}
+                    scope="col"
+                    className={`group relative text-left font-semibold text-gray-700 dark:text-gray-300 select-none ${cellClass}`}
+                    style={{ width: `${header.getSize()}px` }}
+                    aria-sort={ariaSortValue}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+
+                    {/* Column resize handle */}
+                    {!isSelectCol && (
+                      <div
+                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-blue-400 active:bg-blue-600"
+                        onMouseDown={(e) =>
+                          handleResizeMouseDown(e, header.id, header.getSize())
+                        }
+                        aria-hidden="true"
+                      />
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           ))}
         </thead>

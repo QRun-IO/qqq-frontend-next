@@ -1,6 +1,6 @@
 'use client'
 
-// AppHome — Dashboard page for an app
+// AppHome -- Dashboard page for an app
 // Fetches and renders all widgets declared in the app metadata
 
 import React from 'react'
@@ -17,10 +17,19 @@ interface AppHomeProps {
   widgetRegistry: Record<string, QWidgetMetaData>
 }
 
-// Heuristic for span: record grid and chart widgets get 2 columns; stats get 1
+// Resolve widget span from metadata gridColumns, falling back to heuristic
 function resolveWidgetSpan(
   widgetMeta: QWidgetMetaData
 ): WidgetGridItem['span'] {
+  // Prefer the explicit gridColumns from metadata
+  if (widgetMeta.gridColumns !== undefined) {
+    const cols = widgetMeta.gridColumns
+    if (cols >= 3) return 3
+    if (cols === 2) return 2
+    return 1
+  }
+
+  // Fallback heuristic: record grid and chart widgets get 2 columns; stats get 1
   const type = widgetMeta.type
   if (type === 'recordGrid' || type === 'lineChart' || type === 'barChart') return 2
   if (type === 'chart') return 2
@@ -31,24 +40,15 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
   const { name, label, widgets: widgetNames, sections } = appMetaData
 
   // Build the widget grid items from declared widget names
-  const widgetItems: WidgetGridItem[] = widgetNames
-    .filter((wName) => {
-      const meta = widgetRegistry[wName]
-      return meta && meta.hasPermission
-    })
-    .map((wName) => {
-      const meta = widgetRegistry[wName]
-      return {
-        key: wName,
-        span: resolveWidgetSpan(meta),
-        children: (
-          <ConnectedWidget
-            key={wName}
-            widgetMetaData={meta}
-          />
-        ),
-      }
-    })
+  const widgetItems: WidgetGridItem[] = widgetNames.flatMap((wName) => {
+    const meta = widgetRegistry[wName]
+    if (!meta || !meta.hasPermission) return []
+    return [{
+      key: wName,
+      span: resolveWidgetSpan(meta),
+      children: <ConnectedWidget key={wName} widgetMetaData={meta} />,
+    }]
+  })
 
   return (
     <div className="space-y-8" data-qqq-id={`app-home-${name}`}>
@@ -64,7 +64,7 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
         </section>
       )}
 
-      {/* App sections — navigation shortcuts to tables / processes */}
+      {/* App sections -- navigation shortcuts to tables / processes */}
       {sections && sections.length > 0 && (
         <div className="space-y-6" data-qqq-id={`app-sections-${name}`}>
           {sections.map((section) => (

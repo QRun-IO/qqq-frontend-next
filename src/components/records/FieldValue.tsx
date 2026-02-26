@@ -2,10 +2,13 @@
 
 // FieldValue — renders a single field value in read-only display mode
 // Handles all QFieldType values with appropriate formatting
+// Supports adornment types: LINK, CHIP, FILE_DOWNLOAD, REVEAL, SIZE, RENDER_HTML,
+// CODE_EDITOR, TOOLTIP, ERROR
 
 import React from 'react'
-import { ExternalLink, Download, Eye, EyeOff } from 'lucide-react'
+import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QFieldMetaData, QRecord } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -41,6 +44,9 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
   const hasReveal = field.adornments?.some((a) => a.type === 'REVEAL')
   const hasSize = field.adornments?.some((a) => a.type === 'SIZE')
   const hasRenderHtml = field.adornments?.some((a) => a.type === 'RENDER_HTML')
+  const hasCodeEditor = field.adornments?.some((a) => a.type === 'CODE_EDITOR')
+  const hasTooltipAdornment = field.adornments?.some((a) => a.type === 'TOOLTIP')
+  const hasError = field.adornments?.some((a) => a.type === 'ERROR')
 
   // LINK adornment — render as anchor
   if (hasLink) {
@@ -125,6 +131,99 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
         dangerouslySetInnerHTML={{ __html: String(value) }}
         data-qqq-id={`field-value-${field.name}`}
       />
+    )
+  }
+
+  // CODE_EDITOR adornment — render in a monospace code block
+  if (hasCodeEditor) {
+    return (
+      <pre
+        className={cn(
+          'overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3 text-sm',
+          'dark:border-gray-700 dark:bg-gray-800',
+          className
+        )}
+        data-qqq-id={`field-value-${field.name}`}
+      >
+        <code className="font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+          {String(value)}
+        </code>
+      </pre>
+    )
+  }
+
+  // TOOLTIP adornment — wrap displayed value in a tooltip
+  if (hasTooltipAdornment) {
+    const tooltipAdornment = field.adornments?.find((a) => a.type === 'TOOLTIP')
+    const tooltipText = (tooltipAdornment?.values?.['tooltipText'] ??
+      tooltipAdornment?.values?.['text'] ??
+      tooltipAdornment?.values?.['tooltip'] ??
+      '') as string
+
+    if (tooltipText) {
+      return (
+        <TooltipPrimitive.Provider delayDuration={300}>
+          <TooltipPrimitive.Root>
+            <TooltipPrimitive.Trigger asChild>
+              <span
+                className={cn(
+                  'text-sm text-gray-900 dark:text-gray-100 cursor-help underline decoration-dotted decoration-gray-400',
+                  className
+                )}
+                data-qqq-id={`field-value-${field.name}`}
+                tabIndex={0}
+              >
+                {String(value)}
+              </span>
+            </TooltipPrimitive.Trigger>
+            <TooltipPrimitive.Portal>
+              <TooltipPrimitive.Content
+                side="top"
+                sideOffset={4}
+                className={cn(
+                  'z-50 max-w-xs rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-md',
+                  'text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300',
+                  'animate-in fade-in-0 zoom-in-95'
+                )}
+              >
+                {tooltipText}
+                <TooltipPrimitive.Arrow className="fill-gray-200 dark:fill-gray-700" />
+              </TooltipPrimitive.Content>
+            </TooltipPrimitive.Portal>
+          </TooltipPrimitive.Root>
+        </TooltipPrimitive.Provider>
+      )
+    }
+
+    // Intentional fallthrough: when the TOOLTIP adornment exists but no tooltip text
+    // can be resolved (all value keys return empty), we fall through to type-based
+    // or default rendering below. The value itself is still rendered -- only the
+    // tooltip wrapper is omitted since there is no text to display.
+  }
+
+  // ERROR adornment — render with error icon and destructive styling
+  if (hasError) {
+    const errorAdornment = field.adornments?.find((a) => a.type === 'ERROR')
+    const errorText = (errorAdornment?.values?.['errorText'] ??
+      errorAdornment?.values?.['text'] ??
+      '') as string
+
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 text-sm',
+          className
+        )}
+        data-qqq-id={`field-value-${field.name}`}
+      >
+        <AlertCircle className="h-4 w-4 shrink-0 text-red-500 dark:text-red-400" aria-hidden="true" />
+        <span className="text-red-600 dark:text-red-400">
+          {String(value)}
+          {errorText && (
+            <span className="ml-1 text-xs text-red-500 dark:text-red-400">({errorText})</span>
+          )}
+        </span>
+      </span>
     )
   }
 
@@ -228,7 +327,7 @@ function RevealField({
         className="text-sm text-gray-900 dark:text-gray-100 font-mono"
         data-qqq-id={`field-value-${fieldName}`}
       >
-        {revealed ? value : '••••••••'}
+        {revealed ? value : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
       </span>
       <button
         type="button"
@@ -249,7 +348,7 @@ function RevealField({
 // --- Utilities ---
 
 function formatBytes(bytes: number): string {
-  if (isNaN(bytes)) return '—'
+  if (isNaN(bytes)) return '\u2014'
   if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))

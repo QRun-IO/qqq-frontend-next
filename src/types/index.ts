@@ -23,6 +23,7 @@ export type {
   QAppMetaData,
   QAppTreeNode,
   QAppSection,
+  QWidgetDropdown,
   QWidgetMetaData,
   QTableSection,
   QExposedJoin,
@@ -64,4 +65,6 @@ export type {
   StatisticsWidgetData,
   HtmlWidgetData,
   RecordGridWidgetData,
+  BlockData,
+  BlockWidgetData,
 } from './widgets'

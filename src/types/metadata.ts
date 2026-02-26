@@ -139,12 +139,22 @@ export interface QAppSection {
   reports: string[]
 }
 
+export interface QWidgetDropdown {
+  name: string
+  label: string
+  possibleValueSourceName?: string
+  defaultValue?: string
+}
+
 export interface QWidgetMetaData {
   name: string
   label: string
   type?: string
   hasPermission: boolean
-  dropdowns?: Record<string, unknown>
+  gridColumns?: number
+  showReloadButton?: boolean
+  showExportButton?: boolean
+  dropdowns?: QWidgetDropdown[]
   helpContent?: QHelpContent
 }
 

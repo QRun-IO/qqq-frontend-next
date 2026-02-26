@@ -1,6 +1,6 @@
 'use client'
 
-// WidgetRenderer — Master dispatcher: receives widget metadata + data, renders the right component
+// WidgetRenderer -- Master dispatcher: receives widget metadata + data, renders the right component
 
 import React from 'react'
 
@@ -25,6 +25,8 @@ import { AlertWidget } from './AlertWidget'
 import type { AlertWidgetPayload } from './AlertWidget'
 import { ProcessSummaryWidget } from './ProcessSummaryWidget'
 import type { ProcessSummaryWidgetPayload } from './ProcessSummaryWidget'
+import { CompositeWidget } from './CompositeWidget'
+import type { CompositeWidgetProps } from './CompositeWidget'
 
 interface WidgetRendererProps {
   widgetMetaData: QWidgetMetaData
@@ -86,6 +88,14 @@ export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
         />
       )
 
+    case 'block':
+      return (
+        <BlockWidget
+          data={data as BlockWidgetPayload}
+          widgetName={name}
+        />
+      )
+
     case 'divider':
       return (
         <DividerWidget
@@ -117,6 +127,17 @@ export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
           widgetName={name}
         />
       )
+
+    case 'composite':
+    case 'parent': {
+      const compositeData = data as { childWidgets?: CompositeWidgetProps['childWidgets'] }
+      return (
+        <CompositeWidget
+          widgetMetaData={widgetMetaData}
+          childWidgets={compositeData.childWidgets ?? []}
+        />
+      )
+    }
 
     // The existing mock data uses 'chart' type with chartType discriminator
     case 'chart':

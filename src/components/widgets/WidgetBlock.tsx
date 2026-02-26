@@ -1,12 +1,12 @@
 'use client'
 
-// WidgetBlock — Container wrapper for all dashboard widgets
-// Shows label header, loading skeleton, error state, reload button
+// WidgetBlock -- Container wrapper for all dashboard widgets
+// Shows label header, loading skeleton, error state, reload button, export button, dropdowns
 
 import React from 'react'
-import { RefreshCw, HelpCircle } from 'lucide-react'
+import { RefreshCw, HelpCircle, Download } from 'lucide-react'
 
-import type { QWidgetMetaData } from '@/types'
+import type { QWidgetMetaData, QWidgetDropdown } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 
@@ -16,10 +16,19 @@ interface WidgetBlockProps {
   isError?: boolean
   error?: Error | null
   onReload?: () => void
+  onExport?: () => void
   children: React.ReactNode
   className?: string
   /** Optional: skip rendering the card border/header (for sub-widgets) */
   bare?: boolean
+  /** Dropdown configuration from widget metadata */
+  dropdowns?: QWidgetDropdown[]
+  /** Pre-fetched options for each dropdown, keyed by dropdown name */
+  dropdownOptions?: Record<string, Array<{ label: string; value: string }>>
+  /** Current dropdown selection values */
+  dropdownValues?: Record<string, string>
+  /** Callback when a dropdown value changes */
+  onDropdownChange?: (name: string, value: string) => void
 }
 
 export function WidgetBlock({
@@ -28,11 +37,20 @@ export function WidgetBlock({
   isError = false,
   error = null,
   onReload,
+  onExport,
   children,
   className,
   bare = false,
+  dropdowns,
+  dropdownOptions,
+  dropdownValues,
+  onDropdownChange,
 }: WidgetBlockProps) {
-  const { name, label, helpContent } = widgetMetaData
+  const { name, label, helpContent, showReloadButton, showExportButton } = widgetMetaData
+
+  // Show reload button by default for backward compat, but respect the flag when set
+  const shouldShowReload = showReloadButton !== false && onReload
+  const shouldShowExport = showExportButton === true
 
   if (bare) {
     return (
@@ -77,21 +95,54 @@ export function WidgetBlock({
           )}
         </div>
 
-        {onReload && (
-          <button
-            type="button"
-            onClick={onReload}
-            aria-label={`Reload ${label}`}
-            disabled={isLoading}
-            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-            data-qqq-id={`button-widget-reload-${name}`}
-          >
-            <RefreshCw
-              className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')}
-              aria-hidden="true"
-            />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Dropdown selects */}
+          {dropdowns?.map((dropdown) => (
+            <select
+              key={dropdown.name}
+              value={dropdownValues?.[dropdown.name] ?? ''}
+              onChange={(e) => onDropdownChange?.(dropdown.name, e.target.value)}
+              className="text-sm border rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+              aria-label={dropdown.label}
+              data-qqq-id={`widget-dropdown-${dropdown.name}`}
+            >
+              <option value="">-- {dropdown.label} --</option>
+              {(dropdownOptions?.[dropdown.name] ?? []).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          ))}
+
+          {/* Export button */}
+          {shouldShowExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              aria-label={`Export ${label}`}
+              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              data-qqq-id={`button-widget-export-${name}`}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+
+          {/* Reload button */}
+          {shouldShowReload && (
+            <button
+              type="button"
+              onClick={onReload}
+              aria-label={`Reload ${label}`}
+              disabled={isLoading}
+              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              data-qqq-id={`button-widget-reload-${name}`}
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Body */}

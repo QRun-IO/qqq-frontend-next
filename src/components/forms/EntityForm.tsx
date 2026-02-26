@@ -2,8 +2,9 @@
 
 // EntityForm — full create/edit form for a record
 // Wraps DynamicForm with React Hook Form + Zod validation + save/cancel actions
+// Includes unsaved changes guard for both browser navigation and client-side navigation
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils/cn'
 import { toast } from '@/lib/hooks/use-toast'
 
 import { DynamicForm } from './DynamicForm'
+import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 
 export interface EntityFormProps {
   // Required
@@ -71,16 +73,23 @@ export function EntityForm({
   const queryClient = useQueryClient()
   const isEdit = Boolean(record) && !isCopy
 
-  // Build Zod schema from metadata
-  const schema = zodSchemaFromTableMetadata(tableMetaData, fieldNamesToInclude)
+  // Unsaved changes dialog state
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
 
-  // Build default values
-  const computedDefaults: Record<string, unknown> = record
-    ? defaultValuesFromRecord(tableMetaData, record.values)
-    : {}
+  // Build Zod schema from metadata (memoized to avoid expensive recomputation)
+  const schema = useMemo(
+    () => zodSchemaFromTableMetadata(tableMetaData, fieldNamesToInclude),
+    [tableMetaData, fieldNamesToInclude]
+  )
 
-  // Merge with prop defaults
-  const mergedDefaults = { ...computedDefaults, ...propDefaultValues }
+  // Build default values (memoized to keep a stable reference for useForm)
+  const mergedDefaults = useMemo(() => {
+    const computedDefaults: Record<string, unknown> = record
+      ? defaultValuesFromRecord(tableMetaData, record.values)
+      : {}
+    return { ...computedDefaults, ...propDefaultValues }
+  }, [tableMetaData, record, propDefaultValues])
 
   const {
     register,
@@ -99,6 +108,46 @@ export function EntityForm({
       reset(defaultValuesFromRecord(tableMetaData, record.values))
     }
   }, [record, tableMetaData, reset])
+
+  // Browser-level navigation guard (tab close, URL change, refresh)
+  // Both e.preventDefault() and e.returnValue are required for cross-browser support:
+  // Chrome/Edge require returnValue to be set, Firefox/Safari rely on preventDefault().
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
+
+  // Navigation helper that checks for unsaved changes before proceeding
+  const guardedNavigate = useCallback(
+    (navigateFn: () => void) => {
+      if (isDirty) {
+        setPendingNavigation(() => navigateFn)
+        setShowUnsavedDialog(true)
+      } else {
+        navigateFn()
+      }
+    },
+    [isDirty]
+  )
+
+  const handleConfirmLeave = useCallback(() => {
+    setShowUnsavedDialog(false)
+    if (pendingNavigation) {
+      pendingNavigation()
+      setPendingNavigation(null)
+    }
+  }, [pendingNavigation])
+
+  const handleCancelLeave = useCallback(() => {
+    setShowUnsavedDialog(false)
+    setPendingNavigation(null)
+  }, [])
 
   // --- Mutations ---
   const insertMutation = useMutation({
@@ -148,14 +197,18 @@ export function EntityForm({
   }
 
   const handleCancel = () => {
-    if (onCancel) {
-      onCancel()
-    } else if (isEdit && record) {
-      const pk = record.values[tableMetaData.primaryKeyField]
-      router.push(`/app/${tableMetaData.name}/${pk}`)
-    } else {
-      router.push(`/app/${tableMetaData.name}`)
+    const doCancel = () => {
+      if (onCancel) {
+        onCancel()
+      } else if (isEdit && record) {
+        const pk = record.values[tableMetaData.primaryKeyField]
+        router.push(`/app/${tableMetaData.name}/${pk}`)
+      } else {
+        router.push(`/app/${tableMetaData.name}`)
+      }
     }
+
+    guardedNavigate(doCancel)
   }
 
   // Determine heading
@@ -209,8 +262,16 @@ export function EntityForm({
         disabled={disabled || isSubmitting}
       />
 
-      {/* Actions */}
-      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+      {/* Actions — sticky on mobile, static on desktop */}
+      <div
+        className={cn(
+          'sticky bottom-0 z-10 bg-white border-t border-gray-200 py-3 mt-4 -mx-6 px-6',
+          'flex items-center justify-end gap-3',
+          'md:static md:border-t md:mt-6 md:mx-0 md:px-0',
+          'dark:border-gray-700 dark:bg-gray-900'
+        )}
+        data-qqq-id="entity-form-actions"
+      >
         <button
           type="button"
           onClick={handleCancel}
@@ -251,16 +312,25 @@ export function EntityForm({
     </form>
   )
 
-  if (isModal) {
-    return (
-      <div data-qqq-id={`entity-form-modal-${tableMetaData.name}`}>
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
+  return (
+    <>
+      {isModal ? (
+        <div data-qqq-id={`entity-form-modal-${tableMetaData.name}`}>
+          <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
+          </div>
+          <div className="p-6">{formContent}</div>
         </div>
-        <div className="p-6">{formContent}</div>
-      </div>
-    )
-  }
+      ) : (
+        formContent
+      )}
 
-  return formContent
+      {/* Unsaved changes confirmation dialog */}
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        onStay={handleCancelLeave}
+        onLeave={handleConfirmLeave}
+      />
+    </>
+  )
 }

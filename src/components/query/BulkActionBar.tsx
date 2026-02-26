@@ -1,11 +1,12 @@
 'use client'
 
-// BulkActionBar — shows when rows are selected; provides bulk actions
+// BulkActionBar — shows when rows are selected; provides bulk actions including process launcher
 
 import React from 'react'
-import { X, Trash2, Download, ChevronDown } from 'lucide-react'
+import { X, Trash2, Download } from 'lucide-react'
 
-import type { QTableMetaData } from '@/types'
+import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
+import { ProcessLauncherMenu } from './ProcessLauncherMenu'
 
 interface BulkActionBarProps {
   tableMetaData: QTableMetaData
@@ -15,6 +16,9 @@ interface BulkActionBarProps {
   onDeleteSelected?: () => void
   onExportSelected?: () => void
   onRunProcess?: (processName: string) => void
+  processes?: QProcessMetaData[]
+  selectedRecordIds?: (string | number)[]
+  currentFilter?: QQueryFilter
 }
 
 export function BulkActionBar({
@@ -25,11 +29,14 @@ export function BulkActionBar({
   onDeleteSelected,
   onExportSelected,
   onRunProcess,
+  processes,
+  selectedRecordIds,
+  currentFilter,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null
 
-  // Get table-associated processes from global metadata (if available)
   const canDelete = tableMetaData.deletePermission
+  const hasProcesses = processes && processes.length > 0
 
   return (
     <div
@@ -84,19 +91,14 @@ export function BulkActionBar({
           </button>
         )}
 
-        {onRunProcess && (
-          <div className="relative">
-            <button
-              type="button"
-              className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-              aria-label="Run process on selected records"
-              aria-haspopup="true"
-              data-qqq-id="bulk-run-process"
-            >
-              Run Process
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
+        {/* Process launcher in bulk action bar */}
+        {hasProcesses && selectedRecordIds && currentFilter && (
+          <ProcessLauncherMenu
+            processes={processes}
+            selectedRecordIds={selectedRecordIds}
+            tableName={tableMetaData.name}
+            currentFilter={currentFilter}
+          />
         )}
       </div>
     </div>

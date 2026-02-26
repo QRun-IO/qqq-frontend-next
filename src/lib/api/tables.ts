@@ -64,7 +64,12 @@ export async function insertRecord(
 ): Promise<QRecord> {
   const formData = new FormData()
   for (const [key, value] of Object.entries(values)) {
-    if (value !== null && value !== undefined) {
+    if (value === null || value === undefined) continue
+    if (value instanceof File) {
+      formData.append(key, value)
+    } else if (Array.isArray(value)) {
+      formData.append(key, JSON.stringify(value))
+    } else {
       formData.append(key, String(value))
     }
   }
@@ -80,7 +85,12 @@ export async function updateRecord(
 ): Promise<QRecord> {
   const formData = new FormData()
   for (const [key, value] of Object.entries(values)) {
-    if (value !== null && value !== undefined) {
+    if (value === null || value === undefined) continue
+    if (value instanceof File) {
+      formData.append(key, value)
+    } else if (Array.isArray(value)) {
+      formData.append(key, JSON.stringify(value))
+    } else {
       formData.append(key, String(value))
     }
   }

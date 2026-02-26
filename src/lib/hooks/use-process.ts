@@ -3,7 +3,7 @@
 // use-process — TanStack Query hook for managing full process lifecycle
 // Handles init, step submission, async polling, and cancellation
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 
@@ -106,6 +106,9 @@ export function useProcess(
   const stateRef = useRef(state)
   stateRef.current = state
 
+  // Track poll count for exponential backoff
+  const pollCountRef = useRef(0)
+
   // Keep a ref to processMetaData steps (may change via processMetaDataAdjustment)
   const stepsRef = useRef<QFrontendStepMetaData[]>(processMetaData?.frontendSteps ?? [])
 
@@ -138,7 +141,8 @@ export function useProcess(
       }
 
       if (isJobStarted(response)) {
-        // Async job — need to poll
+        // Async job — need to poll; reset backoff counter
+        pollCountRef.current = 0
         setState((prev) => ({
           ...prev,
           processUUID,
@@ -227,11 +231,16 @@ export function useProcess(
       processStatus(processName, state.processUUID!, state.jobUUID!),
     enabled: pollingEnabled,
     refetchInterval: (query) => {
-      // Stop polling when job completes or errors
+      // Exponential backoff: 1.5s initial, 1.5x multiplier, 12s max
       const data = query.state.data as QJobResponse | undefined
-      if (!data) return 1000
-      if (isJobComplete(data) || isJobError(data)) return false
-      return 1000
+      if (!data) return 1500
+      if (isJobComplete(data) || isJobError(data)) {
+        pollCountRef.current = 0
+        return false
+      }
+      const interval = Math.min(1500 * Math.pow(1.5, pollCountRef.current), 12000)
+      pollCountRef.current += 1
+      return interval
     },
     staleTime: 0,
     gcTime: 0,
@@ -239,7 +248,7 @@ export function useProcess(
 
   // Subscribe to query cache updates for polling
   // When the polling query resolves, forward the result to handleJobResponse
-  useState(() => {
+  useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event.type !== 'updated') return
       if (stateRef.current.status !== 'polling') return
@@ -255,8 +264,8 @@ export function useProcess(
       if (isJobRunning(data)) return
       handleJobResponse(data, stateRef.current.processUUID!)
     })
-    return unsubscribe
-  })
+    return () => unsubscribe()
+  }, [queryClient, processName, handleJobResponse])
 
   // ─── Init ─────────────────────────────────────────────────────────────────
 

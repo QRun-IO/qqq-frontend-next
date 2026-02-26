@@ -2,11 +2,17 @@
 
 // RecordView — displays a single record with sections, field values, and related records
 // Metadata-driven: renders entirely from QTableMetaData + QRecord
+// Features:
+// - Differentiated error handling (403, 404, 500)
+// - Collapsible sections on mobile
+// - T2 sections collapsed by default
 
 import React from 'react'
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
+import { AxiosError } from 'axios'
 
-import type { QTableMetaData, QRecord } from '@/types'
+import type { QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -23,7 +29,30 @@ interface RecordViewProps {
   onRefetch?: () => void
   /** Hide the actions bar (edit/delete/copy buttons) */
   hideActions?: boolean
+  /** Widget metadata map for sections that render widgets */
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
   className?: string
+}
+
+/**
+ * Extracts an HTTP status code from an error, if available.
+ * Supports AxiosError and generic error objects with a `status` property.
+ */
+function getErrorStatusCode(error: Error | null | undefined): number | undefined {
+  if (!error) return undefined
+
+  // AxiosError provides response.status
+  if ('response' in error) {
+    const axiosErr = error as AxiosError
+    return axiosErr.response?.status
+  }
+
+  // Some error wrappers expose status directly
+  if ('status' in error && typeof (error as Record<string, unknown>).status === 'number') {
+    return (error as Record<string, unknown>).status as number
+  }
+
+  return undefined
 }
 
 export function RecordView({
@@ -34,8 +63,11 @@ export function RecordView({
   error,
   onRefetch,
   hideActions = false,
+  widgetMetaDataMap,
   className,
 }: RecordViewProps) {
+  const router = useRouter()
+
   // Loading state
   if (isLoading) {
     return (
@@ -55,8 +87,84 @@ export function RecordView({
     )
   }
 
-  // Error state
+  // Error state — differentiated by HTTP status code
   if (isError || !record) {
+    const statusCode = getErrorStatusCode(error)
+
+    // 403 Forbidden
+    if (statusCode === 403) {
+      return (
+        <div
+          className={cn(
+            'flex flex-col items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 p-12 text-center dark:border-yellow-800 dark:bg-yellow-900/10',
+            className
+          )}
+          data-qqq-id={`record-view-forbidden-${tableMetaData.name}`}
+          role="alert"
+        >
+          <ShieldX className="mb-3 h-10 w-10 text-yellow-500 dark:text-yellow-400" aria-hidden="true" />
+          <h3 className="text-base font-semibold text-yellow-700 dark:text-yellow-400">
+            Permission Denied
+          </h3>
+          <p className="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
+            You don&apos;t have permission to view this record.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            data-qqq-id="button-go-back"
+            className={cn(
+              'mt-4 inline-flex items-center gap-2 rounded-md border border-yellow-300 px-4 py-2 text-sm font-medium',
+              'text-yellow-700 bg-white hover:bg-yellow-50',
+              'focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2',
+              'transition-colors duration-150'
+            )}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Go Back
+          </button>
+        </div>
+      )
+    }
+
+    // 404 Not Found
+    if (statusCode === 404) {
+      return (
+        <div
+          className={cn(
+            'flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-12 text-center dark:border-gray-700 dark:bg-gray-800/30',
+            className
+          )}
+          data-qqq-id={`record-view-not-found-${tableMetaData.name}`}
+          role="alert"
+        >
+          <FileQuestion className="mb-3 h-10 w-10 text-gray-400" aria-hidden="true" />
+          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">
+            Record Not Found
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            The {tableMetaData.label} record you are looking for does not exist or has been deleted.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/app/${tableMetaData.name}`)}
+            data-qqq-id="button-back-to-table"
+            className={cn(
+              'mt-4 inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium',
+              'text-gray-700 bg-white hover:bg-gray-50',
+              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+              'dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700',
+              'transition-colors duration-150'
+            )}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to {tableMetaData.label}
+          </button>
+        </div>
+      )
+    }
+
+    // Default error (500 or unknown)
     return (
       <div
         className={cn(
@@ -68,7 +176,9 @@ export function RecordView({
       >
         <AlertCircle className="mb-3 h-10 w-10 text-red-400" aria-hidden="true" />
         <h3 className="text-base font-semibold text-red-700 dark:text-red-400">
-          Failed to load {tableMetaData.label}
+          {statusCode === 500
+            ? 'Server Error'
+            : `Failed to load ${tableMetaData.label}`}
         </h3>
         {error && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error.message}</p>
@@ -77,6 +187,7 @@ export function RecordView({
           <button
             type="button"
             onClick={onRefetch}
+            data-qqq-id="button-retry"
             className={cn(
               'mt-4 inline-flex items-center gap-2 rounded-md border border-red-300 px-4 py-2 text-sm font-medium',
               'text-red-700 bg-white hover:bg-red-50',
@@ -184,7 +295,7 @@ export function RecordView({
                           (joinRecord.values[field.name] !== undefined &&
                           joinRecord.values[field.name] !== null
                             ? String(joinRecord.values[field.name])
-                            : '—')}
+                            : '\u2014')}
                       </span>
                     </dd>
                   </div>
@@ -197,21 +308,44 @@ export function RecordView({
       {/* Field sections */}
       {hasAnySections ? (
         <div className="space-y-8">
-          {/* Primary sections */}
+          {/* Primary sections — open by default on all devices, collapsible on mobile */}
           {(primarySections.length > 0 ? primarySections : visibleSections).map((section) => (
             <div
               key={section.name}
-              className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+              className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900"
             >
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-              />
+              {/* On mobile: collapsible via details/summary; on desktop: always visible */}
+              <details
+                open
+                className="group md:[&>summary]:hidden md:[&>summary]:pointer-events-none"
+              >
+                <summary
+                  className={cn(
+                    'flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold',
+                    'text-gray-700 dark:text-gray-300',
+                    'md:hidden',
+                    '[&::-webkit-details-marker]:hidden'
+                  )}
+                  data-qqq-id={`section-toggle-${section.name}`}
+                >
+                  <span>{section.label || section.name}</span>
+                  <span className="text-gray-400 group-open:rotate-180 transition-transform" aria-hidden="true">
+                    &#9660;
+                  </span>
+                </summary>
+                <div className="p-6 md:pt-6">
+                  <RecordViewSection
+                    section={section}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                  />
+                </div>
+              </details>
             </div>
           ))}
 
-          {/* Secondary/advanced sections */}
+          {/* Secondary/advanced sections — collapsed by default */}
           {secondarySections.length > 0 && (
             <details className="group">
               <summary
@@ -235,6 +369,7 @@ export function RecordView({
                       section={section}
                       tableMetaData={tableMetaData}
                       record={record}
+                      widgetMetaDataMap={widgetMetaDataMap}
                     />
                   </div>
                 ))}

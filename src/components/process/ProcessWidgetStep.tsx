@@ -1,104 +1,64 @@
 'use client'
 
-// ProcessFormStep — renders a FORM step using DynamicForm from Package 3
+// ProcessWidgetStep -- renders a WIDGET step
+// Displays widget content from stepValues and/or viewFields.
+// The actual widget rendering is deferred to widget infrastructure;
+// this component provides the step shell with navigation.
 
-import React, { useState, useMemo } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, ChevronRight, X } from 'lucide-react'
+import React, { useState } from 'react'
+import { ChevronRight, X, LayoutGrid } from 'lucide-react'
 
-import type { QFrontendStepMetaData } from '@/types'
-import { zodSchemaFromFields } from '@/lib/utils/zod-from-metadata'
+import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
-import { DynamicForm } from '@/components/forms/DynamicForm'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
-export interface ProcessFormStepProps {
+export interface ProcessWidgetStepProps {
   step: QFrontendStepMetaData
-  processName: string
   stepValues: Record<string, unknown>
-  isLastStep: boolean
   isLoading: boolean
-  onSubmit: (values: Record<string, unknown>, file?: File) => Promise<void>
+  onSubmit: (values: Record<string, unknown>) => Promise<void>
   onCancel: () => void
   onBack?: () => void
   canGoBack: boolean
+  isLastStep: boolean
 }
 
-export function ProcessFormStep({
+function formatFieldValue(field: QFieldMetaData, value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '\u2014'
+  }
+  if (field.type === 'BOOLEAN') {
+    return value === true || value === 'true' || value === 1 ? 'Yes' : 'No'
+  }
+  return String(value)
+}
+
+export function ProcessWidgetStep({
   step,
-  processName,
   stepValues,
-  isLastStep,
   isLoading,
   onSubmit,
   onCancel,
   onBack,
   canGoBack,
-}: ProcessFormStepProps) {
+  isLastStep,
+}: ProcessWidgetStepProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const fields = step.formFields ?? []
+  const viewFields = step.viewFields ?? []
 
-  // Build Zod schema from field metadata
-  const schema = useMemo(
-    () => zodSchemaFromFields(fields),
-    [fields]
-  )
-
-  // Build default values from existing step values
-  const defaultValues: Record<string, unknown> = {}
-  for (const field of fields) {
-    const existing = stepValues[field.name]
-    if (existing !== undefined) {
-      defaultValues[field.name] = existing
-    } else if (field.defaultValue !== undefined) {
-      defaultValues[field.name] = field.defaultValue
-    } else if (field.type === 'BOOLEAN') {
-      defaultValues[field.name] = false
-    } else {
-      defaultValues[field.name] = ''
-    }
-  }
-
-  const {
-    register,
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(schema),
-    defaultValues,
-  })
-
-  const onFormSubmit = async (values: Record<string, unknown>) => {
-    // Extract file from values if any FILE_UPLOAD field exists
-    let file: File | undefined
-    const fileField = fields.find((f) =>
-      f.adornments?.some((a) => a.type === 'FILE_UPLOAD') || f.type === 'BLOB'
-    )
-    if (fileField && values[fileField.name] instanceof File) {
-      file = values[fileField.name] as File
-      // Remove file from values — it's sent separately as multipart
-      const valuesWithoutFile = Object.fromEntries(
-        Object.entries(values).filter(([k]) => k !== fileField.name)
-      )
-      await onSubmit(valuesWithoutFile, file)
-    } else {
-      await onSubmit(values)
-    }
-  }
+  // Look for the WIDGET component to extract widget metadata
+  const widgetComponent = step.components.find((c) => c.type === 'WIDGET')
+  const widgetName = widgetComponent?.values?.widgetName as string | undefined
 
   // Help text from HELP_TEXT components
   const helpTextComponents = step.components.filter((c) => c.type === 'HELP_TEXT')
 
+  // Check for widget HTML content that may have been rendered server-side
+  const widgetHtml = (stepValues.widgetHtml ?? stepValues.html) as string | undefined
+
   return (
-    <form
-      onSubmit={handleSubmit(onFormSubmit)}
-      noValidate
-      className="space-y-6"
-      data-qqq-id={`process-form-step-${step.name}`}
-    >
+    <div className="space-y-6" data-qqq-id="process-widget-step">
       {/* Help text */}
       {helpTextComponents.map((comp, idx) => (
         <div
@@ -110,22 +70,50 @@ export function ProcessFormStep({
         </div>
       ))}
 
-      {/* Dynamic form fields */}
-      {fields.length > 0 && (
-        <DynamicForm
-          register={register}
-          control={control}
-          errors={errors}
-          fields={fields}
-          possibleValueContext={{ type: 'process', processName }}
-          disabled={isLoading}
+      {/* Widget content */}
+      {widgetHtml ? (
+        <div
+          className="prose prose-sm max-w-none rounded-lg border border-gray-200 bg-white p-4 dark:prose-invert dark:border-gray-700 dark:bg-gray-800"
+          dangerouslySetInnerHTML={{ __html: widgetHtml }}
+          data-qqq-id="process-widget-html"
         />
+      ) : (
+        <div
+          className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50"
+          data-qqq-id="process-widget-placeholder"
+        >
+          <LayoutGrid
+            className="h-10 w-10 text-gray-400 dark:text-gray-500"
+            aria-hidden="true"
+          />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {widgetName
+              ? `Widget: ${widgetName}`
+              : 'Widget content will be displayed here.'}
+          </p>
+        </div>
       )}
 
-      {fields.length === 0 && helpTextComponents.length === 0 && (
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          No fields to fill in for this step.
-        </div>
+      {/* View fields */}
+      {viewFields.length > 0 && (
+        <dl
+          className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+          data-qqq-id="process-widget-view-fields"
+        >
+          {viewFields.map((field) => (
+            <div
+              key={field.name}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
+            >
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 sm:flex-shrink-0">
+                {field.label}
+              </dt>
+              <dd className="text-sm text-gray-900 dark:text-gray-100 sm:flex-1">
+                {formatFieldValue(field, stepValues[field.name])}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       {/* Actions */}
@@ -170,7 +158,8 @@ export function ProcessFormStep({
             )}
 
             <button
-              type="submit"
+              type="button"
+              onClick={() => onSubmit(stepValues)}
               disabled={isLoading}
               data-qqq-id="button-next"
               className={cn(
@@ -181,12 +170,8 @@ export function ProcessFormStep({
                 'transition-colors duration-150'
               )}
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              )}
-              {isLoading ? 'Processing...' : isLastStep ? 'Submit' : 'Next'}
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              {isLastStep ? 'Submit' : 'Next'}
             </button>
           </div>
         </div>
@@ -197,6 +182,6 @@ export function ProcessFormStep({
         onOpenChange={setShowCancelDialog}
         onConfirm={onCancel}
       />
-    </form>
+    </div>
   )
 }
