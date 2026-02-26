@@ -4,7 +4,8 @@
 // Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, etc.
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Plus,
   SlidersHorizontal,
@@ -17,6 +18,7 @@ import {
   LayoutList,
   LayoutGrid,
   Table2,
+  ArrowLeft,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -25,6 +27,7 @@ import { useRecordQuery } from '@/lib/hooks/use-record-query'
 import type { Density, PageSize } from '@/lib/hooks/use-record-query'
 import { countActiveCriteria } from '@/lib/utils/filter-utils'
 import { queryKeys } from '@/lib/query-client'
+import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
 import { DataGrid } from './DataGrid'
 import { FilterBuilder } from './FilterBuilder'
@@ -53,10 +56,18 @@ const DENSITY_OPTIONS: { value: Density; label: string }[] = [
 
 export function RecordQuery({ tableName, tableMetaData, processes }: RecordQueryProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromPath = searchParams.get('from')
+  const fromLabel = searchParams.get('fromLabel')
   const queryClient = useQueryClient()
   const quickSearchRef = useRef<HTMLInputElement>(null)
+  const { preferences } = useUserPreferences()
 
-  const rq = useRecordQuery({ tableName, tableMetaData })
+  const rq = useRecordQuery({
+    tableName,
+    tableMetaData,
+    initialPageSize: preferences.tableDefaultPageSize,
+  })
 
   // Debounced quick search
   const [localSearchTerm, setLocalSearchTerm] = useState(rq.quickSearchTerm)
@@ -77,12 +88,12 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   const [densityOpen, setDensityOpen] = useState(false)
   const activeFilterCount = countActiveCriteria(rq.userFilter)
 
-  // View mode: grid vs card — default to card on mobile
+  // View mode: grid vs card — default from user preferences (card on mobile)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       return 'card'
     }
-    return 'grid'
+    return preferences.tableDefaultViewMode
   })
 
   // Mobile filter bottom-sheet state
@@ -124,6 +135,18 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
 
   return (
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`}>
+      {/* Back link — shown when navigated from another record (e.g., "View All" related records) */}
+      {fromPath && (
+        <Link
+          href={fromPath}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          data-qqq-id="link-back-to-source"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to {fromLabel || 'previous page'}
+        </Link>
+      )}
+
       {/* ============================================================
           Toolbar
       ============================================================ */}

@@ -78,6 +78,7 @@ export default function RecordViewPage() {
       error={error}
       onRefetch={refetch}
       processes={tableProcesses}
+      allTables={metaData?.tables}
     />
   )
 }

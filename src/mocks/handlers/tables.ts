@@ -9,6 +9,7 @@ import { orderRecords } from '../fixtures/records/order'
 import { orderLineRecords } from '../fixtures/records/order-line'
 import { productRecords } from '../fixtures/records/product'
 import { supplierRecords } from '../fixtures/records/supplier'
+import { auditRecords } from '../fixtures/records/audits'
 
 const BASE = '/qqq/v1'
 
@@ -253,6 +254,14 @@ export const tableHandlers = [
     return HttpResponse.json({ count: filtered.length, distinctCount: filtered.length })
   }),
 
+  // GET /table/:tableName/:primaryKey/audits
+  http.get(`${BASE}/table/:tableName/:primaryKey/audits`, ({ params }) => {
+    const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
+    const key = `${tableName}:${primaryKey}`
+    const records = auditRecords[key] ?? []
+    return HttpResponse.json({ records })
+  }),
+
   // GET /table/:tableName/:primaryKey
   http.get(`${BASE}/table/:tableName/:primaryKey`, ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
@@ -286,6 +295,30 @@ export const tableHandlers = [
         ) ?? []
         if (orderLines.length > 0) {
           associatedRecords['orderLine'] = orderLines
+        }
+      }
+
+      if (tableName === 'person') {
+        const orders = store['order']?.filter(
+          (r) => String(r.values['personId']) === primaryKey
+        ) ?? []
+        if (orders.length > 0) {
+          associatedRecords['order'] = orders
+        }
+      }
+
+      if (tableName === 'company') {
+        const orders = store['order']?.filter(
+          (r) => String(r.values['companyId']) === primaryKey
+        ) ?? []
+        if (orders.length > 0) {
+          associatedRecords['order'] = orders
+        }
+        const people = store['person']?.filter(
+          (r) => String(r.values['companyId']) === primaryKey
+        ) ?? []
+        if (people.length > 0) {
+          associatedRecords['person'] = people
         }
       }
 

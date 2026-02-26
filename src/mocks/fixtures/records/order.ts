@@ -15,6 +15,8 @@ export const orderRecords: QRecord[] = [
       total: 14500.00,
       orderDate: '2024-01-08T10:30:00',
       notes: 'Rush delivery requested.',
+      createDate: '2024-01-08T10:30:00',
+      modifyDate: '2024-01-12T15:20:00',
     },
     displayValues: {
       id: '1',
@@ -22,6 +24,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Globex Corporation',
       total: '$14,500.00',
       orderDate: '01/08/2024 10:30 AM',
+      createDate: '01/08/2024 10:30 AM',
+      modifyDate: '01/12/2024 3:20 PM',
     },
   },
   {
@@ -36,6 +40,8 @@ export const orderRecords: QRecord[] = [
       total: 3200.00,
       orderDate: '2024-01-15T14:00:00',
       notes: null,
+      createDate: '2024-01-15T14:00:00',
+      modifyDate: '2024-01-20T09:10:00',
     },
     displayValues: {
       id: '2',
@@ -43,6 +49,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Acme Corp',
       total: '$3,200.00',
       orderDate: '01/15/2024 2:00 PM',
+      createDate: '01/15/2024 2:00 PM',
+      modifyDate: '01/20/2024 9:10 AM',
     },
   },
   {
@@ -57,6 +65,8 @@ export const orderRecords: QRecord[] = [
       total: 8750.50,
       orderDate: '2024-01-22T09:15:00',
       notes: 'Annual renewal subscription.',
+      createDate: '2024-01-22T09:15:00',
+      modifyDate: '2024-02-05T11:40:00',
     },
     displayValues: {
       id: '3',
@@ -64,6 +74,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Initech',
       total: '$8,750.50',
       orderDate: '01/22/2024 9:15 AM',
+      createDate: '01/22/2024 9:15 AM',
+      modifyDate: '02/05/2024 11:40 AM',
     },
   },
   {
@@ -78,6 +90,8 @@ export const orderRecords: QRecord[] = [
       total: 42000.00,
       orderDate: '2024-02-01T11:00:00',
       notes: 'Requires executive sign-off.',
+      createDate: '2024-02-01T11:00:00',
+      modifyDate: '2024-03-18T14:55:00',
     },
     displayValues: {
       id: '4',
@@ -85,6 +99,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Umbrella Inc',
       total: '$42,000.00',
       orderDate: '02/01/2024 11:00 AM',
+      createDate: '02/01/2024 11:00 AM',
+      modifyDate: '03/18/2024 2:55 PM',
     },
   },
   {
@@ -99,6 +115,8 @@ export const orderRecords: QRecord[] = [
       total: 650.00,
       orderDate: '2024-02-05T15:45:00',
       notes: 'Customer cancelled — budget freeze.',
+      createDate: '2024-02-05T15:45:00',
+      modifyDate: '2024-02-08T10:30:00',
     },
     displayValues: {
       id: '5',
@@ -106,6 +124,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Dunder Mifflin',
       total: '$650.00',
       orderDate: '02/05/2024 3:45 PM',
+      createDate: '02/05/2024 3:45 PM',
+      modifyDate: '02/08/2024 10:30 AM',
     },
   },
   {
@@ -120,6 +140,8 @@ export const orderRecords: QRecord[] = [
       total: 125000.00,
       orderDate: '2024-02-12T08:00:00',
       notes: 'Enterprise deal — see contract #ENT-2024-006.',
+      createDate: '2024-02-12T08:00:00',
+      modifyDate: '2024-03-01T16:45:00',
     },
     displayValues: {
       id: '6',
@@ -127,6 +149,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Massive Dynamic',
       total: '$125,000.00',
       orderDate: '02/12/2024 8:00 AM',
+      createDate: '02/12/2024 8:00 AM',
+      modifyDate: '03/01/2024 4:45 PM',
     },
   },
   {
@@ -141,6 +165,8 @@ export const orderRecords: QRecord[] = [
       total: 78500.00,
       orderDate: '2024-02-19T13:30:00',
       notes: null,
+      createDate: '2024-02-19T13:30:00',
+      modifyDate: '2024-02-28T08:15:00',
     },
     displayValues: {
       id: '7',
@@ -148,6 +174,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Stark Industries',
       total: '$78,500.00',
       orderDate: '02/19/2024 1:30 PM',
+      createDate: '02/19/2024 1:30 PM',
+      modifyDate: '02/28/2024 8:15 AM',
     },
   },
   {
@@ -162,6 +190,8 @@ export const orderRecords: QRecord[] = [
       total: 23400.00,
       orderDate: '2024-02-25T16:00:00',
       notes: 'Pending legal review.',
+      createDate: '2024-02-25T16:00:00',
+      modifyDate: '2024-04-10T11:20:00',
     },
     displayValues: {
       id: '8',
@@ -169,6 +199,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Wayne Enterprises',
       total: '$23,400.00',
       orderDate: '02/25/2024 4:00 PM',
+      createDate: '02/25/2024 4:00 PM',
+      modifyDate: '04/10/2024 11:20 AM',
     },
   },
   {
@@ -183,6 +215,8 @@ export const orderRecords: QRecord[] = [
       total: 5200.00,
       orderDate: '2024-03-04T10:00:00',
       notes: null,
+      createDate: '2024-03-04T10:00:00',
+      modifyDate: '2024-03-15T13:30:00',
     },
     displayValues: {
       id: '9',
@@ -190,6 +224,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Globex Corporation',
       total: '$5,200.00',
       orderDate: '03/04/2024 10:00 AM',
+      createDate: '03/04/2024 10:00 AM',
+      modifyDate: '03/15/2024 1:30 PM',
     },
   },
   {
@@ -204,6 +240,8 @@ export const orderRecords: QRecord[] = [
       total: 9875.00,
       orderDate: '2024-03-10T09:45:00',
       notes: 'Replacement order for damaged goods.',
+      createDate: '2024-03-10T09:45:00',
+      modifyDate: '2024-04-02T10:00:00',
     },
     displayValues: {
       id: '10',
@@ -211,6 +249,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Acme Corp',
       total: '$9,875.00',
       orderDate: '03/10/2024 9:45 AM',
+      createDate: '03/10/2024 9:45 AM',
+      modifyDate: '04/02/2024 10:00 AM',
     },
   },
   {
@@ -225,6 +265,8 @@ export const orderRecords: QRecord[] = [
       total: 67300.00,
       orderDate: '2024-03-15T14:30:00',
       notes: 'Multi-year licensing agreement.',
+      createDate: '2024-03-15T14:30:00',
+      modifyDate: '2024-05-20T09:50:00',
     },
     displayValues: {
       id: '11',
@@ -232,6 +274,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Umbrella Inc',
       total: '$67,300.00',
       orderDate: '03/15/2024 2:30 PM',
+      createDate: '03/15/2024 2:30 PM',
+      modifyDate: '05/20/2024 9:50 AM',
     },
   },
   {
@@ -246,6 +290,8 @@ export const orderRecords: QRecord[] = [
       total: 18950.00,
       orderDate: '2024-03-20T11:15:00',
       notes: null,
+      createDate: '2024-03-20T11:15:00',
+      modifyDate: '2024-04-05T14:00:00',
     },
     displayValues: {
       id: '12',
@@ -253,6 +299,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Wayne Enterprises',
       total: '$18,950.00',
       orderDate: '03/20/2024 11:15 AM',
+      createDate: '03/20/2024 11:15 AM',
+      modifyDate: '04/05/2024 2:00 PM',
     },
   },
   {
@@ -267,6 +315,8 @@ export const orderRecords: QRecord[] = [
       total: 31200.00,
       orderDate: '2024-03-28T08:30:00',
       notes: 'Expedited shipping applied.',
+      createDate: '2024-03-28T08:30:00',
+      modifyDate: '2024-04-08T16:15:00',
     },
     displayValues: {
       id: '13',
@@ -274,6 +324,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Globex Corporation',
       total: '$31,200.00',
       orderDate: '03/28/2024 8:30 AM',
+      createDate: '03/28/2024 8:30 AM',
+      modifyDate: '04/08/2024 4:15 PM',
     },
   },
   {
@@ -288,6 +340,8 @@ export const orderRecords: QRecord[] = [
       total: 54700.00,
       orderDate: '2024-04-02T15:00:00',
       notes: 'Q2 volume purchase.',
+      createDate: '2024-04-02T15:00:00',
+      modifyDate: '2024-04-22T10:30:00',
     },
     displayValues: {
       id: '14',
@@ -295,6 +349,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Umbrella Inc',
       total: '$54,700.00',
       orderDate: '04/02/2024 3:00 PM',
+      createDate: '04/02/2024 3:00 PM',
+      modifyDate: '04/22/2024 10:30 AM',
     },
   },
   {
@@ -309,6 +365,8 @@ export const orderRecords: QRecord[] = [
       total: 89000.00,
       orderDate: '2024-04-08T10:00:00',
       notes: 'Add-on modules to existing enterprise deal.',
+      createDate: '2024-04-08T10:00:00',
+      modifyDate: '2024-05-15T13:20:00',
     },
     displayValues: {
       id: '15',
@@ -316,6 +374,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Massive Dynamic',
       total: '$89,000.00',
       orderDate: '04/08/2024 10:00 AM',
+      createDate: '04/08/2024 10:00 AM',
+      modifyDate: '05/15/2024 1:20 PM',
     },
   },
   {
@@ -330,6 +390,8 @@ export const orderRecords: QRecord[] = [
       total: 44500.00,
       orderDate: '2024-04-14T09:00:00',
       notes: null,
+      createDate: '2024-04-14T09:00:00',
+      modifyDate: '2024-06-01T15:45:00',
     },
     displayValues: {
       id: '16',
@@ -337,6 +399,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Stark Industries',
       total: '$44,500.00',
       orderDate: '04/14/2024 9:00 AM',
+      createDate: '04/14/2024 9:00 AM',
+      modifyDate: '06/01/2024 3:45 PM',
     },
   },
   {
@@ -351,6 +415,8 @@ export const orderRecords: QRecord[] = [
       total: 7600.00,
       orderDate: '2024-04-20T13:00:00',
       notes: 'Quarterly order.',
+      createDate: '2024-04-20T13:00:00',
+      modifyDate: '2024-05-02T09:30:00',
     },
     displayValues: {
       id: '17',
@@ -358,6 +424,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Initech',
       total: '$7,600.00',
       orderDate: '04/20/2024 1:00 PM',
+      createDate: '04/20/2024 1:00 PM',
+      modifyDate: '05/02/2024 9:30 AM',
     },
   },
   {
@@ -372,6 +440,8 @@ export const orderRecords: QRecord[] = [
       total: 28900.00,
       orderDate: '2024-04-26T11:45:00',
       notes: 'Security compliance package.',
+      createDate: '2024-04-26T11:45:00',
+      modifyDate: '2024-05-18T14:10:00',
     },
     displayValues: {
       id: '18',
@@ -379,6 +449,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Wayne Enterprises',
       total: '$28,900.00',
       orderDate: '04/26/2024 11:45 AM',
+      createDate: '04/26/2024 11:45 AM',
+      modifyDate: '05/18/2024 2:10 PM',
     },
   },
   {
@@ -393,6 +465,8 @@ export const orderRecords: QRecord[] = [
       total: 195000.00,
       orderDate: '2024-05-01T09:30:00',
       notes: 'Renewal + upgrade. Awaiting final budget approval.',
+      createDate: '2024-05-01T09:30:00',
+      modifyDate: '2024-07-22T11:00:00',
     },
     displayValues: {
       id: '19',
@@ -400,6 +474,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Globex Corporation',
       total: '$195,000.00',
       orderDate: '05/01/2024 9:30 AM',
+      createDate: '05/01/2024 9:30 AM',
+      modifyDate: '07/22/2024 11:00 AM',
     },
   },
   {
@@ -414,6 +490,8 @@ export const orderRecords: QRecord[] = [
       total: 61500.00,
       orderDate: '2024-05-06T14:00:00',
       notes: 'Custom integration project.',
+      createDate: '2024-05-06T14:00:00',
+      modifyDate: '2024-08-12T16:30:00',
     },
     displayValues: {
       id: '20',
@@ -421,6 +499,8 @@ export const orderRecords: QRecord[] = [
       companyId: 'Umbrella Inc',
       total: '$61,500.00',
       orderDate: '05/06/2024 2:00 PM',
+      createDate: '05/06/2024 2:00 PM',
+      modifyDate: '08/12/2024 4:30 PM',
     },
   },
 ]

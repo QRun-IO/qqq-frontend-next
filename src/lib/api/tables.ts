@@ -1,6 +1,6 @@
 // Table data API functions
 
-import type { QRecord, QQueryFilter, QueryJoin } from '@/types'
+import type { QRecord, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
 import apiClient from './client'
 
 export interface QueryRecordsRequest {
@@ -134,4 +134,18 @@ export async function globalSearch(
     // If /search endpoint is not available (404), return empty results
     return []
   }
+}
+
+export interface AuditRecordsResponse {
+  records: QAuditRecord[]
+}
+
+export async function getAuditRecords(
+  tableName: string,
+  primaryKey: string | number
+): Promise<QAuditRecord[]> {
+  const response = await apiClient.get<AuditRecordsResponse>(
+    `/table/${encodeURIComponent(tableName)}/${primaryKey}/audits`
+  )
+  return response.records
 }

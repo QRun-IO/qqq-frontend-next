@@ -36,7 +36,7 @@ export type {
   FieldAdornment,
 } from './metadata'
 
-export type { QRecord, QPossibleValue } from './records'
+export type { QRecord, QPossibleValue, QAuditFieldChange, QAuditRecord } from './records'
 
 export type {
   QQueryFilter,

@@ -4,13 +4,14 @@
 // Renders hierarchical navigation from appTree with max depth 2
 // Subtle gray sidebar with primary-colored active state, icons, and mobile drawer mode
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   X,
   Users,
   User,
@@ -32,11 +33,14 @@ import {
   Table,
   Workflow,
   Layers,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
+import { cn } from '@/lib/utils/cn'
+import { UserPreferencesDialog } from './UserPreferencesDialog'
 
 // Map Material Icons names to Lucide icon components
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -213,32 +217,13 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      {/* User info footer */}
+      {/* User info footer with menu */}
       {(userName || userEmail || logout) && (
-        <div className="border-t border-border px-4 py-4">
-          <div className="flex items-center gap-3">
-            {/* Avatar circle */}
-            <div
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
-              aria-hidden="true"
-              data-qqq-id="sidebar-user-avatar"
-            >
-              {userName ? userName.charAt(0).toUpperCase() : userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-              {userName && (
-                <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
-                  {userName}
-                </span>
-              )}
-              {userEmail && (
-                <span className="truncate text-xs text-muted-foreground" data-qqq-id="sidebar-user-email">
-                  {userEmail}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <UserFooter
+          userName={userName}
+          userEmail={userEmail}
+          logout={logout}
+        />
       )}
     </aside>
   )
@@ -362,5 +347,142 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
         <span className="truncate">{route.name}</span>
       </Link>
     </li>
+  )
+}
+
+// --- User footer with popover menu ---
+
+function UserFooter({
+  userName,
+  userEmail,
+  logout,
+}: {
+  userName?: string
+  userEmail?: string
+  logout?: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [prefsOpen, setPrefsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  // Close menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [menuOpen])
+
+  return (
+    <>
+      <div className="relative border-t border-border" ref={menuRef}>
+        {/* Popover menu — positioned above the user info */}
+        {menuOpen && (
+          <div
+            className={cn(
+              'absolute bottom-full left-2 right-2 mb-1 rounded-xl border border-border bg-popover shadow-lg',
+              'animate-in fade-in-0 slide-in-from-bottom-2 duration-150'
+            )}
+            role="menu"
+            data-qqq-id="sidebar-user-menu"
+          >
+            <div className="py-1">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setPrefsOpen(true)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
+                  'hover:bg-accent transition-colors',
+                  'focus:outline-none focus:bg-accent'
+                )}
+                data-qqq-id="menu-item-preferences"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                Preferences
+              </button>
+              {logout && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    logout()
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
+                    'hover:bg-accent transition-colors',
+                    'focus:outline-none focus:bg-accent'
+                  )}
+                  data-qqq-id="menu-item-logout"
+                >
+                  <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Log Out
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Clickable user info bar */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          className={cn(
+            'flex w-full items-center gap-3 px-4 py-4 text-left transition-colors',
+            'hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring'
+          )}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          data-qqq-id="sidebar-user-button"
+        >
+          {/* Avatar circle */}
+          <div
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
+            aria-hidden="true"
+            data-qqq-id="sidebar-user-avatar"
+          >
+            {userName ? userName.charAt(0).toUpperCase() : userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            {userName && (
+              <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
+                {userName}
+              </span>
+            )}
+            {userEmail && (
+              <span className="truncate text-xs text-muted-foreground" data-qqq-id="sidebar-user-email">
+                {userEmail}
+              </span>
+            )}
+          </div>
+          {menuOpen ? (
+            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+
+      {/* Preferences dialog */}
+      <UserPreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
+    </>
   )
 }

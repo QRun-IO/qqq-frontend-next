@@ -7,19 +7,32 @@
 // - Collapsible sections on mobile
 // - T2 sections collapsed by default
 
-import React, { useState } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'
 import { AxiosError } from 'axios'
 
 import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
 import { RecordViewSection } from './RecordViewSection'
 import { RecordActions } from './RecordActions'
 import { AssociatedRecords } from './AssociatedRecords'
 import { FieldValue } from './FieldValue'
+import { RecordHoverCard } from './RecordHoverCard'
+import { FieldLabel } from './FieldLabel'
+import { RecordInfoFooter } from './RecordInfoFooter'
+
+/** Returns true if a section has at least one visible (non-hidden, non-heavy) field or a widget */
+function sectionHasContent(section: { fieldNames: string[]; widgetName?: string }, table: QTableMetaData): boolean {
+  if (section.widgetName) return true
+  return section.fieldNames.some((fn) => {
+    const f = table.fields[fn]
+    return f && !f.isHidden && !f.isHeavy
+  })
+}
 
 /** Extract up to two uppercase initials from a label string */
 function getInitials(label: string): string {
@@ -43,6 +56,8 @@ interface RecordViewProps {
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
   /** Processes available for this table (single-record actions) */
   processes?: QProcessMetaData[]
+  /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
+  allTables?: Record<string, QTableMetaData>
   className?: string
 }
 
@@ -77,6 +92,7 @@ export function RecordView({
   hideActions = false,
   widgetMetaDataMap,
   processes,
+  allTables,
   className,
 }: RecordViewProps) {
   const router = useRouter()
@@ -215,10 +231,17 @@ export function RecordView({
     )
   }
 
-  // Separate sections into tiers
-  const visibleSections = tableMetaData.sections.filter((s) => !s.isHidden)
+  // Separate sections into tiers, excluding sections with no renderable content
+  const visibleSections = tableMetaData.sections.filter(
+    (s) => !s.isHidden && sectionHasContent(s, tableMetaData)
+  )
   const primarySections = visibleSections.filter((s) => !s.tier || s.tier === 'T1' || s.tier === 'basic')
   const secondarySections = visibleSections.filter((s) => s.tier === 'T2' || s.tier === 'advanced')
+  // T3 sections: separate "record info" (audit/timestamp) sections from content sections (notes, etc.)
+  // Record info sections are always rendered at the bottom, outside the tab system.
+  const allTertiary = visibleSections.filter((s) => s.tier === 'T3')
+  const recordInfoSections = allTertiary.filter((s) => s.name === 'audit')
+  const tertiarySections = allTertiary.filter((s) => s.name !== 'audit')
 
   // Exposed joins with associated records
   const exposedJoins = tableMetaData.exposedJoins ?? []
@@ -236,6 +259,10 @@ export function RecordView({
   for (const s of secondarySections) {
     tabs.push({ id: `section-${s.name}`, label: s.label })
   }
+  // T3 content sections get their own tabs (e.g., Notes)
+  for (const s of tertiarySections) {
+    tabs.push({ id: `section-${s.name}`, label: s.label })
+  }
   if (manyJoins.length > 0) {
     tabs.push({ id: 'related', label: 'Related' })
   }
@@ -247,13 +274,17 @@ export function RecordView({
       hideActions={hideActions}
       widgetMetaDataMap={widgetMetaDataMap}
       processes={processes}
+      allTables={allTables}
       className={className}
       tabs={tabs}
       primarySections={primarySections}
       secondarySections={secondarySections}
+      tertiarySections={tertiarySections}
+      recordInfoSections={recordInfoSections}
       visibleSections={visibleSections}
       oneJoins={oneJoins}
       manyJoins={manyJoins}
+      onRefetch={onRefetch}
     />
   )
 }
@@ -265,31 +296,89 @@ function RecordViewContent({
   hideActions,
   widgetMetaDataMap,
   processes,
+  allTables,
   className,
   tabs,
   primarySections,
   secondarySections,
+  tertiarySections,
+  recordInfoSections,
   visibleSections,
   oneJoins,
   manyJoins,
+  onRefetch,
 }: {
   tableMetaData: QTableMetaData
   record: QRecord
   hideActions: boolean
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
   processes?: QProcessMetaData[]
+  allTables?: Record<string, QTableMetaData>
   className?: string
   tabs: Array<{ id: string; label: string }>
   primarySections: typeof tableMetaData.sections
   secondarySections: typeof tableMetaData.sections
+  tertiarySections: typeof tableMetaData.sections
+  recordInfoSections: typeof tableMetaData.sections
   visibleSections: typeof tableMetaData.sections
   oneJoins: typeof tableMetaData.exposedJoins
   manyJoins: typeof tableMetaData.exposedJoins
+  onRefetch?: () => void
 }) {
-  const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? '')
-  const [viewMode, setViewMode] = useState<'tabs' | 'list'>('tabs')
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
+  const { preferences } = useUserPreferences()
+
+  // Persist tab and view mode in URL so back navigation restores state
+  const urlTab = searchParams.get('tab')
+  const urlView = searchParams.get('view') as 'tabs' | 'list' | null
+
+  // Back navigation — read source page info from URL params
+  const fromPath = searchParams.get('from')
+  const fromLabel = searchParams.get('fromLabel')
+
+  const activeTab = (urlTab && tabs.some((t) => t.id === urlTab)) ? urlTab : (tabs[0]?.id ?? '')
+  // Use URL view param if set, otherwise fall back to user preference
+  const defaultViewMode = preferences.recordDefaultViewMode
+  const viewMode = urlView ? urlView : defaultViewMode
+
+  const updateUrlParam = useCallback((key: string, value: string, defaultValue: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === defaultValue) {
+      params.delete(key)
+    } else {
+      params.set(key, value)
+    }
+    const qs = params.toString()
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
+  }, [searchParams, pathname, router])
+
+  const setActiveTab = useCallback((tabId: string) => {
+    updateUrlParam('tab', tabId, tabs[0]?.id ?? '')
+  }, [updateUrlParam, tabs])
+
+  const setViewMode = useCallback((mode: 'tabs' | 'list') => {
+    updateUrlParam('view', mode, 'tabs')
+  }, [updateUrlParam])
 
   const t1Sections = primarySections.length > 0 ? primarySections : visibleSections
+  const parentPk = record.values[tableMetaData.primaryKeyField]
+
+  // Build navigateFrom for outgoing record links — tells target page where to return.
+  // Include current from/fromLabel so the back chain is preserved at unlimited depth:
+  // A → B(from=A) → C(from=B?from=A) — back from C restores B which still knows to go back to A.
+  const navigateFrom = useMemo(() => {
+    const stateParams = new URLSearchParams()
+    if (urlTab) stateParams.set('tab', urlTab)
+    if (urlView) stateParams.set('view', urlView)
+    if (fromPath) stateParams.set('from', fromPath)
+    if (fromLabel) stateParams.set('fromLabel', fromLabel)
+    const qs = stateParams.toString()
+    const path = `${pathname}${qs ? `?${qs}` : ''}`
+    const label = record.recordLabel || `${tableMetaData.label} #${parentPk}`
+    return { path, label }
+  }, [pathname, urlTab, urlView, fromPath, fromLabel, record.recordLabel, tableMetaData.label, parentPk])
 
   // Collect T1 fields, excluding those whose values are part of the record label
   const recordLabel = record.recordLabel ?? ''
@@ -316,14 +405,14 @@ function RecordViewContent({
       className={cn('space-y-5', className)}
       data-qqq-id={`record-view-${tableMetaData.name}`}
     >
-      {/* Back link */}
+      {/* Back link — returns to source page if navigated from another record, otherwise table list */}
       <Link
-        href={`/app/${tableMetaData.name}`}
+        href={fromPath || `/app/${tableMetaData.name}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         data-qqq-id="link-back-to-table"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back to {tableMetaData.label}
+        Back to {fromLabel || tableMetaData.label}
       </Link>
 
       {/* Record header — avatar + name + actions */}
@@ -352,10 +441,36 @@ function RecordViewContent({
                 const displayVal = record.displayValues?.[field.name]
                 const rawVal = record.values[field.name]
                 const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
+                const pvsName = field.possibleValueSourceName
+                const refMeta = pvsName ? allTables?.[pvsName] : undefined
+                const isLink = Boolean(refMeta) && rawVal != null
+                const fromParams = navigateFrom
+                  ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
+                  : ''
                 return (
                   <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
-                    <dt className="text-xs text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>{field.label}</dt>
-                    <dd className="text-sm text-foreground">{val ?? '\u2014'}</dd>
+                    <dt className="text-xs text-muted-foreground">
+                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                    </dt>
+                    <dd className="text-sm">
+                      {val == null ? '\u2014' : isLink && refMeta ? (
+                        <RecordHoverCard
+                          tableName={pvsName!}
+                          primaryKey={rawVal as string | number}
+                          tableMetaData={refMeta}
+                          navigateFrom={navigateFrom}
+                        >
+                          <Link
+                            href={`/app/${pvsName}/${rawVal}${fromParams}`}
+                            className="text-primary hover:text-primary/80 hover:underline"
+                          >
+                            {val}
+                          </Link>
+                        </RecordHoverCard>
+                      ) : (
+                        <span className="text-foreground">{val}</span>
+                      )}
+                    </dd>
                   </div>
                 )
               })}
@@ -492,6 +607,8 @@ function RecordViewContent({
                     tableMetaData={tableMetaData}
                     record={record}
                     widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
                     stacked
                   />
                 </div>
@@ -513,6 +630,30 @@ function RecordViewContent({
                     tableMetaData={tableMetaData}
                     record={record}
                     widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                  />
+                </div>
+              </div>
+            )
+          ))}
+
+          {/* Tab content: Individual T3 section tabs (supplementary: notes, audit, etc.) */}
+          {tertiarySections.map((section) => (
+            activeTab === `section-${section.name}` && (
+              <div
+                key={section.name}
+                role="tabpanel"
+                data-qqq-id={`record-tab-panel-${section.name}`}
+              >
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <RecordViewSection
+                    section={section}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
                   />
                 </div>
               </div>
@@ -530,6 +671,10 @@ function RecordViewContent({
                       join={join}
                       records={assocRecords}
                       parentTableMetaData={tableMetaData}
+                      parentPrimaryKey={parentPk as string | number}
+                      allTables={allTables}
+                      navigateFrom={navigateFrom}
+                      onRecordCreated={onRefetch}
                     />
                   </div>
                 )
@@ -553,6 +698,8 @@ function RecordViewContent({
                 tableMetaData={tableMetaData}
                 record={record}
                 widgetMetaDataMap={widgetMetaDataMap}
+                allTables={allTables}
+                navigateFrom={navigateFrom}
                 compact
               />
             </div>
@@ -569,6 +716,26 @@ function RecordViewContent({
                 tableMetaData={tableMetaData}
                 record={record}
                 widgetMetaDataMap={widgetMetaDataMap}
+                allTables={allTables}
+                navigateFrom={navigateFrom}
+                compact
+              />
+            </div>
+          ))}
+
+          {/* T3 sections as compact cards */}
+          {tertiarySections.map((section) => (
+            <div
+              key={section.name}
+              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+            >
+              <RecordViewSection
+                section={section}
+                tableMetaData={tableMetaData}
+                record={record}
+                widgetMetaDataMap={widgetMetaDataMap}
+                allTables={allTables}
+                navigateFrom={navigateFrom}
                 compact
               />
             </div>
@@ -583,6 +750,10 @@ function RecordViewContent({
                   join={join}
                   records={assocRecords}
                   parentTableMetaData={tableMetaData}
+                  parentPrimaryKey={parentPk as string | number}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                  onRecordCreated={onRefetch}
                 />
               </div>
             )
@@ -598,16 +769,25 @@ function RecordViewContent({
               .filter((f) => !f.isHidden && !f.isHeavy)
               .map((field) => (
                 <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
-                  <dt className="text-sm font-semibold text-foreground" data-qqq-id={`field-label-${field.name}`}>
-                    {field.label}
+                  <dt className="text-sm font-semibold text-foreground">
+                    <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                   </dt>
                   <dd>
-                    <FieldValue field={field} record={record} />
+                    <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
                   </dd>
                 </div>
               ))}
           </dl>
         </div>
+      )}
+
+      {/* Record info footer — timestamps + audit history, always last */}
+      {recordInfoSections.length > 0 && (
+        <RecordInfoFooter
+          tableMetaData={tableMetaData}
+          record={record}
+          recordInfoSections={recordInfoSections}
+        />
       )}
     </div>
   )

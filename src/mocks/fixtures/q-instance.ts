@@ -41,18 +41,27 @@ const personTable: QTableMetaData = {
     id: field('id', 'ID', 'INTEGER', { isEditable: false }),
     firstName: field('firstName', 'First Name', 'STRING', { isRequired: true, maxLength: 100 }),
     lastName: field('lastName', 'Last Name', 'STRING', { isRequired: true, maxLength: 100 }),
-    email: field('email', 'Email', 'STRING', { maxLength: 255 }),
-    phone: field('phone', 'Phone', 'STRING', { maxLength: 30 }),
+    email: field('email', 'Email', 'STRING', {
+      maxLength: 255,
+      helpContents: [{ content: 'Primary email address for this contact' }],
+    }),
+    phone: field('phone', 'Phone', 'STRING', {
+      maxLength: 30,
+      helpContents: [{ content: 'Direct phone number including extension' }],
+    }),
     companyId: field('companyId', 'Company', 'INTEGER', {
       possibleValueSourceName: 'company',
+      helpContents: [{ content: 'The company this person is associated with' }],
     }),
     title: field('title', 'Title', 'STRING', { maxLength: 100 }),
     status: field('status', 'Status', 'STRING', {
       isRequired: true,
       possibleValueSourceName: 'personStatus',
       adornments: [{ type: 'CHIP' }],
+      helpContents: [{ content: 'Current status of this contact record' }],
     }),
     createdDate: field('createdDate', 'Created Date', 'DATE', { isEditable: false }),
+    modifyDate: field('modifyDate', 'Modified Date', 'DATE_TIME', { isEditable: false }),
     notes: field('notes', 'Notes', 'TEXT'),
   },
   sections: [
@@ -70,7 +79,7 @@ const personTable: QTableMetaData = {
       label: 'Details',
       tier: 'T2',
       iconName: 'info',
-      fieldNames: ['companyId', 'status', 'createdDate'],
+      fieldNames: ['companyId', 'status'],
       isHidden: false,
       gridColumns: 2,
     },
@@ -82,6 +91,15 @@ const personTable: QTableMetaData = {
       fieldNames: ['notes'],
       isHidden: false,
       gridColumns: 1,
+    },
+    {
+      name: 'audit',
+      label: 'Record Info',
+      tier: 'T3',
+      iconName: 'history',
+      fieldNames: ['createdDate', 'modifyDate'],
+      isHidden: false,
+      gridColumns: 2,
     },
   ],
   exposedJoins: [],
@@ -126,6 +144,8 @@ const companyTable: QTableMetaData = {
     city: field('city', 'City', 'STRING', { maxLength: 100 }),
     state: field('state', 'State', 'STRING', { maxLength: 50 }),
     country: field('country', 'Country', 'STRING', { maxLength: 100 }),
+    createDate: field('createDate', 'Created', 'DATE_TIME', { isEditable: false }),
+    modifyDate: field('modifyDate', 'Modified', 'DATE_TIME', { isEditable: false }),
   },
   sections: [
     {
@@ -154,6 +174,15 @@ const companyTable: QTableMetaData = {
       fieldNames: ['city', 'state', 'country'],
       isHidden: false,
       gridColumns: 3,
+    },
+    {
+      name: 'audit',
+      label: 'Record Info',
+      tier: 'T3',
+      iconName: 'history',
+      fieldNames: ['createDate', 'modifyDate'],
+      isHidden: false,
+      gridColumns: 2,
     },
   ],
   exposedJoins: [],
@@ -247,20 +276,26 @@ const orderTable: QTableMetaData = {
     }),
     personId: field('personId', 'Contact', 'INTEGER', {
       possibleValueSourceName: 'person',
+      helpContents: [{ content: 'The person who placed or is associated with this order' }],
     }),
     companyId: field('companyId', 'Company', 'INTEGER', {
       possibleValueSourceName: 'company',
+      helpContents: [{ content: 'The company this order is billed to' }],
     }),
     status: field('status', 'Status', 'STRING', {
       isRequired: true,
       possibleValueSourceName: 'orderStatus',
       adornments: [{ type: 'CHIP' }],
+      helpContents: [{ content: 'Current fulfillment status of this order' }],
     }),
     total: field('total', 'Total', 'DECIMAL', {
       displayFormat: 'CURRENCY',
+      helpContents: [{ content: 'Sum of all line item totals' }],
     }),
     orderDate: field('orderDate', 'Order Date', 'DATE_TIME', { isEditable: false }),
     notes: field('notes', 'Notes', 'TEXT'),
+    createDate: field('createDate', 'Created', 'DATE_TIME', { isEditable: false }),
+    modifyDate: field('modifyDate', 'Modified', 'DATE_TIME', { isEditable: false }),
   },
   sections: [
     {
@@ -290,6 +325,15 @@ const orderTable: QTableMetaData = {
       isHidden: false,
       gridColumns: 1,
     },
+    {
+      name: 'audit',
+      label: 'Record Info',
+      tier: 'T3',
+      iconName: 'history',
+      fieldNames: ['createDate', 'modifyDate'],
+      isHidden: false,
+      gridColumns: 2,
+    },
   ],
   exposedJoins: [
     {
@@ -313,6 +357,17 @@ const orderTable: QTableMetaData = {
   usesVariants: false,
   variantTableLabel: '',
 }
+
+// ─── Cross-table exposed joins (assigned after all tables are declared) ───────
+
+personTable.exposedJoins = [
+  { label: 'Orders', isMany: true, joinTable: orderTable },
+]
+
+companyTable.exposedJoins = [
+  { label: 'Orders', isMany: true, joinTable: orderTable },
+  { label: 'People', isMany: true, joinTable: personTable },
+]
 
 // ─── product table ────────────────────────────────────────────────────────────
 
@@ -340,6 +395,8 @@ const productTable: QTableMetaData = {
       isHeavy: true,
       adornments: [{ type: 'FILE_UPLOAD' }],
     }),
+    createDate: field('createDate', 'Created', 'DATE_TIME', { isEditable: false }),
+    modifyDate: field('modifyDate', 'Modified', 'DATE_TIME', { isEditable: false }),
   },
   sections: [
     {
@@ -368,6 +425,15 @@ const productTable: QTableMetaData = {
       fieldNames: ['imageUrl'],
       isHidden: false,
       gridColumns: 1,
+    },
+    {
+      name: 'audit',
+      label: 'Record Info',
+      tier: 'T3',
+      iconName: 'history',
+      fieldNames: ['createDate', 'modifyDate'],
+      isHidden: false,
+      gridColumns: 2,
     },
   ],
   exposedJoins: [],
@@ -401,6 +467,8 @@ const supplierTable: QTableMetaData = {
     email: field('email', 'Email', 'STRING', { maxLength: 255 }),
     phone: field('phone', 'Phone', 'STRING', { maxLength: 30 }),
     country: field('country', 'Country', 'STRING', { maxLength: 100 }),
+    createDate: field('createDate', 'Created', 'DATE_TIME', { isEditable: false }),
+    modifyDate: field('modifyDate', 'Modified', 'DATE_TIME', { isEditable: false }),
   },
   sections: [
     {
@@ -409,6 +477,15 @@ const supplierTable: QTableMetaData = {
       tier: 'T1',
       iconName: 'local_shipping',
       fieldNames: ['name', 'contactName', 'email', 'phone', 'country'],
+      isHidden: false,
+      gridColumns: 2,
+    },
+    {
+      name: 'audit',
+      label: 'Record Info',
+      tier: 'T3',
+      iconName: 'history',
+      fieldNames: ['createDate', 'modifyDate'],
       isHidden: false,
       gridColumns: 2,
     },

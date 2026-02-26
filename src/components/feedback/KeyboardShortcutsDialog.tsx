@@ -25,8 +25,9 @@ const shortcutSections: ShortcutSection[] = [
     title: 'Global',
     shortcuts: [
       { keys: ['.'], description: 'Quick Navigation' },
+      { keys: ['/'], description: 'Search Records' },
       { keys: ['?'], description: 'Keyboard Shortcuts' },
-      { keys: ['\u2318', 'K'], description: 'Search' },
+      { keys: ['\u2318', 'K'], description: 'Command Palette' },
     ],
   },
   {

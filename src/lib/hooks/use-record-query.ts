@@ -184,6 +184,7 @@ interface UseRecordQueryOptions {
   tableName: string
   tableMetaData: QTableMetaData | undefined
   initialPageSize?: PageSize
+  initialDensity?: Density
 }
 
 export function useRecordQuery({

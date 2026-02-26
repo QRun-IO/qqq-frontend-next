@@ -6,20 +6,26 @@
 // CODE_EDITOR, TOOLTIP, ERROR
 
 import React from 'react'
+import Link from 'next/link'
 import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
-import type { QFieldMetaData, QRecord } from '@/types'
+import type { QFieldMetaData, QTableMetaData, QRecord } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { RecordHoverCard } from './RecordHoverCard'
 
 interface FieldValueProps {
   field: QFieldMetaData
   record: QRecord
+  /** Full table metadata map — enables record link hover previews */
+  allTables?: Record<string, QTableMetaData>
+  /** Source page info for back navigation — appended as ?from=&fromLabel= to record links */
+  navigateFrom?: { path: string; label: string }
   className?: string
 }
 
-export function FieldValue({ field, record, className }: FieldValueProps) {
+export function FieldValue({ field, record, allTables, navigateFrom, className }: FieldValueProps) {
   const rawValue = record.values[field.name]
   const displayValue = record.displayValues?.[field.name]
 
@@ -36,6 +42,11 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
       </span>
     )
   }
+
+  // Record reference link — field with possibleValueSourceName matching a known table
+  const pvsTable = field.possibleValueSourceName
+  const refTableMeta = pvsTable ? allTables?.[pvsTable] : undefined
+  const isRecordLink = Boolean(refTableMeta) && rawValue != null
 
   // Check adornments
   const hasLink = field.adornments?.some((a) => a.type === 'LINK')
@@ -110,7 +121,7 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
     return (
       <span
         className={cn(
-          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
           getChipClasses(color),
           className
         )}
@@ -224,6 +235,35 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
     )
   }
 
+  // Record reference — render as a link with hover preview card
+  if (isRecordLink && refTableMeta) {
+    const fromParams = navigateFrom
+      ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
+      : ''
+    const link = (
+      <Link
+        href={`/app/${pvsTable}/${rawValue}${fromParams}`}
+        className={cn(
+          'text-sm text-primary hover:text-primary/80 hover:underline',
+          className
+        )}
+        data-qqq-id={`field-value-${field.name}`}
+      >
+        {String(value)}
+      </Link>
+    )
+
+    return (
+      <RecordHoverCard
+        tableName={pvsTable!}
+        primaryKey={rawValue as string | number}
+        tableMetaData={refTableMeta}
+      >
+        {link}
+      </RecordHoverCard>
+    )
+  }
+
   // Type-based rendering
   switch (field.type) {
     case 'BOOLEAN': {
@@ -231,10 +271,10 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
       return (
         <span
           className={cn(
-            'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
             boolVal
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-muted text-muted-foreground',
+              ? 'bg-emerald-100 text-emerald-950 dark:bg-emerald-900/50 dark:text-emerald-100'
+              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
             className
           )}
           data-qqq-id={`field-value-${field.name}`}
@@ -293,12 +333,48 @@ export function FieldValue({ field, record, className }: FieldValueProps) {
         return <RevealField value={String(value)} fieldName={field.name} className={className} />
       }
 
+      // Auto-link URLs — detect http(s):// values and render as external links
+      const strValue = String(value)
+      if (/^https?:\/\//i.test(strValue)) {
+        return (
+          <a
+            href={strValue}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline',
+              className
+            )}
+            data-qqq-id={`field-value-${field.name}`}
+          >
+            {strValue}
+            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          </a>
+        )
+      }
+
+      // Auto-link emails — detect email addresses and render as mailto links
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
+        return (
+          <a
+            href={`mailto:${strValue}`}
+            className={cn(
+              'text-sm text-primary hover:text-primary/80 hover:underline',
+              className
+            )}
+            data-qqq-id={`field-value-${field.name}`}
+          >
+            {strValue}
+          </a>
+        )
+      }
+
       return (
         <span
           className={cn('text-sm text-foreground', className)}
           data-qqq-id={`field-value-${field.name}`}
         >
-          {String(value)}
+          {strValue}
         </span>
       )
     }
@@ -352,14 +428,15 @@ function formatBytes(bytes: number): string {
 }
 
 function getChipClasses(color: string): string {
+  // Use -950 (near-black tinted) text on -100 bg for guaranteed readability
   const colorMap: Record<string, string> = {
-    green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    gray: 'bg-muted text-muted-foreground',
+    green: 'bg-emerald-100 text-emerald-950 dark:bg-emerald-900/50 dark:text-emerald-100',
+    red: 'bg-red-100 text-red-950 dark:bg-red-900/50 dark:text-red-100',
+    yellow: 'bg-amber-100 text-amber-950 dark:bg-amber-900/50 dark:text-amber-100',
+    blue: 'bg-blue-100 text-blue-950 dark:bg-blue-900/50 dark:text-blue-100',
+    purple: 'bg-purple-100 text-purple-950 dark:bg-purple-900/50 dark:text-purple-100',
+    orange: 'bg-orange-100 text-orange-950 dark:bg-orange-900/50 dark:text-orange-100',
+    gray: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
   }
   return colorMap[color.toLowerCase()] ?? colorMap.gray
 }

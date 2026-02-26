@@ -9,6 +9,7 @@ import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/
 import { cn } from '@/lib/utils/cn'
 
 import { FieldValue } from '@/components/records/FieldValue'
+import { FieldLabel } from '@/components/records/FieldLabel'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
 
 interface RecordViewSectionProps {
@@ -17,6 +18,10 @@ interface RecordViewSectionProps {
   record: QRecord
   /** Widget metadata map for resolving section.widgetName */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
+  allTables?: Record<string, QTableMetaData>
+  /** Source page info for back navigation — passed to FieldValue for record links */
+  navigateFrom?: { path: string; label: string }
   /** Compact mode — single column, tighter spacing for list view */
   compact?: boolean
   /** Stacked mode — single column with vertical field stacking (for card grid layout) */
@@ -29,6 +34,8 @@ export function RecordViewSection({
   tableMetaData,
   record,
   widgetMetaDataMap,
+  allTables,
+  navigateFrom,
   compact = false,
   stacked = false,
   className,
@@ -133,14 +140,11 @@ export function RecordViewSection({
                 className="flex items-baseline gap-4 py-1.5"
                 data-qqq-id={`record-field-${field.name}`}
               >
-                <dt
-                  className="w-40 flex-shrink-0 text-sm text-muted-foreground"
-                  data-qqq-id={`field-label-${field.name}`}
-                >
-                  {field.label}
+                <dt className="w-40 flex-shrink-0 text-sm text-muted-foreground">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd className="flex-1 text-sm text-foreground">
-                  <FieldValue field={field} record={record} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
                 </dd>
               </div>
             )
@@ -157,14 +161,11 @@ export function RecordViewSection({
                 className="flex flex-col gap-0.5"
                 data-qqq-id={`record-field-${field.name}`}
               >
-                <dt
-                  className="text-sm font-semibold text-foreground"
-                  data-qqq-id={`field-label-${field.name}`}
-                >
-                  {field.label}
+                <dt className="text-sm font-semibold text-foreground">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd className="text-sm text-foreground">
-                  <FieldValue field={field} record={record} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
                 </dd>
               </div>
             )
@@ -195,14 +196,11 @@ export function RecordViewSection({
                 )}
                 data-qqq-id={`record-field-${field.name}`}
               >
-                <dt
-                  className="text-sm font-semibold text-foreground"
-                  data-qqq-id={`field-label-${field.name}`}
-                >
-                  {field.label}
+                <dt className="text-sm font-semibold text-foreground">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd>
-                  <FieldValue field={field} record={record} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
                 </dd>
               </div>
             )

@@ -2,29 +2,48 @@
 
 // AssociatedRecords — renders child/related record tables below the main record
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { ArrowUpRight, ExternalLink, X } from 'lucide-react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 
 import type { QTableMetaData, QRecord, QExposedJoin } from '@/types'
+import { serializeFilter } from '@/lib/utils/filter-utils'
 import { cn } from '@/lib/utils/cn'
 import { FieldValue } from './FieldValue'
+import { RecordHoverCard } from './RecordHoverCard'
+import { EntityForm } from '@/components/forms/EntityForm'
 
 interface AssociatedRecordsProps {
   join: QExposedJoin
   records: QRecord[]
-  /** The parent table's metadata — reserved for future context-aware features */
+  /** The parent table's metadata — used for building "View All" filter */
   parentTableMetaData?: QTableMetaData
+  /** The parent record's primary key value — used for building "View All" filter */
+  parentPrimaryKey?: string | number
+  /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
+  allTables?: Record<string, QTableMetaData>
+  /** Source page info for back navigation — appended to outgoing links */
+  navigateFrom?: { path: string; label: string }
+  /** Called after a child record is successfully created — used to refetch the parent record */
+  onRecordCreated?: () => void
   className?: string
 }
 
 export function AssociatedRecords({
   join,
   records,
+  parentTableMetaData,
+  parentPrimaryKey,
+  allTables,
+  navigateFrom,
+  onRecordCreated,
   className,
 }: AssociatedRecordsProps) {
   const joinTableMetaData = join.joinTable
   if (!joinTableMetaData) return null
+
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   // Get visible fields for column headers (first 6 non-hidden fields)
   const visibleFields = Object.values(joinTableMetaData.fields)
@@ -32,6 +51,31 @@ export function AssociatedRecords({
     .slice(0, 6)
 
   if (visibleFields.length === 0) return null
+
+  // Build from params for outgoing links
+  const fromParams = navigateFrom
+    ? `&from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
+    : ''
+  const fromParamsFirst = navigateFrom
+    ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
+    : ''
+
+  // Build "View All" URL — find the FK field in the join table that references the parent table
+  let viewAllHref: string | undefined
+  if (parentTableMetaData && parentPrimaryKey != null) {
+    const fkField = Object.values(joinTableMetaData.fields).find(
+      (f) => f.possibleValueSourceName === parentTableMetaData.name
+    )
+    if (fkField) {
+      const filterParam = serializeFilter({
+        criteria: [{ fieldName: fkField.name, operator: 'EQUALS', values: [parentPrimaryKey] }],
+        booleanOperator: 'AND',
+        skip: 0,
+        limit: 25,
+      })
+      viewAllHref = `/app/${joinTableMetaData.name}?filter=${filterParam}${fromParams}`
+    }
+  }
 
   return (
     <section
@@ -51,18 +95,34 @@ export function AssociatedRecords({
             </span>
           )}
         </h3>
-        {joinTableMetaData.insertPermission && (
-          <Link
-            href={`/app/${joinTableMetaData.name}/create`}
-            className={cn(
-              'text-xs font-medium text-primary hover:text-primary/80',
-              'focus:outline-none focus:underline'
-            )}
-            data-qqq-id={`button-create-${joinTableMetaData.name}`}
-          >
-            + Add {joinTableMetaData.label}
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {viewAllHref && records.length > 0 && (
+            <Link
+              href={viewAllHref}
+              className={cn(
+                'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
+                'focus:outline-none focus:underline'
+              )}
+              data-qqq-id={`button-view-all-${joinTableMetaData.name}`}
+            >
+              View All
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          )}
+          {joinTableMetaData.insertPermission && (
+            <button
+              type="button"
+              onClick={() => setCreateDialogOpen(true)}
+              className={cn(
+                'text-xs font-medium text-primary hover:text-primary/80',
+                'focus:outline-none focus:underline'
+              )}
+              data-qqq-id={`button-create-${joinTableMetaData.name}`}
+            >
+              + Add {joinTableMetaData.label}
+            </button>
+          )}
+        </div>
       </div>
 
       {records.length === 0 ? (
@@ -87,45 +147,67 @@ export function AssociatedRecords({
                     {field.label}
                   </th>
                 ))}
-                <th scope="col" className="relative px-3 py-2.5">
-                  <span className="sr-only">Actions</span>
-                </th>
+                {joinTableMetaData.readPermission && (
+                  <th scope="col" className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-card">
               {records.map((childRecord, rowIdx) => {
                 const childPk =
                   childRecord.values[joinTableMetaData.primaryKeyField] as string | number
+                const recordHref = joinTableMetaData.readPermission && childPk !== undefined
+                  ? `/app/${joinTableMetaData.name}/${childPk}${fromParamsFirst}`
+                  : undefined
                 return (
                   <tr
                     key={childPk ?? rowIdx}
                     className="hover:bg-accent transition-colors"
                     data-qqq-id={`assoc-row-${joinTableMetaData.name}-${childPk}`}
                   >
-                    {visibleFields.map((field) => (
+                    {visibleFields.map((field, fieldIdx) => (
                       <td
                         key={field.name}
                         className="whitespace-nowrap px-3 py-2 text-sm"
                         data-qqq-id={`grid-cell-${field.name}`}
                       >
-                        <FieldValue field={field} record={childRecord} />
+                        {fieldIdx <= 1 && recordHref ? (
+                          <RecordHoverCard
+                            tableName={joinTableMetaData.name}
+                            primaryKey={childPk}
+                            tableMetaData={joinTableMetaData}
+                            navigateFrom={navigateFrom}
+                          >
+                            <Link
+                              href={recordHref}
+                              className="text-primary hover:text-primary/80 hover:underline"
+                              aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
+                            >
+                              {childRecord.displayValues?.[field.name] ?? String(childRecord.values[field.name] ?? '')}
+                            </Link>
+                          </RecordHoverCard>
+                        ) : (
+                          <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
+                        )}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-right">
-                      {joinTableMetaData.readPermission && childPk !== undefined && (
+                    {recordHref && (
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm">
                         <Link
-                          href={`/app/${joinTableMetaData.name}/${childPk}`}
+                          href={recordHref}
                           className={cn(
-                            'inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80',
+                            'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
                             'focus:outline-none focus:underline'
                           )}
-                          aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
+                          data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}
                         >
                           View
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </Link>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
@@ -133,6 +215,114 @@ export function AssociatedRecords({
           </table>
         </div>
       )}
+      {/* Create child record dialog */}
+      {joinTableMetaData.insertPermission && (
+        <CreateChildRecordDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          joinTableMetaData={joinTableMetaData}
+          parentTableMetaData={parentTableMetaData}
+          parentPrimaryKey={parentPrimaryKey}
+          onRecordCreated={onRecordCreated}
+        />
+      )}
     </section>
+  )
+}
+
+// --- Create child record dialog ---
+
+function CreateChildRecordDialog({
+  open,
+  onOpenChange,
+  joinTableMetaData,
+  parentTableMetaData,
+  parentPrimaryKey,
+  onRecordCreated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  joinTableMetaData: QTableMetaData
+  parentTableMetaData?: QTableMetaData
+  parentPrimaryKey?: string | number
+  onRecordCreated?: () => void
+}) {
+  // Find the FK field that references the parent table and pre-fill it
+  const fkField = parentTableMetaData
+    ? Object.values(joinTableMetaData.fields).find(
+        (f) => f.possibleValueSourceName === parentTableMetaData.name
+      )
+    : undefined
+
+  const defaultValues: Record<string, unknown> = {}
+  if (fkField && parentPrimaryKey != null) {
+    defaultValues[fkField.name] = parentPrimaryKey
+  }
+
+  // Exclude the FK field from the form since it's pre-filled
+  const fieldNamesToExclude = fkField ? [fkField.name] : []
+  const allEditableFields = Object.values(joinTableMetaData.fields)
+    .filter((f) => !f.isHidden && f.isEditable)
+    .map((f) => f.name)
+  const fieldNamesToInclude = allEditableFields.filter(
+    (name) => !fieldNamesToExclude.includes(name)
+  )
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className={cn(
+            'fixed inset-0 z-50 bg-black/50',
+            'data-[state=open]:animate-in data-[state=open]:fade-in-0',
+            'data-[state=closed]:animate-out data-[state=closed]:fade-out-0'
+          )}
+        />
+        <DialogPrimitive.Content
+          className={cn(
+            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+            'w-full max-w-xl max-h-[85vh] flex flex-col',
+            'rounded-xl border border-border bg-card shadow-lg',
+            'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+            'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
+          )}
+          aria-describedby={undefined}
+          data-qqq-id={`dialog-create-${joinTableMetaData.name}`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <DialogPrimitive.Title className="text-lg font-semibold tracking-tight text-foreground">
+              Add {joinTableMetaData.label}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close
+              className={cn(
+                'rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-accent',
+                'focus:outline-none focus:ring-2 focus:ring-ring'
+              )}
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </DialogPrimitive.Close>
+          </div>
+
+          {/* Form */}
+          <div className="flex-1 overflow-y-auto">
+            <EntityForm
+              tableMetaData={joinTableMetaData}
+              isModal
+              overrideHeading={`Add ${joinTableMetaData.label}`}
+              saveButtonLabel="Create"
+              defaultValues={defaultValues}
+              fieldNamesToInclude={fieldNamesToInclude}
+              onSuccess={() => {
+                onOpenChange(false)
+                onRecordCreated?.()
+              }}
+              onCancel={() => onOpenChange(false)}
+            />
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }

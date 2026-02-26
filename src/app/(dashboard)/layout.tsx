@@ -17,6 +17,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
+import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
 
 // Inner layout content — needs QContextProvider to be set up first
@@ -30,6 +31,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
+
+  // Search dialog state (/ key)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // Keyboard shortcuts help dialog state
   const [helpOpen, setHelpOpen] = useState(false)
@@ -145,6 +149,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
     if (e.key === 'Escape') {
       setCommandOpen(false)
+      setSearchOpen(false)
       setHelpOpen(false)
       setSidebarOpen(false)
     }
@@ -154,6 +159,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       if (e.key === '.') {
         e.preventDefault()
         setCommandOpen(true)
+      }
+      if (e.key === '/') {
+        e.preventDefault()
+        setSearchOpen(true)
       }
       if (e.key === '?') {
         e.preventDefault()
@@ -267,6 +276,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Command Palette */}
       <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} />
+
+      {/* Search Dialog */}
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Keyboard Shortcuts Help Dialog */}
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />

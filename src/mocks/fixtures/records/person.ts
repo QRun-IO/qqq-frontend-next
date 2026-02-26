@@ -16,12 +16,14 @@ export const personRecords: QRecord[] = [
       title: 'VP of Engineering',
       status: 'Active',
       createdDate: '2023-01-15',
+      modifyDate: '2024-11-08T10:22:00',
       notes: 'Key technical decision maker. Prefers email communication.',
     },
     displayValues: {
       id: '1',
       companyId: 'Globex Corporation',
       createdDate: '01/15/2023',
+      modifyDate: '11/08/2024 10:22 AM',
     },
   },
   {
@@ -37,12 +39,14 @@ export const personRecords: QRecord[] = [
       title: 'Purchasing Manager',
       status: 'Active',
       createdDate: '2023-02-20',
+      modifyDate: '2024-09-14T16:45:00',
       notes: null,
     },
     displayValues: {
       id: '2',
       companyId: 'Acme Corp',
       createdDate: '02/20/2023',
+      modifyDate: '09/14/2024 4:45 PM',
     },
   },
   {
@@ -58,12 +62,14 @@ export const personRecords: QRecord[] = [
       title: 'CFO',
       status: 'Active',
       createdDate: '2022-11-05',
+      modifyDate: '2024-10-21T09:15:00',
       notes: 'Budget authority for all major purchases.',
     },
     displayValues: {
       id: '3',
       companyId: 'Initech',
       createdDate: '11/05/2022',
+      modifyDate: '10/21/2024 9:15 AM',
     },
   },
   {
@@ -79,12 +85,14 @@ export const personRecords: QRecord[] = [
       title: 'Director of Operations',
       status: 'Active',
       createdDate: '2023-03-10',
+      modifyDate: '2024-12-03T14:30:00',
       notes: null,
     },
     displayValues: {
       id: '4',
       companyId: 'Umbrella Inc',
       createdDate: '03/10/2023',
+      modifyDate: '12/03/2024 2:30 PM',
     },
   },
   {
@@ -100,12 +108,14 @@ export const personRecords: QRecord[] = [
       title: 'Regional Manager',
       status: 'Active',
       createdDate: '2022-08-18',
+      modifyDate: '2024-08-29T11:00:00',
       notes: 'Quarterly business reviews scheduled for March.',
     },
     displayValues: {
       id: '5',
       companyId: 'Dunder Mifflin',
       createdDate: '08/18/2022',
+      modifyDate: '08/29/2024 11:00 AM',
     },
   },
   {
@@ -121,12 +131,14 @@ export const personRecords: QRecord[] = [
       title: 'CTO',
       status: 'Active',
       createdDate: '2023-01-28',
+      modifyDate: '2024-11-15T08:50:00',
       notes: 'Interested in enterprise license expansion.',
     },
     displayValues: {
       id: '6',
       companyId: 'Massive Dynamic',
       createdDate: '01/28/2023',
+      modifyDate: '11/15/2024 8:50 AM',
     },
   },
   {
@@ -142,12 +154,14 @@ export const personRecords: QRecord[] = [
       title: 'CEO',
       status: 'Lead',
       createdDate: '2024-01-10',
+      modifyDate: '2024-12-18T15:20:00',
       notes: 'Met at TechCrunch Disrupt. Very interested in our data platform.',
     },
     displayValues: {
       id: '7',
       companyId: 'Pied Piper',
       createdDate: '01/10/2024',
+      modifyDate: '12/18/2024 3:20 PM',
     },
   },
   {
@@ -163,12 +177,14 @@ export const personRecords: QRecord[] = [
       title: 'Head of Procurement',
       status: 'Active',
       createdDate: '2022-06-14',
+      modifyDate: '2024-07-22T13:10:00',
       notes: null,
     },
     displayValues: {
       id: '8',
       companyId: 'Stark Industries',
       createdDate: '06/14/2022',
+      modifyDate: '07/22/2024 1:10 PM',
     },
   },
   {
@@ -184,12 +200,14 @@ export const personRecords: QRecord[] = [
       title: 'COO',
       status: 'Active',
       createdDate: '2023-07-22',
+      modifyDate: '2024-10-05T17:00:00',
       notes: 'Decision maker for Wayne Enterprises tech stack.',
     },
     displayValues: {
       id: '9',
       companyId: 'Wayne Enterprises',
       createdDate: '07/22/2023',
+      modifyDate: '10/05/2024 5:00 PM',
     },
   },
   {
@@ -205,12 +223,14 @@ export const personRecords: QRecord[] = [
       title: 'Founder',
       status: 'Inactive',
       createdDate: '2023-04-05',
+      modifyDate: '2024-06-12T10:45:00',
       notes: 'Company pivot — follow up next quarter.',
     },
     displayValues: {
       id: '10',
       companyId: 'Prestige Worldwide',
       createdDate: '04/05/2023',
+      modifyDate: '06/12/2024 10:45 AM',
     },
   },
   {
@@ -226,12 +246,14 @@ export const personRecords: QRecord[] = [
       title: 'Senior Software Engineer',
       status: 'Active',
       createdDate: '2023-09-12',
+      modifyDate: '2024-11-30T09:05:00',
       notes: null,
     },
     displayValues: {
       id: '11',
       companyId: 'Globex Corporation',
       createdDate: '09/12/2023',
+      modifyDate: '11/30/2024 9:05 AM',
     },
   },
   {
@@ -247,12 +269,14 @@ export const personRecords: QRecord[] = [
       title: 'Operations Lead',
       status: 'Active',
       createdDate: '2022-12-01',
+      modifyDate: '2024-08-15T14:20:00',
       notes: null,
     },
     displayValues: {
       id: '12',
       companyId: 'Acme Corp',
       createdDate: '12/01/2022',
+      modifyDate: '08/15/2024 2:20 PM',
     },
   },
   {
@@ -268,12 +292,14 @@ export const personRecords: QRecord[] = [
       title: 'Senior Analyst',
       status: 'Active',
       createdDate: '2024-02-14',
+      modifyDate: '2025-01-09T11:30:00',
       notes: 'Requested demo of advanced reporting module.',
     },
     displayValues: {
       id: '13',
       companyId: 'Initech',
       createdDate: '02/14/2024',
+      modifyDate: '01/09/2025 11:30 AM',
     },
   },
   {
@@ -289,12 +315,14 @@ export const personRecords: QRecord[] = [
       title: 'Product Manager',
       status: 'Lead',
       createdDate: '2024-03-01',
+      modifyDate: '2025-01-22T16:10:00',
       notes: 'Attended our webinar. Reached out for pricing.',
     },
     displayValues: {
       id: '14',
       companyId: 'Massive Dynamic',
       createdDate: '03/01/2024',
+      modifyDate: '01/22/2025 4:10 PM',
     },
   },
   {
@@ -310,12 +338,14 @@ export const personRecords: QRecord[] = [
       title: 'IT Director',
       status: 'Active',
       createdDate: '2023-05-30',
+      modifyDate: '2024-12-10T08:40:00',
       notes: null,
     },
     displayValues: {
       id: '15',
       companyId: 'Umbrella Inc',
       createdDate: '05/30/2023',
+      modifyDate: '12/10/2024 8:40 AM',
     },
   },
   {
@@ -331,12 +361,14 @@ export const personRecords: QRecord[] = [
       title: 'R&D Manager',
       status: 'Active',
       createdDate: '2022-09-20',
+      modifyDate: '2024-09-28T12:55:00',
       notes: null,
     },
     displayValues: {
       id: '16',
       companyId: 'Stark Industries',
       createdDate: '09/20/2022',
+      modifyDate: '09/28/2024 12:55 PM',
     },
   },
   {
@@ -352,12 +384,14 @@ export const personRecords: QRecord[] = [
       title: 'Finance Director',
       status: 'Active',
       createdDate: '2023-06-08',
+      modifyDate: '2024-10-30T15:35:00',
       notes: 'Contract renewal due in Q4.',
     },
     displayValues: {
       id: '17',
       companyId: 'Wayne Enterprises',
       createdDate: '06/08/2023',
+      modifyDate: '10/30/2024 3:35 PM',
     },
   },
   {
@@ -373,12 +407,14 @@ export const personRecords: QRecord[] = [
       title: 'Sales Representative',
       status: 'Inactive',
       createdDate: '2022-07-11',
+      modifyDate: '2024-05-03T09:30:00',
       notes: 'Left the company. New contact TBD.',
     },
     displayValues: {
       id: '18',
       companyId: 'Dunder Mifflin',
       createdDate: '07/11/2022',
+      modifyDate: '05/03/2024 9:30 AM',
     },
   },
   {
@@ -394,12 +430,14 @@ export const personRecords: QRecord[] = [
       title: 'Lead Developer',
       status: 'Lead',
       createdDate: '2024-01-25',
+      modifyDate: '2025-01-14T13:50:00',
       notes: 'Technical champion. Evaluating our API integrations.',
     },
     displayValues: {
       id: '19',
       companyId: 'Pied Piper',
       createdDate: '01/25/2024',
+      modifyDate: '01/14/2025 1:50 PM',
     },
   },
   {
@@ -415,12 +453,14 @@ export const personRecords: QRecord[] = [
       title: 'Data Scientist',
       status: 'Active',
       createdDate: '2023-10-17',
+      modifyDate: '2024-11-25T10:15:00',
       notes: null,
     },
     displayValues: {
       id: '20',
       companyId: 'Globex Corporation',
       createdDate: '10/17/2023',
+      modifyDate: '11/25/2024 10:15 AM',
     },
   },
   {
@@ -436,12 +476,14 @@ export const personRecords: QRecord[] = [
       title: 'Business Analyst',
       status: 'Active',
       createdDate: '2023-08-04',
+      modifyDate: '2024-09-19T16:40:00',
       notes: null,
     },
     displayValues: {
       id: '21',
       companyId: 'Initech',
       createdDate: '08/04/2023',
+      modifyDate: '09/19/2024 4:40 PM',
     },
   },
   {
@@ -457,12 +499,14 @@ export const personRecords: QRecord[] = [
       title: 'VP of Sales',
       status: 'Active',
       createdDate: '2022-10-30',
+      modifyDate: '2024-12-20T11:25:00',
       notes: 'Manages a team of 12 account executives.',
     },
     displayValues: {
       id: '22',
       companyId: 'Umbrella Inc',
       createdDate: '10/30/2022',
+      modifyDate: '12/20/2024 11:25 AM',
     },
   },
   {
@@ -478,12 +522,14 @@ export const personRecords: QRecord[] = [
       title: 'DevOps Engineer',
       status: 'Active',
       createdDate: '2024-02-28',
+      modifyDate: '2025-02-04T14:00:00',
       notes: null,
     },
     displayValues: {
       id: '23',
       companyId: 'Massive Dynamic',
       createdDate: '02/28/2024',
+      modifyDate: '02/04/2025 2:00 PM',
     },
   },
   {
@@ -499,12 +545,14 @@ export const personRecords: QRecord[] = [
       title: 'VP of Marketing',
       status: 'Lead',
       createdDate: '2024-03-15',
+      modifyDate: '2025-01-28T09:45:00',
       notes: 'New contact from recent trade show.',
     },
     displayValues: {
       id: '24',
       companyId: 'Stark Industries',
       createdDate: '03/15/2024',
+      modifyDate: '01/28/2025 9:45 AM',
     },
   },
   {
@@ -520,12 +568,14 @@ export const personRecords: QRecord[] = [
       title: 'Security Architect',
       status: 'Active',
       createdDate: '2023-11-20',
+      modifyDate: '2025-02-10T15:55:00',
       notes: 'Compliance-focused. Needs SOC 2 documentation.',
     },
     displayValues: {
       id: '25',
       companyId: 'Wayne Enterprises',
       createdDate: '11/20/2023',
+      modifyDate: '02/10/2025 3:55 PM',
     },
   },
 ]
