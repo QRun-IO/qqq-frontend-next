@@ -1,9 +1,7 @@
 version: 2.1
 
-# NOTE: pinned to dev:snapshot until node_app_* jobs land in a production release.
-# Once the orb is published, update to the release version (e.g. kingsrook/qqq-orb@0.7.0).
 orbs:
-  qqq-orb: kingsrook/qqq-orb@dev:snapshot
+  qqq-orb: kingsrook/qqq-orb@0.6.5
 
 # ─── Workflows ───────────────────────────────────────────────────────────────
 # Branch strategy mirrors the QRun-IO orb convention:
