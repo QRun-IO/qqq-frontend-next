@@ -21,8 +21,7 @@ import {
   getDefaultOperatorForFieldType,
   emptyFilter,
 } from '@/lib/utils/filter-utils'
-import { fetchTablePossibleValues } from '@/lib/api/possible-values'
-import { COMBOBOX_DEBOUNCE_MS } from '@/lib/constants'
+import { useAsyncCombobox } from '@/lib/hooks/use-async-combobox'
 
 // ------------------------------------------------------------------
 // Types
@@ -176,14 +175,14 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
   }
 
   const updateSubFilter = (index: number, updated: QQueryFilter) => {
-    const subs = [...(filter.subFilters ?? [])]
-    subs[index] = updated
-    onChange({ ...filter, subFilters: subs })
+    const subFilters = [...(filter.subFilters ?? [])]
+    subFilters[index] = updated
+    onChange({ ...filter, subFilters })
   }
 
   const removeSubFilter = (index: number) => {
-    const subs = (filter.subFilters ?? []).filter((_, i) => i !== index)
-    onChange({ ...filter, subFilters: subs })
+    const subFilters = (filter.subFilters ?? []).filter((_, i) => i !== index)
+    onChange({ ...filter, subFilters })
   }
 
   return (
@@ -514,81 +513,18 @@ function PossibleValueSingleSelect({
   onChange,
   'data-qqq-id': dataId,
 }: PossibleValueSingleSelectProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [options, setOptions] = useState<QPossibleValue[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedLabel, setSelectedLabel] = useState<string>('')
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
-
-  const fetchOptions = useCallback(
-    async (term: string) => {
-      // Abort any in-flight request to prevent stale responses from overwriting newer results
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-
-      setIsLoading(true)
-      try {
-        const results = await fetchTablePossibleValues(tableName, fieldName, {
-          searchTerm: term || undefined,
-        })
-        // Only apply results if this request was not aborted
-        if (!controller.signal.aborted) {
-          setOptions(results)
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setOptions([])
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
-      }
-    },
-    [tableName, fieldName]
-  )
-
-  const debouncedFetch = useCallback(
-    (term: string) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => fetchOptions(term), COMBOBOX_DEBOUNCE_MS)
-    },
-    [fetchOptions]
-  )
-
-  // Fetch on open
-  useEffect(() => {
-    if (isOpen) {
-      fetchOptions(searchTerm)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  // Clean up debounce and abort controller on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      if (abortControllerRef.current) abortControllerRef.current.abort()
-    }
-  }, [])
+  const {
+    isOpen,
+    setIsOpen,
+    searchTerm,
+    setSearchTerm,
+    options,
+    isLoading,
+    containerRef,
+    inputRef,
+    debouncedFetch,
+  } = useAsyncCombobox({ tableName, fieldName })
 
   const handleSelect = (option: QPossibleValue) => {
     onChange(String(option.id))
@@ -719,90 +655,31 @@ function PossibleValueMultiSelect({
   onChange,
   'data-qqq-id': dataId,
 }: PossibleValueMultiSelectProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [options, setOptions] = useState<QPossibleValue[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   // Map of value id -> label for display in tags
   const [labelMap, setLabelMap] = useState<Record<string, string>>({})
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
-
-  const fetchOptions = useCallback(
-    async (term: string) => {
-      // Abort any in-flight request to prevent stale responses from overwriting newer results
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-
-      setIsLoading(true)
-      try {
-        const results = await fetchTablePossibleValues(tableName, fieldName, {
-          searchTerm: term || undefined,
-        })
-        // Only apply results if this request was not aborted
-        if (!controller.signal.aborted) {
-          setOptions(results)
-          // Update label map with fetched options
-          setLabelMap((prev) => {
-            const next = { ...prev }
-            for (const opt of results) {
-              next[String(opt.id)] = opt.label
-            }
-            return next
-          })
+  const {
+    isOpen,
+    setIsOpen,
+    searchTerm,
+    setSearchTerm,
+    options,
+    isLoading,
+    containerRef,
+    inputRef,
+    debouncedFetch,
+  } = useAsyncCombobox({
+    tableName,
+    fieldName,
+    onOptionsFetched: (results) => {
+      setLabelMap((prev) => {
+        const next = { ...prev }
+        for (const opt of results) {
+          next[String(opt.id)] = opt.label
         }
-      } catch {
-        if (!controller.signal.aborted) {
-          setOptions([])
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
-      }
+        return next
+      })
     },
-    [tableName, fieldName]
-  )
-
-  const debouncedFetch = useCallback(
-    (term: string) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => fetchOptions(term), COMBOBOX_DEBOUNCE_MS)
-    },
-    [fetchOptions]
-  )
-
-  // Fetch on open
-  useEffect(() => {
-    if (isOpen) {
-      fetchOptions(searchTerm)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  // Clean up debounce and abort controller on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      if (abortControllerRef.current) abortControllerRef.current.abort()
-    }
-  }, [])
+  })
 
   const handleToggleValue = (option: QPossibleValue) => {
     const id = String(option.id)

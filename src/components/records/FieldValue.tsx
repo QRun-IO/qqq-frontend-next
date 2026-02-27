@@ -12,7 +12,7 @@ import { useState } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import DOMPurify from 'dompurify'
 
-import type { QFieldMetaData, QTableMetaData, QRecord } from '@/types'
+import type { QFieldMetaData, QTableMetaData, QRecord, FieldAdornment } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { isHttpUrl, isRelativeUrl, isEmail } from '@/lib/utils/string-utils'
 import { RecordHoverCard } from './RecordHoverCard'
@@ -63,8 +63,10 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
   // LINK adornment — render as anchor
   if (hasLink) {
-    const linkAdornment = field.adornments?.find((a) => a.type === 'LINK')
-    const href = (linkAdornment?.values?.['linkURL'] ?? String(value)) as string
+    const linkAdornment = field.adornments?.find(
+      (a): a is Extract<FieldAdornment, { type: 'LINK' }> => a.type === 'LINK'
+    )
+    const href = linkAdornment?.values?.linkURL ?? String(value)
     return (
       <a
         href={href}
@@ -117,8 +119,10 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
   // CHIP adornment — render as badge
   if (hasChip) {
-    const chipAdornment = field.adornments?.find((a) => a.type === 'CHIP')
-    const colorMap = (chipAdornment?.values?.['colorMap'] ?? {}) as Record<string, string>
+    const chipAdornment = field.adornments?.find(
+      (a): a is Extract<FieldAdornment, { type: 'CHIP' }> => a.type === 'CHIP'
+    )
+    const colorMap: Record<string, string> = chipAdornment?.values?.colorMap ?? {}
     const color = colorMap[String(value)] ?? 'gray'
     return (
       <span
@@ -164,11 +168,14 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
   // TOOLTIP adornment — wrap displayed value in a tooltip
   if (hasTooltipAdornment) {
-    const tooltipAdornment = field.adornments?.find((a) => a.type === 'TOOLTIP')
-    const tooltipText = (tooltipAdornment?.values?.['tooltipText'] ??
-      tooltipAdornment?.values?.['text'] ??
-      tooltipAdornment?.values?.['tooltip'] ??
-      '') as string
+    const tooltipAdornment = field.adornments?.find(
+      (a): a is Extract<FieldAdornment, { type: 'TOOLTIP' }> => a.type === 'TOOLTIP'
+    )
+    const tooltipText =
+      tooltipAdornment?.values?.tooltipText ??
+      tooltipAdornment?.values?.text ??
+      tooltipAdornment?.values?.tooltip ??
+      ''
 
     if (tooltipText) {
       return (
@@ -213,10 +220,13 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
   // ERROR adornment — render with error icon and destructive styling
   if (hasError) {
-    const errorAdornment = field.adornments?.find((a) => a.type === 'ERROR')
-    const errorText = (errorAdornment?.values?.['errorText'] ??
-      errorAdornment?.values?.['text'] ??
-      '') as string
+    const errorAdornment = field.adornments?.find(
+      (a): a is Extract<FieldAdornment, { type: 'ERROR' }> => a.type === 'ERROR'
+    )
+    const errorText =
+      errorAdornment?.values?.errorText ??
+      errorAdornment?.values?.text ??
+      ''
 
     return (
       <span

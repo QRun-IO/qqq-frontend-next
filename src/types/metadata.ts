@@ -1,6 +1,6 @@
 // QQQ Metadata Types - ported from qqq-frontend-core
 
-import type { QFieldType, Capability, AdornmentType, QComponentType, QAppNodeType } from './enums'
+import type { QFieldType, Capability, QComponentType, QAppNodeType } from './enums'
 
 export interface QInstance {
   apps: Record<string, QAppMetaData>
@@ -216,7 +216,10 @@ export interface Banner {
   dismissible: boolean
 }
 
-export interface FieldAdornment {
-  type: AdornmentType
-  values?: Record<string, unknown>
-}
+export type FieldAdornment =
+  | { type: 'LINK'; values?: { linkURL?: string } }
+  | { type: 'CHIP'; values?: { colorMap?: Record<string, string>; color?: string } }
+  | { type: 'TOOLTIP'; values?: { tooltipText?: string; text?: string; tooltip?: string } }
+  | { type: 'ERROR'; values?: { errorText?: string; text?: string } }
+  | { type: 'FILE_DOWNLOAD'; values?: { downloadUrl?: string } }
+  | { type: 'SIZE' | 'REVEAL' | 'CODE_EDITOR' | 'RENDER_HTML' | 'FILE_UPLOAD' }

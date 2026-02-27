@@ -19,8 +19,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
   for (const adornment of field.adornments ?? []) {
     switch (adornment.type) {
       case 'LINK': {
-        const href = adornment.values?.['href'] as string | undefined
-        const url = href ?? (typeof value === 'string' ? value : undefined)
+        const url = adornment.values?.linkURL ?? (typeof value === 'string' ? value : undefined)
         if (url) {
           return (
             <a
@@ -39,7 +38,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'CHIP': {
-        const color = (adornment.values?.['color'] as string) ?? 'blue'
+        const color = adornment.values?.color ?? 'blue'
         const colorMap: Record<string, string> = {
           blue: 'bg-blue-100 text-blue-800',
           green: 'bg-green-100 text-green-800',
@@ -98,7 +97,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'FILE_DOWNLOAD': {
-        const downloadUrl = adornment.values?.['downloadUrl'] as string | undefined
+        const downloadUrl = adornment.values?.downloadUrl
         if (downloadUrl) {
           return (
             <a
@@ -116,7 +115,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'TOOLTIP': {
-        const tooltip = adornment.values?.['tooltip'] as string | undefined
+        const tooltip = adornment.values?.tooltip
         return (
           <span
             title={tooltip ?? display}

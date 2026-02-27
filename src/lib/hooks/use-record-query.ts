@@ -315,30 +315,25 @@ export function useRecordQuery({
   // Build the effective filter for API calls
   // Merges userFilter + quickSearch + pagination + sort
   // ------------------------------------------------------------------
-  const effectiveFilter = useMemo<QQueryFilter>(() => {
-    const base = state.quickSearchTerm
-      ? buildQuickFilterFromState(state.quickSearchTerm, tableMetaData, state.columnVisibility)
-      : { ...state.userFilter }
 
+  // Separated so effectiveFilter/countFilter don't depend on columnVisibility
+  // when quickSearchTerm is empty (avoids needless re-queries on column toggle)
+  const quickSearchBase = useMemo<QQueryFilter | null>(() => {
+    if (!state.quickSearchTerm) return null
+    return buildQuickFilterFromState(state.quickSearchTerm, tableMetaData, state.columnVisibility)
+  }, [state.quickSearchTerm, tableMetaData, state.columnVisibility])
+
+  const effectiveFilter = useMemo<QQueryFilter>(() => {
+    const base = quickSearchBase ?? { ...state.userFilter }
     const withSort = applySort(base, state.sortOrder)
     return applyPagination(withSort, state.pageNum, state.pageSize)
-  }, [
-    state.userFilter,
-    state.quickSearchTerm,
-    state.sortOrder,
-    state.pageNum,
-    state.pageSize,
-    tableMetaData,
-    state.columnVisibility,
-  ])
+  }, [quickSearchBase, state.userFilter, state.sortOrder, state.pageNum, state.pageSize])
 
   // Filter for count query (no pagination offsets)
   const countFilter = useMemo<QQueryFilter>(() => {
-    const base = state.quickSearchTerm
-      ? buildQuickFilterFromState(state.quickSearchTerm, tableMetaData, state.columnVisibility)
-      : { ...state.userFilter }
+    const base = quickSearchBase ?? { ...state.userFilter }
     return { ...base, skip: 0, limit: 0, orderBys: [] }
-  }, [state.userFilter, state.quickSearchTerm, tableMetaData, state.columnVisibility])
+  }, [quickSearchBase, state.userFilter])
 
   // ------------------------------------------------------------------
   // Build joins from exposedJoins metadata
