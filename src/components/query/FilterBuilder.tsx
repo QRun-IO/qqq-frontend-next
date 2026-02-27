@@ -22,6 +22,7 @@ import {
   emptyFilter,
 } from '@/lib/utils/filter-utils'
 import { fetchTablePossibleValues } from '@/lib/api/possible-values'
+import { COMBOBOX_DEBOUNCE_MS } from '@/lib/constants'
 
 // ------------------------------------------------------------------
 // Types
@@ -284,7 +285,7 @@ interface CriteriaRowProps {
   tableName: string
 }
 
-function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tableName }: CriteriaRowProps) {
+const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tableName }: CriteriaRowProps) {
   const selectedField = fields.find((f) => f.name === criterion.fieldName) ?? fields[0]
   const fieldType = selectedField?.type ?? 'STRING'
   const availableOps = getOperatorsForFieldType(fieldType)
@@ -373,7 +374,7 @@ function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tabl
       </button>
     </div>
   )
-}
+})
 
 // ------------------------------------------------------------------
 // FilterValueInput — type-appropriate value input
@@ -390,7 +391,7 @@ interface FilterValueInputProps {
   tableName: string
 }
 
-function FilterValueInput({ field, operator, values, onChange, depth, index, tableName }: FilterValueInputProps) {
+const FilterValueInput = React.memo(function FilterValueInput({ field, operator, values, onChange, depth, index, tableName }: FilterValueInputProps) {
   const config = OPERATOR_CONFIG[operator]
 
   if (config.valueCount === 'none') return null
@@ -490,7 +491,7 @@ function FilterValueInput({ field, operator, values, onChange, depth, index, tab
       data-qqq-id={`filter-value-${depth}-${index}`}
     />
   )
-}
+})
 
 // ------------------------------------------------------------------
 // PossibleValueSingleSelect — async combobox for single-value filter
@@ -557,7 +558,7 @@ function PossibleValueSingleSelect({
   const debouncedFetch = useCallback(
     (term: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => fetchOptions(term), 300)
+      debounceRef.current = setTimeout(() => fetchOptions(term), COMBOBOX_DEBOUNCE_MS)
     },
     [fetchOptions]
   )
@@ -771,7 +772,7 @@ function PossibleValueMultiSelect({
   const debouncedFetch = useCallback(
     (term: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => fetchOptions(term), 300)
+      debounceRef.current = setTimeout(() => fetchOptions(term), COMBOBOX_DEBOUNCE_MS)
     },
     [fetchOptions]
   )

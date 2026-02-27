@@ -8,7 +8,6 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Plus,
-  SlidersHorizontal,
   Columns,
   Search,
   X,
@@ -26,8 +25,10 @@ import type { QTableMetaData, QProcessMetaData } from '@/types'
 import { useRecordQuery } from '@/lib/hooks/use-record-query'
 import type { Density, PageSize } from '@/lib/hooks/use-record-query'
 import { countActiveCriteria } from '@/lib/utils/filter-utils'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
+import { SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { DataGrid } from './DataGrid'
 import { FilterBuilder } from './FilterBuilder'
@@ -77,7 +78,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
       rq.setQuickSearch(value)
-    }, 400)
+    }, SEARCH_DEBOUNCE_MS)
   }
   useEffect(() => {
     return () => {
@@ -390,15 +391,6 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           />
         </button>
 
-        {/* Settings / more */}
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-          aria-label="More options"
-          data-qqq-id="button-more-options"
-        >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-        </button>
       </div>
 
       {/* ============================================================
@@ -496,13 +488,19 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
           role="alert"
           data-qqq-id="grid-error"
         >
-          <p className="font-medium">Failed to load records</p>
+          <p className="font-medium">
+            {getErrorStatusCode(rq.error) === 403
+              ? 'You do not have permission to view these records.'
+              : getErrorStatusCode(rq.error) === 404
+                ? 'This table could not be found.'
+                : 'Failed to load records.'}
+          </p>
           <p className="mt-1 text-xs">
             {rq.error instanceof Error ? rq.error.message : 'An unexpected error occurred.'}
           </p>
           <button
             type="button"
-            onClick={() => rq.setPage(rq.pageNum)} // retrigger
+            onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })}
             className="mt-2 text-xs underline hover:text-red-900 focus:outline-none"
             data-qqq-id="button-retry"
           >

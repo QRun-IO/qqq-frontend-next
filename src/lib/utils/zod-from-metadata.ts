@@ -4,6 +4,21 @@ import { z } from 'zod'
 
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 
+/** Build a string-based Zod schema with optional required/maxLength constraints. */
+function buildStringSchema(isRequired: boolean, label: string, maxLength?: number): z.ZodTypeAny {
+  let schema = z.string()
+  if (isRequired) schema = schema.min(1, `${label} is required`)
+  if (maxLength) schema = schema.max(maxLength, `${label} must be at most ${maxLength} characters`)
+  return isRequired ? schema : schema.optional()
+}
+
+/** Build a string-based Zod schema for date/time fields (same as string but no maxLength). */
+function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
+  const schema = z.string()
+  if (isRequired) return schema.min(1, `${label} is required`)
+  return schema.optional()
+}
+
 /**
  * Build a Zod field validator for a single QFieldMetaData.
  * Returns a ZodTypeAny that can be added to a schema object.
@@ -11,106 +26,39 @@ import type { QFieldMetaData, QTableMetaData } from '@/types'
 export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
   const { type, isRequired, maxLength, label } = field
 
-  let schema: z.ZodTypeAny
-
   switch (type) {
     case 'INTEGER':
     case 'LONG': {
       const num = z.coerce.number().int(`${label} must be a whole number`)
-      if (isRequired) {
-        schema = num
-      } else {
-        schema = z.union([z.literal(''), z.coerce.number().int(`${label} must be a whole number`)]).optional()
-      }
-      break
+      if (isRequired) return num
+      return z.union([z.literal(''), z.coerce.number().int(`${label} must be a whole number`)]).optional()
     }
 
     case 'DECIMAL': {
       const dec = z.coerce.number({ message: `${label} must be a number` })
-      if (isRequired) {
-        schema = dec
-      } else {
-        schema = z.union([z.literal(''), z.coerce.number()]).optional()
-      }
-      break
+      if (isRequired) return dec
+      return z.union([z.literal(''), z.coerce.number()]).optional()
     }
 
-    case 'BOOLEAN': {
-      schema = z.boolean().optional()
-      break
-    }
+    case 'BOOLEAN':
+      return z.boolean().optional()
 
-    case 'DATE': {
-      let dateSchema = z.string()
-      if (isRequired) {
-        dateSchema = dateSchema.min(1, `${label} is required`)
-      }
-      schema = isRequired ? dateSchema : dateSchema.optional()
-      break
-    }
+    case 'DATE':
+    case 'TIME':
+    case 'DATE_TIME':
+      return buildDateTimeSchema(isRequired ?? false, label ?? type)
 
-    case 'TIME': {
-      let timeSchema = z.string()
-      if (isRequired) {
-        timeSchema = timeSchema.min(1, `${label} is required`)
-      }
-      schema = isRequired ? timeSchema : timeSchema.optional()
-      break
-    }
-
-    case 'DATE_TIME': {
-      let dtSchema = z.string()
-      if (isRequired) {
-        dtSchema = dtSchema.min(1, `${label} is required`)
-      }
-      schema = isRequired ? dtSchema : dtSchema.optional()
-      break
-    }
-
-    case 'PASSWORD': {
-      let pwSchema = z.string()
-      if (isRequired) {
-        pwSchema = pwSchema.min(1, `${label} is required`)
-      }
-      if (maxLength) {
-        pwSchema = pwSchema.max(maxLength, `${label} must be at most ${maxLength} characters`)
-      }
-      schema = isRequired ? pwSchema : pwSchema.optional()
-      break
-    }
-
-    case 'TEXT':
-    case 'HTML': {
-      let textSchema = z.string()
-      if (isRequired) {
-        textSchema = textSchema.min(1, `${label} is required`)
-      }
-      schema = isRequired ? textSchema : textSchema.optional()
-      break
-    }
-
-    case 'BLOB': {
+    case 'BLOB':
       // BLOB fields accept File objects or strings (existing file URLs)
-      const blobSchema = z.union([z.instanceof(File), z.string()]).optional()
-      schema = blobSchema
-      break
-    }
+      return z.union([z.instanceof(File), z.string()]).optional()
 
+    case 'PASSWORD':
+    case 'TEXT':
+    case 'HTML':
     case 'STRING':
-    default: {
-      let strSchema = z.string()
-      if (isRequired) {
-        strSchema = strSchema.min(1, `${label} is required`)
-      }
-      if (maxLength) {
-        strSchema = strSchema.max(maxLength, `${label} must be at most ${maxLength} characters`)
-      }
-      schema = isRequired ? strSchema : strSchema.optional()
-      break
-    }
+    default:
+      return buildStringSchema(isRequired ?? false, label ?? type, maxLength)
   }
-
-  return schema
 }
 
 /**

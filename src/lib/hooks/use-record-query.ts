@@ -31,7 +31,8 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 // ------------------------------------------------------------------
 
 export type Density = 'compact' | 'standard' | 'comfortable'
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+import { PAGE_SIZE_OPTIONS } from '@/lib/constants'
+export { PAGE_SIZE_OPTIONS }
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
 export interface SavedView {
@@ -243,7 +244,7 @@ export function useRecordQuery({
     let resolvedPageSize = initialPageSize
     if (pageSizeParam) {
       const n = parseInt(pageSizeParam, 10)
-      if ([10, 25, 50, 100].includes(n)) resolvedPageSize = n as PageSize
+      if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(n)) resolvedPageSize = n as PageSize
     }
 
     initialStateRef.current = {
@@ -254,14 +255,14 @@ export function useRecordQuery({
     }
   }
 
-  const initVals = initialStateRef.current
+  const initialValues = initialStateRef.current
   const initialState: RecordQueryState = {
-    pageNum: initVals.pageNum,
-    pageSize: initVals.pageSize,
-    userFilter: initVals.filter,
-    quickSearchTerm: initVals.quickSearchTerm,
+    pageNum: initialValues.pageNum,
+    pageSize: initialValues.pageSize,
+    userFilter: initialValues.filter,
+    quickSearchTerm: initialValues.quickSearchTerm,
     filterMode: 'basic',
-    sortOrder: initVals.filter.orderBys ?? [],
+    sortOrder: initialValues.filter.orderBys ?? [],
     columnVisibility: storedColumnVisibility,
     columnOrder: storedColumnOrder,
     columnWidths: storedColumnWidths,

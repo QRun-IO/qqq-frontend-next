@@ -11,10 +11,9 @@ import React, { useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'
-import { AxiosError } from 'axios'
-
 import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -61,26 +60,6 @@ interface RecordViewProps {
   className?: string
 }
 
-/**
- * Extracts an HTTP status code from an error, if available.
- * Supports AxiosError and generic error objects with a `status` property.
- */
-function getErrorStatusCode(error: Error | null | undefined): number | undefined {
-  if (!error) return undefined
-
-  // AxiosError provides response.status
-  if ('response' in error) {
-    const axiosErr = error as AxiosError
-    return axiosErr.response?.status
-  }
-
-  // Some error wrappers expose status directly
-  if ('status' in error && typeof (error as Record<string, unknown>).status === 'number') {
-    return (error as Record<string, unknown>).status as number
-  }
-
-  return undefined
-}
 
 export function RecordView({
   tableMetaData,

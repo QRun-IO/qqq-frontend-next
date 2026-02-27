@@ -14,6 +14,7 @@ import DOMPurify from 'dompurify'
 
 import type { QFieldMetaData, QTableMetaData, QRecord } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { isHttpUrl, isRelativeUrl, isEmail } from '@/lib/utils/string-utils'
 import { RecordHoverCard } from './RecordHoverCard'
 
 interface FieldValueProps {
@@ -291,7 +292,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
     case 'BLOB': {
       // BLOB — show as file download if we have a URL, otherwise indicate large binary
-      if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/'))) {
+      if (typeof value === 'string' && (isHttpUrl(value) || isRelativeUrl(value))) {
         return (
           <a
             href={value}
@@ -336,7 +337,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
       // Auto-link URLs — detect http(s):// values and render as external links
       const strValue = String(value)
-      if (/^https?:\/\//i.test(strValue)) {
+      if (isHttpUrl(strValue)) {
         return (
           <a
             href={strValue}
@@ -355,7 +356,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
       }
 
       // Auto-link emails — detect email addresses and render as mailto links
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue)) {
+      if (isEmail(strValue)) {
         return (
           <a
             href={`mailto:${strValue}`}
