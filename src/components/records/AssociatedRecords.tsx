@@ -41,9 +41,9 @@ export function AssociatedRecords({
   className,
 }: AssociatedRecordsProps) {
   const joinTableMetaData = join.joinTable
-  if (!joinTableMetaData) return null
-
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  if (!joinTableMetaData) return null
 
   // Get visible fields for column headers (first 6 non-hidden fields)
   const visibleFields = Object.values(joinTableMetaData.fields)

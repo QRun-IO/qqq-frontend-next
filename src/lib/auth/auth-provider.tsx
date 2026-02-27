@@ -65,6 +65,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     apiClient.setUnauthorizedCallback(() => {
       setIsAuthenticated(false)
       setUser(null)
+      clearAuthMetadataCache() // CRIT-6: clear stale auth cache on session expiry
       const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
       router.push(`/login?returnTo=${returnTo}`)
     })
@@ -121,20 +122,24 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   }, [onAuthError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function setupAuth0Session(authMeta: QAuthenticationMetaData) {
-    // Auth0 flow: verify existing session by calling a protected endpoint
-    // The sessionUUID cookie is managed by the backend
-    // For MVP: assume authenticated if we can load the auth metadata
-    void authMeta // metadata will be used in full Auth0 PKCE implementation
+    // Auth0 flow: validate the existing session cookie against the backend.
+    // Call manageSession with an empty token; the backend will return 401 if no
+    // valid session cookie exists, which rejects this promise and leaves
+    // isAuthenticated=false, triggering a redirect to login.
+    void authMeta // full Auth0 PKCE flow handled by the login page
+    await manageSession('') // throws on 401 — intentional: proves live session
     const storedUser = getStoredUser()
-    setUser(storedUser || { name: 'User', email: 'user@example.com' })
+    setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
   }
 
   async function setupOAuth2Session(authMeta: QAuthenticationMetaData) {
-    // OAuth2/OIDC flow: check for existing session via cookie
-    // The actual OAuth redirect is handled by the login page
-    void authMeta // metadata will be used in full OAuth2/PKCE implementation
+    // OAuth2/OIDC flow: validate the existing session cookie against the backend.
+    // Same approach as Auth0: call manageSession so the backend can reject stale
+    // or missing sessions with 401 before we mark the user as authenticated.
+    void authMeta // full OAuth2/PKCE flow handled by the login page
+    await manageSession('') // throws on 401 — intentional: proves live session
     const storedUser = getStoredUser()
-    setUser(storedUser || { name: 'User', email: 'user@example.com' })
+    setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
   }
 
   async function setupAnonymousSession() {
@@ -160,19 +165,21 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     return null
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function handleOAuthCallback(code: string, state: string) {
-    // This is called by the OAuth callback page
-    // Exchange code for tokens, then create session
-    try {
-      // For now, just mark as authenticated
-      // Full OAuth2/PKCE implementation in production
-      // OAuth callback received — exchange code for session token
-      setIsAuthenticated(true)
-    } catch (error) {
-      console.error('[Auth] OAuth callback failed:', error)
-      throw error
+    // OAuth2/PKCE callback: validate state nonce, then exchange the authorization
+    // code for a backend session via manageSession.
+    const storedState = sessionStorage.getItem('oauth_state')
+    if (!storedState || storedState !== state) {
+      throw new Error('[Auth] OAuth state mismatch — possible CSRF attack')
     }
+    sessionStorage.removeItem('oauth_state')
+
+    // Exchange the authorization code for a QQQ session.
+    // The backend (via manageSession) validates the code with the IdP and
+    // issues a session cookie. Throws on failure — isAuthenticated stays false.
+    await manageSession(code)
+    setIsAuthenticated(true)
+    setIsLoading(false)
   }
 
   return (

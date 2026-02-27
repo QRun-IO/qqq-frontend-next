@@ -28,7 +28,6 @@ export function BulkActionBar({
   onClearSelection,
   onDeleteSelected,
   onExportSelected,
-  onRunProcess,
   processes,
   selectedRecordIds,
   currentFilter,

@@ -9,7 +9,6 @@ import { X, RotateCcw } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
-import type { UserPreferences } from '@/lib/hooks/use-user-preferences'
 
 interface UserPreferencesDialogProps {
   open: boolean

@@ -7,6 +7,7 @@ import { Download, ChevronDown } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QQueryFilter } from '@/types'
 import { queryRecords } from '@/lib/api/tables'
+import { toast } from '@/lib/hooks/use-toast'
 
 interface ExportButtonProps {
   tableName: string
@@ -87,6 +88,7 @@ export function ExportButton({
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('[ExportButton] Export failed:', err)
+      toast.error('Export failed. Please try again.')
     } finally {
       setExporting(false)
     }

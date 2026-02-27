@@ -41,10 +41,13 @@ export interface HtmlWidgetData extends WidgetData {
 export interface RecordGridWidgetData extends WidgetData {
   type: 'recordGrid'
   tableName: string
-  columns: string[]
+  /** Field names — used as column keys when full metadata is unavailable */
+  columns?: string[]
+  /** Full field metadata — used for proper labels and type-aware rendering */
+  fields?: import('./metadata').QFieldMetaData[]
   records: Array<{
     values: Record<string, unknown>
-    displayValues: Record<string, string>
+    displayValues?: Record<string, string>
   }>
   totalCount?: number
 }

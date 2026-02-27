@@ -7,7 +7,7 @@
 // - Collapsible sections on mobile
 // - T2 sections collapsed by default
 
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'

@@ -700,6 +700,44 @@ const bulkUpdateStatusProcess: QProcessMetaData = {
 
 // ─── Widgets ─────────────────────────────────────────────────────────────────
 
+const inventoryWidgets: Record<string, QWidgetMetaData> = {
+  invKpis: {
+    name: 'invKpis',
+    label: 'Inventory Overview',
+    type: 'statistics',
+    hasPermission: true,
+    gridColumns: 3,
+  },
+  invStockByCategory: {
+    name: 'invStockByCategory',
+    label: 'Stock Units by Category',
+    type: 'chart',
+    hasPermission: true,
+    gridColumns: 2,
+  },
+  invLowStockCount: {
+    name: 'invLowStockCount',
+    label: 'Reorder Required',
+    type: 'statistics',
+    hasPermission: true,
+    gridColumns: 1,
+  },
+  invValueTrend: {
+    name: 'invValueTrend',
+    label: 'Inventory Value Trend',
+    type: 'chart',
+    hasPermission: true,
+    gridColumns: 3,
+  },
+  invLowStockItems: {
+    name: 'invLowStockItems',
+    label: 'Products Needing Reorder',
+    type: 'recordGrid',
+    hasPermission: true,
+    gridColumns: 3,
+  },
+}
+
 const crmWidgets: Record<string, QWidgetMetaData> = {
   crmTotalPeople: {
     name: 'crmTotalPeople',
@@ -814,7 +852,7 @@ const inventoryApp: QAppMetaData = {
   name: 'inventory',
   label: 'Inventory',
   iconName: 'inventory',
-  widgets: [],
+  widgets: ['invKpis', 'invStockByCategory', 'invLowStockCount', 'invValueTrend', 'invLowStockItems'],
   children: inventoryTreeNode.children ?? [],
   sections: [
     {
@@ -852,7 +890,7 @@ export const qInstance: QInstance = {
     bulkUpdateOrderStatus: bulkUpdateStatusProcess,
   },
   reports: {},
-  widgets: crmWidgets,
+  widgets: { ...crmWidgets, ...inventoryWidgets },
   branding: {
     companyName: 'QQQ Demo',
     companyUrl: 'https://qqq.example.com',

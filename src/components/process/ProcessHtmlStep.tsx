@@ -5,16 +5,15 @@
 
 import React, { useState } from 'react'
 import { ChevronRight, X } from 'lucide-react'
+import DOMPurify from 'dompurify'
 
 import type { QFrontendStepMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
-// TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
-// Minimal sanitization: strip script tags to prevent XSS from injected HTML
-function stripScripts(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+function sanitizeHtml(html: string): string {
+  return DOMPurify.sanitize(html)
 }
 
 export interface ProcessHtmlStepProps {
@@ -97,7 +96,7 @@ export function ProcessHtmlStep({
       {htmlContent ? (
         <div
           className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-4"
-          dangerouslySetInnerHTML={{ __html: stripScripts(htmlContent) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
           data-qqq-id="process-html-content"
         />
       ) : (

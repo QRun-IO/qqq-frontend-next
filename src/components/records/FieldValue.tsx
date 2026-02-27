@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import DOMPurify from 'dompurify'
 
 import type { QFieldMetaData, QTableMetaData, QRecord } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -132,12 +133,12 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
     )
   }
 
-  // RENDER_HTML adornment — render raw HTML
+  // RENDER_HTML adornment — render sanitized HTML
   if (hasRenderHtml || field.type === 'HTML') {
     return (
       <div
         className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)}
-        dangerouslySetInnerHTML={{ __html: String(value) }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(String(value)) }}
         data-qqq-id={`field-value-${field.name}`}
       />
     )

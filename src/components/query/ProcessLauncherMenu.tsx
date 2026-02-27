@@ -19,7 +19,6 @@ interface ProcessLauncherMenuProps {
 export function ProcessLauncherMenu({
   processes,
   selectedRecordIds,
-  tableName,
   currentFilter,
 }: ProcessLauncherMenuProps) {
   const router = useRouter()

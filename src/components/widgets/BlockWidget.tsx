@@ -10,6 +10,7 @@ import {
   ArrowDown,
   HelpCircle,
 } from 'lucide-react'
+import DOMPurify from 'dompurify'
 
 import type { BlockData } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -41,7 +42,7 @@ export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: data.html }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.html) }}
         data-qqq-id={`block-widget-${widgetName}`}
       />
     )
@@ -279,7 +280,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
       return (
         <div
           className="prose prose-sm max-w-none dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: block.html }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.html) }}
           data-qqq-id={`block-html-${widgetName}-${index}`}
         />
       )

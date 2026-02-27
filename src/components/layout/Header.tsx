@@ -21,7 +21,7 @@ export interface HeaderProps {
   parentAppMap?: Record<string, ParentAppInfo>
 }
 
-export default function Header({ appName, onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
+export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (

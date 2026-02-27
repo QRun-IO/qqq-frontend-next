@@ -12,10 +12,18 @@ import {
   revenueLastYearChart,
   recentOrdersGrid,
 } from '../fixtures/widgets/charts'
+import {
+  invKpis,
+  invStockByCategory,
+  invLowStockCount,
+  invValueTrend,
+  invLowStockItems,
+} from '../fixtures/widgets/inventory'
 
 const BASE = '/qqq/v1'
 
 const widgetData: Record<string, unknown> = {
+  // CRM widgets
   crmTotalPeople: totalPeopleStats,
   crmActiveCompanies: activeCompaniesStats,
   crmOpenOrders: openOrdersStats,
@@ -23,6 +31,12 @@ const widgetData: Record<string, unknown> = {
   crmOrdersByStatus: ordersByStatusChart,
   crmRevenueChart: revenueLastYearChart,
   crmRecentOrders: recentOrdersGrid,
+  // Inventory widgets
+  invKpis,
+  invStockByCategory,
+  invLowStockCount,
+  invValueTrend,
+  invLowStockItems,
 }
 
 export const widgetHandlers = [
