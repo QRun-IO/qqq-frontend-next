@@ -10,7 +10,11 @@ function makeProcess(overrides: Partial<QProcessMetaData>): QProcessMetaData {
     label: 'Test Process',
     tableName: 'person',
     isHidden: false,
+    iconName: '',
     hasPermission: true,
+    stepFlow: 'LINEAR',
+    minInputRecords: 0,
+    maxInputRecords: 1,
     frontendSteps: [],
     ...overrides,
   }

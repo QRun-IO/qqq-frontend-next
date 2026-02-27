@@ -11,7 +11,9 @@ function makeField(overrides: Partial<QFieldMetaData>): QFieldMetaData {
     type: 'STRING',
     isRequired: false,
     isEditable: true,
+    isHeavy: false,
     isHidden: false,
+    adornments: [],
     ...overrides,
   }
 }
@@ -20,14 +22,18 @@ function makeTable(fields: Record<string, QFieldMetaData>): QTableMetaData {
   return {
     name: 'testTable',
     label: 'Test Table',
-    iconName: '',
+    isHidden: false,
     primaryKeyField: 'id',
     fields,
     sections: [],
     capabilities: [],
     exposedJoins: [],
+    readPermission: true,
+    insertPermission: true,
+    editPermission: true,
+    deletePermission: true,
     usesVariants: false,
-    hasPermission: true,
+    variantTableLabel: '',
   }
 }
 

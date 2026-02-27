@@ -47,7 +47,7 @@ describe('injectThemeTokens', () => {
   it('uses default tokens when called with no args', () => {
     injectThemeTokens()
     expect(setPropertySpy).toHaveBeenCalled()
-    const calls = setPropertySpy.mock.calls.map(([k]: [string]) => k)
+    const calls = setPropertySpy.mock.calls.map((args: unknown[]) => args[0] as string)
     expect(calls).toContain('--qqq-primary-color')
   })
 

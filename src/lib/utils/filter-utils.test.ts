@@ -344,7 +344,7 @@ describe('formatCriterionDisplay', () => {
     const criterion: QFilterCriteria = {
       fieldName: 'date',
       operator: 'GREATER_THAN',
-      values: [{ type: 'NOW_WITH_OFFSET', isNegativeOffset: true, offsetValue: 7, offsetUnit: 'DAYS' }],
+      values: [{ type: 'NOW_WITH_OFFSET', isNegativeOffset: true, offsetValue: 7, offsetUnit: 'DAY' }],
     }
     const display = formatCriterionDisplay(criterion)
     expect(display).toContain('now -7 days')
