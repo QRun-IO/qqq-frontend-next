@@ -14,7 +14,6 @@ function makeProcess(overrides: Partial<QProcessMetaData>): QProcessMetaData {
     hasPermission: true,
     stepFlow: 'LINEAR',
     minInputRecords: 0,
-    maxInputRecords: 0,
     frontendSteps: [],
     ...overrides,
   }

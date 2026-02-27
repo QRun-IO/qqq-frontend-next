@@ -92,7 +92,7 @@ export interface QProcessMetaData {
   hasPermission: boolean
   stepFlow: 'LINEAR'
   minInputRecords: number
-  maxInputRecords: number
+  maxInputRecords?: number
   frontendSteps: QFrontendStepMetaData[]
 }
 
