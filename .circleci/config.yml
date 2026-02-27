@@ -18,7 +18,6 @@ workflows:
   test_only:
     jobs:
       - qqq-orb/node_app_test_only:
-          context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
               ignore: /(develop|main|release\/.*|hotfix\/.*|integration.*)/
@@ -28,8 +27,6 @@ workflows:
   publish_snapshot:
     jobs:
       - qqq-orb/node_app_build:
-          branch_type: snapshot
-          context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
               only: [ develop ]
@@ -37,8 +34,6 @@ workflows:
   publish_release_candidate:
     jobs:
       - qqq-orb/node_app_build:
-          branch_type: release_candidate
-          context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
               only: [ /release\/.*/ ]
@@ -46,8 +41,6 @@ workflows:
   publish_release:
     jobs:
       - qqq-orb/node_app_build:
-          branch_type: release
-          context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
               only: [ main ]
@@ -57,8 +50,6 @@ workflows:
   publish_hotfix_release:
     jobs:
       - qqq-orb/node_app_build:
-          branch_type: hotfix
-          context: [ qqq-maven-registry-credentials ]
           filters:
             branches:
               only: [ /hotfix\/.*/ ]

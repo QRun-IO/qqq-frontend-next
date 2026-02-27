@@ -13,7 +13,8 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
