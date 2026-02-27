@@ -488,47 +488,68 @@ export function useRecordQuery({
   const resetFilter = useCallback(() => dispatch({ type: 'RESET_FILTER' }), [])
 
   return {
-    // State
-    ...state,
+    pagination: {
+      pageNum: state.pageNum,
+      pageSize: state.pageSize,
+      totalCount,
+      totalPages,
+      setPage,
+      setPageSize,
+    },
 
-    // Derived
-    effectiveFilter,
-    records,
-    totalCount,
-    totalPages,
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    selectedRecordIds,
+    filter: {
+      userFilter: state.userFilter,
+      quickSearchTerm: state.quickSearchTerm,
+      filterMode: state.filterMode,
+      filterPanelOpen: state.filterPanelOpen,
+      sortOrder: state.sortOrder,
+      effectiveFilter,
+      setUserFilter,
+      setQuickSearch,
+      setFilterMode,
+      setSort,
+      resetFilter,
+      toggleFilterPanel,
+    },
 
-    // Density
+    columns: {
+      columnVisibility: state.columnVisibility,
+      columnOrder: state.columnOrder,
+      columnWidths: state.columnWidths,
+      columnConfigOpen: state.columnConfigOpen,
+      setColumnVisibility,
+      toggleColumn,
+      setColumnOrder,
+      setColumnWidth,
+      toggleColumnConfig,
+      setColumnConfigOpen,
+    },
+
+    selection: {
+      rowSelection: state.rowSelection,
+      selectedRecordIds,
+      setRowSelection,
+      clearRowSelection,
+    },
+
+    data: {
+      records,
+      isLoading,
+      isFetching,
+      isError,
+      error,
+    },
+
+    // Density is a persisted display preference — kept flat for brevity
     density,
     setDensity,
 
-    // Saved views
-    savedViews,
-    saveView,
-    loadView,
-    deleteView,
-
-    // Dispatchers
-    setPage,
-    setPageSize,
-    setUserFilter,
-    setQuickSearch,
-    setFilterMode,
-    setSort,
-    setColumnVisibility,
-    toggleColumn,
-    setColumnOrder,
-    setColumnWidth,
-    setRowSelection,
-    clearRowSelection,
-    toggleColumnConfig,
-    setColumnConfigOpen,
-    toggleFilterPanel,
-    resetFilter,
+    views: {
+      list: savedViews,
+      saveView,
+      loadView,
+      deleteView,
+    },
   }
 }
 

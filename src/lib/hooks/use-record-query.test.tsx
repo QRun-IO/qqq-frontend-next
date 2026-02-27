@@ -48,13 +48,13 @@ describe('useRecordQuery — initialization', () => {
       { wrapper: createWrapper() }
     )
 
-    expect(result.current.pageNum).toBe(1)
-    expect(result.current.pageSize).toBe(25)
-    expect(result.current.filterMode).toBe('basic')
-    expect(result.current.quickSearchTerm).toBe('')
-    expect(result.current.columnConfigOpen).toBe(false)
-    expect(result.current.filterPanelOpen).toBe(false)
-    expect(result.current.rowSelection).toEqual({})
+    expect(result.current.pagination.pageNum).toBe(1)
+    expect(result.current.pagination.pageSize).toBe(25)
+    expect(result.current.filter.filterMode).toBe('basic')
+    expect(result.current.filter.quickSearchTerm).toBe('')
+    expect(result.current.columns.columnConfigOpen).toBe(false)
+    expect(result.current.filter.filterPanelOpen).toBe(false)
+    expect(result.current.selection.rowSelection).toEqual({})
   })
 
   it('uses custom initialPageSize', () => {
@@ -62,7 +62,7 @@ describe('useRecordQuery — initialization', () => {
       () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta(), initialPageSize: 50 }),
       { wrapper: createWrapper() }
     )
-    expect(result.current.pageSize).toBe(50)
+    expect(result.current.pagination.pageSize).toBe(50)
   })
 })
 
@@ -73,8 +73,8 @@ describe('useRecordQuery — pagination actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setPage(3))
-    expect(result.current.pageNum).toBe(3)
+    act(() => result.current.pagination.setPage(3))
+    expect(result.current.pagination.pageNum).toBe(3)
   })
 
   it('setPageSize resets to page 1', () => {
@@ -83,10 +83,10 @@ describe('useRecordQuery — pagination actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setPage(5))
-    act(() => result.current.setPageSize(50))
-    expect(result.current.pageNum).toBe(1)
-    expect(result.current.pageSize).toBe(50)
+    act(() => result.current.pagination.setPage(5))
+    act(() => result.current.pagination.setPageSize(50))
+    expect(result.current.pagination.pageNum).toBe(1)
+    expect(result.current.pagination.pageSize).toBe(50)
   })
 })
 
@@ -97,10 +97,10 @@ describe('useRecordQuery — filter actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setPage(2))
-    act(() => result.current.setQuickSearch('Alice'))
-    expect(result.current.quickSearchTerm).toBe('Alice')
-    expect(result.current.pageNum).toBe(1)
+    act(() => result.current.pagination.setPage(2))
+    act(() => result.current.filter.setQuickSearch('Alice'))
+    expect(result.current.filter.quickSearchTerm).toBe('Alice')
+    expect(result.current.pagination.pageNum).toBe(1)
   })
 
   it('setUserFilter clears quickSearch and resets page', () => {
@@ -109,9 +109,9 @@ describe('useRecordQuery — filter actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setQuickSearch('Alice'))
-    act(() => result.current.setPage(3))
-    act(() => result.current.setUserFilter({
+    act(() => result.current.filter.setQuickSearch('Alice'))
+    act(() => result.current.pagination.setPage(3))
+    act(() => result.current.filter.setUserFilter({
       criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Bob'] }],
       orderBys: [],
       subFilters: [],
@@ -119,9 +119,9 @@ describe('useRecordQuery — filter actions', () => {
       skip: 0,
       limit: 25,
     }))
-    expect(result.current.quickSearchTerm).toBe('')
-    expect(result.current.pageNum).toBe(1)
-    expect(result.current.userFilter.criteria).toHaveLength(1)
+    expect(result.current.filter.quickSearchTerm).toBe('')
+    expect(result.current.pagination.pageNum).toBe(1)
+    expect(result.current.filter.userFilter.criteria).toHaveLength(1)
   })
 
   it('setFilterMode toggles between basic and advanced', () => {
@@ -130,10 +130,10 @@ describe('useRecordQuery — filter actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setFilterMode('advanced'))
-    expect(result.current.filterMode).toBe('advanced')
-    act(() => result.current.setFilterMode('basic'))
-    expect(result.current.filterMode).toBe('basic')
+    act(() => result.current.filter.setFilterMode('advanced'))
+    expect(result.current.filter.filterMode).toBe('advanced')
+    act(() => result.current.filter.setFilterMode('basic'))
+    expect(result.current.filter.filterMode).toBe('basic')
   })
 
   it('resetFilter clears criteria and quickSearch', () => {
@@ -142,12 +142,12 @@ describe('useRecordQuery — filter actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setQuickSearch('test'))
-    act(() => result.current.setPage(3))
-    act(() => result.current.resetFilter())
-    expect(result.current.quickSearchTerm).toBe('')
-    expect(result.current.pageNum).toBe(1)
-    expect(result.current.userFilter.criteria).toEqual([])
+    act(() => result.current.filter.setQuickSearch('test'))
+    act(() => result.current.pagination.setPage(3))
+    act(() => result.current.filter.resetFilter())
+    expect(result.current.filter.quickSearchTerm).toBe('')
+    expect(result.current.pagination.pageNum).toBe(1)
+    expect(result.current.filter.userFilter.criteria).toEqual([])
   })
 })
 
@@ -158,10 +158,10 @@ describe('useRecordQuery — sort actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setPage(2))
-    act(() => result.current.setSort([{ fieldName: 'firstName', isAscending: true }]))
-    expect(result.current.sortOrder).toEqual([{ fieldName: 'firstName', isAscending: true }])
-    expect(result.current.pageNum).toBe(1)
+    act(() => result.current.pagination.setPage(2))
+    act(() => result.current.filter.setSort([{ fieldName: 'firstName', isAscending: true }]))
+    expect(result.current.filter.sortOrder).toEqual([{ fieldName: 'firstName', isAscending: true }])
+    expect(result.current.pagination.pageNum).toBe(1)
   })
 })
 
@@ -172,8 +172,8 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setColumnVisibility({ firstName: false }))
-    expect(result.current.columnVisibility.firstName).toBe(false)
+    act(() => result.current.columns.setColumnVisibility({ firstName: false }))
+    expect(result.current.columns.columnVisibility.firstName).toBe(false)
   })
 
   it('toggleColumn flips a column visibility', () => {
@@ -182,11 +182,11 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setColumnVisibility({ age: true }))
-    act(() => result.current.toggleColumn('age'))
-    expect(result.current.columnVisibility.age).toBe(false)
-    act(() => result.current.toggleColumn('age'))
-    expect(result.current.columnVisibility.age).toBe(true)
+    act(() => result.current.columns.setColumnVisibility({ age: true }))
+    act(() => result.current.columns.toggleColumn('age'))
+    expect(result.current.columns.columnVisibility.age).toBe(false)
+    act(() => result.current.columns.toggleColumn('age'))
+    expect(result.current.columns.columnVisibility.age).toBe(true)
   })
 
   it('setColumnOrder updates column order', () => {
@@ -195,8 +195,8 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setColumnOrder(['lastName', 'firstName', 'id']))
-    expect(result.current.columnOrder).toEqual(['lastName', 'firstName', 'id'])
+    act(() => result.current.columns.setColumnOrder(['lastName', 'firstName', 'id']))
+    expect(result.current.columns.columnOrder).toEqual(['lastName', 'firstName', 'id'])
   })
 
   it('setColumnWidth updates width for specific field', () => {
@@ -205,8 +205,8 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setColumnWidth('firstName', 200))
-    expect(result.current.columnWidths.firstName).toBe(200)
+    act(() => result.current.columns.setColumnWidth('firstName', 200))
+    expect(result.current.columns.columnWidths.firstName).toBe(200)
   })
 
   it('toggleColumnConfig opens and closes the config panel', () => {
@@ -215,11 +215,11 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    expect(result.current.columnConfigOpen).toBe(false)
-    act(() => result.current.toggleColumnConfig())
-    expect(result.current.columnConfigOpen).toBe(true)
-    act(() => result.current.toggleColumnConfig())
-    expect(result.current.columnConfigOpen).toBe(false)
+    expect(result.current.columns.columnConfigOpen).toBe(false)
+    act(() => result.current.columns.toggleColumnConfig())
+    expect(result.current.columns.columnConfigOpen).toBe(true)
+    act(() => result.current.columns.toggleColumnConfig())
+    expect(result.current.columns.columnConfigOpen).toBe(false)
   })
 
   it('setColumnConfigOpen sets panel state directly', () => {
@@ -228,10 +228,10 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setColumnConfigOpen(true))
-    expect(result.current.columnConfigOpen).toBe(true)
-    act(() => result.current.setColumnConfigOpen(false))
-    expect(result.current.columnConfigOpen).toBe(false)
+    act(() => result.current.columns.setColumnConfigOpen(true))
+    expect(result.current.columns.columnConfigOpen).toBe(true)
+    act(() => result.current.columns.setColumnConfigOpen(false))
+    expect(result.current.columns.columnConfigOpen).toBe(false)
   })
 
   it('toggleFilterPanel toggles panel state', () => {
@@ -240,8 +240,8 @@ describe('useRecordQuery — column actions', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.toggleFilterPanel())
-    expect(result.current.filterPanelOpen).toBe(true)
+    act(() => result.current.filter.toggleFilterPanel())
+    expect(result.current.filter.filterPanelOpen).toBe(true)
   })
 })
 
@@ -252,9 +252,9 @@ describe('useRecordQuery — row selection', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setRowSelection({ '0': true, '1': false }))
-    expect(result.current.rowSelection['0']).toBe(true)
-    expect(result.current.rowSelection['1']).toBe(false)
+    act(() => result.current.selection.setRowSelection({ '0': true, '1': false }))
+    expect(result.current.selection.rowSelection['0']).toBe(true)
+    expect(result.current.selection.rowSelection['1']).toBe(false)
   })
 
   it('clearRowSelection empties selection', () => {
@@ -263,9 +263,9 @@ describe('useRecordQuery — row selection', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.setRowSelection({ '0': true, '1': true }))
-    act(() => result.current.clearRowSelection())
-    expect(result.current.rowSelection).toEqual({})
+    act(() => result.current.selection.setRowSelection({ '0': true, '1': true }))
+    act(() => result.current.selection.clearRowSelection())
+    expect(result.current.selection.rowSelection).toEqual({})
   })
 })
 
@@ -281,12 +281,12 @@ describe('useRecordQuery — saved views', () => {
     )
 
     act(() => {
-      result.current.saveView('My View')
+      result.current.views.saveView('My View')
     })
 
-    expect(result.current.savedViews).toHaveLength(1)
-    expect(result.current.savedViews[0].name).toBe('My View')
-    expect(result.current.savedViews[0].id).toBeDefined()
+    expect(result.current.views.list).toHaveLength(1)
+    expect(result.current.views.list[0].name).toBe('My View')
+    expect(result.current.views.list[0].id).toBeDefined()
   })
 
   it('loadView applies saved view filter and column config', () => {
@@ -310,11 +310,11 @@ describe('useRecordQuery — saved views', () => {
       createdAt: new Date().toISOString(),
     }
 
-    act(() => result.current.loadView(savedView))
-    expect(result.current.userFilter.criteria).toHaveLength(1)
-    expect(result.current.columnVisibility.age).toBe(false)
-    expect(result.current.columnOrder).toEqual(['firstName', 'id'])
-    expect(result.current.pageNum).toBe(1)
+    act(() => result.current.views.loadView(savedView))
+    expect(result.current.filter.userFilter.criteria).toHaveLength(1)
+    expect(result.current.columns.columnVisibility.age).toBe(false)
+    expect(result.current.columns.columnOrder).toEqual(['firstName', 'id'])
+    expect(result.current.pagination.pageNum).toBe(1)
   })
 
   it('deleteView removes view by id', () => {
@@ -323,14 +323,14 @@ describe('useRecordQuery — saved views', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.saveView('View 1'))
-    act(() => result.current.saveView('View 2'))
+    act(() => result.current.views.saveView('View 1'))
+    act(() => result.current.views.saveView('View 2'))
 
-    const viewToDelete = result.current.savedViews[0]
-    act(() => result.current.deleteView(viewToDelete.id))
+    const viewToDelete = result.current.views.list[0]
+    act(() => result.current.views.deleteView(viewToDelete.id))
 
-    expect(result.current.savedViews).toHaveLength(1)
-    expect(result.current.savedViews[0].name).toBe('View 2')
+    expect(result.current.views.list).toHaveLength(1)
+    expect(result.current.views.list[0].name).toBe('View 2')
   })
 })
 
@@ -341,10 +341,10 @@ describe('useRecordQuery — data fetching', () => {
       { wrapper: createWrapper() }
     )
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.isError).toBe(false)
-    expect(result.current.records).toBeDefined()
-    expect(Array.isArray(result.current.records)).toBe(true)
+    await waitFor(() => expect(result.current.data.isLoading).toBe(false))
+    expect(result.current.data.isError).toBe(false)
+    expect(result.current.data.records).toBeDefined()
+    expect(Array.isArray(result.current.data.records)).toBe(true)
   })
 
   it('does not fetch when tableMetaData is undefined', () => {
@@ -352,8 +352,8 @@ describe('useRecordQuery — data fetching', () => {
       () => useRecordQuery({ tableName: 'person', tableMetaData: undefined }),
       { wrapper: createWrapper() }
     )
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.records).toEqual([])
+    expect(result.current.data.isLoading).toBe(false)
+    expect(result.current.data.records).toEqual([])
   })
 
   it('applies quick search to effective filter for string fields', async () => {
@@ -362,15 +362,15 @@ describe('useRecordQuery — data fetching', () => {
       { wrapper: createWrapper() }
     )
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    await waitFor(() => expect(result.current.data.isLoading).toBe(false))
 
-    act(() => result.current.setQuickSearch('Alice'))
+    act(() => result.current.filter.setQuickSearch('Alice'))
 
     // effectiveFilter should use OR across string fields
-    expect(result.current.effectiveFilter.booleanOperator).toBe('OR')
-    expect(result.current.effectiveFilter.criteria.length).toBeGreaterThan(0)
+    expect(result.current.filter.effectiveFilter.booleanOperator).toBe('OR')
+    expect(result.current.filter.effectiveFilter.criteria.length).toBeGreaterThan(0)
     // Should filter on firstName and lastName (both STRING)
-    const fieldNames = result.current.effectiveFilter.criteria.map((c) => c.fieldName)
+    const fieldNames = result.current.filter.effectiveFilter.criteria.map((c) => c.fieldName)
     expect(fieldNames).toContain('firstName')
     expect(fieldNames).toContain('lastName')
     // Integer field (age) excluded from quick search

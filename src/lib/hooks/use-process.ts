@@ -4,7 +4,7 @@
 // Handles init, step submission, async polling, and cancellation
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 
 import type {
@@ -88,7 +88,6 @@ export function useProcess(
   processMetaData: QProcessMetaData | null
 ): UseProcessReturn {
   const router = useRouter()
-  const queryClient = useQueryClient()
 
   const [state, setState] = useState<ProcessState>({
     processUUID: null,
@@ -221,7 +220,7 @@ export function useProcess(
 
   const pollingEnabled = state.status === 'polling' && !!state.processUUID && !!state.jobUUID
 
-  useQuery({
+  const statusQuery = useQuery({
     queryKey: queryKeys.processStatus(
       processName,
       state.processUUID ?? '',
@@ -246,26 +245,16 @@ export function useProcess(
     gcTime: 0,
   })
 
-  // Subscribe to query cache updates for polling
-  // When the polling query resolves, forward the result to handleJobResponse
+  // Forward completed poll results to handleJobResponse.
+  // Using useEffect on statusQuery.data is simpler than subscribing to the query cache
+  // and avoids the need to compare query keys manually.
   useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type !== 'updated') return
-      if (stateRef.current.status !== 'polling') return
-      const key = event.query.queryKey
-      const expectedKey = queryKeys.processStatus(
-        processName,
-        stateRef.current.processUUID ?? '',
-        stateRef.current.jobUUID ?? ''
-      )
-      if (JSON.stringify(key) !== JSON.stringify(expectedKey)) return
-      const data = event.query.state.data as QJobResponse | undefined
-      if (!data) return
-      if (isJobRunning(data)) return
-      handleJobResponse(data, stateRef.current.processUUID!)
-    })
-    return () => unsubscribe()
-  }, [queryClient, processName, handleJobResponse])
+    const data = statusQuery.data
+    if (!data || !state.processUUID) return
+    if (isJobRunning(data)) return
+    handleJobResponse(data, state.processUUID)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusQuery.data])
 
   // ─── Init ─────────────────────────────────────────────────────────────────
 
