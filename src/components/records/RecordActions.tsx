@@ -32,7 +32,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
 
   // Filter to visible, permitted processes that accept single records
   const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && p.maxInputRecords >= 1
+    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
   )
 
   const hasProcesses = availableProcesses.length > 0
