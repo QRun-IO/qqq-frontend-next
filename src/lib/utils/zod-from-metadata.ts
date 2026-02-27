@@ -23,6 +23,11 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
  * Build a Zod field validator for a single QFieldMetaData.
  * Returns a ZodTypeAny that can be added to a schema object.
  */
+/**
+ * Build a Zod schema for a single QQQ field based on its type, required flag,
+ * and optional maxLength. Used by {@link zodSchemaFromTableMetadata} to build
+ * a full form validation schema from table metadata.
+ */
 export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
   const { type, isRequired, maxLength, label } = field
 

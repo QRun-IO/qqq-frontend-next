@@ -62,6 +62,8 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
     // QQQ URL scheme is flat: /app/{name} for all node types.
     // App hierarchy is only for sidebar visual grouping — not reflected in URLs.
     // parentApp tracks the enclosing APP node so we can map leaves back to their parent.
+    // LOW-8: permission filtering is done server-side — the backend only includes
+    // nodes the current user may access, so no client-side hasPermission check needed.
     function buildRoutes(nodes: QAppTreeNode[], parentPath: string, depth: number, parentApp?: { label: string; path: string }) {
       if (depth > 2) return
 

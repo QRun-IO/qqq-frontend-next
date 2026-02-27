@@ -559,6 +559,11 @@ export function useRecordQuery({
 // Helpers
 // ------------------------------------------------------------------
 
+/**
+ * Build a QQueryFilter that performs an OR-joined CONTAINS search across all
+ * visible STRING/TEXT columns. Used to implement the quick-search input.
+ * Returns an empty filter when the term is blank or no searchable columns exist.
+ */
 function buildQuickFilterFromState(
   searchTerm: string,
   tableMetaData: QTableMetaData | undefined,

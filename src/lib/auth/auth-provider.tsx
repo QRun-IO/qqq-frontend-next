@@ -119,7 +119,10 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     return () => {
       cancelled = true
     }
-  }, [onAuthError]) // eslint-disable-line react-hooks/exhaustive-deps
+  // intentional: only re-run if onAuthError changes; auth init is not repeatable
+  // (re-running on every render would cause infinite auth loops)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onAuthError])
 
   async function setupAuth0Session(authMeta: QAuthenticationMetaData) {
     // Auth0 flow: validate the existing session cookie against the backend.

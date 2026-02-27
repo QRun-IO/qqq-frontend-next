@@ -221,8 +221,8 @@ export function DataGrid({
     rowCount: totalCount,
     manualSorting: true,
     getRowId: (row, index) => {
-      const pk = tableMetaData.primaryKeyField
-      return row.values[pk] != null ? String(row.values[pk]) : `row-${index}`
+      const primaryKey = tableMetaData.primaryKeyField
+      return row.values[primaryKey] != null ? String(row.values[primaryKey]) : `row-${index}`
     },
   })
 
@@ -272,8 +272,8 @@ export function DataGrid({
   // ------------------------------------------------------------------
   const handleRowClick = useCallback(
     (record: QRecord) => {
-      const pk = tableMetaData.primaryKeyField
-      const id = record.values[pk]
+      const primaryKey = tableMetaData.primaryKeyField
+      const id = record.values[primaryKey]
       if (id != null) {
         router.push(`/app/${tableName}/${id}`)
       }

@@ -220,7 +220,11 @@ export function isFilterEmpty(filter: QQueryFilter): boolean {
   return countActiveCriteria(filter) === 0
 }
 
-// Serialize a QQueryFilter to a URL-safe string (for search params)
+/**
+ * Serialize a QQueryFilter to a compact, URL-safe base64 string for use in search params.
+ * Encodes criteria, orderBys, subFilters, and booleanOperator — pagination is excluded.
+ * Uses encodeURIComponent + btoa so all Unicode characters survive the round-trip.
+ */
 export function serializeFilter(filter: QQueryFilter): string {
   try {
     // Only serialize criteria and settings, not skip/limit (those are pagination)
@@ -236,7 +240,7 @@ export function serializeFilter(filter: QQueryFilter): string {
   }
 }
 
-// Deserialize a filter from a URL-safe string
+/** Deserialize a QQueryFilter from a string produced by {@link serializeFilter}. Falls back to an empty filter on any parse error. */
 export function deserializeFilter(
   encoded: string,
   pageSize = 25
