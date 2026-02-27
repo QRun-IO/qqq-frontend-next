@@ -1,0 +1,64 @@
+version: 2.1
+
+# NOTE: pinned to dev:snapshot until node_app_* jobs land in a production release.
+# Once the orb is published, update to the release version (e.g. kingsrook/qqq-orb@0.7.0).
+orbs:
+  qqq-orb: kingsrook/qqq-orb@dev:snapshot
+
+# ─── Workflows ───────────────────────────────────────────────────────────────
+# Branch strategy mirrors the QRun-IO orb convention:
+#   test_only              → all feature / non-protected branches
+#   publish_snapshot       → develop
+#   publish_release_candidate → release/*
+#   publish_release        → main / version tags
+#   publish_hotfix_release → hotfix/*
+
+workflows:
+
+  test_only:
+    jobs:
+      - qqq-orb/node_app_test_only:
+          context: [ qqq-maven-registry-credentials ]
+          filters:
+            branches:
+              ignore: /(develop|main|release\/.*|hotfix\/.*|integration.*)/
+            tags:
+              only: []
+
+  publish_snapshot:
+    jobs:
+      - qqq-orb/node_app_build:
+          branch_type: snapshot
+          context: [ qqq-maven-registry-credentials ]
+          filters:
+            branches:
+              only: [ develop ]
+
+  publish_release_candidate:
+    jobs:
+      - qqq-orb/node_app_build:
+          branch_type: release_candidate
+          context: [ qqq-maven-registry-credentials ]
+          filters:
+            branches:
+              only: [ /release\/.*/ ]
+
+  publish_release:
+    jobs:
+      - qqq-orb/node_app_build:
+          branch_type: release
+          context: [ qqq-maven-registry-credentials ]
+          filters:
+            branches:
+              only: [ main ]
+            tags:
+              only: [ /v.*/ ]
+
+  publish_hotfix_release:
+    jobs:
+      - qqq-orb/node_app_build:
+          branch_type: hotfix
+          context: [ qqq-maven-registry-credentials ]
+          filters:
+            branches:
+              only: [ /hotfix\/.*/ ]
