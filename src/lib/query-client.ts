@@ -51,8 +51,9 @@ export const queryKeys = {
 
   // Widgets
   widgets: () => [...queryKeys.all(), 'widgets'] as const,
+  // LOW-2: sort params keys so { b:2, a:1 } and { a:1, b:2 } produce the same cache key
   widgetData: (widgetName: string, params?: Record<string, unknown>) =>
-    [...queryKeys.widgets(), widgetName, params] as const,
+    [...queryKeys.widgets(), widgetName, params ? Object.fromEntries(Object.entries(params).sort()) : undefined] as const,
 
   // Possible Values
   possibleValues: () => [...queryKeys.all(), 'possibleValues'] as const,

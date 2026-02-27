@@ -123,6 +123,8 @@ export default function Sidebar({
   }, [pathname, routes])
 
   // Close mobile drawer on route change
+  // intentional: onClose is omitted from deps — we only want this to fire
+  // when the route changes, not when the callback reference changes
   useEffect(() => {
     onClose?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps

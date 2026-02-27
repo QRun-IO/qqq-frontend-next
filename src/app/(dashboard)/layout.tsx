@@ -107,8 +107,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }, [metaData?.branding, setBranding, setAccentColor])
 
   // Inject customCss from branding metadata
+  // MED-2: strip known CSS injection vectors before applying
   useEffect(() => {
     if (metaData?.branding?.customCss) {
+      const safe = metaData.branding.customCss
+        .replace(/<\/?\s*style[^>]*>/gi, '')   // no embedded style tags
+        .replace(/expression\s*\(/gi, '')       // no IE CSS expressions
+        .replace(/@import\b/gi, '')             // no @import directives
+        .replace(/javascript\s*:/gi, '')        // no javascript: scheme
+        .replace(/url\s*\(\s*["']?\s*data:/gi, '') // no data: URLs
+
       const styleId = 'qqq-custom-css'
       let styleTag = document.getElementById(styleId) as HTMLStyleElement | null
       if (!styleTag) {
@@ -116,7 +124,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         styleTag.id = styleId
         document.head.appendChild(styleTag)
       }
-      styleTag.textContent = metaData.branding.customCss
+      styleTag.textContent = safe
     }
   }, [metaData?.branding?.customCss])
 

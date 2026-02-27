@@ -341,17 +341,17 @@ export function useRecordQuery({
 
   // ------------------------------------------------------------------
   // Build joins from exposedJoins metadata
+  // Derived directly from stable tableMetaData prop — no useMemo needed
   // ------------------------------------------------------------------
-  const joins = useMemo<QueryJoin[] | undefined>(() => {
-    if (!tableMetaData?.exposedJoins?.length) return undefined
-    return tableMetaData.exposedJoins
-      .filter((ej) => ej.joinTable?.name)
-      .map((ej): QueryJoin => ({
-        joinTable: ej.joinTable!.name,
-        select: true,
-        type: ej.isMany ? 'LEFT' : 'INNER',
-      }))
-  }, [tableMetaData])
+  const joins: QueryJoin[] | undefined = tableMetaData?.exposedJoins?.length
+    ? tableMetaData.exposedJoins
+        .filter((exposedJoin) => exposedJoin.joinTable?.name)
+        .map((exposedJoin): QueryJoin => ({
+          joinTable: exposedJoin.joinTable!.name,
+          select: true,
+          type: exposedJoin.isMany ? 'LEFT' : 'INNER',
+        }))
+    : undefined
 
   // ------------------------------------------------------------------
   // TanStack Query: records
@@ -407,18 +407,16 @@ export function useRecordQuery({
   const isError = recordsQuery.isError
   const error = recordsQuery.error
 
-  // Selected record IDs
+  // Selected record IDs — HIGH-7: rowSelection is keyed by PK (via DataGrid's getRowId),
+  // so use the keys directly instead of re-resolving through the records array by index.
   const selectedRecordIds = useMemo<(string | number)[]>(() => {
     return Object.entries(state.rowSelection)
       .filter(([, selected]) => selected)
-      .map(([idx]): string | number => {
-        const record = records[parseInt(idx, 10)]
-        if (!record || !tableMetaData) return idx
-        const pkVal = record.values[tableMetaData.primaryKeyField]
-        if (typeof pkVal === 'string' || typeof pkVal === 'number') return pkVal
-        return idx
+      .map(([id]): string | number => {
+        const numId = Number(id)
+        return Number.isFinite(numId) && String(numId) === id ? numId : id
       })
-  }, [state.rowSelection, records, tableMetaData])
+  }, [state.rowSelection])
 
   // ------------------------------------------------------------------
   // Saved views API
