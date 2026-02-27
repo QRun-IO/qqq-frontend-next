@@ -3,6 +3,7 @@
 // DataCell — dispatches to the correct renderer based on field type and adornments
 
 import React, { useState } from 'react'
+import DOMPurify from 'dompurify'
 import type { QFieldMetaData, QRecord } from '@/types'
 
 interface DataCellProps {
@@ -85,7 +86,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       case 'RENDER_HTML': {
         return (
           <span
-            dangerouslySetInnerHTML={{ __html: display }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display) }}
             data-qqq-id={`grid-cell-${field.name}`}
             className="text-sm"
           />
@@ -184,7 +185,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
     case 'HTML': {
       return (
         <span
-          dangerouslySetInnerHTML={{ __html: display }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display) }}
           data-qqq-id={`grid-cell-${field.name}`}
           className="text-sm"
         />

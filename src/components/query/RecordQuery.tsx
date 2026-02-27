@@ -165,6 +165,8 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   const searchParams = useSearchParams()
   const fromPath = searchParams.get('from')
   const fromLabel = searchParams.get('fromLabel')
+  // MED-6: only allow same-origin paths to prevent open redirect
+  const safeFromPath = fromPath?.startsWith('/') ? fromPath : null
   const queryClient = useQueryClient()
   const quickSearchRef = useRef<HTMLInputElement>(null)
   const { preferences } = useUserPreferences()
@@ -193,13 +195,14 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
 
   const activeFilterCount = countActiveCriteria(rq.filter.userFilter)
 
-  // View mode: grid vs card — default from user preferences (card on mobile)
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return 'card'
-    }
-    return preferences.tableDefaultViewMode
-  })
+  // View mode: grid vs card — default from user preferences; MED-7: apply mobile
+  // override in useEffect (not useState) to avoid SSR/client hydration mismatch
+  const [viewMode, setViewMode] = useState<ViewMode>(preferences.tableDefaultViewMode)
+  useEffect(() => {
+    if (window.innerWidth < 768) setViewMode('card')
+    // intentional: runs once on mount to apply mobile breakpoint
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Mobile filter bottom-sheet state
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -241,9 +244,9 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   return (
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`}>
       {/* Back link — shown when navigated from another record (e.g., "View All" related records) */}
-      {fromPath && (
+      {safeFromPath && (
         <Link
-          href={fromPath}
+          href={safeFromPath}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           data-qqq-id="link-back-to-source"
         >

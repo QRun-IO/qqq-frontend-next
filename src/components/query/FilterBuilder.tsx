@@ -193,9 +193,12 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
           <span className="text-muted-foreground">Match</span>
           <select
             value={filter.booleanOperator}
-            onChange={(e) =>
-              onChange({ ...filter, booleanOperator: e.target.value as 'AND' | 'OR' })
-            }
+            onChange={(e) => {
+              const op = e.target.value
+              if (op === 'AND' || op === 'OR') {
+                onChange({ ...filter, booleanOperator: op })
+              }
+            }}
             className="rounded border border-input bg-background px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label="Boolean operator"
             data-qqq-id={`filter-boolean-op-${depth}`}

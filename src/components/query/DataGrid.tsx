@@ -2,7 +2,7 @@
 
 // DataGrid — TanStack Table v8 data grid for QQQ Record Query
 
-import React, { useMemo, useRef, useCallback } from 'react'
+import React, { useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -71,6 +71,8 @@ export function DataGrid({
 }: DataGridProps) {
   const router = useRouter()
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null)
+  // MED-12: track active resize handlers so they can be removed if the component unmounts mid-drag
+  const activeResizeRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null)
 
   // Build sorted field list respecting columnOrder + visibility
   const visibleFields = useMemo(() => {
@@ -242,15 +244,28 @@ export function DataGrid({
 
       const handleMouseUp = () => {
         resizeRef.current = null
+        activeResizeRef.current = null
         document.removeEventListener('mousemove', handleMouseMove)
         document.removeEventListener('mouseup', handleMouseUp)
       }
 
+      activeResizeRef.current = { move: handleMouseMove, up: handleMouseUp }
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
     [onColumnWidthChange]
   )
+
+  // Remove any lingering resize listeners if the component unmounts during a drag
+  useEffect(() => {
+    return () => {
+      const h = activeResizeRef.current
+      if (h) {
+        document.removeEventListener('mousemove', h.move)
+        document.removeEventListener('mouseup', h.up)
+      }
+    }
+  }, [])
 
   // ------------------------------------------------------------------
   // Row click handler

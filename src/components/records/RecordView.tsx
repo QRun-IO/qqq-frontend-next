@@ -95,8 +95,9 @@ export function RecordView({
     )
   }
 
-  // Error state — differentiated by HTTP status code
-  if (isError || !record) {
+  // MED-13: guard against premature error flash — only enter error block when there
+  // is an actual error. The `!record` case below handles missing-but-not-errored state.
+  if (isError) {
     const statusCode = getErrorStatusCode(error)
 
     // 403 Forbidden
@@ -210,6 +211,9 @@ export function RecordView({
     )
   }
 
+  // Record not loaded yet (but no error) — avoids rendering below with undefined record
+  if (!record) return null
+
   // Separate sections into tiers, excluding sections with no renderable content
   const visibleSections = tableMetaData.sections.filter(
     (s) => !s.isHidden && sectionHasContent(s, tableMetaData)
@@ -316,6 +320,8 @@ function RecordViewContent({
   // Back navigation — read source page info from URL params
   const fromPath = searchParams.get('from')
   const fromLabel = searchParams.get('fromLabel')
+  // MED-6: only allow same-origin paths to prevent open redirect
+  const safeFromPath = fromPath?.startsWith('/') ? fromPath : null
 
   const activeTab = (urlTab && tabs.some((t) => t.id === urlTab)) ? urlTab : (tabs[0]?.id ?? '')
   // Use URL view param if set, otherwise fall back to user preference
@@ -386,7 +392,7 @@ function RecordViewContent({
     >
       {/* Back link — returns to source page if navigated from another record, otherwise table list */}
       <Link
-        href={fromPath || `/app/${tableMetaData.name}`}
+        href={safeFromPath || `/app/${tableMetaData.name}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         data-qqq-id="link-back-to-table"
       >

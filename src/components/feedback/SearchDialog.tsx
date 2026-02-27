@@ -31,12 +31,13 @@ function getInitials(label: string): string {
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query || query.length < 2) return <>{text}</>
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${escaped})`, 'gi')
-  const parts = text.split(regex)
+  // MED-14: split with a capture group — odd-indexed parts are the matched segments.
+  // Using i % 2 instead of regex.test() avoids stateful lastIndex issues with /gi.
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        i % 2 !== 0 ? (
           <mark key={i} className="bg-primary/20 text-foreground rounded-sm px-0.5">{part}</mark>
         ) : (
           <span key={i}>{part}</span>

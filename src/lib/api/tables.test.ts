@@ -191,14 +191,31 @@ describe('Tables API', () => {
       expect(result).toEqual(mockResults)
     })
 
-    it('returns empty array on error', async () => {
+    it('returns empty array on 404', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockRejectedValue(new Error('404'))
+      // Simulate an Axios 404 — isAxiosError checks for the isAxiosError property
+      const notFound = Object.assign(new Error('Not Found'), {
+        isAxiosError: true,
+        response: { status: 404 },
+      })
+      vi.mocked(apiClient.post).mockRejectedValue(notFound)
 
       const { globalSearch } = await import('./tables')
       const result = await globalSearch('test')
 
       expect(result).toEqual([])
+    })
+
+    it('re-throws non-404 errors', async () => {
+      const { default: apiClient } = await import('./client')
+      const serverError = Object.assign(new Error('Server Error'), {
+        isAxiosError: true,
+        response: { status: 500 },
+      })
+      vi.mocked(apiClient.post).mockRejectedValue(serverError)
+
+      const { globalSearch } = await import('./tables')
+      await expect(globalSearch('test')).rejects.toThrow('Server Error')
     })
   })
 

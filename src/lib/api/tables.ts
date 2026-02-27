@@ -1,5 +1,7 @@
 // Table data API functions
 
+import { isAxiosError } from 'axios'
+
 import type { QRecord, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
 import apiClient from './client'
 
@@ -130,9 +132,10 @@ export async function globalSearch(
       searchTerm,
       tableNames,
     })
-  } catch {
-    // If /search endpoint is not available (404), return empty results
-    return []
+  } catch (err) {
+    // Only swallow 404 — the search endpoint is optional
+    if (isAxiosError(err) && err.response?.status === 404) return []
+    throw err
   }
 }
 
