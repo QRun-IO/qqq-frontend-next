@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  qqq-orb: kingsrook/qqq-orb@0
+  qqq-orb: kingsrook/qqq-orb@0.6
 
 # ─── Workflows ───────────────────────────────────────────────────────────────
 # Branch strategy mirrors the QRun-IO orb convention:
