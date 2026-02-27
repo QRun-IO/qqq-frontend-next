@@ -347,7 +347,7 @@ describe('formatCriterionDisplay', () => {
       values: [{ type: 'NOW_WITH_OFFSET', isNegativeOffset: true, offsetValue: 7, offsetUnit: 'DAY' }],
     }
     const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('now -7 days')
+    expect(display).toContain('now -7 day')
   })
 
   it('formats THIS_OR_LAST_PERIOD expression', () => {
