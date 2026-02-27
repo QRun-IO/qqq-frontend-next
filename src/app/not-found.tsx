@@ -1,8 +1,19 @@
-// 404 Not Found page
+/**
+ * Not Found page — Next.js `not-found.tsx` rendered automatically when
+ * `notFound()` is called or a route segment cannot be matched.
+ *
+ * Displays a large "404" heading, a brief explanation, and a "Go Home" button
+ * that returns the user to the application root.
+ */
 
 import Link from 'next/link'
 import { SearchX } from 'lucide-react'
 
+/**
+ * Full-screen 404 page shown for unknown routes or when `notFound()` is called.
+ *
+ * @returns A centered card containing the 404 error message and a home navigation link.
+ */
 export default function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

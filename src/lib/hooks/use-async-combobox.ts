@@ -1,7 +1,5 @@
+/** use-async-combobox — shared fetch/debounce/abort/click-outside logic for async comboboxes */
 'use client'
-
-// useAsyncCombobox — shared fetch/debounce/abort/click-outside logic for async comboboxes
-// Used by PossibleValueSingleSelect and PossibleValueMultiSelect in FilterBuilder
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 
@@ -9,26 +7,57 @@ import type { QPossibleValue } from '@/types'
 import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { COMBOBOX_DEBOUNCE_MS } from '@/lib/constants'
 
+/**
+ * Configuration options for {@link useAsyncCombobox}.
+ */
 interface UseAsyncComboboxOptions {
+  /** The QQQ table name whose possible values should be fetched. */
   tableName: string
+  /** The field name within the table whose possible values should be fetched. */
   fieldName: string
   /** Called with fetched results — lets consumer update derived state (e.g. labelMap) */
   onOptionsFetched?: (results: QPossibleValue[]) => void
 }
 
+/**
+ * All state and refs returned by {@link useAsyncCombobox}.
+ *
+ * Consumers spread these onto their combobox markup to wire up open/close,
+ * typing, and option display with no additional fetch logic.
+ */
 export interface UseAsyncComboboxResult {
+  /** Whether the dropdown is currently open. */
   isOpen: boolean
+  /** Setter to programmatically open or close the dropdown. */
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** The current search term typed by the user. */
   searchTerm: string
+  /** Setter for the search term; triggers a debounced fetch. */
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>
+  /** The most recently fetched list of possible values to display. */
   options: QPossibleValue[]
+  /** True while a network request is in-flight. */
   isLoading: boolean
+  /** Attach to the outermost container element to enable click-outside close. */
   containerRef: React.RefObject<HTMLDivElement | null>
+  /** Attach to the text input element for focus management. */
   inputRef: React.RefObject<HTMLInputElement | null>
+  /** Immediately fetches options for the given search term, cancelling any prior in-flight request. */
   fetchOptions: (term: string) => Promise<void>
+  /** Debounced wrapper around {@link fetchOptions} using {@link COMBOBOX_DEBOUNCE_MS}. */
   debouncedFetch: (term: string) => void
 }
 
+/**
+ * Encapsulates all async fetch, debounce, AbortController, and click-outside logic
+ * needed by possible-value combobox inputs in the FilterBuilder.
+ *
+ * Used by `PossibleValueSingleSelect` and `PossibleValueMultiSelect` to avoid
+ * duplicating identical stateful logic in each component.
+ *
+ * @param options - The table name, field name, and optional result callback.
+ * @returns A {@link UseAsyncComboboxResult} with all combobox state, refs, and fetch helpers.
+ */
 export function useAsyncCombobox({
   tableName,
   fieldName,
@@ -49,6 +78,15 @@ export function useAsyncCombobox({
     onOptionsFetchedRef.current = onOptionsFetched
   }, [onOptionsFetched])
 
+  /**
+   * Fetches possible values for the configured table/field, filtered by the given search term.
+   *
+   * Cancels any pending in-flight request via AbortController before starting a new one.
+   * Updates `options` and calls `onOptionsFetched` with the results on success.
+   * Clears `options` on non-abort error. Does not update state if the request was aborted.
+   *
+   * @param term - The search string to filter possible values by; empty string fetches all.
+   */
   const fetchOptions = useCallback(
     async (term: string) => {
       if (abortControllerRef.current) {
@@ -79,6 +117,15 @@ export function useAsyncCombobox({
     [tableName, fieldName]
   )
 
+  /**
+   * Debounced wrapper around {@link fetchOptions}.
+   *
+   * Clears any pending timer and starts a new one each time it is called.
+   * Fires after {@link COMBOBOX_DEBOUNCE_MS} milliseconds of inactivity,
+   * preventing excessive network requests while the user is typing.
+   *
+   * @param term - The search string to pass to {@link fetchOptions} after the debounce delay.
+   */
   const debouncedFetch = useCallback(
     (term: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)

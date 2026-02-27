@@ -1,12 +1,29 @@
 'use client'
 
-// Global error boundary — catches unhandled exceptions at route level
-// Detects 401 errors and provides appropriate messaging
+/**
+ * Global error boundary — Next.js `error.tsx` component that catches unhandled
+ * exceptions at the route level.
+ *
+ * Detects 401 / session-expired conditions and renders a "Session Expired"
+ * card with a login link. All other errors render a generic error card with
+ * a "Try Again" button (which invokes `reset()` to re-render the segment)
+ * and a "Go Home" link.
+ */
 
 import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
+/**
+ * Renders the global route-level error UI.
+ *
+ * Next.js automatically passes `error` and `reset` when any Server or Client
+ * Component in the route segment throws an unhandled error.
+ *
+ * @param error - The thrown error, optionally decorated with a `digest` ID from Next.js.
+ * @param reset - Next.js callback that retries rendering the failed route segment.
+ * @returns A full-screen card describing the error with recovery actions.
+ */
 export default function GlobalError({
   error,
   reset,

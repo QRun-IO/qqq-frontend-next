@@ -1,8 +1,6 @@
 'use client'
 
-// CommandMenu — Cmd+K / Ctrl+K command palette
-// Fuzzy-searches all sidebar routes from QContext
-// Navigate with arrow keys, Enter to navigate, Escape to close
+/** CommandMenu — Cmd+K / Ctrl+K command palette that fuzzy-searches all sidebar routes from QContext. */
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
@@ -12,14 +10,33 @@ import { Search, Table2, Workflow, BarChart3, LayoutGrid, X } from 'lucide-react
 import { useQContext } from '@/lib/context/q-context'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Represents a single navigable entry in the command palette list.
+ */
 interface CommandMenuItem {
+  /** Unique identifier (the route path). */
   id: string
+  /** Human-readable display label shown in the list. */
   label: string
+  /** The URL path to navigate to when this item is selected. */
   path: string
+  /** The type of resource, used to select an icon. */
   type: 'app' | 'table' | 'process' | 'report'
+  /** Optional parent-app label shown as a breadcrumb hint on the right. */
   breadcrumb?: string
 }
 
+/**
+ * Converts the flat `pathToLabelMap` from QContext into a list of CommandMenuItems.
+ *
+ * Parametric paths (containing `:`) and utility sub-paths (`/create`, `/dev`,
+ * `/key`, `/savedView`) are filtered out. Two-segment paths under `/app` are
+ * classified as `'app'` type; three-segment paths are `'table'` type with the
+ * parent-app label injected as a breadcrumb.
+ *
+ * @param pathToLabelMap - Map of URL path strings to display label strings.
+ * @returns An array of command palette items ready for fuzzy search.
+ */
 function buildMenuItems(pathToLabelMap: Record<string, string>): CommandMenuItem[] {
   const items: CommandMenuItem[] = []
 
@@ -55,6 +72,12 @@ function buildMenuItems(pathToLabelMap: Record<string, string>): CommandMenuItem
   return items
 }
 
+/**
+ * Renders a color-coded Lucide icon for a given command item type.
+ *
+ * @param type - The resource type (`'app'`, `'table'`, `'process'`, or `'report'`).
+ * @returns An `aria-hidden` icon element colored by type.
+ */
 function TypeIcon({ type }: { type: CommandMenuItem['type'] }) {
   switch (type) {
     case 'app':
@@ -68,11 +91,28 @@ function TypeIcon({ type }: { type: CommandMenuItem['type'] }) {
   }
 }
 
+/**
+ * Props for the CommandMenu component.
+ */
 interface CommandMenuProps {
+  /** Whether the command palette is currently open. */
   open: boolean
+  /** Called when the palette should close (backdrop click, Escape, or item selected). */
   onClose: () => void
 }
 
+/**
+ * Renders the Cmd+K command palette overlay.
+ *
+ * Uses the `cmdk` Command primitive for fuzzy search and keyboard navigation.
+ * All navigable routes are derived from `pathToLabelMap` in QContext. The
+ * search term is cleared each time the palette closes. Selecting an item
+ * navigates via the Next.js router and calls `onClose`.
+ *
+ * @param open - Whether the palette is visible.
+ * @param onClose - Callback invoked to close the palette.
+ * @returns A fixed full-screen overlay with the command palette dialog, or `null` when closed.
+ */
 export function CommandMenu({ open, onClose }: CommandMenuProps) {
   const router = useRouter()
   const { pathToLabelMap } = useQContext()
@@ -87,6 +127,11 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
     }
   }, [open])
 
+  /**
+   * Navigates to the selected item's path and closes the palette.
+   *
+   * @param path - The URL path of the selected command item.
+   */
   const handleSelect = useCallback(
     (path: string) => {
       router.push(path)

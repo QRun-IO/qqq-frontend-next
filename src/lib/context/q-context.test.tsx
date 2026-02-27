@@ -1,3 +1,4 @@
+/** q-context.test — unit tests for the QContextProvider and useQContext hook */
 // Tests for QContext provider
 
 import React from 'react'
@@ -7,7 +8,13 @@ import { userEvent } from '@testing-library/user-event'
 
 import { QContextProvider, useQContext } from './q-context'
 
-// Test component that exposes context values
+/**
+ * Internal test helper that renders a subset of QContext values into the DOM
+ * so that assertions can read them via `getByTestId`.
+ *
+ * Also exposes buttons to trigger state mutations (setPageHeader,
+ * pushModalOnStack, popModalOffStack, clearModalStack).
+ */
 function TestConsumer() {
   const ctx = useQContext()
   return (

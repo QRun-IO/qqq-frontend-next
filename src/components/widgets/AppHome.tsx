@@ -1,7 +1,10 @@
+/**
+ * AppHome — Dashboard page for a QQQ application.
+ *
+ * Reads widget names and section navigation items from app metadata and renders
+ * the full dashboard: a responsive widget grid followed by table/process shortcuts.
+ */
 'use client'
-
-// AppHome -- Dashboard page for an app
-// Fetches and renders all widgets declared in the app metadata
 
 import React from 'react'
 import Link from 'next/link'
@@ -12,12 +15,24 @@ import { WidgetGrid } from './WidgetGrid'
 import type { WidgetGridItem } from './WidgetGrid'
 import { ConnectedWidget } from './ConnectedWidget'
 
+/** Props accepted by the AppHome component. */
 interface AppHomeProps {
+  /** Full metadata for the app whose dashboard is being rendered. */
   appMetaData: QAppMetaData
+  /** Map of all known widget metadata objects, keyed by widget name. */
   widgetRegistry: Record<string, QWidgetMetaData>
 }
 
-// Resolve widget span from metadata gridColumns, falling back to heuristic
+/**
+ * Determines the column span a widget should occupy in the dashboard grid.
+ *
+ * Prefers the explicit `gridColumns` value from widget metadata, and falls back
+ * to a type-based heuristic: record-grid and chart widgets get 2 columns, all
+ * others get 1 column.
+ *
+ * @param widgetMeta - Metadata for the widget being measured.
+ * @returns Column span value compatible with WidgetGridItem.span (1, 2, or 3).
+ */
 function resolveWidgetSpan(
   widgetMeta: QWidgetMetaData
 ): WidgetGridItem['span'] {
@@ -36,6 +51,18 @@ function resolveWidgetSpan(
   return 1
 }
 
+/**
+ * Renders the full dashboard for a QQQ app.
+ *
+ * Displays the app label as a page heading, a responsive 3-column widget grid
+ * for any widgets declared in appMetaData.widgets (filtered to those with
+ * permission), and navigation shortcut cards for each table and process in
+ * appMetaData.sections. Shows an empty-state placeholder when no content is
+ * configured.
+ *
+ * @param appMetaData - Metadata describing the app, its widgets, and sections.
+ * @param widgetRegistry - Registry of all widget metadata objects for look-up.
+ */
 export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
   const { name, label, widgets: widgetNames, sections } = appMetaData
 

@@ -1,7 +1,13 @@
 'use client'
 
-// RecordView page — view a single record
-// Package 3: full implementation using RecordView component + useRecord hook
+/**
+ * RecordView page — serves the route `/app/[slug]/[recordId]` and renders a
+ * detailed view of a single QQQ record.
+ *
+ * Route params:
+ * - `slug` — the QQQ table name.
+ * - `recordId` — the primary-key value of the record to display.
+ */
 
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
@@ -15,6 +21,17 @@ import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { RecordView } from '@/components/records/RecordView'
 
+/**
+ * Renders the detail view for a single record identified by `slug` (table name)
+ * and `recordId` (primary key).
+ *
+ * Uses the `useRecord` hook to fetch the record including associations. Once
+ * the record loads it is registered in the recently-viewed history (via
+ * `addRecentRecord`) so it surfaces in the GlobalSearch and SearchDialog.
+ * The page header in QContext is updated to the record label.
+ *
+ * @returns The `<RecordView>` component wired with record data, loading, and error states.
+ */
 export default function RecordViewPage() {
   const params = useParams<{ slug: string; recordId: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()

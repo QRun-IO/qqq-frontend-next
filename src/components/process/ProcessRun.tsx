@@ -1,3 +1,12 @@
+/**
+ * ProcessRun — top-level process orchestrator component.
+ *
+ * Manages the full QQQ process lifecycle: idle → initializing → active steps
+ * → polling → complete / error.  Validates `minInputRecords` / `maxInputRecords`
+ * before initialising, dispatches the correct step component based on
+ * `resolveStepType`, and renders a StepWizard progress indicator when the
+ * process has more than one step.
+ */
 'use client'
 
 // ProcessRun -- main process orchestrator component
@@ -25,13 +34,23 @@ import { ProcessSummaryResultsStep } from './ProcessSummaryResultsStep'
 import { ProcessWidgetStep } from './ProcessWidgetStep'
 import { ProcessBulkEditStep } from './ProcessBulkEditStep'
 
+/**
+ * Props for the {@link ProcessRun} component.
+ */
 export interface ProcessRunProps {
+  /** Technical name of the process as declared in backend metadata. */
   processName: string
+  /** Full process metadata including step definitions and input record constraints. */
   processMetaData: QProcessMetaData
-  /** Optional initial values passed to process init */
+  /** Optional initial values passed to the process init call (e.g. selected record IDs). */
   initialValues?: Record<string, unknown>
-  /** Called when the process completes */
+  /**
+   * Called when the process reaches the COMPLETE state.
+   *
+   * @param resultValues - The final result values returned by the backend.
+   */
   onComplete?: (resultValues: Record<string, unknown>) => void
+  /** Additional CSS class names applied to the root container. */
   className?: string
 }
 
@@ -108,6 +127,16 @@ function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
   return 'FORM'
 }
 
+/**
+ * Renders the complete process execution UI for a given process.
+ *
+ * Handles all lifecycle states from the `useProcess` hook: shows a spinner
+ * while idle/initialising, renders `ProcessErrorState` on error, renders
+ * `ProcessResultStep` on completion, and dispatches the active step to the
+ * appropriate step component via `resolveStepType`.
+ *
+ * @param props - {@link ProcessRunProps}
+ */
 export function ProcessRun({
   processName,
   processMetaData,

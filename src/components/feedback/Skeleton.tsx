@@ -1,19 +1,33 @@
 'use client'
 
-// Skeleton — Reusable skeleton loader variants
-// Usage:
-//   <Skeleton.Text lines={3} />
-//   <Skeleton.Card />
-//   <Skeleton.Table rows={5} cols={4} />
+/**
+ * Skeleton — collection of animated placeholder components used while content is loading.
+ *
+ * @example
+ * ```tsx
+ * <Skeleton.Text lines={3} />
+ * <Skeleton.Card />
+ * <Skeleton.Table rows={5} cols={4} />
+ * ```
+ */
 
 import React from 'react'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Base props shared by all Skeleton sub-components.
+ */
 interface SkeletonBaseProps {
+  /** Additional Tailwind class names applied to the outermost element. */
   className?: string
 }
 
-// Single animated bar
+/**
+ * A single animated pulse bar used as a building block for skeleton variants.
+ *
+ * @param className - Additional Tailwind class names (e.g. width and height utilities).
+ * @returns An `aria-hidden` div styled with the pulse animation.
+ */
 function Bar({ className }: SkeletonBaseProps) {
   return (
     <div
@@ -26,12 +40,25 @@ function Bar({ className }: SkeletonBaseProps) {
   )
 }
 
-// Text lines placeholder
+/**
+ * Props for the Skeleton.Text sub-component.
+ */
 interface TextProps {
+  /** Number of placeholder text lines to render. Defaults to `3`. */
   lines?: number
+  /** Additional Tailwind class names applied to the container div. */
   className?: string
 }
 
+/**
+ * Renders a stack of animated placeholder text lines at varying widths.
+ *
+ * Uses `role="status"` and `aria-busy="true"` for accessibility.
+ *
+ * @param lines - Number of bar lines to render (default: 3).
+ * @param className - Additional class names applied to the wrapper.
+ * @returns A stack of `Bar` elements mimicking a block of text.
+ */
 function Text({ lines = 3, className }: TextProps) {
   const widths = ['w-full', 'w-4/5', 'w-3/5', 'w-full', 'w-2/3', 'w-1/2']
   return (
@@ -48,11 +75,23 @@ function Text({ lines = 3, className }: TextProps) {
   )
 }
 
-// Card placeholder
+/**
+ * Props for the Skeleton.Card sub-component.
+ */
 interface CardProps {
+  /** Additional Tailwind class names applied to the card container. */
   className?: string
 }
 
+/**
+ * Renders an animated placeholder that mimics a content card layout.
+ *
+ * Includes an avatar circle, two lines of meta text, body text bars, and a
+ * tall image placeholder. Uses `role="status"` and `aria-busy="true"`.
+ *
+ * @param className - Additional class names applied to the card wrapper.
+ * @returns A bordered rounded card filled with `Bar` placeholders.
+ */
 function Card({ className }: CardProps) {
   return (
     <div
@@ -85,13 +124,28 @@ function Card({ className }: CardProps) {
   )
 }
 
-// Table rows placeholder
+/**
+ * Props for the Skeleton.Table sub-component.
+ */
 interface TableProps {
+  /** Number of placeholder data rows to render. Defaults to `5`. */
   rows?: number
+  /** Number of placeholder columns per row. Defaults to `4`. */
   cols?: number
+  /** Additional Tailwind class names applied to the table container. */
   className?: string
 }
 
+/**
+ * Renders an animated placeholder resembling a data table with a header row and data rows.
+ *
+ * Uses `role="status"` and `aria-busy="true"` for accessibility.
+ *
+ * @param rows - Number of data rows to render (default: 5).
+ * @param cols - Number of columns per row (default: 4).
+ * @param className - Additional class names applied to the outer container.
+ * @returns A bordered container with a header row and `rows` data rows of `Bar` cells.
+ */
 function Table({ rows = 5, cols = 4, className }: TableProps) {
   return (
     <div
@@ -124,5 +178,14 @@ function Table({ rows = 5, cols = 4, className }: TableProps) {
   )
 }
 
-// Namespace export — Skeleton.Text, Skeleton.Card, Skeleton.Table
+/**
+ * Namespace object exporting all skeleton variant components.
+ *
+ * @example
+ * ```tsx
+ * <Skeleton.Text lines={3} />
+ * <Skeleton.Card className="my-4" />
+ * <Skeleton.Table rows={8} cols={5} />
+ * ```
+ */
 export const Skeleton = { Text, Card, Table }

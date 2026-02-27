@@ -1,3 +1,4 @@
+/** RecordQuery — orchestrator page component for the record query page. Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, and more. */
 'use client'
 
 // RecordQuery — orchestrator page component for the record query page
@@ -42,22 +43,36 @@ import { RecordCardView } from './RecordCardView'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 
+/** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
 
+/**
+ * Props for the RecordQuery component.
+ */
 interface RecordQueryProps {
+  /** The backend table name used in API calls and URL routing. */
   tableName: string
+  /** Full table metadata from the QQQ backend, describing fields and permissions. */
   tableMetaData: QTableMetaData
+  /** Optional list of processes that can be launched from this table's toolbar or bulk action bar. */
   processes?: QProcessMetaData[]
 }
 
 // ─── Toolbar subcomponents ────────────────────────────────────────────────────
 
+/** Static list of available row density options presented in the DensitySelector dropdown. */
 const DENSITY_OPTIONS: { value: Density; label: string }[] = [
   { value: 'compact', label: 'Compact' },
   { value: 'standard', label: 'Standard' },
   { value: 'comfortable', label: 'Comfortable' },
 ]
 
+/**
+ * Toolbar button that opens a listbox for selecting the row density of the data grid.
+ *
+ * @param density - The currently active density value.
+ * @param onSelect - Callback invoked when the user picks a new density option.
+ */
 function DensitySelector({
   density,
   onSelect,
@@ -119,6 +134,12 @@ function DensitySelector({
   )
 }
 
+/**
+ * Paired toggle buttons for switching between the tabular grid view and the card view.
+ *
+ * @param viewMode - The currently active view mode.
+ * @param onChange - Callback invoked when the user selects a different view mode.
+ */
 function ViewModeToggle({
   viewMode,
   onChange,
@@ -160,6 +181,17 @@ function ViewModeToggle({
   )
 }
 
+/**
+ * Full-page record query component for a QQQ table.
+ *
+ * Composes the toolbar (search, filter toggle, column config, density, view mode, export,
+ * saved views, process launcher, refresh), inline/mobile filter panels, bulk action bar,
+ * error/empty states, DataGrid or RecordCardView, and Pagination.
+ *
+ * @param tableName - Backend table name used in API routes and URLs.
+ * @param tableMetaData - Table metadata describing fields, permissions, and labels.
+ * @param processes - Optional processes available for bulk actions or toolbar launch.
+ */
 export function RecordQuery({ tableName, tableMetaData, processes }: RecordQueryProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -180,6 +212,12 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   // Debounced quick search
   const [localSearchTerm, setLocalSearchTerm] = useState(rq.filter.quickSearchTerm)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * Updates local search term immediately for a responsive input feel, then debounces
+   * the propagation to the query hook to avoid firing an API request on every keystroke.
+   *
+   * @param value - The current value of the quick-search input.
+   */
   const handleSearchChange = (value: string) => {
     setLocalSearchTerm(value)
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
@@ -209,14 +247,26 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
 
   const canCreate = tableMetaData.insertPermission
 
+  /**
+   * Navigates to the create-record route for the current table.
+   */
   const handleCreateRecord = () => {
     router.push(`/app/${tableName}/create`)
   }
 
+  /**
+   * Invalidates the TanStack Query cache for this table's records, triggering a fresh fetch.
+   */
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })
   }
 
+  /**
+   * Builds the process URL with selected record IDs as query parameters and navigates to it.
+   * Called from both the toolbar ProcessLauncherMenu and the BulkActionBar.
+   *
+   * @param processName - The backend process name to navigate to.
+   */
   // Handle process navigation from the bulk action bar
   const handleRunProcess = useCallback(
     (processName: string) => {
@@ -231,6 +281,12 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
     [router, rq.selection.selectedRecordIds]
   )
 
+  /**
+   * Toggles the advanced filter panel.
+   *
+   * On viewports below the `md` breakpoint the mobile bottom-sheet is opened instead of
+   * the inline desktop panel, avoiding layout issues on small screens.
+   */
   // Desktop filter toggle also opens mobile bottom-sheet on small screens
   const handleFilterToggle = useCallback(() => {
     // On mobile (below md), use bottom-sheet; on desktop, use inline panel

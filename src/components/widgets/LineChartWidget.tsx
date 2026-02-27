@@ -1,6 +1,9 @@
+/**
+ * LineChartWidget — Recharts-based line chart widget supporting multi-series and single-series data.
+ *
+ * Y-axis values are formatted with K/M suffixes for readability on large numbers.
+ */
 'use client'
-
-// LineChartWidget — Line chart using Recharts
 
 import React from 'react'
 import {
@@ -16,20 +19,38 @@ import {
 
 import type { ChartDataset } from '@/types'
 
+/** Wire-format payload for a line-chart widget returned by the backend API. */
 export interface LineChartWidgetPayload {
+  /** Discriminator identifying this as a line-chart or generic chart widget. */
   type: 'lineChart' | 'chart'
+  /** Optional chart title rendered above the chart. */
   title?: string
+  /** X-axis category labels for multi-series (Shape A) data. */
   labels?: string[]
+  /** Multi-series dataset array (Shape A). */
   datasets?: ChartDataset[]
-  // Single-series shorthand
+  /** Single-series shorthand data array (Shape B). */
   data?: Array<{ label: string; value: number; color?: string }>
 }
 
+/** Props accepted by the LineChartWidget component. */
 interface LineChartWidgetProps {
+  /** Typed payload from the widget API response. */
   data: LineChartWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/**
+ * Normalizes heterogeneous line-chart data shapes into a unified Recharts-compatible form.
+ *
+ * Supports two input shapes:
+ * - Shape A: `{ labels, datasets }` — multi-series with named datasets.
+ * - Shape B: `{ data: [{ label, value, color }] }` — single series.
+ *
+ * @param data - Raw line-chart payload from the backend.
+ * @returns Normalized chart entries and an array of data-key/color descriptors.
+ */
 function normalizeChartData(
   data: LineChartWidgetPayload
 ): { entries: Record<string, string | number>[]; dataKeys: Array<{ key: string; color: string }> } {
@@ -57,15 +78,30 @@ function normalizeChartData(
   return { entries: [], dataKeys: [] }
 }
 
+/** Default color palette cycled through when dataset entries do not specify an explicit color. */
 const DEFAULT_COLORS = ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
-// Formatter for large numbers on the Y-axis
+/**
+ * Formats a Y-axis tick value using compact K/M suffixes for large numbers.
+ *
+ * @param value - Raw numeric tick value from Recharts.
+ * @returns Human-readable string such as '1.2M', '500K', or '42'.
+ */
 function formatYAxis(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
   return String(value)
 }
 
+/**
+ * Renders a responsive line chart using Recharts.
+ *
+ * Displays a legend when more than one data series is present. Shows an
+ * empty-state message when the normalized data set contains no entries.
+ *
+ * @param data - Line-chart widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)
 

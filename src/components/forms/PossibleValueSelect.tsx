@@ -1,3 +1,4 @@
+/** PossibleValueSelect — debounced async combobox for fields with a possibleValueSourceName */
 'use client'
 
 // PossibleValueSelect — async combobox for fields with possibleValueSourceName
@@ -17,20 +18,45 @@ import {
   fetchPossibleValues,
 } from '@/lib/api/possible-values'
 
+/**
+ * Props for the {@link PossibleValueSelect} component.
+ */
 interface PossibleValueSelectProps {
+  /** The HTML `id` for the combobox trigger element and its associated label. */
   id: string
+  /** Human-readable field label displayed above the combobox. */
   label: string
+  /** The React Hook Form field name used by the `Controller`. */
   name: string
+  /** React Hook Form control object from the parent `useForm` instance. */
   control: Control<Record<string, unknown>>
+  /** The QQQ field name sent to the possible-values API as the field identifier. */
   fieldName: string
+  /** Determines which possible-values endpoint is called (table, process, or standalone). */
   context: PossibleValueContext
+  /** Validation error from React Hook Form; triggers error styling and an error message. */
   error?: FieldError
+  /** When `true`, the combobox trigger is non-interactive and visually dimmed. */
   disabled?: boolean
+  /** When `true`, an asterisk indicator is shown and `aria-required` is set. */
   required?: boolean
+  /** Placeholder text shown when no option is selected; defaults to `"-- Select {label} --"`. */
   placeholder?: string
+  /** `data-qqq-id` attribute forwarded to the combobox trigger for CSS customization. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Async combobox for QQQ fields that reference a possible-value source.
+ *
+ * On open, fetches an initial list of options from the backend.  As the user
+ * types in the search input, additional fetches are debounced (300 ms).
+ * Closes on outside-click via a `mousedown` document listener.
+ * Integrates with React Hook Form via `Controller` — the stored value is the
+ * option's `id` (not its label).
+ *
+ * @param props - See {@link PossibleValueSelectProps}.
+ */
 export function PossibleValueSelect({
   id,
   label,
@@ -53,6 +79,13 @@ export function PossibleValueSelect({
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /**
+   * Fetches possible values for the given search term from the appropriate
+   * backend endpoint based on `context.type`.
+   *
+   * @param term - The search string typed by the user; an empty string returns
+   *   the default/initial set of options.
+   */
   const fetchOptions = useCallback(
     async (term: string) => {
       setIsLoading(true)
@@ -76,6 +109,12 @@ export function PossibleValueSelect({
     [context, fieldName]
   )
 
+  /**
+   * Wraps {@link fetchOptions} in a 300 ms debounce, cancelling any pending
+   * timer before scheduling a new one.
+   *
+   * @param term - The search string to debounce.
+   */
   const debouncedFetch = useCallback(
     (term: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -101,6 +140,13 @@ export function PossibleValueSelect({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  /**
+   * Handles changes to the search input inside the open dropdown.
+   *
+   * Updates the local search term state and triggers a debounced fetch.
+   *
+   * @param e - The change event from the search `<input>`.
+   */
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value
     setSearchTerm(term)

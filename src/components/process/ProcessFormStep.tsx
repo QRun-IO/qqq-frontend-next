@@ -1,3 +1,11 @@
+/**
+ * ProcessFormStep — renders a FORM (or EDIT_FORM) process step.
+ *
+ * Builds a Zod validation schema from step field metadata, pre-populates
+ * default values from the current `stepValues`, and delegates rendering to
+ * `DynamicForm`.  FILE_UPLOAD / BLOB fields are extracted and forwarded as a
+ * separate multipart payload via `onSubmit`.
+ */
 'use client'
 
 // ProcessFormStep — renders a FORM step using DynamicForm from Package 3
@@ -14,18 +22,44 @@ import { cn } from '@/lib/utils/cn'
 import { DynamicForm } from '@/components/forms/DynamicForm'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Props for the {@link ProcessFormStep} component.
+ */
 export interface ProcessFormStepProps {
+  /** Metadata for the current process step, including `formFields` and `components`. */
   step: QFrontendStepMetaData
+  /** Name of the owning process, forwarded to DynamicForm for possible-value lookups. */
   processName: string
+  /** Current accumulated step values used to pre-populate form defaults. */
   stepValues: Record<string, unknown>
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
+  /** Whether a submission is in progress; disables controls while true. */
   isLoading: boolean
+  /**
+   * Called when the form is submitted successfully.
+   *
+   * @param values - Validated field values (FILE_UPLOAD fields removed).
+   * @param file - The selected file for FILE_UPLOAD / BLOB fields, if any.
+   */
   onSubmit: (values: Record<string, unknown>, file?: File) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
 }
 
+/**
+ * Renders a FORM process step driven by `step.formFields` metadata.
+ *
+ * Constructs a Zod schema, wires React Hook Form, and renders the fields via
+ * `DynamicForm`.  On submit, FILE_UPLOAD or BLOB fields are separated from the
+ * values map and forwarded as a distinct `file` argument for multipart upload.
+ *
+ * @param props - {@link ProcessFormStepProps}
+ */
 export function ProcessFormStep({
   step,
   processName,
@@ -71,6 +105,15 @@ export function ProcessFormStep({
     defaultValues,
   })
 
+  /**
+   * React Hook Form submit handler.
+   *
+   * Detects a FILE_UPLOAD or BLOB field, strips it from the serialised values,
+   * and passes the raw File object separately so the parent can send it as
+   * multipart form data.
+   *
+   * @param values - All validated form values from React Hook Form.
+   */
   const onFormSubmit = async (values: Record<string, unknown>) => {
     // Extract file from values if any FILE_UPLOAD field exists
     let file: File | undefined

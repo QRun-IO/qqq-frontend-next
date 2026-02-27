@@ -1,3 +1,4 @@
+/** FilterBuilder — advanced filter UI with recursive AND/OR group support. Renders filter criteria rows, nested sub-filter groups, and async possible-value comboboxes. */
 'use client'
 
 // FilterBuilder — advanced filter UI with recursive group support
@@ -27,13 +28,20 @@ import { useAsyncCombobox } from '@/lib/hooks/use-async-combobox'
 // Types
 // ------------------------------------------------------------------
 
-/** Subset of QFieldMetaData used throughout FilterBuilder */
+/** Subset of QFieldMetaData used throughout FilterBuilder — only the fields needed for building filter UI. */
 type FilterField = Pick<QFieldMetaData, 'name' | 'label' | 'type' | 'possibleValueSourceName'>
 
+/**
+ * Props for the FilterBuilder component.
+ */
 interface FilterBuilderProps {
+  /** Full table metadata providing the field list for filter field selectors. */
   tableMetaData: QTableMetaData
+  /** The current filter state (criteria, sub-filters, boolean operator). */
   filter: QQueryFilter
+  /** Callback invoked whenever the filter state changes. */
   onChange: (filter: QQueryFilter) => void
+  /** Optional callback for the Apply button; when omitted the Apply button is hidden. */
   onClose?: () => void
 }
 
@@ -41,6 +49,17 @@ interface FilterBuilderProps {
 // Main component
 // ------------------------------------------------------------------
 
+/**
+ * Advanced filter builder panel for the QQQ Record Query page.
+ *
+ * Renders the root FilterGroup along with "Clear all" and "Apply" buttons.
+ * Hidden and heavy fields are excluded from the field selector.
+ *
+ * @param tableMetaData - Table metadata used to build the field selector list.
+ * @param filter - The current QQueryFilter state.
+ * @param onChange - Callback fired on every filter change; parent owns the state.
+ * @param onClose - Optional callback for the "Apply" button; omit to hide the button.
+ */
 export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: FilterBuilderProps) {
   const fields: FilterField[] = Object.values(tableMetaData.fields)
     .filter((f) => !f.isHidden && !f.isHeavy)
@@ -51,6 +70,11 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: Filt
       possibleValueSourceName: f.possibleValueSourceName,
     }))
 
+  /**
+   * Stable wrapper around `onChange` passed down to FilterGroup.
+   *
+   * @param updated - The new filter state produced by the child group.
+   */
   const handleFilterChange = useCallback(
     (updated: QQueryFilter) => {
       onChange(updated)
@@ -99,14 +123,36 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: Filt
 // FilterGroup — handles one AND/OR group of criteria + sub-groups
 // ------------------------------------------------------------------
 
+/**
+ * Props for the FilterGroup component.
+ */
 interface FilterGroupProps {
+  /** The filter state for this group (criteria, sub-filters, boolean operator). */
   filter: QQueryFilter
+  /** Available filterable fields for this table. */
   fields: FilterField[]
+  /** Callback invoked when this group's filter state changes. */
   onChange: (updated: QQueryFilter) => void
+  /** Nesting depth (0 = root group). Sub-groups are indented and capped at depth 2. */
   depth: number
+  /** Backend table name passed to async comboboxes for possible-value lookup. */
   tableName: string
 }
 
+/**
+ * Renders one AND/OR group of filter criteria with nested sub-group support.
+ *
+ * Shows a boolean operator selector when there are multiple conditions, a list of
+ * CriteriaRow items, zero or more nested FilterGroup sub-groups, and add/remove controls.
+ * Stable keys for criteria and sub-filters are maintained via WeakMap refs to avoid
+ * React reconciliation bugs with index-based keys.
+ *
+ * @param filter - Filter state for this group.
+ * @param fields - Filterable fields to populate the field selector in each criterion row.
+ * @param onChange - Callback invoked when this group's state changes.
+ * @param depth - Nesting depth used for indentation and the "Add group" cap (max 2).
+ * @param tableName - Passed to async comboboxes for possible-value searching.
+ */
 function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
@@ -114,6 +160,14 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
   const criteriaIdCounterRef = useRef(0)
   const criteriaIdMapRef = useRef(new WeakMap<QFilterCriteria, string>())
 
+  /**
+   * Returns a stable string key for a criterion object, creating one on first access.
+   *
+   * Uses a WeakMap so keys survive re-renders without mutating the criterion objects.
+   *
+   * @param criterion - The filter criterion to look up or register.
+   * @returns A stable unique key string.
+   */
   const getCriterionKey = useCallback((criterion: QFilterCriteria): string => {
     const existing = criteriaIdMapRef.current.get(criterion)
     if (existing) return existing
@@ -126,6 +180,12 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
   const subFilterIdCounterRef = useRef(0)
   const subFilterIdMapRef = useRef(new WeakMap<QQueryFilter, string>())
 
+  /**
+   * Returns a stable string key for a sub-filter object, creating one on first access.
+   *
+   * @param subFilter - The nested QQueryFilter to look up or register.
+   * @returns A stable unique key string.
+   */
   const getSubFilterKey = useCallback((subFilter: QQueryFilter): string => {
     const existing = subFilterIdMapRef.current.get(subFilter)
     if (existing) return existing
@@ -134,6 +194,9 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
     return id
   }, [depth])
 
+  /**
+   * Appends a new blank criterion using the first available field and its default operator.
+   */
   const addCriterion = () => {
     const firstField = fields[0]
     if (!firstField) return
@@ -148,6 +211,9 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
     })
   }
 
+  /**
+   * Appends a new empty AND sub-filter group nested within this group.
+   */
   const addSubFilter = () => {
     const sub: QQueryFilter = {
       criteria: [],
@@ -163,23 +229,45 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
     })
   }
 
+  /**
+   * Replaces the criterion at `index` with `updated` and propagates the change.
+   *
+   * @param index - Zero-based index of the criterion to replace.
+   * @param updated - The new criterion value.
+   */
   const updateCriterion = (index: number, updated: QFilterCriteria) => {
     const criteria = [...filter.criteria]
     criteria[index] = updated
     onChange({ ...filter, criteria })
   }
 
+  /**
+   * Removes the criterion at `index` from this group.
+   *
+   * @param index - Zero-based index of the criterion to remove.
+   */
   const removeCriterion = (index: number) => {
     const criteria = filter.criteria.filter((_, i) => i !== index)
     onChange({ ...filter, criteria })
   }
 
+  /**
+   * Replaces the sub-filter at `index` with `updated` and propagates the change.
+   *
+   * @param index - Zero-based index of the sub-filter to replace.
+   * @param updated - The new sub-filter value.
+   */
   const updateSubFilter = (index: number, updated: QQueryFilter) => {
     const subFilters = [...(filter.subFilters ?? [])]
     subFilters[index] = updated
     onChange({ ...filter, subFilters })
   }
 
+  /**
+   * Removes the sub-filter group at `index` from this group.
+   *
+   * @param index - Zero-based index of the sub-filter to remove.
+   */
   const removeSubFilter = (index: number) => {
     const subFilters = (filter.subFilters ?? []).filter((_, i) => i !== index)
     onChange({ ...filter, subFilters })
@@ -277,21 +365,44 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
 // CriteriaRow — single filter condition row
 // ------------------------------------------------------------------
 
+/**
+ * Props for the CriteriaRow component.
+ */
 interface CriteriaRowProps {
+  /** Display index of this row within its group (used for aria labels and data-qqq-id). */
   index: number
+  /** The filter criterion state this row represents. */
   criterion: QFilterCriteria
+  /** Available filterable fields for the field selector. */
   fields: FilterField[]
+  /** Callback invoked when the criterion changes (field, operator, or values). */
   onChange: (updated: QFilterCriteria) => void
+  /** Callback invoked when the user clicks the remove button. */
   onRemove: () => void
+  /** Nesting depth, used in data-qqq-id attribute construction. */
   depth: number
+  /** Backend table name passed through to the value input for possible-value lookups. */
   tableName: string
 }
 
+/**
+ * A single filter condition row containing a field selector, operator selector, value input(s),
+ * and a remove button. Memoized to prevent unnecessary re-renders when sibling rows change.
+ *
+ * When the selected field changes, the operator is reset to the field type's default and values
+ * are cleared. When the operator changes, values are cleared if the new operator takes no values.
+ */
 const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, tableName }: CriteriaRowProps) {
   const selectedField = fields.find((f) => f.name === criterion.fieldName) ?? fields[0]
   const fieldType = selectedField?.type ?? 'STRING'
   const availableOps = getOperatorsForFieldType(fieldType)
 
+  /**
+   * Handles field selector changes by resetting the operator to the new field type's default
+   * and clearing all values.
+   *
+   * @param fieldName - The newly selected field's backend name.
+   */
   // When field changes, reset operator and values
   const handleFieldChange = (fieldName: string) => {
     const field = fields.find((f) => f.name === fieldName)
@@ -303,6 +414,11 @@ const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, 
     })
   }
 
+  /**
+   * Handles operator selector changes, clearing values when switching to a no-value operator.
+   *
+   * @param operator - The newly selected filter operator.
+   */
   const handleOperatorChange = (operator: QCriteriaOperator) => {
     const config = OPERATOR_CONFIG[operator]
     // Clear values when switching to 'none' operators
@@ -383,16 +499,39 @@ const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, 
 // Detects possibleValueSourceName and renders a combobox when present
 // ------------------------------------------------------------------
 
+/**
+ * Props for the FilterValueInput component.
+ */
 interface FilterValueInputProps {
+  /** The field being filtered, used to determine value type and possible-value source. */
   field: FilterField
+  /** The currently selected operator, used to determine value count (none/single/range/multiple). */
   operator: QCriteriaOperator
+  /** Current string values for this criterion. */
   values: string[]
+  /** Callback invoked when the value(s) change. */
   onChange: (values: string[]) => void
+  /** Nesting depth, used in data-qqq-id construction. */
   depth: number
+  /** Row index within the group, used in data-qqq-id construction. */
   index: number
+  /** Backend table name passed to async comboboxes. */
   tableName: string
 }
 
+/**
+ * Renders the appropriate value input widget for a filter criterion based on the selected operator
+ * and field type.
+ *
+ * - `none` valueCount: renders nothing.
+ * - `range` valueCount: two TypedInput widgets (From / To).
+ * - `multiple` valueCount: PossibleValueMultiSelect if a possible-value source exists, else TagInput.
+ * - BOOLEAN type: a True/False select.
+ * - Single value with possible-value source: PossibleValueSingleSelect async combobox.
+ * - Single value (all other types): TypedInput with the appropriate HTML input type.
+ *
+ * Memoized to avoid re-rendering all rows when only one criterion changes.
+ */
 const FilterValueInput = React.memo(function FilterValueInput({ field, operator, values, onChange, depth, index, tableName }: FilterValueInputProps) {
   const config = OPERATOR_CONFIG[operator]
 
@@ -499,15 +638,38 @@ const FilterValueInput = React.memo(function FilterValueInput({ field, operator,
 // PossibleValueSingleSelect — async combobox for single-value filter
 // ------------------------------------------------------------------
 
+/**
+ * Props for the PossibleValueSingleSelect component.
+ */
 interface PossibleValueSingleSelectProps {
+  /** Backend table name used for possible-value API calls. */
   tableName: string
+  /** Backend field name used for possible-value API calls. */
   fieldName: string
+  /** Human-readable field label for aria attributes and placeholders. */
   fieldLabel: string
+  /** Currently selected value ID (as string). */
   value: string
+  /** Callback invoked when the user selects a new option. */
   onChange: (value: string) => void
+  /** Optional data-qqq-id attribute forwarded to the outer container. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Async searchable combobox for single-value filter criteria on possible-value fields.
+ *
+ * Fetches options from the possible-values API as the user types (debounced via
+ * `useAsyncCombobox`). Displays the selected option's label using local state and
+ * provides a clear button to reset the selection.
+ *
+ * @param tableName - Backend table for the possible-value query.
+ * @param fieldName - Backend field for the possible-value query.
+ * @param fieldLabel - Human-readable label for aria attributes.
+ * @param value - Currently selected value ID.
+ * @param onChange - Callback with the new selected value ID (as string).
+ * @param dataId - Optional data-qqq-id for the outer container.
+ */
 function PossibleValueSingleSelect({
   tableName,
   fieldName,
@@ -529,6 +691,11 @@ function PossibleValueSingleSelect({
     debouncedFetch,
   } = useAsyncCombobox({ tableName, fieldName })
 
+  /**
+   * Selects an option, updates the display label, and closes the dropdown.
+   *
+   * @param option - The chosen possible value.
+   */
   const handleSelect = (option: QPossibleValue) => {
     onChange(String(option.id))
     setSelectedLabel(option.label)
@@ -536,6 +703,9 @@ function PossibleValueSingleSelect({
     setSearchTerm('')
   }
 
+  /**
+   * Clears the selected value, label, and search term.
+   */
   const handleClear = () => {
     onChange('')
     setSelectedLabel('')
@@ -641,15 +811,38 @@ function PossibleValueSingleSelect({
 // PossibleValueMultiSelect — async combobox for multi-value filter (IN/NOT_IN)
 // ------------------------------------------------------------------
 
+/**
+ * Props for the PossibleValueMultiSelect component.
+ */
 interface PossibleValueMultiSelectProps {
+  /** Backend table name used for possible-value API calls. */
   tableName: string
+  /** Backend field name used for possible-value API calls. */
   fieldName: string
+  /** Human-readable field label for aria attributes and placeholders. */
   fieldLabel: string
+  /** Currently selected value IDs (as strings). */
   values: string[]
+  /** Callback invoked when the selection changes. */
   onChange: (values: string[]) => void
+  /** Optional data-qqq-id attribute forwarded to the outer container. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Async searchable multi-select combobox for IN / NOT_IN filter operators on possible-value fields.
+ *
+ * Displays selected values as removable chips and fetches options from the possible-values API
+ * as the user types (debounced). A local `labelMap` caches option labels so chips can display
+ * human-readable text after the dropdown is closed.
+ *
+ * @param tableName - Backend table for possible-value queries.
+ * @param fieldName - Backend field for possible-value queries.
+ * @param fieldLabel - Human-readable label for aria attributes.
+ * @param values - Array of currently selected value IDs.
+ * @param onChange - Callback invoked with the updated selected value IDs array.
+ * @param dataId - Optional data-qqq-id for the outer container.
+ */
 function PossibleValueMultiSelect({
   tableName,
   fieldName,
@@ -684,6 +877,11 @@ function PossibleValueMultiSelect({
     },
   })
 
+  /**
+   * Toggles an option's membership in the selection and updates the local label cache.
+   *
+   * @param option - The possible value to add or remove.
+   */
   const handleToggleValue = (option: QPossibleValue) => {
     const id = String(option.id)
     setLabelMap((prev) => ({ ...prev, [id]: option.label }))
@@ -694,6 +892,11 @@ function PossibleValueMultiSelect({
     }
   }
 
+  /**
+   * Removes a single value from the selection by its ID.
+   *
+   * @param id - The string ID of the value to remove.
+   */
   const handleRemoveValue = (id: string) => {
     onChange(values.filter((v) => v !== id))
   }
@@ -811,15 +1014,40 @@ function PossibleValueMultiSelect({
 // TypedInput — renders appropriate <input> based on field type
 // ------------------------------------------------------------------
 
+/**
+ * Props for the TypedInput component.
+ */
 interface TypedInputProps {
+  /** The QQQ field type used to choose the appropriate HTML input type. */
   fieldType: QFieldType
+  /** Current string value of the input. */
   value: string
+  /** Callback invoked when the input value changes. */
   onChange: (value: string) => void
+  /** Optional placeholder text. */
   placeholder?: string
+  /** Accessible label forwarded to the input element. */
   'aria-label'?: string
+  /** Optional data-qqq-id attribute forwarded to the input element. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Renders the appropriate HTML `<input>` element for a given QQQ field type.
+ *
+ * - DATE → `type="date"` (36px wide)
+ * - DATE_TIME → `type="datetime-local"` (44px wide)
+ * - TIME → `type="time"` (28px wide)
+ * - INTEGER / LONG / DECIMAL → `type="number"` (32px wide)
+ * - Everything else → `type="text"` (min 160px wide)
+ *
+ * @param fieldType - The QQQ field type.
+ * @param value - Current string value.
+ * @param onChange - Callback with the new string value on change.
+ * @param placeholder - Optional placeholder text.
+ * @param ariaLabel - Accessible label passed to the input.
+ * @param dataId - Optional data-qqq-id attribute.
+ */
 function TypedInput({
   fieldType,
   value,
@@ -905,14 +1133,35 @@ function TypedInput({
 // TagInput — comma-separated multi-value input
 // ------------------------------------------------------------------
 
+/**
+ * Props for the TagInput component.
+ */
 interface TagInputProps {
+  /** Currently selected tag values displayed as chips. */
   values: string[]
+  /** Callback invoked when the set of tags changes. */
   onChange: (values: string[]) => void
+  /** Placeholder shown on the text input when no tags are present. */
   placeholder?: string
+  /** Accessible label forwarded to the underlying text input. */
   'aria-label'?: string
+  /** Optional data-qqq-id forwarded to the outer container. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Inline tag input for multi-value filter criteria without a possible-value source.
+ *
+ * Values are displayed as removable chips. The user can add a new value by pressing
+ * Enter or comma, or by blurring the input. Backspace removes the last tag when the
+ * input is empty. Duplicate values are silently ignored.
+ *
+ * @param values - Current set of tag values.
+ * @param onChange - Callback with the updated tag array.
+ * @param placeholder - Placeholder text for the text input.
+ * @param ariaLabel - Accessible label for the text input.
+ * @param dataId - Optional data-qqq-id for the container.
+ */
 function TagInput({
   values,
   onChange,
@@ -922,6 +1171,12 @@ function TagInput({
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('')
 
+  /**
+   * Trims and adds a raw string value as a new tag, then clears the input.
+   * Duplicate or empty values are silently ignored.
+   *
+   * @param raw - The raw string typed by the user.
+   */
   const addTag = (raw: string) => {
     const trimmed = raw.trim()
     if (trimmed && !values.includes(trimmed)) {
@@ -930,10 +1185,21 @@ function TagInput({
     setInputValue('')
   }
 
+  /**
+   * Removes the tag at the given index.
+   *
+   * @param index - Zero-based index of the tag to remove.
+   */
   const removeTag = (index: number) => {
     onChange(values.filter((_, i) => i !== index))
   }
 
+  /**
+   * Keyboard handler: Enter and comma commit the current input as a new tag;
+   * Backspace removes the last tag when the input is empty.
+   *
+   * @param e - The keyboard event from the text input.
+   */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()

@@ -1,3 +1,4 @@
+/** RecordView — metadata-driven record detail page with tiered sections, tabs, and related records */
 'use client'
 
 // RecordView — displays a single record with sections, field values, and related records
@@ -24,7 +25,13 @@ import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
 import { RecordInfoFooter } from './RecordInfoFooter'
 
-/** Returns true if a section has at least one visible (non-hidden, non-heavy) field or a widget */
+/**
+ * Returns true if a section has at least one visible (non-hidden, non-heavy) field or a widget.
+ *
+ * @param section - The section descriptor containing field names and an optional widget name.
+ * @param table - The parent table metadata used to look up field visibility flags.
+ * @returns `true` when the section contributes at least one renderable item.
+ */
 function sectionHasContent(section: { fieldNames: string[]; widgetName?: string }, table: QTableMetaData): boolean {
   if (section.widgetName) return true
   return section.fieldNames.some((fn) => {
@@ -33,7 +40,16 @@ function sectionHasContent(section: { fieldNames: string[]; widgetName?: string 
   })
 }
 
-/** Extract up to two uppercase initials from a label string */
+/**
+ * Extracts up to two uppercase initials from a label string.
+ *
+ * When the label contains multiple words the first character of each of the
+ * first two words is used; otherwise the first two characters of the label
+ * are returned.
+ *
+ * @param label - The display label to abbreviate.
+ * @returns A one-or-two character uppercase string suitable for an avatar.
+ */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
   if (words.length >= 2) {
@@ -42,12 +58,23 @@ function getInitials(label: string): string {
   return label.slice(0, 2).toUpperCase()
 }
 
+/**
+ * Props for the {@link RecordView} component.
+ *
+ * All rendering is driven by metadata — no field names are hardcoded.
+ */
 interface RecordViewProps {
+  /** Table metadata that describes sections, fields, and relationships. */
   tableMetaData: QTableMetaData
+  /** The record to display; `undefined` while loading or after a non-error empty state. */
   record: QRecord | undefined
+  /** `true` while the record data is being fetched. */
   isLoading?: boolean
+  /** `true` when the data-fetch has entered an error state. */
   isError?: boolean
+  /** The error object from the failed fetch, used to differentiate 403/404/500. */
   error?: Error | null
+  /** Callback to trigger a data re-fetch — shown as a Retry button on server errors. */
   onRefetch?: () => void
   /** Hide the actions bar (edit/delete/copy buttons) */
   hideActions?: boolean
@@ -57,10 +84,22 @@ interface RecordViewProps {
   processes?: QProcessMetaData[]
   /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
   allTables?: Record<string, QTableMetaData>
+  /** Additional CSS classes applied to the outermost container. */
   className?: string
 }
 
 
+/**
+ * Renders a metadata-driven detail view for a single QQQ record.
+ *
+ * Handles loading spinners, differentiated error states (403/404/500), and
+ * delegates to {@link RecordViewContent} once data is available.  Sections are
+ * automatically partitioned into T1 (primary), T2 (secondary), and T3
+ * (supplementary/audit) tiers, and tabs are synthesised from T2/T3 sections
+ * and many-to-many joins.
+ *
+ * @param props - See {@link RecordViewProps}.
+ */
 export function RecordView({
   tableMetaData,
   record,
@@ -272,7 +311,14 @@ export function RecordView({
   )
 }
 
-/** Inner component that uses useState for tab selection and view mode */
+/**
+ * Inner stateful component that renders the full record detail layout.
+ *
+ * Separated from {@link RecordView} so that hook calls (useState, useCallback,
+ * useMemo) are only executed after loading/error guards have passed and a
+ * valid record is guaranteed.  Persists the active tab and view mode (tabs vs
+ * list) in the URL so that browser back/forward navigation restores state.
+ */
 function RecordViewContent({
   tableMetaData,
   record,
@@ -328,6 +374,14 @@ function RecordViewContent({
   const defaultViewMode = preferences.recordDefaultViewMode
   const viewMode = urlView ? urlView : defaultViewMode
 
+  /**
+   * Updates a single URL search parameter in-place, removing it when the
+   * value equals the provided default to keep URLs clean.
+   *
+   * @param key - The URL search parameter name.
+   * @param value - The new value to set.
+   * @param defaultValue - The "default" value; when matched the key is removed.
+   */
   const updateUrlParam = useCallback((key: string, value: string, defaultValue: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (value === defaultValue) {
@@ -339,10 +393,21 @@ function RecordViewContent({
     router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [searchParams, pathname, router])
 
+  /**
+   * Switches the active tab by updating the `tab` URL parameter.
+   *
+   * @param tabId - The id of the tab to activate.
+   */
   const setActiveTab = useCallback((tabId: string) => {
     updateUrlParam('tab', tabId, tabs[0]?.id ?? '')
   }, [updateUrlParam, tabs])
 
+  /**
+   * Switches between "tabs" (card grid) and "list" (compact sequential) view
+   * modes by updating the `view` URL parameter.
+   *
+   * @param mode - The view mode to activate.
+   */
   const setViewMode = useCallback((mode: 'tabs' | 'list') => {
     updateUrlParam('view', mode, 'tabs')
   }, [updateUrlParam])

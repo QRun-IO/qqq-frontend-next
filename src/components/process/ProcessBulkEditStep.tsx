@@ -1,3 +1,11 @@
+/**
+ * ProcessBulkEditStep — renders a BULK_EDIT_FORM process step.
+ *
+ * Displays each editable field with an opt-in checkbox toggle so users can
+ * select only the fields they want to update across multiple records.  Only
+ * the enabled fields are submitted; a `bulkEditEnabledFields` list is
+ * appended to the values for backend tracking.
+ */
 'use client'
 
 // ProcessBulkEditStep -- renders a BULK_EDIT_FORM step
@@ -16,18 +24,43 @@ import { cn } from '@/lib/utils/cn'
 import { DynamicForm } from '@/components/forms/DynamicForm'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Props for the {@link ProcessBulkEditStep} component.
+ */
 export interface ProcessBulkEditStepProps {
+  /** Metadata for the current process step, including `formFields`. */
   step: QFrontendStepMetaData
+  /** Name of the owning process, forwarded to DynamicForm for possible-value lookups. */
   processName: string
+  /** Current accumulated step values from the process state. */
   stepValues: Record<string, unknown>
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
+  /** Whether a submission is in progress; disables controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user submits the form.
+   *
+   * @param values - Only the enabled fields' values plus `bulkEditEnabledFields`.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
 }
 
+/**
+ * Renders a BULK_EDIT_FORM process step.
+ *
+ * Each field from `step.formFields` is presented with an opt-in checkbox; the
+ * underlying DynamicForm field control only appears when the checkbox is checked.
+ * Submit is disabled until at least one field is enabled.
+ *
+ * @param props - {@link ProcessBulkEditStepProps}
+ */
 export function ProcessBulkEditStep({
   step,
   processName,
@@ -82,6 +115,11 @@ export function ProcessBulkEditStep({
     defaultValues,
   })
 
+  /**
+   * Toggles a field's enabled state in the `enabledFields` map.
+   *
+   * @param fieldName - The metadata name of the field to toggle.
+   */
   const toggleField = (fieldName: string) => {
     setEnabledFields((prev) => ({
       ...prev,
@@ -89,8 +127,15 @@ export function ProcessBulkEditStep({
     }))
   }
 
+  /** Number of fields currently opted in for the bulk edit. */
   const enabledCount = Object.values(enabledFields).filter(Boolean).length
 
+  /**
+   * React Hook Form submit handler; filters values to only enabled fields and
+   * appends the `bulkEditEnabledFields` list before calling `onSubmit`.
+   *
+   * @param values - All form values from React Hook Form.
+   */
   const onFormSubmit = async (values: Record<string, unknown>) => {
     // Only submit values for enabled fields
     const filteredValues: Record<string, unknown> = {}

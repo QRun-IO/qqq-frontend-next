@@ -1,8 +1,6 @@
 'use client'
 
-// KeyboardShortcutsDialog — "?" help dialog showing available keyboard shortcuts
-// Organized by context: Global, Table Query, Record View
-// Uses Radix Dialog primitive with project design tokens
+/** KeyboardShortcutsDialog — "?" help dialog listing available keyboard shortcuts grouped by context. */
 
 import React from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -10,16 +8,27 @@ import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Describes a single keyboard shortcut with its key combination and action description.
+ */
 interface ShortcutEntry {
+  /** Ordered array of key labels (e.g. `['⌘', 'K']`). */
   keys: string[]
+  /** Human-readable description of the action triggered by the shortcut. */
   description: string
 }
 
+/**
+ * A named group of related keyboard shortcuts shown under a section header.
+ */
 interface ShortcutSection {
+  /** Section heading (e.g. `"Global"`, `"Table Query Page"`). */
   title: string
+  /** List of shortcuts belonging to this section. */
   shortcuts: ShortcutEntry[]
 }
 
+/** Static list of all keyboard shortcut sections displayed in the dialog. */
 const shortcutSections: ShortcutSection[] = [
   {
     title: 'Global',
@@ -49,6 +58,12 @@ const shortcutSections: ShortcutSection[] = [
   },
 ]
 
+/**
+ * Renders a styled keyboard key badge using the `<kbd>` HTML element.
+ *
+ * @param children - The key label to display (e.g. `"⌘"`, `"K"`, `"esc"`).
+ * @returns A `<kbd>` element styled with project design tokens.
+ */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd
@@ -62,11 +77,28 @@ function Kbd({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * Props for the KeyboardShortcutsDialog component.
+ */
 interface KeyboardShortcutsDialogProps {
+  /** Whether the dialog is currently open. */
   open: boolean
+  /** Called when the dialog should close. */
   onClose: () => void
 }
 
+/**
+ * Modal dialog listing all keyboard shortcuts organized by contextual section.
+ *
+ * Triggered by pressing `?` anywhere in the application (when focus is not in
+ * a text field). Closes via the X button, the close prop, or Escape key. Uses
+ * the Radix `Dialog` primitive with project design tokens and the `Kbd` badge
+ * component to render key labels.
+ *
+ * @param open - Whether the dialog is currently visible.
+ * @param onClose - Callback invoked when the dialog should close.
+ * @returns A Radix Dialog portal containing the shortcut list.
+ */
 export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>

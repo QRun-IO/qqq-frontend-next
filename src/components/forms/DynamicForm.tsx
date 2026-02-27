@@ -1,3 +1,4 @@
+/** DynamicForm — core metadata-driven form renderer used by EntityForm and ProcessRun */
 'use client'
 
 // DynamicForm — renders form fields from metadata using React Hook Form
@@ -13,29 +14,41 @@ import { cn } from '@/lib/utils/cn'
 
 import { DynamicFormField } from './DynamicFormField'
 
+/**
+ * Props for the {@link DynamicForm} component.
+ *
+ * Supply either `tableMetaData` (for section-grouped layout) or `fields`
+ * (for a flat list, typically used by processes).  Both can be combined with
+ * `fieldNamesToInclude` for fine-grained field filtering.
+ */
 export interface DynamicFormProps {
-  // React Hook Form internals — passed in from parent
+  /** React Hook Form register function from the parent `useForm` instance. */
   register: UseFormRegister<Record<string, unknown>>
+  /** React Hook Form control object from the parent `useForm` instance. */
   control: Control<Record<string, unknown>>
+  /** React Hook Form validation error map from the parent `useForm` instance. */
   errors: FieldErrors<Record<string, unknown>>
 
-  // Metadata for rendering
+  /** Table metadata used to derive sections and field ordering. */
   tableMetaData?: QTableMetaData
+  /** Explicit field list; when provided, section grouping is skipped. */
   fields?: QFieldMetaData[]
+  /** Override the sections from `tableMetaData`; ignored when `fields` is set. */
   sections?: QTableSection[]
 
-  // Which fields to include (if undefined, all editable non-hidden fields)
+  /** Restricts rendered fields to this allow-list; when omitted all editable non-hidden fields are shown. */
   fieldNamesToInclude?: string[]
 
-  // Context for possible values (table or process)
+  /** Context forwarded to possible-value fields to scope their fetch calls. */
   possibleValueContext?: PossibleValueContext
 
-  // Whether the entire form is disabled
+  /** When `true`, all fields are rendered in a disabled, read-only state. */
   disabled?: boolean
 
-  // Optional label shown at top
+  /** Optional heading rendered above the field grid. */
   formLabel?: string
 
+  /** Additional CSS classes applied to the outermost container. */
   className?: string
 }
 

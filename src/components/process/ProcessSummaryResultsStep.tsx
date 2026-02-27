@@ -1,3 +1,11 @@
+/**
+ * ProcessSummaryResultsStep — renders a PROCESS_SUMMARY_RESULTS process step.
+ *
+ * An intermediate mid-process step (distinct from the final {@link ProcessResultStep})
+ * that shows a success icon, numeric stats, and optional view-field detail rows
+ * before the user continues to the next step.  HTML-typed view fields are
+ * rendered with minimal script-stripping sanitisation.
+ */
 'use client'
 
 // ProcessSummaryResultsStep -- renders a PROCESS_SUMMARY_RESULTS step
@@ -14,27 +22,61 @@ import { ProcessCancelDialog } from './ProcessCancelDialog'
 
 // TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
 // Minimal sanitization: strip script tags to prevent XSS from injected HTML
+/**
+ * Strips `<script>` tags from an HTML string as a minimal XSS mitigation.
+ *
+ * @param html - The raw HTML string to sanitise.
+ * @returns The HTML string with all `<script>…</script>` blocks removed.
+ */
 function stripScripts(html: string): string {
   return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
 }
 
+/**
+ * Props for the {@link ProcessSummaryResultsStep} component.
+ */
 export interface ProcessSummaryResultsStepProps {
+  /** Metadata for the current process step, including `viewFields`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values containing stat counts and view-field data. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/** A single numeric stat entry for the summary display. */
 interface ResultStat {
+  /** Human-readable label (e.g. "Records Inserted"). */
   label: string
+  /** Numeric count to display prominently. */
   value: number
+  /** Tailwind text-color class applied to the numeric value. */
   color: string
 }
 
+/**
+ * Extracts labelled numeric stats from the step values.
+ *
+ * Checks multiple well-known key aliases so the component works across
+ * different QQQ backend process implementations.
+ *
+ * @param stepValues - The current accumulated step values.
+ * @returns An array of {@link ResultStat} entries; empty when no counts are present.
+ */
 function parseResultStats(stepValues: Record<string, unknown>): ResultStat[] {
   const stats: ResultStat[] = []
 
@@ -67,6 +109,13 @@ function parseResultStats(stepValues: Record<string, unknown>): ResultStat[] {
   return stats
 }
 
+/**
+ * Formats a raw field value for display in the view-fields detail list.
+ *
+ * @param field - Field metadata used to determine type-specific formatting.
+ * @param value - The raw value from `stepValues`.
+ * @returns A human-readable string, or an em-dash for empty/null values.
+ */
 function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return '\u2014'
@@ -77,6 +126,15 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   return String(value)
 }
 
+/**
+ * Renders a PROCESS_SUMMARY_RESULTS process step.
+ *
+ * Shows a success icon, an optional message from `stepValues`, numeric stat
+ * counters, and view-field detail rows (with HTML fields stripped of scripts).
+ * Navigation controls allow proceeding to the next step or going back.
+ *
+ * @param props - {@link ProcessSummaryResultsStepProps}
+ */
 export function ProcessSummaryResultsStep({
   step,
   stepValues,

@@ -1,6 +1,12 @@
+/**
+ * WidgetRenderer — Master type dispatcher for dashboard widgets.
+ *
+ * Receives widget metadata and raw API data, resolves the widget type from
+ * metadata.type (falling back to data.type), and renders the appropriate
+ * typed widget component. For the generic 'chart' type, a secondary dispatch
+ * on chartType selects the correct chart variant.
+ */
 'use client'
-
-// WidgetRenderer -- Master dispatcher: receives widget metadata + data, renders the right component
 
 import React from 'react'
 
@@ -28,11 +34,25 @@ import type { ProcessSummaryWidgetPayload } from './ProcessSummaryWidget'
 import { CompositeWidget } from './CompositeWidget'
 import type { CompositeWidgetProps } from './CompositeWidget'
 
+/** Props accepted by the WidgetRenderer component. */
 interface WidgetRendererProps {
+  /** Widget metadata providing the type discriminator, name, and label. */
   widgetMetaData: QWidgetMetaData
+  /** Raw API response data whose shape depends on the resolved widget type. */
   data: unknown
 }
 
+/**
+ * Resolves the widget type and renders the matching typed widget component.
+ *
+ * Type resolution order: metadata.type → data.type. Renders an "unknown widget
+ * type" placeholder when no matching case is found in the switch statement.
+ * The 'chart' type delegates further dispatch to ChartTypeDispatcher using the
+ * `chartType` field from the data payload.
+ *
+ * @param widgetMetaData - Widget metadata containing the type discriminator and widget name.
+ * @param data - Untyped API response; cast to the appropriate typed payload per matched case.
+ */
 export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
   const { name, type } = widgetMetaData
 
@@ -160,14 +180,25 @@ export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
   }
 }
 
-// ------------------------------------------------------------------
-// Internal: dispatches 'chart' type by chartType discriminator
-// ------------------------------------------------------------------
+/** Props accepted by the internal ChartTypeDispatcher helper. */
 interface ChartTypeDispatcherProps {
+  /** Raw API response data containing a `chartType` discriminator field. */
   data: unknown
+  /** Widget name forwarded to the resolved chart component for data-qqq-id scoping. */
   widgetName: string
 }
 
+/**
+ * Secondary dispatcher for widgets whose top-level type is 'chart'.
+ *
+ * Reads the `chartType` field from the data payload and renders the appropriate
+ * chart component: 'bar' → BarChartWidget, 'line'/'area' → LineChartWidget,
+ * 'pie'/'donut' → PieChartWidget. Falls back to BarChartWidget for unknown values.
+ * Returns null when `data` is not a plain object.
+ *
+ * @param data - Raw widget data payload expected to contain a `chartType` string.
+ * @param widgetName - Widget name forwarded to the selected chart component.
+ */
 function ChartTypeDispatcher({ data, widgetName }: ChartTypeDispatcherProps) {
   if (!isObject(data)) {
     return null
@@ -188,6 +219,12 @@ function ChartTypeDispatcher({ data, widgetName }: ChartTypeDispatcherProps) {
   }
 }
 
+/**
+ * Type guard that returns true when value is a non-null, non-array plain object.
+ *
+ * @param value - Any runtime value to test.
+ * @returns True if value is a Record-compatible plain object.
+ */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

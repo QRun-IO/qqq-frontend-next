@@ -1,3 +1,4 @@
+/** AuthProvider — manages authentication state for AUTH_0, OAUTH2, FULLY_ANONYMOUS, and MOCK auth types */
 'use client'
 
 // Auth provider — manages authentication state across all auth types
@@ -15,28 +16,76 @@ import {
 } from '@/lib/api/auth'
 import apiClient from '@/lib/api/client'
 
+/**
+ * Represents the currently authenticated user's basic identity.
+ */
 export interface AuthUser {
+  /** Display name of the user. */
   name?: string
+  /** Email address of the user. */
   email?: string
+  /** Unique identifier for the user. */
   id?: string
 }
 
+/**
+ * Shape of the value provided by {@link AuthContext}.
+ *
+ * Consumers should access this via the {@link useAuth} hook rather than
+ * reading the context directly.
+ */
 export interface AuthContextType {
+  /** Whether the current user has an active, validated session. */
   isAuthenticated: boolean
+  /** Whether the initial auth-check is still in-flight. */
   isLoading: boolean
+  /** The authenticated user, or `null` while unauthenticated. */
   user: AuthUser | null
+  /** Raw authentication metadata returned by the backend. */
   authMetadata: QAuthenticationMetaData | null
+  /** Logs the user out, clears local state, and redirects to the login page. */
   logout: () => Promise<void>
+  /**
+   * Handles the OAuth2/PKCE redirect callback.
+   *
+   * @param code - The authorization code returned by the identity provider.
+   * @param state - The state nonce returned by the identity provider (validated against sessionStorage).
+   */
   handleOAuthCallback: (code: string, state: string) => Promise<void>
 }
 
+/**
+ * React context that holds the current authentication state.
+ *
+ * Prefer using the {@link useAuth} hook to consume this context.
+ */
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * Props for the {@link AuthProvider} component.
+ */
 export interface AuthProviderProps {
+  /** Child elements that will receive access to the auth context. */
   children: ReactNode
+  /**
+   * Optional callback invoked when the initial auth setup fails.
+   *
+   * @param error - The error that caused the auth setup to fail.
+   */
   onAuthError?: (error: Error) => void
 }
 
+/**
+ * Top-level authentication provider.
+ *
+ * On mount it fetches backend authentication metadata, determines the auth type
+ * (AUTH_0, OAUTH2, FULLY_ANONYMOUS, or MOCK), and initializes the appropriate
+ * session. It also wires up the global 401 interceptor so that expired sessions
+ * automatically redirect to the login page.
+ *
+ * @param children - Application subtree that needs auth context.
+ * @param onAuthError - Optional error handler called when auth initialization fails.
+ */
 export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -44,6 +93,13 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authMetadata, setAuthMetadata] = useState<QAuthenticationMetaData | null>(null)
 
+  /**
+   * Logs the current user out.
+   *
+   * Calls the backend logout endpoint, clears all local auth state and the auth
+   * metadata cache, then redirects to `/login` with a `returnTo` query parameter
+   * so the user is sent back to their previous page after re-authenticating.
+   */
   const handleLogout = useCallback(async () => {
     try {
       await apiLogout()
@@ -124,6 +180,15 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onAuthError])
 
+  /**
+   * Initializes an Auth0 session.
+   *
+   * Validates the existing backend session cookie by calling `manageSession`.
+   * The full Auth0 PKCE login flow is handled by the login page; this function
+   * only confirms that a live session already exists.
+   *
+   * @param authMeta - Authentication metadata from the backend (unused directly — Auth0 PKCE is page-driven).
+   */
   async function setupAuth0Session(authMeta: QAuthenticationMetaData) {
     // Auth0 flow: validate the existing session cookie against the backend.
     // Call manageSession with an empty token; the backend will return 401 if no
@@ -135,6 +200,15 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
   }
 
+  /**
+   * Initializes an OAuth2/OIDC session.
+   *
+   * Validates the existing backend session cookie by calling `manageSession`.
+   * The full OAuth2 PKCE login flow is handled by the login page; this function
+   * only confirms that a live session already exists.
+   *
+   * @param authMeta - Authentication metadata from the backend (unused directly — OAuth2 PKCE is page-driven).
+   */
   async function setupOAuth2Session(authMeta: QAuthenticationMetaData) {
     // OAuth2/OIDC flow: validate the existing session cookie against the backend.
     // Same approach as Auth0: call manageSession so the backend can reject stale
@@ -145,6 +219,13 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
   }
 
+  /**
+   * Initializes a fully-anonymous or mock session.
+   *
+   * Calls `manageSession` with the literal string `'anonymous'` to obtain a
+   * backend session cookie. Errors are swallowed because some anonymous
+   * configurations do not require a token exchange.
+   */
   async function setupAnonymousSession() {
     // Anonymous auth: call manageSession with empty token to get a session cookie
     try {
@@ -155,6 +236,14 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     setUser({ name: 'Anonymous', email: 'anonymous@localhost' })
   }
 
+  /**
+   * Reads and validates a previously-stored user object from `localStorage`.
+   *
+   * Performs basic shape validation before trusting the stored value to guard
+   * against tampered or corrupt localStorage data.
+   *
+   * @returns The stored {@link AuthUser} if valid, or `null` if absent or invalid.
+   */
   function getStoredUser(): AuthUser | null {
     if (typeof window === 'undefined') return null
     try {
@@ -177,6 +266,17 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     return null
   }
 
+  /**
+   * Completes the OAuth2/PKCE authorization-code flow after the IdP redirect.
+   *
+   * Validates the `state` parameter against the nonce stored in `sessionStorage`
+   * to prevent CSRF attacks, then exchanges the authorization code for a backend
+   * session via `manageSession`. Throws if the state is invalid or the exchange
+   * fails, leaving `isAuthenticated` as `false`.
+   *
+   * @param code - The authorization code returned by the identity provider.
+   * @param state - The state nonce returned by the identity provider.
+   */
   async function handleOAuthCallback(code: string, state: string) {
     // OAuth2/PKCE callback: validate state nonce, then exchange the authorization
     // code for a backend session via manageSession.

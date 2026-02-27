@@ -1,3 +1,10 @@
+/**
+ * ValidationReviewStep — renders a VALIDATION_REVIEW_SCREEN process step.
+ *
+ * Displays summary stat cards (total, valid, warnings, errors), a status banner,
+ * and a detailed validation row table.  Proceeding is blocked when there are
+ * errors; warnings allow proceeding with a caution message.
+ */
 'use client'
 
 // ValidationReviewStep — renders a VALIDATION step
@@ -11,24 +18,58 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * A single row in the validation review table, representing one issue found
+ * during backend pre-validation of the process input.
+ */
 export interface ValidationRow {
+  /** Source data row number (1-based), if available. */
   rowNumber?: number
+  /** The field that caused the issue, if applicable. */
   fieldName?: string
+  /** Severity level of the validation issue. */
   type: 'ERROR' | 'WARNING' | 'INFO'
+  /** Human-readable description of the validation issue. */
   message: string
 }
 
+/**
+ * Props for the {@link ValidationReviewStep} component.
+ */
 export interface ValidationReviewStepProps {
+  /** Metadata for the current process step. */
   step: QFrontendStepMetaData
+  /**
+   * Current accumulated step values; checked for `validationRows`, `processResults`,
+   * `errorRecords`, `warningRecords`, `totalRecords`, and `validRecords` keys.
+   */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user confirms and proceeds past this step.
+   *
+   * Only callable when there are no errors (`hasErrors === false`).
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Extracts validation rows from step values, supporting multiple well-known keys.
+ *
+ * @param stepValues - The current accumulated step values.
+ * @returns An array of {@link ValidationRow} objects, or an empty array if none are found.
+ */
 function parseValidationRows(stepValues: Record<string, unknown>): ValidationRow[] {
   // Try to get rows from step values
   if (Array.isArray(stepValues.validationRows)) {
@@ -40,12 +81,27 @@ function parseValidationRows(stepValues: Record<string, unknown>): ValidationRow
   return []
 }
 
+/**
+ * Counts error and warning rows in the validation row array.
+ *
+ * @param rows - The full list of {@link ValidationRow} entries.
+ * @returns An object with `errors` and `warnings` counts.
+ */
 function getSummary(rows: ValidationRow[]) {
   const errors = rows.filter((r) => r.type === 'ERROR').length
   const warnings = rows.filter((r) => r.type === 'WARNING').length
   return { errors, warnings }
 }
 
+/**
+ * Renders a VALIDATION_REVIEW_SCREEN process step.
+ *
+ * Displays summary stat cards, a colour-coded status banner (error / warning /
+ * success), and a detailed validation issue table.  The Proceed button is
+ * disabled when `hasErrors` is true.
+ *
+ * @param props - {@link ValidationReviewStepProps}
+ */
 export function ValidationReviewStep({
   step,
   stepValues,

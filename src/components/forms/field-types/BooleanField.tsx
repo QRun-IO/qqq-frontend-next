@@ -1,3 +1,4 @@
+/** BooleanField — three-state toggle switch for boolean form fields integrated with React Hook Form */
 'use client'
 
 // BooleanField — toggle switch for boolean form fields
@@ -11,14 +12,28 @@ import { Minus } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link BooleanField} component.
+ */
 interface BooleanFieldProps {
+  /** The HTML `id` for the toggle button and its associated label. */
   id: string
+  /** Human-readable field label rendered next to the toggle. */
   label: string
+  /** The React Hook Form field name used by the `Controller`. */
   name: string
+  /** React Hook Form control object from the parent `useForm` instance. */
   control: Control<Record<string, unknown>>
+  /** Validation error; when present triggers error styling and message. */
   error?: FieldError
+  /** When `true`, the toggle is non-interactive and visually dimmed. */
   disabled?: boolean
+  /**
+   * When `true`, cycling is two-state only (true/false).
+   * When `false`, a null/indeterminate state is included in the cycle.
+   */
   required?: boolean
+  /** `data-qqq-id` attribute forwarded to the toggle button for CSS customization. */
   'data-qqq-id'?: string
 }
 
@@ -44,6 +59,16 @@ function ariaCheckedValue(state: boolean | null): 'true' | 'false' | 'mixed' {
   return 'mixed'
 }
 
+/**
+ * Toggle switch for boolean form fields integrated with React Hook Form.
+ *
+ * When `required` is true the toggle cycles between `true` and `false`.
+ * When `required` is false it cycles through `null → true → false → null`,
+ * where `null` represents the indeterminate (unset) state displayed with a
+ * dash indicator and `aria-checked="mixed"`.
+ *
+ * @param props - See {@link BooleanFieldProps}.
+ */
 export function BooleanField({
   id,
   label,
@@ -55,6 +80,12 @@ export function BooleanField({
   'data-qqq-id': dataQqqId,
 }: BooleanFieldProps) {
   // Cycle logic depends on whether the field is required
+  /**
+   * Returns the next value in the boolean cycle given the current state.
+   *
+   * @param current - The current boolean state (`true`, `false`, or `null`).
+   * @returns The next boolean state in the cycle.
+   */
   const getNextValue = useCallback(
     (current: boolean | null): boolean | null => {
       if (required) {

@@ -1,3 +1,4 @@
+/** EntityForm — full create/edit/copy form for a QQQ record with validation, mutations, and unsaved-changes guard */
 'use client'
 
 // EntityForm — full create/edit form for a record
@@ -22,38 +23,62 @@ import { toast } from '@/lib/hooks/use-toast'
 import { DynamicForm } from './DynamicForm'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 
+/**
+ * Props for the {@link EntityForm} component.
+ */
 export interface EntityFormProps {
-  // Required
+  /** Table metadata that drives field rendering, schema generation, and API calls. */
   tableMetaData: QTableMetaData
 
-  // For edit mode: existing record values
+  /** Existing record values; when provided the form operates in edit mode. */
   record?: QRecord
 
-  // Control
+  /** When `true`, the form is rendered inside a modal dialog (heading is moved to a header bar). */
   isModal?: boolean
+  /** When `true`, the primary key is omitted from the submit payload, creating a copy of `record`. */
   isCopy?: boolean
+  /** When `true`, all form inputs are rendered in a disabled, read-only state. */
   disabled?: boolean
 
-  // Override heading
+  /** Overrides the auto-generated "Create / Edit / Copy {label}" heading. */
   overrideHeading?: string
+  /** Label for the primary submit button; defaults to `"Save"`. */
   saveButtonLabel?: string
 
-  // Callbacks
+  /** Called with the saved record after a successful insert or update. */
   onSuccess?: (record: QRecord) => void
+  /** Called when the user clicks Cancel; defaults to navigating back to the record or table. */
   onCancel?: () => void
 
-  // Default values to pre-populate (overrides record values)
+  /** Default field values that override values derived from `record`. */
   defaultValues?: Record<string, unknown>
 
-  // Specific fields to show (if not set, all editable fields shown)
+  /** Restricts the form to only these fields; when omitted all editable non-hidden fields are shown. */
   fieldNamesToInclude?: string[]
 
-  // Possible value context
+  /** Context used to fetch possible values (table, process, or standalone). */
   possibleValueContext?: PossibleValueContext
 
+  /** Additional CSS classes applied to the `<form>` element. */
   className?: string
 }
 
+/**
+ * Full create/edit/copy form for a QQQ record.
+ *
+ * Wraps {@link DynamicForm} with React Hook Form + Zod schema validation,
+ * TanStack Query mutations (insert/update), a browser-level `beforeunload`
+ * guard, and a client-side unsaved-changes dialog.
+ *
+ * - In **create** mode (`record` is undefined and `isCopy` is false) the form
+ *   calls `insertRecord` on submit.
+ * - In **edit** mode (`record` is provided and `isCopy` is false) the form
+ *   calls `updateRecord` on submit.
+ * - In **copy** mode (`isCopy` is true) the form pre-fills from `record` but
+ *   calls `insertRecord`, producing a new record.
+ *
+ * @param props - See {@link EntityFormProps}.
+ */
 export function EntityForm({
   tableMetaData,
   record,
@@ -123,7 +148,15 @@ export function EntityForm({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [isDirty])
 
-  // Navigation helper that checks for unsaved changes before proceeding
+  /**
+   * Runs a navigation function only after confirming no unsaved changes exist.
+   *
+   * When the form is dirty the unsaved-changes dialog is displayed and the
+   * navigation function is deferred until the user confirms.  When the form is
+   * clean the function is called immediately.
+   *
+   * @param navigateFn - The navigation action to perform after the guard passes.
+   */
   const guardedNavigate = useCallback(
     (navigateFn: () => void) => {
       if (isDirty) {
@@ -136,6 +169,10 @@ export function EntityForm({
     [isDirty]
   )
 
+  /**
+   * Confirms navigation away from the form, executing the deferred navigation
+   * function and closing the unsaved-changes dialog.
+   */
   const handleConfirmLeave = useCallback(() => {
     setShowUnsavedDialog(false)
     if (pendingNavigation) {
@@ -144,6 +181,10 @@ export function EntityForm({
     }
   }, [pendingNavigation])
 
+  /**
+   * Cancels the pending navigation, keeping the user on the current form and
+   * closing the unsaved-changes dialog.
+   */
   const handleCancelLeave = useCallback(() => {
     setShowUnsavedDialog(false)
     setPendingNavigation(null)
@@ -192,6 +233,12 @@ export function EntityForm({
   const activeMutation = isEdit ? updateMutation : insertMutation
   const mutationError = activeMutation.error as Error | null
 
+  /**
+   * React Hook Form submit handler — delegates to the appropriate mutation
+   * (insert or update) based on the current form mode.
+   *
+   * @param values - The validated form field values.
+   */
   const onSubmit = useCallback(
     async (values: Record<string, unknown>) => {
       await activeMutation.mutateAsync(values)
@@ -199,6 +246,15 @@ export function EntityForm({
     [activeMutation]
   )
 
+  /**
+   * Handles the Cancel button click.
+   *
+   * Runs the navigation target through {@link guardedNavigate} so unsaved
+   * changes trigger a confirmation dialog.  Navigation target priority:
+   * 1. `onCancel` prop callback.
+   * 2. Record detail page (edit mode).
+   * 3. Table list page (create/copy mode).
+   */
   const handleCancel = () => {
     const doCancel = () => {
       if (onCancel) {

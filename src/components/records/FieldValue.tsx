@@ -1,3 +1,4 @@
+/** FieldValue — read-only renderer for a single QQQ field value, supporting all adornment types */
 'use client'
 
 // FieldValue — renders a single field value in read-only display mode
@@ -17,16 +18,35 @@ import { cn } from '@/lib/utils/cn'
 import { isHttpUrl, isRelativeUrl, isEmail } from '@/lib/utils/string-utils'
 import { RecordHoverCard } from './RecordHoverCard'
 
+/**
+ * Props for the {@link FieldValue} component.
+ */
 interface FieldValueProps {
+  /** Metadata describing the field's type, adornments, and source. */
   field: QFieldMetaData
+  /** The record whose values and display values are rendered. */
   record: QRecord
   /** Full table metadata map — enables record link hover previews */
   allTables?: Record<string, QTableMetaData>
   /** Source page info for back navigation — appended as ?from=&fromLabel= to record links */
   navigateFrom?: { path: string; label: string }
+  /** Additional CSS classes applied to the outermost rendered element. */
   className?: string
 }
 
+/**
+ * Renders a single QQQ field value in read-only display mode.
+ *
+ * Adornment priority (first match wins): LINK, FILE_DOWNLOAD, SIZE, CHIP,
+ * RENDER_HTML, CODE_EDITOR, TOOLTIP, ERROR, record-reference link.
+ * After adornments, rendering falls back to `field.type`-based formatting
+ * (BOOLEAN badge, PASSWORD reveal, BLOB download, TEXT pre-wrap).
+ * Auto-links bare http(s) URLs and e-mail addresses in the default case.
+ *
+ * @param props - See {@link FieldValueProps}.
+ * @returns A React element appropriate for the field type and adornments,
+ *   or an em-dash span when the value is empty.
+ */
 export function FieldValue({ field, record, allTables, navigateFrom, className }: FieldValueProps) {
   const rawValue = record.values[field.name]
   const displayValue = record.displayValues?.[field.name]
@@ -395,6 +415,15 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
 // --- Helper components ---
 
+/**
+ * Renders a masked value with a toggle button to reveal or hide it.
+ *
+ * Used for PASSWORD field types and any field with a REVEAL adornment.
+ *
+ * @param value - The plaintext value to optionally display.
+ * @param fieldName - The field name used to build the `data-qqq-id` attribute.
+ * @param className - Optional additional CSS classes for the wrapper span.
+ */
 function RevealField({
   value,
   fieldName,
@@ -431,6 +460,14 @@ function RevealField({
 
 // --- Utilities ---
 
+/**
+ * Formats a byte count into a human-readable string with the appropriate unit.
+ *
+ * Returns `"\u2014"` (em-dash) for `NaN` inputs and `"0 B"` for zero.
+ *
+ * @param bytes - The number of bytes to format.
+ * @returns A formatted string such as `"1.5 MB"`.
+ */
 function formatBytes(bytes: number): string {
   if (isNaN(bytes)) return '\u2014'
   if (bytes === 0) return '0 B'
@@ -439,6 +476,15 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
+/**
+ * Maps a semantic color name to Tailwind chip badge classes.
+ *
+ * Uses `-950` (near-black tinted) text on `-100` backgrounds for WCAG-compliant
+ * contrast.  Falls back to `gray` for unknown color names.
+ *
+ * @param color - A semantic color name (e.g. `"green"`, `"red"`, `"blue"`).
+ * @returns A Tailwind class string for the chip badge background and text color.
+ */
 function getChipClasses(color: string): string {
   // Use -950 (near-black tinted) text on -100 bg for guaranteed readability
   const colorMap: Record<string, string> = {

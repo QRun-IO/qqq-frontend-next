@@ -1,3 +1,4 @@
+/** DataGrid — TanStack Table v8 data grid for the QQQ Record Query page. Renders sortable, resizable columns with row selection and density support. */
 'use client'
 
 // DataGrid — TanStack Table v8 data grid for QQQ Record Query
@@ -18,38 +19,67 @@ import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
 import { DataCell } from './DataCell'
 import type { Density } from '@/lib/hooks/use-record-query'
 
+/**
+ * Props for the DataGrid component.
+ */
 interface DataGridProps {
+  /** The backend table name, used in data-qqq-id attributes and row navigation URLs. */
   tableName: string
+  /** Full table metadata from the QQQ backend. */
   tableMetaData: QTableMetaData
+  /** The current page of records to display. */
   records: QRecord[]
+  /** Total number of records matching the active filter (across all pages). */
   totalCount: number
+  /** Whether the initial data load is in progress (shows skeleton). */
   isLoading: boolean
+  /** Whether a background refetch is in progress (shows progress bar). */
   isFetching: boolean
+  /** Active sort order passed to the server; derived from QFilterOrderBy[]. */
   sortOrder: QFilterOrderBy[]
+  /** Callback invoked when the user clicks a sortable column header. */
   onSortChange: (sort: QFilterOrderBy[]) => void
+  /** TanStack Table row selection state (map of row id → selected boolean). */
   rowSelection: RowSelectionState
+  /** Callback invoked when row selection changes. */
   onRowSelectionChange: (selection: RowSelectionState) => void
+  /** Map of field name → visibility; `false` means the column is hidden. */
   columnVisibility: Record<string, boolean>
+  /** Ordered list of field names controlling column display order. */
   columnOrder: string[]
+  /** Map of field name → pixel width for user-resized columns. */
   columnWidths: Record<string, number>
+  /** Callback invoked when the user drags a column resize handle. */
   onColumnWidthChange: (fieldName: string, width: number) => void
+  /** Row height density variant: compact, standard, or comfortable. */
   density: Density
+  /** Current page size, used to determine the number of skeleton rows during loading. */
   pageSize: number
+  /** Callback invoked when the user clicks "Clear filters" in the empty state. */
   onResetFilter: () => void
 }
 
+/** Tailwind height classes for each row density variant. */
 const DENSITY_ROW_CLASS: Record<Density, string> = {
   compact: 'h-8',
   standard: 'h-12',
   comfortable: 'h-16',
 }
 
+/** Tailwind padding and text-size classes for table cells at each density variant. */
 const DENSITY_CELL_CLASS: Record<Density, string> = {
   compact: 'px-3 py-1 text-xs',
   standard: 'px-4 py-2 text-sm',
   comfortable: 'px-4 py-3 text-sm',
 }
 
+/**
+ * TanStack Table v8 data grid component for the QQQ Record Query page.
+ *
+ * Renders a sortable, column-resizable HTML table with row selection checkboxes,
+ * density variants, a skeleton loading state, an inline empty state, and a
+ * background-fetch progress bar. Clicking a row navigates to the record detail view.
+ */
 export function DataGrid({
   tableName,
   tableMetaData,
@@ -74,6 +104,10 @@ export function DataGrid({
   // MED-12: track active resize handlers so they can be removed if the component unmounts mid-drag
   const activeResizeRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null)
 
+  /**
+   * Computes the ordered list of visible fields by filtering out hidden fields, applying
+   * `columnVisibility`, and sorting by `columnOrder`.
+   */
   // Build sorted field list respecting columnOrder + visibility
   const visibleFields = useMemo(() => {
     const allFields = Object.values(tableMetaData.fields).filter(
@@ -99,6 +133,11 @@ export function DataGrid({
     return visible
   }, [tableMetaData.fields, columnVisibility, columnOrder])
 
+  /**
+   * Converts the server-side `QFilterOrderBy[]` sort order into the `SortingState`
+   * format expected by TanStack Table (for aria-sort and icon rendering only —
+   * actual sorting is handled server-side via `manualSorting: true`).
+   */
   // TanStack sorting state derived from QFilterOrderBy[]
   const tanstackSorting: SortingState = useMemo(
     () =>
@@ -109,6 +148,11 @@ export function DataGrid({
     [sortOrder]
   )
 
+  /**
+   * Cycles the sort state for a column: unsorted → ascending → descending → unsorted.
+   *
+   * @param fieldName - The backend field name of the column header that was clicked.
+   */
   const handleSortColumn = useCallback(
     (fieldName: string) => {
       const existing = sortOrder.find((s) => s.fieldName === fieldName)
@@ -123,6 +167,10 @@ export function DataGrid({
     [sortOrder, onSortChange]
   )
 
+  /**
+   * Builds TanStack Table column definitions from the visible fields plus a leading
+   * checkbox selection column. Memoized so column objects are stable between renders.
+   */
   // Column definitions
   const columns = useMemo<ColumnDef<QRecord>[]>(() => {
     // Checkbox selection column
@@ -229,6 +277,17 @@ export function DataGrid({
   // ------------------------------------------------------------------
   // Column resize handlers
   // ------------------------------------------------------------------
+  /**
+   * Initiates a column resize drag operation on mousedown.
+   *
+   * Attaches `mousemove` and `mouseup` listeners to the document so the drag
+   * continues even when the pointer leaves the resize handle. Cleans up listeners
+   * in the matching `mouseup` handler and in the component-unmount effect.
+   *
+   * @param e - The mousedown event from the resize handle.
+   * @param colId - The column id (field name) being resized.
+   * @param currentWidth - The column's pixel width at the start of the drag.
+   */
   const handleResizeMouseDown = useCallback(
     (e: React.MouseEvent, colId: string, currentWidth: number) => {
       e.preventDefault()
@@ -270,6 +329,14 @@ export function DataGrid({
   // ------------------------------------------------------------------
   // Row click handler
   // ------------------------------------------------------------------
+  /**
+   * Navigates to the record detail view when a table row is clicked.
+   *
+   * Uses the table's primary key field to construct the URL. Rows without a
+   * resolvable primary key value are silently ignored.
+   *
+   * @param record - The QRecord whose row was clicked.
+   */
   const handleRowClick = useCallback(
     (record: QRecord) => {
       const primaryKey = tableMetaData.primaryKeyField

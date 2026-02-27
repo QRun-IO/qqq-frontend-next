@@ -1,3 +1,9 @@
+/**
+ * ProcessHtmlStep — renders an HTML process step.
+ *
+ * Resolves HTML content from `stepValues`, the step's HTML component, or any
+ * HTML-typed view fields, then renders it inside a DOMPurify-sanitised container.
+ */
 'use client'
 
 // ProcessHtmlStep -- renders an HTML step
@@ -12,21 +18,52 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Sanitizes raw HTML with DOMPurify to prevent XSS before rendering.
+ *
+ * @param html - Untrusted HTML string from the backend.
+ * @returns A DOMPurify-sanitised HTML string safe to inject via `dangerouslySetInnerHTML`.
+ */
 function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html)
 }
 
+/**
+ * Props for the {@link ProcessHtmlStep} component.
+ */
 export interface ProcessHtmlStepProps {
+  /** Metadata for the current process step, including `components` and `viewFields`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values; `html` / `htmlContent` keys are checked for content. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Resolves the HTML content string to render for this step.
+ *
+ * Checks, in order: `stepValues.html`, `stepValues.htmlContent`, the step's
+ * HTML component values, and finally any HTML-typed view fields.
+ *
+ * @param step - The current step metadata.
+ * @param stepValues - The current accumulated step values.
+ * @returns The raw HTML string, or an empty string if no content is found.
+ */
 function resolveHtmlContent(
   step: QFrontendStepMetaData,
   stepValues: Record<string, unknown>
@@ -63,6 +100,15 @@ function resolveHtmlContent(
   return ''
 }
 
+/**
+ * Renders an HTML process step.
+ *
+ * Displays sanitised HTML content resolved from `stepValues` or step component
+ * metadata, with optional HELP_TEXT banners above and standard Cancel / Back /
+ * Next navigation below.
+ *
+ * @param props - {@link ProcessHtmlStepProps}
+ */
 export function ProcessHtmlStep({
   step,
   stepValues,

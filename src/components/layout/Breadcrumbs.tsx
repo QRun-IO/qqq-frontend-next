@@ -1,7 +1,6 @@
 'use client'
 
-// Breadcrumbs component — auto-generates from current pathname using pathToLabelMap
-// Injects parent app name for flat URLs (e.g. /app/Products → Dashboard / Inventory / Products)
+/** Breadcrumbs — auto-generates breadcrumb navigation from the current pathname, injecting parent app labels for flat URLs. */
 
 import React from 'react'
 import Link from 'next/link'
@@ -9,17 +8,37 @@ import { usePathname } from 'next/navigation'
 
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
+/**
+ * Props for the Breadcrumbs component.
+ */
 export interface BreadcrumbsProps {
+  /** Maps URL path segments to their display labels (e.g. `/app/Products` → `"Products"`). */
   pathToLabelMap: Record<string, string>
-  /** Maps flat leaf paths to their parent app for breadcrumb injection */
+  /** Maps flat leaf paths to their parent app for breadcrumb injection. */
   parentAppMap?: Record<string, ParentAppInfo>
 }
 
+/**
+ * Represents a single breadcrumb entry with its navigable path and display label.
+ */
 interface Breadcrumb {
+  /** Absolute URL path for this breadcrumb link. */
   path: string
+  /** Human-readable label derived from `pathToLabelMap` or the raw path segment. */
   label: string
 }
 
+/**
+ * Renders a horizontal breadcrumb trail derived from the current URL pathname.
+ *
+ * Route group segments (e.g. `(dashboard)`) and the `/app` root are filtered
+ * out. When a flat leaf path (e.g. `/app/Products`) has an entry in
+ * `parentAppMap`, its parent app label is prepended as the first breadcrumb.
+ *
+ * @param pathToLabelMap - Map of path → label used to resolve display names.
+ * @param parentAppMap - Map of child paths → parent app info for injection.
+ * @returns A `<nav>` breadcrumb element, or `null` if no segments exist.
+ */
 export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: BreadcrumbsProps) {
   const pathname = usePathname()
   const segments = pathname.split('/').filter(Boolean)

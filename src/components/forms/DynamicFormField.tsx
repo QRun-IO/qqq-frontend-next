@@ -1,3 +1,4 @@
+/** DynamicFormField — single metadata-driven form field dispatcher with optional help tooltip */
 'use client'
 
 // DynamicFormField — renders a single form field based on QFieldMetaData type
@@ -22,12 +23,21 @@ import { PasswordField } from './field-types/PasswordField'
 import { FileUploadField } from './field-types/FileUploadField'
 import { PossibleValueSelect } from './PossibleValueSelect'
 
+/**
+ * Props for the {@link DynamicFormField} component.
+ */
 interface DynamicFormFieldProps {
+  /** Metadata describing the field to render. */
   field: QFieldMetaData
+  /** React Hook Form register function from the parent `useForm` instance. */
   register: UseFormRegister<Record<string, unknown>>
+  /** React Hook Form control object from the parent `useForm` instance. */
   control: Control<Record<string, unknown>>
+  /** React Hook Form validation error map from the parent `useForm` instance. */
   errors: FieldErrors<Record<string, unknown>>
+  /** When `true`, the rendered input is disabled. */
   disabled?: boolean
+  /** Context forwarded to {@link PossibleValueSelect} for scoping API calls. */
   possibleValueContext?: PossibleValueContext
 }
 
@@ -94,7 +104,16 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
   )
 }
 
-/** Wraps a field rendering with an optional help tooltip and aria-describedby linkage */
+/**
+ * Wraps a field rendering with an optional `aria-describedby` linkage to the
+ * help tooltip content element.
+ *
+ * When no help content is present the children are returned unwrapped to
+ * avoid adding an unnecessary DOM node.
+ *
+ * @param field - The field whose `helpContents` determines whether wrapping occurs.
+ * @param children - The field input element(s) to wrap.
+ */
 function FieldWithHelp({
   field,
   children,
@@ -118,6 +137,19 @@ function FieldWithHelp({
   )
 }
 
+/**
+ * Renders a single form field driven by `QFieldMetaData`.
+ *
+ * Dispatch priority:
+ * 1. If `field.possibleValueSourceName` is set → {@link PossibleValueSelect}.
+ * 2. If a `FILE_UPLOAD` adornment or `BLOB` type is present → {@link FileUploadField}.
+ * 3. Otherwise dispatches by `field.type` to the appropriate primitive field component.
+ *
+ * Hidden fields (`isHidden: true`) and non-editable fields (when the form is
+ * not in disabled mode) are suppressed entirely.
+ *
+ * @param props - See {@link DynamicFormFieldProps}.
+ */
 export function DynamicFormField({
   field,
   register,

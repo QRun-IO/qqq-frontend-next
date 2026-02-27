@@ -1,8 +1,10 @@
+/**
+ * BlockWidget — Renders a heterogeneous collection of block elements from the backend.
+ *
+ * Supported block types: text, big_number, up_or_down, progress, button, icon,
+ * image, audio, divider, input, and html. HTML content is sanitized with DOMPurify.
+ */
 'use client'
-
-// BlockWidget -- Renders a collection of block elements from the backend
-// Supports text, big_number, up_or_down, progress, button, icon, image,
-// audio, divider, input, and html block types
 
 import React from 'react'
 import {
@@ -15,7 +17,9 @@ import DOMPurify from 'dompurify'
 import type { BlockData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
+/** Wire-format payload for a block widget or legacy HTML widget from the backend API. */
 export interface BlockWidgetPayload {
+  /** Discriminator widget type string. */
   type?: string
   /** Block elements to render */
   blocks?: BlockData[]
@@ -25,17 +29,34 @@ export interface BlockWidgetPayload {
   html?: string
 }
 
+/** Props accepted by the BlockWidget component. */
 interface BlockWidgetProps {
+  /** Typed payload from the widget API response. */
   data: BlockWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/**
+ * Tailwind class map controlling the flex/grid layout of the block container.
+ *
+ * Keys correspond to the `layout` field in BlockWidgetPayload.
+ */
 const LAYOUT_CLASSES: Record<string, string> = {
   vertical: 'flex flex-col gap-4',
   horizontal: 'flex flex-row flex-wrap gap-4',
   grid: 'grid grid-cols-2 gap-4',
 }
 
+/**
+ * Renders a collection of typed block elements in a configurable layout.
+ *
+ * Falls back to rendering raw sanitized HTML when the payload contains a legacy
+ * `html` string without any structured `blocks` array.
+ *
+ * @param data - Block widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
   // Legacy backward compat: if there's a raw html string and no blocks, render as HTML directly
   if (data.html && (!data.blocks || data.blocks.length === 0)) {
@@ -74,15 +95,27 @@ export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
   )
 }
 
-// ------------------------------------------------------------------
-// BlockRenderer -- Dispatches to the correct renderer for each block type
-// ------------------------------------------------------------------
+/** Props accepted by the internal BlockRenderer helper. */
 interface BlockRendererProps {
+  /** A single block element from the blocks array. */
   block: BlockData
+  /** Parent widget name used for data-qqq-id scoping. */
   widgetName: string
+  /** Zero-based index of this block within the parent list. */
   index: number
 }
 
+/**
+ * Dispatches a single BlockData element to the appropriate JSX renderer.
+ *
+ * Covers all supported block types via a switch statement. An exhaustive check
+ * on the `default` branch ensures TypeScript surfaces unhandled types at
+ * compile time.
+ *
+ * @param block - The block element to render.
+ * @param widgetName - Parent widget name for data-qqq-id scoping.
+ * @param index - Position of this block in the parent list.
+ */
 function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
   switch (block.type) {
     case 'text':

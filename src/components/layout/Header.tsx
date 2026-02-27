@@ -1,8 +1,6 @@
 'use client'
 
-// Header component — single top bar: breadcrumbs left, global search + notifications right
-// Matches ME design: breadcrumbs ARE the header row
-// Mobile: shows hamburger button to toggle sidebar drawer
+/** Header — top bar rendering breadcrumbs on the left and global search + notifications on the right. On mobile, a hamburger button triggers the sidebar drawer. */
 
 import React, { useState } from 'react'
 import { Bell, Menu } from 'lucide-react'
@@ -11,16 +9,33 @@ import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
+/**
+ * Props for the Header component.
+ */
 export interface HeaderProps {
+  /** Application name from branding metadata (currently unused in layout but reserved for future title display). */
   appName?: string
-  /** Mobile: called when the hamburger menu button is clicked */
+  /** Called when the mobile hamburger menu button is clicked to open the sidebar drawer. */
   onMenuOpen?: () => void
-  /** Path-to-label map for breadcrumbs */
+  /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
-  /** Maps flat child paths to their parent app for breadcrumb injection */
+  /** Maps flat child paths to their parent app, passed through to Breadcrumbs for injection. */
   parentAppMap?: Record<string, ParentAppInfo>
 }
 
+/**
+ * Renders the application top bar.
+ *
+ * Provides breadcrumb navigation on the left and a global search pill plus
+ * notifications bell on the right. On viewports narrower than the `md`
+ * breakpoint the breadcrumbs are replaced by a hamburger button that invokes
+ * `onMenuOpen`, and the global search is hidden.
+ *
+ * @param onMenuOpen - Callback to open the mobile sidebar drawer.
+ * @param pathToLabelMap - Map of URL paths to display labels for breadcrumbs.
+ * @param parentAppMap - Map of child paths to parent-app info for breadcrumb injection.
+ * @returns The sticky header bar element.
+ */
 export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
   const [notificationCount] = useState(0)
 

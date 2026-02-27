@@ -1,4 +1,4 @@
-// Barrel export for widgets components
+/** Barrel export — re-exports all public components, types, and payload interfaces from the widgets module. */
 
 export { WidgetBlock } from './WidgetBlock'
 export { WidgetGrid } from './WidgetGrid'

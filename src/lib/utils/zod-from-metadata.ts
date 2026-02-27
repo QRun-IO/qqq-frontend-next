@@ -1,10 +1,17 @@
-// zod-from-metadata — build Zod schemas dynamically from QFieldMetaData
+/** zod-from-metadata — builds Zod validation schemas dynamically from QQQ field and table metadata */
 
 import { z } from 'zod'
 
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 
-/** Build a string-based Zod schema with optional required/maxLength constraints. */
+/**
+ * Builds a string-based Zod schema with optional required/maxLength constraints.
+ *
+ * @param isRequired - When true, adds a `min(1)` constraint with a required message.
+ * @param label - The field label used in validation error messages.
+ * @param maxLength - When provided, adds a `max()` constraint.
+ * @returns A `z.ZodString` or `z.ZodOptional<z.ZodString>` schema.
+ */
 function buildStringSchema(isRequired: boolean, label: string, maxLength?: number): z.ZodTypeAny {
   let schema = z.string()
   if (isRequired) schema = schema.min(1, `${label} is required`)
@@ -12,7 +19,16 @@ function buildStringSchema(isRequired: boolean, label: string, maxLength?: numbe
   return isRequired ? schema : schema.optional()
 }
 
-/** Build a string-based Zod schema for date/time fields (same as string but no maxLength). */
+/**
+ * Builds a string-based Zod schema for date/time fields (same as string but without maxLength).
+ *
+ * Date/time values are stored as strings in HTML `<input>` elements, so the schema is
+ * identical to a plain string schema minus any length limit.
+ *
+ * @param isRequired - When true, adds a `min(1)` constraint with a required message.
+ * @param label - The field label used in validation error messages.
+ * @returns A `z.ZodString` or `z.ZodOptional<z.ZodString>` schema.
+ */
 function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
   const schema = z.string()
   if (isRequired) return schema.min(1, `${label} is required`)
@@ -20,13 +36,14 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
 }
 
 /**
- * Build a Zod field validator for a single QFieldMetaData.
- * Returns a ZodTypeAny that can be added to a schema object.
- */
-/**
- * Build a Zod schema for a single QQQ field based on its type, required flag,
- * and optional maxLength. Used by {@link zodSchemaFromTableMetadata} to build
- * a full form validation schema from table metadata.
+ * Builds a Zod schema for a single QQQ field based on its type, required flag,
+ * and optional maxLength.
+ *
+ * Used by {@link zodSchemaFromTableMetadata} and {@link zodSchemaFromFields} to build
+ * full form validation schemas from table or process metadata.
+ *
+ * @param field - The field metadata object containing type, required, maxLength, and label.
+ * @returns A `ZodTypeAny` appropriate for the field's type and constraints.
  */
 export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
   const { type, isRequired, maxLength, label } = field
@@ -67,8 +84,15 @@ export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
 }
 
 /**
- * Build a complete Zod schema object from a QTableMetaData's editable fields.
- * Only includes fields that are editable and not hidden.
+ * Builds a complete Zod schema object from a {@link QTableMetaData}'s editable fields.
+ *
+ * Skips fields that are hidden (`isHidden`) or not editable (`!isEditable`).
+ * When `fieldNamesToInclude` is provided, only those fields are considered
+ * (useful for partial-edit dialogs or step-by-step wizards).
+ *
+ * @param tableMetaData - The table metadata whose fields drive the schema shape.
+ * @param fieldNamesToInclude - Optional allowlist of field names to include. Defaults to all fields.
+ * @returns A `z.ZodObject` whose keys are editable field names and whose values are field schemas.
  */
 export function zodSchemaFromTableMetadata(
   tableMetaData: QTableMetaData,
@@ -93,8 +117,13 @@ export function zodSchemaFromTableMetadata(
 }
 
 /**
- * Build a Zod schema from an array of QFieldMetaData (used for process form steps).
- * Useful for Package 4 process forms where we have a flat list of fields.
+ * Builds a Zod schema from a flat array of {@link QFieldMetaData} objects.
+ *
+ * Used for process form steps (Package 4) where the backend returns an ordered list
+ * of fields rather than a table metadata object. Hidden fields are excluded.
+ *
+ * @param fields - The ordered list of field metadata objects to include in the schema.
+ * @returns A `z.ZodObject` whose keys are field names and whose values are field schemas.
  */
 export function zodSchemaFromFields(
   fields: QFieldMetaData[]
@@ -110,8 +139,16 @@ export function zodSchemaFromFields(
 }
 
 /**
- * Build default form values from record data and table metadata.
- * Returns an object suitable for useForm's defaultValues.
+ * Builds default form values from existing record data and table metadata.
+ *
+ * Returns an object suitable for passing to React Hook Form's `defaultValues` option.
+ * For each editable, visible field:
+ * - Uses the record value if present, coercing date/time to string and boolean to boolean.
+ * - Falls back to `field.defaultValue` from metadata, then `false` for booleans, then `''`.
+ *
+ * @param tableMetaData - The table metadata describing field types and defaults.
+ * @param recordValues - The raw record data keyed by field name (e.g. from the API response).
+ * @returns A plain object of default values ready for `useForm({ defaultValues })`.
  */
 export function defaultValuesFromRecord(
   tableMetaData: QTableMetaData,

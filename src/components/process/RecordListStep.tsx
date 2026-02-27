@@ -1,3 +1,10 @@
+/**
+ * RecordListStep — renders a RECORD_LIST process step.
+ *
+ * Displays a client-side paginated read-only table of the records that will be
+ * affected by the process.  Columns are derived from `step.recordListFields`
+ * when available, falling back to the keys of the first record.
+ */
 'use client'
 
 // RecordListStep — renders a RECORD_LIST step
@@ -11,19 +18,45 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/** Number of records shown per page in the record list table. */
 const PAGE_SIZE = 10
 
+/**
+ * Props for the {@link RecordListStep} component.
+ */
 export interface RecordListStepProps {
+  /** Metadata for the current process step, including optional `recordListFields`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values; must contain a `records` array of {@link QRecord}. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user confirms and advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Returns the best available display value for a field in a record.
+ *
+ * Prefers `record.displayValues` (pre-formatted by the backend) over the raw
+ * `record.values` entry.
+ *
+ * @param record - The QRecord to read from.
+ * @param fieldName - The field's technical name.
+ * @returns A string representation of the value, or an empty string if absent.
+ */
 function getDisplayValue(record: QRecord, fieldName: string): string {
   const display = record.displayValues?.[fieldName]
   if (display !== undefined) return display
@@ -32,6 +65,12 @@ function getDisplayValue(record: QRecord, fieldName: string): string {
   return String(raw)
 }
 
+/**
+ * Extracts the records array from step values.
+ *
+ * @param stepValues - The current accumulated step values.
+ * @returns The `records` array cast to `QRecord[]`, or an empty array if absent.
+ */
 function parseRecords(stepValues: Record<string, unknown>): QRecord[] {
   if (Array.isArray(stepValues.records)) {
     return stepValues.records as QRecord[]
@@ -39,6 +78,16 @@ function parseRecords(stepValues: Record<string, unknown>): QRecord[] {
   return []
 }
 
+/**
+ * Derives column definitions for the record list table.
+ *
+ * Uses `step.recordListFields` when declared; otherwise falls back to
+ * synthesising minimal field metadata from the first record's value keys.
+ *
+ * @param step - The current step metadata.
+ * @param records - The parsed record array used for fallback column inference.
+ * @returns An array of {@link QFieldMetaData} objects to drive table columns.
+ */
 function parseColumns(
   step: QFrontendStepMetaData,
   records: QRecord[]
@@ -63,6 +112,15 @@ function parseColumns(
   return []
 }
 
+/**
+ * Renders a RECORD_LIST process step.
+ *
+ * Parses records from `stepValues.records`, derives table columns, paginates
+ * client-side at {@link PAGE_SIZE} rows per page, and provides Cancel / Back /
+ * Confirm navigation.
+ *
+ * @param props - {@link RecordListStepProps}
+ */
 export function RecordListStep({
   step,
   stepValues,

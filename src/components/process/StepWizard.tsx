@@ -1,3 +1,10 @@
+/**
+ * StepWizard — horizontal step-progress indicator for multi-step processes.
+ *
+ * Renders an ordered list of steps with numbered circles (or a checkmark for
+ * completed steps) connected by progress lines.  Supports an `isComplete` flag
+ * that marks every step as completed when the process has finished.
+ */
 'use client'
 
 // StepWizard — progress indicator showing all steps with current position
@@ -8,15 +15,32 @@ import { Check } from 'lucide-react'
 import type { QFrontendStepMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link StepWizard} component.
+ */
 export interface StepWizardProps {
+  /** Ordered list of all step definitions from process metadata. */
   steps: QFrontendStepMetaData[]
+  /** The `name` of the currently active step, or null when polling or complete. */
   currentStepName: string | null
+  /** When true, every step is displayed as completed (used on the result screen). */
   isComplete?: boolean
+  /** Additional CSS class names applied to the `<nav>` element. */
   className?: string
 }
 
+/** Visual state of a single step in the wizard indicator. */
 type StepState = 'completed' | 'active' | 'pending'
 
+/**
+ * Computes the visual state of a step relative to the currently active step.
+ *
+ * @param stepName - The technical name of the step to evaluate.
+ * @param currentStepName - The name of the currently active step, or null.
+ * @param steps - The full ordered list of process steps.
+ * @param isComplete - Whether the process has finished (forces all steps to 'completed').
+ * @returns The {@link StepState} for the given step.
+ */
 function getStepState(
   stepName: string,
   currentStepName: string | null,
@@ -34,6 +58,14 @@ function getStepState(
   return 'pending'
 }
 
+/**
+ * Renders a horizontal step-progress indicator for a multi-step process.
+ *
+ * Each step shows a numbered circle (or checkmark when completed), its label,
+ * and a connector line to the next step.  Returns null when `steps` is empty.
+ *
+ * @param props - {@link StepWizardProps}
+ */
 export function StepWizard({ steps, currentStepName, isComplete = false, className }: StepWizardProps) {
   if (steps.length === 0) return null
 

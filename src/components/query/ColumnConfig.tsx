@@ -1,3 +1,4 @@
+/** ColumnConfig — floating panel for toggling column visibility and reordering columns via drag-and-drop or keyboard arrow keys. */
 'use client'
 
 // ColumnConfig — show/hide/reorder columns panel
@@ -7,15 +8,38 @@ import { Eye, EyeOff, GripVertical, X } from 'lucide-react'
 
 import type { QTableMetaData } from '@/types'
 
+/**
+ * Props for the ColumnConfig component.
+ */
 interface ColumnConfigProps {
+  /** Full table metadata providing the complete field list. */
   tableMetaData: QTableMetaData
+  /** Map of field name → visibility; `false` means the column is currently hidden. */
   columnVisibility: Record<string, boolean>
+  /** Ordered list of field names determining the left-to-right column display order. */
   columnOrder: string[]
+  /** Callback invoked when the user toggles a column's visibility or uses Show/Hide all. */
   onVisibilityChange: (visibility: Record<string, boolean>) => void
+  /** Callback invoked when the user reorders columns via drag-and-drop or keyboard arrows. */
   onOrderChange: (order: string[]) => void
+  /** Callback invoked when the user closes the panel via the X button. */
   onClose: () => void
 }
 
+/**
+ * Floating panel that lets users show/hide columns and reorder them for the DataGrid.
+ *
+ * Columns are listed with drag-and-drop handles (HTML5 Drag API) and accessibility-
+ * friendly Up/Down arrow key support on the grip button. "Show all" and "Hide all"
+ * shortcuts are provided at the top of the panel.
+ *
+ * @param tableMetaData - Table metadata for building the full field list.
+ * @param columnVisibility - Current per-column visibility state.
+ * @param columnOrder - Current column order (field names in display order).
+ * @param onVisibilityChange - Callback when visibility changes.
+ * @param onOrderChange - Callback when column order changes.
+ * @param onClose - Callback when the close button is clicked.
+ */
 export function ColumnConfig({
   tableMetaData,
   columnVisibility,
@@ -43,6 +67,11 @@ export function ColumnConfig({
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
+  /**
+   * Toggles the visibility of a single column and propagates the change to the parent.
+   *
+   * @param fieldName - The backend field name of the column to toggle.
+   */
   const toggleVisibility = (fieldName: string) => {
     onVisibilityChange({
       ...columnVisibility,
@@ -50,6 +79,9 @@ export function ColumnConfig({
     })
   }
 
+  /**
+   * Sets all columns to visible and notifies the parent.
+   */
   const showAll = () => {
     const vis: Record<string, boolean> = {}
     allFields.forEach((f) => {
@@ -58,6 +90,9 @@ export function ColumnConfig({
     onVisibilityChange(vis)
   }
 
+  /**
+   * Sets all columns to hidden and notifies the parent.
+   */
   const hideAll = () => {
     const vis: Record<string, boolean> = {}
     allFields.forEach((f) => {
@@ -67,17 +102,35 @@ export function ColumnConfig({
   }
 
   // Drag-and-drop reorder
+  /**
+   * Records the dragged row's index and sets the drag effect.
+   *
+   * @param e - The dragstart event.
+   * @param index - The zero-based index of the row being dragged.
+   */
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDragIndex(index)
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  /**
+   * Tracks the row currently being dragged over so a drop target indicator can be rendered.
+   *
+   * @param e - The dragover event.
+   * @param index - The zero-based index of the row under the pointer.
+   */
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverIndex(index)
   }
 
+  /**
+   * Completes the drag-and-drop reorder by splicing the dragged item into the drop position.
+   *
+   * @param e - The drop event.
+   * @param dropIndex - The zero-based index of the drop target row.
+   */
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
     if (dragIndex === null || dragIndex === dropIndex) return
@@ -94,12 +147,21 @@ export function ColumnConfig({
     setDragOverIndex(null)
   }
 
+  /**
+   * Resets drag state after a drag operation completes (regardless of whether a drop occurred).
+   */
   const handleDragEnd = () => {
     setDragIndex(null)
     setDragOverIndex(null)
   }
 
   // Move up/down buttons (accessible alternative to drag)
+  /**
+   * Moves the column at `index` one position up in the list (keyboard-accessible alternative to drag).
+   * Does nothing if the column is already at the top.
+   *
+   * @param index - Zero-based index of the column to move up.
+   */
   const moveUp = (index: number) => {
     if (index === 0) return
     const reordered = [...fields]
@@ -113,6 +175,12 @@ export function ColumnConfig({
     onOrderChange(reordered.map((f) => f.name))
   }
 
+  /**
+   * Moves the column at `index` one position down in the list (keyboard-accessible alternative to drag).
+   * Does nothing if the column is already at the bottom.
+   *
+   * @param index - Zero-based index of the column to move down.
+   */
   const moveDown = (index: number) => {
     if (index === fields.length - 1) return
     const reordered = [...fields]

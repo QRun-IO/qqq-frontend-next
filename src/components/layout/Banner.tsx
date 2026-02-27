@@ -1,17 +1,26 @@
 'use client'
 
-// Banner component — displays top-of-site environment/status banners
+/** Banner — displays top-of-site environment/status banners driven by branding metadata. */
 
 import React, { useState } from 'react'
 import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
 
 import type { Banner } from '@/types'
 
+/**
+ * Props for the BannerComponent.
+ */
 export interface BannerProps {
+  /** Map of banner keys to Banner metadata objects from the branding config. */
   banners: Record<string, Banner>
+  /** Optional callback invoked with the banner key when a banner is dismissed. */
   onDismiss?: (bannerKey: string) => void
 }
 
+/**
+ * Maps each banner severity level to its CSS custom-property tokens, icon component,
+ * and accessible ARIA label string.
+ */
 const severityConfig = {
   info: {
     bg: 'var(--qqq-banner-info-bg)',
@@ -36,6 +45,18 @@ const severityConfig = {
   },
 } as const
 
+/**
+ * Renders one or more dismissible banners at the top of the page.
+ *
+ * Banners are keyed by an arbitrary string (e.g. `QFMD_TOP_OF_SITE`).
+ * Severity determines icon and color tokens used; the `color` field on an
+ * individual banner overrides the default background. Dismissed banners are
+ * tracked in local state and optionally reported via `onDismiss`.
+ *
+ * @param banners - Map of banner key → Banner metadata from branding config.
+ * @param onDismiss - Optional callback invoked with the dismissed banner key.
+ * @returns A region of banner elements, or `null` when none are visible.
+ */
 export default function BannerComponent({ banners, onDismiss }: BannerProps) {
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())
 
@@ -47,6 +68,11 @@ export default function BannerComponent({ banners, onDismiss }: BannerProps) {
 
   if (visibleBanners.length === 0) return null
 
+  /**
+   * Marks a banner as dismissed in local state and propagates the event upward.
+   *
+   * @param key - The banner key to dismiss.
+   */
   const handleDismiss = (key: string) => {
     setDismissedKeys((prev) => new Set([...prev, key]))
     onDismiss?.(key)

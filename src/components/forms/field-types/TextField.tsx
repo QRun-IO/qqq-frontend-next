@@ -1,3 +1,4 @@
+/** TextField — single-line text input form field with label, validation error display, and accessibility attributes */
 'use client'
 
 import React from 'react'
@@ -5,18 +6,38 @@ import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link TextField} component.
+ */
 interface TextFieldProps {
+  /** The HTML `id` for the `<input>` element and its associated `<label>`. */
   id: string
+  /** Human-readable field label rendered above the input. */
   label: string
+  /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
+  /** Validation error; when present triggers error styling and an error message. */
   error?: FieldError
+  /** When `true`, the input is non-interactive and visually dimmed. */
   disabled?: boolean
+  /** Placeholder text shown when the field is empty. */
   placeholder?: string
+  /** Forwarded to the `<input>` `maxlength` attribute. */
   maxLength?: number
+  /** When `true`, an asterisk indicator is shown and `aria-required` is set. */
   required?: boolean
+  /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Renders an accessible single-line text input field with label and validation error display.
+ *
+ * Used as the default field type for QQQ `STRING` fields and as the fallback
+ * renderer for any unrecognised field type in {@link DynamicFormField}.
+ *
+ * @param props - See {@link TextFieldProps}.
+ */
 export function TextField({
   id,
   label,

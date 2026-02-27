@@ -1,3 +1,10 @@
+/**
+ * ProcessCancelDialog — confirmation dialog shown before cancelling an in-flight process.
+ *
+ * Uses the native HTML `<dialog>` element for built-in focus trapping and
+ * Escape-key handling.  The "Stay on Page" button receives focus by default so
+ * an accidental Enter key press does not confirm cancellation.
+ */
 'use client'
 
 // ProcessCancelDialog — confirmation dialog before cancelling an in-flight process
@@ -8,12 +15,32 @@ import { AlertTriangle } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link ProcessCancelDialog} component.
+ */
 export interface ProcessCancelDialogProps {
+  /** Whether the dialog is currently open. */
   open: boolean
+  /**
+   * Called when the open state should change (backdrop click, Escape key, or
+   * the "Stay on Page" button).
+   *
+   * @param open - The new open state.
+   */
   onOpenChange: (open: boolean) => void
+  /** Called after the dialog closes when the user confirms cancellation. */
   onConfirm: () => void
 }
 
+/**
+ * Renders a modal confirmation dialog asking the user whether to cancel the process.
+ *
+ * Opens and closes the native `<dialog>` imperatively via `showModal()` / `close()`
+ * in sync with the `open` prop.  Escape key and backdrop clicks both close without
+ * confirming.
+ *
+ * @param props - {@link ProcessCancelDialogProps}
+ */
 export function ProcessCancelDialog({
   open,
   onOpenChange,
@@ -53,7 +80,11 @@ export function ProcessCancelDialog({
     }
   }, [onOpenChange])
 
-  // Handle backdrop click
+  /**
+   * Closes the dialog when the user clicks the backdrop (outside the content area).
+   *
+   * @param e - The mouse event on the `<dialog>` element itself.
+   */
   const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (e.target === dialogRef.current) {
       onOpenChange(false)

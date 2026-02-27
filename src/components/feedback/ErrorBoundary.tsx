@@ -1,39 +1,81 @@
 'use client'
 
-// ErrorBoundary — Reusable React class-based error boundary
-// Catches render errors in its children subtree
+/** ErrorBoundary — reusable React class-based error boundary that catches render errors in its children subtree. */
 
 import React, { type ReactNode, type ErrorInfo } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the ErrorBoundary class component.
+ */
 export interface ErrorBoundaryProps {
+  /** The React subtree to protect against render errors. */
   children: ReactNode
+  /** Custom fallback UI to render instead of the default error card when an error is caught. */
   fallback?: ReactNode
+  /** Optional callback invoked with the caught error and React error info for external logging. */
   onError?: (error: Error, info: ErrorInfo) => void
+  /** Additional Tailwind class names applied to the default error card container. */
   className?: string
 }
 
+/**
+ * Internal state for the ErrorBoundary class component.
+ */
 interface ErrorBoundaryState {
+  /** Whether an error has been caught and the fallback UI should be shown. */
   hasError: boolean
+  /** The most recently caught error, or `null` when none has occurred. */
   error: Error | null
 }
 
+/**
+ * React class component that catches JavaScript errors anywhere in its child tree.
+ *
+ * When an error is caught, it renders either a custom `fallback` node or the
+ * built-in error card with a "Try Again" button. Calling `handleReset` clears
+ * the error state so children can re-render.
+ *
+ * @example
+ * ```tsx
+ * <ErrorBoundary onError={(err) => logger.error(err)}>
+ *   <WidgetGrid />
+ * </ErrorBoundary>
+ * ```
+ */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
   }
 
+  /**
+   * React lifecycle method called during rendering when a descendant throws.
+   *
+   * @param error - The error that was thrown.
+   * @returns New state with `hasError: true` and the caught error.
+   */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
   }
 
+  /**
+   * React lifecycle method called after an error has been rendered to the DOM.
+   *
+   * Logs the error to the console and forwards it to the optional `onError` prop.
+   *
+   * @param error - The caught error.
+   * @param info - React error info containing the component stack.
+   */
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, info)
     this.props.onError?.(error, info)
   }
 
+  /**
+   * Resets the error state so the child tree will attempt to re-render.
+   */
   handleReset = () => {
     this.setState({ hasError: false, error: null })
   }

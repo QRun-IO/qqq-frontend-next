@@ -1,7 +1,13 @@
 'use client'
 
-// EntityEdit — edit an existing record
-// Package 3: full implementation using EntityForm + useRecord
+/**
+ * EntityEdit page — serves the route `/app/[slug]/[recordId]/edit` and renders the
+ * edit form for an existing QQQ record.
+ *
+ * Route params:
+ * - `slug` — the QQQ table name.
+ * - `recordId` — the primary-key value of the record to edit.
+ */
 
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
@@ -13,6 +19,17 @@ import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { EntityForm } from '@/components/forms/EntityForm'
 
+/**
+ * Renders the record-edit form for the record identified by `slug` and `recordId`.
+ *
+ * Fetches both application metadata and the existing record data via `useRecord`.
+ * Shows a loading spinner while either is pending. Renders a permission error
+ * when the user lacks `editPermission` on the table, and a fetch-error panel
+ * when the record cannot be loaded. On success renders `<EntityForm>` in edit
+ * mode (pre-populated with the existing record values).
+ *
+ * @returns The entity edit form, a loading spinner, or an error/permission panel.
+ */
 export default function EntityEditPage() {
   const params = useParams<{ slug: string; recordId: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()

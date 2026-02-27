@@ -1,8 +1,6 @@
 'use client'
 
-// SearchDialog — "/" key command palette for searching records
-// Shows recent records when idle, live API search results when typing
-// Enter on a result navigates to record; Enter with no selection goes to full search page
+/** SearchDialog — "/" key search dialog that shows recently-viewed records at rest and live API search results when typing. */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -16,11 +14,22 @@ import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * Props for the SearchDialog component.
+ */
 interface SearchDialogProps {
+  /** Whether the search dialog is currently open. */
   open: boolean
+  /** Called when the dialog should close (backdrop click, Escape, or item navigation). */
   onClose: () => void
 }
 
+/**
+ * Derives two-character initials from a record label (first letter of first two words).
+ *
+ * @param label - The record display label.
+ * @returns A one- or two-character uppercase initials string, or `"?"` for empty input.
+ */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
   if (words.length === 0) return '?'
@@ -28,6 +37,16 @@ function getInitials(label: string): string {
   return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase()
 }
 
+/**
+ * Highlights the portions of `text` that match `query` by wrapping them in `<mark>` tags.
+ *
+ * Uses a capture-group split so that odd-indexed parts are the matched segments,
+ * avoiding stateful `lastIndex` issues with `/gi` regexes.
+ *
+ * @param text - The full string to display.
+ * @param query - The search term to highlight within `text`.
+ * @returns A React fragment containing plain spans and styled `<mark>` elements.
+ */
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query || query.length < 2) return <>{text}</>
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -47,6 +66,19 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   )
 }
 
+/**
+ * Full-screen search dialog triggered by the `/` keyboard shortcut.
+ *
+ * When the dialog opens it loads recent records and focuses the input. As the
+ * user types, the search term is debounced 300 ms before a TanStack Query
+ * fetch runs. Results are grouped by table. Keyboard navigation (ArrowUp/Down,
+ * Enter, Escape) is fully supported. Pressing Enter with no selection and a
+ * non-empty query navigates to the global search results page.
+ *
+ * @param open - Whether the dialog is currently visible.
+ * @param onClose - Callback invoked when the dialog should close.
+ * @returns A fixed full-screen overlay with the search dialog, or `null` when closed.
+ */
 export function SearchDialog({ open, onClose }: SearchDialogProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -108,6 +140,11 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
     }
   }
 
+  /**
+   * Closes the dialog and navigates to the given path.
+   *
+   * @param path - The URL path to navigate to.
+   */
   const handleNavigate = useCallback(
     (path: string) => {
       onClose()
@@ -116,6 +153,15 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
     [router, onClose]
   )
 
+  /**
+   * Handles keyboard navigation within the search result list.
+   *
+   * ArrowDown/Up move the selection index through navigable items, Enter
+   * opens the selected record or falls back to the full-search page, and
+   * Escape closes the dialog.
+   *
+   * @param e - The synthetic keyboard event from the search input.
+   */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       switch (e.key) {

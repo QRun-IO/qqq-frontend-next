@@ -1,3 +1,4 @@
+/** Process — public barrel re-exporting all process step components and their prop types. */
 // Process components -- re-export all public process components
 
 export { ProcessRun } from './ProcessRun'

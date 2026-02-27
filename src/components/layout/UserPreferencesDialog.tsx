@@ -1,7 +1,6 @@
 'use client'
 
-// UserPreferencesDialog — modal for editing user display preferences
-// Stored in localStorage, used as defaults for table and record screens
+/** UserPreferencesDialog — modal dialog for editing user display preferences stored in localStorage. */
 
 import React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -10,11 +9,17 @@ import { X, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
+/**
+ * Props for the UserPreferencesDialog component.
+ */
 interface UserPreferencesDialogProps {
+  /** Whether the dialog is currently open. */
   open: boolean
+  /** Called when the open state should change (e.g. after a close action). */
   onOpenChange: (open: boolean) => void
 }
 
+/** Available records-per-page options displayed as toggle chips. */
 const PAGE_SIZE_OPTIONS = [
   { value: 10, label: '10 records' },
   { value: 25, label: '25 records' },
@@ -22,22 +27,36 @@ const PAGE_SIZE_OPTIONS = [
   { value: 100, label: '100 records' },
 ] as const
 
+/** Available display-density options shown as radio buttons. */
 const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact', description: 'Tighter spacing, more data visible' },
   { value: 'standard', label: 'Standard', description: 'Balanced spacing and readability' },
   { value: 'comfortable', label: 'Comfortable', description: 'More spacing, easier scanning' },
 ] as const
 
+/** Available table view-mode options (grid vs. card). */
 const TABLE_VIEW_OPTIONS = [
   { value: 'grid', label: 'Table', description: 'Rows and columns data grid' },
   { value: 'card', label: 'Cards', description: 'Card layout for each record' },
 ] as const
 
+/** Available record view-mode options (tabs vs. single-page). */
 const RECORD_VIEW_OPTIONS = [
   { value: 'tabs', label: 'Tabbed', description: 'Sections organized into tabs' },
   { value: 'list', label: 'Single Page', description: 'All sections on one scrollable page' },
 ] as const
 
+/**
+ * Modal dialog for editing user display preferences persisted in localStorage.
+ *
+ * Sections cover: records-per-page, display density, table view mode, and
+ * record view mode. A "Reset to Defaults" button is enabled only when at
+ * least one preference differs from its default value.
+ *
+ * @param open - Whether the dialog is currently visible.
+ * @param onOpenChange - Callback invoked when the dialog open state changes.
+ * @returns A Radix Dialog root with overlay and content panels.
+ */
 export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDialogProps) {
   const { preferences, updatePreference, resetPreferences, defaults } = useUserPreferences()
 
@@ -198,6 +217,13 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
 
 // --- Sub-components ---
 
+/**
+ * Renders a labeled group container for a set of preference controls.
+ *
+ * @param label - The human-readable section label displayed above the controls.
+ * @param children - The control elements (chips, radio buttons, toggle cards).
+ * @returns A `<div>` with a `<label>` header and slotted children.
+ */
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
@@ -207,6 +233,16 @@ function OptionGroup({ label, children }: { label: string; children: React.React
   )
 }
 
+/**
+ * A pill-shaped toggle button for selecting a single option from a set.
+ *
+ * Applies a filled primary style when selected, and a bordered outline style otherwise.
+ *
+ * @param selected - Whether this chip is the currently selected option.
+ * @param onClick - Called when the chip is clicked to select it.
+ * @param children - The chip label content.
+ * @returns A `<button>` styled as a pill toggle chip.
+ */
 function ToggleChip({
   selected,
   onClick,
@@ -236,6 +272,18 @@ function ToggleChip({
   )
 }
 
+/**
+ * A full-width radio-style option row with a custom circle indicator.
+ *
+ * Renders a label and a supporting description string alongside a filled
+ * circle when selected, and an empty circle otherwise.
+ *
+ * @param selected - Whether this option is the currently selected value.
+ * @param onClick - Called when the row is clicked to select it.
+ * @param label - The primary option label.
+ * @param description - A brief description shown after the label.
+ * @returns A `<button>` styled as a radio option row.
+ */
 function RadioOption({
   selected,
   onClick,
@@ -280,6 +328,18 @@ function RadioOption({
   )
 }
 
+/**
+ * A card-style toggle button used for selecting between two mutually exclusive view modes.
+ *
+ * Displays a bold label and a muted description. Applies a highlighted border
+ * with primary tinting when selected, and a neutral border otherwise.
+ *
+ * @param selected - Whether this card is the currently selected option.
+ * @param onClick - Called when the card is clicked to select it.
+ * @param label - The card's primary label (e.g. "Table", "Cards").
+ * @param description - A short description of the view mode.
+ * @returns A `<button>` styled as a selectable card.
+ */
 function ToggleCard({
   selected,
   onClick,

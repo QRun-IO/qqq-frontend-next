@@ -1,3 +1,11 @@
+/**
+ * ProcessResultStep — renders the final COMPLETE state of a process.
+ *
+ * Displays a success icon, an optional success message from `resultValues`,
+ * numeric stat counters (inserted, updated, deleted, sent, failed, processed),
+ * and navigation links back to the associated table or the app home.  A success
+ * toast is fired once on mount.
+ */
 'use client'
 
 // ProcessResultStep — renders the COMPLETE state
@@ -11,18 +19,37 @@ import type { QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/lib/hooks/use-toast'
 
+/**
+ * Props for the {@link ProcessResultStep} component.
+ */
 export interface ProcessResultStepProps {
+  /** Process metadata; used for the label and `tableName` navigation link. */
   processMetaData: QProcessMetaData | null
+  /** Final values returned by the process backend on completion. */
   resultValues: Record<string, unknown>
+  /** Additional CSS class names to apply to the root container. */
   className?: string
 }
 
+/** A single numeric stat entry to display in the completion summary. */
 interface ResultStat {
+  /** Human-readable label for the stat (e.g. "Records Inserted"). */
   label: string
+  /** Numeric count value to display prominently. */
   value: number
+  /** Tailwind text-color class applied to the numeric value. */
   color: string
 }
 
+/**
+ * Extracts labelled numeric stats from process result values.
+ *
+ * Checks multiple well-known key aliases for each stat type so the component
+ * works across different QQQ backend process implementations.
+ *
+ * @param resultValues - The final result values returned by the process backend.
+ * @returns An array of {@link ResultStat} entries to render; empty when no counts are found.
+ */
 function parseResultStats(resultValues: Record<string, unknown>): ResultStat[] {
   const stats: ResultStat[] = []
 
@@ -55,6 +82,14 @@ function parseResultStats(resultValues: Record<string, unknown>): ResultStat[] {
   return stats
 }
 
+/**
+ * Renders the final completion screen for a process.
+ *
+ * Fires a success toast on mount, then displays a success icon, headline,
+ * optional message, stat counters, and contextual navigation links.
+ *
+ * @param props - {@link ProcessResultStepProps}
+ */
 export function ProcessResultStep({
   processMetaData,
   resultValues,

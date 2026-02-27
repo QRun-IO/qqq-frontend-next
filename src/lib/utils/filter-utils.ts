@@ -1,5 +1,4 @@
-// Filter utility functions for QQQ Record Query
-// Handles filter serialization/deserialization for URL params and localStorage
+/** filter-utils — filter construction, serialization, and type-guard helpers for QQQ Record Query */
 
 import type {
   QQueryFilter,
@@ -13,7 +12,15 @@ import type {
   ThisOrLastPeriodExpression,
 } from '@/types'
 
-// Default empty filter
+/**
+ * Returns a blank {@link QQueryFilter} with no criteria, no sort, and the given page size.
+ *
+ * Used as the initial filter state on the Record Query page and as the fallback when
+ * deserialization fails.
+ *
+ * @param pageSize - The `limit` value to embed in the filter. Defaults to 25.
+ * @returns A fresh, empty {@link QQueryFilter}.
+ */
 export function emptyFilter(pageSize = 25): QQueryFilter {
   return {
     criteria: [],
@@ -25,14 +32,35 @@ export function emptyFilter(pageSize = 25): QQueryFilter {
   }
 }
 
-// Operator configuration for filter builder UI
+/**
+ * UI-level descriptor for a single {@link QCriteriaOperator}.
+ *
+ * Used by the FilterBuilder to render operator dropdowns and determine how many
+ * value inputs to show for a given operator.
+ */
 export interface OperatorConfig {
+  /** Human-readable label shown in the operator dropdown. */
   label: string
+  /**
+   * How many value inputs the operator requires:
+   * - `'single'` — one value input
+   * - `'multiple'` — a multi-value (chip) input
+   * - `'range'` — two value inputs (from/to)
+   * - `'none'` — no value input (e.g. IS_BLANK)
+   */
   valueCount: 'single' | 'multiple' | 'range' | 'none'
+  /** Field types this operator is valid for; used to filter the dropdown per field. */
   applicableTypes: QFieldType[]
+  /** Short tooltip description shown alongside the operator label. */
   description: string
 }
 
+/**
+ * Maps every {@link QCriteriaOperator} to its UI display configuration.
+ *
+ * Used by {@link getOperatorsForFieldType} to build per-field operator lists
+ * and by the FilterBuilder to look up value-input requirements.
+ */
 export const OPERATOR_CONFIG: Record<QCriteriaOperator, OperatorConfig> = {
   EQUALS: {
     label: 'Equals',
@@ -150,14 +178,30 @@ export const OPERATOR_CONFIG: Record<QCriteriaOperator, OperatorConfig> = {
   },
 }
 
-// Get operators applicable to a given field type
+/**
+ * Returns the list of {@link QCriteriaOperator} values that are valid for the given field type.
+ *
+ * Filters {@link OPERATOR_CONFIG} to only include operators whose `applicableTypes` array
+ * contains `fieldType`.
+ *
+ * @param fieldType - The QQQ field type (e.g. `'STRING'`, `'DATE'`).
+ * @returns An ordered array of applicable operator keys.
+ */
 export function getOperatorsForFieldType(fieldType: QFieldType): QCriteriaOperator[] {
   return (Object.entries(OPERATOR_CONFIG) as [QCriteriaOperator, OperatorConfig][])
     .filter(([, config]) => config.applicableTypes.includes(fieldType))
     .map(([op]) => op)
 }
 
-// Default operator for a field type
+/**
+ * Returns the most appropriate default {@link QCriteriaOperator} for a given field type.
+ *
+ * String fields default to `CONTAINS`; all other types default to `EQUALS`.
+ * Used when the user adds a new filter criterion without explicitly choosing an operator.
+ *
+ * @param fieldType - The QQQ field type to look up.
+ * @returns The default operator for that type.
+ */
 export function getDefaultOperatorForFieldType(fieldType: QFieldType): QCriteriaOperator {
   switch (fieldType) {
     case 'STRING':
@@ -179,22 +223,49 @@ export function getDefaultOperatorForFieldType(fieldType: QFieldType): QCriteria
   }
 }
 
-// Check if a field type is numeric
+/**
+ * Returns true when the given field type represents a numeric value (INTEGER, LONG, or DECIMAL).
+ *
+ * @param fieldType - The QQQ field type to test.
+ * @returns `true` if the type is numeric.
+ */
 export function isNumericType(fieldType: QFieldType): boolean {
   return ['INTEGER', 'LONG', 'DECIMAL'].includes(fieldType)
 }
 
-// Check if a field type is a string type
+/**
+ * Returns true when the given field type represents textual content (STRING, TEXT, or HTML).
+ *
+ * @param fieldType - The QQQ field type to test.
+ * @returns `true` if the type is string-like.
+ */
 export function isStringType(fieldType: QFieldType): boolean {
   return ['STRING', 'TEXT', 'HTML'].includes(fieldType)
 }
 
-// Check if a field type is a date/time type
+/**
+ * Returns true when the given field type represents a date, time, or combined date-time value.
+ *
+ * @param fieldType - The QQQ field type to test.
+ * @returns `true` if the type is DATE, TIME, or DATE_TIME.
+ */
 export function isDateTimeType(fieldType: QFieldType): boolean {
   return ['DATE', 'TIME', 'DATE_TIME'].includes(fieldType)
 }
 
-// Count active filter criteria (non-empty)
+/**
+ * Counts the number of active (non-empty) filter criteria in a {@link QQueryFilter}, including
+ * any criteria nested inside `subFilters`.
+ *
+ * A criterion is considered active when:
+ * - Its operator requires no value (e.g. IS_BLANK), OR
+ * - At least one of its `values` is non-empty.
+ *
+ * Used to display the active-filter badge count on the FilterBuilder toggle button.
+ *
+ * @param filter - The filter to inspect.
+ * @returns The total count of active criteria across the filter and all sub-filters.
+ */
 export function countActiveCriteria(filter: QQueryFilter): number {
   let count = 0
 
@@ -215,7 +286,12 @@ export function countActiveCriteria(filter: QQueryFilter): number {
   return count
 }
 
-// Check if a filter is empty (no active criteria)
+/**
+ * Returns true when a filter has no active criteria (i.e. {@link countActiveCriteria} is zero).
+ *
+ * @param filter - The filter to test.
+ * @returns `true` if there are no active criteria.
+ */
 export function isFilterEmpty(filter: QQueryFilter): boolean {
   return countActiveCriteria(filter) === 0
 }
@@ -260,7 +336,18 @@ export function deserializeFilter(
   }
 }
 
-// Build a quick-search filter from a text term across visible string fields
+/**
+ * Builds a quick-search {@link QQueryFilter} that uses an OR join across all visible string fields.
+ *
+ * Each visible field whose type is a string-like type (STRING, TEXT, HTML) gets a CONTAINS
+ * criterion for the given search term. Returns an empty filter when the term is blank.
+ *
+ * @param searchTerm - The text the user typed into the quick-search input.
+ * @param visibleFieldNames - The ordered list of column field names currently shown in the grid.
+ * @param fieldTypes - A map from field name to its {@link QFieldType}.
+ * @param pageSize - The `limit` to embed in the returned filter. Defaults to 25.
+ * @returns A {@link QQueryFilter} with OR-joined CONTAINS criteria, or an empty filter.
+ */
 export function buildQuickFilter(
   searchTerm: string,
   visibleFieldNames: string[],
@@ -290,7 +377,16 @@ export function buildQuickFilter(
   }
 }
 
-// Merge a user filter with pagination settings
+/**
+ * Returns a new filter with `skip` and `limit` set for the requested page.
+ *
+ * Does not mutate the original filter.
+ *
+ * @param filter - The base filter to apply pagination to.
+ * @param pageNum - The 1-based page number.
+ * @param pageSize - The number of records per page.
+ * @returns A new {@link QQueryFilter} with updated `skip` and `limit` values.
+ */
 export function applyPagination(
   filter: QQueryFilter,
   pageNum: number,
@@ -303,31 +399,70 @@ export function applyPagination(
   }
 }
 
-// Apply sort to a filter
+/**
+ * Returns a new filter with `orderBys` replaced by the given sort specification.
+ *
+ * Does not mutate the original filter.
+ *
+ * @param filter - The base filter to apply sorting to.
+ * @param orderBys - The new sort order to apply.
+ * @returns A new {@link QQueryFilter} with updated `orderBys`.
+ */
 export function applySort(filter: QQueryFilter, orderBys: QFilterOrderBy[]): QQueryFilter {
   return { ...filter, orderBys }
 }
 
-// Type guard helpers
+/**
+ * Type guard — returns true when `v` is a {@link FilterVariableExpression} (type === 'FILTER_VARIABLE').
+ *
+ * @param v - The value to test.
+ * @returns `true` if `v` is a FilterVariableExpression.
+ */
 export function isFilterVariableExpression(
   v: unknown
 ): v is FilterVariableExpression {
   return typeof v === 'object' && v !== null && (v as FilterVariableExpression).type === 'FILTER_VARIABLE'
 }
 
+/**
+ * Type guard — returns true when `v` is a {@link NowExpression} (type === 'NOW').
+ *
+ * @param v - The value to test.
+ * @returns `true` if `v` is a NowExpression.
+ */
 export function isNowExpression(v: unknown): v is NowExpression {
   return typeof v === 'object' && v !== null && (v as NowExpression).type === 'NOW'
 }
 
+/**
+ * Type guard — returns true when `v` is a {@link NowWithOffsetExpression} (type === 'NOW_WITH_OFFSET').
+ *
+ * @param v - The value to test.
+ * @returns `true` if `v` is a NowWithOffsetExpression.
+ */
 export function isNowWithOffsetExpression(v: unknown): v is NowWithOffsetExpression {
   return typeof v === 'object' && v !== null && (v as NowWithOffsetExpression).type === 'NOW_WITH_OFFSET'
 }
 
+/**
+ * Type guard — returns true when `v` is a {@link ThisOrLastPeriodExpression} (type === 'THIS_OR_LAST_PERIOD').
+ *
+ * @param v - The value to test.
+ * @returns `true` if `v` is a ThisOrLastPeriodExpression.
+ */
 export function isThisOrLastPeriodExpression(v: unknown): v is ThisOrLastPeriodExpression {
   return typeof v === 'object' && v !== null && (v as ThisOrLastPeriodExpression).type === 'THIS_OR_LAST_PERIOD'
 }
 
-// Format a display value for a filter criterion (for summary display)
+/**
+ * Formats a {@link QFilterCriteria} as a human-readable summary string.
+ *
+ * Handles dynamic expressions (NOW, NOW_WITH_OFFSET, THIS_OR_LAST_PERIOD) as well as
+ * plain scalar values. Used by the FilterBuilder chip display and the saved-view summary.
+ *
+ * @param criterion - The filter criterion to format.
+ * @returns A string such as `"createdDate Contains now -7 days"`.
+ */
 export function formatCriterionDisplay(criterion: QFilterCriteria): string {
   const op = OPERATOR_CONFIG[criterion.operator]?.label ?? criterion.operator
   if (criterion.values.length === 0) return `${criterion.fieldName} ${op}`

@@ -1,6 +1,5 @@
+/** use-metadata — TanStack Query wrappers for all QQQ metadata API calls */
 'use client'
-
-// Metadata hooks — TanStack Query wrappers for all metadata API calls
 
 import { useQuery } from '@tanstack/react-query'
 
@@ -8,8 +7,20 @@ import type { QInstance, QTableMetaData, QProcessMetaData } from '@/types'
 import { loadMetaData, loadTableMetaData, loadProcessMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * How long metadata query results are considered fresh before a background refetch is triggered.
+ * Set to 30 minutes because metadata changes infrequently during a session.
+ */
 const METADATA_STALE_TIME = 1000 * 60 * 30 // 30 minutes
 
+/**
+ * Fetches and caches the full QInstance metadata (app tree, tables, processes, widgets).
+ *
+ * Results are cached for {@link METADATA_STALE_TIME}. All page-level components that need
+ * the top-level instance metadata should use this hook.
+ *
+ * @returns A TanStack Query result containing a {@link QInstance} object.
+ */
 export function useMetaData() {
   return useQuery<QInstance>({
     queryKey: queryKeys.metadataAll(),
@@ -18,6 +29,15 @@ export function useMetaData() {
   })
 }
 
+/**
+ * Fetches and caches metadata for a single table by name.
+ *
+ * The query is disabled when `tableName` is undefined or empty, making it safe to call
+ * before the table name is known from URL params.
+ *
+ * @param tableName - The QQQ table name to load metadata for, or undefined to skip fetching.
+ * @returns A TanStack Query result containing a {@link QTableMetaData} object.
+ */
 export function useTableMetaData(tableName: string | undefined) {
   return useQuery<QTableMetaData>({
     queryKey: queryKeys.tableMetadata(tableName ?? ''),
@@ -27,6 +47,15 @@ export function useTableMetaData(tableName: string | undefined) {
   })
 }
 
+/**
+ * Fetches and caches metadata for a single process by name.
+ *
+ * The query is disabled when `processName` is undefined or empty, making it safe to call
+ * before the process name is known from URL params.
+ *
+ * @param processName - The QQQ process name to load metadata for, or undefined to skip fetching.
+ * @returns A TanStack Query result containing a {@link QProcessMetaData} object.
+ */
 export function useProcessMetaData(processName: string | undefined) {
   return useQuery<QProcessMetaData>({
     queryKey: queryKeys.processMetadata(processName ?? ''),

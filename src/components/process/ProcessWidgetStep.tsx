@@ -1,3 +1,11 @@
+/**
+ * ProcessWidgetStep — renders a WIDGET process step.
+ *
+ * If the backend has pre-rendered widget HTML in `stepValues.widgetHtml` (or
+ * `stepValues.html`), it is displayed directly.  Otherwise a placeholder with
+ * the widget name is shown.  Optional view fields are rendered below the widget
+ * area as a definition list.
+ */
 'use client'
 
 // ProcessWidgetStep -- renders a WIDGET step
@@ -13,17 +21,39 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Props for the {@link ProcessWidgetStep} component.
+ */
 export interface ProcessWidgetStepProps {
+  /** Metadata for the current process step, including `components` and `viewFields`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values; `widgetHtml` / `html` keys are checked for content. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Formats a raw step value for display in the view-fields definition list.
+ *
+ * @param field - Field metadata used to determine type-specific formatting.
+ * @param value - The raw value from `stepValues`.
+ * @returns A human-readable string, or an em-dash for empty/null values.
+ */
 function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return '\u2014'
@@ -34,6 +64,16 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   return String(value)
 }
 
+/**
+ * Renders a WIDGET process step.
+ *
+ * Displays HELP_TEXT banners, then widget HTML content from `stepValues` if
+ * available (unescaped — backend is trusted for widget HTML), or a named
+ * placeholder otherwise.  Any `step.viewFields` are shown below as a
+ * definition list.
+ *
+ * @param props - {@link ProcessWidgetStepProps}
+ */
 export function ProcessWidgetStep({
   step,
   stepValues,

@@ -1,3 +1,10 @@
+/**
+ * ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
+ *
+ * Iterates `step.viewFields` and renders each field's label and value from
+ * `stepValues` as a definition list.  HTML-typed fields use minimal script
+ * stripping; all other types are formatted by {@link formatFieldValue}.
+ */
 'use client'
 
 // ProcessViewStep -- renders a VIEW_FORM step as read-only field display
@@ -13,21 +20,49 @@ import { ProcessCancelDialog } from './ProcessCancelDialog'
 
 // TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
 // Minimal sanitization: strip script tags to prevent XSS from injected HTML
+/**
+ * Strips `<script>` blocks from an HTML string as a minimal XSS mitigation.
+ *
+ * @param html - The raw HTML string to sanitise.
+ * @returns The HTML string with all `<script>…</script>` blocks removed.
+ */
 function stripScripts(html: string): string {
   return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
 }
 
+/**
+ * Props for the {@link ProcessViewStep} component.
+ */
 export interface ProcessViewStepProps {
+  /** Metadata for the current process step, including `viewFields` and `components`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values providing the field display data. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Formats a raw step value for display in the read-only view fields list.
+ *
+ * @param field - Field metadata used to determine type-specific formatting.
+ * @param value - The raw value from `stepValues`.
+ * @returns A human-readable string, or an em-dash for empty/null values.
+ */
 function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return '\u2014'
@@ -45,6 +80,15 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   }
 }
 
+/**
+ * Renders a VIEW_FORM process step as a read-only definition list.
+ *
+ * Displays HELP_TEXT banners, then each view field as a `<dt>`/`<dd>` pair.
+ * HTML-typed fields are rendered with script stripping; other types are
+ * formatted by {@link formatFieldValue}.
+ *
+ * @param props - {@link ProcessViewStepProps}
+ */
 export function ProcessViewStep({
   step,
   stepValues,

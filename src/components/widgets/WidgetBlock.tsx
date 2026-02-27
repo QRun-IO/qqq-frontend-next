@@ -1,7 +1,12 @@
+/**
+ * WidgetBlock — Standard container wrapper for all dashboard widget cards.
+ *
+ * Renders a card with a labeled header containing help, export, and reload
+ * icon buttons plus optional dropdown selects. The body area shows a loading
+ * skeleton, an error state with retry, or the widget's child content.
+ * When `bare=true` the card chrome is omitted and only the content area is rendered.
+ */
 'use client'
-
-// WidgetBlock -- Container wrapper for all dashboard widgets
-// Shows label header, loading skeleton, error state, reload button, export button, dropdowns
 
 import React from 'react'
 import { RefreshCw, HelpCircle, Download } from 'lucide-react'
@@ -10,14 +15,23 @@ import type { QWidgetMetaData, QWidgetDropdown } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
 
+/** Props accepted by the WidgetBlock container component. */
 interface WidgetBlockProps {
+  /** Full widget metadata providing label, name, help content, and button visibility flags. */
   widgetMetaData: QWidgetMetaData
+  /** When true the body area renders a pulsing skeleton placeholder. */
   isLoading?: boolean
+  /** When true the body area renders the error state with an optional retry button. */
   isError?: boolean
+  /** Error object displayed in the error state; message is shown to the user. */
   error?: Error | null
+  /** Callback invoked when the reload/retry button is clicked. */
   onReload?: () => void
+  /** Callback invoked when the export button is clicked. */
   onExport?: () => void
+  /** Widget content rendered inside the card body when not loading or errored. */
   children: React.ReactNode
+  /** Optional extra Tailwind classes applied to the outer card element. */
   className?: string
   /** Optional: skip rendering the card border/header (for sub-widgets) */
   bare?: boolean
@@ -31,6 +45,28 @@ interface WidgetBlockProps {
   onDropdownChange?: (name: string, value: string) => void
 }
 
+/**
+ * Renders the standard widget card with header chrome and body content.
+ *
+ * In normal mode the card shows a border, a header with the widget label,
+ * optional help/export/reload buttons, optional dropdown selects, and a padded
+ * content area wrapped in a WidgetErrorBoundary. In bare mode only the content
+ * area (with boundary) is returned, suitable for child widgets inside a composite.
+ *
+ * @param widgetMetaData - Widget metadata for label, name, and button visibility.
+ * @param isLoading - When true renders the loading skeleton.
+ * @param isError - When true renders the error state.
+ * @param error - Error instance whose message is displayed in the error state.
+ * @param onReload - Handler for the reload / retry button.
+ * @param onExport - Handler for the export button.
+ * @param children - Widget content rendered when loaded without errors.
+ * @param className - Additional Tailwind classes for the outer card element.
+ * @param bare - When true, omits the card border and header.
+ * @param dropdowns - Dropdown descriptors from widget metadata.
+ * @param dropdownOptions - Pre-fetched select options keyed by dropdown name.
+ * @param dropdownValues - Current selection values keyed by dropdown name.
+ * @param onDropdownChange - Callback invoked when a dropdown value changes.
+ */
 export function WidgetBlock({
   widgetMetaData,
   isLoading = false,
@@ -161,9 +197,12 @@ export function WidgetBlock({
   )
 }
 
-// ------------------------------------------------------------------
-// Loading skeleton
-// ------------------------------------------------------------------
+/**
+ * Renders an animated pulse skeleton placeholder while widget data is loading.
+ *
+ * The skeleton mirrors the approximate shape of most widget body layouts
+ * (a few text lines followed by a large content block).
+ */
 function WidgetSkeleton() {
   return (
     <div className="space-y-3 animate-pulse" aria-busy="true" aria-label="Loading widget">
@@ -175,16 +214,26 @@ function WidgetSkeleton() {
   )
 }
 
-// ------------------------------------------------------------------
-// Error state
-// ------------------------------------------------------------------
+/**
+ * Renders the inline error state shown when a widget's data fetch fails.
+ *
+ * Displays the error message and an optional inline "Retry" link button that
+ * triggers the supplied onReload callback.
+ *
+ * @param error - Error whose message is displayed; shows a generic fallback when null.
+ * @param onReload - Optional retry handler; when provided a Retry button is shown.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 function WidgetErrorState({
   error,
   onReload,
   widgetName,
 }: {
+  /** Error whose message is shown; generic fallback displayed when null. */
   error: Error | null
+  /** Optional retry callback; when provided a Retry button is rendered. */
   onReload?: () => void
+  /** Widget name for data-qqq-id scoping. */
   widgetName: string
 }) {
   return (

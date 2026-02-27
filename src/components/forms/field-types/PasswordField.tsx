@@ -1,3 +1,4 @@
+/** PasswordField — password input with show/hide toggle, validation error display, and accessibility attributes */
 'use client'
 
 import React, { useState } from 'react'
@@ -6,18 +7,39 @@ import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link PasswordField} component.
+ */
 interface PasswordFieldProps {
+  /** The HTML `id` for the `<input>` element and its associated `<label>`. */
   id: string
+  /** Human-readable field label rendered above the input. */
   label: string
+  /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
+  /** Validation error; when present triggers error styling and an error message. */
   error?: FieldError
+  /** When `true`, the input is non-interactive and visually dimmed. */
   disabled?: boolean
+  /** Placeholder text shown when the field is empty. */
   placeholder?: string
+  /** Forwarded to the `<input>` `maxlength` attribute. */
   maxLength?: number
+  /** When `true`, an asterisk indicator is shown and `aria-required` is set. */
   required?: boolean
+  /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Renders a password input field with a show/hide toggle button.
+ *
+ * Toggling visibility switches the underlying `<input>` between `type="password"`
+ * and `type="text"`.  The button is labelled via `aria-label` and is excluded
+ * from form submission focus order concerns because it has `type="button"`.
+ *
+ * @param props - See {@link PasswordFieldProps}.
+ */
 export function PasswordField({
   id,
   label,

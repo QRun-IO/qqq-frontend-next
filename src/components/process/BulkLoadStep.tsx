@@ -1,3 +1,9 @@
+/**
+ * BulkLoadStep — renders a BULK_LOAD step with file upload UI for CSV import.
+ *
+ * Handles drag-and-drop or click-to-browse file selection, upload mode and
+ * duplicate-handling selects, and sticky cancel/back/upload action buttons.
+ */
 'use client'
 
 // BulkLoadStep — renders a BULK_LOAD step
@@ -12,22 +18,50 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Props for the {@link BulkLoadStep} component.
+ */
 export interface BulkLoadStepProps {
+  /** Metadata for the current process step. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values from the process state. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user submits the form.
+   *
+   * @param values - Merged step values including upload mode and file metadata.
+   * @param file - The selected File object to upload.
+   */
   onSubmit: (values: Record<string, unknown>, file?: File) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/** Internal React Hook Form values for the bulk load options selects. */
 interface BulkLoadFormValues {
+  /** Insert-only, update-only, or insert-or-update mode. */
   uploadMode?: string
+  /** How to handle duplicate records encountered during import. */
   duplicateHandling?: string
 }
 
+/**
+ * Renders a BULK_LOAD process step.
+ *
+ * Provides a drag-and-drop / click-to-browse file drop zone for CSV files,
+ * upload mode and duplicate handling selects driven by React Hook Form, and
+ * a sticky action bar with Cancel / Back / Upload buttons.
+ *
+ * @param props - {@link BulkLoadStepProps}
+ */
 export function BulkLoadStep({
   step,
   stepValues,
@@ -49,10 +83,20 @@ export function BulkLoadStep({
     },
   })
 
+  /**
+   * Updates the selected file state.
+   *
+   * @param file - The newly selected file, or null to clear the selection.
+   */
   const handleFileChange = (file: File | null) => {
     setSelectedFile(file)
   }
 
+  /**
+   * Handles the drop event on the drop zone, extracting the first dragged file.
+   *
+   * @param e - The React drag event from the drop zone element.
+   */
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragOver(false)
@@ -60,15 +104,27 @@ export function BulkLoadStep({
     if (file) setSelectedFile(file)
   }, [])
 
+  /**
+   * Prevents the browser default so the drop zone can receive files.
+   *
+   * @param e - The React drag event.
+   */
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragOver(true)
   }
 
+  /** Clears the drag-over highlight when the user drags out of the drop zone. */
   const handleDragLeave = () => {
     setIsDragOver(false)
   }
 
+  /**
+   * React Hook Form submit handler; merges form values with the selected file
+   * metadata and delegates to `onSubmit`.
+   *
+   * @param formValues - Validated form values from React Hook Form.
+   */
   const onFormSubmit = async (formValues: BulkLoadFormValues) => {
     if (!selectedFile) return
     await onSubmit(

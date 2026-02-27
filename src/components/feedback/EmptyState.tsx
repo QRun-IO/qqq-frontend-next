@@ -1,20 +1,41 @@
 'use client'
 
-// EmptyState — Reusable empty state component
-// Used when a query returns zero results or no data is available
+/** EmptyState — reusable placeholder shown when a query returns zero results or no data is available. */
 
 import React, { type ReactNode } from 'react'
 import { Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the EmptyState component.
+ */
 export interface EmptyStateProps {
+  /** The primary heading text describing the empty state (e.g. "No records found"). */
   title: string
+  /** Optional supporting text explaining why the list is empty or what the user can do. */
   description?: string
+  /** Optional custom icon node; defaults to the `Inbox` Lucide icon when not provided. */
   icon?: ReactNode
+  /** Optional primary call-to-action rendered as a button below the description. */
   action?: { label: string; onClick: () => void }
+  /** Additional Tailwind class names applied to the outermost container div. */
   className?: string
 }
 
+/**
+ * Renders a centered empty-state placeholder with an icon, title, optional description,
+ * and an optional call-to-action button.
+ *
+ * Uses `role="status"` and `aria-live="polite"` so screen readers announce
+ * the state when it appears after a data load.
+ *
+ * @param title - Primary heading shown in the empty state.
+ * @param description - Optional supplementary text below the title.
+ * @param icon - Custom icon node; defaults to `<Inbox>` when omitted.
+ * @param action - Optional button configuration `{ label, onClick }`.
+ * @param className - Additional class names applied to the container.
+ * @returns A bordered dashed container centered in its parent.
+ */
 export function EmptyState({
   title,
   description,

@@ -1,7 +1,12 @@
+/**
+ * ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
+ *
+ * Orchestrates widget data fetching (via useWidget), dropdown option loading
+ * (via fetchPossibleValues), and state management for dropdown selections.
+ * Delegates layout to WidgetBlock and type-based rendering to WidgetRenderer.
+ * Returns null for widgets that lack permission.
+ */
 'use client'
-
-// ConnectedWidget -- Fetches widget data via useWidget and renders WidgetBlock + WidgetRenderer
-// This is the primary entrypoint for rendering a single widget on the dashboard
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 
@@ -11,12 +16,28 @@ import { useWidget } from '@/lib/hooks/use-widget'
 import { WidgetBlock } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
 
+/** Props accepted by the ConnectedWidget component. */
 interface ConnectedWidgetProps {
+  /** Full widget metadata from the server, including type, dropdowns, and permission flag. */
   widgetMetaData: QWidgetMetaData
+  /** Optional static query parameters merged into the widget data-fetch request. */
   params?: Record<string, string | number | boolean>
+  /** Optional Tailwind class string forwarded to the WidgetBlock container. */
   className?: string
 }
 
+/**
+ * Renders a fully connected dashboard widget with data fetching and dropdown support.
+ *
+ * Initializes dropdown selections from metadata defaults, asynchronously loads
+ * possible-value options for dropdowns that reference a PVS, merges dropdown
+ * selections into the data-fetch params via useMemo, and delegates to WidgetBlock
+ * (for chrome/loading/error states) and WidgetRenderer (for type-specific output).
+ *
+ * @param widgetMetaData - Widget metadata controlling type, label, dropdowns, and permissions.
+ * @param params - Static query parameters forwarded to the widget data request.
+ * @param className - Additional class names applied to the WidgetBlock container.
+ */
 export function ConnectedWidget({ widgetMetaData, params, className }: ConnectedWidgetProps) {
   // Initialize dropdown values from metadata defaults
   const [dropdownValues, setDropdownValues] = useState<Record<string, string>>(() => {
@@ -62,6 +83,12 @@ export function ConnectedWidget({ widgetMetaData, params, className }: Connected
 
   const { data, isLoading, isError, error, refetch } = useWidget(widgetMetaData.name, mergedParams)
 
+  /**
+   * Updates the stored dropdown selection for a single named dropdown.
+   *
+   * @param name - The dropdown's metadata name property.
+   * @param value - The newly selected option value string.
+   */
   const handleDropdownChange = useCallback((name: string, value: string) => {
     setDropdownValues((prev) => ({ ...prev, [name]: value }))
   }, [])

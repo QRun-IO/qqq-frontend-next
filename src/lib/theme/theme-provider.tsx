@@ -1,3 +1,4 @@
+/** ThemeProvider — dynamic CSS custom-property injection from QThemeMetaData with light/dark mode toggle */
 'use client'
 
 // Theme provider — dynamic CSS variable injection from QThemeMetaData
@@ -7,17 +8,53 @@ import React, { createContext, type ReactNode, useContext, useEffect, useState }
 
 import type { QThemeMetaData } from '@/types'
 
+/**
+ * Shape of the value provided by {@link ThemeContext}.
+ *
+ * Consumers should use the {@link useTheme} hook rather than reading the
+ * context directly.
+ */
 export interface ThemeContextType {
+  /** The active QQQ theme metadata, or `null` before it has been loaded. */
   theme: QThemeMetaData | null
+  /** Replaces the active theme and triggers CSS variable re-injection. */
   setTheme: (theme: QThemeMetaData) => void
+  /** Whether dark mode is currently active. */
   isDarkMode: boolean
+  /**
+   * Toggles between light and dark mode, persisting the preference in
+   * `localStorage` under the key {@link DARK_MODE_KEY}.
+   */
   toggleDarkMode: () => void
 }
 
+/**
+ * React context that holds the current theme state.
+ *
+ * Prefer using the {@link useTheme} hook to consume this context.
+ */
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+/**
+ * `localStorage` key used to persist the user's dark-mode preference across
+ * page loads and sessions.
+ */
 const DARK_MODE_KEY = 'qqq-dark-mode'
 
+/**
+ * Provider component that manages the QQQ visual theme and dark-mode state.
+ *
+ * On mount it reads the user's dark-mode preference from `localStorage`,
+ * falling back to the OS `prefers-color-scheme` media query. Whenever the
+ * active theme or dark-mode flag changes it injects the corresponding CSS
+ * custom properties (`--color-primary`, `--qqq-accent-color`, etc.) onto
+ * `document.documentElement`, which makes them available to all Tailwind and
+ * shadcn/ui components via CSS cascade.
+ *
+ * @param children - The component subtree that needs access to the theme context.
+ * @param initialTheme - Optional theme metadata to pre-populate before the
+ *   backend metadata is fetched (useful for SSR / first paint).
+ */
 export function ThemeProvider({
   children,
   initialTheme,
@@ -75,6 +112,12 @@ export function ThemeProvider({
     }
   }, [theme, isDarkMode])
 
+  /**
+   * Toggles the dark-mode flag and persists the new value to `localStorage`.
+   *
+   * The updated flag triggers the CSS-variable injection effect, which adds or
+   * removes the `dark` class and `data-theme` attribute on `<html>`.
+   */
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const next = !prev
@@ -97,6 +140,16 @@ export function ThemeProvider({
   )
 }
 
+/**
+ * Returns the current theme context from the nearest {@link ThemeProvider}.
+ *
+ * Must be called inside a component that is a descendant of
+ * {@link ThemeProvider}. Throws at runtime if no provider is found.
+ *
+ * @returns The current {@link ThemeContextType} value, providing `theme`,
+ *   `setTheme`, `isDarkMode`, and `toggleDarkMode`.
+ * @throws {Error} When called outside of a {@link ThemeProvider} subtree.
+ */
 export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext)
   if (!context) {

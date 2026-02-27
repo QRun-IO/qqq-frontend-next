@@ -1,3 +1,4 @@
+/** UnsavedChangesDialog — accessible confirmation modal preventing accidental loss of unsaved form data */
 'use client'
 
 // UnsavedChangesDialog — confirmation dialog shown when navigating away with unsaved form changes
@@ -9,12 +10,28 @@ import { AlertTriangle } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link UnsavedChangesDialog} component.
+ */
 interface UnsavedChangesDialogProps {
+  /** Controls dialog visibility; when `false` the component renders nothing. */
   open: boolean
+  /** Called when the user clicks "Stay" or dismisses the dialog (Escape / overlay click). */
   onStay: () => void
+  /** Called when the user clicks "Leave", confirming that unsaved changes can be discarded. */
   onLeave: () => void
 }
 
+/**
+ * Accessible confirmation dialog that warns users before they navigate away
+ * from a form with unsaved changes.
+ *
+ * Built on Radix `AlertDialog` primitives which handle focus trapping,
+ * `aria-modal`, and initial focus automatically.  Pressing Escape or clicking
+ * the overlay calls `onStay`, keeping the user on the current page.
+ *
+ * @param props - See {@link UnsavedChangesDialogProps}.
+ */
 export function UnsavedChangesDialog({ open, onStay, onLeave }: UnsavedChangesDialogProps) {
   // Radix AlertDialog manages focus automatically (focus trap + initial focus).
   // Manual focus management via useEffect/ref.focus() races with Radix's

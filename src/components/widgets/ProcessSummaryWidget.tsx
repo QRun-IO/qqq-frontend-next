@@ -1,34 +1,54 @@
+/** ProcessSummaryWidget — Displays a chronological list of recent process-run summaries with status badges. */
 'use client'
-
-// ProcessSummaryWidget — Shows recent process run summaries with status badges
 
 import React from 'react'
 import { CheckCircle, XCircle, Clock, Loader } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
+/** Lifecycle status of a single process run. */
 export type ProcessRunStatus = 'success' | 'error' | 'running' | 'pending'
 
+/** Represents a single process run entry displayed in the summary widget. */
 export interface ProcessRun {
+  /** Unique identifier for this process run. */
   id: string | number
+  /** Human-readable label of the process that was executed. */
   processLabel: string
+  /** Current lifecycle status of the run. */
   status: ProcessRunStatus
+  /** ISO 8601 timestamp of when the run was initiated. */
   startedAt?: string
+  /** ISO 8601 timestamp of when the run finished. */
   completedAt?: string
+  /** Optional status message or error description. */
   message?: string
+  /** Number of records processed during the run. */
   recordCount?: number
 }
 
+/** Wire-format payload for a process-summary widget returned by the backend API. */
 export interface ProcessSummaryWidgetPayload {
+  /** Discriminator field identifying this as a process-summary widget payload. */
   type: 'processSummary'
+  /** Ordered list of recent process run summaries to display. */
   runs: ProcessRun[]
 }
 
+/** Props accepted by the ProcessSummaryWidget component. */
 interface ProcessSummaryWidgetProps {
+  /** Typed payload from the widget API response. */
   data: ProcessSummaryWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/**
+ * Static lookup table mapping each ProcessRunStatus to its visual configuration.
+ *
+ * Each entry provides a Lucide icon component and Tailwind class strings for
+ * the status badge and icon.
+ */
 const STATUS_CONFIG: Record<
   ProcessRunStatus,
   { icon: React.ElementType; label: string; badgeClass: string; iconClass: string }
@@ -59,6 +79,16 @@ const STATUS_CONFIG: Record<
   },
 }
 
+/**
+ * Converts an ISO 8601 timestamp into a human-readable relative time string.
+ *
+ * Returns 'just now' for differences under 1 minute, '5m ago' or '3h ago'
+ * for intra-day differences, and a locale date string for older timestamps.
+ * Falls back to returning the original string when parsing fails.
+ *
+ * @param isoString - ISO 8601 date-time string to format.
+ * @returns Relative time label suitable for display in the UI.
+ */
 function formatRelativeTime(isoString: string): string {
   try {
     const date = new Date(isoString)
@@ -75,6 +105,16 @@ function formatRelativeTime(isoString: string): string {
   }
 }
 
+/**
+ * Renders a divided list of recent process runs with status icons, badges, and timestamps.
+ *
+ * Each run row shows the process label, a colored status badge, an optional
+ * message, the record count, and a relative completion or start time.
+ * Shows an empty-state message when the runs array is empty.
+ *
+ * @param data - Process-summary widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function ProcessSummaryWidget({ data, widgetName }: ProcessSummaryWidgetProps) {
   const { runs } = data
 

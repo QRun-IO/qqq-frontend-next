@@ -1,3 +1,4 @@
+/** DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, SIZE, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments and type-based fallbacks. */
 'use client'
 
 // DataCell — dispatches to the correct renderer based on field type and adornments
@@ -6,13 +7,33 @@ import React, { useState } from 'react'
 import DOMPurify from 'dompurify'
 import type { QFieldMetaData, QRecord } from '@/types'
 
+/**
+ * Props for the DataCell component.
+ */
 interface DataCellProps {
+  /** Metadata for the field this cell represents, including type and adornments. */
   field: QFieldMetaData
+  /** Raw value from the record for this field (may be any JSON-compatible type). */
   value: unknown
+  /** Pre-formatted display string from the server; takes precedence over raw value formatting. */
   displayValue: string | undefined
+  /** The full parent record, used by adornments such as ERROR to access `record.errors`. */
   record: QRecord
 }
 
+/**
+ * Renders a single table cell for the DataGrid.
+ *
+ * Adornments are evaluated first (in array order); the first matching adornment
+ * short-circuits the render. If no adornment matches, a type-appropriate renderer
+ * is chosen based on `field.type`. HTML values are sanitized with DOMPurify before
+ * being injected via `dangerouslySetInnerHTML`.
+ *
+ * @param field - Metadata describing the field (type, adornments, name, label).
+ * @param value - The raw record value for this field.
+ * @param displayValue - Optional server-provided display string (used instead of raw value when available).
+ * @param record - The full parent QRecord, needed by adornments that reference record-level data.
+ */
 export function DataCell({ field, value, displayValue, record }: DataCellProps) {
   const display = displayValue ?? (value != null ? String(value) : '')
 
@@ -226,6 +247,11 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
 // Sub-components
 // ------------------------------------------------------------------
 
+/**
+ * Renders an em-dash placeholder for null or empty field values.
+ *
+ * @param fieldName - The field name used for the `data-qqq-id` attribute.
+ */
 function EmptyCell({ fieldName }: { fieldName: string }) {
   return (
     <span className="text-sm text-muted-foreground" data-qqq-id={`grid-cell-${fieldName}`}>
@@ -234,6 +260,14 @@ function EmptyCell({ fieldName }: { fieldName: string }) {
   )
 }
 
+/**
+ * Renders a toggle button that hides a sensitive value behind dots until the user clicks to reveal it.
+ *
+ * Used for fields with the `REVEAL` adornment (e.g., API keys, tokens).
+ *
+ * @param value - The sensitive string value to reveal when toggled.
+ * @param fieldName - The field name used for the `data-qqq-id` attribute and aria-label.
+ */
 function RevealCell({ value, fieldName }: { value: string; fieldName: string }) {
   const [revealed, setRevealed] = useState(false)
   return (
@@ -256,6 +290,12 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
 // Utilities
 // ------------------------------------------------------------------
 
+/**
+ * Converts a byte count into a human-readable string with the appropriate unit (B, KB, MB, GB, TB).
+ *
+ * @param bytes - The number of bytes to format.
+ * @returns A formatted string such as `"1.4 MB"` or `"0 B"`.
+ */
 function formatBytes(bytes: number): string {
   if (isNaN(bytes) || bytes < 0) return '0 B'
   if (bytes === 0) return '0 B'
@@ -265,6 +305,14 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, idx)).toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
 }
 
+/**
+ * Formats an ISO date string using the browser's locale date formatting.
+ *
+ * Returns the original string unchanged if parsing fails.
+ *
+ * @param value - An ISO 8601 date string (e.g., `"2024-06-15"`).
+ * @returns A locale-formatted date string (e.g., `"6/15/2024"`).
+ */
 function formatDate(value: string): string {
   try {
     const d = new Date(value)
@@ -275,6 +323,14 @@ function formatDate(value: string): string {
   }
 }
 
+/**
+ * Formats an ISO datetime string using the browser's locale date-time formatting.
+ *
+ * Returns the original string unchanged if parsing fails.
+ *
+ * @param value - An ISO 8601 datetime string (e.g., `"2024-06-15T14:30:00Z"`).
+ * @returns A locale-formatted datetime string (e.g., `"6/15/2024, 2:30:00 PM"`).
+ */
 function formatDateTime(value: string): string {
   try {
     const d = new Date(value)

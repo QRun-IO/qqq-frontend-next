@@ -1,3 +1,4 @@
+/** Pagination — page navigation controls and page-size selector for the DataGrid. Includes first/prev/next/last buttons and a numeric "Go to page" input for large datasets. */
 'use client'
 
 // Pagination — page navigation + page size selector
@@ -7,16 +8,43 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/lib/hooks/use-record-query'
 
+/**
+ * Props for the Pagination component.
+ */
 interface PaginationProps {
+  /** Current 1-based page number. */
   pageNum: number
+  /** Number of records displayed per page (constrained to the PageSize union type). */
   pageSize: PageSize
+  /** Total number of records matching the active filter (across all pages). */
   totalCount: number
+  /** Total number of pages, derived from totalCount / pageSize. */
   totalPages: number
+  /** Whether a background fetch is in progress; navigation buttons are disabled when true. */
   isFetching: boolean
+  /** Callback invoked when the user navigates to a different page. */
   onPageChange: (page: number) => void
+  /** Callback invoked when the user changes the rows-per-page setting. */
   onPageSizeChange: (pageSize: PageSize) => void
 }
 
+/**
+ * Pagination controls rendered below the DataGrid.
+ *
+ * Displays a record-count summary ("Showing X–Y of Z"), a rows-per-page selector,
+ * and first/previous/next/last navigation buttons. A "Go to page" text input is
+ * shown when the total page count exceeds 5.
+ *
+ * All navigation buttons are disabled while a background fetch is in progress.
+ *
+ * @param pageNum - Current 1-based page number.
+ * @param pageSize - Records per page.
+ * @param totalCount - Total matching records across all pages.
+ * @param totalPages - Total number of pages.
+ * @param isFetching - Disables buttons during background refetches.
+ * @param onPageChange - Called when the user requests a page change.
+ * @param onPageSizeChange - Called when the user changes the rows-per-page setting.
+ */
 export function Pagination({
   pageNum,
   pageSize,
@@ -31,6 +59,10 @@ export function Pagination({
   const startRecord = totalCount === 0 ? 0 : (pageNum - 1) * pageSize + 1
   const endRecord = Math.min(pageNum * pageSize, totalCount)
 
+  /**
+   * Parses the "Go to page" input value and navigates if it is a valid page number.
+   * Resets the input after a successful navigation.
+   */
   const handleGoToPage = () => {
     const p = parseInt(goToPage, 10)
     if (!isNaN(p) && p >= 1 && p <= totalPages) {
@@ -39,6 +71,11 @@ export function Pagination({
     }
   }
 
+  /**
+   * Submits the "Go to page" input when the user presses Enter.
+   *
+   * @param e - The keyboard event from the go-to-page input.
+   */
   const handleGoToPageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleGoToPage()

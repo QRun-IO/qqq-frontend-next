@@ -1,3 +1,4 @@
+/** ExportButton — toolbar dropdown for exporting records to CSV. Supports exporting all matching records (up to 10,000), the current page, or only the selected records. */
 'use client'
 
 // ExportButton — exports records to CSV (or other formats)
@@ -9,15 +10,42 @@ import type { QTableMetaData, QRecord, QQueryFilter } from '@/types'
 import { queryRecords } from '@/lib/api/tables'
 import { toast } from '@/lib/hooks/use-toast'
 
+/**
+ * Props for the ExportButton component.
+ */
 interface ExportButtonProps {
+  /** Backend table name used in API calls and the generated file name. */
   tableName: string
+  /** Table metadata providing the field list for CSV column headers. */
   tableMetaData: QTableMetaData
+  /** The currently active filter, used for "all" and "page" export scopes. */
   currentFilter: QQueryFilter
+  /** Map of field name → visibility; hidden columns are excluded from the export. */
   columnVisibility: Record<string, boolean>
+  /** Ordered list of field names controlling the column order in the CSV. */
   columnOrder: string[]
+  /** Selected record IDs; when non-empty, an additional "Selected (N)" export option is shown. */
   selectedRecordIds?: (string | number)[]
 }
 
+/**
+ * Toolbar dropdown button for exporting table records to a CSV file.
+ *
+ * Offers three export scopes:
+ * - **All records** — fetches up to 10,000 records matching the current filter.
+ * - **Current page** — re-fetches the current page using the current filter.
+ * - **Selected** — fetches only the checked records (visible only when `selectedRecordIds` is non-empty).
+ *
+ * The CSV is built in memory from visible fields (respecting `columnVisibility` and `columnOrder`),
+ * then downloaded via a temporary anchor element. Errors are surfaced as a toast notification.
+ *
+ * @param tableName - Backend table name for API calls and file naming.
+ * @param tableMetaData - Table metadata for field headers.
+ * @param currentFilter - Active filter used in "all" and "page" export modes.
+ * @param columnVisibility - Per-column visibility map.
+ * @param columnOrder - Ordered field name list for CSV column order.
+ * @param selectedRecordIds - IDs of checked rows; enables the "Selected" export option.
+ */
 export function ExportButton({
   tableName,
   tableMetaData,
@@ -37,6 +65,17 @@ export function ExportButton({
       return (orderMap[a.name] ?? 9999) - (orderMap[b.name] ?? 9999)
     })
 
+  /**
+   * Fetches records for the given scope and triggers a CSV file download.
+   *
+   * - `'all'` — fetches up to 10,000 records matching the current filter.
+   * - `'selected'` — fetches only the records whose IDs are in `selectedRecordIds`.
+   * - `'page'` — re-fetches the current page using the unmodified `currentFilter`.
+   *
+   * Closes the dropdown before fetching. Shows a toast on error.
+   *
+   * @param scope - Which records to include in the export.
+   */
   const exportToCSV = async (scope: 'all' | 'selected' | 'page') => {
     setExporting(true)
     setOpen(false)

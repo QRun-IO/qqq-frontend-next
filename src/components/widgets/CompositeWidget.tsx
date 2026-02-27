@@ -1,23 +1,42 @@
+/**
+ * CompositeWidget — Renders a parent widget that lays out multiple child widgets.
+ *
+ * Each child is wrapped in its own ConnectedWidget so that each widget fetches
+ * its data independently. Column count derives from the parent widget's
+ * gridColumns metadata field.
+ */
 'use client'
-
-// CompositeWidget -- Renders a parent widget that contains child widgets
-// Each child is wrapped in its own ConnectedWidget for independent data fetching
 
 import React from 'react'
 
 import type { QWidgetMetaData } from '@/types'
 import { ConnectedWidget } from './ConnectedWidget'
 
+/** Descriptor for a single child widget inside a composite parent widget. */
 interface CompositeWidgetChild {
+  /** Metadata for the child widget to render. */
   widgetMetaData: QWidgetMetaData
+  /** Optional extra query parameters forwarded to the child widget's data fetch. */
   params?: Record<string, string | number | boolean>
 }
 
+/** Props accepted by the CompositeWidget component. */
 export interface CompositeWidgetProps {
+  /** Metadata for the parent composite widget, used for naming and column count. */
   widgetMetaData: QWidgetMetaData
+  /** Ordered array of child widget descriptors to lay out in the grid. */
   childWidgets: CompositeWidgetChild[]
 }
 
+/**
+ * Renders a responsive grid of child ConnectedWidgets within a parent composite container.
+ *
+ * Column count is derived from `widgetMetaData.gridColumns` (defaults to 2).
+ * Shows an empty-state message when no child widgets are configured.
+ *
+ * @param widgetMetaData - Metadata for the parent widget (label, name, gridColumns).
+ * @param childWidgets - Array of child widget descriptors to render.
+ */
 export function CompositeWidget({ widgetMetaData, childWidgets }: CompositeWidgetProps) {
   if (childWidgets.length === 0) {
     return (

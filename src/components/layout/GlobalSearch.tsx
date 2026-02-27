@@ -1,7 +1,6 @@
 'use client'
 
-// GlobalSearch — dropdown search component with recent records and live API search
-// Replaces the static search pill in the Header
+/** GlobalSearch — inline header search component showing recent records and live API search results in a dropdown. */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -15,7 +14,11 @@ import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * Props for the GlobalSearch component.
+ */
 export interface GlobalSearchProps {
+  /** Additional Tailwind class names applied to the outermost container div. */
   className?: string
 }
 
@@ -56,6 +59,17 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   )
 }
 
+/**
+ * Inline header search widget with a dropdown that shows recently-viewed records
+ * (when the query is short) or live API search results grouped by table.
+ *
+ * The search term is debounced by 300 ms before triggering a TanStack Query
+ * fetch. Full keyboard navigation (ArrowUp/Down, Enter, Escape) is supported.
+ * Pressing Enter with no result selected navigates to the global search page.
+ *
+ * @param className - Additional class names applied to the container div.
+ * @returns The search input together with its dropdown results panel.
+ */
 export function GlobalSearch({ className }: GlobalSearchProps) {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -131,6 +145,11 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
     setSelectedIndex(-1)
   }, [searchResults, recentRecords, searchTerm])
 
+  /**
+   * Navigates to the given path, closes the dropdown, and clears the search term.
+   *
+   * @param path - The URL path to navigate to.
+   */
   const handleNavigate = useCallback(
     (path: string) => {
       setIsOpen(false)
@@ -140,15 +159,31 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
     [router]
   )
 
+  /**
+   * Opens the dropdown when the search input receives focus.
+   */
   const handleInputFocus = useCallback(() => {
     setIsOpen(true)
   }, [])
 
+  /**
+   * Updates the search term and ensures the dropdown is open as the user types.
+   *
+   * @param e - The synthetic change event from the text input.
+   */
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
     setIsOpen(true)
   }, [])
 
+  /**
+   * Handles keyboard navigation within the search dropdown.
+   *
+   * ArrowDown/Up move the selection index, Enter navigates to the selected item
+   * or the full-search page, and Escape closes the dropdown.
+   *
+   * @param e - The synthetic keyboard event from the text input.
+   */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!isOpen) {

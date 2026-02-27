@@ -1,3 +1,4 @@
+/** SavedViewsMenu — dropdown menu for saving, loading, and deleting named filter and column configurations (saved views). */
 'use client'
 
 // SavedViewsMenu — save, load, and delete named filter+column configurations
@@ -7,13 +8,33 @@ import { BookmarkIcon, Trash2, Check } from 'lucide-react'
 
 import type { SavedView } from '@/lib/hooks/use-record-query'
 
+/**
+ * Props for the SavedViewsMenu component.
+ */
 interface SavedViewsMenuProps {
+  /** The current list of saved views retrieved from localStorage. */
   savedViews: SavedView[]
+  /** Callback invoked when the user confirms saving the current state under a new name. */
   onSave: (name: string) => void
+  /** Callback invoked when the user selects a saved view to restore. */
   onLoad: (view: SavedView) => void
+  /** Callback invoked when the user deletes a saved view by its ID. */
   onDelete: (id: string) => void
 }
 
+/**
+ * Toolbar dropdown for managing named saved views of filter + column state.
+ *
+ * Opens a dropdown that shows a "Save current view" entry and a scrollable list of
+ * existing saved views. Saving enters an inline name-input mode; loading closes the
+ * dropdown and restores the chosen view; deleting is available via a per-row trash icon
+ * that is only visible on hover/focus.
+ *
+ * @param savedViews - Saved view list from the parent hook (use-record-query).
+ * @param onSave - Called with the new view name when the user confirms the save.
+ * @param onLoad - Called with the SavedView to restore when the user clicks a view.
+ * @param onDelete - Called with the view ID when the user clicks the delete button.
+ */
 export function SavedViewsMenu({
   savedViews,
   onSave,
@@ -24,6 +45,10 @@ export function SavedViewsMenu({
   const [saveMode, setSaveMode] = useState(false)
   const [newViewName, setNewViewName] = useState('')
 
+  /**
+   * Validates the new view name, calls `onSave`, and resets the save-mode UI.
+   * Does nothing if the name is blank.
+   */
   const handleSave = () => {
     const name = newViewName.trim()
     if (!name) return
@@ -32,6 +57,11 @@ export function SavedViewsMenu({
     setSaveMode(false)
   }
 
+  /**
+   * Loads a saved view and closes the dropdown.
+   *
+   * @param view - The SavedView to restore.
+   */
   const handleLoadView = (view: SavedView) => {
     onLoad(view)
     setOpen(false)

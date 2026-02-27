@@ -1,7 +1,8 @@
+/**
+ * BarChartWidget — Recharts-based bar chart widget supporting vertical, horizontal,
+ * and stacked multi-series configurations driven by backend metadata.
+ */
 'use client'
-
-// BarChartWidget -- Bar chart using Recharts
-// Supports vertical (default), horizontal, and stacked bar configurations
 
 import React from 'react'
 import {
@@ -17,11 +18,17 @@ import {
 
 import type { ChartDataset } from '@/types'
 
+/** Wire-format payload for a bar-chart widget returned by the backend API. */
 export interface BarChartWidgetPayload {
+  /** Discriminator identifying this as a bar-chart or generic chart widget. */
   type: 'barChart' | 'chart'
+  /** Optional chart title rendered above the chart. */
   title?: string
+  /** X-axis category labels for multi-series (Shape A) data. */
   labels?: string[]
+  /** Single-series data array (Shape B). */
   data?: Array<{ label: string; value: number; color?: string }>
+  /** Multi-series dataset array (Shape A). */
   datasets?: ChartDataset[]
   /** When 'horizontal', renders bars horizontally (Recharts layout="vertical") */
   orientation?: 'vertical' | 'horizontal'
@@ -29,12 +36,24 @@ export interface BarChartWidgetPayload {
   stacked?: boolean
 }
 
+/** Props accepted by the BarChartWidget component. */
 interface BarChartWidgetProps {
+  /** Typed payload from the widget API response. */
   data: BarChartWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
-// Normalize data from multiple possible shapes
+/**
+ * Normalizes heterogeneous bar-chart data shapes into a unified Recharts-compatible form.
+ *
+ * Supports two input shapes:
+ * - Shape A: `{ labels, datasets }` — multi-series with named datasets.
+ * - Shape B: `{ data: [{ label, value, color }] }` — single series.
+ *
+ * @param data - Raw bar-chart payload from the backend.
+ * @returns Normalized chart entries and an array of data-key/color descriptors.
+ */
 function normalizeChartData(
   data: BarChartWidgetPayload
 ): { entries: Record<string, string | number>[]; dataKeys: Array<{ key: string; color: string; stack?: string }> } {
@@ -66,8 +85,18 @@ function normalizeChartData(
   return { entries: [], dataKeys: [] }
 }
 
+/** Default color palette cycled through when dataset entries do not specify an explicit color. */
 const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
+/**
+ * Renders a responsive bar chart using Recharts.
+ *
+ * Supports vertical bars (default), horizontal bars, and stacked multi-series bars.
+ * Shows an empty-state message when the normalized data set contains no entries.
+ *
+ * @param data - Bar-chart widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)
   const isHorizontal = data.orientation === 'horizontal'

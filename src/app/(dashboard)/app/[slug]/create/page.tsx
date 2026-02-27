@@ -1,7 +1,12 @@
 'use client'
 
-// EntityCreate — create a new record
-// Package 3: full implementation using EntityForm component
+/**
+ * EntityCreate page — serves the route `/app/[slug]/create` and renders the
+ * record-creation form for the table identified by `slug`.
+ *
+ * Route params:
+ * - `slug` — the QQQ table name for which a new record should be created.
+ */
 
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
@@ -12,6 +17,16 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { EntityForm } from '@/components/forms/EntityForm'
 
+/**
+ * Renders the record-creation form for the table identified by `slug`.
+ *
+ * Fetches application metadata to resolve the table definition, then renders
+ * `<EntityForm>` with no initial record (create mode). Shows a permission
+ * error banner when the user lacks `insertPermission` on the table, and a
+ * loading spinner while metadata is being fetched.
+ *
+ * @returns The entity creation form, a loading spinner, or a permission error panel.
+ */
 export default function EntityCreatePage() {
   const params = useParams<{ slug: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()

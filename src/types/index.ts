@@ -1,3 +1,11 @@
+/**
+ * Types — canonical re-export point for all QQQ TypeScript type definitions.
+ *
+ * All application code should import types from `@/types` rather than from the
+ * individual module files so that internal type organisation can change without
+ * affecting import paths throughout the codebase.
+ */
+
 // QQQ Type Definitions - canonical re-export point
 // All implementations should import from @/types
 

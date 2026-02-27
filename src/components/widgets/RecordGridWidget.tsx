@@ -1,7 +1,11 @@
+/**
+ * RecordGridWidget — Read-only tabular record widget.
+ *
+ * Renders a scrollable HTML table of QQQ records using DataCell for
+ * field-type-aware cell rendering. Accepts either full QFieldMetaData objects
+ * or bare column name strings from the backend payload.
+ */
 'use client'
-
-// RecordGridWidget — Read-only record table widget
-// Uses DataCell from Package 2 for field-type-aware cell rendering
 
 import React from 'react'
 import { Inbox } from 'lucide-react'
@@ -9,24 +13,48 @@ import { Inbox } from 'lucide-react'
 import type { QFieldMetaData, QRecord } from '@/types'
 import { DataCell } from '@/components/query/DataCell'
 
+/** Wire-format payload for a record-grid widget returned by the backend API. */
 export interface RecordGridWidgetPayload {
+  /** Discriminator field identifying this as a record-grid widget. */
   type: 'recordGrid'
+  /** Name of the QQQ table the records belong to, used for QRecord construction. */
   tableName?: string
+  /** Ordered list of column names when full field metadata is not provided. */
   columns?: string[]
-  // columns with full field metadata
+  /** Full QFieldMetaData objects; preferred over `columns` when present. */
   fields?: QFieldMetaData[]
+  /** Array of raw record objects to display as table rows. */
   records: Array<{
+    /** Raw field values keyed by field name. */
     values: Record<string, unknown>
+    /** Pre-formatted display strings keyed by field name. */
     displayValues?: Record<string, string>
   }>
+  /** Total number of records on the server; used to render a "showing X of Y" note. */
   totalCount?: number
 }
 
+/** Props accepted by the RecordGridWidget component. */
 interface RecordGridWidgetProps {
+  /** Typed payload from the widget API response. */
   data: RecordGridWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/**
+ * Renders a horizontally scrollable, read-only data table of QQQ records.
+ *
+ * Resolves column headers from either the provided `fields` metadata or
+ * falls back to synthesizing minimal QFieldMetaData from bare `columns`
+ * name strings. Uses DataCell for field-type-aware value rendering.
+ * Shows an empty-state illustration when no records or columns are present.
+ * Displays a "Showing X of Y records" footer when the total count exceeds
+ * the number of rows in the payload.
+ *
+ * @param data - Record-grid widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
   const { records, columns, fields, tableName = '' } = data
 

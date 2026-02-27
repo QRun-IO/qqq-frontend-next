@@ -1,8 +1,6 @@
 'use client'
 
-// Dashboard layout — authenticated route group layout
-// Renders sidebar, header, breadcrumbs, and banner zones
-// Includes: mobile sidebar drawer, command palette (Cmd+K), skip link, customCss injection
+/** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -20,7 +18,22 @@ import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
 
-// Inner layout content — needs QContextProvider to be set up first
+/**
+ * Inner layout that renders the full dashboard chrome.
+ *
+ * Must be a child of `QContextProvider` in order to read and write QContext.
+ * Responsibilities:
+ * - Fetches full application metadata via TanStack Query (30-minute stale time).
+ * - Generates sidebar routes and path-to-label map from the app tree.
+ * - Syncs branding, accent color, favicon, and document title to the DOM.
+ * - Sanitizes and injects `customCss` from branding metadata.
+ * - Redirects unauthenticated users to `/login`.
+ * - Registers global keyboard shortcuts: Cmd+K (command palette), `/` (search), `?` (help).
+ * - Renders the desktop sidebar, mobile sidebar drawer, banners, header, and main content slot.
+ *
+ * @param children - The authenticated page content to render in the main slot.
+ * @returns The full dashboard layout, a loading spinner, or `null` during redirect.
+ */
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth()
@@ -143,7 +156,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, authLoading, router])
 
-  // Guard: check if focus is in a text input, textarea, select, or contentEditable
+  /**
+   * Returns `true` when focus is in a text input, textarea, select, or contentEditable element.
+   *
+   * Used to suppress single-key shortcuts (`.`, `/`, `?`) while the user is typing.
+   *
+   * @returns Whether the currently focused element is a text-entry control.
+   */
   const isInputFocused = useCallback(() => {
     const tag = (document.activeElement?.tagName || '').toLowerCase()
     const type = (document.activeElement as HTMLInputElement)?.type || ''
@@ -151,7 +170,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return tag === 'input' || tag === 'textarea' || tag === 'select' || type === 'search' || isEditable
   }, [])
 
-  // Global keyboard shortcut: Cmd+K / Ctrl+K → command palette, "." → quick nav, "?" → help
+  /**
+   * Global `keydown` handler that drives the application-level keyboard shortcuts.
+   *
+   * - Cmd+K / Ctrl+K — toggles the command palette.
+   * - Escape — closes all overlays (command palette, search dialog, help dialog, mobile sidebar).
+   * - `.` — opens the command palette (only when not in a text field).
+   * - `/` — opens the search dialog (only when not in a text field).
+   * - `?` — opens the keyboard shortcuts dialog (only when not in a text field).
+   *
+   * @param e - The native DOM keyboard event.
+   */
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
@@ -296,7 +325,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Outer layout — provides QContext to inner layout
+/**
+ * Outer dashboard layout exported as the Next.js `(dashboard)` route group layout.
+ *
+ * Wraps the inner `DashboardLayoutContent` with `QContextProvider` so that all
+ * authenticated pages share a single QContext instance.
+ *
+ * @param children - The page component rendered inside the authenticated shell.
+ * @returns A `QContextProvider` wrapping the full dashboard layout.
+ */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <QContextProvider>

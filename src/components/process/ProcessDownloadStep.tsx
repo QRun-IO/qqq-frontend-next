@@ -1,3 +1,10 @@
+/**
+ * ProcessDownloadStep — renders a DOWNLOAD_FORM process step.
+ *
+ * Displays optional view-field context values and a prominent download link
+ * for the file produced by the process.  The download URL and filename are
+ * resolved from well-known `stepValues` keys.
+ */
 'use client'
 
 // ProcessDownloadStep -- renders a DOWNLOAD_FORM step
@@ -11,17 +18,39 @@ import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
+/**
+ * Props for the {@link ProcessDownloadStep} component.
+ */
 export interface ProcessDownloadStepProps {
+  /** Metadata for the current process step, including `viewFields`. */
   step: QFrontendStepMetaData
+  /** Current accumulated step values; must contain a recognised download URL key. */
   stepValues: Record<string, unknown>
+  /** Whether a submission is in progress; disables controls while true. */
   isLoading: boolean
+  /**
+   * Called when the user advances past this step.
+   *
+   * @param values - The current step values passed through unchanged.
+   */
   onSubmit: (values: Record<string, unknown>) => Promise<void>
+  /** Called when the user confirms cancellation of the process. */
   onCancel: () => void
+  /** Called when the user clicks Back; only rendered if `canGoBack` is true. */
   onBack?: () => void
+  /** Whether a previous step exists to navigate back to. */
   canGoBack: boolean
+  /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
 }
 
+/**
+ * Resolves a download URL from the step values by checking a prioritised list
+ * of well-known key names used by different QQQ backend processes.
+ *
+ * @param stepValues - The current step's accumulated values.
+ * @returns The first non-empty string URL found, or null if none is present.
+ */
 function resolveDownloadUrl(stepValues: Record<string, unknown>): string | null {
   // Check common step value keys used for download URLs
   const candidates = [
@@ -45,6 +74,12 @@ function resolveDownloadUrl(stepValues: Record<string, unknown>): string | null 
   return null
 }
 
+/**
+ * Resolves a suggested filename from well-known step value keys.
+ *
+ * @param stepValues - The current step's accumulated values.
+ * @returns The first non-empty string filename found, or `'download'` as a fallback.
+ */
 function resolveFileName(stepValues: Record<string, unknown>): string {
   const candidates = ['fileName', 'filename', 'downloadFileName']
   for (const key of candidates) {
@@ -56,6 +91,13 @@ function resolveFileName(stepValues: Record<string, unknown>): string {
   return 'download'
 }
 
+/**
+ * Formats a raw field value for display in the view-fields context section.
+ *
+ * @param field - The field metadata used to determine the type.
+ * @param value - The raw value from `stepValues`.
+ * @returns A human-readable string, or an em-dash for empty/null values.
+ */
 function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return '\u2014'
@@ -66,6 +108,15 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
   return String(value)
 }
 
+/**
+ * Renders a DOWNLOAD_FORM process step.
+ *
+ * Displays any `step.viewFields` as read-only context, then shows a download
+ * area with a link when a URL is available in `stepValues`, or a "still
+ * processing" message otherwise.
+ *
+ * @param props - {@link ProcessDownloadStepProps}
+ */
 export function ProcessDownloadStep({
   step,
   stepValues,

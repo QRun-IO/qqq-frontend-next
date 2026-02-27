@@ -1,3 +1,4 @@
+/** DateField — date input form field with label, validation error display, and accessibility attributes */
 'use client'
 
 import React from 'react'
@@ -5,16 +6,34 @@ import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
 
+/**
+ * Props for the {@link DateField} component.
+ */
 interface DateFieldProps {
+  /** The HTML `id` for the `<input>` element and its associated `<label>`. */
   id: string
+  /** Human-readable field label rendered above the input. */
   label: string
+  /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
+  /** Validation error; when present triggers error styling and an error message. */
   error?: FieldError
+  /** When `true`, the input is non-interactive and visually dimmed. */
   disabled?: boolean
+  /** When `true`, an asterisk indicator is shown and `aria-required` is set. */
   required?: boolean
+  /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
 }
 
+/**
+ * Renders an accessible date input field with label and validation error display.
+ *
+ * Uses `<input type="date">` which provides native date picker UI in supported
+ * browsers.  The value format is `YYYY-MM-DD` as managed by the browser.
+ *
+ * @param props - See {@link DateFieldProps}.
+ */
 export function DateField({
   id,
   label,

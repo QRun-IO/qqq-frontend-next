@@ -1,7 +1,13 @@
 'use client'
 
-// Unified slug page — routes to AppHome, RecordQuery, or ProcessRun
-// based on what the slug resolves to in the app metadata
+/**
+ * Unified slug page — serves the route `/app/[slug]` and dispatches to
+ * `AppHome`, `RecordQuery`, or `ProcessRun` based on how the slug resolves
+ * against the QQQ application metadata.
+ *
+ * Route params:
+ * - `slug` — a QQQ app name, table name, process name, or report name.
+ */
 
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
@@ -16,6 +22,20 @@ import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
 
+/**
+ * Renders the appropriate page component for a given `slug` URL segment.
+ *
+ * Resolution priority:
+ * 1. If the slug matches a QQQ **app** → renders `<AppHome>` (dashboard widgets).
+ * 2. If the slug matches a **table** → renders `<RecordQuery>` (data grid + filters).
+ * 3. If the slug matches a **process** → renders `<ProcessRun>` (step wizard).
+ * 4. If the slug matches a **report** → renders a placeholder (future package).
+ * 5. Otherwise → renders an unknown-resource message.
+ *
+ * The page header in QContext is updated whenever the resolution changes.
+ *
+ * @returns The resolved page component, a loading spinner, or an error/unknown state.
+ */
 export default function SlugPage() {
   const params = useParams<{ slug: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()

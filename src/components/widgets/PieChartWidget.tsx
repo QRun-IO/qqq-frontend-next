@@ -1,6 +1,5 @@
+/** PieChartWidget — Recharts-based pie/donut chart widget with legend support. */
 'use client'
-
-// PieChartWidget — Pie/donut chart using Recharts
 
 import React from 'react'
 import {
@@ -12,27 +11,51 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+/** Wire-format payload for a pie-chart widget returned by the backend API. */
 export interface PieChartWidgetPayload {
+  /** Discriminator identifying this as a pie-chart or generic chart widget. */
   type: 'pieChart' | 'chart'
+  /** Optional chart title rendered above the chart. */
   title?: string
+  /** Category labels corresponding to values in the first dataset (Shape B). */
   labels?: string[]
+  /** Dataset array; only the first dataset is used for pie slices (Shape B). */
   datasets?: Array<{ label: string; data: number[]; color?: string }>
+  /** Single-series slice array where each entry maps to one pie wedge (Shape A). */
   data?: Array<{ label: string; value: number; color?: string }>
 }
 
+/** Props accepted by the PieChartWidget component. */
 interface PieChartWidgetProps {
+  /** Typed payload from the widget API response. */
   data: PieChartWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/** Normalized internal representation of a single pie slice. */
 interface PieEntry {
+  /** Display name shown in the legend and tooltip. */
   name: string
+  /** Numeric value determining the slice's arc size. */
   value: number
+  /** Hex color string used to fill the slice. */
   color: string
 }
 
+/** Default color palette cycled through when slice entries do not specify an explicit color. */
 const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316']
 
+/**
+ * Normalizes heterogeneous pie-chart data shapes into a flat array of PieEntry objects.
+ *
+ * Supports two input shapes:
+ * - Shape A: `{ data: [{ label, value, color }] }` — direct slice array.
+ * - Shape B: `{ labels, datasets }` — uses the first dataset's values with labels as names.
+ *
+ * @param data - Raw pie-chart payload from the backend.
+ * @returns Array of normalized pie slice entries with name, value, and color.
+ */
 function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
   // Shape A: { data: [{label, value, color}] }
   if (data.data && data.data.length > 0) {
@@ -56,6 +79,15 @@ function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
   return []
 }
 
+/**
+ * Renders a responsive donut-style pie chart using Recharts.
+ *
+ * Displays a color-coded legend below the chart. Shows an empty-state
+ * message when the normalized data set contains no slice entries.
+ *
+ * @param data - Pie-chart widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   const entries = normalizeData(data)
 

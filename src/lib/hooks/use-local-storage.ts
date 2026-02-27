@@ -1,9 +1,24 @@
+/** use-local-storage — typed localStorage hook with cross-tab sync and SSR safety */
 'use client'
-
-// Typed localStorage hook
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+/**
+ * Manages a single localStorage key as React state with full type safety.
+ *
+ * Features:
+ * - SSR-safe: returns `initialValue` during server-side rendering.
+ * - Cross-tab sync: listens to `storage` events so all open tabs stay in sync.
+ * - Stable setter reference: the setter is memoized per `key` and accepts a
+ *   value or an updater function (same API as `useState`).
+ * - Stable remover reference: `removeValue` always resets to the original
+ *   `initialValue` even if the caller passes an inline object literal.
+ *
+ * @typeParam T - The type of the value stored in localStorage.
+ * @param key - The localStorage key to read from and write to.
+ * @param initialValue - Fallback value used when the key is absent or on SSR.
+ * @returns A tuple of `[storedValue, setValue, removeValue]`.
+ */
 export function useLocalStorage<T>(
   key: string,
   initialValue: T
@@ -22,6 +37,14 @@ export function useLocalStorage<T>(
     }
   })
 
+  /**
+   * Persists a new value to localStorage and updates React state.
+   *
+   * Accepts either a direct value or an updater function, mirroring the `useState` setter API.
+   * Logs a warning (but does not throw) if the write fails (e.g. storage quota exceeded).
+   *
+   * @param value - The new value, or a function that receives the previous value and returns the next.
+   */
   const setValue = useCallback(
     (value: T | ((prev: T) => T)) => {
       setStoredValue((prev) => {
@@ -37,6 +60,11 @@ export function useLocalStorage<T>(
     [key]
   )
 
+  /**
+   * Removes the key from localStorage and resets state to the original `initialValue`.
+   *
+   * Logs a warning (but does not throw) if the removal fails.
+   */
   const removeValue = useCallback(() => {
     setStoredValue(initialValueRef.current)
     try {
@@ -48,6 +76,11 @@ export function useLocalStorage<T>(
 
   // Sync with storage changes from other tabs
   useEffect(() => {
+    /**
+     * Handles the browser `storage` event to keep state in sync across tabs.
+     *
+     * @param e - The StorageEvent fired when another tab writes to localStorage.
+     */
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === key && e.newValue !== null) {
         try {

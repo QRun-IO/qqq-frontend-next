@@ -1,28 +1,50 @@
+/** QuickLinksWidget — Renders a divided list of quick-access links with optional descriptions and external-link indicators. */
 'use client'
-
-// QuickLinksWidget — List of quick-access links with optional icons
 
 import React from 'react'
 import { ExternalLink, ChevronRight } from 'lucide-react'
 
+/** A single navigable link entry within a QuickLinks widget. */
 export interface QuickLink {
+  /** Visible link text. */
   label: string
+  /** Destination URL — may be absolute (external) or relative (internal). */
   url: string
+  /** Optional secondary description shown below the link label. */
   description?: string
+  /** Optional Lucide icon name (currently unused in rendering, reserved for future use). */
   iconName?: string
+  /** When true the link opens in a new tab; auto-detected from absolute URLs when omitted. */
   isExternal?: boolean
 }
 
+/** Wire-format payload for a quick-links widget returned by the backend API. */
 export interface QuickLinksWidgetPayload {
+  /** Discriminator field identifying this as a quick-links widget payload. */
   type: 'quickLinks'
+  /** Ordered array of link entries to display. */
   links: QuickLink[]
 }
 
+/** Props accepted by the QuickLinksWidget component. */
 interface QuickLinksWidgetProps {
+  /** Typed payload from the widget API response. */
   data: QuickLinksWidgetPayload
+  /** Unique widget name used to scope data-qqq-id attributes. */
   widgetName: string
 }
 
+/**
+ * Renders a divided list of navigable quick-access links.
+ *
+ * Automatically detects external links (absolute URLs or `isExternal=true`) and
+ * opens them in a new tab with the appropriate `rel` attribute. Internal links
+ * use a chevron icon; external links use an ExternalLink icon.
+ * Shows an empty-state message when no links are configured.
+ *
+ * @param data - Quick-links widget payload from the backend API.
+ * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ */
 export function QuickLinksWidget({ data, widgetName }: QuickLinksWidgetProps) {
   const { links } = data
 
