@@ -192,9 +192,12 @@ export function EntityForm({
   const activeMutation = isEdit ? updateMutation : insertMutation
   const mutationError = activeMutation.error as Error | null
 
-  const onSubmit = async (values: Record<string, unknown>) => {
-    await activeMutation.mutateAsync(values)
-  }
+  const onSubmit = useCallback(
+    async (values: Record<string, unknown>) => {
+      await activeMutation.mutateAsync(values)
+    },
+    [activeMutation]
+  )
 
   const handleCancel = () => {
     const doCancel = () => {

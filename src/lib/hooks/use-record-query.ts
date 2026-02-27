@@ -116,14 +116,17 @@ function recordQueryReducer(
     case 'SET_COLUMN_VISIBILITY':
       return { ...state, columnVisibility: action.visibility }
 
-    case 'TOGGLE_COLUMN':
+    case 'TOGGLE_COLUMN': {
+      // MED-11: treat undefined (never-toggled) as visible=true before inverting
+      const currentVal = state.columnVisibility[action.fieldName] ?? true
       return {
         ...state,
         columnVisibility: {
           ...state.columnVisibility,
-          [action.fieldName]: !state.columnVisibility[action.fieldName],
+          [action.fieldName]: !currentVal,
         },
       }
+    }
 
     case 'SET_COLUMN_ORDER':
       return { ...state, columnOrder: action.order }
@@ -309,7 +312,8 @@ export function useRecordQuery({
     if (newSearch !== currentSearch) {
       router.replace(`${pathname}?${newSearch}`, { scroll: false })
     }
-  }, [state.pageNum, state.pageSize, state.userFilter, state.quickSearchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
+  // HIGH-1: include router and pathname so the effect uses the current route in concurrent mode
+  }, [state.pageNum, state.pageSize, state.userFilter, state.quickSearchTerm, router, pathname])
 
   // ------------------------------------------------------------------
   // Build the effective filter for API calls

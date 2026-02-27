@@ -45,7 +45,8 @@
       "mcp__circleci-mcp-server__get_build_failure_logs",
       "Bash(cd /Users/james.maes/Git.Local/QRun-IO/qqq-orb && make validate 2>&1)",
       "mcp__circleci-mcp-server__get_job_test_results",
-      "Bash(pnpm typecheck:*)"
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm dev:*)"
     ]
   }
 }

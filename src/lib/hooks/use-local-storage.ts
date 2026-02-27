@@ -2,12 +2,16 @@
 
 // Typed localStorage hook
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function useLocalStorage<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((prev: T) => T)) => void, () => void] {
+  // MED-4: capture initialValue in a ref so removeValue doesn't re-create when
+  // callers pass an inline object literal (new reference on every render)
+  const initialValueRef = useRef(initialValue)
+
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') return initialValue
     try {
@@ -34,13 +38,13 @@ export function useLocalStorage<T>(
   )
 
   const removeValue = useCallback(() => {
-    setStoredValue(initialValue)
+    setStoredValue(initialValueRef.current)
     try {
       localStorage.removeItem(key)
     } catch {
       console.warn(`[useLocalStorage] Failed to remove key: ${key}`)
     }
-  }, [key, initialValue])
+  }, [key])
 
   // Sync with storage changes from other tabs
   useEffect(() => {

@@ -65,7 +65,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (metaData?.branding) {
       setBranding(metaData.branding)
 
-      if (metaData.branding.accentColor) {
+      // MED-3: validate color format before applying to CSS custom properties
+      const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
+      if (metaData.branding.accentColor && ACCENT_COLOR_RE.test(metaData.branding.accentColor)) {
         setAccentColor(metaData.branding.accentColor)
         document.documentElement.style.setProperty(
           '--qqq-accent-color',

@@ -47,7 +47,7 @@ describe('Auth API', () => {
 
     // Pre-populate cache
     localStorage.setItem(
-      'qqqAuthMetadata',
+      'qqqAuthMetadata:/qqq/v1',
       JSON.stringify({ data: mockMetadata, timestamp: Date.now() })
     )
 
@@ -71,7 +71,7 @@ describe('Auth API', () => {
     // Set expired cache (2 hours ago)
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000
     localStorage.setItem(
-      'qqqAuthMetadata',
+      'qqqAuthMetadata:/qqq/v1',
       JSON.stringify({ data: { name: 'old', type: 'MOCK', values: {} }, timestamp: twoHoursAgo })
     )
 
@@ -83,26 +83,26 @@ describe('Auth API', () => {
   })
 
   it('clearAuthMetadataCache should remove the cache entry', async () => {
-    localStorage.setItem('qqqAuthMetadata', JSON.stringify({ data: {}, timestamp: Date.now() }))
+    localStorage.setItem('qqqAuthMetadata:/qqq/v1', JSON.stringify({ data: {}, timestamp: Date.now() }))
 
     const { clearAuthMetadataCache } = await import('./auth')
     clearAuthMetadataCache()
 
-    expect(localStorage.getItem('qqqAuthMetadata')).toBeNull()
+    expect(localStorage.getItem('qqqAuthMetadata:/qqq/v1')).toBeNull()
   })
 
   it('should call logout endpoint and clear cache', async () => {
     const { default: apiClient } = await import('./client')
     vi.mocked(apiClient.post).mockResolvedValue(undefined)
 
-    localStorage.setItem('qqqAuthMetadata', JSON.stringify({ data: {}, timestamp: Date.now() }))
+    localStorage.setItem('qqqAuthMetadata:/qqq/v1', JSON.stringify({ data: {}, timestamp: Date.now() }))
     localStorage.setItem('accessToken', 'test-token')
 
     const { logout } = await import('./auth')
     await logout()
 
     expect(apiClient.post).toHaveBeenCalledWith('/logout')
-    expect(localStorage.getItem('qqqAuthMetadata')).toBeNull()
+    expect(localStorage.getItem('qqqAuthMetadata:/qqq/v1')).toBeNull()
     expect(localStorage.getItem('accessToken')).toBeNull()
   })
 })

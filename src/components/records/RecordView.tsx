@@ -347,7 +347,9 @@ function RecordViewContent({
     updateUrlParam('view', mode, 'tabs')
   }, [updateUrlParam])
 
-  const t1Sections = primarySections.length > 0 ? primarySections : visibleSections
+  // CQ-MED-4: primarySections already captures all sections without an explicit tier
+  // (via the `!s.tier` predicate), so the `|| visibleSections` fallback is redundant.
+  const t1Sections = primarySections
   const parentPk = record.values[tableMetaData.primaryKeyField]
 
   // Build navigateFrom for outgoing record links — tells target page where to return.

@@ -3,8 +3,9 @@
 import type { QAuthenticationMetaData } from '@/types'
 import apiClient from './client'
 
-const AUTH_METADATA_CACHE_KEY = 'qqqAuthMetadata'
-const AUTH_METADATA_TTL = 3600000 // 1 hour in ms
+// HIGH-5: include API base URL in cache key so multi-instance deployments don't share caches
+const AUTH_METADATA_CACHE_KEY = `qqqAuthMetadata:${process.env.NEXT_PUBLIC_API_BASE_URL ?? '/qqq/v1'}`
+const AUTH_METADATA_TTL = 600000 // 10 minutes (down from 1 hour)
 
 export async function getAuthenticationMetaData(): Promise<QAuthenticationMetaData> {
   // Check localStorage cache (only in browser)

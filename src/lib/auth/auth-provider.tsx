@@ -157,7 +157,16 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     try {
       const stored = localStorage.getItem('qqqUser')
       if (stored) {
-        return JSON.parse(stored) as AuthUser
+        const parsed = JSON.parse(stored) as unknown
+        // MED-10: basic shape validation before trusting localStorage data
+        if (
+          parsed !== null &&
+          typeof parsed === 'object' &&
+          'name' in parsed &&
+          typeof (parsed as Record<string, unknown>).name === 'string'
+        ) {
+          return parsed as AuthUser
+        }
       }
     } catch {
       // Ignore parse errors

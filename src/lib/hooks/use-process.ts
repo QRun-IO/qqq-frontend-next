@@ -212,6 +212,13 @@ export function useProcess(
         }
         return
       }
+
+      // HIGH-4: catch-all — none of the type guards matched, freeze-proof the state
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        errorMessage: 'Received an unrecognized response from the server.',
+      }))
     },
     [resolveStep, isLastStepCheck]
   )
@@ -261,9 +268,8 @@ export function useProcess(
   const initMutation = useMutation({
     mutationFn: (request: ProcessInitRequest) => processInit(processName, request),
     onSuccess: (response) => {
-      // processUUID comes from the response itself
-      const pUUID = (response as QJobResponse & { processUUID?: string }).processUUID ?? ''
-      handleJobResponse(response, pUUID)
+      // All QJobResponse subtypes carry processUUID — no cast needed (HIGH-3)
+      handleJobResponse(response, response.processUUID)
     },
     onError: (err) => {
       setState((prev) => ({
