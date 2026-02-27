@@ -93,8 +93,8 @@ export interface UseProcessReturn {
   initProcess: (request?: ProcessInitRequest) => Promise<void>
   /** Submit the current step */
   submitStep: (values: Record<string, unknown>, file?: File) => Promise<void>
-  /** Go back to the previous step */
-  goBack: () => void
+  /** Go back to the previous step (submits `_goBack` to the server when initialised) */
+  goBack: () => Promise<void>
   /** Cancel the process and navigate away */
   cancel: () => Promise<void>
 }
@@ -491,19 +491,33 @@ export function useProcess(
   // ─── Go Back ──────────────────────────────────────────────────────────────
 
   /**
-   * Navigate the UI back to the previous step without making an API call.
+   * Navigate back to the previous process step.
    *
-   * Back-navigation logic is intentionally client-side only: the server does not
-   * need to be notified because step values are preserved in `state.stepValues` and
-   * the user can re-submit the previous step with the same or modified values.
-   * A no-op when already on the first step (`currentIdx <= 0`).
+   * When a `processUUID` exists (the process has been initialised on the server),
+   * submits the reserved `_goBack` step name so the server can roll back its own
+   * state and return the correct previous-step metadata. The response is routed
+   * through `handleJobResponse` exactly like any other step submission.
+   *
+   * Falls back to pure client-side navigation when `processUUID` is null (i.e.
+   * the process was never initialised, which can happen in test scenarios). In
+   * that case the client rewinds the step list locally without contacting the
+   * server. A no-op when already on the first step (`currentIdx <= 0`).
    */
-  const goBack = useCallback(() => {
-    // The back step logic is managed by the server; for the UI, we
-    // just re-set the current step to the step before current in the list
+  const goBack = useCallback(async () => {
     const steps = stepsRef.current
     const currentIdx = steps.findIndex((s) => s.name === stateRef.current.currentStep?.name)
-    if (currentIdx > 0) {
+    if (currentIdx <= 0) return
+
+    if (stateRef.current.processUUID) {
+      // MED-8: submit _goBack to the server so it can roll back server-side state
+      // and return the correct previous-step metadata.
+      setState((prev) => ({ ...prev, status: 'running' }))
+      await stepMutation.mutateAsync({
+        stepName: '_goBack',
+        request: { values: {} },
+      })
+    } else {
+      // Fallback: process not yet initialised — navigate client-side only.
       const prevStep = steps[currentIdx - 1]
       setState((prev) => ({
         ...prev,
@@ -512,7 +526,7 @@ export function useProcess(
         isLastStep: isLastStepCheck(prevStep.name),
       }))
     }
-  }, [isLastStepCheck])
+  }, [isLastStepCheck, stepMutation])
 
   // ─── Cancel ───────────────────────────────────────────────────────────────
 
