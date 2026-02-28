@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src",
+    "lint": "eslint src && node scripts/check-license-headers.mjs",
+    "lint:license": "node scripts/check-license-headers.mjs",
+    "lint:license:fix": "node scripts/check-license-headers.mjs --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -15,6 +17,7 @@
     "test:e2e": "playwright test",
     "tsc": "tsc",
     "typecheck": "tsc --noEmit",
+    "prepare": "git config core.hooksPath .githooks || true",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

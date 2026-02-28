@@ -1,0 +1,10 @@
+#!/bin/sh
+# .githooks/pre-commit
+#
+# Enforces the Apache 2.0 license header on all staged TypeScript/TSX files.
+# Registered automatically via "prepare" in package.json.
+#
+# To install hooks manually:
+#   git config core.hooksPath .githooks
+
+pnpm lint:license
