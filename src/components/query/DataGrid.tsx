@@ -103,6 +103,8 @@ export function DataGrid({
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null)
   // MED-12: track active resize handlers so they can be removed if the component unmounts mid-drag
   const activeResizeRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null)
+  // MED-27: ref to the <table> element for arrow-key cell navigation
+  const tableRef = useRef<HTMLTableElement>(null)
 
   /**
    * Computes the ordered list of visible fields by filtering out hidden fields, applying
@@ -357,6 +359,57 @@ export function DataGrid({
     [router, tableName, tableMetaData.primaryKeyField]
   )
 
+  // ------------------------------------------------------------------
+  // MED-27: Arrow-key keyboard navigation between cells
+  // ------------------------------------------------------------------
+  /**
+   * Handles ArrowUp/ArrowDown/ArrowLeft/ArrowRight key events on table cells.
+   *
+   * Queries all body `<td>` elements via the table ref and moves focus to the
+   * adjacent cell in the pressed direction. Cells are ordered row-by-row so that
+   * column index can be derived from `cellIndex % columnCount`.
+   *
+   * @param e - The keyboard event fired on a focused `<td>`.
+   */
+  const handleCellKeyDown = useCallback((e: React.KeyboardEvent<HTMLTableCellElement>) => {
+    const { key } = e
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return
+
+    const table = tableRef.current
+    if (!table) return
+
+    const cells = Array.from(table.querySelectorAll<HTMLTableCellElement>('tbody td'))
+    if (cells.length === 0) return
+
+    const focused = e.currentTarget
+    const currentIdx = cells.indexOf(focused)
+    if (currentIdx === -1) return
+
+    // Determine column count from the first tbody row
+    const firstRow = table.querySelector('tbody tr')
+    const columnCount = firstRow ? firstRow.querySelectorAll('td').length : 1
+
+    let nextIdx: number | null = null
+    if (key === 'ArrowDown') {
+      nextIdx = currentIdx + columnCount
+    } else if (key === 'ArrowUp') {
+      nextIdx = currentIdx - columnCount
+    } else if (key === 'ArrowRight') {
+      // Stay within the same row — wrap only if not at the last column
+      const isLastInRow = (currentIdx + 1) % columnCount === 0
+      if (!isLastInRow) nextIdx = currentIdx + 1
+    } else if (key === 'ArrowLeft') {
+      // Stay within the same row — wrap only if not at the first column
+      const isFirstInRow = currentIdx % columnCount === 0
+      if (!isFirstInRow) nextIdx = currentIdx - 1
+    }
+
+    if (nextIdx !== null && nextIdx >= 0 && nextIdx < cells.length) {
+      e.preventDefault()
+      cells[nextIdx].focus()
+    }
+  }, [])
+
   const cellClass = DENSITY_CELL_CLASS[density]
   const rowClass = DENSITY_ROW_CLASS[density]
 
@@ -432,7 +485,7 @@ export function DataGrid({
         </div>
       )}
 
-      <table className="w-full border-collapse table-fixed min-w-[600px]" role="grid" aria-label={`${tableMetaData.label} records`}>
+      <table ref={tableRef} className="w-full border-collapse table-fixed min-w-[600px]" role="grid" aria-label={`${tableMetaData.label} records`}>
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
@@ -494,9 +547,11 @@ export function DataGrid({
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
-                  className={`overflow-hidden ${cellClass}`}
+                  className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass}`}
                   style={{ width: `${cell.column.getSize()}px` }}
                   data-qqq-id={`grid-cell-${cell.column.id}`}
+                  tabIndex={0}
+                  onKeyDown={handleCellKeyDown}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

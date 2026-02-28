@@ -65,6 +65,14 @@ export interface StatisticsWidgetPayload {
     /** Context label appended after the percentage. */
     label: string
   }
+  /**
+   * When true, renders a compact single-line layout suitable for dense dashboards.
+   *
+   * The mini variant shows a small icon placeholder, the value, and the label inline
+   * using reduced font sizes, and omits trend indicators and secondary metrics.
+   * Can also be set per-tile via `values.mini` in widget metadata.
+   */
+  mini?: boolean
 }
 
 /** Props accepted by the StatisticsWidget component. */
@@ -83,10 +91,15 @@ interface StatisticsWidgetProps {
  * StatTileCard. Column count adjusts automatically based on tile count
  * (1→1 col, 2→2 cols, 3→3 cols, 4+→4 cols on large screens).
  *
+ * When `data.mini === true`, renders each tile via `StatTileMini` instead —
+ * a single-line compact layout suitable for dense dashboards or sidebar panels.
+ *
  * @param data - Statistics widget payload from the backend API.
  * @param widgetName - Widget name scoped to data-qqq-id attributes.
  */
 export function StatisticsWidget({ data, widgetName }: StatisticsWidgetProps) {
+  const isMini = data.mini === true
+
   // Normalize to array of tiles
   const tiles: StatTile[] = data.statistics
     ? data.statistics
@@ -98,6 +111,24 @@ export function StatisticsWidget({ data, widgetName }: StatisticsWidgetProps) {
           trend: data.trend,
         },
       ]
+
+  if (isMini) {
+    return (
+      <div
+        className="flex flex-col gap-1"
+        data-qqq-id={`statistics-mini-${widgetName}`}
+      >
+        {tiles.map((tile, idx) => (
+          <StatTileMini
+            key={`${widgetName}-mini-${idx}`}
+            tile={tile}
+            widgetName={widgetName}
+            index={idx}
+          />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -181,6 +212,54 @@ function StatTileCard({ tile, widgetName, index }: StatTileCardProps) {
       {description && !trend && (
         <span className="text-sm text-muted-foreground">{description}</span>
       )}
+    </div>
+  )
+}
+
+/** Props accepted by the internal StatTileMini helper component. */
+interface StatTileMiniProps {
+  /** The stat tile data to render in compact form. */
+  tile: StatTile
+  /** Parent widget name used for data-qqq-id scoping. */
+  widgetName: string
+  /** Zero-based index of this tile within the list. */
+  index: number
+}
+
+/**
+ * Renders a single KPI metric tile in the compact mini variant.
+ *
+ * Displays value and label on a single line using reduced font sizes.
+ * An optional unit suffix is shown immediately after the value. Trend indicators
+ * and secondary descriptions are omitted to keep the layout minimal.
+ *
+ * @param tile - The stat tile data to display.
+ * @param widgetName - Parent widget name for data-qqq-id scoping.
+ * @param index - Position of the tile within the list (used in data-qqq-id).
+ */
+function StatTileMini({ tile, widgetName, index }: StatTileMiniProps) {
+  const { label, value, unit } = tile
+
+  return (
+    <div
+      className="flex items-center gap-2 px-2 py-1"
+      data-qqq-id={`stat-mini-${widgetName}-${index}`}
+    >
+      <span
+        className="text-sm font-semibold text-foreground tabular-nums"
+        data-qqq-id={`stat-mini-value-${widgetName}-${index}`}
+      >
+        {value}
+        {unit && (
+          <span className="ml-0.5 text-xs font-normal text-muted-foreground">{unit}</span>
+        )}
+      </span>
+      <span
+        className="text-xs text-muted-foreground truncate"
+        data-qqq-id={`stat-mini-label-${widgetName}-${index}`}
+      >
+        {label}
+      </span>
     </div>
   )
 }

@@ -18,6 +18,33 @@ import {
 
 import type { ChartDataset } from '@/types'
 
+/**
+ * A single item within a `seriesData` entry for Shape C multi-series data.
+ *
+ * Each item represents one bar on the category axis with a label and numeric value.
+ */
+export interface SeriesDataItem {
+  /** Category label shown on the axis. */
+  label: string
+  /** Numeric value for this item. */
+  value: number
+}
+
+/**
+ * A single named series within the Shape C `seriesData` array.
+ *
+ * This is an alternative multi-series format where each series carries its own
+ * label/value pairs rather than sharing a common labels array.
+ */
+export interface SeriesEntry {
+  /** Human-readable name for this series (shown in legend). */
+  name: string
+  /** Optional CSS color applied to this series' bars. */
+  color?: string
+  /** Ordered data items for this series. */
+  data: SeriesDataItem[]
+}
+
 /** Wire-format payload for a bar-chart widget returned by the backend API. */
 export interface BarChartWidgetPayload {
   /** Discriminator identifying this as a bar-chart or generic chart widget. */
@@ -30,7 +57,12 @@ export interface BarChartWidgetPayload {
   data?: Array<{ label: string; value: number; color?: string }>
   /** Multi-series dataset array (Shape A). */
   datasets?: ChartDataset[]
-  /** When 'horizontal', renders bars horizontally (Recharts layout="vertical") */
+  /**
+   * Alternative multi-series format (Shape C): array of named series each with
+   * their own `{ label, value }` data pairs. Takes precedence over `datasets`.
+   */
+  seriesData?: SeriesEntry[]
+  /** When 'horizontal', renders bars horizontally (Recharts layout="vertical"). When 'vertical', renders standard vertical bars (default). */
   orientation?: 'vertical' | 'horizontal'
   /** When true, bars in multi-series datasets are stacked */
   stacked?: boolean
@@ -47,8 +79,9 @@ interface BarChartWidgetProps {
 /**
  * Normalizes heterogeneous bar-chart data shapes into a unified Recharts-compatible form.
  *
- * Supports two input shapes:
- * - Shape A: `{ labels, datasets }` — multi-series with named datasets.
+ * Supports three input shapes, evaluated in priority order:
+ * - Shape C: `{ seriesData: [{ name, color, data: [{label, value}] }] }` — named series with inline data.
+ * - Shape A: `{ labels, datasets }` — multi-series with a shared labels array.
  * - Shape B: `{ data: [{ label, value, color }] }` — single series.
  *
  * @param data - Raw bar-chart payload from the backend.
@@ -57,6 +90,34 @@ interface BarChartWidgetProps {
 function normalizeChartData(
   data: BarChartWidgetPayload
 ): { entries: Record<string, string | number>[]; dataKeys: Array<{ key: string; color: string; stack?: string }> } {
+  // Shape C: { seriesData } -- each series carries its own label/value pairs
+  if (data.seriesData && data.seriesData.length > 0) {
+    // Collect the union of all labels across all series to build a complete x-axis
+    const labelSet = new Set<string>()
+    for (const series of data.seriesData) {
+      for (const item of series.data) {
+        labelSet.add(item.label)
+      }
+    }
+    const allLabels = Array.from(labelSet)
+
+    const entries = allLabels.map((label) => {
+      const row: Record<string, string | number> = { label }
+      for (const series of data.seriesData!) {
+        const item = series.data.find((d) => d.label === label)
+        row[series.name] = item?.value ?? 0
+      }
+      return row
+    })
+
+    const dataKeys = data.seriesData.map((series, i) => ({
+      key: series.name,
+      color: series.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+      stack: data.stacked ? 'stack' : undefined,
+    }))
+    return { entries, dataKeys }
+  }
+
   // Shape A: { labels, datasets } -- multi-series
   if (data.labels && data.datasets && data.datasets.length > 0) {
     const entries = data.labels.map((label, i) => {
