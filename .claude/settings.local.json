@@ -46,7 +46,14 @@
       "Bash(cd /Users/james.maes/Git.Local/QRun-IO/qqq-orb && make validate 2>&1)",
       "mcp__circleci-mcp-server__get_job_test_results",
       "Bash(pnpm typecheck:*)",
-      "Bash(pnpm dev:*)"
+      "Bash(pnpm dev:*)",
+      "Bash(python3:*)",
+      "Bash(echo Exit: $?:*)",
+      "Bash(gh api:*)",
+      "Bash(pnpm why:*)",
+      "Bash(npm view:*)",
+      "Bash(chmod +x:*)",
+      "Bash(done)"
     ]
   }
 }

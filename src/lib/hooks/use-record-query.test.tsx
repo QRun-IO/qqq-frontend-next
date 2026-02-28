@@ -262,15 +262,29 @@ describe('useRecordQuery — column actions', () => {
 })
 
 describe('useRecordQuery — row selection', () => {
-  it('setRowSelection updates selection map', () => {
+  it('setRowSelection updates selection map keyed by primary-key strings', () => {
     const { result } = renderHook(
       () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.selection.setRowSelection({ '0': true, '1': false }))
-    expect(result.current.selection.rowSelection['0']).toBe(true)
-    expect(result.current.selection.rowSelection['1']).toBe(false)
+    // Keys must be PK values (e.g. '42', '99'), not array indices
+    act(() => result.current.selection.setRowSelection({ '42': true, '99': false }))
+    expect(result.current.selection.rowSelection['42']).toBe(true)
+    expect(result.current.selection.rowSelection['99']).toBe(false)
+  })
+
+  it('selectedRecordIds derives numeric PK values from rowSelection keys', () => {
+    const { result } = renderHook(
+      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      { wrapper: createWrapper() }
+    )
+
+    // Simulate DataGrid/RecordCardView writing PK strings into rowSelection
+    act(() => result.current.selection.setRowSelection({ '42': true, '99': true, '7': false }))
+    // Numeric-looking PK strings are converted to numbers for backend compatibility
+    expect(result.current.selection.selectedRecordIds).toEqual([42, 99])
+    expect(result.current.selection.selectedRecordIds).not.toContain(7)
   })
 
   it('clearRowSelection empties selection', () => {
@@ -279,9 +293,10 @@ describe('useRecordQuery — row selection', () => {
       { wrapper: createWrapper() }
     )
 
-    act(() => result.current.selection.setRowSelection({ '0': true, '1': true }))
+    act(() => result.current.selection.setRowSelection({ '42': true, '99': true }))
     act(() => result.current.selection.clearRowSelection())
     expect(result.current.selection.rowSelection).toEqual({})
+    expect(result.current.selection.selectedRecordIds).toEqual([])
   })
 })
 

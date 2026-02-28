@@ -16,8 +16,21 @@
 
 'use client'
 
-// OAuth2 callback page — handles the redirect from authorization server
-// Wrapped in Suspense because it uses useSearchParams()
+// OAuth2 / Auth0 callback page — handles the redirect from the authorization server.
+//
+// After a successful PKCE redirect from the login page the IdP returns the user
+// here with `?code=...&state=...` query parameters.  This page:
+//
+//   1. Validates that `state` matches the nonce stored in sessionStorage (CSRF guard).
+//   2. Retrieves the `pkce_code_verifier` stored by the login page.
+//   3. Calls `handleOAuthCallback(code, state, codeVerifier)` which:
+//        a. Re-validates the state nonce.
+//        b. Posts the code + verifier to the QQQ backend via `manageSession`.
+//        c. The backend exchanges the code + verifier with the IdP and issues a
+//           session cookie.
+//   4. Redirects to `oauth2ReturnTo` (set by the login page) or '/'.
+//
+// Wrapped in Suspense because it uses useSearchParams().
 
 import React, { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -51,14 +64,20 @@ function CallbackContent() {
       return
     }
 
-    handleOAuthCallback(code, state)
+    // Retrieve the PKCE code_verifier that the login page stored before
+    // redirecting to the IdP.  This is forwarded to the backend so it can
+    // complete the authorization-code → access-token exchange.
+    const codeVerifier = sessionStorage.getItem('pkce_code_verifier') ?? undefined
+    sessionStorage.removeItem('pkce_code_verifier')
+
+    handleOAuthCallback(code, state, codeVerifier)
       .then(() => {
-        // Get stored returnTo from session storage or default to home
+        // Retrieve the post-login destination that was saved before the redirect.
         const returnTo = sessionStorage.getItem('oauth2ReturnTo') ?? '/'
         sessionStorage.removeItem('oauth2ReturnTo')
         router.replace(returnTo)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[Callback] Failed to handle callback:', err)
         router.replace('/login?error=callback_failed')
       })

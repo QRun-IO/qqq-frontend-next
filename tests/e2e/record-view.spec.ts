@@ -2,6 +2,7 @@
 
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
+import { checkA11y } from './a11y-helpers'
 
 async function waitForAppReady(page: import('@playwright/test').Page) {
   await page
@@ -33,6 +34,7 @@ test.describe('Record View (detail page)', () => {
 
   test('displays record view for person 1', async ({ page }) => {
     await expect(page.locator('[data-qqq-id="record-view-person"]')).toBeVisible()
+    await checkA11y(page)
   })
 
   test('record view has action buttons', async ({ page }) => {

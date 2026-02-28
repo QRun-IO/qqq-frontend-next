@@ -30,6 +30,7 @@ import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { queryKeys } from '@/lib/query-client'
 import { toast } from '@/lib/hooks/use-toast'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 
 /**
  * Props for the GlobalSearch component.
@@ -113,19 +114,33 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
     data: searchResults = [],
     isLoading: isSearching,
     isError: isSearchError,
+    error: searchError,
   } = useQuery<GlobalSearchResult[]>({
     queryKey: queryKeys.globalSearch(debouncedTerm),
     queryFn: () => globalSearch(debouncedTerm),
     enabled: debouncedTerm.length >= 2,
     staleTime: 1000 * 30, // 30 seconds
+    retry: false,
   })
 
-  // Toast on search error
+  // Toast on search error — 401 is handled by the global axios interceptor
+  // (redirect to login), so we skip the toast to avoid noise during the redirect.
+  // 403 shows a specific permissions message. All other errors (5xx, network)
+  // show the generic "Search failed" toast.
   useEffect(() => {
-    if (isSearchError) {
-      toast.error('Search failed')
+    if (!isSearchError) return
+    const status = getErrorStatusCode(searchError)
+    if (status === 401) {
+      // The global 401 interceptor already triggers a redirect to login;
+      // suppress the toast so it does not flash before the navigation completes.
+      return
     }
-  }, [isSearchError])
+    if (status === 403) {
+      toast.error('Search not available — insufficient permissions')
+      return
+    }
+    toast.error('Search failed')
+  }, [isSearchError, searchError])
 
   // Load recent records when dropdown opens
   useEffect(() => {
@@ -401,7 +416,11 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
 
             {/* Error state */}
             {isSearchError && (
-              <p className="px-3 py-2 text-sm text-destructive">Search unavailable</p>
+              <p className="px-3 py-2 text-sm text-destructive">
+                {getErrorStatusCode(searchError) === 403
+                  ? 'Search not available — insufficient permissions'
+                  : 'Search unavailable'}
+              </p>
             )}
 
             {/* Empty state */}

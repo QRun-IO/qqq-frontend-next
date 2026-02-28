@@ -55,6 +55,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.4",
     "@playwright/test": "^1.50.1",
     "@storybook/addon-essentials": "^8.6.14",

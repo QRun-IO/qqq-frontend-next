@@ -64,10 +64,13 @@ export interface AuthContextType {
   /**
    * Handles the OAuth2/PKCE redirect callback.
    *
-   * @param code - The authorization code returned by the identity provider.
-   * @param state - The state nonce returned by the identity provider (validated against sessionStorage).
+   * @param code         - The authorization code returned by the identity provider.
+   * @param state        - The state nonce returned by the identity provider (validated against sessionStorage).
+   * @param codeVerifier - Optional PKCE code_verifier retrieved from sessionStorage by the
+   *   callback page. When provided it is forwarded to the backend so it can complete the
+   *   authorization-code → token exchange with the IdP.
    */
-  handleOAuthCallback: (code: string, state: string) => Promise<void>
+  handleOAuthCallback: (code: string, state: string, codeVerifier?: string) => Promise<void>
 }
 
 /**
@@ -199,40 +202,56 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   }, [onAuthError])
 
   /**
-   * Initializes an Auth0 session.
+   * Validates an existing Auth0 backend session on provider mount.
    *
-   * Validates the existing backend session cookie by calling `manageSession`.
-   * The full Auth0 PKCE login flow is handled by the login page; this function
-   * only confirms that a live session already exists.
+   * This function is called by the `initAuth` effect when the auth type is
+   * `AUTH_0`.  It does NOT initiate the Auth0 PKCE login flow — that is driven
+   * entirely by the login page (`/login`) which builds the authorization URL,
+   * generates PKCE credentials, and redirects the browser to the Auth0
+   * `/authorize` endpoint.
    *
-   * @param authMeta - Authentication metadata from the backend (unused directly — Auth0 PKCE is page-driven).
+   * Here we only confirm that a live backend session cookie already exists by
+   * calling `manageSession('')`.  If the backend returns 401 (no session),
+   * `manageSession` throws, `isAuthenticated` stays `false`, and the
+   * middleware or `setupAuth0Session`'s caller redirects to the login page —
+   * which then starts the PKCE redirect sequence.
+   *
+   * Session lifecycle:
+   *   1. Login page → PKCE redirect → Auth0 `/authorize`
+   *   2. Auth0 → `/auth/callback?code=...&state=...`
+   *   3. Callback page → `handleOAuthCallback(code, state, verifier)`
+   *   4. `handleOAuthCallback` → `manageSession(code, verifier)` → session cookie
+   *   5. On next mount `setupAuth0Session` → `manageSession('')` → confirms session
+   *
+   * @param authMeta - Auth metadata from the backend (used for type narrowing only).
    */
   async function setupAuth0Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
-    // Auth0 flow: validate the existing session cookie against the backend.
-    // Call manageSession with an empty token; the backend will return 401 if no
-    // valid session cookie exists, which rejects this promise and leaves
-    // isAuthenticated=false, triggering a redirect to login.
-    void authMeta // full Auth0 PKCE flow handled by the login page
-    await manageSession('') // throws on 401 — intentional: proves live session
+    void authMeta // PKCE flow is page-driven; this function only validates the session
+    await manageSession('') // throws 401 when no live session exists
     const storedUser = getStoredUser()
     return storedUser ?? { name: 'User', email: 'user@example.com' }
   }
 
   /**
-   * Initializes an OAuth2/OIDC session.
+   * Validates an existing OAuth2/OIDC backend session on provider mount.
    *
-   * Validates the existing backend session cookie by calling `manageSession`.
-   * The full OAuth2 PKCE login flow is handled by the login page; this function
-   * only confirms that a live session already exists.
+   * Mirrors `setupAuth0Session` for the `OAUTH2` auth type.  The PKCE login
+   * flow (code_verifier generation, authorization URL construction, IdP redirect)
+   * is handled by the login page.  This function only checks that a valid
+   * backend session cookie is already present.
    *
-   * @param authMeta - Authentication metadata from the backend (unused directly — OAuth2 PKCE is page-driven).
+   * Session lifecycle:
+   *   1. Login page → PKCE redirect → IdP `/authorize`
+   *   2. IdP → `/auth/callback?code=...&state=...`
+   *   3. Callback page → `handleOAuthCallback(code, state, verifier)`
+   *   4. `handleOAuthCallback` → `manageSession(code, verifier)` → session cookie
+   *   5. On next mount `setupOAuth2Session` → `manageSession('')` → confirms session
+   *
+   * @param authMeta - Auth metadata from the backend (used for type narrowing only).
    */
   async function setupOAuth2Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
-    // OAuth2/OIDC flow: validate the existing session cookie against the backend.
-    // Same approach as Auth0: call manageSession so the backend can reject stale
-    // or missing sessions with 401 before we mark the user as authenticated.
-    void authMeta // full OAuth2/PKCE flow handled by the login page
-    await manageSession('') // throws on 401 — intentional: proves live session
+    void authMeta // PKCE flow is page-driven; this function only validates the session
+    await manageSession('') // throws 401 when no live session exists
     const storedUser = getStoredUser()
     return storedUser ?? { name: 'User', email: 'user@example.com' }
   }
@@ -292,10 +311,13 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    * session via `manageSession`. Throws if the state is invalid or the exchange
    * fails, leaving `isAuthenticated` as `false`.
    *
-   * @param code - The authorization code returned by the identity provider.
-   * @param state - The state nonce returned by the identity provider.
+   * @param code         - The authorization code returned by the identity provider.
+   * @param state        - The state nonce returned by the identity provider.
+   * @param codeVerifier - Optional PKCE code_verifier forwarded to the backend so it
+   *   can complete the authorization-code → token exchange. The callback page retrieves
+   *   this from `sessionStorage` (key: `'pkce_code_verifier'`) before calling this fn.
    */
-  async function handleOAuthCallback(code: string, state: string) {
+  async function handleOAuthCallback(code: string, state: string, codeVerifier?: string) {
     // OAuth2/PKCE callback: validate state nonce, then exchange the authorization
     // code for a backend session via manageSession.
     const storedState = sessionStorage.getItem('oauth_state')
@@ -307,7 +329,8 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     // Exchange the authorization code for a QQQ session.
     // The backend (via manageSession) validates the code with the IdP and
     // issues a session cookie. Throws on failure — isAuthenticated stays false.
-    await manageSession(code)
+    // Pass the PKCE verifier so the backend can complete the token exchange.
+    await manageSession(code, codeVerifier)
     const storedUser = getStoredUser()
     setIsAuthenticated(true)
     setUser(storedUser ?? { name: 'User', email: 'user@example.com' })

@@ -16,7 +16,84 @@
 
 /** query-client — TanStack Query v5 client configuration and centralized query key factory */
 
-import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query'
+import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
+
+/**
+ * Returns a toast message for a query/mutation error based on HTTP status.
+ *
+ * 401 responses are silently ignored — the axios interceptor already redirects
+ * to login, so surfacing a toast would be redundant and confusing.
+ *
+ * @param error - The unknown error thrown by the query or mutation.
+ * @param context - `'query'` or `'mutation'` — selects message wording.
+ */
+function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
+  const status = getErrorStatusCode(error)
+
+  if (status === 401) {
+    // Already handled by the axios interceptor (→ redirect to login).
+    return
+  }
+
+  if (status === 403) {
+    if (context === 'mutation') {
+      toast.error('You do not have permission to perform this action')
+    } else {
+      toast.error('Permission denied')
+    }
+    return
+  }
+
+  if (status === 404) {
+    toast.error('Resource not found')
+    return
+  }
+
+  if (status !== undefined && status >= 500) {
+    if (context === 'mutation') {
+      toast.error('Server error — please try again')
+    } else {
+      toast.error('Server error — retrying…')
+    }
+    return
+  }
+
+  // Network failure (no status) or unexpected status codes.
+  if (context === 'mutation') {
+    toast.error('Something went wrong')
+  } else {
+    toast.error('Something went wrong')
+  }
+}
+
+/**
+ * Smart retry predicate used for both queries and mutations.
+ *
+ * - Never retries 4xx client errors — these are deterministic failures.
+ * - Retries server errors (5xx) and network failures up to 3 times with
+ *   exponential back-off capped at 30 seconds.
+ *
+ * @param failureCount - Number of failed attempts so far (0-indexed for retryDelay, 1-indexed here).
+ * @param error - The error from the most recent attempt.
+ */
+function smartRetry(failureCount: number, error: unknown): boolean {
+  const status = getErrorStatusCode(error)
+  if (status !== undefined && status >= 400 && status < 500) return false
+  return failureCount < 3
+}
+
+/**
+ * Exponential back-off with a 30-second ceiling.
+ *
+ * Delays: 1 s → 2 s → 4 s → 8 s … capped at 30 s.
+ *
+ * @param attemptIndex - Zero-based attempt index (0 = first retry).
+ */
+function exponentialBackoff(attemptIndex: number): number {
+  return Math.min(1000 * 2 ** attemptIndex, 30_000)
+}
 
 /**
  * Singleton TanStack Query client shared across the application.
@@ -24,19 +101,29 @@ import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query'
  * Configured with conservative defaults suitable for a metadata-driven admin UI:
  * - 5-minute stale time so metadata and record lists stay fresh without excessive refetching.
  * - 10-minute GC time keeps recently visited pages snappy when navigating back.
- * - Single retry for queries; zero retries for mutations (mutations should be idempotent or surfaced to the user).
+ * - Smart retry logic: never retries 4xx errors; retries server errors up to 3 times.
+ * - Global `QueryCache.onError` and `MutationCache.onError` surface toast notifications
+ *   for all unhandled API errors without requiring per-call error handling.
  * - Pending queries are included in dehydration so SSR can pass them to the client shell.
  */
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => handleQueryError(error, 'query'),
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => handleQueryError(error, 'mutation'),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes default
       gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
-      retry: 1,
+      retry: smartRetry,
+      retryDelay: exponentialBackoff,
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: 0,
+      retry: smartRetry,
+      retryDelay: exponentialBackoff,
     },
     dehydrate: {
       shouldDehydrateQuery: (query) =>

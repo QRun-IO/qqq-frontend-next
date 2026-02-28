@@ -101,18 +101,36 @@ export interface SessionResponse {
 }
 
 /**
- * Establishes or refreshes a QQQ server session by posting the caller's access token
- * to `POST /manageSession` as multipart/form-data.
+ * Establishes or refreshes a QQQ server session by posting the caller's
+ * authorization code (or access token) to `POST /manageSession` as
+ * multipart/form-data.
  *
- * On success the server sets a `sessionUUID` cookie that is included automatically
- * in all subsequent requests via `withCredentials: true`.
+ * In the PKCE flow the `accessToken` field carries the authorization code
+ * returned by the IdP. The `codeVerifier` (when supplied) allows the backend
+ * to complete the PKCE token exchange with the IdP on behalf of the client.
  *
- * @param accessToken - A valid OAuth / Auth0 access token issued to the current user.
+ * On success the server sets a `sessionUUID` cookie that is included
+ * automatically in all subsequent requests via `withCredentials: true`.
+ *
+ * @param accessToken  - The authorization code or access token to exchange.
+ * @param codeVerifier - Optional PKCE code_verifier. Required when the
+ *   backend is configured to perform the authorization-code → token exchange
+ *   itself (i.e. when `accessToken` is an authorization code, not a token).
+ *   Omit for anonymous / pre-obtained access-token flows.
  * @returns Session metadata including the server-assigned UUID.
  */
-export async function manageSession(accessToken: string): Promise<SessionResponse> {
+export async function manageSession(
+  accessToken: string,
+  codeVerifier?: string
+): Promise<SessionResponse> {
   const formData = new FormData()
   formData.append('accessToken', accessToken)
+
+  // Include the PKCE verifier when provided so the backend can complete the
+  // authorization-code exchange with the identity provider.
+  if (codeVerifier) {
+    formData.append('codeVerifier', codeVerifier)
+  }
 
   return apiClient.post<SessionResponse>('/manageSession', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

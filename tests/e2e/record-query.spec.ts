@@ -2,6 +2,7 @@
 
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
+import { checkA11y } from './a11y-helpers'
 
 async function waitForAppReady(page: import('@playwright/test').Page) {
   await page
@@ -48,6 +49,7 @@ test.describe('Record Query (list view)', () => {
     const rows = page.locator('[data-qqq-id^="grid-row-"]')
     const count = await rows.count()
     expect(count).toBeGreaterThan(0)
+    await checkA11y(page)
   })
 
   test('toolbar contains action buttons', async ({ page }) => {

@@ -33,8 +33,8 @@ export interface QRecord {
   recordLabel: string
   /** Raw field values keyed by field name. */
   values: Record<string, unknown>
-  /** Pre-formatted display strings keyed by field name, ready to render without transformation. */
-  displayValues: Record<string, string>
+  /** Pre-formatted display strings keyed by field name, ready to render without transformation. Optional — not all backend endpoints return display values. */
+  displayValues?: Record<string, string>
   /** Optional map of relationship name → associated records for joined or child data. */
   associatedRecords?: Record<string, QRecord[]>
   /** Validation or server-side errors associated with this record (used in bulk operations). */

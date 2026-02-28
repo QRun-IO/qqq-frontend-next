@@ -35,11 +35,12 @@ function groupByTable(
 ): Map<string, { tableName: string; records: GlobalSearchResult[] }> {
   const groups = new Map<string, { tableName: string; records: GlobalSearchResult[] }>()
   for (const result of results) {
-    const existing = groups.get(result.tableLabel)
+    const groupKey = result.tableLabel ?? result.tableName
+    const existing = groups.get(groupKey)
     if (existing) {
       existing.records.push(result)
     } else {
-      groups.set(result.tableLabel, {
+      groups.set(groupKey, {
         tableName: result.tableName,
         records: [result],
       })

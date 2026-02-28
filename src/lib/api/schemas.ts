@@ -38,15 +38,29 @@ import { z } from 'zod'
 /**
  * Zod schema for a single QQQ record.
  *
- * `values` may contain any serialisable type; `displayValues`, when present,
- * contains pre-formatted strings ready for display in the UI.
+ * Mirrors the `QRecord` interface exactly so that `z.infer<typeof QRecordSchema>`
+ * is structurally compatible with `QRecord` — eliminating the need for
+ * `as unknown as` casts at call sites.
+ *
+ * `associatedRecords` is self-referential, so it uses `z.lazy` to break the
+ * circular reference at schema-construction time.
  */
-export const QRecordSchema = z.object({
+export const QRecordSchema: z.ZodType<import('@/types').QRecord> = z.object({
+  /** Name of the table this record belongs to. */
+  tableName: z.string(),
+  /** Human-readable label computed by the backend. */
+  recordLabel: z.string(),
   /** Raw field values keyed by field name. */
   values: z.record(z.unknown()),
   /** Pre-formatted display strings keyed by field name. */
   displayValues: z.record(z.string()).optional(),
-}).passthrough()
+  /** Optional map of relationship name → associated records for joined or child data. */
+  associatedRecords: z.record(z.array(z.lazy(() => QRecordSchema))).optional(),
+  /** Validation or server-side errors associated with this record. */
+  errors: z.array(z.string()).optional(),
+  /** Non-fatal warnings associated with this record. */
+  warnings: z.array(z.string()).optional(),
+})
 
 // ---------------------------------------------------------------------------
 // QueryRecords — POST /table/{name}/query
@@ -84,8 +98,8 @@ export const CountRecordsResponseSchema = z.object({
 /**
  * Zod schema for a single entry in the global search result array.
  *
- * `tableLabel` is optional because some backends omit it when the table
- * has no configured display label.
+ * `tableLabel` is optional — some backends omit it when the table has no
+ * configured display label. All other fields are required.
  */
 export const GlobalSearchResultSchema = z.object({
   tableName: z.string(),

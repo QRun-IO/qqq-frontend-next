@@ -90,7 +90,7 @@ export async function queryRecords(
   if (!parsed.success) {
     console.warn('[API] QueryRecords response failed schema validation:', parsed.error.flatten())
   }
-  return parsed.success ? (parsed.data as unknown as QueryRecordsResponse) : result
+  return parsed.success ? parsed.data : result
 }
 
 /**
@@ -238,8 +238,8 @@ export async function deleteRecord(
 export interface GlobalSearchResult {
   /** Backend-registered name of the table containing this result. */
   tableName: string
-  /** Human-readable label for the table. */
-  tableLabel: string
+  /** Human-readable label for the table. Omitted by some backends when the table has no display label configured. */
+  tableLabel?: string
   /** Primary key of the matching record, serialised as a string. */
   recordId: string
   /** Human-readable label for the matching record. */
@@ -272,7 +272,7 @@ export async function globalSearch(
     if (!parsed.success) {
       console.warn('[API] GlobalSearch response failed schema validation:', parsed.error.flatten())
     }
-    return parsed.success ? (parsed.data as GlobalSearchResult[]) : result
+    return parsed.success ? parsed.data : result
   } catch (err) {
     // Only swallow 404 — the search endpoint is optional
     if (isAxiosError(err) && err.response?.status === 404) return []

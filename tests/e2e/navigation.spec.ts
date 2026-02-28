@@ -2,6 +2,7 @@
 
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
+import { checkA11y } from './a11y-helpers'
 
 // Wait for the auth+meta loading sequence to complete.
 // The dashboard layout shows a spinner while authLoading=true, then renders
@@ -31,6 +32,7 @@ test.describe('App shell and navigation', () => {
 
   test('renders the application layout', async ({ page }) => {
     await expect(page.locator('[data-qqq-id="main-content"]')).toBeVisible()
+    await checkA11y(page)
   })
 
   test('sidebar is present', async ({ page }) => {

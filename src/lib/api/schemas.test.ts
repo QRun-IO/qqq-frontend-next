@@ -37,13 +37,19 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('QRecordSchema', () => {
-  it('accepts a record with values only', () => {
-    const result = QRecordSchema.safeParse({ values: { id: 1, name: 'Alice' } })
+  it('accepts a record with required fields', () => {
+    const result = QRecordSchema.safeParse({
+      tableName: 'person',
+      recordLabel: 'Alice',
+      values: { id: 1, name: 'Alice' },
+    })
     expect(result.success).toBe(true)
   })
 
   it('accepts a record with both values and displayValues', () => {
     const result = QRecordSchema.safeParse({
+      tableName: 'order',
+      recordLabel: 'Order #1',
       values: { id: 1, amount: 9.99 },
       displayValues: { amount: '$9.99' },
     })
@@ -51,7 +57,11 @@ describe('QRecordSchema', () => {
   })
 
   it('accepts a record with an empty values map', () => {
-    const result = QRecordSchema.safeParse({ values: {} })
+    const result = QRecordSchema.safeParse({
+      tableName: 'person',
+      recordLabel: '',
+      values: {},
+    })
     expect(result.success).toBe(true)
   })
 
@@ -74,8 +84,8 @@ describe('QueryRecordsResponseSchema', () => {
   it('accepts a valid response with an array of records', () => {
     const result = QueryRecordsResponseSchema.safeParse({
       records: [
-        { values: { id: 1, name: 'Alice' }, displayValues: { name: 'Alice' } },
-        { values: { id: 2, name: 'Bob' } },
+        { tableName: 'person', recordLabel: 'Alice', values: { id: 1, name: 'Alice' }, displayValues: { name: 'Alice' } },
+        { tableName: 'person', recordLabel: 'Bob', values: { id: 2, name: 'Bob' } },
       ],
     })
     expect(result.success).toBe(true)

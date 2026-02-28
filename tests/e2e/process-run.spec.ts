@@ -2,6 +2,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
+import { checkA11y } from './a11y-helpers'
 
 async function waitForAppReady(page: Page) {
   await page
@@ -39,6 +40,7 @@ test.describe('Process Run — importPeople process', () => {
 
   test('renders the process run container', async ({ page }) => {
     await expect(page.locator(`[data-qqq-id="process-run-${PROCESS_NAME}"]`)).toBeVisible()
+    await checkA11y(page)
   })
 
   test('step wizard header is visible for multi-step process', async ({ page }) => {

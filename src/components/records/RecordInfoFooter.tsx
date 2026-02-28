@@ -60,12 +60,15 @@ export function RecordInfoFooter({
     f.name === 'modifyDate' || f.name === 'modifiedDate' || f.name === 'updatedAt'
   )
 
-  const createdValue = createdField
+  const rawCreated = createdField
     ? (record.displayValues?.[createdField.name] ?? record.values[createdField.name])
     : null
-  const modifiedValue = modifiedField
+  const createdValue: string | null = rawCreated != null ? String(rawCreated) : null
+
+  const rawModified = modifiedField
     ? (record.displayValues?.[modifiedField.name] ?? record.values[modifiedField.name])
     : null
+  const modifiedValue: string | null = rawModified != null ? String(rawModified) : null
 
   if (!createdValue && !modifiedValue && recordInfoSections.length === 0) {
     return null

@@ -2,6 +2,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
+import { checkA11y } from './a11y-helpers'
 
 async function waitForAppReady(page: Page) {
   await page
@@ -28,6 +29,7 @@ test.describe('Record CRUD — Create', () => {
 
   test('entity form renders for a new record', async ({ page }) => {
     await expect(page.locator('[data-qqq-id="entity-form-person"]')).toBeVisible()
+    await checkA11y(page)
   })
 
   test('create form has a Save button', async ({ page }) => {
