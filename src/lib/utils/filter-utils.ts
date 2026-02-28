@@ -299,35 +299,47 @@ export function isFilterEmpty(filter: QQueryFilter): boolean {
 /**
  * Serialize a QQueryFilter to a compact, URL-safe base64 string for use in search params.
  * Encodes criteria, orderBys, subFilters, and booleanOperator — pagination is excluded.
- * Uses encodeURIComponent + btoa so all Unicode characters survive the round-trip.
+ *
+ * Uses TextEncoder → btoa so the output length is proportional to the UTF-8 byte count of
+ * the JSON (≈1.33× the character count) rather than the double-encoded length produced by
+ * encodeURIComponent + btoa (which can be 3–9× for non-ASCII values). MED-5.
  */
 export function serializeFilter(filter: QQueryFilter): string {
   try {
-    // Only serialize criteria and settings, not skip/limit (those are pagination)
     const serializable = {
       criteria: filter.criteria,
       orderBys: filter.orderBys,
       subFilters: filter.subFilters,
       booleanOperator: filter.booleanOperator,
     }
-    return btoa(encodeURIComponent(JSON.stringify(serializable)))
+    const json = JSON.stringify(serializable)
+    const bytes = new TextEncoder().encode(json)
+    let chars = ''
+    for (const b of bytes) chars += String.fromCharCode(b)
+    return btoa(chars)
   } catch {
     return ''
   }
 }
 
-/** Deserialize a QQueryFilter from a string produced by {@link serializeFilter}. Falls back to an empty filter on any parse error. */
+/**
+ * Deserialize a QQueryFilter from a string produced by {@link serializeFilter}.
+ * Falls back to an empty filter on any parse error.
+ */
 export function deserializeFilter(
   encoded: string,
   pageSize = 25
 ): QQueryFilter {
   try {
-    const decoded = JSON.parse(decodeURIComponent(atob(encoded)))
+    const chars = atob(encoded)
+    const bytes = new Uint8Array(chars.length)
+    for (let i = 0; i < chars.length; i++) bytes[i] = chars.charCodeAt(i)
+    const decoded = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>
     return {
-      criteria: decoded.criteria ?? [],
-      orderBys: decoded.orderBys ?? [],
-      subFilters: decoded.subFilters ?? [],
-      booleanOperator: decoded.booleanOperator ?? 'AND',
+      criteria: (decoded.criteria as QQueryFilter['criteria']) ?? [],
+      orderBys: (decoded.orderBys as QQueryFilter['orderBys']) ?? [],
+      subFilters: (decoded.subFilters as QQueryFilter['subFilters']) ?? [],
+      booleanOperator: (decoded.booleanOperator as QQueryFilter['booleanOperator']) ?? 'AND',
       skip: 0,
       limit: pageSize,
     }
