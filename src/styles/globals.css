@@ -18,7 +18,8 @@
   --color-secondary: #f0f2f6;
   --color-secondary-foreground: #1a1a2e;
   --color-muted: #f0f2f6;
-  --color-muted-foreground: #6b7280;
+  /* HIGH-6: darkened from #6b7280 (~4.7:1) to #5a6270 (~5.1:1) for clearer WCAG 2.1 AA margin */
+  --color-muted-foreground: #5a6270;
   --color-accent: #eef1f6;
   --color-accent-foreground: #1a1a2e;
 

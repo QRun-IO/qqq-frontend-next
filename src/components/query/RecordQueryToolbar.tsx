@@ -1,7 +1,7 @@
 /** RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, process launcher */
 'use client'
 
-import React, { useRef } from 'react'
+import React from 'react'
 import {
   Plus,
   Columns,
@@ -13,6 +13,7 @@ import {
   LayoutList,
   LayoutGrid,
   Table2,
+  Tag,
 } from 'lucide-react'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
@@ -51,10 +52,11 @@ function DensitySelector({
   const [open, setOpen] = React.useState(false)
   return (
     <div className="relative">
+      {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+        className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Select display density"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -117,10 +119,11 @@ function ViewModeToggle({
 }) {
   return (
     <div className="flex items-center rounded border border-input" data-qqq-id="view-mode-toggle">
+      {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
       <button
         type="button"
         onClick={() => onChange('grid')}
-        className={`flex h-8 w-8 items-center justify-center rounded-l transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+        className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-l transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
           viewMode === 'grid'
             ? 'bg-primary/10 text-primary'
             : 'bg-background text-muted-foreground hover:bg-accent'
@@ -134,7 +137,7 @@ function ViewModeToggle({
       <button
         type="button"
         onClick={() => onChange('card')}
-        className={`flex h-8 w-8 items-center justify-center rounded-r border-l border-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+        className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-r border-l border-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
           viewMode === 'card'
             ? 'bg-primary/10 text-primary'
             : 'bg-background text-muted-foreground hover:bg-accent'
@@ -221,6 +224,12 @@ export interface RecordQueryToolbarProps {
   isFetching: boolean
   /** Callback to invalidate and refresh the records query. */
   handleRefresh: () => void
+  /** The currently selected variant ID (null when no variant is selected). Only relevant when `tableMetaData.usesVariants` is true. */
+  selectedVariantId?: string | number | null
+  /** The human-readable label for the currently selected variant, shown in the chip. */
+  selectedVariantLabel?: string | null
+  /** Callback invoked when the variant chip is clicked (should open the VariantPicker). */
+  onVariantChipClick?: () => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -267,6 +276,9 @@ export function RecordQueryToolbar({
   setViewMode,
   isFetching,
   handleRefresh,
+  selectedVariantId,
+  selectedVariantLabel,
+  onVariantChipClick,
 }: RecordQueryToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -281,6 +293,32 @@ export function RecordQueryToolbar({
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Create
+        </button>
+      )}
+
+      {/* Variant selector chip — only when the table uses variants */}
+      {tableMetaData.usesVariants && onVariantChipClick && (
+        <button
+          type="button"
+          onClick={onVariantChipClick}
+          className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+            selectedVariantId != null
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-input bg-background text-foreground hover:bg-accent'
+          }`}
+          aria-label={
+            selectedVariantId != null
+              ? `Current variant: ${selectedVariantLabel ?? String(selectedVariantId)}. Click to change.`
+              : `Select ${tableMetaData.variantTableLabel}`
+          }
+          data-qqq-id="button-variant-picker"
+        >
+          <Tag className="h-4 w-4" aria-hidden="true" />
+          <span className="max-w-[140px] truncate">
+            {selectedVariantId != null
+              ? (selectedVariantLabel ?? String(selectedVariantId))
+              : `Select ${tableMetaData.variantTableLabel}`}
+          </span>
         </button>
       )}
 
@@ -321,11 +359,11 @@ export function RecordQueryToolbar({
         )}
       </div>
 
-      {/* Advanced filter toggle */}
+      {/* Advanced filter toggle — min 44px touch target (HIGH-5) */}
       <button
         type="button"
         onClick={handleFilterToggle}
-        className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+        className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
           filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
             ? 'border-primary bg-primary/10 text-primary'
             : 'border-input bg-background text-foreground hover:bg-accent'
@@ -380,12 +418,12 @@ export function RecordQueryToolbar({
       {/* Density selector */}
       <DensitySelector density={density} onSelect={setDensity} />
 
-      {/* Column config toggle */}
+      {/* Column config toggle — min 44px touch target (HIGH-5) */}
       <div className="relative">
         <button
           type="button"
           onClick={toggleColumnConfig}
-          className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+          className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
             columnConfigOpen
               ? 'border-primary bg-primary/10 text-primary'
               : 'border-input bg-background text-foreground hover:bg-accent'
@@ -418,11 +456,11 @@ export function RecordQueryToolbar({
         )}
       </div>
 
-      {/* Refresh */}
+      {/* Refresh — min 44px touch target (HIGH-5) */}
       <button
         type="button"
         onClick={handleRefresh}
-        className="flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Refresh data"
         data-qqq-id="button-refresh"
       >

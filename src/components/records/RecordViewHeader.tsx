@@ -7,15 +7,17 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { LayoutGrid, List } from 'lucide-react'
+import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordActions } from './RecordActions'
 import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
+import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 /**
  * Extracts up to two uppercase initials from a label string.
@@ -81,6 +83,19 @@ export function RecordViewHeader({
   allTables,
   navigateFrom,
 }: RecordViewHeaderProps) {
+  const router = useRouter()
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
+  const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
+
+  const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
+  const canEdit = tableMetaData.editPermission
+  const canInsert = tableMetaData.insertPermission
+  const canDelete = tableMetaData.deletePermission
+
+  const availableProcesses = (processes ?? []).filter(
+    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
+  )
+
   return (
     <div className="flex items-start gap-4">
       <div
@@ -199,10 +214,180 @@ export function RecordViewHeader({
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+
         {!hideActions && (
-          <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
+          <>
+            {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
+            <div className="hidden md:flex">
+              <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
+            </div>
+
+            {/* Mobile: bottom-sheet trigger button — MED-17 */}
+            <div className="flex md:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(true)}
+                aria-label="Record actions"
+                data-qqq-id="button-mobile-actions"
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                Actions
+                <MoreVertical className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Mobile actions bottom-sheet — MED-17 */}
+      {mobileActionsOpen && (
+        <div className="md:hidden" data-qqq-id="mobile-actions-sheet">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setMobileActionsOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Bottom sheet panel */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-xl border-t border-border bg-card shadow-lg"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Record actions"
+          >
+            {/* Drag handle */}
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <span className="text-base font-semibold text-foreground">Actions</span>
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(false)}
+                aria-label="Close actions menu"
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full',
+                  'text-muted-foreground hover:bg-accent hover:text-foreground',
+                  'focus:outline-none focus:ring-2 focus:ring-ring'
+                )}
+                data-qqq-id="mobile-actions-close"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex flex-col py-2">
+              {/* Edit */}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false)
+                    router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
+                    'hover:bg-accent focus:outline-none focus:bg-accent',
+                    'transition-colors duration-100'
+                  )}
+                  data-qqq-id="mobile-action-edit"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Edit {tableMetaData.label}
+                </button>
+              )}
+
+              {/* Copy */}
+              {canInsert && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false)
+                    router.push(`/app/${tableMetaData.name}/${primaryKey}/copy`)
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
+                    'hover:bg-accent focus:outline-none focus:bg-accent',
+                    'transition-colors duration-100'
+                  )}
+                  data-qqq-id="mobile-action-copy"
+                >
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  Copy {tableMetaData.label}
+                </button>
+              )}
+
+              {/* Processes */}
+              {availableProcesses.map((process) => (
+                <button
+                  key={process.name}
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false)
+                    router.push(`/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`)
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
+                    'hover:bg-accent focus:outline-none focus:bg-accent',
+                    'transition-colors duration-100'
+                  )}
+                  data-qqq-id={`mobile-action-${process.name}`}
+                >
+                  <Play className="h-4 w-4" aria-hidden="true" />
+                  {process.label}
+                </button>
+              ))}
+
+              {/* Separator before delete */}
+              {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
+                <div className="my-1 h-px bg-border" role="separator" />
+              )}
+
+              {/* Delete */}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false)
+                    setShowMobileDeleteDialog(true)
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 px-6 py-3.5 text-sm text-destructive',
+                    'hover:bg-destructive/10 focus:outline-none focus:bg-destructive/10',
+                    'transition-colors duration-100'
+                  )}
+                  data-qqq-id="mobile-action-delete"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  Delete {tableMetaData.label}
+                </button>
+              )}
+            </div>
+
+            {/* Safe area spacer for mobile browsers */}
+            <div className="h-safe-area-inset-bottom pb-4" />
+          </div>
+        </div>
+      )}
+
+      {/*
+       * Delete dialog triggered from mobile actions sheet.
+       * HIGH-4: DeleteConfirmDialog uses @radix-ui/react-dialog (DialogPrimitive.Content) which
+       * provides a built-in focus trap, Escape-key dismissal, and focus restoration on close.
+       * No additional focus-trap logic is needed — Radix handles it automatically.
+       */}
+      {showMobileDeleteDialog && (
+        <DeleteConfirmDialog
+          tableMetaData={tableMetaData}
+          record={record}
+          onClose={() => setShowMobileDeleteDialog(false)}
+          onDeleted={() => {
+            router.push(`/app/${tableMetaData.name}`)
+          }}
+        />
+      )}
     </div>
   )
 }

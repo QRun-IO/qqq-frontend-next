@@ -7,7 +7,8 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
@@ -67,6 +68,68 @@ interface RecordViewTabsProps {
  *
  * @param props - See {@link RecordViewTabsProps}.
  */
+/**
+ * A single collapsible accordion section for the mobile tab layout (MED-18).
+ *
+ * @param id - Unique section identifier used for aria attributes.
+ * @param label - Human-readable heading shown in the accordion trigger.
+ * @param defaultOpen - When true, the section starts expanded.
+ * @param children - The panel content to reveal when open.
+ */
+function AccordionSection({
+  id,
+  label,
+  defaultOpen = false,
+  children,
+}: {
+  id: string
+  label: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const panelId = `accordion-panel-${id}`
+  const triggerId = `accordion-trigger-${id}`
+
+  return (
+    <div className="border border-border rounded-xl overflow-hidden" data-qqq-id={`accordion-section-${id}`}>
+      <button
+        id={triggerId}
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={() => setIsOpen((o) => !o)}
+        className={cn(
+          'flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium',
+          'bg-muted/50 hover:bg-muted transition-colors duration-150',
+          'focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring'
+        )}
+        data-qqq-id={`accordion-trigger-${id}`}
+      >
+        <span className="text-foreground">{label}</span>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-muted-foreground transition-transform duration-200',
+            isOpen ? 'rotate-180' : ''
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {isOpen && (
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={triggerId}
+          className="bg-card p-5"
+          data-qqq-id={panelId}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function RecordViewTabs({
   tableMetaData,
   record,
@@ -84,125 +147,197 @@ export function RecordViewTabs({
 }: RecordViewTabsProps) {
   return (
     <>
-      {/* Tab bar — pill-style */}
-      <div
-        className="flex rounded-xl border border-border bg-muted/50 p-1"
-        role="tablist"
-        data-qqq-id="record-view-tabs"
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-              activeTab === tab.id
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            data-qqq-id={`record-tab-${tab.id}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content: Overview — all T2 sections in 2-column card grid */}
-      {activeTab === 'overview' && (
+      {/* ============================================================
+          Desktop layout: pill-style tab bar (hidden below md) — MED-18
+      ============================================================ */}
+      <div className="hidden md:contents">
+        {/* Tab bar — pill-style */}
         <div
-          className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-          role="tabpanel"
-          data-qqq-id="record-tab-panel-overview"
+          className="flex rounded-xl border border-border bg-muted/50 p-1"
+          role="tablist"
+          data-qqq-id="record-view-tabs"
         >
-          {secondarySections.map((section) => (
-            <div
-              key={section.name}
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'rounded-xl border border-border bg-card p-6 shadow-sm',
-                (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
+                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                activeTab === tab.id
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
+              data-qqq-id={`record-tab-${tab.id}`}
             >
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-                stacked
-              />
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
-      )}
 
-      {/* Tab content: Individual T2 section tabs */}
-      {secondarySections.map((section) => (
-        activeTab === `section-${section.name}` && (
+        {/* Tab content: Overview — all T2 sections in 2-column card grid */}
+        {activeTab === 'overview' && (
           <div
-            key={section.name}
+            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
             role="tabpanel"
-            data-qqq-id={`record-tab-panel-${section.name}`}
+            data-qqq-id="record-tab-panel-overview"
           >
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-              />
-            </div>
-          </div>
-        )
-      ))}
-
-      {/* Tab content: Individual T3 section tabs (supplementary: notes, audit, etc.) */}
-      {tertiarySections.map((section) => (
-        activeTab === `section-${section.name}` && (
-          <div
-            key={section.name}
-            role="tabpanel"
-            data-qqq-id={`record-tab-panel-${section.name}`}
-          >
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-              />
-            </div>
-          </div>
-        )
-      ))}
-
-      {/* Tab content: Related (many-to-many / one-to-many) */}
-      {activeTab === 'related' && (
-        <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
-          {manyJoins.map((join) => {
-            const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-            return (
-              <div key={join.label} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <AssociatedRecords
-                  join={join}
-                  records={assocRecords}
-                  parentTableMetaData={tableMetaData}
-                  parentPrimaryKey={parentPk}
+            {secondarySections.map((section) => (
+              <div
+                key={section.name}
+                className={cn(
+                  'rounded-xl border border-border bg-card p-6 shadow-sm',
+                  (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
+                )}
+              >
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
                   allTables={allTables}
                   navigateFrom={navigateFrom}
-                  onRecordCreated={onRefetch}
+                  stacked
                 />
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+
+        {/* Tab content: Individual T2 section tabs */}
+        {secondarySections.map((section) => (
+          activeTab === `section-${section.name}` && (
+            <div
+              key={section.name}
+              role="tabpanel"
+              data-qqq-id={`record-tab-panel-${section.name}`}
+            >
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                />
+              </div>
+            </div>
+          )
+        ))}
+
+        {/* Tab content: Individual T3 section tabs (supplementary: notes, audit, etc.) */}
+        {tertiarySections.map((section) => (
+          activeTab === `section-${section.name}` && (
+            <div
+              key={section.name}
+              role="tabpanel"
+              data-qqq-id={`record-tab-panel-${section.name}`}
+            >
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                />
+              </div>
+            </div>
+          )
+        ))}
+
+        {/* Tab content: Related (many-to-many / one-to-many) */}
+        {activeTab === 'related' && (
+          <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
+            {manyJoins.map((join) => {
+              const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
+              return (
+                <div key={join.label} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <AssociatedRecords
+                    join={join}
+                    records={assocRecords}
+                    parentTableMetaData={tableMetaData}
+                    parentPrimaryKey={parentPk}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    onRecordCreated={onRefetch}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================
+          Mobile layout: collapsible accordion sections (shown below md) — MED-18
+      ============================================================ */}
+      <div className="flex flex-col gap-3 md:hidden" data-qqq-id="record-view-accordion">
+        {/* T2 sections as individual accordion items; first open by default */}
+        {secondarySections.map((section, idx) => (
+          <AccordionSection
+            key={section.name}
+            id={`section-${section.name}`}
+            label={section.label}
+            defaultOpen={idx === 0}
+          >
+            <RecordViewSection
+              section={section}
+              tableMetaData={tableMetaData}
+              record={record}
+              widgetMetaDataMap={widgetMetaDataMap}
+              allTables={allTables}
+              navigateFrom={navigateFrom}
+              stacked
+            />
+          </AccordionSection>
+        ))}
+
+        {/* T3 sections */}
+        {tertiarySections.map((section) => (
+          <AccordionSection
+            key={section.name}
+            id={`section-${section.name}`}
+            label={section.label}
+            defaultOpen={false}
+          >
+            <RecordViewSection
+              section={section}
+              tableMetaData={tableMetaData}
+              record={record}
+              widgetMetaDataMap={widgetMetaDataMap}
+              allTables={allTables}
+              navigateFrom={navigateFrom}
+            />
+          </AccordionSection>
+        ))}
+
+        {/* Related / many-to-many joins */}
+        {manyJoins.map((join) => {
+          const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
+          return (
+            <AccordionSection
+              key={join.label}
+              id={`related-${join.label}`}
+              label={join.label}
+              defaultOpen={false}
+            >
+              <AssociatedRecords
+                join={join}
+                records={assocRecords}
+                parentTableMetaData={tableMetaData}
+                parentPrimaryKey={parentPk}
+                allTables={allTables}
+                navigateFrom={navigateFrom}
+                onRecordCreated={onRefetch}
+              />
+            </AccordionSection>
+          )
+        })}
+      </div>
     </>
   )
 }

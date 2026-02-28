@@ -22,6 +22,7 @@ import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
+import { VariantPicker } from './VariantPicker'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
@@ -101,6 +102,14 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
 
   // Mobile filter bottom-sheet state
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
+  // Variant state — CRIT-15: tables with usesVariants require a variant selection
+  const [variantId, setVariantId] = useState<string | number | null>(null)
+  const [variantLabel, setVariantLabel] = useState<string | null>(null)
+  const [variantPickerOpen, setVariantPickerOpen] = useState(
+    // Auto-open on mount when the table requires a variant and none is selected
+    tableMetaData.usesVariants
+  )
 
   const canCreate = tableMetaData.insertPermission
 
@@ -205,6 +214,9 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         setViewMode={setViewMode}
         isFetching={rq.data.isFetching}
         handleRefresh={handleRefresh}
+        selectedVariantId={variantId}
+        selectedVariantLabel={variantLabel}
+        onVariantChipClick={tableMetaData.usesVariants ? () => setVariantPickerOpen(true) : undefined}
       />
 
       {/* ============================================================
@@ -323,6 +335,27 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
         onPageChange={rq.pagination.setPage}
         onPageSizeChange={rq.pagination.setPageSize}
       />
+
+      {/* ============================================================
+          Variant Picker dialog — CRIT-15: shown when table uses variants
+      ============================================================ */}
+      {tableMetaData.usesVariants && (
+        <VariantPicker
+          open={variantPickerOpen}
+          variantTableLabel={tableMetaData.variantTableLabel}
+          onCancel={() => {
+            // Allow closing if a variant was already selected; otherwise keep open
+            if (variantId != null) {
+              setVariantPickerOpen(false)
+            }
+          }}
+          onSelect={(id, label) => {
+            setVariantId(id)
+            setVariantLabel(label)
+            setVariantPickerOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }

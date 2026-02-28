@@ -6,6 +6,7 @@
 // Includes help tooltip support via field.helpContents
 
 import React from 'react'
+import { Controller } from 'react-hook-form'
 import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
@@ -22,6 +23,7 @@ import { DateTimeField } from './field-types/DateTimeField'
 import { PasswordField } from './field-types/PasswordField'
 import { FileUploadField } from './field-types/FileUploadField'
 import { PossibleValueSelect } from './PossibleValueSelect'
+import { RichTextField } from './RichTextField'
 
 /**
  * Props for the {@link DynamicFormField} component.
@@ -230,7 +232,6 @@ export function DynamicFormField({
       )
 
     case 'TEXT':
-    case 'HTML':
       return (
         <FieldWithHelp field={field}>
           <div className="flex flex-col gap-1">
@@ -263,6 +264,46 @@ export function DynamicFormField({
               className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:bg-muted transition-colors duration-150 resize-y ${
                 fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
               }`}
+            />
+            {fieldError && (
+              <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
+                {fieldError.message}
+              </p>
+            )}
+          </div>
+        </FieldWithHelp>
+      )
+
+    case 'HTML':
+      return (
+        <FieldWithHelp field={field}>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center">
+              <label
+                htmlFor={fieldId}
+                className="text-sm font-medium text-foreground"
+                data-qqq-id={`field-label-${dataQqqId}`}
+              >
+                {field.label}
+                {field.isRequired && (
+                  <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+                )}
+              </label>
+              {hasHelp && <FieldHelpTooltip field={field} />}
+            </div>
+            <Controller
+              name={field.name}
+              control={control}
+              render={({ field: controllerField }) => (
+                <RichTextField
+                  id={fieldId}
+                  value={typeof controllerField.value === 'string' ? controllerField.value : ''}
+                  onChange={controllerField.onChange}
+                  disabled={isDisabled}
+                  aria-label={field.label}
+                  required={field.isRequired}
+                />
+              )}
             />
             {fieldError && (
               <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
