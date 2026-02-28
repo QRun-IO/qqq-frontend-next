@@ -143,7 +143,6 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
       if (!(event.target instanceof Node)) return
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false)
-        inputRef.current?.focus()
       }
     }
 
