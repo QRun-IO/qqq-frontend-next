@@ -268,7 +268,7 @@ export function ValidationReviewStep({
       )}
 
       {/* Actions */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3 md:relative md:bottom-auto">
         <div className="flex items-center justify-between">
           <button
             type="button"

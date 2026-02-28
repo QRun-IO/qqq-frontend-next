@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import type {
   QProcessMetaData,
   QFrontendStepMetaData,
+  QFieldMetaData,
   QJobStarted,
   QJobRunning,
   QJobComplete,
@@ -75,6 +76,14 @@ export interface ProcessState {
   processMetaData: QProcessMetaData | null
   /** Values returned from the last completed job */
   resultValues: Record<string, unknown>
+  /**
+   * Accumulated field metadata overrides from `processMetaDataAdjustment.modifiedFields`.
+   *
+   * Keyed by field name; values are partial `QFieldMetaData` objects to merge into
+   * the step's `formFields`, `viewFields`, and `recordListFields` before rendering.
+   * Applied in `ProcessRun` via `applyModifiedFields`.
+   */
+  modifiedFields: Record<string, Partial<QFieldMetaData>>
 }
 
 /**
@@ -177,6 +186,7 @@ export function useProcess(
     isLastStep: false,
     processMetaData,
     resultValues: {},
+    modifiedFields: {},
   })
 
   // Keep a ref to current state for use in async callbacks
@@ -271,9 +281,10 @@ export function useProcess(
       }
 
       if (isJobComplete(response)) {
-        // Apply any processMetaDataAdjustment
+        // Apply any processMetaDataAdjustment (MED-20: accumulate modifiedFields)
+        let nextModifiedFields = { ...stateRef.current.modifiedFields }
         if (response.processMetaDataAdjustment) {
-          const { addedSteps, removedSteps } = response.processMetaDataAdjustment
+          const { addedSteps, removedSteps, modifiedFields } = response.processMetaDataAdjustment
           let updatedSteps = [...stepsRef.current]
           if (removedSteps) {
             updatedSteps = updatedSteps.filter((s) => !removedSteps.includes(s.name))
@@ -282,6 +293,11 @@ export function useProcess(
             updatedSteps = [...updatedSteps, ...addedSteps]
           }
           stepsRef.current = updatedSteps
+
+          // Accumulate modifiedFields overrides — later adjustments win on conflict
+          if (modifiedFields) {
+            nextModifiedFields = { ...nextModifiedFields, ...modifiedFields }
+          }
         }
 
         // Merge result values into running step values
@@ -307,6 +323,7 @@ export function useProcess(
             jobUUID: null,
             isLastStep: isLastStepCheck(response.nextStep!),
             resultValues: response.values,
+            modifiedFields: nextModifiedFields,
           }))
         } else {
           // No next step → process complete
@@ -318,6 +335,7 @@ export function useProcess(
             status: 'complete',
             jobUUID: null,
             resultValues: response.values,
+            modifiedFields: nextModifiedFields,
           }))
         }
         return

@@ -77,7 +77,7 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
     >
       {/* Horizontal scroll wrapper for narrow screens with many steps (Fix: HIGH-11) */}
       <div className="overflow-x-auto">
-        <ol className="flex items-center">
+        <ol className="flex min-w-max items-center">
         {steps.map((step, idx) => {
           const stepState = getStepState(step.name, currentStepName, steps, isComplete)
           const isLast = idx === steps.length - 1
@@ -96,7 +96,7 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
                 <div
                   aria-current={stepState === 'active' ? 'step' : undefined}
                   className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
                     stepState === 'completed' &&
                       'bg-primary text-primary-foreground',
                     stepState === 'active' &&
@@ -113,11 +113,12 @@ export function StepWizard({ steps, currentStepName, isComplete = false, classNa
                 </div>
                 <span
                   className={cn(
-                    'mt-1 text-xs font-medium whitespace-nowrap',
+                    'mt-1 max-w-[6rem] truncate text-xs font-medium',
                     stepState === 'completed' && 'text-primary',
                     stepState === 'active' && 'text-primary',
                     stepState === 'pending' && 'text-muted-foreground'
                   )}
+                  title={step.label}
                 >
                   {step.label}
                 </span>

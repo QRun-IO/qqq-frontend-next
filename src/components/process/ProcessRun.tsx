@@ -12,10 +12,10 @@
 // ProcessRun -- main process orchestrator component
 // Manages the full process lifecycle: init -> steps -> complete/error
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 
-import type { QProcessMetaData, QFrontendStepMetaData, QComponentType } from '@/types'
+import type { QProcessMetaData, QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { useProcess } from '@/lib/hooks/use-process'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -31,8 +31,13 @@ import { ProcessViewStep } from './ProcessViewStep'
 import { ProcessDownloadStep } from './ProcessDownloadStep'
 import { ProcessHtmlStep } from './ProcessHtmlStep'
 import { ProcessSummaryResultsStep } from './ProcessSummaryResultsStep'
+import { ProcessSummaryChartStep } from './ProcessSummaryChartStep'
 import { ProcessWidgetStep } from './ProcessWidgetStep'
 import { ProcessBulkEditStep } from './ProcessBulkEditStep'
+import { ProcessScriptViewerStep } from './ProcessScriptViewerStep'
+import { ProcessUploadFormStep } from './ProcessUploadFormStep'
+import { ProcessGoogleDriveStep } from './ProcessGoogleDriveStep'
+import { ProcessUnknownStep } from './ProcessUnknownStep'
 
 /**
  * Props for the {@link ProcessRun} component.
@@ -66,16 +71,27 @@ type ResolvedStepType =
   | 'VIEW'
   | 'DOWNLOAD'
   | 'RESULTS'
+  | 'RESULTS_CHART'
   | 'WIDGET'
   | 'HTML'
   | 'BULK_EDIT'
+  | 'SCRIPT_VIEWER'
+  | 'UPLOAD_FORM'
+  | 'GOOGLE_DRIVE'
+  | 'UNKNOWN'
 
 /**
  * Determine what kind of step to render based on step components and fields.
- * Priority order reflects specificity: bulk load > validation > record list > specialized > form fallback.
+ *
+ * Priority order reflects specificity:
+ * bulk load > validation > record list > specialized renderers > form fallback > unknown.
+ *
+ * String comparisons use `as string` casts to accommodate component types that are
+ * not yet in the `QComponentType` union (e.g. `UPLOAD_FORM`, `SCRIPT_VIEWER`,
+ * `PROCESS_SUMMARY_CHART`).
  */
 function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
-  const componentTypes = step.components.map((c) => c.type as QComponentType)
+  const componentTypes = step.components.map((c) => c.type as string)
 
   if (
     componentTypes.includes('BULK_LOAD_FILE_MAPPING_FORM') ||
@@ -109,6 +125,10 @@ function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
     return 'RESULTS'
   }
 
+  if (componentTypes.includes('PROCESS_SUMMARY_CHART')) {
+    return 'RESULTS_CHART'
+  }
+
   if (componentTypes.includes('WIDGET')) {
     return 'WIDGET'
   }
@@ -117,14 +137,76 @@ function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
     return 'HTML'
   }
 
-  // TODO: GOOGLE_DRIVE_SELECT_FOLDER needs Google API integration;
-  // fall back to FORM for now so it renders with any formFields present.
+  if (componentTypes.includes('SCRIPT_VIEWER')) {
+    return 'SCRIPT_VIEWER'
+  }
+
+  // UPLOAD_FORM: a simpler file-upload step without bulk-load column mapping
+  if (componentTypes.includes('UPLOAD_FORM')) {
+    return 'UPLOAD_FORM'
+  }
+
+  // GOOGLE_DRIVE_SELECT_FOLDER: render a dedicated placeholder (Google Picker API not integrated)
   if (componentTypes.includes('GOOGLE_DRIVE_SELECT_FOLDER')) {
-    return 'FORM'
+    return 'GOOGLE_DRIVE'
   }
 
   // Default to FORM for EDIT_FORM, HELP_TEXT + formFields, etc.
-  return 'FORM'
+  // Also fall through to FORM for empty steps so help text can be shown.
+  if (
+    componentTypes.includes('EDIT_FORM') ||
+    componentTypes.includes('HELP_TEXT') ||
+    (step.formFields?.length ?? 0) > 0 ||
+    componentTypes.length === 0
+  ) {
+    return 'FORM'
+  }
+
+  // Catch-all: unrecognized component type — render the unknown fallback
+  return 'UNKNOWN'
+}
+
+/**
+ * Merge `modifiedFields` overrides into the step's field arrays.
+ *
+ * Iterates `formFields`, `viewFields`, and `recordListFields` on `step` and
+ * spreads each matching entry from `modifiedFields` over the original field
+ * metadata, producing a new step object with the updated fields.  Fields that
+ * have no override entry are returned unchanged.
+ *
+ * @param step - The original step metadata from the process state.
+ * @param modifiedFields - Partial field overrides keyed by field name.
+ * @returns A new `QFrontendStepMetaData` with overrides applied, or the original
+ *   step when `modifiedFields` is empty.
+ */
+function applyModifiedFields(
+  step: QFrontendStepMetaData,
+  modifiedFields: Record<string, Partial<QFieldMetaData>>
+): QFrontendStepMetaData {
+  if (Object.keys(modifiedFields).length === 0) return step
+
+  /**
+   * Merge overrides into a field array, leaving unmatched fields unchanged.
+   *
+   * @param fields - The original field array from the step.
+   * @returns A new array with override properties merged.
+   */
+  const patchFields = (
+    fields: QFieldMetaData[] | undefined
+  ): QFieldMetaData[] | undefined => {
+    if (!fields) return fields
+    return fields.map((field) => {
+      const override = modifiedFields[field.name]
+      return override ? { ...field, ...override } : field
+    })
+  }
+
+  return {
+    ...step,
+    formFields: patchFields(step.formFields),
+    viewFields: patchFields(step.viewFields),
+    recordListFields: patchFields(step.recordListFields),
+  }
 }
 
 /**
@@ -195,6 +277,16 @@ export function ProcessRun({
 
   const currentIdx = steps.findIndex((s) => s.name === state.currentStep?.name)
   const canGoBack = currentIdx > 0
+
+  // MED-20: apply modifiedFields from processMetaDataAdjustment before rendering.
+  // Must be above all early returns to respect the Rules of Hooks.
+  const effectiveStep = useMemo(
+    () =>
+      state.currentStep
+        ? applyModifiedFields(state.currentStep, state.modifiedFields)
+        : null,
+    [state.currentStep, state.modifiedFields]
+  )
 
   // --- Loading / initializing state ---
 
@@ -307,10 +399,13 @@ export function ProcessRun({
     )
   }
 
-  const stepType = resolveStepType(currentStep)
+  // effectiveStep is computed above (before early returns) via the useMemo hook
+  // to satisfy the Rules of Hooks.  It is always non-null here since currentStep
+  // is non-null (guarded by the early return above).
+  const stepType = resolveStepType(effectiveStep!)
 
   const sharedStepProps = {
-    step: currentStep,
+    step: effectiveStep!,
     stepValues: state.stepValues,
     isLoading,
     onSubmit: submitStep,
@@ -410,6 +505,26 @@ export function ProcessRun({
               {...sharedStepProps}
               processName={processName}
             />
+          )}
+
+          {stepType === 'RESULTS_CHART' && (
+            <ProcessSummaryChartStep {...sharedStepProps} />
+          )}
+
+          {stepType === 'SCRIPT_VIEWER' && (
+            <ProcessScriptViewerStep {...sharedStepProps} />
+          )}
+
+          {stepType === 'UPLOAD_FORM' && (
+            <ProcessUploadFormStep {...sharedStepProps} />
+          )}
+
+          {stepType === 'GOOGLE_DRIVE' && (
+            <ProcessGoogleDriveStep {...sharedStepProps} />
+          )}
+
+          {stepType === 'UNKNOWN' && (
+            <ProcessUnknownStep {...sharedStepProps} />
           )}
         </div>
       </div>

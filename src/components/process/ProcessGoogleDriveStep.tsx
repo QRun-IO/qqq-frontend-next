@@ -1,32 +1,34 @@
 /**
- * ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
+ * ProcessGoogleDriveStep — renders a GOOGLE_DRIVE_SELECT_FOLDER process step.
  *
- * Iterates `step.viewFields` and renders each field's label and value from
- * `stepValues` as a definition list.  HTML-typed fields are sanitized with
- * DOMPurify; all other types are formatted by {@link formatFieldValue}.
+ * The full Google Drive folder-picker requires OAuth 2.0 and the Google Picker
+ * API, which are not yet integrated.  This component renders a labeled
+ * placeholder explaining that Google Drive selection is not yet supported,
+ * along with the standard Cancel / Back / Next navigation controls.
+ *
+ * When the Google Picker API becomes available, this component should be updated
+ * to load the Picker script and open a folder-selection dialog.
  */
 'use client'
 
-// ProcessViewStep -- renders a VIEW_FORM step as read-only field display
-// Iterates step.viewFields and shows label/value pairs from stepValues
+// ProcessGoogleDriveStep -- placeholder for GOOGLE_DRIVE_SELECT_FOLDER step
+// Full implementation requires Google Picker API integration (not yet available)
 
 import React, { useState } from 'react'
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronRight, X, FolderOpen } from 'lucide-react'
 
-import DOMPurify from 'dompurify'
-
-import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
+import type { QFrontendStepMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
 /**
- * Props for the {@link ProcessViewStep} component.
+ * Props for the {@link ProcessGoogleDriveStep} component.
  */
-export interface ProcessViewStepProps {
-  /** Metadata for the current process step, including `viewFields` and `components`. */
+export interface ProcessGoogleDriveStepProps {
+  /** Metadata for the current process step. */
   step: QFrontendStepMetaData
-  /** Current accumulated step values providing the field display data. */
+  /** Current accumulated step values. */
   stepValues: Record<string, unknown>
   /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
@@ -47,39 +49,15 @@ export interface ProcessViewStepProps {
 }
 
 /**
- * Formats a raw step value for display in the read-only view fields list.
+ * Renders a placeholder for the GOOGLE_DRIVE_SELECT_FOLDER process step type.
  *
- * @param field - Field metadata used to determine type-specific formatting.
- * @param value - The raw value from `stepValues`.
- * @returns A human-readable string, or an em-dash for empty/null values.
+ * Displays a prominent notice that Google Drive integration is not yet available,
+ * while still allowing the user to navigate forward (for processes that may handle
+ * a missing folder selection gracefully server-side).
+ *
+ * @param props - {@link ProcessGoogleDriveStepProps}
  */
-function formatFieldValue(field: QFieldMetaData, value: unknown): string {
-  if (value === null || value === undefined || value === '') {
-    return '\u2014'
-  }
-
-  switch (field.type) {
-    case 'BOOLEAN':
-      return value === true || value === 'true' || value === 1 ? 'Yes' : 'No'
-    case 'DATE':
-    case 'DATE_TIME':
-    case 'TIME':
-      return String(value)
-    default:
-      return String(value)
-  }
-}
-
-/**
- * Renders a VIEW_FORM process step as a read-only definition list.
- *
- * Displays HELP_TEXT banners, then each view field as a `<dt>`/`<dd>` pair.
- * HTML-typed fields are sanitized with DOMPurify before rendering; other types
- * are formatted by {@link formatFieldValue}.
- *
- * @param props - {@link ProcessViewStepProps}
- */
-export function ProcessViewStep({
+export function ProcessGoogleDriveStep({
   step,
   stepValues,
   isLoading,
@@ -88,15 +66,14 @@ export function ProcessViewStep({
   onBack,
   canGoBack,
   isLastStep,
-}: ProcessViewStepProps) {
+}: ProcessGoogleDriveStepProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const viewFields = step.viewFields ?? []
 
   // Help text from HELP_TEXT components
   const helpTextComponents = step.components.filter((c) => c.type === 'HELP_TEXT')
 
   return (
-    <div className="space-y-6" data-qqq-id="process-view-step">
+    <div className="space-y-6" data-qqq-id="process-google-drive-step">
       {/* Help text */}
       {helpTextComponents.map((comp, idx) => (
         <div
@@ -108,41 +85,23 @@ export function ProcessViewStep({
         </div>
       ))}
 
-      {/* View fields as read-only display */}
-      {viewFields.length > 0 ? (
-        <dl
-          className="divide-y divide-border rounded-xl border border-border"
-          data-qqq-id="process-view-fields"
-        >
-          {viewFields.map((field) => (
-            <div
-              key={field.name}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4"
-              data-qqq-id={`process-view-field-${field.name}`}
-            >
-              <dt className="text-sm font-medium text-muted-foreground sm:w-1/3 sm:flex-shrink-0">
-                {field.label}
-              </dt>
-              <dd className="text-sm text-foreground sm:flex-1">
-                {field.type === 'HTML' ? (
-                  <div
-                    className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(String(stepValues[field.name] ?? '')),
-                    }}
-                  />
-                ) : (
-                  formatFieldValue(field, stepValues[field.name])
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <div className="text-sm text-muted-foreground">
-          No fields to display for this step.
+      {/* Google Drive placeholder */}
+      <div
+        className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-muted p-8 text-center"
+        data-qqq-id="process-google-drive-placeholder"
+        role="status"
+        aria-label="Google Drive folder picker not yet available"
+      >
+        <FolderOpen className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Google Drive Folder Selection</p>
+          <p className="text-sm text-muted-foreground">
+            Google Drive integration is not yet available in this interface.
+            Please contact your administrator or use an alternative method to specify
+            the destination folder.
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Actions */}
       <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3 md:relative md:bottom-auto">
