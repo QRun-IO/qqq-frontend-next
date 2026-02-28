@@ -162,8 +162,8 @@ export async function setupApiMocks(page: Page): Promise<void> {
   // ── GENERIC routes (registered first = lowest priority) ──────────────────
 
   // Global search
-  await page.route('**/qqq/v1/globalSearch**', (route) => {
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [] }) })
+  await page.route('**/qqq/v1/search**', (route) => {
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) })
   })
 
   // Possible values
@@ -220,7 +220,62 @@ export async function setupApiMocks(page: Page): Promise<void> {
     route.fulfill({ status: 200 })
   })
 
-  // ── Process routes (generic catch-alls registered before specific routes) ──
+  // ── SPECIFIC routes (registered last = highest priority, checked first) ────
+  //
+  // IMPORTANT: Playwright checks routes in LIFO order (last registered = first checked).
+  // The semi-generic per-record handler (*) must be registered BEFORE the specific sub-paths
+  // (count, query, 99999) so that the specific handlers are checked first and take precedence.
+  // If the per-record handler were registered last, its route.continue() call would bypass
+  // the specific handlers entirely for paths like /table/person/query.
+
+  // Person record by ID (e.g. /table/person/1, /table/person/2)
+  // Must be registered BEFORE count/query/99999 so those specific routes take priority.
+  await page.route('**/qqq/v1/table/person/*', (route) => {
+    const url = route.request().url()
+    const idMatch = /\/table\/person\/(\d+)/.exec(url)
+    if (idMatch) {
+      const id = parseInt(idMatch[1], 10)
+      const record = PERSON_RECORDS.find((r) => r.values.id === id)
+      if (record) {
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify(record) })
+      } else {
+        route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: `Record '${id}' not found` }),
+        })
+      }
+      return
+    }
+    route.continue()
+  })
+
+  // Person record 99999 → 404 (must be after per-record handler = higher priority)
+  await page.route('**/qqq/v1/table/person/99999**', (route) => {
+    route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: "Record '99999' not found in table 'person'" }),
+    })
+  })
+
+  // Person count (must be after per-record handler = higher priority)
+  await page.route('**/qqq/v1/table/person/count**', (route) => {
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ count: PERSON_RECORDS.length, distinctCount: PERSON_RECORDS.length }),
+    })
+  })
+
+  // Person query (must be after per-record handler = highest priority among person routes)
+  await page.route('**/qqq/v1/table/person/query**', (route) => {
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ records: PERSON_RECORDS }),
+    })
+  })
+
+  // ── Process routes (registered after person routes = higher priority) ──────
 
   // Process job status — polling endpoint
   await page.route('**/qqq/v1/processes/*/status/**', (route) => {
@@ -266,7 +321,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
   })
 
   // Process init — returns first step for any process
-  await page.route('**/qqq/v1/processes/*/init', (route) => {
+  await page.route('**/qqq/v1/processes/*/init**', (route) => {
     const url = route.request().url()
     const processMatch = /\/processes\/([^/]+)\/init/.exec(url)
     const processName = processMatch?.[1] ?? 'unknown'
@@ -296,54 +351,6 @@ export async function setupApiMocks(page: Page): Promise<void> {
         values: {},
       }),
     })
-  })
-
-  // ── SPECIFIC routes (registered last = highest priority, checked first) ────
-
-  // Person count (must be before generic table/person handler)
-  await page.route('**/qqq/v1/table/person/count**', (route) => {
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ count: PERSON_RECORDS.length, distinctCount: PERSON_RECORDS.length }),
-    })
-  })
-
-  // Person query (must be before generic table/person handler)
-  await page.route('**/qqq/v1/table/person/query**', (route) => {
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ records: PERSON_RECORDS }),
-    })
-  })
-
-  // Person record 99999 → 404 (must be before general person/:id handler)
-  await page.route('**/qqq/v1/table/person/99999**', (route) => {
-    route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: "Record '99999' not found in table 'person'" }),
-    })
-  })
-
-  // Person record by ID (e.g. /table/person/1, /table/person/2)
-  await page.route('**/qqq/v1/table/person/*', (route) => {
-    const url = route.request().url()
-    const idMatch = /\/table\/person\/(\d+)/.exec(url)
-    if (idMatch) {
-      const id = parseInt(idMatch[1], 10)
-      const record = PERSON_RECORDS.find((r) => r.values.id === id)
-      if (record) {
-        route.fulfill({ contentType: 'application/json', body: JSON.stringify(record) })
-      } else {
-        route.fulfill({
-          status: 404,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: `Record '${id}' not found` }),
-        })
-      }
-      return
-    }
-    route.continue()
   })
 
   // Per-table metadata (must be before generic /metaData** handler)

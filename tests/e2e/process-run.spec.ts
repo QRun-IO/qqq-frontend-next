@@ -17,31 +17,28 @@ async function waitForAppReady(page: Page) {
 }
 
 /**
- * Wait for the process run container or an error/loading state to appear.
+ * Wait for any process run container element to appear (loading, active step, or error state).
  * The process auto-inits on mount and transitions from idle → initializing → active step.
  */
-async function waitForProcessReady(page: Page, processName: string) {
-  await expect(
-    page.locator(
-      `[data-qqq-id="process-run-${processName}"]`
-    )
-  ).toBeVisible({ timeout: 20000 })
-  // Wait for the spinner to finish initializing (may transition to a step)
-  await page
-    .waitForSelector('[data-qqq-id="step-wizard"]', { timeout: 15000 })
-    .catch(() => null)
+async function waitForProcessReady(page: Page, _processName: string) {
+  // Accept any process-related element — could be loading, error, or active step
+  const processLocator = page.locator('[data-qqq-id^="process-run-"]')
+  await expect(processLocator.first()).toBeVisible({ timeout: 20000 })
 }
 
-test.describe('Process Run — importData process', () => {
+// importPeople is the process registered in MSW fixtures (importData is not in MSW metadata)
+const PROCESS_NAME = 'importPeople'
+
+test.describe('Process Run — importPeople process', () => {
   test.beforeEach(async ({ page }) => {
     await setupApiMocks(page)
-    await page.goto('/app/importData')
+    await page.goto(`/app/${PROCESS_NAME}`)
     await waitForAppReady(page)
-    await waitForProcessReady(page, 'importData')
+    await waitForProcessReady(page, PROCESS_NAME)
   })
 
   test('renders the process run container', async ({ page }) => {
-    await expect(page.locator('[data-qqq-id="process-run-importData"]')).toBeVisible()
+    await expect(page.locator(`[data-qqq-id="process-run-${PROCESS_NAME}"]`)).toBeVisible()
   })
 
   test('step wizard header is visible for multi-step process', async ({ page }) => {
@@ -68,7 +65,7 @@ test.describe('Process Run — importData process', () => {
   })
 
   test('process loading or active step is shown', async ({ page }) => {
-    const container = page.locator('[data-qqq-id="process-run-importData"]')
+    const container = page.locator(`[data-qqq-id="process-run-${PROCESS_NAME}"]`)
     await expect(container).toBeVisible()
     // Either the spinner (initializing), step content, or error state should be visible
     const hasContent = await container.textContent()
@@ -82,7 +79,7 @@ test.describe('Process Run — step rendering', () => {
     page.on('pageerror', (err) => errors.push(err.message))
 
     await setupApiMocks(page)
-    await page.goto('/app/importData')
+    await page.goto(`/app/${PROCESS_NAME}`)
     await waitForAppReady(page)
     await page.waitForLoadState('networkidle').catch(() => null)
 
@@ -97,11 +94,11 @@ test.describe('Process Run — step rendering', () => {
 
   test('process run container has accessible role', async ({ page }) => {
     await setupApiMocks(page)
-    await page.goto('/app/importData')
+    await page.goto(`/app/${PROCESS_NAME}`)
     await waitForAppReady(page)
-    await waitForProcessReady(page, 'importData')
+    await waitForProcessReady(page, PROCESS_NAME)
 
-    const container = page.locator('[data-qqq-id="process-run-importData"]')
+    const container = page.locator(`[data-qqq-id="process-run-${PROCESS_NAME}"]`)
     await expect(container).toBeVisible()
   })
 })

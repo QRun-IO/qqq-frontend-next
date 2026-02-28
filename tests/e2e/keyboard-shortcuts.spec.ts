@@ -71,7 +71,7 @@ test.describe('Keyboard shortcuts', () => {
     // Type something that matches at least "People" from our mock metadata
     await searchInput.fill('People')
     // Command list should still be visible
-    await expect(page.locator('[data-qqq-id="command-menu"] [aria-label="Navigation results"]')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-qqq-id="command-menu-results"]')).toBeVisible({ timeout: 5000 })
   })
 
   // ── '/' key — opens search dialog ────────────────────────────────────────

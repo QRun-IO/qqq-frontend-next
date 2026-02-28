@@ -50,8 +50,21 @@ function DensitySelector({
   onSelect: (d: Density) => void
 }) {
   const [open, setOpen] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!open) return
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
       <button
         type="button"
@@ -66,39 +79,32 @@ function DensitySelector({
         <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       {open && (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute right-0 z-20 mt-1 w-36 rounded-xl border border-border bg-popover shadow-sm"
-            role="listbox"
-            aria-label="Display density"
-          >
-            {DENSITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={density === opt.value}
-                onClick={() => {
-                  onSelect(opt.value)
-                  setOpen(false)
-                }}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
-                  density === opt.value
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-popover-foreground hover:bg-accent'
-                }`}
-                data-qqq-id={`density-option-${opt.value}`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
+        <div
+          className="absolute right-0 z-[150] mt-1 w-36 rounded-xl border border-border bg-popover shadow-sm"
+          role="listbox"
+          aria-label="Display density"
+        >
+          {DENSITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="option"
+              aria-selected={density === opt.value}
+              onClick={() => {
+                onSelect(opt.value)
+                setOpen(false)
+              }}
+              className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+                density === opt.value
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-popover-foreground hover:bg-accent'
+              }`}
+              data-qqq-id={`density-option-${opt.value}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -280,6 +286,25 @@ export function RecordQueryToolbar({
   selectedVariantLabel,
   onVariantChipClick,
 }: RecordQueryToolbarProps) {
+  const columnConfigRef = React.useRef<HTMLDivElement>(null)
+  const columnConfigBtnRef = React.useRef<HTMLButtonElement>(null)
+  const [columnConfigPos, setColumnConfigPos] = React.useState<{ top: number; right: number } | null>(null)
+
+  React.useEffect(() => {
+    if (!columnConfigOpen) { setColumnConfigPos(null); return }
+    if (columnConfigBtnRef.current) {
+      const rect = columnConfigBtnRef.current.getBoundingClientRect()
+      setColumnConfigPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    }
+    function handleClickOutside(e: MouseEvent) {
+      if (columnConfigRef.current && !columnConfigRef.current.contains(e.target as Node)) {
+        setColumnConfigOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [columnConfigOpen, setColumnConfigOpen])
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Create button */}
@@ -419,8 +444,9 @@ export function RecordQueryToolbar({
       <DensitySelector density={density} onSelect={setDensity} />
 
       {/* Column config toggle — min 44px touch target (HIGH-5) */}
-      <div className="relative">
+      <div ref={columnConfigRef}>
         <button
+          ref={columnConfigBtnRef}
           type="button"
           onClick={toggleColumnConfig}
           className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
@@ -435,24 +461,19 @@ export function RecordQueryToolbar({
           <Columns className="h-4 w-4" aria-hidden="true" />
         </button>
 
-        {columnConfigOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setColumnConfigOpen(false)}
-              aria-hidden="true"
+        {columnConfigOpen && columnConfigPos && (
+          <div
+            style={{ position: 'fixed', top: columnConfigPos.top, right: columnConfigPos.right, zIndex: 200 }}
+          >
+            <ColumnConfig
+              tableMetaData={tableMetaData}
+              columnVisibility={columnVisibility}
+              columnOrder={columnOrder}
+              onVisibilityChange={setColumnVisibility}
+              onOrderChange={setColumnOrder}
+              onClose={() => setColumnConfigOpen(false)}
             />
-            <div className="absolute right-0 z-20 mt-1">
-              <ColumnConfig
-                tableMetaData={tableMetaData}
-                columnVisibility={columnVisibility}
-                columnOrder={columnOrder}
-                onVisibilityChange={setColumnVisibility}
-                onOrderChange={setColumnOrder}
-                onClose={() => setColumnConfigOpen(false)}
-              />
-            </div>
-          </>
+          </div>
         )}
       </div>
 

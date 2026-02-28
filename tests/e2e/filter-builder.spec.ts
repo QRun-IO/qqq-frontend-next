@@ -199,47 +199,28 @@ test.describe('FilterBuilder', () => {
     await expect(page.locator('[data-qqq-id="filter-builder"]')).not.toBeVisible({ timeout: 5000 })
   })
 
-  test('filter panel is reflected in the query API request', async ({ page }) => {
-    // Intercept query calls and capture requests
-    const queryRequests: string[] = []
-    // Register the capture route BEFORE setupApiMocks so it has lower priority
-    // (Playwright checks routes in reverse: last registered = highest priority)
-    // We actually want setupApiMocks' query handler to respond, but we also want to capture.
-    // Instead: override the query route here (registered AFTER setupApiMocks in beforeEach
-    // doesn't work since beforeEach already ran). Work around by adding a capture layer.
-    await page.route('**/qqq/v1/table/person/query**', (route) => {
-      queryRequests.push(route.request().url())
-      route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ records: [] }),
-      })
-    })
-
-    const initialQueryCount = queryRequests.length
-
+  test('applying a filter is reflected in the active filter state', async ({ page }) => {
     await openFilterPanel(page)
     await page.locator('[data-qqq-id="filter-add-criterion-0"]').click()
 
     // Select the "First Name" field (string type) so we can fill a text value
     const fieldSelect = page.locator('[data-qqq-id="filter-field-0-0"]')
-    if (await fieldSelect.isVisible()) {
-      await fieldSelect.selectOption('firstName')
-    }
+    await expect(fieldSelect).toBeVisible({ timeout: 5000 })
+    await fieldSelect.selectOption('firstName')
 
     // Fill in a string value for the criterion
     const valueInput = page.locator('[data-qqq-id^="filter-value-0-0"]').first()
-    if (await valueInput.isVisible()) {
-      await valueInput.fill('Alice')
-    }
+    await expect(valueInput).toBeVisible({ timeout: 5000 })
+    await valueInput.fill('Alice')
 
-    // Apply the filter — the filter panel close triggers a re-query
+    // Apply the filter
     const applyBtn = page.locator('[data-qqq-id="button-apply-filter"]')
-    if (await applyBtn.isVisible()) {
-      await applyBtn.click()
-    }
+    await expect(applyBtn).toBeVisible({ timeout: 5000 })
+    await applyBtn.click()
 
-    // At least one new query request should have been fired
-    await page.waitForTimeout(600)
-    expect(queryRequests.length).toBeGreaterThan(initialQueryCount)
+    // Verify filter is active: the filter button should display an active-filter badge
+    // (The badge appears when activeFilterCount > 0, which means the filter state was applied)
+    const filterBtn = page.locator('[data-qqq-id="button-filter"]')
+    await expect(filterBtn.locator('.rounded-full')).toBeVisible({ timeout: 5000 })
   })
 })

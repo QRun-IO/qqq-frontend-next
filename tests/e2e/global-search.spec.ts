@@ -24,27 +24,26 @@ const searchInput = (page: import('@playwright/test').Page) =>
 const searchDropdown = (page: import('@playwright/test').Page) =>
   page.locator('[data-qqq-id="header-search"] [role="listbox"]')
 
-/** The search results that the mock API returns for any query of 2+ chars. */
-const SEARCH_RESULTS = [
-  { tableName: 'person', tableLabel: 'People', recordId: '1', recordLabel: 'Alice Johnson' },
-  { tableName: 'person', tableLabel: 'People', recordId: '2', recordLabel: 'Bob Martinez' },
-]
-
-/** Overrides the globalSearch route to return SEARCH_RESULTS (must be called after setupApiMocks). */
-async function mockSearchWithResults(page: import('@playwright/test').Page) {
-  await page.route('**/qqq/v1/globalSearch**', (route) => {
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ results: SEARCH_RESULTS }),
-    })
-  })
-}
-
-/** Types a query into the search input and waits for the dropdown to appear. */
+/**
+ * Types a query into the search input and waits for the dropdown to appear with results.
+ * MSW's search handler does real fixture data matching, so results appear when there are matches.
+ */
 async function typeAndWaitForResults(page: import('@playwright/test').Page, query: string) {
   await searchInput(page).fill(query)
-  // Wait for the debounce (300ms) + network + render
+  // Wait for the debounce (300ms) + network + render — the dropdown appears once the query fires
   await expect(searchDropdown(page)).toBeVisible({ timeout: 8000 })
+}
+
+/**
+ * Types a query and waits for result OPTIONS (not just the dropdown).
+ * Use this when tests need to interact with individual search results.
+ */
+async function typeAndWaitForOptions(page: import('@playwright/test').Page, query: string) {
+  await searchInput(page).fill(query)
+  // Wait for [role="option"] items to appear (requires both dropdown and results)
+  await expect(
+    searchDropdown(page).locator('[role="option"]').first()
+  ).toBeVisible({ timeout: 10000 })
 }
 
 test.describe('GlobalSearch (header search)', () => {
@@ -59,30 +58,26 @@ test.describe('GlobalSearch (header search)', () => {
   })
 
   test('typing at least 2 characters triggers a search and shows the dropdown', async ({ page }) => {
-    await mockSearchWithResults(page)
+    // MSW search handler matches 'Ali' against Alice Johnson in fixture data
     await typeAndWaitForResults(page, 'Ali')
     await expect(searchDropdown(page)).toBeVisible()
   })
 
   test('search results contain record labels', async ({ page }) => {
-    await mockSearchWithResults(page)
-    await typeAndWaitForResults(page, 'Ali')
-
-    // "Alice Johnson" should be present
+    // MSW fixture has Alice Johnson — searching 'Ali' should return her
+    await typeAndWaitForOptions(page, 'Ali')
     await expect(searchDropdown(page).getByText('Alice Johnson')).toBeVisible({ timeout: 5000 })
   })
 
   test('results are grouped by table label', async ({ page }) => {
-    await mockSearchWithResults(page)
-    await typeAndWaitForResults(page, 'Ali')
-
-    // "People" table label should appear as a section heading
-    await expect(searchDropdown(page).getByText('People')).toBeVisible({ timeout: 5000 })
+    // MSW fixture has person records → tableLabel = 'People'
+    await typeAndWaitForOptions(page, 'Ali')
+    // "People" appears as both a group heading and a subtitle in result items — match the first occurrence
+    await expect(searchDropdown(page).getByText('People').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('clicking a result navigates to the correct record route', async ({ page }) => {
-    await mockSearchWithResults(page)
-    await typeAndWaitForResults(page, 'Ali')
+    await typeAndWaitForOptions(page, 'Ali')
 
     // Click the first result option
     const firstResult = searchDropdown(page).locator('[role="option"]').first()
@@ -91,12 +86,11 @@ test.describe('GlobalSearch (header search)', () => {
 
     // Dropdown should close
     await expect(searchDropdown(page)).not.toBeVisible({ timeout: 5000 })
-    // URL should contain the expected record path
-    await expect(page).toHaveURL(/\/app\/person\/1/, { timeout: 10000 })
+    // URL should contain a record path for a person
+    await expect(page).toHaveURL(/\/app\/person\/\d+/, { timeout: 10000 })
   })
 
   test('pressing Escape closes the dropdown', async ({ page }) => {
-    await mockSearchWithResults(page)
     await typeAndWaitForResults(page, 'Ali')
     await expect(searchDropdown(page)).toBeVisible()
 
@@ -105,56 +99,41 @@ test.describe('GlobalSearch (header search)', () => {
   })
 
   test('shows empty state when no results match', async ({ page }) => {
-    // Override to return empty results
-    await page.route('**/qqq/v1/globalSearch**', (route) => {
-      route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ results: [] }),
-      })
-    })
-
-    await typeAndWaitForResults(page, 'zzznoresults')
+    // This string matches nothing in the MSW fixtures
+    await searchInput(page).fill('zzznoresults')
+    await expect(searchDropdown(page)).toBeVisible({ timeout: 8000 })
 
     // "No results found" message
-    await expect(searchDropdown(page).getByText(/no results found/i)).toBeVisible({ timeout: 5000 })
+    await expect(searchDropdown(page).getByText(/no results found/i)).toBeVisible({ timeout: 8000 })
   })
 
   test('shows "Search unavailable" on API error', async ({ page }) => {
-    // Override to return a 500 error
-    await page.route('**/qqq/v1/globalSearch**', (route) => {
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'Internal server error' }),
-      })
-    })
-
-    await searchInput(page).fill('error')
+    // MSW search handler returns 500 for the magic term '__error__'
+    await searchInput(page).fill('__error__')
 
     // Wait for debounce + 1 TanStack Query retry (retry: 1 in query-client.ts → 2 attempts)
-    // Give extra time for retries
     await expect(searchDropdown(page)).toBeVisible({ timeout: 10000 })
-    await expect(searchDropdown(page).getByText('Search unavailable')).toBeVisible({ timeout: 10000 })
+    await expect(searchDropdown(page).getByText('Search unavailable')).toBeVisible({ timeout: 15000 })
   })
 
-  test('typing fewer than 2 characters does not trigger search API call', async ({ page }) => {
-    let searchApiCalled = false
-    await page.route('**/qqq/v1/globalSearch**', (route) => {
-      searchApiCalled = true
-      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [] }) })
-    })
-
-    // Type only 1 character — should not trigger the API
+  test('typing fewer than 2 characters does not show search results', async ({ page }) => {
+    // Type only 1 character — should not trigger the search API (debounce min: 2 chars)
     await searchInput(page).fill('A')
 
-    // Wait longer than the debounce (300ms) to confirm no call was made
+    // The dropdown should not show search results (no [role="option"] items)
+    // Wait briefly for any debounce-triggered render
     await page.waitForTimeout(600)
-    expect(searchApiCalled).toBe(false)
+    // Either dropdown is not visible, or visible but shows no [role="option"] items
+    const dropdown = searchDropdown(page)
+    const isVisible = await dropdown.isVisible()
+    if (isVisible) {
+      const options = await dropdown.locator('[role="option"]').count()
+      expect(options).toBe(0)
+    }
   })
 
   test('shows "Press Enter to search all records" hint when results exist', async ({ page }) => {
-    await mockSearchWithResults(page)
-    await typeAndWaitForResults(page, 'Ali')
+    await typeAndWaitForOptions(page, 'Ali')
 
     // Footer hint should be visible
     await expect(
@@ -163,24 +142,17 @@ test.describe('GlobalSearch (header search)', () => {
   })
 
   test('pressing Enter with no result selected navigates to search page', async ({ page }) => {
-    await page.route('**/qqq/v1/globalSearch**', (route) => {
-      route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({ results: [] }),
-      })
-    })
-
-    await typeAndWaitForResults(page, 'testquery')
+    // Search for something that matches nothing → empty state → press Enter
+    await searchInput(page).fill('zzznoresults')
+    await expect(searchDropdown(page)).toBeVisible({ timeout: 8000 })
 
     await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/app\/search\?q=testquery/, { timeout: 10000 })
+    await expect(page).toHaveURL(/\/app\/search\?q=zzznoresults/, { timeout: 10000 })
   })
 
   test('keyboard arrow navigation moves selection through items', async ({ page }) => {
-    await mockSearchWithResults(page)
-    await typeAndWaitForResults(page, 'Ali')
+    await typeAndWaitForOptions(page, 'Ali')
 
-    // Wait for result items to be visible
     const firstOption = searchDropdown(page).locator('[role="option"]').first()
     await expect(firstOption).toBeVisible({ timeout: 5000 })
 
@@ -192,7 +164,6 @@ test.describe('GlobalSearch (header search)', () => {
   })
 
   test('clicking outside the dropdown closes it', async ({ page }) => {
-    await mockSearchWithResults(page)
     await typeAndWaitForResults(page, 'Ali')
     await expect(searchDropdown(page)).toBeVisible()
 

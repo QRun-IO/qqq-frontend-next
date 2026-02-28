@@ -202,9 +202,54 @@ async function parseRequestBody(request: Request): Promise<Record<string, unknow
   }
 }
 
+// ─── Table labels for search ──────────────────────────────────────────────────
+
+const tableLabels: Record<string, string> = {
+  person: 'People',
+  company: 'Companies',
+  order: 'Orders',
+  orderLine: 'Order Lines',
+  product: 'Products',
+  supplier: 'Suppliers',
+}
+
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 export const tableHandlers = [
+
+  // POST /search — global search across all tables
+  http.post(`${BASE}/search`, async ({ request }) => {
+    const body = await request.json() as { searchTerm?: string }
+    const term = (body?.searchTerm ?? '').toLowerCase().trim()
+    if (!term || term.length < 2) {
+      return HttpResponse.json([])
+    }
+    // Magic term for error testing
+    if (term === '__error__') {
+      return HttpResponse.json({ error: 'Simulated server error' }, { status: 500 })
+    }
+    const results: Array<{ tableName: string; tableLabel: string; recordId: string; recordLabel: string }> = []
+    for (const [tableName, records] of Object.entries(store)) {
+      for (const record of records) {
+        const label = buildRecordLabel(tableName, record.values as Record<string, unknown>)
+        const pkField = getPkField(tableName)
+        if (
+          label.toLowerCase().includes(term) ||
+          Object.values(record.values as Record<string, unknown>).some(
+            (v) => String(v ?? '').toLowerCase().includes(term)
+          )
+        ) {
+          results.push({
+            tableName,
+            tableLabel: tableLabels[tableName] ?? tableName,
+            recordId: String((record.values as Record<string, unknown>)[pkField]),
+            recordLabel: label,
+          })
+        }
+      }
+    }
+    return HttpResponse.json(results.slice(0, 20))
+  }),
 
   // POST /table/:tableName/query
   http.post(`${BASE}/table/:tableName/query`, async ({ params, request }) => {

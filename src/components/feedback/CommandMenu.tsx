@@ -190,6 +190,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
             className="max-h-80 overflow-y-auto py-2"
             aria-label="Navigation results"
             aria-live="polite"
+            data-qqq-id="command-menu-results"
           >
             <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
               No results found.
