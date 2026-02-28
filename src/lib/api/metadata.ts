@@ -2,6 +2,7 @@
 
 import type { QInstance, QTableMetaData, QProcessMetaData } from '@/types'
 import apiClient from './client'
+import { QInstanceMinimalSchema } from './schemas'
 
 /**
  * Fetches the top-level QQQ instance metadata from `GET /metaData`.
@@ -13,12 +14,17 @@ import apiClient from './client'
  * @returns The `QInstance` object containing all top-level application metadata.
  */
 export async function loadMetaData(): Promise<QInstance> {
-  return apiClient.get<QInstance>('/metaData', {
+  const result = await apiClient.get<QInstance>('/metaData', {
     params: {
       frontendName: 'qqq-frontend-next',
       frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
     },
   })
+  const parsed = QInstanceMinimalSchema.safeParse(result)
+  if (!parsed.success) {
+    console.warn('[API] QInstance metadata response failed schema validation:', parsed.error.flatten())
+  }
+  return result
 }
 
 /**

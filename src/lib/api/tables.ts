@@ -4,6 +4,11 @@ import { isAxiosError } from 'axios'
 
 import type { QRecord, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
 import apiClient from './client'
+import {
+  QueryRecordsResponseSchema,
+  CountRecordsResponseSchema,
+  GlobalSearchResponseSchema,
+} from './schemas'
 
 /**
  * Request body shape accepted by the query and count endpoints.
@@ -61,10 +66,15 @@ export async function queryRecords(
   tableName: string,
   request: QueryRecordsRequest
 ): Promise<QueryRecordsResponse> {
-  return apiClient.post<QueryRecordsResponse>(
+  const result = await apiClient.post<QueryRecordsResponse>(
     `/table/${encodeURIComponent(tableName)}/query`,
     request
   )
+  const parsed = QueryRecordsResponseSchema.safeParse(result)
+  if (!parsed.success) {
+    console.warn('[API] QueryRecords response failed schema validation:', parsed.error.flatten())
+  }
+  return result
 }
 
 /**
@@ -83,11 +93,16 @@ export async function countRecords(
   request: QueryRecordsRequest,
   includeDistinct = false
 ): Promise<CountRecordsResponse> {
-  return apiClient.post<CountRecordsResponse>(
+  const result = await apiClient.post<CountRecordsResponse>(
     `/table/${encodeURIComponent(tableName)}/count`,
     request,
     { params: { includeDistinct } }
   )
+  const parsed = CountRecordsResponseSchema.safeParse(result)
+  if (!parsed.success) {
+    console.warn('[API] CountRecords response failed schema validation:', parsed.error.flatten())
+  }
+  return result
 }
 
 /**
@@ -233,10 +248,15 @@ export async function globalSearch(
   tableNames: string[] = []
 ): Promise<GlobalSearchResult[]> {
   try {
-    return await apiClient.post<GlobalSearchResult[]>('/search', {
+    const result = await apiClient.post<GlobalSearchResult[]>('/search', {
       searchTerm,
       tableNames,
     })
+    const parsed = GlobalSearchResponseSchema.safeParse(result)
+    if (!parsed.success) {
+      console.warn('[API] GlobalSearch response failed schema validation:', parsed.error.flatten())
+    }
+    return result
   } catch (err) {
     // Only swallow 404 — the search endpoint is optional
     if (isAxiosError(err) && err.response?.status === 404) return []

@@ -1,8 +1,16 @@
 // Vitest test setup
 
 import '@testing-library/jest-dom'
-import { vi, beforeAll, afterEach, afterAll } from 'vitest'
+import { configureAxe, toHaveNoViolations } from 'jest-axe'
+import { vi, beforeAll, afterEach, afterAll, expect } from 'vitest'
 import { server } from '@/mocks/node'
+
+// Extend Vitest's expect with jest-axe accessibility matchers
+expect.extend(toHaveNoViolations)
+
+// Configure axe globally — color-contrast is tested manually to avoid false positives
+// in jsdom which cannot accurately compute CSS-derived contrast ratios
+configureAxe({ rules: { 'color-contrast': { enabled: false } } })
 
 // Start MSW node server before all tests
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
