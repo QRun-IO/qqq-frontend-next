@@ -78,7 +78,43 @@ const METADATA = {
       variantTableLabel: '',
     },
   },
-  processes: {},
+  processes: {
+    importData: {
+      name: 'importData',
+      label: 'Import Data',
+      tableName: '',
+      isHidden: false,
+      iconName: 'upload',
+      hasPermission: true,
+      stepFlow: 'LINEAR',
+      minInputRecords: 0,
+      frontendSteps: [
+        {
+          name: 'input',
+          label: 'Upload File',
+          components: [{ type: 'EDIT_FORM' }],
+          formFields: [
+            {
+              name: 'file',
+              label: 'CSV File',
+              type: 'STRING',
+              isEditable: true,
+              isRequired: true,
+              isHeavy: false,
+              isHidden: false,
+              adornments: [],
+            },
+          ],
+        },
+        {
+          name: 'result',
+          label: 'Complete',
+          components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+          formFields: [],
+        },
+      ],
+    },
+  },
   reports: {},
   widgets: {},
   branding: {
@@ -144,14 +180,32 @@ export async function setupApiMocks(page: Page): Promise<void> {
   await page.route('**/qqq/v1/table/person**', (route) => {
     const method = route.request().method()
     if (method === 'POST') {
-      // Insert
+      // Insert — return new record with id 99
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 999 } }),
+        body: JSON.stringify({ ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 99 } }),
       })
       return
     }
-    // PUT/DELETE fall through to continue
+    if (method === 'PATCH' || method === 'PUT') {
+      // Update — return the updated record
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...PERSON_RECORD_1,
+          values: { ...PERSON_RECORD_1.values, firstName: 'Alice Updated' },
+        }),
+      })
+      return
+    }
+    if (method === 'DELETE') {
+      // Delete — return deletion count
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ deletedCount: 1 }),
+      })
+      return
+    }
     route.continue()
   })
 
@@ -164,6 +218,84 @@ export async function setupApiMocks(page: Page): Promise<void> {
   // Logout
   await page.route('**/qqq/v1/logout**', (route) => {
     route.fulfill({ status: 200 })
+  })
+
+  // ── Process routes (generic catch-alls registered before specific routes) ──
+
+  // Process job status — polling endpoint
+  await page.route('**/qqq/v1/processes/*/status/**', (route) => {
+    const url = route.request().url()
+    const processMatch = /\/processes\/([^/]+)\/status\/([^/?]+)/.exec(url)
+    const processUUID = processMatch?.[2] ?? 'mock-uuid'
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        jobState: 'COMPLETE',
+        processUUID,
+        frontendStep: {
+          name: 'result',
+          label: 'Complete',
+          components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+          formFields: [],
+        },
+        values: { processedRecordCount: 0 },
+        nextStep: 'result',
+      }),
+    })
+  })
+
+  // Process step submission
+  await page.route('**/qqq/v1/processes/*/step/**', (route) => {
+    const url = route.request().url()
+    const processMatch = /\/processes\/([^/]+)\/step\/([^/?]+)/.exec(url)
+    const processUUID = processMatch?.[2] ?? 'mock-uuid'
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        processUUID,
+        nextStep: 'result',
+        frontendStep: {
+          name: 'result',
+          label: 'Complete',
+          components: [{ type: 'PROCESS_SUMMARY_RESULTS' }],
+          formFields: [],
+        },
+        values: { processedRecordCount: 0 },
+      }),
+    })
+  })
+
+  // Process init — returns first step for any process
+  await page.route('**/qqq/v1/processes/*/init', (route) => {
+    const url = route.request().url()
+    const processMatch = /\/processes\/([^/]+)\/init/.exec(url)
+    const processName = processMatch?.[1] ?? 'unknown'
+    const processUUID = `mock-uuid-${processName}`
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        processUUID,
+        nextStep: 'input',
+        frontendStep: {
+          name: 'input',
+          label: 'Upload File',
+          components: [{ type: 'EDIT_FORM' }],
+          formFields: [
+            {
+              name: 'file',
+              label: 'CSV File',
+              type: 'STRING',
+              isEditable: true,
+              isRequired: true,
+              isHeavy: false,
+              isHidden: false,
+              adornments: [],
+            },
+          ],
+        },
+        values: {},
+      }),
+    })
   })
 
   // ── SPECIFIC routes (registered last = highest priority, checked first) ────
