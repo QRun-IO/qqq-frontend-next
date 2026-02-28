@@ -13,6 +13,7 @@ import type { GlobalSearchResult } from '@/lib/api/tables'
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { queryKeys } from '@/lib/query-client'
+import { toast } from '@/lib/hooks/use-toast'
 
 /**
  * Props for the GlobalSearch component.
@@ -95,12 +96,20 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   const {
     data: searchResults = [],
     isLoading: isSearching,
+    isError: isSearchError,
   } = useQuery<GlobalSearchResult[]>({
     queryKey: queryKeys.globalSearch(debouncedTerm),
     queryFn: () => globalSearch(debouncedTerm),
     enabled: debouncedTerm.length >= 2,
     staleTime: 1000 * 30, // 30 seconds
   })
+
+  // Toast on search error
+  useEffect(() => {
+    if (isSearchError) {
+      toast.error('Search failed')
+    }
+  }, [isSearchError])
 
   // Load recent records when dropdown opens
   useEffect(() => {
@@ -131,8 +140,10 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (!(event.target instanceof Node)) return
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false)
+        inputRef.current?.focus()
       }
     }
 
@@ -239,10 +250,10 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   let runningIndex = 0
 
   const showRecent = searchTerm.length < 2 && recentRecords.length > 0
-  const showResults = searchTerm.length >= 2
+  const showResults = searchTerm.length >= 2 && !isSearchError
   const showEmpty =
-    searchTerm.length >= 2 && !isSearching && searchResults.length === 0
-  const showDropdown = isOpen && (showRecent || showResults || showEmpty)
+    searchTerm.length >= 2 && !isSearching && !isSearchError && searchResults.length === 0
+  const showDropdown = isOpen && (showRecent || showResults || showEmpty || isSearchError)
 
   return (
     <div ref={containerRef} className={cn('relative', className)} data-qqq-id="header-search">
@@ -341,6 +352,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                             selectedIndex === itemIndex ? 'bg-accent' : 'hover:bg-accent/50'
                           )}
                           role="option"
+                          aria-label={result.recordLabel}
                           aria-selected={selectedIndex === itemIndex}
                         >
                           {/* Initials avatar */}
@@ -372,8 +384,13 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
               </div>
             )}
 
+            {/* Error state */}
+            {isSearchError && (
+              <p className="px-3 py-2 text-sm text-destructive">Search unavailable</p>
+            )}
+
             {/* Empty state */}
-            {showEmpty && (
+            {showEmpty && !isSearchError && (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                 No results found for &ldquo;{searchTerm}&rdquo;
               </div>

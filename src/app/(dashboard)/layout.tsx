@@ -106,9 +106,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
       // Update favicon from branding
       if (metaData.branding.icon) {
-        const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null
-        if (favicon) {
-          favicon.href = metaData.branding.icon
+        const faviconEl = document.querySelector("link[rel~='icon']")
+        if (faviconEl instanceof HTMLLinkElement) {
+          faviconEl.href = metaData.branding.icon
         }
       }
 
@@ -131,8 +131,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         .replace(/url\s*\(\s*["']?\s*data:/gi, '') // no data: URLs
 
       const styleId = 'qqq-custom-css'
-      let styleTag = document.getElementById(styleId) as HTMLStyleElement | null
-      if (!styleTag) {
+      const existingStyleEl = document.getElementById(styleId)
+      let styleTag: HTMLStyleElement
+      if (existingStyleEl instanceof HTMLStyleElement) {
+        styleTag = existingStyleEl
+      } else {
         styleTag = document.createElement('style')
         styleTag.id = styleId
         document.head.appendChild(styleTag)
@@ -164,10 +167,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
    * @returns Whether the currently focused element is a text-entry control.
    */
   const isInputFocused = useCallback(() => {
-    const tag = (document.activeElement?.tagName || '').toLowerCase()
-    const type = (document.activeElement as HTMLInputElement)?.type || ''
-    const isEditable = (document.activeElement as HTMLElement)?.isContentEditable
-    return tag === 'input' || tag === 'textarea' || tag === 'select' || type === 'search' || isEditable
+    const active = document.activeElement
+    const tag = (active?.tagName ?? '').toLowerCase()
+    const inputType = active instanceof HTMLInputElement ? active.type : ''
+    const isEditable = active instanceof HTMLElement ? active.isContentEditable : false
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || inputType === 'search' || isEditable
   }, [])
 
   /**

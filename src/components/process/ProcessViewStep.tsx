@@ -2,8 +2,8 @@
  * ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
  *
  * Iterates `step.viewFields` and renders each field's label and value from
- * `stepValues` as a definition list.  HTML-typed fields use minimal script
- * stripping; all other types are formatted by {@link formatFieldValue}.
+ * `stepValues` as a definition list.  HTML-typed fields are sanitized with
+ * DOMPurify; all other types are formatted by {@link formatFieldValue}.
  */
 'use client'
 
@@ -13,22 +13,12 @@
 import React, { useState } from 'react'
 import { ChevronRight, X } from 'lucide-react'
 
+import DOMPurify from 'dompurify'
+
 import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
-
-// TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
-// Minimal sanitization: strip script tags to prevent XSS from injected HTML
-/**
- * Strips `<script>` blocks from an HTML string as a minimal XSS mitigation.
- *
- * @param html - The raw HTML string to sanitise.
- * @returns The HTML string with all `<script>…</script>` blocks removed.
- */
-function stripScripts(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-}
 
 /**
  * Props for the {@link ProcessViewStep} component.
@@ -84,8 +74,8 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * Renders a VIEW_FORM process step as a read-only definition list.
  *
  * Displays HELP_TEXT banners, then each view field as a `<dt>`/`<dd>` pair.
- * HTML-typed fields are rendered with script stripping; other types are
- * formatted by {@link formatFieldValue}.
+ * HTML-typed fields are sanitized with DOMPurify before rendering; other types
+ * are formatted by {@link formatFieldValue}.
  *
  * @param props - {@link ProcessViewStepProps}
  */
@@ -138,7 +128,7 @@ export function ProcessViewStep({
                   <div
                     className="prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: stripScripts(String(stepValues[field.name] ?? '')),
+                      __html: DOMPurify.sanitize(String(stepValues[field.name] ?? '')),
                     }}
                   />
                 ) : (

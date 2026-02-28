@@ -4,7 +4,7 @@
  * An intermediate mid-process step (distinct from the final {@link ProcessResultStep})
  * that shows a success icon, numeric stats, and optional view-field detail rows
  * before the user continues to the next step.  HTML-typed view fields are
- * rendered with minimal script-stripping sanitisation.
+ * sanitized with DOMPurify before rendering.
  */
 'use client'
 
@@ -15,22 +15,12 @@
 import React, { useState } from 'react'
 import { CheckCircle, ChevronRight, X } from 'lucide-react'
 
+import DOMPurify from 'dompurify'
+
 import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
-
-// TODO: Replace with DOMPurify for full sanitization (https://github.com/cure53/DOMPurify)
-// Minimal sanitization: strip script tags to prevent XSS from injected HTML
-/**
- * Strips `<script>` tags from an HTML string as a minimal XSS mitigation.
- *
- * @param html - The raw HTML string to sanitise.
- * @returns The HTML string with all `<script>…</script>` blocks removed.
- */
-function stripScripts(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-}
 
 /**
  * Props for the {@link ProcessSummaryResultsStep} component.
@@ -130,7 +120,7 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * Renders a PROCESS_SUMMARY_RESULTS process step.
  *
  * Shows a success icon, an optional message from `stepValues`, numeric stat
- * counters, and view-field detail rows (with HTML fields stripped of scripts).
+ * counters, and view-field detail rows (with HTML fields sanitized by DOMPurify).
  * Navigation controls allow proceeding to the next step or going back.
  *
  * @param props - {@link ProcessSummaryResultsStepProps}
@@ -202,7 +192,7 @@ export function ProcessSummaryResultsStep({
                   <div
                     className="prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: stripScripts(String(stepValues[field.name] ?? '')),
+                      __html: DOMPurify.sanitize(String(stepValues[field.name] ?? '')),
                     }}
                   />
                 ) : (

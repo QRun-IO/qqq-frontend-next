@@ -6,7 +6,7 @@
 // Supports adornment types: LINK, CHIP, FILE_DOWNLOAD, REVEAL, SIZE, RENDER_HTML,
 // CODE_EDITOR, TOOLTIP, ERROR
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
@@ -53,6 +53,12 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 
   // Use displayValue when available (formatted by backend)
   const value = displayValue ?? rawValue
+
+  // MED-4: memoize DOMPurify sanitization so it only re-runs when value changes
+  const sanitizedHtml = useMemo(
+    () => DOMPurify.sanitize(String(value)),
+    [value]
+  )
 
   if (value === null || value === undefined || value === '') {
     return (
@@ -163,7 +169,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
     return (
       <div
         className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(String(value)) }}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         data-qqq-id={`field-value-${field.name}`}
       />
     )

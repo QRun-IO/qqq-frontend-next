@@ -31,21 +31,24 @@ export function getRecentRecords(): RecentRecord[] {
 
 /**
  * Adds or updates a recently viewed record.
- * Deduplicates by path — if the same path already exists, updates the timestamp.
- * Trims the list to MAX_RECORDS entries.
+ * Deduplicates by tableName + recordId combination — if the same record already
+ * exists, the existing entry is removed and the new one is prepended with a fresh
+ * timestamp. Trims the list to MAX_RECORDS entries.
  */
 export function addRecentRecord(record: Omit<RecentRecord, 'viewedAt'>): void {
   if (typeof window === 'undefined') return
   try {
     const existing = getRecentRecords()
 
-    // Remove any existing entry with the same path (deduplication)
-    const filtered = existing.filter((r) => r.path !== record.path)
+    // Remove any existing entry with the same tableName + recordId (deduplication)
+    const deduped = existing.filter(
+      (r) => !(r.tableName === record.tableName && r.recordId === record.recordId)
+    )
 
-    // Prepend the new record with current timestamp
+    // Prepend the new record with current timestamp, then trim to the max size
     const updated: RecentRecord[] = [
       { ...record, viewedAt: Date.now() },
-      ...filtered,
+      ...deduped,
     ].slice(0, MAX_RECORDS)
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))

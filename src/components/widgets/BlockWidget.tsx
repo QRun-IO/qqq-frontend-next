@@ -89,7 +89,7 @@ export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
       data-qqq-id={`block-widget-${widgetName}`}
     >
       {blocks.map((block, index) => (
-        <BlockRenderer key={index} block={block} widgetName={widgetName} index={index} />
+        <BlockRenderer key={`${block.type}-${index}`} block={block} widgetName={widgetName} index={index} />
       ))}
     </div>
   )

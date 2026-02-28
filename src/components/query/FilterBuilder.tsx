@@ -153,7 +153,7 @@ interface FilterGroupProps {
  * @param depth - Nesting depth used for indentation and the "Add group" cap (max 2).
  * @param tableName - Passed to async comboboxes for possible-value searching.
  */
-function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroupProps) {
+const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
   // Stable ID generation for criteria rows to avoid React reconciliation bugs with index keys
@@ -197,7 +197,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
   /**
    * Appends a new blank criterion using the first available field and its default operator.
    */
-  const addCriterion = () => {
+  const addCriterion = useCallback(() => {
     const firstField = fields[0]
     if (!firstField) return
     const newCriterion: QFilterCriteria = {
@@ -209,12 +209,12 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
       ...filter,
       criteria: [...filter.criteria, newCriterion],
     })
-  }
+  }, [fields, filter, onChange])
 
   /**
    * Appends a new empty AND sub-filter group nested within this group.
    */
-  const addSubFilter = () => {
+  const addSubFilter = useCallback(() => {
     const sub: QQueryFilter = {
       criteria: [],
       orderBys: [],
@@ -227,7 +227,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
       ...filter,
       subFilters: [...(filter.subFilters ?? []), sub],
     })
-  }
+  }, [filter, onChange])
 
   /**
    * Replaces the criterion at `index` with `updated` and propagates the change.
@@ -235,21 +235,21 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
    * @param index - Zero-based index of the criterion to replace.
    * @param updated - The new criterion value.
    */
-  const updateCriterion = (index: number, updated: QFilterCriteria) => {
+  const updateCriterion = useCallback((index: number, updated: QFilterCriteria) => {
     const criteria = [...filter.criteria]
     criteria[index] = updated
     onChange({ ...filter, criteria })
-  }
+  }, [filter, onChange])
 
   /**
    * Removes the criterion at `index` from this group.
    *
    * @param index - Zero-based index of the criterion to remove.
    */
-  const removeCriterion = (index: number) => {
+  const removeCriterion = useCallback((index: number) => {
     const criteria = filter.criteria.filter((_, i) => i !== index)
     onChange({ ...filter, criteria })
-  }
+  }, [filter, onChange])
 
   /**
    * Replaces the sub-filter at `index` with `updated` and propagates the change.
@@ -257,21 +257,21 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
    * @param index - Zero-based index of the sub-filter to replace.
    * @param updated - The new sub-filter value.
    */
-  const updateSubFilter = (index: number, updated: QQueryFilter) => {
+  const updateSubFilter = useCallback((index: number, updated: QQueryFilter) => {
     const subFilters = [...(filter.subFilters ?? [])]
     subFilters[index] = updated
     onChange({ ...filter, subFilters })
-  }
+  }, [filter, onChange])
 
   /**
    * Removes the sub-filter group at `index` from this group.
    *
    * @param index - Zero-based index of the sub-filter to remove.
    */
-  const removeSubFilter = (index: number) => {
+  const removeSubFilter = useCallback((index: number) => {
     const subFilters = (filter.subFilters ?? []).filter((_, i) => i !== index)
     onChange({ ...filter, subFilters })
-  }
+  }, [filter, onChange])
 
   return (
     <div className={`flex flex-col gap-2 ${indent}`}>
@@ -359,7 +359,7 @@ function FilterGroup({ filter, fields, onChange, depth, tableName }: FilterGroup
       </div>
     </div>
   )
-}
+})
 
 // ------------------------------------------------------------------
 // CriteriaRow — single filter condition row

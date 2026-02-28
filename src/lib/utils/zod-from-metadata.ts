@@ -51,15 +51,41 @@ export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
   switch (type) {
     case 'INTEGER':
     case 'LONG': {
-      const num = z.coerce.number().int(`${label} must be a whole number`)
+      let num = z.coerce.number().int(`${label} must be a whole number`)
+      if (field.minValue !== undefined && field.minValue !== null) {
+        num = num.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
+      }
+      if (field.maxValue !== undefined && field.maxValue !== null) {
+        num = num.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
+      }
       if (isRequired) return num
-      return z.union([z.literal(''), z.coerce.number().int(`${label} must be a whole number`)]).optional()
+      let optNum = z.coerce.number().int(`${label} must be a whole number`)
+      if (field.minValue !== undefined && field.minValue !== null) {
+        optNum = optNum.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
+      }
+      if (field.maxValue !== undefined && field.maxValue !== null) {
+        optNum = optNum.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
+      }
+      return z.union([z.literal(''), optNum]).optional()
     }
 
     case 'DECIMAL': {
-      const dec = z.coerce.number({ message: `${label} must be a number` })
+      let dec = z.coerce.number({ message: `${label} must be a number` })
+      if (field.minValue !== undefined && field.minValue !== null) {
+        dec = dec.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
+      }
+      if (field.maxValue !== undefined && field.maxValue !== null) {
+        dec = dec.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
+      }
       if (isRequired) return dec
-      return z.union([z.literal(''), z.coerce.number()]).optional()
+      let optDec = z.coerce.number()
+      if (field.minValue !== undefined && field.minValue !== null) {
+        optDec = optDec.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
+      }
+      if (field.maxValue !== undefined && field.maxValue !== null) {
+        optDec = optDec.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
+      }
+      return z.union([z.literal(''), optDec]).optional()
     }
 
     case 'BOOLEAN':

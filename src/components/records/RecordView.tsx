@@ -8,22 +8,22 @@
 // - Collapsible sections on mobile
 // - T2 sections collapsed by default
 
-import React, { useCallback, useMemo } from 'react'
+import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft, LayoutGrid, List } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
 import { RecordViewSection } from './RecordViewSection'
-import { RecordActions } from './RecordActions'
-import { AssociatedRecords } from './AssociatedRecords'
 import { FieldValue } from './FieldValue'
-import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
 import { RecordInfoFooter } from './RecordInfoFooter'
+import { RecordViewHeader } from './RecordViewHeader'
+import { RecordViewTabs } from './RecordViewTabs'
+import { RecordViewAssociated } from './RecordViewAssociated'
 
 /**
  * Returns true if a section has at least one visible (non-hidden, non-heavy) field or a widget.
@@ -40,23 +40,47 @@ function sectionHasContent(section: { fieldNames: string[]; widgetName?: string 
   })
 }
 
+// ---------------------------------------------------------------------------
+// RecordViewContext — shared data for the record detail subtree
+// ---------------------------------------------------------------------------
+
 /**
- * Extracts up to two uppercase initials from a label string.
+ * Shared context values provided by {@link RecordViewContent} to all
+ * descendant components in the record detail subtree.
  *
- * When the label contains multiple words the first character of each of the
- * first two words is used; otherwise the first two characters of the label
- * are returned.
- *
- * @param label - The display label to abbreviate.
- * @returns A one-or-two character uppercase string suitable for an avatar.
+ * Using context avoids threading `tableMetaData`, `allTables`, and
+ * `navigateFrom` through every intermediate component as props.
  */
-function getInitials(label: string): string {
-  const words = label.trim().split(/\s+/)
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase()
-  }
-  return label.slice(0, 2).toUpperCase()
+interface RecordViewContextValue {
+  /** Table metadata that describes sections, fields, and relationships. */
+  tableMetaData: QTableMetaData
+  /** Full table metadata map for rendering possibleValueSource fields as links. */
+  allTables: Record<string, QTableMetaData> | undefined
+  /** Navigation context: current page path + label for building back-links. */
+  navigateFrom: { path: string; label: string }
 }
+
+const RecordViewContext = createContext<RecordViewContextValue | null>(null)
+
+/**
+ * Returns the nearest {@link RecordViewContext} value.
+ *
+ * Throws if called outside a `RecordViewContext.Provider`, which guards
+ * against accidentally using the subcomponents outside {@link RecordViewContent}.
+ *
+ * @returns The current {@link RecordViewContextValue}.
+ */
+export function useRecordViewContext(): RecordViewContextValue {
+  const ctx = useContext(RecordViewContext)
+  if (!ctx) {
+    throw new Error('useRecordViewContext must be used within a RecordViewContext.Provider')
+  }
+  return ctx
+}
+
+// ---------------------------------------------------------------------------
+// RecordViewProps + RecordView (public export)
+// ---------------------------------------------------------------------------
 
 /**
  * Props for the {@link RecordView} component.
@@ -318,6 +342,10 @@ export function RecordView({
  * useMemo) are only executed after loading/error guards have passed and a
  * valid record is guaranteed.  Persists the active tab and view mode (tabs vs
  * list) in the URL so that browser back/forward navigation restores state.
+ *
+ * Provides {@link RecordViewContext} to the subtree, eliminating prop drilling
+ * of `tableMetaData`, `allTables`, and `navigateFrom` through intermediate
+ * subcomponents.
  */
 function RecordViewContent({
   tableMetaData,
@@ -452,395 +480,180 @@ function RecordViewContent({
       })
   )
 
+  // Context value shared with all subcomponents in the record detail subtree
+  const contextValue = useMemo<RecordViewContextValue>(
+    () => ({ tableMetaData, allTables, navigateFrom }),
+    [tableMetaData, allTables, navigateFrom]
+  )
+
   return (
-    <div
-      className={cn('space-y-5', className)}
-      data-qqq-id={`record-view-${tableMetaData.name}`}
-    >
-      {/* Back link — returns to source page if navigated from another record, otherwise table list */}
-      <Link
-        href={safeFromPath || `/app/${tableMetaData.name}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        data-qqq-id="link-back-to-table"
+    <RecordViewContext.Provider value={contextValue}>
+      <div
+        className={cn('space-y-5', className)}
+        data-qqq-id={`record-view-${tableMetaData.name}`}
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back to {fromLabel || tableMetaData.label}
-      </Link>
-
-      {/* Record header — avatar + name + actions */}
-      <div className="flex items-start gap-4">
-        <div
-          className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
-          aria-hidden="true"
-          data-qqq-id="record-avatar"
+        {/* Back link — returns to source page if navigated from another record, otherwise table list */}
+        <Link
+          href={safeFromPath || `/app/${tableMetaData.name}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          data-qqq-id="link-back-to-table"
         >
-          {getInitials(
-            record.recordLabel ||
-            `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
-          </h1>
-          {/* T1 fields as a compact grid under the name */}
-          {t1Fields.length > 0 && (
-            <dl
-              className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4"
-              data-qqq-id="record-primary-sections"
-            >
-              {t1Fields.map((field) => {
-                const displayVal = record.displayValues?.[field.name]
-                const rawVal = record.values[field.name]
-                const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
-                const pvsName = field.possibleValueSourceName
-                const refMeta = pvsName ? allTables?.[pvsName] : undefined
-                const isLink = Boolean(refMeta) && rawVal != null
-                const fromParams = navigateFrom
-                  ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
-                  : ''
-                return (
-                  <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
-                    <dt className="text-xs text-muted-foreground">
-                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
-                    </dt>
-                    <dd className="text-sm">
-                      {val == null ? '\u2014' : isLink && refMeta ? (
-                        <RecordHoverCard
-                          tableName={pvsName!}
-                          primaryKey={rawVal as string | number}
-                          tableMetaData={refMeta}
-                          navigateFrom={navigateFrom}
-                        >
-                          <Link
-                            href={`/app/${pvsName}/${rawVal}${fromParams}`}
-                            className="text-primary hover:text-primary/80 hover:underline"
-                          >
-                            {val}
-                          </Link>
-                        </RecordHoverCard>
-                      ) : (
-                        <span className="text-foreground">{val}</span>
-                      )}
-                    </dd>
-                  </div>
-                )
-              })}
-              {/* One-to-one join fields */}
-              {oneJoins.map((join) => {
-                const joinRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-                if (joinRecords.length === 0) return null
-                const joinRecord = joinRecords[0]
-                return Object.values(join.joinTable!.fields)
-                  .filter((f) => !f.isHidden && !f.isHeavy)
-                  .slice(0, 3)
-                  .map((field) => {
-                    const val = joinRecord.displayValues?.[field.name] ??
-                      (joinRecord.values[field.name] != null ? String(joinRecord.values[field.name]) : null)
-                    return (
-                      <div key={`${join.label}-${field.name}`} className="flex flex-col">
-                        <dt className="text-xs text-muted-foreground">{field.label}</dt>
-                        <dd className="text-sm text-foreground">{val ?? '\u2014'}</dd>
-                      </div>
-                    )
-                  })
-              })}
-            </dl>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* View mode toggle */}
-          <div
-            className="flex rounded-lg border border-border bg-muted/50 p-0.5"
-            role="radiogroup"
-            aria-label="View mode"
-            data-qqq-id="record-view-mode-toggle"
-          >
-            <button
-              role="radio"
-              aria-checked={viewMode === 'tabs'}
-              aria-label="Card view"
-              onClick={() => setViewMode('tabs')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'tabs'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              role="radio"
-              aria-checked={viewMode === 'list'}
-              aria-label="List view"
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'list'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <List className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-          {!hideActions && (
-            <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
-          )}
-        </div>
-      </div>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to {fromLabel || tableMetaData.label}
+        </Link>
 
-      {/* Record errors/warnings */}
-      {(record.errors?.length ?? 0) > 0 && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
-          <ul className="list-inside list-disc space-y-1">
-            {record.errors!.map((err, i) => (
-              <li key={i} className="text-sm text-red-700">{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {(record.warnings?.length ?? 0) > 0 && (
-        <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
-          <ul className="list-inside list-disc space-y-1">
-            {record.warnings!.map((warn, i) => (
-              <li key={i} className="text-sm text-yellow-700">{warn}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* === View mode: Tabs (default) === */}
-      {viewMode === 'tabs' && tabs.length > 0 && (
-        <>
-          {/* Tab bar — pill-style */}
-          <div
-            className="flex rounded-xl border border-border bg-muted/50 p-1"
-            role="tablist"
-            data-qqq-id="record-view-tabs"
-          >
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                data-qqq-id={`record-tab-${tab.id}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content: Overview — all T2 sections in 2-column card grid */}
-          {activeTab === 'overview' && (
-            <div
-              className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-              role="tabpanel"
-              data-qqq-id="record-tab-panel-overview"
-            >
-              {secondarySections.map((section) => (
-                <div
-                  key={section.name}
-                  className={cn(
-                    'rounded-xl border border-border bg-card p-6 shadow-sm',
-                    (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
-                  )}
-                >
-                  <RecordViewSection
-                    section={section}
-                    tableMetaData={tableMetaData}
-                    record={record}
-                    widgetMetaDataMap={widgetMetaDataMap}
-                    allTables={allTables}
-                    navigateFrom={navigateFrom}
-                    stacked
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tab content: Individual T2 section tabs */}
-          {secondarySections.map((section) => (
-            activeTab === `section-${section.name}` && (
-              <div
-                key={section.name}
-                role="tabpanel"
-                data-qqq-id={`record-tab-panel-${section.name}`}
-              >
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <RecordViewSection
-                    section={section}
-                    tableMetaData={tableMetaData}
-                    record={record}
-                    widgetMetaDataMap={widgetMetaDataMap}
-                    allTables={allTables}
-                    navigateFrom={navigateFrom}
-                  />
-                </div>
-              </div>
-            )
-          ))}
-
-          {/* Tab content: Individual T3 section tabs (supplementary: notes, audit, etc.) */}
-          {tertiarySections.map((section) => (
-            activeTab === `section-${section.name}` && (
-              <div
-                key={section.name}
-                role="tabpanel"
-                data-qqq-id={`record-tab-panel-${section.name}`}
-              >
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <RecordViewSection
-                    section={section}
-                    tableMetaData={tableMetaData}
-                    record={record}
-                    widgetMetaDataMap={widgetMetaDataMap}
-                    allTables={allTables}
-                    navigateFrom={navigateFrom}
-                  />
-                </div>
-              </div>
-            )
-          ))}
-
-          {/* Tab content: Related (many-to-many / one-to-many) */}
-          {activeTab === 'related' && (
-            <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
-              {manyJoins.map((join) => {
-                const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-                return (
-                  <div key={join.label} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                    <AssociatedRecords
-                      join={join}
-                      records={assocRecords}
-                      parentTableMetaData={tableMetaData}
-                      parentPrimaryKey={parentPk as string | number}
-                      allTables={allTables}
-                      navigateFrom={navigateFrom}
-                      onRecordCreated={onRefetch}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* === View mode: List (compact top-to-bottom data view) === */}
-      {viewMode === 'list' && (
-        <div className="space-y-4" data-qqq-id="record-view-list-mode">
-          {/* T1 sections as compact cards */}
-          {t1Sections.length > 0 && t1Sections.map((section) => (
-            <div
-              key={section.name}
-              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-            >
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-                compact
-              />
-            </div>
-          ))}
-
-          {/* T2 sections as compact cards */}
-          {secondarySections.map((section) => (
-            <div
-              key={section.name}
-              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-            >
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-                compact
-              />
-            </div>
-          ))}
-
-          {/* T3 sections as compact cards */}
-          {tertiarySections.map((section) => (
-            <div
-              key={section.name}
-              className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-            >
-              <RecordViewSection
-                section={section}
-                tableMetaData={tableMetaData}
-                record={record}
-                widgetMetaDataMap={widgetMetaDataMap}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-                compact
-              />
-            </div>
-          ))}
-
-          {/* Related records */}
-          {manyJoins.map((join) => {
-            const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-            return (
-              <div key={join.label} className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
-                <AssociatedRecords
-                  join={join}
-                  records={assocRecords}
-                  parentTableMetaData={tableMetaData}
-                  parentPrimaryKey={parentPk as string | number}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                  onRecordCreated={onRefetch}
-                />
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* No tabs/sections — just show all fields if nothing to tab */}
-      {tabs.length === 0 && secondarySections.length === 0 && t1Fields.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
-            {Object.values(tableMetaData.fields)
-              .filter((f) => !f.isHidden && !f.isHeavy)
-              .map((field) => (
-                <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
-                  <dt className="text-sm font-semibold text-foreground">
-                    <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
-                  </dt>
-                  <dd>
-                    <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
-                  </dd>
-                </div>
-              ))}
-          </dl>
-        </div>
-      )}
-
-      {/* Record info footer — timestamps + audit history, always last */}
-      {recordInfoSections.length > 0 && (
-        <RecordInfoFooter
+        {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
+        <RecordViewHeader
           tableMetaData={tableMetaData}
           record={record}
-          recordInfoSections={recordInfoSections}
+          t1Fields={t1Fields}
+          oneJoins={oneJoins}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          hideActions={hideActions}
+          processes={processes}
+          allTables={allTables}
+          navigateFrom={navigateFrom}
         />
-      )}
-    </div>
+
+        {/* Record errors/warnings */}
+        {(record.errors?.length ?? 0) > 0 && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
+            <ul className="list-inside list-disc space-y-1">
+              {record.errors!.map((err, i) => (
+                <li key={i} className="text-sm text-red-700">{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(record.warnings?.length ?? 0) > 0 && (
+          <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
+            <ul className="list-inside list-disc space-y-1">
+              {record.warnings!.map((warn, i) => (
+                <li key={i} className="text-sm text-yellow-700">{warn}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* === View mode: Tabs (default) === */}
+        {viewMode === 'tabs' && tabs.length > 0 && (
+          <RecordViewTabs
+            tableMetaData={tableMetaData}
+            record={record}
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            secondarySections={secondarySections}
+            tertiarySections={tertiarySections}
+            manyJoins={manyJoins}
+            widgetMetaDataMap={widgetMetaDataMap}
+            allTables={allTables}
+            navigateFrom={navigateFrom}
+            parentPk={parentPk as string | number}
+            onRefetch={onRefetch}
+          />
+        )}
+
+        {/* === View mode: List (compact top-to-bottom data view) === */}
+        {viewMode === 'list' && (
+          <div className="space-y-4" data-qqq-id="record-view-list-mode">
+            {/* T1 sections as compact cards */}
+            {t1Sections.length > 0 && t1Sections.map((section) => (
+              <div
+                key={section.name}
+                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+              >
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                  compact
+                />
+              </div>
+            ))}
+
+            {/* T2 sections as compact cards */}
+            {secondarySections.map((section) => (
+              <div
+                key={section.name}
+                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+              >
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                  compact
+                />
+              </div>
+            ))}
+
+            {/* T3 sections as compact cards */}
+            {tertiarySections.map((section) => (
+              <div
+                key={section.name}
+                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+              >
+                <RecordViewSection
+                  section={section}
+                  tableMetaData={tableMetaData}
+                  record={record}
+                  widgetMetaDataMap={widgetMetaDataMap}
+                  allTables={allTables}
+                  navigateFrom={navigateFrom}
+                  compact
+                />
+              </div>
+            ))}
+
+            {/* Related records */}
+            <RecordViewAssociated
+              tableMetaData={tableMetaData}
+              record={record}
+              manyJoins={manyJoins}
+              parentPk={parentPk as string | number}
+              allTables={allTables}
+              navigateFrom={navigateFrom}
+              onRefetch={onRefetch}
+            />
+          </div>
+        )}
+
+        {/* No tabs/sections — just show all fields if nothing to tab */}
+        {tabs.length === 0 && secondarySections.length === 0 && t1Fields.length === 0 && (
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
+              {Object.values(tableMetaData.fields)
+                .filter((f) => !f.isHidden && !f.isHeavy)
+                .map((field) => (
+                  <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
+                    <dt className="text-sm font-semibold text-foreground">
+                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                    </dt>
+                    <dd>
+                      <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          </div>
+        )}
+
+        {/* Record info footer — timestamps + audit history, always last */}
+        {recordInfoSections.length > 0 && (
+          <RecordInfoFooter
+            tableMetaData={tableMetaData}
+            record={record}
+            recordInfoSections={recordInfoSections}
+          />
+        )}
+      </div>
+    </RecordViewContext.Provider>
   )
 }

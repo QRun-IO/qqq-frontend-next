@@ -205,8 +205,11 @@ export function DataGrid({
       ),
     }
 
+    // MED-3: pre-build a Map for O(1) sort lookups instead of O(n) find per column
+    const sortMap = new Map(sortOrder.map((s) => [s.fieldName, s]))
+
     const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((field) => {
-      const sortInfo = sortOrder.find((s) => s.fieldName === field.name)
+      const sortInfo = sortMap.get(field.name)
       const defaultWidth = columnWidths[field.name] ?? 150
 
       return {
@@ -270,7 +273,13 @@ export function DataGrid({
     manualSorting: true,
     getRowId: (row, index) => {
       const primaryKey = tableMetaData.primaryKeyField
-      return row.values[primaryKey] != null ? String(row.values[primaryKey]) : `row-${index}`
+      if (row.values[primaryKey] != null) {
+        return String(row.values[primaryKey])
+      }
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[DataGrid] Row at index', index, 'has null/undefined PK. Row selection may be unstable.', row)
+      }
+      return `row-${index}`
     },
   })
 

@@ -1,0 +1,54 @@
+/** RecordQueryBulkBar — bulk action bar wrapper for the RecordQuery page */
+'use client'
+
+import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
+
+import { BulkActionBar } from './BulkActionBar'
+
+/**
+ * Props for the RecordQueryBulkBar component.
+ */
+export interface RecordQueryBulkBarProps {
+  /** Full table metadata from the QQQ backend. */
+  tableMetaData: QTableMetaData
+  /** Optional list of processes available for bulk execution. */
+  processes?: QProcessMetaData[]
+  /** IDs of all currently selected rows. */
+  selectedRecordIds: (string | number)[]
+  /** Total number of records matching the active filter. */
+  totalCount: number
+  /** Callback to deselect all selected rows. */
+  onClearSelection: () => void
+  /** Callback to navigate to a process with the selected record IDs as params. */
+  handleRunProcess?: (processName: string) => void
+  /** The fully assembled effective filter (for bulk process context). */
+  effectiveFilter: QQueryFilter
+}
+
+/**
+ * Thin wrapper around `BulkActionBar` for the RecordQuery page.
+ *
+ * All state is passed in as props — this component holds no state of its own.
+ */
+export function RecordQueryBulkBar({
+  tableMetaData,
+  processes,
+  selectedRecordIds,
+  totalCount,
+  onClearSelection,
+  handleRunProcess,
+  effectiveFilter,
+}: RecordQueryBulkBarProps) {
+  return (
+    <BulkActionBar
+      tableMetaData={tableMetaData}
+      selectedCount={selectedRecordIds.length}
+      totalCount={totalCount}
+      onClearSelection={onClearSelection}
+      onRunProcess={processes && processes.length > 0 ? handleRunProcess : undefined}
+      processes={processes}
+      selectedRecordIds={selectedRecordIds}
+      currentFilter={effectiveFilter}
+    />
+  )
+}

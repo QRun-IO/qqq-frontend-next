@@ -14,6 +14,7 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { FileBarChart } from 'lucide-react'
 
+import type { QInstance } from '@/types'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -21,6 +22,40 @@ import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
+
+/**
+ * Resolves a URL slug to its QQQ resource type and name.
+ *
+ * Checks the slug against apps, tables, processes, and reports in priority order.
+ * Returns a discriminated union describing the match, or `null` when the slug is
+ * not found in any category.
+ *
+ * Extracted as a named function for testability — the caller (`SlugPage`) passes
+ * the already-fetched metadata so this function remains a pure mapping with no
+ * side effects or data fetching.
+ *
+ * @param slug - The URL path segment to resolve (e.g. `"orders"` or `"importData"`).
+ * @param metaData - The full QQQ instance metadata fetched from the backend.
+ * @returns A `{ type, name }` object describing the resolved resource, or `null`.
+ */
+export function resolveSlugTarget(
+  slug: string,
+  metaData: QInstance
+): { type: 'app' | 'table' | 'process' | 'report'; name: string } | null {
+  if (metaData.apps?.[slug]) {
+    return { type: 'app', name: slug }
+  }
+  if (metaData.tables?.[slug]) {
+    return { type: 'table', name: slug }
+  }
+  if (metaData.processes?.[slug]) {
+    return { type: 'process', name: slug }
+  }
+  if (metaData.reports?.[slug]) {
+    return { type: 'report', name: slug }
+  }
+  return null
+}
 
 /**
  * Renders the appropriate page component for a given `slug` URL segment.

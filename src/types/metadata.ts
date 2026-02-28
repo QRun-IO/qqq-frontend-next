@@ -172,6 +172,10 @@ export interface QFieldMetaData {
   displayFormat?: string
   /** Maximum character length enforced during validation (for STRING/TEXT fields). */
   maxLength?: number
+  /** Minimum numeric value enforced during validation (for INTEGER/LONG/DECIMAL fields). */
+  minValue?: number | string | null
+  /** Maximum numeric value enforced during validation (for INTEGER/LONG/DECIMAL fields). */
+  maxValue?: number | string | null
   /** Number of grid columns this field should occupy in the form layout. */
   gridColumns?: number
   /** List of visual/behavioral adornments applied when rendering this field. */

@@ -9,7 +9,7 @@
 // ProcessHtmlStep -- renders an HTML step
 // Displays HTML content from stepValues or viewFields inside a sanitized container
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { ChevronRight, X } from 'lucide-react'
 import DOMPurify from 'dompurify'
 
@@ -122,6 +122,9 @@ export function ProcessHtmlStep({
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const htmlContent = resolveHtmlContent(step, stepValues)
 
+  // MED-4: memoize DOMPurify sanitization so it only re-runs when htmlContent changes
+  const sanitizedHtml = useMemo(() => sanitizeHtml(htmlContent), [htmlContent])
+
   // Help text from HELP_TEXT components
   const helpTextComponents = step.components.filter((c) => c.type === 'HELP_TEXT')
 
@@ -142,7 +145,7 @@ export function ProcessHtmlStep({
       {htmlContent ? (
         <div
           className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-4"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           data-qqq-id="process-html-content"
         />
       ) : (

@@ -5,19 +5,21 @@
  * metadata.type (falling back to data.type), and renders the appropriate
  * typed widget component. For the generic 'chart' type, a secondary dispatch
  * on chartType selects the correct chart variant.
+ *
+ * The three Recharts-backed chart widgets (BarChartWidget, LineChartWidget,
+ * PieChartWidget) are loaded lazily so that the Recharts library is split into
+ * a separate chunk and excluded from the initial bundle on pages that contain
+ * no charts.
  */
 'use client'
 
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 
 import type { QWidgetMetaData } from '@/types'
 import { StatisticsWidget } from './StatisticsWidget'
 import type { StatisticsWidgetPayload } from './StatisticsWidget'
-import { BarChartWidget } from './BarChartWidget'
 import type { BarChartWidgetPayload } from './BarChartWidget'
-import { LineChartWidget } from './LineChartWidget'
 import type { LineChartWidgetPayload } from './LineChartWidget'
-import { PieChartWidget } from './PieChartWidget'
 import type { PieChartWidgetPayload } from './PieChartWidget'
 import { RecordGridWidget } from './RecordGridWidget'
 import type { RecordGridWidgetPayload } from './RecordGridWidget'
@@ -33,6 +35,27 @@ import { ProcessSummaryWidget } from './ProcessSummaryWidget'
 import type { ProcessSummaryWidgetPayload } from './ProcessSummaryWidget'
 import { CompositeWidget } from './CompositeWidget'
 import type { CompositeWidgetProps } from './CompositeWidget'
+
+// Chart components are lazy-loaded so the Recharts library is code-split into
+// a separate chunk and omitted from the initial JS bundle on non-chart pages.
+const BarChartWidget = lazy(() =>
+  import('./BarChartWidget').then((m) => ({ default: m.BarChartWidget }))
+)
+const LineChartWidget = lazy(() =>
+  import('./LineChartWidget').then((m) => ({ default: m.LineChartWidget }))
+)
+const PieChartWidget = lazy(() =>
+  import('./PieChartWidget').then((m) => ({ default: m.PieChartWidget }))
+)
+
+/**
+ * Fallback rendered by Suspense while a lazy chart chunk is loading.
+ * The fixed height (h-64 = 16rem) matches the 240 px Recharts canvas height
+ * used by all three chart widgets, preventing layout shift on load.
+ */
+const ChartFallback = (
+  <div className="h-64 animate-pulse rounded bg-muted" />
+)
 
 /** Props accepted by the WidgetRenderer component. */
 interface WidgetRendererProps {
@@ -70,26 +93,32 @@ export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
 
     case 'barChart':
       return (
-        <BarChartWidget
-          data={data as BarChartWidgetPayload}
-          widgetName={name}
-        />
+        <Suspense fallback={ChartFallback}>
+          <BarChartWidget
+            data={data as BarChartWidgetPayload}
+            widgetName={name}
+          />
+        </Suspense>
       )
 
     case 'lineChart':
       return (
-        <LineChartWidget
-          data={data as LineChartWidgetPayload}
-          widgetName={name}
-        />
+        <Suspense fallback={ChartFallback}>
+          <LineChartWidget
+            data={data as LineChartWidgetPayload}
+            widgetName={name}
+          />
+        </Suspense>
       )
 
     case 'pieChart':
       return (
-        <PieChartWidget
-          data={data as PieChartWidgetPayload}
-          widgetName={name}
-        />
+        <Suspense fallback={ChartFallback}>
+          <PieChartWidget
+            data={data as PieChartWidgetPayload}
+            widgetName={name}
+          />
+        </Suspense>
       )
 
     case 'recordGrid':
@@ -207,15 +236,31 @@ function ChartTypeDispatcher({ data, widgetName }: ChartTypeDispatcherProps) {
 
   switch (chartType) {
     case 'bar':
-      return <BarChartWidget data={data as unknown as BarChartWidgetPayload} widgetName={widgetName} />
+      return (
+        <Suspense fallback={ChartFallback}>
+          <BarChartWidget data={data as unknown as BarChartWidgetPayload} widgetName={widgetName} />
+        </Suspense>
+      )
     case 'line':
     case 'area':
-      return <LineChartWidget data={data as unknown as LineChartWidgetPayload} widgetName={widgetName} />
+      return (
+        <Suspense fallback={ChartFallback}>
+          <LineChartWidget data={data as unknown as LineChartWidgetPayload} widgetName={widgetName} />
+        </Suspense>
+      )
     case 'pie':
     case 'donut':
-      return <PieChartWidget data={data as unknown as PieChartWidgetPayload} widgetName={widgetName} />
+      return (
+        <Suspense fallback={ChartFallback}>
+          <PieChartWidget data={data as unknown as PieChartWidgetPayload} widgetName={widgetName} />
+        </Suspense>
+      )
     default:
-      return <BarChartWidget data={data as unknown as BarChartWidgetPayload} widgetName={widgetName} />
+      return (
+        <Suspense fallback={ChartFallback}>
+          <BarChartWidget data={data as unknown as BarChartWidgetPayload} widgetName={widgetName} />
+        </Suspense>
+      )
   }
 }
 
