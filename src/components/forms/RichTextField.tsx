@@ -2,6 +2,7 @@
 'use client'
 
 import React, { useRef } from 'react'
+import DOMPurify from 'dompurify'
 import { Bold, Italic, Underline, Link } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
@@ -172,8 +173,9 @@ export function RichTextField({
         suppressContentEditableWarning
         onInput={handleInput}
         onBlur={handleInput}
-        // Set initial HTML; subsequent updates are managed by execCommand
-        dangerouslySetInnerHTML={{ __html: value }}
+        // Set initial HTML; subsequent updates are managed by execCommand.
+        // Sanitize on init to prevent stored XSS from backend-sourced values.
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
         className={cn(
           'min-h-[120px] w-full rounded-b-md border border-input bg-background px-3 py-2',
           'text-sm text-foreground',

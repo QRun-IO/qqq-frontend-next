@@ -14,6 +14,7 @@
 // this component provides the step shell with navigation.
 
 import React, { useState } from 'react'
+import DOMPurify from 'dompurify'
 import { ChevronRight, X, LayoutGrid } from 'lucide-react'
 
 import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
@@ -114,7 +115,7 @@ export function ProcessWidgetStep({
       {widgetHtml ? (
         <div
           className="prose prose-sm max-w-none rounded-xl border border-border bg-card p-4"
-          dangerouslySetInnerHTML={{ __html: widgetHtml }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(widgetHtml) }}
           data-qqq-id="process-widget-html"
         />
       ) : (
