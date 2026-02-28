@@ -31,6 +31,7 @@ class APIClient {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       withCredentials: true, // Send sessionUUID cookie
+      timeout: 30_000,
       headers: {
         'Content-Type': 'application/json',
       },

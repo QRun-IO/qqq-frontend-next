@@ -16,6 +16,7 @@ import DOMPurify from 'dompurify'
 
 import type { BlockData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { isHttpUrl, isRelativeUrl } from '@/lib/utils/string-utils'
 
 /** Wire-format payload for a block widget or legacy HTML widget from the backend API. */
 export interface BlockWidgetPayload {
@@ -246,7 +247,7 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
       )
 
     case 'image':
-      return (
+      return (isHttpUrl(block.src) || isRelativeUrl(block.src)) ? (
         <img
           src={block.src}
           alt={block.alt}
@@ -255,6 +256,13 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
           className="max-w-full rounded"
           data-qqq-id={`block-image-${widgetName}-${index}`}
         />
+      ) : (
+        <div
+          className="text-sm text-muted-foreground p-2"
+          data-qqq-id={`block-image-${widgetName}-${index}`}
+        >
+          Invalid media source
+        </div>
       )
 
     case 'audio':
@@ -265,15 +273,21 @@ function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
               {block.label}
             </p>
           )}
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <audio
-            controls
-            src={block.src}
-            aria-label={block.label ?? 'Audio player'}
-            className="w-full"
-          >
-            Your browser does not support the audio element.
-          </audio>
+          {(isHttpUrl(block.src) || isRelativeUrl(block.src)) ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <audio
+              controls
+              src={block.src}
+              aria-label={block.label ?? 'Audio player'}
+              className="w-full"
+            >
+              Your browser does not support the audio element.
+            </audio>
+          ) : (
+            <div className="text-sm text-muted-foreground p-2">
+              Invalid media source
+            </div>
+          )}
         </div>
       )
 

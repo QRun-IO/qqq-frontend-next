@@ -74,7 +74,7 @@ export async function queryRecords(
   if (!parsed.success) {
     console.warn('[API] QueryRecords response failed schema validation:', parsed.error.flatten())
   }
-  return result
+  return parsed.success ? (parsed.data as unknown as QueryRecordsResponse) : result
 }
 
 /**
@@ -102,7 +102,7 @@ export async function countRecords(
   if (!parsed.success) {
     console.warn('[API] CountRecords response failed schema validation:', parsed.error.flatten())
   }
-  return result
+  return parsed.success ? parsed.data : result
 }
 
 /**
@@ -256,7 +256,7 @@ export async function globalSearch(
     if (!parsed.success) {
       console.warn('[API] GlobalSearch response failed schema validation:', parsed.error.flatten())
     }
-    return result
+    return parsed.success ? (parsed.data as GlobalSearchResult[]) : result
   } catch (err) {
     // Only swallow 404 — the search endpoint is optional
     if (isAxiosError(err) && err.response?.status === 404) return []

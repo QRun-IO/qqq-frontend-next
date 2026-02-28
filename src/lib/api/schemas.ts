@@ -30,7 +30,7 @@ export const QRecordSchema = z.object({
   values: z.record(z.unknown()),
   /** Pre-formatted display strings keyed by field name. */
   displayValues: z.record(z.string()).optional(),
-})
+}).passthrough()
 
 // ---------------------------------------------------------------------------
 // QueryRecords — POST /table/{name}/query

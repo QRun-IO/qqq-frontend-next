@@ -271,6 +271,7 @@ export function countActiveCriteria(filter: QQueryFilter): number {
 
   for (const criterion of filter.criteria) {
     const config = OPERATOR_CONFIG[criterion.operator]
+    if (!config) continue
     if (config.valueCount === 'none') {
       count++
     } else if (criterion.values.length > 0) {

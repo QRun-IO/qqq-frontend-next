@@ -137,16 +137,17 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         if (cancelled) return
         setAuthMetadata(metadata)
 
+        let resolvedUser: AuthUser
         switch (metadata.type) {
           case 'AUTH_0':
-            await setupAuth0Session(metadata)
+            resolvedUser = await setupAuth0Session(metadata)
             break
           case 'OAUTH2':
-            await setupOAuth2Session(metadata)
+            resolvedUser = await setupOAuth2Session(metadata)
             break
           case 'FULLY_ANONYMOUS':
           case 'MOCK':
-            await setupAnonymousSession()
+            resolvedUser = await setupAnonymousSession()
             break
           default:
             throw new Error(`Unrecognized auth type: ${(metadata as QAuthenticationMetaData).type}`)
@@ -154,6 +155,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
 
         if (!cancelled) {
           setIsAuthenticated(true)
+          setUser(resolvedUser)
         }
       } catch (error) {
         if (cancelled) return
@@ -189,7 +191,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    *
    * @param authMeta - Authentication metadata from the backend (unused directly — Auth0 PKCE is page-driven).
    */
-  async function setupAuth0Session(authMeta: QAuthenticationMetaData) {
+  async function setupAuth0Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
     // Auth0 flow: validate the existing session cookie against the backend.
     // Call manageSession with an empty token; the backend will return 401 if no
     // valid session cookie exists, which rejects this promise and leaves
@@ -197,7 +199,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     void authMeta // full Auth0 PKCE flow handled by the login page
     await manageSession('') // throws on 401 — intentional: proves live session
     const storedUser = getStoredUser()
-    setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
+    return storedUser ?? { name: 'User', email: 'user@example.com' }
   }
 
   /**
@@ -209,14 +211,14 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    *
    * @param authMeta - Authentication metadata from the backend (unused directly — OAuth2 PKCE is page-driven).
    */
-  async function setupOAuth2Session(authMeta: QAuthenticationMetaData) {
+  async function setupOAuth2Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
     // OAuth2/OIDC flow: validate the existing session cookie against the backend.
     // Same approach as Auth0: call manageSession so the backend can reject stale
     // or missing sessions with 401 before we mark the user as authenticated.
     void authMeta // full OAuth2/PKCE flow handled by the login page
     await manageSession('') // throws on 401 — intentional: proves live session
     const storedUser = getStoredUser()
-    setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
+    return storedUser ?? { name: 'User', email: 'user@example.com' }
   }
 
   /**
@@ -226,14 +228,14 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    * backend session cookie. Errors are swallowed because some anonymous
    * configurations do not require a token exchange.
    */
-  async function setupAnonymousSession() {
+  async function setupAnonymousSession(): Promise<AuthUser> {
     // Anonymous auth: call manageSession with empty token to get a session cookie
     try {
       await manageSession('anonymous')
     } catch {
       // Anonymous may not need a token exchange
     }
-    setUser({ name: 'Anonymous', email: 'anonymous@localhost' })
+    return { name: 'Anonymous', email: 'anonymous@localhost' }
   }
 
   /**
@@ -290,7 +292,9 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     // The backend (via manageSession) validates the code with the IdP and
     // issues a session cookie. Throws on failure — isAuthenticated stays false.
     await manageSession(code)
+    const storedUser = getStoredUser()
     setIsAuthenticated(true)
+    setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
     setIsLoading(false)
   }
 

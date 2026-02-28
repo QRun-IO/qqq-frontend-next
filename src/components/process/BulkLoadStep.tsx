@@ -262,7 +262,7 @@ function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep }: SubForm
       </div>
 
       {/* Hidden submit triggers from outer action bar */}
-      <input type="submit" id="bulk-load-submit-trigger" className="hidden" aria-hidden="true" />
+      <input type="submit" id="bulk-load-submit-trigger" disabled={!selectedFile || isLoading} className="hidden" aria-hidden="true" />
     </form>
   )
 }
