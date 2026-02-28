@@ -12,8 +12,6 @@
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { FileBarChart } from 'lucide-react'
-
 import type { QInstance } from '@/types'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
@@ -22,6 +20,7 @@ import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
+import { ReportRun } from '@/components/reports'
 
 /**
  * Resolves a URL slug to its QQQ resource type and name.
@@ -64,7 +63,7 @@ export function resolveSlugTarget(
  * 1. If the slug matches a QQQ **app** → renders `<AppHome>` (dashboard widgets).
  * 2. If the slug matches a **table** → renders `<RecordQuery>` (data grid + filters).
  * 3. If the slug matches a **process** → renders `<ProcessRun>` (step wizard).
- * 4. If the slug matches a **report** → renders a placeholder (future package).
+ * 4. If the slug matches a **report** → renders `<ReportRun>` (format selector + download).
  * 5. Otherwise → renders an unknown-resource message.
  *
  * The page header in QContext is updated whenever the resolution changes.
@@ -102,7 +101,7 @@ export default function SlugPage() {
     } else if (isProcess) {
       setPageHeader(process?.label ?? slug)
     } else if (isReport) {
-      setPageHeader((report as { label?: string })?.label ?? slug)
+      setPageHeader(report?.label ?? slug)
     } else {
       setPageHeader(slug)
     }
@@ -156,20 +155,15 @@ export default function SlugPage() {
   }
 
   // Report run
-  if (isReport) {
+  if (isReport && report) {
+    return <ReportRun reportName={slug} reportMetaData={report} />
+  }
+
+  // Report loading state (report found but metadata not yet available)
+  if (isReport && !report) {
     return (
-      <div className="space-y-6" data-qqq-id={`report-run-${slug}`}>
-        <div className="flex items-center gap-3">
-          <FileBarChart className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-          <h2 className="text-2xl font-semibold text-foreground">
-            {(report as { label?: string })?.label ?? slug}
-          </h2>
-        </div>
-        <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
-          <p className="mt-4 text-muted-foreground">
-            Report — implemented in a future package
-          </p>
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )
   }
