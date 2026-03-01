@@ -109,6 +109,9 @@ function getSummary(rows: ValidationRow[]) {
   return { errors, warnings }
 }
 
+/** Filter options for the validation row list. */
+type ValidationFilter = 'all' | 'error' | 'warning'
+
 /**
  * Renders a VALIDATION_REVIEW_SCREEN process step.
  *
@@ -124,9 +127,6 @@ function getSummary(rows: ValidationRow[]) {
  * @returns A `<div>` containing stat cards, a status alert, an optional table of
  *   validation rows, and a sticky navigation bar.
  */
-/** Filter options for the validation row list (D-P-4). */
-type ValidationFilter = 'all' | 'error' | 'warning'
-
 export function ValidationReviewStep({
   step,
   stepValues,
