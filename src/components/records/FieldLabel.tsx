@@ -27,6 +27,10 @@ import type { QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 interface FieldLabelProps {
+  /**
+   * Field metadata from which `label` and `helpContents` are read.
+   * The tooltip is suppressed when `helpContents` is empty or undefined.
+   */
   field: QFieldMetaData
   className?: string
   /** data-qqq-id attribute for CSS customization hooks */
@@ -36,13 +40,18 @@ interface FieldLabelProps {
 }
 
 /**
- * FieldLabel — renders a field label with an optional help-text tooltip.
+ * Renders a field's `label` as an inline span with an optional help-text
+ * tooltip driven by the field's `helpContents` metadata.
  *
- * When the field's `helpContents` array has content, the label is wrapped in a
- * Radix Tooltip that shows the help text on hover or focus.
+ * Used by {@link RecordViewSection} and {@link RecordViewHeader} to render
+ * every field label in the record detail view. When `helpContents` has at
+ * least one entry, the label gains `cursor-help` styling, `tabIndex={0}` for
+ * keyboard accessibility, and a Radix Tooltip that pops up on hover or focus.
+ * The tooltip is suppressed entirely when `helpContents` is empty or undefined.
  *
  * @param props - Component properties.
- * @returns A `<span>` element, optionally wrapped in a Radix Tooltip.
+ * @returns A plain `<span>` when the field has no help text, or a `<span>`
+ *   wrapped in a Radix TooltipProvider + Tooltip when help text is present.
  */
 export function FieldLabel({
   field,

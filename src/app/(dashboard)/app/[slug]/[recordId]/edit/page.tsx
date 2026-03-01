@@ -48,7 +48,12 @@ import { EntityForm } from '@/components/forms/EntityForm'
  * when the record cannot be loaded. On success renders `<EntityForm>` in edit
  * mode (pre-populated with the existing record values).
  *
- * @returns The entity edit form, a loading spinner, or an error/permission panel.
+ * @returns A composed page that renders one of:
+ *   - A full-screen spinner while metadata or record data is loading
+ *   - A permission-error banner when the user lacks `editPermission`
+ *   - A destructive error panel when the record cannot be fetched
+ *   - `<EntityForm>` in edit mode (pre-populated with the existing record values)
+ *     wrapped in a centered `max-w-4xl` container
  */
 export default function EntityEditPage() {
   const params = useParams<{ slug: string; recordId: string }>()

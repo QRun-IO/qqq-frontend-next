@@ -16,18 +16,12 @@
 
 /**
  * @file ProcessCancelDialog — confirmation dialog shown before cancelling an in-flight process.
- */
-/**
- * ProcessCancelDialog — confirmation dialog shown before cancelling an in-flight process.
  *
  * Uses the native HTML `<dialog>` element for built-in focus trapping and
  * Escape-key handling.  The "Stay on Page" button receives focus by default so
  * an accidental Enter key press does not confirm cancellation.
  */
 'use client'
-
-// ProcessCancelDialog — confirmation dialog before cancelling an in-flight process
-// Uses native dialog/modal pattern with focus trap and accessible markup
 
 import React, { useEffect, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
@@ -54,12 +48,16 @@ export interface ProcessCancelDialogProps {
 /**
  * Renders a modal confirmation dialog asking the user whether to cancel the process.
  *
- * Opens and closes the native `<dialog>` imperatively via `showModal()` / `close()`
- * in sync with the `open` prop.  Escape key and backdrop clicks both close without
- * confirming.
+ * Used by every step component (ProcessFormStep, BulkLoadStep, etc.) to guard
+ * against accidental cancellation.  Opens and closes the native `<dialog>`
+ * imperatively via `showModal()` / `close()` in sync with the `open` prop.
+ * A second `useEffect` listens for the native `close` event (Escape key) and
+ * propagates it back to the caller via `onOpenChange(false)`.  Backdrop clicks
+ * are detected by comparing `e.target` to the `<dialog>` element itself.
  *
  * @param props - {@link ProcessCancelDialogProps}
- * @returns The rendered cancel confirmation dialog.
+ * @returns A native `<dialog>` element.  The element is always rendered in the
+ *   DOM; it is shown/hidden imperatively rather than conditionally mounted.
  */
 export function ProcessCancelDialog({
   open,

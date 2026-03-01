@@ -54,7 +54,11 @@ interface RecordViewSectionProps {
  * default grid layout depending on the `compact` and `stacked` flags.
  *
  * @param props - Component properties.
- * @returns A section element with field rows, a widget, or `null` when there is nothing to render.
+ * @returns A `<section>` containing field rows in compact (label: value row),
+ *   stacked (label above value, card grid), or responsive grid layout; a
+ *   {@link ConnectedWidget} when `section.widgetName` resolves to widget
+ *   metadata; a placeholder div when the widget name is set but metadata is
+ *   missing; or `null` when the section is hidden or has no renderable fields.
  */
 export function RecordViewSection({
   section,

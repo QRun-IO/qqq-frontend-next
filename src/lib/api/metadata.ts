@@ -29,7 +29,10 @@ import { QInstanceMinimalSchema } from './schemas'
  * processes, and navigation. The `frontendName` and `frontendVersion` query params
  * are forwarded so the server can tailor the response to this frontend's capabilities.
  *
- * @returns The `QInstance` object containing all top-level application metadata.
+ * @returns The `QInstance` object containing all top-level application metadata,
+ *   including: `apps` (sidebar navigation sources), `appTree` (navigation tree),
+ *   `tables` (drives every record page), `processes` (drives process wizard pages),
+ *   `widgets` (registered dashboard widgets), and `branding` (company/app name).
  */
 export async function loadMetaData(): Promise<QInstance> {
   const result = await apiClient.get<QInstance>('/metaData', {
@@ -52,8 +55,12 @@ export async function loadMetaData(): Promise<QInstance> {
  * that the table exposes. Used to drive dynamic rendering of record query, view,
  * and edit pages.
  *
- * @param tableName - The backend-registered name of the table (e.g. `"person"`).
- * @returns Table metadata including fields, sections, capabilities, and associations.
+ * @param tableName - Exact backend identifier of the table (e.g. `"person"`);
+ *   case-sensitive, must match the backend declaration exactly, and is used as
+ *   a URL path segment. Sourced from `QInstance.tables` keys — never hardcoded.
+ * @returns Table metadata including: `fields` (name, type, label, PVS config),
+ *   `sections` (layout groups for record view/edit), `capabilities` (which CRUD
+ *   operations are permitted), and `associations` (child table relationships).
  */
 export async function loadTableMetaData(tableName: string): Promise<QTableMetaData> {
   return apiClient.get<QTableMetaData>(`/metaData/table/${encodeURIComponent(tableName)}`)
@@ -65,8 +72,12 @@ export async function loadTableMetaData(tableName: string): Promise<QTableMetaDa
  * The returned object describes each step, its input/output fields, and the
  * overall process configuration. Used to drive the step-wizard UI.
  *
- * @param processName - The backend-registered name of the process (e.g. `"bulkInsert"`).
- * @returns Process metadata including steps and their field definitions.
+ * @param processName - Exact backend identifier of the process (e.g. `"bulkInsert"`);
+ *   case-sensitive, must match the backend declaration exactly, and is used as a
+ *   URL path segment. Sourced from `QInstance.processes` keys — never hardcoded.
+ * @returns Process metadata including: `steps` (ordered list of step definitions),
+ *   each step's `fields` (input/output fields with types and validation rules),
+ *   and overall process configuration such as the process label and step components.
  */
 export async function loadProcessMetaData(processName: string): Promise<QProcessMetaData> {
   return apiClient.get<QProcessMetaData>(`/metaData/process/${encodeURIComponent(processName)}`)

@@ -40,11 +40,14 @@ interface DividerWidgetProps {
 /**
  * Renders a horizontal rule separator.
  *
- * When `data.label` is provided the divider displays the label centered between
- * two rule lines. Without a label a plain `<hr>` element is rendered.
+ * Dispatched by `WidgetRenderer` for `'divider'`-type widgets.  When `data.label`
+ * is provided the divider renders the label text centered between two `bg-border`
+ * rule lines (using a flex layout with `h-px flex-1` dividers).  Without a label
+ * a plain `<hr>` element is rendered.
  *
- * @param props - Component properties.
- * @returns The rendered divider element.
+ * @param props - Component properties; `data.label` determines whether a labeled
+ *   or plain divider is rendered.
+ * @returns Either a `<div role="separator">` with a centered label or a plain `<hr>`.
  */
 export function DividerWidget({ data, widgetName }: DividerWidgetProps) {
   if (data.label) {

@@ -17,7 +17,6 @@
 /**
  * @file API Client — Singleton Axios instance with global 401 interceptor for all QQQ API calls.
  */
-// All API calls must go through this client
 
 import axios, { type AxiosInstance, type AxiosError, type AxiosRequestConfig } from 'axios'
 
@@ -73,7 +72,10 @@ class APIClient {
    * The auth provider calls this during initialisation so that any unauthenticated
    * API response automatically triggers the logout / redirect flow.
    *
-   * @param callback - Function to call on receipt of a 401 response.
+   * @param callback - Typically wired to the `AuthProvider`'s logout function so
+   *   that a session timeout or expired cookie automatically triggers a redirect
+   *   to the login page. Invoked automatically on HTTP 401 before the failed
+   *   request's `Promise.reject` is propagated to the call site.
    */
   setUnauthorizedCallback(callback: () => void): void {
     this.unauthorizedCallback = callback
@@ -82,9 +84,13 @@ class APIClient {
   /**
    * Performs an HTTP GET request and returns the response body.
    *
+   * On a 401 response the global unauthorized callback is invoked (typically
+   * redirecting to the login page) before this promise rejects.
+   *
    * @param url - Path relative to the API base URL (e.g. `/metaData`).
    * @param config - Optional Axios request configuration (query params, headers, etc.).
-   * @returns The deserialized response body typed as `T`.
+   * @returns The deserialized `response.data` typed as `T`. Rejects with an
+   *   `AxiosError` on any non-2xx status; on 401 the auth redirect fires first.
    */
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.get<T>(url, config)
@@ -94,10 +100,15 @@ class APIClient {
   /**
    * Performs an HTTP POST request and returns the response body.
    *
+   * On a 401 response the global unauthorized callback is invoked (typically
+   * redirecting to the login page) before this promise rejects.
+   *
    * @param url - Path relative to the API base URL.
-   * @param data - Request body to serialize and send.
+   * @param data - Request body to serialize and send. Pass `FormData` for
+   *   multipart uploads; pass a plain object for JSON bodies.
    * @param config - Optional Axios request configuration.
-   * @returns The deserialized response body typed as `T`.
+   * @returns The deserialized `response.data` typed as `T`. Rejects with an
+   *   `AxiosError` on any non-2xx status; on 401 the auth redirect fires first.
    */
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.post<T>(url, data, config)
@@ -107,10 +118,15 @@ class APIClient {
   /**
    * Performs an HTTP PUT request and returns the response body.
    *
+   * On a 401 response the global unauthorized callback is invoked (typically
+   * redirecting to the login page) before this promise rejects.
+   *
    * @param url - Path relative to the API base URL.
-   * @param data - Request body to serialize and send.
+   * @param data - Request body to serialize and send. Pass `FormData` for
+   *   multipart uploads; pass a plain object for JSON bodies.
    * @param config - Optional Axios request configuration.
-   * @returns The deserialized response body typed as `T`.
+   * @returns The deserialized `response.data` typed as `T`. Rejects with an
+   *   `AxiosError` on any non-2xx status; on 401 the auth redirect fires first.
    */
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.put<T>(url, data, config)
@@ -120,9 +136,13 @@ class APIClient {
   /**
    * Performs an HTTP DELETE request and returns the response body.
    *
+   * On a 401 response the global unauthorized callback is invoked (typically
+   * redirecting to the login page) before this promise rejects.
+   *
    * @param url - Path relative to the API base URL.
    * @param config - Optional Axios request configuration.
-   * @returns The deserialized response body typed as `T`.
+   * @returns The deserialized `response.data` typed as `T`. Rejects with an
+   *   `AxiosError` on any non-2xx status; on 401 the auth redirect fires first.
    */
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<T>(url, config)

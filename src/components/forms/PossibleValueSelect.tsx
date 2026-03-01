@@ -20,9 +20,6 @@
 
 'use client'
 
-// PossibleValueSelect — async combobox for fields with possibleValueSourceName
-// Debounced search hits the backend possible values endpoint
-
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
 import { Controller } from 'react-hook-form'
@@ -68,14 +65,18 @@ interface PossibleValueSelectProps {
 /**
  * Async combobox for QQQ fields that reference a possible-value source.
  *
- * On open, fetches an initial list of options from the backend.  As the user
- * types in the search input, additional fetches are debounced (300 ms).
- * Closes on outside-click via a `mousedown` document listener.
- * Integrates with React Hook Form via `Controller` — the stored value is the
- * option's `id` (not its label).
+ * On open, fetches an initial list of options from the backend. As the user
+ * types in the search input, additional fetches are debounced by 300 ms to
+ * reduce API traffic during fast typing. The dropdown closes on an outside
+ * `mousedown` event (via a document-level listener) or when an option is
+ * selected. Integrates with React Hook Form via `Controller` — the stored
+ * form value is `option.id` (not the display label); the label is only used
+ * for rendering the selected state in the trigger button.
  *
  * @param props - See {@link PossibleValueSelectProps}.
- * @returns The rendered labeled combobox with dropdown.
+ * @returns The rendered labeled combobox with a searchable dropdown listbox.
+ *   Shows a loading spinner while options are being fetched and a "No options
+ *   found" message when the search returns an empty result set.
  */
 export function PossibleValueSelect({
   id,

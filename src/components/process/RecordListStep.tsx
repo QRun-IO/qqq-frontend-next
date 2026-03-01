@@ -16,18 +16,12 @@
 
 /**
  * @file RecordListStep — renders a RECORD_LIST process step.
- */
-/**
- * RecordListStep — renders a RECORD_LIST process step.
  *
  * Displays a client-side paginated read-only table of the records that will be
  * affected by the process.  Columns are derived from `step.recordListFields`
  * when available, falling back to the keys of the first record.
  */
 'use client'
-
-// RecordListStep — renders a RECORD_LIST step
-// Shows a paginated read-only table of records that will be affected
 
 import React, { useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
@@ -134,12 +128,16 @@ function parseColumns(
 /**
  * Renders a RECORD_LIST process step.
  *
- * Parses records from `stepValues.records`, derives table columns, paginates
- * client-side at {@link PAGE_SIZE} rows per page, and provides Cancel / Back /
- * Confirm navigation.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'RECORD_LIST'`.
+ * Parses the `records` array from `stepValues.records` (cast to `QRecord[]`),
+ * derives column definitions via `parseColumns`, and paginates client-side at
+ * {@link PAGE_SIZE} (10) rows per page.  Pagination controls only appear when
+ * more than one page is needed.  The Confirm button passes step values through
+ * unchanged; the process backend decides what to do with the acknowledged list.
  *
  * @param props - {@link RecordListStepProps}
- * @returns The rendered record list step.
+ * @returns A `<div>` with a record-count summary, a scrollable table, optional
+ *   pagination controls, and a sticky Cancel / Back / Next|Confirm & Submit bar.
  */
 export function RecordListStep({
   step,

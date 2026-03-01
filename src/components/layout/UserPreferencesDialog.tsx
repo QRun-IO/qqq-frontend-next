@@ -72,7 +72,10 @@ const RECORD_VIEW_OPTIONS = [
  * least one preference differs from its default value.
  *
  * @param props - Component properties.
- * @returns A Radix Dialog root with overlay and content panels.
+ * @returns A Radix Dialog root with an animated overlay and a centered content
+ *   panel (max 85 vh). The content scrolls internally if the viewport is short.
+ *   Changes take effect immediately via `updatePreference`; there is no Save
+ *   button — closing the dialog commits the current selection to localStorage.
  */
 export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDialogProps) {
   const { preferences, updatePreference, resetPreferences, defaults } = useUserPreferences()
@@ -238,7 +241,7 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
  * Renders a labeled group container for a set of preference controls.
  *
  * @param props - Component properties.
- * @returns A `<div>` with a `<label>` header and slotted children.
+ * @returns A `<div>` with a muted `<label>` header above the slotted children.
  */
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (

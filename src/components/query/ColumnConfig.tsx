@@ -20,8 +20,6 @@
 
 'use client'
 
-// ColumnConfig — show/hide/reorder columns panel
-
 import React, { useState } from 'react'
 import { Eye, EyeOff, GripVertical, X } from 'lucide-react'
 
@@ -84,6 +82,12 @@ export function ColumnConfig({
 
   /**
    * Toggles the visibility of a single column and propagates the change to the parent.
+   *
+   * Mutates `columnVisibility[fieldName]` in the new object passed to
+   * `onVisibilityChange`, triggering a parent re-render. Because the parent
+   * (`useRecordQuery`) passes the updated visibility to the query hook, changing
+   * visibility also triggers an API refetch with the new column set reflected in
+   * the request. Returns `undefined` (no return value).
    *
    * @param fieldName - The backend field name of the column to toggle.
    */

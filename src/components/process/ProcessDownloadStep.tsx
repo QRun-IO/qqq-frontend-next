@@ -16,18 +16,12 @@
 
 /**
  * @file ProcessDownloadStep — renders a DOWNLOAD_FORM process step.
- */
-/**
- * ProcessDownloadStep — renders a DOWNLOAD_FORM process step.
  *
  * Displays optional view-field context values and a prominent download link
  * for the file produced by the process.  The download URL and filename are
  * resolved from well-known `stepValues` keys.
  */
 'use client'
-
-// ProcessDownloadStep -- renders a DOWNLOAD_FORM step
-// Shows any viewFields as context and provides a download button for the result file
 
 import React, { useState } from 'react'
 import { Download, ChevronRight, X } from 'lucide-react'
@@ -130,12 +124,17 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
 /**
  * Renders a DOWNLOAD_FORM process step.
  *
- * Displays any `step.viewFields` as read-only context, then shows a download
- * area with a link when a URL is available in `stepValues`, or a "still
- * processing" message otherwise.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'DOWNLOAD'`.
+ * Displays any `step.viewFields` as a read-only `<dl>` context block, then a
+ * dashed download area.  When a URL is resolved from `stepValues` via
+ * `resolveDownloadUrl`, a native `<a download>` link is rendered pointing at
+ * that URL with the filename from `resolveFileName`; otherwise a "still
+ * processing" placeholder is shown.  The Finish / Next button allows the user
+ * to proceed even without downloading (e.g. to acknowledge the step).
  *
  * @param props - {@link ProcessDownloadStepProps}
- * @returns The rendered download step.
+ * @returns A `<div>` with optional help-text banners, view-field context, a
+ *   download area, and a sticky Cancel / Back / Finish|Next action bar.
  */
 export function ProcessDownloadStep({
   step,

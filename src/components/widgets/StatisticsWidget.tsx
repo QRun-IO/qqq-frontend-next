@@ -16,9 +16,6 @@
 
 /**
  * @file StatisticsWidget — KPI tile grid widget.
- */
-/**
- * StatisticsWidget — KPI tile grid widget.
  *
  * Displays one or more numeric metric tiles, each with a label, value, optional
  * unit, and an optional trend indicator (up/down/flat with a percentage badge).
@@ -96,25 +93,27 @@ export interface StatisticsWidgetPayload {
 
 /** Props accepted by the StatisticsWidget component. */
 interface StatisticsWidgetProps {
-  /** Typed payload from the widget API response. */
+  /** Typed payload from the widget API response; may use the multi-tile or legacy single-tile shape. */
   data: StatisticsWidgetPayload
-  /** Widget name for data-qqq-id attributes */
+  /** Unique widget name forwarded to `data-qqq-id` attributes for CSS customization and testing. */
   widgetName: string
 }
 
 /**
  * Renders a responsive grid of KPI stat tiles.
  *
+ * Dispatched by `WidgetRenderer` for `'statistics'`-type widgets.
  * Normalizes both the multi-tile array shape and the legacy single-tile payload
  * shape into a uniform array of StatTile objects, then renders each tile via
- * StatTileCard. Column count adjusts automatically based on tile count
+ * `StatTileCard`. Column count adjusts automatically based on tile count
  * (1→1 col, 2→2 cols, 3→3 cols, 4+→4 cols on large screens).
  *
  * When `data.mini === true`, renders each tile via `StatTileMini` instead —
  * a single-line compact layout suitable for dense dashboards or sidebar panels.
  *
- * @param props - Component properties.
- * @returns The rendered statistics tile grid.
+ * @param props - Component properties; `data.mini` toggles compact vs card layout,
+ *   and `data.statistics` (array) takes precedence over the legacy scalar fields.
+ * @returns A responsive CSS grid of `StatTileCard` or `StatTileMini` elements.
  */
 export function StatisticsWidget({ data, widgetName }: StatisticsWidgetProps) {
   const isMini = data.mini === true

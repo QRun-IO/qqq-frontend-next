@@ -32,7 +32,16 @@ import {
  * Request body shape accepted by the query and count endpoints.
  */
 export interface QueryRecordsRequest {
-  /** Filter criteria (criteria list, order-by, skip/limit) to apply to the query. */
+  /**
+   * Filter criteria to apply to the query. Supports:
+   * - `criteria` — list of field conditions with operators such as `EQUALS`,
+   *   `CONTAINS`, `BETWEEN`, `IS_BLANK`, etc.
+   * - `orderBy` — array of `{ fieldName, isAscending }` sort descriptors.
+   * - `skip` — zero-based record offset for pagination.
+   * - `limit` — maximum records per page; omit for the backend default page size.
+   *
+   * Pass an empty object `{}` to retrieve all records up to the default page size.
+   */
   filter: Partial<QQueryFilter>
   /** Optional join specifications to include related table data in the result. */
   joins?: QueryJoin[]
@@ -76,8 +85,12 @@ export interface DeleteRecordResponse {
  * Results are ordered and paginated according to the filter's `orderBy`, `skip`,
  * and `limit` properties.
  *
- * @param tableName - Backend-registered table name.
- * @param request - Filter criteria and optional join / variant configuration.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly (e.g. `"person"`,
+ *   not `"Person"` or `"persons"`).
+ * @param request - Filter with criteria (operators like EQUALS, CONTAINS, BETWEEN),
+ *   sort order array, and pagination (skip/limit); omit `filter.criteria` for all
+ *   records up to the default page size.
  * @returns An object containing the matching records array.
  */
 export async function queryRecords(
@@ -101,8 +114,11 @@ export async function queryRecords(
  * Accepts the same filter body as {@link queryRecords} and optionally returns a
  * distinct count when `includeDistinct` is `true`.
  *
- * @param tableName - Backend-registered table name.
- * @param request - Filter criteria and optional join / variant configuration.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param request - Filter with criteria (operators like EQUALS, CONTAINS, BETWEEN),
+ *   sort order array, and pagination (skip/limit); omit `filter.criteria` for a
+ *   total count of all records.
  * @param includeDistinct - When `true`, the response includes a `distinctCount` field.
  * @returns An object with `count` and optionally `distinctCount`.
  */
@@ -129,8 +145,10 @@ export async function countRecords(
  * Optional flags control whether associations and joined-table data are included
  * in the response.
  *
- * @param tableName - Backend-registered table name.
- * @param primaryKey - Primary key value of the record to retrieve.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param primaryKey - Primary key value of the record to retrieve; may be a
+ *   numeric database ID or a string identifier depending on the table's PK type.
  * @param options - Optional query parameters forwarded verbatim to the server.
  * @param options.tableVariant - Alternate backend table configuration to use.
  * @param options.includeAssociations - When `true`, associated child records are embedded.
@@ -160,8 +178,10 @@ export async function getRecord(
  * - All other values are coerced to strings.
  * - `null` and `undefined` values are omitted.
  *
- * @param tableName - Backend-registered table name.
- * @param values - Map of field names to their new values.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param values - Map of field names to their new values. Field names must
+ *   match the backend field declarations exactly (case-sensitive).
  * @returns The newly created `QRecord` as returned by the server.
  */
 export async function insertRecord(
@@ -190,9 +210,12 @@ export async function insertRecord(
  * Follows the same value serialization rules as {@link insertRecord}:
  * `File` → binary part, arrays → JSON string, others → string, null/undefined → omitted.
  *
- * @param tableName - Backend-registered table name.
- * @param primaryKey - Primary key of the record to update.
- * @param values - Map of field names to their updated values.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param primaryKey - Primary key of the record to update; may be a numeric
+ *   database ID or a string identifier depending on the table's PK type.
+ * @param values - Map of field names to their updated values. Field names must
+ *   match the backend field declarations exactly (case-sensitive).
  * @returns The updated `QRecord` as returned by the server.
  */
 export async function updateRecord(
@@ -221,8 +244,10 @@ export async function updateRecord(
 /**
  * Deletes a single record via `DELETE /table/{tableName}/{primaryKey}`.
  *
- * @param tableName - Backend-registered table name.
- * @param primaryKey - Primary key of the record to delete.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param primaryKey - Primary key of the record to delete; may be a numeric
+ *   database ID or a string identifier depending on the table's PK type.
  * @returns An object containing the number of records that were deleted.
  */
 export async function deleteRecord(
@@ -293,9 +318,13 @@ export interface AuditRecordsResponse {
 /**
  * Fetches the audit log for a single record via `GET /table/{tableName}/{primaryKey}/audits`.
  *
- * @param tableName - Backend-registered table name.
- * @param primaryKey - Primary key of the record whose audit trail to retrieve.
- * @returns An array of audit log entries in reverse-chronological order.
+ * @param tableName - Exact backend table identifier used as a URL path segment;
+ *   case-sensitive and must match the backend declaration exactly.
+ * @param primaryKey - Primary key of the record whose audit trail to retrieve;
+ *   may be a numeric database ID or a string identifier.
+ * @returns An array of `QAuditRecord` entries in reverse-chronological order,
+ *   each describing a single field-level change event with actor, timestamp,
+ *   and old/new values.
  */
 export async function getAuditRecords(
   tableName: string,

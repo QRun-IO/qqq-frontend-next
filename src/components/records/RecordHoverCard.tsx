@@ -43,10 +43,19 @@ interface RecordHoverCardProps {
 }
 
 /**
- * Extracts up to two uppercase initials from a label string.
+ * Extracts initials from a display label: first letter of each of the first
+ * two words ('John Smith' → 'JS'), first two chars for a single word,
+ * '?' for empty or undefined input.
  *
- * @param label - The label to abbreviate.
- * @returns A one- or two-character uppercase string.
+ * Used to populate the avatar circle in the hover card header when no profile
+ * image is available.
+ *
+ * @param label - The display label to abbreviate (e.g. `record.recordLabel`).
+ *   An empty or whitespace-only label produces an empty string (the avatar
+ *   circle renders blank in that case; callers should guard against empty
+ *   labels upstream).
+ * @returns A one- or two-character uppercase string derived from the first
+ *   character(s) of the label.
  */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
@@ -57,14 +66,17 @@ function getInitials(label: string): string {
 }
 
 /**
- * RecordHoverCard — hover preview card for a linked record reference.
+ * Radix HoverCard that lazily fetches the full record on open (10-min cache),
+ * renders the first 5 T1 fields plus a View Record link, and shows a spinner
+ * during the initial load.
  *
- * Wraps its children in a Radix HoverCard that lazily fetches the referenced
- * record via TanStack Query when the card opens. Shows a compact preview of
- * the record's T1 fields with a "View Record" footer link.
+ * Used by {@link FieldValue} and {@link RecordViewHeader} to provide inline
+ * record previews without navigating away from the current page. The fetch is
+ * gated by `isOpen` so no network request is made until the user hovers.
  *
  * @param props - Component properties.
- * @returns The trigger element wrapped in a Radix HoverCard root.
+ * @returns The trigger element (children) wrapped in a Radix HoverCard root.
+ *   The hover card portal is rendered at the document body level.
  */
 export function RecordHoverCard({
   tableName,

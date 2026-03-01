@@ -114,11 +114,15 @@ export interface SessionResponse {
  * On success the server sets a `sessionUUID` cookie that is included
  * automatically in all subsequent requests via `withCredentials: true`.
  *
- * @param accessToken  - The authorization code or access token to exchange.
- * @param codeVerifier - Optional PKCE code_verifier. Required when the
- *   backend is configured to perform the authorization-code → token exchange
- *   itself (i.e. when `accessToken` is an authorization code, not a token).
- *   Omit for anonymous / pre-obtained access-token flows.
+ * @param accessToken  - Either an OIDC authorization code (backend completes
+ *   the code exchange with the IdP) or a pre-obtained access token (client
+ *   obtained it directly from the IdP). The distinction matters for whether
+ *   `codeVerifier` must also be supplied.
+ * @param codeVerifier - Required only for the PKCE flow when `accessToken`
+ *   is an authorization code and the backend must complete the
+ *   authorization-code → token exchange on behalf of the client. Omit for
+ *   implicit flows, client-credentials flows, or any flow where the client
+ *   already holds a fully-resolved access token.
  * @returns Session metadata including the server-assigned UUID.
  */
 export async function manageSession(

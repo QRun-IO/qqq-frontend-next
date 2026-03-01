@@ -244,8 +244,12 @@ export function getDefaultOperatorForFieldType(fieldType: QFieldType): QCriteria
 /**
  * Returns true when the given field type represents a numeric value (INTEGER, LONG, or DECIMAL).
  *
- * @param fieldType - The QQQ field type to test.
- * @returns `true` if the type is numeric.
+ * Used by `buildQuickFilter` and `FilterBuilder` to determine which operators and input
+ * components are appropriate for a field. Numeric fields support range, comparison, and
+ * equality operators but not the string-specific CONTAINS/STARTS_WITH family.
+ *
+ * @param fieldType - The QQQ field type string to test (e.g. `'INTEGER'`).
+ * @returns `true` if `fieldType` is one of `INTEGER`, `LONG`, or `DECIMAL`; `false` otherwise.
  */
 export function isNumericType(fieldType: QFieldType): boolean {
   return ['INTEGER', 'LONG', 'DECIMAL'].includes(fieldType)
@@ -254,8 +258,12 @@ export function isNumericType(fieldType: QFieldType): boolean {
 /**
  * Returns true when the given field type represents textual content (STRING, TEXT, or HTML).
  *
- * @param fieldType - The QQQ field type to test.
- * @returns `true` if the type is string-like.
+ * Used by `buildQuickFilter` to select which columns participate in quick search (only
+ * string-like columns get CONTAINS criteria), and by `FilterBuilder` to enable the
+ * STARTS_WITH / ENDS_WITH / CONTAINS operator group.
+ *
+ * @param fieldType - The QQQ field type string to test (e.g. `'STRING'`).
+ * @returns `true` if `fieldType` is one of `STRING`, `TEXT`, or `HTML`; `false` otherwise.
  */
 export function isStringType(fieldType: QFieldType): boolean {
   return ['STRING', 'TEXT', 'HTML'].includes(fieldType)
@@ -264,8 +272,12 @@ export function isStringType(fieldType: QFieldType): boolean {
 /**
  * Returns true when the given field type represents a date, time, or combined date-time value.
  *
- * @param fieldType - The QQQ field type to test.
- * @returns `true` if the type is DATE, TIME, or DATE_TIME.
+ * Used by `FilterBuilder` to decide whether to render the dynamic date-expression picker
+ * (NOW, NOW_WITH_OFFSET, THIS_OR_LAST_PERIOD) instead of a plain text input for filter
+ * criterion values.
+ *
+ * @param fieldType - The QQQ field type string to test (e.g. `'DATE_TIME'`).
+ * @returns `true` if `fieldType` is one of `DATE`, `TIME`, or `DATE_TIME`; `false` otherwise.
  */
 export function isDateTimeType(fieldType: QFieldType): boolean {
   return ['DATE', 'TIME', 'DATE_TIME'].includes(fieldType)
@@ -451,10 +463,15 @@ export function applySort(filter: QQueryFilter, orderBys: QFilterOrderBy[]): QQu
 }
 
 /**
- * Type guard — returns true when `v` is a {@link FilterVariableExpression} (type === 'FILTER_VARIABLE').
+ * Type guard — narrows `v` to {@link FilterVariableExpression} when its `type` is `'FILTER_VARIABLE'`.
  *
- * @param v - The value to test.
- * @returns `true` if `v` is a FilterVariableExpression.
+ * Used by `formatCriterionDisplay` and `FilterBuilder` to discriminate between static
+ * scalar values and dynamic filter variable references (e.g. `$currentUser`) before
+ * rendering criterion chips or submitting the filter to the API.
+ *
+ * @param v - Any criterion value, which may be a string, number, or an expression object.
+ * @returns `true` if `v` is a non-null object with `type === 'FILTER_VARIABLE'`, narrowing
+ *   the type to `FilterVariableExpression` for subsequent property access.
  */
 export function isFilterVariableExpression(
   v: unknown
@@ -463,30 +480,47 @@ export function isFilterVariableExpression(
 }
 
 /**
- * Type guard — returns true when `v` is a {@link NowExpression} (type === 'NOW').
+ * Type guard — narrows `v` to {@link NowExpression} when its `type` is `'NOW'`.
  *
- * @param v - The value to test.
- * @returns `true` if `v` is a NowExpression.
+ * Used by `formatCriterionDisplay` and `FilterBuilder` to discriminate between static
+ * date values and the dynamic "current moment" expression before rendering criterion
+ * chips (displayed as `"now"`) or submitting to the API.
+ *
+ * @param v - Any criterion value, which may be a string, number, or an expression object.
+ * @returns `true` if `v` is a non-null object with `type === 'NOW'`, narrowing the type
+ *   to `NowExpression` for subsequent property access.
  */
 export function isNowExpression(v: unknown): v is NowExpression {
   return typeof v === 'object' && v !== null && (v as NowExpression).type === 'NOW'
 }
 
 /**
- * Type guard — returns true when `v` is a {@link NowWithOffsetExpression} (type === 'NOW_WITH_OFFSET').
+ * Type guard — narrows `v` to {@link NowWithOffsetExpression} when its `type` is `'NOW_WITH_OFFSET'`.
  *
- * @param v - The value to test.
- * @returns `true` if `v` is a NowWithOffsetExpression.
+ * Used by `formatCriterionDisplay` and `FilterBuilder` to discriminate between static
+ * date values and a relative offset expression (e.g. "7 days ago") before rendering
+ * criterion chips (displayed as `"now -7 days"`) or submitting to the API.
+ *
+ * @param v - Any criterion value, which may be a string, number, or an expression object.
+ * @returns `true` if `v` is a non-null object with `type === 'NOW_WITH_OFFSET'`, narrowing
+ *   the type to `NowWithOffsetExpression` so `offsetValue`, `offsetUnit`, and
+ *   `isNegativeOffset` are accessible without casting.
  */
 export function isNowWithOffsetExpression(v: unknown): v is NowWithOffsetExpression {
   return typeof v === 'object' && v !== null && (v as NowWithOffsetExpression).type === 'NOW_WITH_OFFSET'
 }
 
 /**
- * Type guard — returns true when `v` is a {@link ThisOrLastPeriodExpression} (type === 'THIS_OR_LAST_PERIOD').
+ * Type guard — narrows `v` to {@link ThisOrLastPeriodExpression} when its `type` is `'THIS_OR_LAST_PERIOD'`.
  *
- * @param v - The value to test.
- * @returns `true` if `v` is a ThisOrLastPeriodExpression.
+ * Used by `formatCriterionDisplay` and `FilterBuilder` to discriminate between static
+ * date values and a calendar-period expression (e.g. "this month", "last quarter") before
+ * rendering criterion chips (displayed as `"this month"` / `"last quarter"`) or submitting
+ * to the API.
+ *
+ * @param v - Any criterion value, which may be a string, number, or an expression object.
+ * @returns `true` if `v` is a non-null object with `type === 'THIS_OR_LAST_PERIOD'`, narrowing
+ *   the type to `ThisOrLastPeriodExpression` so `period` and `isLast` are accessible without casting.
  */
 export function isThisOrLastPeriodExpression(v: unknown): v is ThisOrLastPeriodExpression {
   return typeof v === 'object' && v !== null && (v as ThisOrLastPeriodExpression).type === 'THIS_OR_LAST_PERIOD'

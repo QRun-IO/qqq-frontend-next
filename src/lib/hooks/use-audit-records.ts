@@ -18,8 +18,6 @@
  * @file useAuditRecords — fetches audit change history for a record.
  */
 
-// useAuditRecords — fetches audit change history for a record
-
 import { useQuery } from '@tanstack/react-query'
 import { getAuditRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
@@ -44,7 +42,10 @@ interface UseAuditRecordsOptions {
  * until the audit panel is expanded (lazy loading).
  *
  * @param options - Table name, primary key, and optional enabled flag.
- * @returns The audit records, loading state, and error state.
+ * @returns `{ auditRecords, isLoading, isError, error }` — `auditRecords` is a
+ *   `QAuditRecord[]` (empty array while loading or on error, never undefined);
+ *   `isLoading` is true only on the initial fetch; `isError` and `error` surface
+ *   any network or server failure so the caller can show an error state.
  */
 export function useAuditRecords({ tableName, primaryKey, enabled = true }: UseAuditRecordsOptions) {
   const { data, isLoading, isError, error } = useQuery({

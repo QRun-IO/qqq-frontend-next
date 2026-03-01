@@ -35,7 +35,8 @@ interface SkeletonBaseProps {
  * A single animated pulse bar used as a building block for skeleton variants.
  *
  * @param props - Component properties.
- * @returns An `aria-hidden` div styled with the pulse animation.
+ * @returns An `aria-hidden` div with `animate-pulse rounded bg-muted` styling;
+ *   width/height are controlled entirely by the `className` prop.
  */
 function Bar({ className }: SkeletonBaseProps) {
   return (

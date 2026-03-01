@@ -20,9 +20,6 @@
 
 'use client'
 
-// useRecordQuery — manages all state for the Record Query page
-// Handles: filter state, pagination, sorting, column config, saved views, data fetching
-
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -281,8 +278,20 @@ interface UseRecordQueryOptions {
  * so they survive navigation and page refreshes.
  *
  * @param options - Configuration including table name, metadata, and initial page size.
- * @returns Grouped namespaces: `pagination`, `filter`, `columns`, `selection`, `data`,
- *          `density`/`setDensity`, and `views`.
+ *   `tableName` is used as the localStorage key prefix and in all API calls.
+ *   `tableMetaData` must be defined before any queries run (the hook disables itself until then).
+ *   `initialPageSize` defaults to 25 and is overridden by the `pageSize` URL param on first mount.
+ * @returns Grouped namespaces:
+ *   - `pagination` — `{ pageNum, pageSize, totalCount, totalPages, setPage, setPageSize }`.
+ *   - `filter` — `{ userFilter, quickSearchTerm, filterMode, filterPanelOpen, sortOrder,
+ *     effectiveFilter, setUserFilter, setQuickSearch, setFilterMode, setSort, resetFilter, toggleFilterPanel }`.
+ *   - `columns` — `{ columnVisibility, columnOrder, columnWidths, columnConfigOpen,
+ *     setColumnVisibility, toggleColumn, setColumnOrder, setColumnWidth, toggleColumnConfig, setColumnConfigOpen }`.
+ *   - `selection` — `{ rowSelection, selectedRecordIds, setRowSelection, clearRowSelection }`.
+ *   - `data` — `{ records, isLoading, isFetching, isError, error }`;
+ *     `isLoading` is true on the initial fetch only, `isFetching` covers background refetches too.
+ *   - `density` / `setDensity` — persisted grid row-density preference.
+ *   - `views` — `{ list, saveView, loadView, deleteView }` for named filter snapshots.
  */
 export function useRecordQuery({
   tableName,

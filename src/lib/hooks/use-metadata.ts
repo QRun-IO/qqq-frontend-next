@@ -37,7 +37,10 @@ const METADATA_STALE_TIME = 1000 * 60 * 30 // 30 minutes
  * Results are cached for {@link METADATA_STALE_TIME}. All page-level components that need
  * the top-level instance metadata should use this hook.
  *
- * @returns A TanStack Query result containing a {@link QInstance} object.
+ * @returns TanStack Query result for `QInstance`:
+ *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is undefined
+ *   while loading or on error; `isLoading` is true only on the initial fetch;
+ *   `isFetching` is also true during background refetches after the stale time expires.
  */
 export function useMetaData() {
   return useQuery<QInstance>({
@@ -53,8 +56,14 @@ export function useMetaData() {
  * The query is disabled when `tableName` is undefined or empty, making it safe to call
  * before the table name is known from URL params.
  *
- * @param tableName - The QQQ table name to load metadata for, or undefined to skip fetching.
- * @returns A TanStack Query result containing a {@link QTableMetaData} object.
+ * @param tableName - The QQQ table name to load metadata for. Pass `undefined` to defer
+ *   fetching until the table name is resolved from URL params (the query is automatically
+ *   disabled when this value is falsy, so it is safe to call unconditionally at the top
+ *   of a component).
+ * @returns TanStack Query result for `QTableMetaData`:
+ *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is undefined
+ *   while loading, on error, or when `tableName` is not yet available; `isLoading` is
+ *   true only during the initial fetch for a given table name.
  */
 export function useTableMetaData(tableName: string | undefined) {
   return useQuery<QTableMetaData>({
@@ -71,8 +80,14 @@ export function useTableMetaData(tableName: string | undefined) {
  * The query is disabled when `processName` is undefined or empty, making it safe to call
  * before the process name is known from URL params.
  *
- * @param processName - The QQQ process name to load metadata for, or undefined to skip fetching.
- * @returns A TanStack Query result containing a {@link QProcessMetaData} object.
+ * @param processName - The QQQ process name to load metadata for. Pass `undefined` to defer
+ *   fetching until the process name is resolved from URL params (the query is automatically
+ *   disabled when this value is falsy, so it is safe to call unconditionally at the top
+ *   of a component).
+ * @returns TanStack Query result for `QProcessMetaData`:
+ *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is undefined
+ *   while loading, on error, or when `processName` is not yet available; `isLoading` is
+ *   true only during the initial fetch for a given process name.
  */
 export function useProcessMetaData(processName: string | undefined) {
   return useQuery<QProcessMetaData>({

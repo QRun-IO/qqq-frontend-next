@@ -19,8 +19,6 @@
  */
 'use client'
 
-// usePossibleValues — TanStack Query hook for fetching possible values with debounced search
-
 import { useQuery } from '@tanstack/react-query'
 import { useState, useCallback, useRef } from 'react'
 
@@ -55,11 +53,20 @@ export interface UsePossibleValuesResult {
 }
 
 /**
- * Hook for fetching possible values with optional search.
- * Handles table, process, and standalone contexts.
+ * Fetches possible values for a single field, supporting table, process, and standalone
+ * contexts. Used by `PossibleValueSelect` in forms and filter builders wherever the
+ * backend provides a bounded list of valid options (e.g. enum-like FK fields).
  *
- * @param options - Configuration including field name, context, search term, and enabled flag.
- * @returns Options list, loading state, error state, search term, and search term setter.
+ * Results are cached for 30 seconds. Pass `enabled: false` to defer fetching until
+ * the field becomes relevant (e.g. when a filter row's field type changes).
+ *
+ * @param options - Configuration including field name, context, optional external search
+ *   term (pass `undefined` to use the hook's internal state), optional pre-selected IDs
+ *   to pre-load labels, and optional `enabled` flag.
+ * @returns `{ options, isLoading, isError, searchTerm, setSearchTerm }` —
+ *   `options` is a `QPossibleValue[]` (id + label pairs, empty array while loading or on error);
+ *   watch `isLoading` to show a spinner while the network request is in flight;
+ *   `setSearchTerm` updates the internal term (ignored when `externalSearchTerm` is provided).
  */
 export function usePossibleValues({
   fieldName,

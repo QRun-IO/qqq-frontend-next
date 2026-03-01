@@ -45,7 +45,11 @@ interface RecordActionsProps {
  * permitted actions are shown as individual buttons.
  *
  * @param props - Component properties.
- * @returns A fragment containing the action buttons and the optional delete confirmation dialog.
+ * @returns A React fragment with a `<div>` of action controls followed by an
+ *   optional {@link DeleteConfirmDialog} portal. When processes are present,
+ *   the layout is Edit button + "Actions" dropdown (Copy, processes, Delete).
+ *   When no processes exist, all permitted actions are rendered as individual
+ *   buttons in a row.
  */
 export function RecordActions({ tableMetaData, record, processes, className }: RecordActionsProps) {
   const router = useRouter()

@@ -44,7 +44,10 @@ interface RecordInfoFooterProps {
  * Clicking "Change History" opens the AuditHistoryDialog with searchable timeline entries.
  *
  * @param props - Component properties.
- * @returns A footer element with timestamps and a history dialog trigger, or `null` when no data exists.
+ * @returns A rounded footer bar showing created/modified timestamps and a
+ *   "Change History" button that opens the {@link AuditHistoryDialog}. Returns
+ *   `null` when neither timestamp field is present and no record info sections
+ *   exist.
  */
 export function RecordInfoFooter({
   tableMetaData,
@@ -152,7 +155,10 @@ export function RecordInfoFooter({
  * filters them client-side as the user types into the search input.
  *
  * @param props - Component properties.
- * @returns A Radix Dialog portal with a scrollable timeline of audit entries.
+ * @returns A Radix Dialog portal with a sticky header, a client-side search
+ *   bar, a scrollable timeline of {@link AuditEntry} rows, and a footer entry
+ *   count. The dialog is `max-h-[85vh]` with an internal overflow scroll so it
+ *   never grows taller than the viewport.
  */
 function AuditHistoryDialog({
   open,

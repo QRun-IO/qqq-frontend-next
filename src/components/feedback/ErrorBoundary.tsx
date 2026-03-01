@@ -69,22 +69,30 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   /**
-   * React lifecycle method called during rendering when a descendant throws.
+   * React lifecycle method called during the render phase when a descendant
+   * throws. Because it runs in the render phase (not the commit phase), React
+   * can use the returned state to re-render the fallback UI in the same pass —
+   * no additional render cycle is required. Side effects such as logging must
+   * NOT be placed here; use {@link componentDidCatch} instead, which runs in
+   * the commit phase after the fallback has been painted.
    *
-   * @param error - The error that was thrown.
-   * @returns New state with `hasError: true` and the caught error.
+   * @param error - The error that was thrown by a descendant component.
+   * @returns New state with `hasError: true` and the caught `error` object so
+   *   `render()` can display the fallback UI.
    */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
   }
 
   /**
-   * React lifecycle method called after an error has been rendered to the DOM.
-   *
-   * Logs the error to the console and forwards it to the optional `onError` prop.
+   * React lifecycle method called in the commit phase after the fallback UI
+   * has been painted to the DOM. This is the correct place for side effects
+   * such as logging because the render phase has already completed. In
+   * contrast, {@link getDerivedStateFromError} runs during the render phase
+   * and must remain pure (no side effects).
    *
    * @param error - The caught error.
-   * @param info - React error info containing the component stack.
+   * @param info - React error info containing the component stack trace.
    */
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, info)
@@ -101,7 +109,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   /**
    * Renders either the fallback UI (when an error has been caught) or the child tree.
    *
-   * @returns The fallback node, the default error card, or the children subtree.
+   * Priority order when `hasError` is true:
+   * 1. `fallback` prop — custom caller-supplied node rendered as-is.
+   * 2. Default error card — centered red card with the error message and a
+   *    "Try Again" button that calls {@link handleReset}.
+   *
+   * When `hasError` is false, renders `children` unchanged.
+   *
+   * @returns The `fallback` prop when provided, the default error card as
+   *   secondary fallback, or `children` when no error has occurred.
    */
   render() {
     if (this.state.hasError) {

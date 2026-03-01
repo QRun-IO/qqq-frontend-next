@@ -168,11 +168,15 @@ const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '
 /**
  * Renders a responsive bar chart using Recharts.
  *
- * Supports vertical bars (default), horizontal bars, and stacked multi-series bars.
- * Shows an empty-state message when the normalized data set contains no entries.
+ * Dispatched by `WidgetRenderer` for `'barChart'`-type widgets (lazy-loaded).
+ * Supports vertical bars (default), horizontal bars (`data.orientation === 'horizontal'`),
+ * and stacked multi-series bars (`data.stacked === true`).  A `<Legend>` is only
+ * shown when more than one data key is present.  Shows an empty-state message
+ * when the normalized data set contains no entries.
  *
- * @param props - Component properties.
- * @returns The rendered bar chart.
+ * @param props - Component properties; `data.orientation` and `data.stacked` control
+ *   the chart layout; `data.title` is rendered above the chart when provided.
+ * @returns A `<div>` containing an optional title and a 240 px Recharts `<BarChart>`.
  */
 export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)

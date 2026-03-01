@@ -80,7 +80,8 @@ const shortcutSections: ShortcutSection[] = [
  * Renders a styled keyboard key badge using the `<kbd>` HTML element.
  *
  * @param children - The key label to display (e.g. `"⌘"`, `"K"`, `"esc"`).
- * @returns A `<kbd>` element styled with project design tokens.
+ * @returns A `<kbd>` element with a minimum 24 px square size, monospace font,
+ *   and muted background/border using project design tokens.
  */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
@@ -114,7 +115,9 @@ interface KeyboardShortcutsDialogProps {
  * component to render key labels.
  *
  * @param props - Component properties.
- * @returns A Radix Dialog portal containing the shortcut list.
+ * @returns A Radix Dialog portal with a sticky header, scrollable shortcut
+ *   sections (max 60 vh), and a footer reminder. Each section groups related
+ *   shortcuts under a heading with {@link Kbd} badges for each key combination.
  */
 export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {
   return (

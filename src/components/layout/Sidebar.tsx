@@ -88,12 +88,21 @@ const ICON_MAP: Record<string, LucideIcon> = {
 }
 
 /**
- * Renders a Lucide icon component that corresponds to a QQQ metadata icon name.
+ * Renders a Lucide icon for a sidebar route sourced from QQQ metadata.
  *
- * Falls back to `FolderOpen` when the name is absent or unknown.
+ * The `iconName` is a Material Icons name string (e.g. `"people_alt"`,
+ * `"inventory_2"`) as stored in QQQ app-tree metadata. `ICON_MAP` translates
+ * the most common Material Icons names to their Lucide equivalents. Any name
+ * that is absent from `ICON_MAP` — including `undefined` — falls back to the
+ * `FolderOpen` icon so the sidebar always has visual structure.
  *
  * @param props - Component properties.
- * @returns An `aria-hidden` Lucide icon element.
+ * @param props.iconName - Material Icons name sourced from QQQ metadata;
+ *   `ICON_MAP` translates common names to Lucide equivalents; falls back to
+ *   FolderOpen for unmapped or absent names.
+ * @param props.className - Tailwind class applied to the icon element
+ *   (e.g. `"h-4 w-4 flex-shrink-0"`).
+ * @returns An `aria-hidden` Lucide icon element sized by the `className` prop.
  */
 function NavIcon({ iconName, className }: { iconName?: string; className?: string }) {
   if (!iconName) {
@@ -136,7 +145,10 @@ export interface SidebarProps {
  * and closes the mobile drawer on route changes.
  *
  * @param props - Component properties.
- * @returns The sidebar aside element or a drawer overlay wrapping it.
+ * @returns On desktop: a `hidden md:flex` wrapper containing the `<aside>`
+ *   column. In mobile-drawer mode (when `open` prop is provided): `null` when
+ *   `open` is `false`; a fixed full-screen overlay with a blurred backdrop
+ *   and the `<aside>` panel when `open` is `true`.
  */
 export default function Sidebar({
   routes,
@@ -339,7 +351,9 @@ interface SidebarCollapseItemProps {
  * app dashboard itself.
  *
  * @param props - Component properties.
- * @returns A list item containing the collapsible header and optional child list.
+ * @returns A `<li>` containing a split-button row (app-name `<Link>` + chevron
+ *   `<button>`) followed by a nested `<ul>` of {@link SidebarLinkItem}s when
+ *   `isOpen` is `true` and `route.children` is non-empty.
  */
 function SidebarCollapseItem({
   route,
@@ -417,7 +431,8 @@ interface SidebarLinkItemProps {
  * the route's icon (mapped from the QQQ metadata icon name) alongside the label.
  *
  * @param props - Component properties.
- * @returns A `<li>` containing a `<Link>` styled as a sidebar navigation item.
+ * @returns A `<li>` containing a full-width `<Link>` with a primary background
+ *   and `aria-current="page"` when active, or a muted hover state otherwise.
  */
 function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
   return (
@@ -449,7 +464,10 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
  * click, Escape key, or after an item is selected.
  *
  * @param props - Component properties.
- * @returns The footer element including the popover menu and the UserPreferencesDialog.
+ * @returns A React fragment containing a `<div>` with the popover menu (above
+ *   the user bar) and the user-info `<button>`, followed by a
+ *   {@link UserPreferencesDialog} portal. The popover is dismissed on outside
+ *   click or Escape and re-mounts cleanly each time it opens.
  */
 function UserFooter({
   userName,

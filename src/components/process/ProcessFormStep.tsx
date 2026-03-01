@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessFormStep — renders a FORM (or EDIT_FORM) process step.
- */
-/**
- * ProcessFormStep — renders a FORM (or EDIT_FORM) process step.
  *
  * Builds a Zod validation schema from step field metadata, pre-populates
  * default values from the current `stepValues`, and delegates rendering to
@@ -26,8 +23,6 @@
  * separate multipart payload via `onSubmit`.
  */
 'use client'
-
-// ProcessFormStep — renders a FORM step using DynamicForm from Package 3
 
 import React, { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
@@ -73,12 +68,18 @@ export interface ProcessFormStepProps {
 /**
  * Renders a FORM process step driven by `step.formFields` metadata.
  *
- * Constructs a Zod schema, wires React Hook Form, and renders the fields via
- * `DynamicForm`.  On submit, FILE_UPLOAD or BLOB fields are separated from the
- * values map and forwarded as a distinct `file` argument for multipart upload.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'FORM'`.
+ * Constructs a Zod schema via `zodSchemaFromFields`, wires React Hook Form with
+ * that schema as the resolver, and renders all fields via `DynamicForm`.  On
+ * submit, FILE_UPLOAD or BLOB fields are stripped from the serialised values map
+ * and forwarded as a distinct `file` argument so the caller can issue a
+ * multipart/form-data request.  HELP_TEXT component banners are rendered above
+ * the field list; an empty-step message is shown when there are no fields and
+ * no help text.
  *
  * @param props - {@link ProcessFormStepProps}
- * @returns The rendered form step.
+ * @returns A `<form>` containing optional help-text banners, the dynamic field
+ *   list via `DynamicForm`, and a sticky Cancel / Back / Next|Submit action bar.
  */
 export function ProcessFormStep({
   step,

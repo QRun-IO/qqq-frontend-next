@@ -20,9 +20,6 @@
 
 'use client'
 
-// use-process — TanStack Query hook for managing full process lifecycle
-// Handles init, step submission, async polling, and cancellation
-
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -132,8 +129,13 @@ export interface UseProcessReturn {
  * Narrows `r` to `QJobStarted` — the server accepted the request and returned an
  * async `jobUUID` that must be polled for a result.
  *
+ * Discriminator in {@link handleJobResponse} to apply the correct state transition;
+ * when this returns true the hook moves to `status: 'polling'` and records the
+ * `jobUUID` for the exponential-backoff poll loop, preventing the job from being
+ * treated as already complete.
+ *
  * @param r - Raw job response from the API.
- * @returns `true` when `r` is a `QJobStarted` response.
+ * @returns `true` when `r` is a `QJobStarted` response (has `jobUUID`, no `values`, no `error`, no `message`).
  */
 function isJobStarted(r: QJobResponse): r is QJobStarted {
   return 'jobUUID' in r && !('values' in r) && !('error' in r) && !('message' in r)
@@ -142,8 +144,12 @@ function isJobStarted(r: QJobResponse): r is QJobStarted {
 /**
  * Narrows `r` to `QJobRunning` — the async job is still executing; poll again later.
  *
+ * Discriminator in {@link handleJobResponse} to avoid treating an in-progress job as
+ * complete. When true, the hook stays in `status: 'polling'` and the exponential
+ * backoff refetchInterval schedules the next status check.
+ *
  * @param r - Raw job response from the API.
- * @returns `true` when `r` is a `QJobRunning` response.
+ * @returns `true` when `r` is a `QJobRunning` response (has `message`, no `jobUUID`, no `values`, no `error`).
  */
 function isJobRunning(r: QJobResponse): r is QJobRunning {
   return 'message' in r && !('jobUUID' in r) && !('values' in r) && !('error' in r)
@@ -153,8 +159,12 @@ function isJobRunning(r: QJobResponse): r is QJobRunning {
  * Narrows `r` to `QJobComplete` — the job finished successfully and `values` contains
  * the result payload (including an optional `nextStep` name).
  *
+ * Discriminator in {@link handleJobResponse} to apply the complete-job state transition;
+ * avoids treating a successful result as still running. When true, the hook either
+ * advances to the `nextStep` (if present) or moves to `status: 'complete'`.
+ *
  * @param r - Raw job response from the API.
- * @returns `true` when `r` is a `QJobComplete` response.
+ * @returns `true` when `r` is a `QJobComplete` response (has `values`, no `error`).
  */
 function isJobComplete(r: QJobResponse): r is QJobComplete {
   return 'values' in r && !('error' in r)
@@ -163,8 +173,12 @@ function isJobComplete(r: QJobResponse): r is QJobComplete {
 /**
  * Narrows `r` to `QJobError` — the job failed with a server-side error.
  *
+ * Discriminator in {@link handleJobResponse} to apply the error state transition;
+ * avoids treating a failed job as started or running. When true, the hook moves to
+ * `status: 'error'` and surfaces `userFacingError` (or `error`) as the error message.
+ *
  * @param r - Raw job response from the API.
- * @returns `true` when `r` is a `QJobError` response.
+ * @returns `true` when `r` is a `QJobError` response (has `error` field).
  */
 function isJobError(r: QJobResponse): r is QJobError {
   return 'error' in r
@@ -184,9 +198,19 @@ function isJobError(r: QJobResponse): r is QJobError {
  * - Exposes a `goBack` action that moves the UI back one step (client-side only).
  * - Calls `processCancel` and navigates away when the user cancels.
  *
- * @param processName - Backend process name used for all API calls.
- * @param processMetaData - Pre-fetched process metadata (may be `null` before metadata loads).
- * @returns `UseProcessReturn` — the current `state`, an `isLoading` flag, and action callbacks.
+ * @param processName - Backend process name used for all API calls (init, step, status, cancel).
+ * @param processMetaData - Pre-fetched process metadata (may be `null` before metadata loads;
+ *   the hook initialises `stepsRef` from this value and reacts to `processMetaDataAdjustment`
+ *   returned by the server to add/remove steps dynamically).
+ * @returns `UseProcessReturn` — `{ state, isLoading, initProcess, submitStep, goBack, cancel }`:
+ *   - `state` — full `ProcessState` snapshot (processUUID, currentStep, stepValues, status,
+ *     jobUUID, errorMessage, isLastStep, resultValues, modifiedFields).
+ *   - `isLoading` — composite `true` while initializing, polling, or any mutation is pending;
+ *     use to disable submit buttons and show a loading indicator.
+ *   - `initProcess(request?)` — starts the process; call once on mount or on user action.
+ *   - `submitStep(values, file?)` — submits the current step's form data.
+ *   - `goBack()` — moves to the previous step (server round-trip when processUUID exists).
+ *   - `cancel()` — notifies the server and navigates back; errors are silently swallowed.
  */
 export function useProcess(
   processName: string,

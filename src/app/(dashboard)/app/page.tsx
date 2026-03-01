@@ -20,9 +20,6 @@
 
 'use client'
 
-// Dashboard — top-level home page showing system overview
-// Demonstrates: stats, recent records, quick actions, app navigation, widget rendering
-
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -59,7 +56,14 @@ import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
  * and runnable processes, home-level widgets from any app definition, and an
  * applications overview grid.
  *
- * @returns The full dashboard home page layout.
+ * @returns A composed page that assembles:
+ *   - A time-based greeting header with the authenticated user's first name
+ *   - A 4-column stats grid (table count, process count, app count, widget count)
+ *   - A recently-viewed records list (up to 8, sourced from localStorage)
+ *   - A quick-actions panel (create links for up to 6 insertable tables; run links for up to 4 processes)
+ *   - A home-widgets row (up to 6 `<ConnectedWidget>` instances from app metadata)
+ *   - An applications overview grid linking to each app's first child route
+ *   - A system-info footer showing live table/process counts and the current user's email
  */
 export default function DashboardPage() {
   const { setPageHeader } = useQContext()

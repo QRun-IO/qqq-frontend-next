@@ -54,7 +54,10 @@ interface Breadcrumb {
  * `parentAppMap`, its parent app label is prepended as the first breadcrumb.
  *
  * @param props - Component properties.
- * @returns A `<nav>` breadcrumb element, or `null` if no segments exist.
+ * @returns A `<nav aria-label="Breadcrumb">` element with slash-separated
+ *   `<Link>` crumbs (ancestor pages) followed by a `<span aria-current="page">`
+ *   for the current page. Returns `null` when the pathname produces no
+ *   renderable segments (e.g. the dashboard root).
  */
 export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: BreadcrumbsProps) {
   const pathname = usePathname()

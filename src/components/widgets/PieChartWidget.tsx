@@ -100,11 +100,15 @@ function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
 /**
  * Renders a responsive donut-style pie chart using Recharts.
  *
- * Displays a color-coded legend below the chart. Shows an empty-state
- * message when the normalized data set contains no slice entries.
+ * Dispatched by `WidgetRenderer` for `'pieChart'`-type widgets (lazy-loaded).
+ * Uses `innerRadius="40%"` and `outerRadius="70%"` to produce a donut shape.
+ * Displays a color-coded `<Legend>` with circle icons below the chart.  Shows
+ * an empty-state message when the normalized data set contains no slice entries.
  *
- * @param props - Component properties.
- * @returns The rendered pie chart.
+ * @param props - Component properties; `data.data` provides Shape A (direct slice
+ *   array) and `data.labels` + `data.datasets` provides Shape B (only the first
+ *   dataset is used for pie slices).
+ * @returns A `<div>` containing an optional title and a 240 px Recharts `<PieChart>`.
  */
 export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   const entries = normalizeData(data)

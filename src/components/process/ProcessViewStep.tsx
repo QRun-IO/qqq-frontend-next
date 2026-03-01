@@ -16,18 +16,12 @@
 
 /**
  * @file ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
- */
-/**
- * ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
  *
  * Iterates `step.viewFields` and renders each field's label and value from
  * `stepValues` as a definition list.  HTML-typed fields are sanitized with
  * DOMPurify; all other types are formatted by {@link formatFieldValue}.
  */
 'use client'
-
-// ProcessViewStep -- renders a VIEW_FORM step as read-only field display
-// Iterates step.viewFields and shows label/value pairs from stepValues
 
 import React, { useState } from 'react'
 import { ChevronRight, X } from 'lucide-react'
@@ -92,12 +86,16 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
 /**
  * Renders a VIEW_FORM process step as a read-only definition list.
  *
- * Displays HELP_TEXT banners, then each view field as a `<dt>`/`<dd>` pair.
- * HTML-typed fields are sanitized with DOMPurify before rendering; other types
- * are formatted by {@link formatFieldValue}.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'VIEW'`.
+ * Displays HELP_TEXT banners above, then each `step.viewField` as a
+ * `<dt>` / `<dd>` pair inside a bordered `<dl>`.  HTML-typed fields are
+ * sanitized with DOMPurify before injection; all other types go through
+ * `formatFieldValue` (BOOLEAN → Yes/No, null/undefined → em-dash, rest →
+ * String cast).  Shows a fallback message when `viewFields` is empty.
  *
  * @param props - {@link ProcessViewStepProps}
- * @returns The rendered view step.
+ * @returns A `<div>` with optional help-text banners, a read-only `<dl>` of
+ *   field label/value pairs, and a sticky Cancel / Back / Next|Submit bar.
  */
 export function ProcessViewStep({
   step,

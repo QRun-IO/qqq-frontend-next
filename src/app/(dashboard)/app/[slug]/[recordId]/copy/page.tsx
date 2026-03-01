@@ -20,9 +20,6 @@
 
 'use client'
 
-// EntityCopy — copy a record (pre-populates form with existing values)
-// Package 3: full implementation using EntityForm with isCopy=true
-
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -42,7 +39,12 @@ import { EntityForm } from '@/components/forms/EntityForm'
  * pending, a permission error when the user lacks `insertPermission`, and a
  * fetch-error panel when the source record cannot be loaded.
  *
- * @returns The entity copy form, a loading spinner, or an error/permission panel.
+ * @returns A composed page that renders one of:
+ *   - A full-screen spinner while metadata or record data is loading
+ *   - A permission-error banner when the user lacks `insertPermission`
+ *   - A destructive error panel when the source record cannot be fetched
+ *   - `<EntityForm>` in copy mode (`isCopy=true`, pre-populated with source values)
+ *     wrapped in a centered `max-w-4xl` container; submitting creates a new record
  */
 export default function EntityCopyPage() {
   const params = useParams<{ slug: string; recordId: string }>()

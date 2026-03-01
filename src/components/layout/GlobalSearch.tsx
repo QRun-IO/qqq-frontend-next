@@ -86,15 +86,26 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
 }
 
 /**
- * Inline header search widget with a dropdown that shows recently-viewed records
- * (when the query is short) or live API search results grouped by table.
+ * Inline header search widget with a dropdown that shows recently-viewed
+ * records (when the query is short) or live API search results grouped by
+ * table. Placed in the header bar and hidden on mobile (`className` defaults
+ * to `hidden md:block` at the call site).
  *
- * The search term is debounced by 300 ms before triggering a TanStack Query
- * fetch. Full keyboard navigation (ArrowUp/Down, Enter, Escape) is supported.
- * Pressing Enter with no result selected navigates to the global search page.
+ * Behavior:
+ * - 300 ms debounce on input before the TanStack Query fetch fires.
+ * - Recent records are loaded from localStorage when the dropdown opens and
+ *   displayed before the user types (or when the query is shorter than 2 chars).
+ * - ArrowUp/ArrowDown navigate the result list; Enter selects the highlighted
+ *   item or navigates to the global search results page (`/app/search?q=…`);
+ *   Escape closes the dropdown and blurs the input.
+ * - 401 search errors are handled silently (global axios interceptor redirects
+ *   to login); 403 shows a permissions toast; other errors show a generic toast.
  *
- * @param className - Additional class names applied to the container div.
- * @returns The search input together with its dropdown results panel.
+ * @param className - Additional Tailwind class names applied to the outermost
+ *   container div (e.g. `"hidden md:block"` from the Header call site).
+ * @returns A `<div>` containing the pill-shaped search input and, when open,
+ *   an absolutely-positioned dropdown with `role="listbox"` showing recently-
+ *   viewed records, live search results, an error state, or an empty state.
  */
 export function GlobalSearch({ className }: GlobalSearchProps) {
   const router = useRouter()

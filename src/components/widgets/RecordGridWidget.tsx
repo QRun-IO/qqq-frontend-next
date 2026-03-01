@@ -16,9 +16,6 @@
 
 /**
  * @file RecordGridWidget — Read-only tabular record widget.
- */
-/**
- * RecordGridWidget — Read-only tabular record widget.
  *
  * Renders a scrollable HTML table of QQQ records using DataCell for
  * field-type-aware cell rendering. Accepts either full QFieldMetaData objects
@@ -64,15 +61,20 @@ interface RecordGridWidgetProps {
 /**
  * Renders a horizontally scrollable, read-only data table of QQQ records.
  *
- * Resolves column headers from either the provided `fields` metadata or
- * falls back to synthesizing minimal QFieldMetaData from bare `columns`
- * name strings. Uses DataCell for field-type-aware value rendering.
- * Shows an empty-state illustration when no records or columns are present.
- * Displays a "Showing X of Y records" footer when the total count exceeds
- * the number of rows in the payload.
+ * Dispatched by `WidgetRenderer` for `'recordGrid'`-type widgets.  Resolves
+ * column headers from the provided `fields` metadata or, when absent, synthesizes
+ * minimal `QFieldMetaData` stubs from bare `columns` name strings (using
+ * `type: 'STRING'` and `label: colName`).  Uses `DataCell` for field-type-aware
+ * value rendering.  Records from the payload are cast to `QRecord` shape before
+ * being passed to `DataCell`.  Shows an empty-state illustration when no records
+ * or columns are present.  Displays a "Showing X of Y records" footer when
+ * `data.totalCount` exceeds the number of rows in the payload.
  *
- * @param props - Component properties.
- * @returns The rendered record grid table.
+ * @param props - Component properties; `data.fields` takes precedence over
+ *   `data.columns` for column resolution; `data.records` must be non-empty for
+ *   the table to render.
+ * @returns A horizontally scrollable `<div>` containing a `<table>`, or an
+ *   empty-state `<div>` with an inbox icon.
  */
 export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
   const { records, columns, fields, tableName = '' } = data

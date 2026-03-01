@@ -60,7 +60,10 @@ export interface RunReportResponse {
  * which path was taken.
  *
  * @param reportName - Backend-registered name of the report to run.
- * @param request - Optional run parameters, including the desired output format.
+ * @param request - Optional run parameters: `reportFormat` selects the output
+ *   format (`"CSV"` / `"EXCEL"` / `"JSON"`; defaults to `"CSV"` when omitted).
+ *   The `downloadFileName` on the response indicates the suggested filename for
+ *   the generated file, and `downloadUrl` provides the retrieval link.
  * @returns A {@link RunReportResponse} describing either the completed result or a pending job.
  */
 export async function runReport(

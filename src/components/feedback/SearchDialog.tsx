@@ -43,10 +43,13 @@ interface SearchDialogProps {
 }
 
 /**
- * Derives two-character initials from a record label (first letter of first two words).
+ * Derives two-character initials from a record label (first letter of first
+ * two words). Used to render the avatar circle in recent-records and search
+ * result rows within the dialog.
  *
- * @param label - The record display label.
- * @returns A one- or two-character uppercase initials string, or `"?"` for empty input.
+ * @param label - The record display label (e.g. `"Jane Smith"`, `"Invoice #42"`).
+ * @returns A one- or two-character uppercase initials string, or `"?"` for
+ *   empty or whitespace-only input.
  */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
@@ -93,7 +96,12 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
  * non-empty query navigates to the global search results page.
  *
  * @param props - Component properties.
- * @returns A fixed full-screen overlay with the search dialog, or `null` when closed.
+ * @returns A fixed full-screen backdrop with the search dialog centered at
+ *   10 vh / 15 vh from the top. Returns `null` when `open` is `false`. The
+ *   dialog shows: recent records (when query < 2 chars), a live results list
+ *   grouped by table (when query ≥ 2 chars), an empty state, or a spinner.
+ *   Full keyboard navigation: ArrowUp/Down to navigate, Enter to select or
+ *   navigate to the global search results page, Escape to close.
  */
 export function SearchDialog({ open, onClose }: SearchDialogProps) {
   const router = useRouter()

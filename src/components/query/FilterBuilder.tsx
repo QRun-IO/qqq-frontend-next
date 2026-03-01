@@ -20,9 +20,6 @@
 
 'use client'
 
-// FilterBuilder — advanced filter UI with recursive group support
-// Supports possible value fields via async combobox search
-
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X } from 'lucide-react'
 
@@ -180,10 +177,14 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
   /**
    * Returns a stable string key for a criterion object, creating one on first access.
    *
-   * Uses a WeakMap so keys survive re-renders without mutating the criterion objects.
+   * Uses a WeakMap to generate stable React `key` props for each criterion row.
+   * This prevents React from reconciling array items by index when criteria are
+   * inserted or deleted mid-edit, which would cause focus loss and incorrect
+   * field-value associations in the rendered rows. Keys survive re-renders
+   * without mutating the criterion objects themselves.
    *
    * @param criterion - The filter criterion to look up or register.
-   * @returns A stable unique key string.
+   * @returns A stable unique key string (e.g. `"criterion-0-3"`).
    */
   const getCriterionKey = useCallback((criterion: QFilterCriteria): string => {
     const existing = criteriaIdMapRef.current.get(criterion)

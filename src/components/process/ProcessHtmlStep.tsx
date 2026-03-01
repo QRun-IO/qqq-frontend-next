@@ -16,17 +16,11 @@
 
 /**
  * @file ProcessHtmlStep — renders an HTML process step.
- */
-/**
- * ProcessHtmlStep — renders an HTML process step.
  *
  * Resolves HTML content from `stepValues`, the step's HTML component, or any
  * HTML-typed view fields, then renders it inside a DOMPurify-sanitised container.
  */
 'use client'
-
-// ProcessHtmlStep -- renders an HTML step
-// Displays HTML content from stepValues or viewFields inside a sanitized container
 
 import React, { useState, useMemo } from 'react'
 import { ChevronRight, X } from 'lucide-react'
@@ -122,12 +116,16 @@ function resolveHtmlContent(
 /**
  * Renders an HTML process step.
  *
- * Displays sanitised HTML content resolved from `stepValues` or step component
- * metadata, with optional HELP_TEXT banners above and standard Cancel / Back /
- * Next navigation below.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'HTML'`.
+ * Resolves content via `resolveHtmlContent`, memoizes the DOMPurify sanitization
+ * result (so it only re-runs when `htmlContent` changes), and injects the cleaned
+ * HTML into a `<div>` with `dangerouslySetInnerHTML`.  When no content is found
+ * a dashed placeholder is shown instead.  HELP_TEXT component banners are
+ * rendered above the content area.
  *
  * @param props - {@link ProcessHtmlStepProps}
- * @returns The rendered HTML step.
+ * @returns A `<div>` with optional help-text banners, a DOMPurify-sanitized
+ *   HTML content area or empty-state placeholder, and a sticky navigation bar.
  */
 export function ProcessHtmlStep({
   step,

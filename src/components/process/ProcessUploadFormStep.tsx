@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessUploadFormStep — renders an UPLOAD_FORM process step.
- */
-/**
- * ProcessUploadFormStep — renders an UPLOAD_FORM process step.
  *
  * Provides a simple file upload UI for process steps that use the `UPLOAD_FORM`
  * component type.  Unlike `BulkLoadStep`, this step is a single-purpose file
@@ -28,9 +25,6 @@
  * if absent, all file types are accepted.
  */
 'use client'
-
-// ProcessUploadFormStep -- renders an UPLOAD_FORM process step
-// Simple file upload UI without bulk-load-specific options
 
 import React, { useState, useCallback } from 'react'
 import { Upload, File, X, ChevronRight } from 'lucide-react'
@@ -83,11 +77,17 @@ function resolveAcceptedTypes(step: QFrontendStepMetaData): string {
 /**
  * Renders an UPLOAD_FORM process step.
  *
- * Provides a drag-and-drop / click-to-browse file drop zone and a sticky
- * action bar.  The accepted file types come from the component metadata.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'UPLOAD_FORM'`.
+ * Provides a drag-and-drop / click-to-browse file drop zone (keyboard-accessible
+ * via Enter/Space) and a sticky action bar.  The Upload button is disabled until
+ * a file is selected (`selectedFile === null`).  Accepted MIME / extension types
+ * come from `resolveAcceptedTypes`; when none are declared the `<input>` accepts
+ * all types (`accept="*"`).  On submit, `fileName` and `fileSize` are merged into
+ * `stepValues` so the backend receives metadata alongside the multipart upload.
  *
  * @param props - {@link ProcessUploadFormStepProps}
- * @returns The rendered upload form step.
+ * @returns A `<div>` with optional help-text banners, a file drop zone, and a
+ *   sticky Cancel / Back / Upload & Continue|Submit action bar.
  */
 export function ProcessUploadFormStep({
   step,

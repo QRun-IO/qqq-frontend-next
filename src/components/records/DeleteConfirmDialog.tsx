@@ -46,7 +46,11 @@ interface DeleteConfirmDialogProps {
  * invalidates the table query cache on success.
  *
  * @param props - Component properties.
- * @returns A Radix Dialog portal containing the confirmation UI.
+ * @returns A Radix Dialog portal (always open) with a warning icon, record
+ *   label, an inline error alert when the mutation fails, and Cancel/Delete
+ *   buttons. The Delete button shows a spinner while `isPending`. On success
+ *   the table query cache is invalidated, a success toast is shown, and
+ *   `onDeleted` is called.
  */
 export function DeleteConfirmDialog({
   tableMetaData,

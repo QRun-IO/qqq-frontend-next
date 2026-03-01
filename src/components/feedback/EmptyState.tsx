@@ -48,7 +48,9 @@ export interface EmptyStateProps {
  * the state when it appears after a data load.
  *
  * @param props - Component properties.
- * @returns A bordered dashed container centered in its parent.
+ * @returns A bordered dashed container centered in its parent, with
+ *   `role="status"` and `aria-live="polite"` so screen readers announce the
+ *   empty-state message without requiring focus.
  */
 export function EmptyState({
   title,

@@ -88,7 +88,13 @@ export function resolveSlugTarget(
  *
  * The page header in QContext is updated whenever the resolution changes.
  *
- * @returns The resolved page component, a loading spinner, or an error/unknown state.
+ * @returns A composed page selected by slug resolution:
+ *   - `<AppHome>` (dashboard widgets) when the slug matches a QQQ app
+ *   - `<RecordQuery>` (data grid + filters + pagination) when the slug matches a table
+ *   - `<ProcessRun>` (step wizard) when the slug matches a process
+ *   - `<ReportRun>` (format selector + download) when the slug matches a report
+ *   - A full-screen spinner while metadata is loading or the resource is resolving
+ *   - An unknown-resource message panel when the slug does not match any resource
  */
 export default function SlugPage() {
   const params = useParams<{ slug: string }>()

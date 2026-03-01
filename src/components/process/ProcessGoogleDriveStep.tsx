@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessGoogleDriveStep — renders a GOOGLE_DRIVE_SELECT_FOLDER process step.
- */
-/**
- * ProcessGoogleDriveStep — renders a GOOGLE_DRIVE_SELECT_FOLDER process step.
  *
  * The full Google Drive folder-picker requires OAuth 2.0 and the Google Picker
  * API, which are not yet integrated.  This component renders a labeled
@@ -29,9 +26,6 @@
  * to load the Picker script and open a folder-selection dialog.
  */
 'use client'
-
-// ProcessGoogleDriveStep -- placeholder for GOOGLE_DRIVE_SELECT_FOLDER step
-// Full implementation requires Google Picker API integration (not yet available)
 
 import React, { useState } from 'react'
 import { ChevronRight, X, FolderOpen } from 'lucide-react'
@@ -70,12 +64,16 @@ export interface ProcessGoogleDriveStepProps {
 /**
  * Renders a placeholder for the GOOGLE_DRIVE_SELECT_FOLDER process step type.
  *
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'GOOGLE_DRIVE'`.
  * Displays a prominent notice that Google Drive integration is not yet available,
  * while still allowing the user to navigate forward (for processes that may handle
- * a missing folder selection gracefully server-side).
+ * a missing folder selection gracefully server-side).  The Next button is always
+ * enabled here so the wizard is not permanently blocked.  When the Google Picker
+ * API is integrated this component should be replaced with the actual picker flow.
  *
  * @param props - {@link ProcessGoogleDriveStepProps}
- * @returns The rendered Google Drive placeholder step.
+ * @returns A `<div>` with optional help-text banners, a dashed placeholder with
+ *   an advisory message, and a sticky Cancel / Back / Next|Submit action bar.
  */
 export function ProcessGoogleDriveStep({
   step,

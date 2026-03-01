@@ -16,14 +16,11 @@
 
 /**
  * @file WidgetRenderer — Master type dispatcher for dashboard widgets.
- */
-/**
- * WidgetRenderer — Master type dispatcher for dashboard widgets.
  *
  * Receives widget metadata and raw API data, resolves the widget type from
- * metadata.type (falling back to data.type), and renders the appropriate
- * typed widget component. For the generic 'chart' type, a secondary dispatch
- * on chartType selects the correct chart variant.
+ * `metadata.type` (falling back to `data.type`), and renders the appropriate
+ * typed widget component.  For the generic `'chart'` type, a secondary dispatch
+ * on `chartType` selects the correct chart variant via `ChartTypeDispatcher`.
  *
  * The three Recharts-backed chart widgets (BarChartWidget, LineChartWidget,
  * PieChartWidget) are loaded lazily so that the Recharts library is split into
@@ -78,22 +75,46 @@ const ChartFallback = (
 
 /** Props accepted by the WidgetRenderer component. */
 interface WidgetRendererProps {
-  /** Widget metadata providing the type discriminator, name, and label. */
+  /**
+   * Widget metadata from the backend.  `widgetMetaData.type` is the primary
+   * discriminator used to select the renderer; `widgetMetaData.name` is
+   * forwarded to every child widget for `data-qqq-id` scoping.
+   */
   widgetMetaData: QWidgetMetaData
-  /** Raw API response data whose shape depends on the resolved widget type. */
+  /**
+   * Raw API response data whose shape varies by resolved widget type.  Cast to
+   * the specific payload type inside each switch case (e.g. `StatisticsWidgetPayload`).
+   */
   data: unknown
 }
 
 /**
  * Resolves the widget type and renders the matching typed widget component.
  *
- * Type resolution order: metadata.type → data.type. Renders an "unknown widget
- * type" placeholder when no matching case is found in the switch statement.
- * The 'chart' type delegates further dispatch to ChartTypeDispatcher using the
- * `chartType` field from the data payload.
+ * Called by `ConnectedWidget` after data has been fetched via `useWidget`.
+ * `widget.type` (from `widgetMetaData`) determines which renderer is
+ * instantiated.  Type resolution order: `widgetMetaData.type` → `data.type`
+ * (for payloads that embed the type string directly).  Renders an
+ * "unknown widget type" placeholder when no case matches, so dashboards
+ * degrade gracefully without crashing.
+ *
+ * Supported types and their renderers:
+ * - `'statistics'` → `StatisticsWidget`
+ * - `'barChart'` → `BarChartWidget` (lazy/Suspense)
+ * - `'lineChart'` → `LineChartWidget` (lazy/Suspense)
+ * - `'pieChart'` → `PieChartWidget` (lazy/Suspense)
+ * - `'recordGrid'` → `RecordGridWidget`
+ * - `'html'` | `'block'` → `BlockWidget`
+ * - `'divider'` → `DividerWidget`
+ * - `'quickLinks'` → `QuickLinksWidget`
+ * - `'alert'` → `AlertWidget`
+ * - `'processSummary'` → `ProcessSummaryWidget`
+ * - `'composite'` | `'parent'` → `CompositeWidget`
+ * - `'chart'` → `ChartTypeDispatcher` (secondary `chartType` dispatch)
  *
  * @param props - Component properties.
- * @returns The rendered widget for the resolved type, or an unknown-type placeholder.
+ * @returns The rendered widget component for the resolved type, or an
+ *   unknown-type placeholder `<div>` when no case matches.
  */
 export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
   const { name, type } = widgetMetaData

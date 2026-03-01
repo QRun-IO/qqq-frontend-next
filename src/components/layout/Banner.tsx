@@ -72,7 +72,10 @@ const severityConfig = {
  * tracked in local state and optionally reported via `onDismiss`.
  *
  * @param props - Component properties.
- * @returns A region of banner elements, or `null` when none are visible.
+ * @returns A `role="region"` container with one `role="alert"` banner per
+ *   visible key, each styled with CSS custom-property tokens and an optional
+ *   dismiss `<button>`. Returns `null` when no banners exist or all have been
+ *   dismissed.
  */
 export default function BannerComponent({ banners, onDismiss }: BannerProps) {
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())

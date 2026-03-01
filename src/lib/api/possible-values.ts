@@ -59,10 +59,15 @@ export interface PossibleValuesRequest {
  * Encodes the request as `multipart/form-data`. Only non-empty fields are
  * appended to the form to keep the request body minimal.
  *
- * @param tableName - Backend-registered name of the table that owns the field.
+ * @param tableName - Exact backend table identifier; determines which
+ *   possible-value source provider is consulted on the backend. Case-sensitive;
+ *   must match the backend declaration exactly and is used as a URL path segment.
  * @param fieldName - Name of the field whose possible-value source to query.
- * @param request - Optional filter and look-up parameters.
- * @returns An array of matching possible-value objects.
+ * @param request - Use `searchTerm` for live filtering in comboboxes as the
+ *   user types; use `ids` or `labels` to resolve pre-populated values for
+ *   existing records (e.g. when opening an edit form that already has a value).
+ * @returns An array of matching `QPossibleValue` objects, each with an `id`
+ *   and a `label` suitable for display in a dropdown or combobox.
  */
 export async function fetchTablePossibleValues(
   tableName: string,
@@ -90,10 +95,15 @@ export async function fetchTablePossibleValues(
  * Encodes the request as `multipart/form-data`. Only non-empty fields are
  * appended to the form to keep the request body minimal.
  *
- * @param processName - Backend-registered name of the process that owns the field.
+ * @param processName - Exact backend process identifier; determines which
+ *   possible-value source provider is consulted on the backend. Case-sensitive;
+ *   must match the backend declaration exactly and is used as a URL path segment.
  * @param fieldName - Name of the process field whose possible-value source to query.
- * @param request - Optional filter and look-up parameters.
- * @returns An array of matching possible-value objects.
+ * @param request - Use `searchTerm` for live filtering in comboboxes as the
+ *   user types; use `ids` or `labels` to resolve pre-populated values for
+ *   existing process input (e.g. when re-opening a step with stored values).
+ * @returns An array of matching `QPossibleValue` objects, each with an `id`
+ *   and a `label` suitable for display in a dropdown or combobox.
  */
 export async function fetchProcessPossibleValues(
   processName: string,
@@ -124,9 +134,14 @@ export async function fetchProcessPossibleValues(
  * Encodes the request as `multipart/form-data`. Only non-empty fields are
  * appended to the form to keep the request body minimal.
  *
- * @param fieldName - Name of the standalone possible-value source to query.
- * @param request - Optional filter and look-up parameters.
- * @returns An array of matching possible-value objects.
+ * @param fieldName - Name of the standalone possible-value source to query;
+ *   determines which PVS provider is consulted on the backend. Case-sensitive;
+ *   used as a URL path segment.
+ * @param request - Use `searchTerm` for live filtering in comboboxes as the
+ *   user types; use `ids` or `labels` to resolve pre-populated values for
+ *   existing records (e.g. when opening an edit form that already has a value).
+ * @returns An array of matching `QPossibleValue` objects, each with an `id`
+ *   and a `label` suitable for display in a dropdown or combobox.
  */
 export async function fetchPossibleValues(
   fieldName: string,

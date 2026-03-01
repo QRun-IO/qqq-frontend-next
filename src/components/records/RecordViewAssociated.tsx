@@ -52,7 +52,10 @@ interface RecordViewAssociatedProps {
  * shadow matching the style of the section cards in the same view.
  *
  * @param props - See {@link RecordViewAssociatedProps}.
- * @returns A React fragment containing one card per many-join.
+ * @returns A React fragment containing one `<div>` card per many-join, each
+ *   styled with a rounded border, bg-card, and drop shadow to match the
+ *   section cards in the list view. Returns an empty fragment when
+ *   `manyJoins` is empty.
  */
 export function RecordViewAssociated({
   tableMetaData,

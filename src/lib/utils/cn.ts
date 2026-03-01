@@ -18,8 +18,6 @@
  * @file cn — utility for merging Tailwind class names with clsx and tailwind-merge.
  */
 
-// cn — utility for merging Tailwind class names
-
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -27,10 +25,16 @@ import { twMerge } from 'tailwind-merge'
  * Merges Tailwind CSS class names, resolving conflicts using `tailwind-merge`.
  *
  * Accepts any mix of strings, arrays, and conditional objects (via `clsx`) then
- * deduplicates conflicting Tailwind utilities so the last one wins.
+ * deduplicates conflicting Tailwind utilities so the last one wins — for example,
+ * `cn('p-4', 'p-2')` returns `'p-2'` because the later declaration takes precedence.
  *
- * @param inputs - Class name values to merge (strings, arrays, or objects).
- * @returns A single merged class name string with Tailwind conflicts resolved.
+ * Used throughout the component library as the standard class composition helper,
+ * replacing raw template literals wherever conditional or overrideable classes appear.
+ *
+ * @param inputs - Class name values to merge: plain strings, conditional objects
+ *   (`{ 'font-bold': isBold }`), or nested arrays of either.
+ * @returns A deduplicated Tailwind class string where conflicting utilities are
+ *   resolved by last declaration wins; never returns `undefined` or `null`.
  */
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))

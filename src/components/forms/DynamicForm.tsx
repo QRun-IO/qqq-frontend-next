@@ -20,10 +20,6 @@
 
 'use client'
 
-// DynamicForm — renders form fields from metadata using React Hook Form
-// This is the CORE REUSABLE FORM component used by EntityForm (Package 3)
-// and will be reused by ProcessRun (Package 4).
-
 import React from 'react'
 import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
@@ -74,13 +70,20 @@ export interface DynamicFormProps {
 /**
  * DynamicForm renders form fields from metadata.
  *
- * Usage patterns:
- * 1. Table-based: pass tableMetaData (uses its sections for layout)
- * 2. Process-based: pass fields directly (flat list, no sections)
- * 3. Both: pass both tableMetaData and fieldNamesToInclude to filter
+ * Supports three usage patterns:
+ * 1. **Table-based** — pass `tableMetaData`; fields are grouped and ordered by
+ *    the table's sections.
+ * 2. **Process-based** — pass `fields` directly; renders a flat list with no
+ *    section grouping, typically used by `ProcessRun`.
+ * 3. **Filtered** — pass both `tableMetaData` and `fieldNamesToInclude` to show
+ *    only a named subset of the table's fields while preserving section layout.
  *
- * @param props - Component properties.
- * @returns The rendered form fields grouped by section, or null when no renderable fields exist.
+ * Used by {@link EntityForm} (create/edit/copy), `ProcessRun` (step forms), and
+ * any other caller that needs a metadata-driven field grid.
+ *
+ * @param props - Component properties (see {@link DynamicFormProps}).
+ * @returns The rendered form fields grouped by section, or `null` when no
+ *   renderable fields exist after applying visibility and include-list filters.
  */
 export function DynamicForm({
   register,

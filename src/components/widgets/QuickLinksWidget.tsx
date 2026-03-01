@@ -55,13 +55,15 @@ interface QuickLinksWidgetProps {
 /**
  * Renders a divided list of navigable quick-access links.
  *
- * Automatically detects external links (absolute URLs or `isExternal=true`) and
- * opens them in a new tab with the appropriate `rel` attribute. Internal links
- * use a chevron icon; external links use an ExternalLink icon.
- * Shows an empty-state message when no links are configured.
+ * Dispatched by `WidgetRenderer` for `'quickLinks'`-type widgets.  Automatically
+ * detects external links (absolute URLs or `link.isExternal === true`) and opens
+ * them in a new tab with `rel="noopener noreferrer"`.  Internal links use a
+ * `ChevronRight` icon; external links use an `ExternalLink` icon.  Shows an
+ * empty-state message when `links` is empty or absent.
  *
- * @param props - Component properties.
- * @returns The rendered quick links list.
+ * @param props - Component properties; `data.links` is the ordered array of link
+ *   entries — an empty or missing array renders the empty-state message.
+ * @returns A `<ul>` of `<a>` link items, or an empty-state `<p>`.
  */
 export function QuickLinksWidget({ data, widgetName }: QuickLinksWidgetProps) {
   const { links } = data

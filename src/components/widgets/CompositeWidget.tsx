@@ -16,9 +16,6 @@
 
 /**
  * @file CompositeWidget — Renders a parent widget that lays out multiple child widgets.
- */
-/**
- * CompositeWidget — Renders a parent widget that lays out multiple child widgets.
  *
  * Each child is wrapped in its own ConnectedWidget so that each widget fetches
  * its data independently. Column count derives from the parent widget's
@@ -50,11 +47,16 @@ export interface CompositeWidgetProps {
 /**
  * Renders a responsive grid of child ConnectedWidgets within a parent composite container.
  *
- * Column count is derived from `widgetMetaData.gridColumns` (defaults to 2).
- * Shows an empty-state message when no child widgets are configured.
+ * Dispatched by `WidgetRenderer` for `'composite'` and `'parent'`-type widgets.
+ * Column count is derived from `widgetMetaData.gridColumns` (defaults to 2);
+ * supported values are 1, 2, 3, and 4+ (which maps to a `lg:grid-cols-4` grid).
+ * Each child is rendered as a `ConnectedWidget` so data is fetched independently.
+ * Shows an empty-state message when `childWidgets` is empty.
  *
- * @param props - Component properties.
- * @returns The rendered composite widget grid.
+ * @param props - Component properties; `widgetMetaData.gridColumns` sets the
+ *   column count, and `childWidgets` provides the ordered child descriptor array.
+ * @returns A CSS grid `<div>` containing one `ConnectedWidget` per child, or an
+ *   empty-state `<p>` when no children are configured.
  */
 export function CompositeWidget({ widgetMetaData, childWidgets }: CompositeWidgetProps) {
   if (childWidgets.length === 0) {

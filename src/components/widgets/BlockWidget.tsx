@@ -16,9 +16,6 @@
 
 /**
  * @file BlockWidget — Renders a heterogeneous collection of block elements from the backend.
- */
-/**
- * BlockWidget — Renders a heterogeneous collection of block elements from the backend.
  *
  * Supported block types: text, big_number, up_or_down, progress, button, icon,
  * image, audio, divider, input, and html. HTML content is sanitized with DOMPurify.
@@ -39,21 +36,24 @@ import { isHttpUrl, isRelativeUrl } from '@/lib/utils/string-utils'
 
 /** Wire-format payload for a block widget or legacy HTML widget from the backend API. */
 export interface BlockWidgetPayload {
-  /** Discriminator widget type string. */
+  /** Discriminator widget type string, e.g. `'block'` or `'html'`. */
   type?: string
-  /** Block elements to render */
+  /** Ordered array of typed block elements to render; takes precedence over `html`. */
   blocks?: BlockData[]
-  /** Layout direction for blocks */
+  /** Layout direction for the block container (default `'vertical'`). */
   layout?: 'vertical' | 'horizontal' | 'grid'
-  /** Legacy: raw HTML payload for backward compat with plain 'html' widget type */
+  /**
+   * Legacy raw HTML string for backward compatibility with plain `'html'`-type widgets.
+   * Only used when `blocks` is absent or empty; sanitized with DOMPurify before rendering.
+   */
   html?: string
 }
 
 /** Props accepted by the BlockWidget component. */
 interface BlockWidgetProps {
-  /** Typed payload from the widget API response. */
+  /** Typed payload from the widget API response; `data.type` determines the rendering path. */
   data: BlockWidgetPayload
-  /** Unique widget name used to scope data-qqq-id attributes. */
+  /** Unique widget name used to scope `data-qqq-id` attributes on the container and each block. */
   widgetName: string
 }
 
@@ -71,11 +71,19 @@ const LAYOUT_CLASSES: Record<string, string> = {
 /**
  * Renders a collection of typed block elements in a configurable layout.
  *
- * Falls back to rendering raw sanitized HTML when the payload contains a legacy
- * `html` string without any structured `blocks` array.
+ * Dispatched by `WidgetRenderer` for both `'block'` and `'html'` widget types.
+ * Falls back to rendering DOMPurify-sanitized raw HTML when the payload contains
+ * a legacy `html` string without any structured `blocks` array.  When `blocks`
+ * is present but empty, a "No block content available" placeholder is shown.
+ * Each block element is dispatched to `BlockRenderer` which covers all types:
+ * text, big_number, up_or_down, progress, button, icon, image, audio, divider,
+ * input, and html — with an exhaustive TypeScript check on the `default` branch
+ * to surface unhandled types at compile time.
  *
- * @param props - Component properties.
- * @returns The rendered block widget.
+ * @param props - Component properties; `data.type` controls which rendering path
+ *   is taken (legacy `html` vs structured `blocks`).
+ * @returns A layout `<div>` containing rendered block elements, a DOMPurify-sanitized
+ *   HTML `<div>`, or an empty-state `<p>`.
  */
 export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
   // Legacy backward compat: if there's a raw html string and no blocks, render as HTML directly

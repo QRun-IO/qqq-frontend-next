@@ -32,10 +32,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * - Stable remover reference: `removeValue` always resets to the original
  *   `initialValue` even if the caller passes an inline object literal.
  *
- * @template T - The type of the value stored in localStorage.
- * @param key - The localStorage key to read from and write to.
- * @param initialValue - Fallback value used when the key is absent or on SSR.
- * @returns A tuple of `[storedValue, setValue, removeValue]`.
+ * @template T - The type of the value stored in localStorage (must be JSON-serializable).
+ * @param key - The localStorage key to read from and write to. Changes to this key across
+ *   browser tabs are picked up via `storage` events so all open tabs stay in sync.
+ *   Use a stable, namespaced string (e.g. `qqq-{tableName}-density`) to avoid collisions.
+ * @param initialValue - Fallback value used when the key is absent, on SSR, or when
+ *   JSON.parse throws (e.g. corrupted entry). Pass a stable reference (or use `useRef`)
+ *   to avoid the `removeValue` setter recreating on every render.
+ * @returns `[storedValue, setValue, removeValue]`:
+ *   1. `storedValue: T` — current stored value, or `initialValue` during SSR or on read error.
+ *   2. `setValue: (value: T | ((prev: T) => T)) => void` — setState-like setter that persists
+ *      to localStorage synchronously and updates React state; logs a warning (does not throw)
+ *      on quota exceeded or other write errors.
+ *   3. `removeValue: () => void` — removes the key from localStorage and resets state to the
+ *      original `initialValue`; logs a warning (does not throw) on remove errors.
  */
 export function useLocalStorage<T>(
   key: string,

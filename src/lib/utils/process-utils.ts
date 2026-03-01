@@ -18,16 +18,26 @@
  * @file process-utils — utility functions for filtering and categorizing QQQ processes.
  */
 
-// Utility functions for filtering and categorizing processes
-
 import type { QInstance, QProcessMetaData } from '@/types'
 
 /**
  * Returns all visible, permitted processes that belong to a given table.
  *
- * @param metaData - The full QInstance metadata object.
- * @param tableName - Backend-registered name of the table to filter processes by.
- * @returns Array of `QProcessMetaData` objects that target the specified table and are visible and permitted.
+ * Filters out processes where `isHidden === true` (admin-only or suppressed entries)
+ * and where `hasPermission === false` (backend signals the current user lacks access).
+ * Processes with `hasPermission` unset (`undefined`) are treated as permitted.
+ *
+ * Typically called from the Record Query and Record View pages before splitting the
+ * result into single-record and bulk process lists via `getSingleRecordProcesses` and
+ * `getBulkProcesses`.
+ *
+ * @param metaData - The full `QInstance` metadata object, typically returned by
+ *   `useMetadata()` and passed down as a prop — never fetched directly inside components.
+ * @param tableName - The backend-registered name of the table (e.g. `'person'`), not
+ *   the human-readable label. Must match `QProcessMetaData.tableName` exactly.
+ * @returns An array of `QProcessMetaData` objects whose `tableName` matches, that are
+ *   not hidden, and that the current user has permission to run. Returns an empty array
+ *   when `metaData.processes` is absent or no processes match.
  */
 export function getProcessesForTable(
   metaData: QInstance,
@@ -41,8 +51,13 @@ export function getProcessesForTable(
 /**
  * Returns processes that can run against a single record (maxInputRecords >= 1).
  *
- * @param processes - The list of processes to filter.
- * @returns Processes whose `maxInputRecords` is 1 or more (or unlimited).
+ * Used by the Record View page to build the "Actions" menu shown when viewing one record.
+ * A process with `maxInputRecords` unset is treated as unlimited and therefore included.
+ *
+ * @param processes - The list of processes to filter; typically the return value of
+ *   `getProcessesForTable()` already scoped to the current table and user permissions.
+ * @returns Processes whose `maxInputRecords` is `>= 1` or is unset (treated as unlimited).
+ *   Returns an empty array when `processes` is empty.
  */
 export function getSingleRecordProcesses(
   processes: QProcessMetaData[]
@@ -55,8 +70,14 @@ export function getSingleRecordProcesses(
 /**
  * Returns processes that can run against multiple records (maxInputRecords > 1 or unlimited).
  *
- * @param processes - The list of processes to filter.
- * @returns Processes whose `maxInputRecords` exceeds 1, is 0 (meaning unlimited), or is unset.
+ * Used by the Record Query page to build the bulk-action menu shown when one or more
+ * rows are selected in the data grid. A `maxInputRecords` value of `0` is the backend's
+ * convention for "no upper limit"; unset values are also treated as unlimited.
+ *
+ * @param processes - The list of processes to filter; typically the return value of
+ *   `getProcessesForTable()` already scoped to the current table and user permissions.
+ * @returns Processes whose `maxInputRecords` is `> 1`, is `0` (backend convention for
+ *   unlimited), or is unset. Returns an empty array when `processes` is empty.
  */
 export function getBulkProcesses(
   processes: QProcessMetaData[]

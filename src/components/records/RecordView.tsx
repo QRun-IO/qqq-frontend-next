@@ -20,13 +20,6 @@
 
 'use client'
 
-// RecordView — displays a single record with sections, field values, and related records
-// Metadata-driven: renders entirely from QTableMetaData + QRecord
-// Features:
-// - Differentiated error handling (403, 404, 500)
-// - Collapsible sections on mobile
-// - T2 sections collapsed by default
-
 import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -142,7 +135,10 @@ interface RecordViewProps {
  * and many-to-many joins.
  *
  * @param props - See {@link RecordViewProps}.
- * @returns The record detail layout, an appropriate error state, or a loading spinner.
+ * @returns A loading spinner (`aria-busy`), a colored error alert (403 yellow,
+ *   404 muted, 500 red) with contextual action buttons, `null` when the record
+ *   is absent but no error has occurred, or the full record detail layout
+ *   rendered by {@link RecordViewContent}.
  */
 export function RecordView({
   tableMetaData,
@@ -368,7 +364,12 @@ export function RecordView({
  * subcomponents.
  *
  * @param props - Component properties (pre-partitioned sections and join arrays).
- * @returns The full record detail layout within a RecordViewContext provider.
+ * @returns The full record detail layout within a {@link RecordViewContext}
+ *   provider: back link, {@link RecordViewHeader}, error/warning banners,
+ *   tab panel or list view depending on `viewMode`, and the
+ *   {@link RecordInfoFooter}. Returns a `<RecordViewContext.Provider>` as the
+ *   outermost element so all child components can access shared state without
+ *   prop drilling.
  */
 function RecordViewContent({
   tableMetaData,

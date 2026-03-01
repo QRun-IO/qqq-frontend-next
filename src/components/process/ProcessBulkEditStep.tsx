@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessBulkEditStep — renders a BULK_EDIT_FORM process step.
- */
-/**
- * ProcessBulkEditStep — renders a BULK_EDIT_FORM process step.
  *
  * Displays each editable field with an opt-in checkbox toggle so users can
  * select only the fields they want to update across multiple records.  Only
@@ -26,10 +23,6 @@
  * appended to the values for backend tracking.
  */
 'use client'
-
-// ProcessBulkEditStep -- renders a BULK_EDIT_FORM step
-// Provides form fields for bulk editing multiple records at once.
-// Each field has an "enabled" toggle so users can choose which fields to update.
 
 import React, { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
@@ -74,12 +67,18 @@ export interface ProcessBulkEditStepProps {
 /**
  * Renders a BULK_EDIT_FORM process step.
  *
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'BULK_EDIT'`.
  * Each field from `step.formFields` is presented with an opt-in checkbox; the
- * underlying DynamicForm field control only appears when the checkbox is checked.
- * Submit is disabled until at least one field is enabled.
+ * underlying `DynamicForm` field control only appears when the checkbox is
+ * checked.  The Zod schema marks all fields optional (regardless of their
+ * `isRequired` flag) because bulk edit fields are inherently opt-in.  Submit is
+ * disabled until at least one field is enabled (`enabledCount === 0`).  Only
+ * enabled fields' values are forwarded; `bulkEditEnabledFields` (an array of
+ * field names) is appended so the backend knows which fields to write.
  *
  * @param props - {@link ProcessBulkEditStepProps}
- * @returns The rendered bulk edit step form.
+ * @returns A `<form>` with help-text banners, a field-selection info bar, the
+ *   opt-in field list, and a sticky Cancel / Back / Next|Submit action bar.
  */
 export function ProcessBulkEditStep({
   step,

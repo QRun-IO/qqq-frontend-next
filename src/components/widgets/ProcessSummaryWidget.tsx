@@ -126,12 +126,16 @@ function formatRelativeTime(isoString: string): string {
 /**
  * Renders a divided list of recent process runs with status icons, badges, and timestamps.
  *
- * Each run row shows the process label, a colored status badge, an optional
- * message, the record count, and a relative completion or start time.
- * Shows an empty-state message when the runs array is empty.
+ * Dispatched by `WidgetRenderer` for `'processSummary'`-type widgets.  Each run
+ * row shows the process label, a colored status badge (via `STATUS_CONFIG`), an
+ * optional message, the record count, and a relative completion or start timestamp
+ * formatted by `formatRelativeTime`.  Shows an empty-state message when the runs
+ * array is empty or absent.
  *
- * @param props - Component properties.
- * @returns The rendered process summary list.
+ * @param props - Component properties; `data.runs` is the ordered array of process
+ *   run summaries — an empty or absent array renders the empty-state message.
+ * @returns A `<ul>` of process run list items with status icons and badges, or an
+ *   empty-state `<p>`.
  */
 export function ProcessSummaryWidget({ data, widgetName }: ProcessSummaryWidgetProps) {
   const { runs } = data

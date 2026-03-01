@@ -16,16 +16,11 @@
 
 /**
  * @file ProcessErrorState — full-page error display for a failed process execution.
- */
-/**
- * ProcessErrorState — full-page error display for a failed process execution.
  *
  * Shows a destructive icon, a human-readable error detail block, and action
  * buttons to go back or retry the process.
  */
 'use client'
-
-// ProcessErrorState — displays process errors with retry and back options
 
 import React from 'react'
 import { XCircle, RefreshCw, ArrowLeft } from 'lucide-react'
@@ -49,12 +44,15 @@ export interface ProcessErrorStateProps {
 /**
  * Renders an accessible error state for a failed process.
  *
- * The container is marked with `role="alert"` so screen readers announce it
- * immediately.  The Retry button only appears when an `onRetry` handler is
- * provided.
+ * Rendered by `ProcessRun` when `state.status === 'error'`.  The root container
+ * uses `role="alert"` so screen readers announce the error immediately.  When
+ * `error` is null the detail block is omitted.  The Retry button only appears
+ * when an `onRetry` handler is provided; `ProcessRun` supplies one that resets
+ * `initCalledRef` and calls `initProcess` again.
  *
  * @param props - {@link ProcessErrorStateProps}
- * @returns The rendered process error state.
+ * @returns A centered `<div role="alert">` with a destructive icon, heading,
+ *   optional error detail block, and Go Back / Retry action buttons.
  */
 export function ProcessErrorState({
   error,

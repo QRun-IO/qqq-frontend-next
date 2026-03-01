@@ -50,7 +50,11 @@ import { RecordView } from '@/components/records/RecordView'
  * `addRecentRecord`) so it surfaces in the GlobalSearch and SearchDialog.
  * The page header in QContext is updated to the record label.
  *
- * @returns The `<RecordView>` component wired with record data, loading, and error states.
+ * @returns A composed view that assembles:
+ *   - A full-screen spinner while table metadata resolves
+ *   - `<RecordView>` wired with the fetched record, loading state, error state,
+ *     a refetch callback, the list of available processes, and all table definitions
+ *     (needed to render association sub-tables)
  */
 export default function RecordViewPage() {
   const params = useParams<{ slug: string; recordId: string }>()

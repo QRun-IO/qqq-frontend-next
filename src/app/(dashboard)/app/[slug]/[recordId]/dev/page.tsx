@@ -20,9 +20,6 @@
 
 'use client'
 
-// RecordDeveloperView — shows raw record data and table metadata as formatted JSON
-// Useful for debugging field values, types, and backend responses
-
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -37,7 +34,11 @@ import { queryKeys } from '@/lib/query-client'
  * Renders a developer debug view for a single record, showing all field values
  * in a table and the raw record and table metadata as collapsible JSON blocks.
  *
- * @returns The developer view page with field table and JSON inspector panels.
+ * @returns A composed page that assembles:
+ *   - A field-values summary table (field name, type, raw value for every field in the record)
+ *   - A `<JsonBlock>` for the raw record (expanded by default)
+ *   - A `<JsonBlock>` for the full table metadata (collapsed by default)
+ *   - A loading spinner while either query is in-flight, and an error panel if the record fetch fails
  */
 export default function RecordDeveloperViewPage() {
   const params = useParams<{ slug: string; recordId: string }>()

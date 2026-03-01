@@ -33,13 +33,15 @@ import { FieldLabel } from './FieldLabel'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 /**
- * Extracts up to two uppercase initials from a label string.
+ * Extracts initials from a display label: first letter of each of the first
+ * two words ('John Smith' → 'JS'), first two chars for a single word,
+ * '?' for empty or undefined input.
  *
- * When the label contains multiple words the first character of each of the
- * first two words is used; otherwise the first two characters of the label
- * are returned.
+ * Used to populate the 56 × 56 px avatar circle in the record view header.
  *
- * @param label - The display label to abbreviate.
+ * @param label - The display label to abbreviate (e.g. `record.recordLabel`).
+ *   An empty or whitespace-only label produces an empty string (the avatar
+ *   circle renders blank; callers should ensure a non-empty label is provided).
  * @returns A one-or-two character uppercase string suitable for an avatar.
  */
 function getInitials(label: string): string {
@@ -79,11 +81,16 @@ interface RecordViewHeaderProps {
 /**
  * Renders the header block of the record detail page.
  *
- * Contains the avatar, record label, T1 badge chips, the view-mode radio toggle
- * (card / list), and the actions button bar.
+ * Displays a 56 × 56 px avatar (initials), the record label as an `<h1>`,
+ * a compact T1 field grid with hover-card links for possibleValueSource fields,
+ * a card/list view-mode radio toggle, and the action bar (desktop) or bottom-
+ * sheet trigger (mobile). The mobile bottom sheet mounts a
+ * {@link DeleteConfirmDialog} when the Delete action is tapped.
  *
  * @param props - See {@link RecordViewHeaderProps}.
- * @returns The record header element including avatar, title, field chips, view toggle, and actions.
+ * @returns The full record header block: avatar + title + T1 grid + view-mode
+ *   toggle + action controls. On mobile, also conditionally renders the
+ *   bottom-sheet overlay and delete dialog.
  */
 export function RecordViewHeader({
   tableMetaData,

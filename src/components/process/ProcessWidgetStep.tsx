@@ -16,21 +16,13 @@
 
 /**
  * @file ProcessWidgetStep — renders a WIDGET process step.
- */
-/**
- * ProcessWidgetStep — renders a WIDGET process step.
  *
  * If the backend has pre-rendered widget HTML in `stepValues.widgetHtml` (or
- * `stepValues.html`), it is displayed directly.  Otherwise a placeholder with
- * the widget name is shown.  Optional view fields are rendered below the widget
- * area as a definition list.
+ * `stepValues.html`), it is displayed directly (DOMPurify-sanitized).
+ * Otherwise a placeholder with the widget name is shown.  Optional view fields
+ * are rendered below the widget area as a definition list.
  */
 'use client'
-
-// ProcessWidgetStep -- renders a WIDGET step
-// Displays widget content from stepValues and/or viewFields.
-// The actual widget rendering is deferred to widget infrastructure;
-// this component provides the step shell with navigation.
 
 import React, { useState } from 'react'
 import DOMPurify from 'dompurify'
@@ -87,13 +79,18 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
 /**
  * Renders a WIDGET process step.
  *
- * Displays HELP_TEXT banners, then widget HTML content from `stepValues` if
- * available (unescaped — backend is trusted for widget HTML), or a named
- * placeholder otherwise.  Any `step.viewFields` are shown below as a
- * definition list.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'WIDGET'`.
+ * Displays HELP_TEXT banners above, then checks `stepValues.widgetHtml` /
+ * `stepValues.html` for server-pre-rendered widget HTML; if found, it is
+ * sanitized with DOMPurify and injected via `dangerouslySetInnerHTML`.  When
+ * no HTML is available a placeholder is shown with the widget name from
+ * `widgetComponent.values.widgetName` (if declared).  Any `step.viewFields`
+ * appear below as a read-only `<dl>`.
  *
  * @param props - {@link ProcessWidgetStepProps}
- * @returns The rendered widget step.
+ * @returns A `<div>` with optional help-text banners, a DOMPurify-sanitized
+ *   widget content area or named placeholder, optional view-field `<dl>`, and
+ *   a sticky Cancel / Back / Next|Submit action bar.
  */
 export function ProcessWidgetStep({
   step,

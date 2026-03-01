@@ -16,9 +16,6 @@
 
 /**
  * @file ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
- */
-/**
- * ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
  *
  * Orchestrates widget data fetching (via useWidget), dropdown option loading
  * (via fetchPossibleValues), and state management for dropdown selections.
@@ -48,13 +45,19 @@ interface ConnectedWidgetProps {
 /**
  * Renders a fully connected dashboard widget with data fetching and dropdown support.
  *
- * Initializes dropdown selections from metadata defaults, asynchronously loads
- * possible-value options for dropdowns that reference a PVS, merges dropdown
- * selections into the data-fetch params via useMemo, and delegates to WidgetBlock
- * (for chrome/loading/error states) and WidgetRenderer (for type-specific output).
+ * The primary entrypoint for any single widget on a dashboard page.  Used directly
+ * by dashboard page components and by `CompositeWidget` for each child.
+ * Initializes dropdown selections from `widgetMetaData.dropdowns[].defaultValue`,
+ * asynchronously loads possible-value options for dropdowns that declare a
+ * `possibleValueSourceName`, merges current dropdown selections into the data-fetch
+ * params via `useMemo`, and delegates to `WidgetBlock` (for title/loading/error
+ * chrome) and `WidgetRenderer` (for type-specific output).
  *
- * @param props - Component properties.
- * @returns The rendered connected widget, or null when the widget lacks permission.
+ * @param props - Component properties; `widgetMetaData.hasPermission === false`
+ *   causes an early `return null` before any rendering; `params` are static query
+ *   parameters merged with dropdown selections for the `useWidget` call.
+ * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree, or null when
+ *   `widgetMetaData.hasPermission` is false.
  */
 export function ConnectedWidget({ widgetMetaData, params, className }: ConnectedWidgetProps) {
   // Initialize dropdown values from metadata defaults

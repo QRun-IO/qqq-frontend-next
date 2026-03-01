@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessScriptViewerStep — renders a SCRIPT_VIEWER process step.
- */
-/**
- * ProcessScriptViewerStep — renders a SCRIPT_VIEWER process step.
  *
  * Displays code/script content from `stepValues` or step component metadata
  * inside a syntax-highlighted, scrollable code block.  Supports an optional
@@ -26,9 +23,6 @@
  * standard Cancel / Back / Next navigation bar.
  */
 'use client'
-
-// ProcessScriptViewerStep -- renders a SCRIPT_VIEWER step
-// Shows code/script content in a styled read-only code block with copy support
 
 import React, { useState, useMemo } from 'react'
 import { ChevronRight, X, Code, Copy, Check as CheckIcon } from 'lucide-react'
@@ -118,11 +112,16 @@ function resolveLanguage(
 /**
  * Renders a SCRIPT_VIEWER process step.
  *
- * Displays resolved script/code content in a scrollable monospace code block
- * with a copy-to-clipboard button.  Optional HELP_TEXT banners are shown above.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'SCRIPT_VIEWER'`.
+ * Displays resolved script/code content inside a scrollable `<pre><code>` block
+ * (max-height 24rem / 384 px) with a language label in the header bar and a
+ * copy-to-clipboard button.  Copy uses `navigator.clipboard.writeText` and
+ * silently ignores errors (e.g. when the Clipboard API is unavailable in HTTP
+ * contexts).  Optional HELP_TEXT banners are shown above.
  *
  * @param props - {@link ProcessScriptViewerStepProps}
- * @returns The rendered script viewer step.
+ * @returns A `<div>` with optional help-text banners, a styled code block or
+ *   empty-state placeholder, and a sticky Cancel / Back / Next|Submit action bar.
  */
 export function ProcessScriptViewerStep({
   step,

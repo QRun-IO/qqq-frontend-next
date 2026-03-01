@@ -73,8 +73,13 @@ interface RecordViewTabsProps {
 /**
  * A single collapsible accordion section for the mobile tab layout (MED-18).
  *
+ * Manages its own open/closed state with `defaultOpen` controlling the initial
+ * state. Used on viewports below the `md` breakpoint where the desktop pill
+ * tab bar is hidden; each section becomes an independently toggleable panel.
+ *
  * @param props - Component properties.
- * @returns A bordered collapsible section with an animated chevron trigger.
+ * @returns A bordered `<div>` with a `<button>` trigger (chevron rotates 180°
+ *   when open) and a conditionally rendered `role="region"` content panel.
  */
 function AccordionSection({
   id,
@@ -138,7 +143,11 @@ function AccordionSection({
  * same content is rendered as collapsible accordion sections.
  *
  * @param props - See {@link RecordViewTabsProps}.
- * @returns A React fragment containing both desktop tab layout and mobile accordion layout.
+ * @returns A React fragment containing two parallel layout trees: a desktop
+ *   pill-style tab bar with `role="tablist"` (visible at `md+`) and the
+ *   corresponding tab panels; and a stacked set of {@link AccordionSection}
+ *   items (visible below `md`). Both trees render the same content so there
+ *   is no hydration mismatch between server and client.
  */
 export function RecordViewTabs({
   tableMetaData,

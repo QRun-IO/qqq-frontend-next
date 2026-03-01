@@ -19,8 +19,6 @@
  */
 'use client'
 
-// useUserPreferences — manages global user preferences stored in localStorage
-
 import { useLocalStorage } from './use-local-storage'
 
 /**
@@ -55,7 +53,15 @@ const STORAGE_KEY = 'qqq-user-preferences'
  * Provides the current preferences, a typed setter for individual keys,
  * a reset function to restore all defaults, and the default values object.
  *
- * @returns The hook state and actions: `preferences`, `updatePreference`, `resetPreferences`, and `defaults`.
+ * @returns `{ preferences, updatePreference, resetPreferences, defaults }`:
+ *   - `preferences` — the current `UserPreferences` object (never undefined; falls back to
+ *     `DEFAULT_PREFERENCES` when the localStorage key is absent or unparseable).
+ *   - `updatePreference(key, value)` — updates a single typed preference key; persists
+ *     immediately to localStorage via `useLocalStorage` and re-renders all consumers.
+ *   - `resetPreferences()` — writes `DEFAULT_PREFERENCES` back to localStorage and
+ *     re-renders all consumers; use for a "Reset to defaults" button.
+ *   - `defaults` — the `DEFAULT_PREFERENCES` constant (useful for rendering default
+ *     labels in settings UI without a separate import).
  */
 export function useUserPreferences() {
   const [preferences, setPreferences] = useLocalStorage<UserPreferences>(

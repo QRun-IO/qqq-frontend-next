@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessUnknownStep — fallback renderer for unrecognized process step component types.
- */
-/**
- * ProcessUnknownStep — fallback renderer for unrecognized process step component types.
  *
  * When `resolveStepType` cannot match any known component type, this component
  * renders a descriptive notice listing the unrecognized component type names,
@@ -26,9 +23,6 @@
  * can continue the process.
  */
 'use client'
-
-// ProcessUnknownStep -- fallback for unrecognized QComponentType values
-// Renders a graceful notice instead of crashing the process wizard
 
 import React, { useState } from 'react'
 import { ChevronRight, X, AlertCircle } from 'lucide-react'
@@ -67,11 +61,16 @@ export interface ProcessUnknownStepProps {
 /**
  * Renders a graceful fallback for a process step with unrecognized component types.
  *
- * Lists the component type names present in the step so developers can identify
- * which renderer is missing.  Allows the user to navigate forward or back.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'UNKNOWN'`.
+ * Prevents the wizard from crashing by rendering an amber advisory notice
+ * listing the component types that were not matched (excluding `'HELP_TEXT'`
+ * since that type is handled inline everywhere).  Allows the user to navigate
+ * forward (in case the backend handles the missing step gracefully) or back.
  *
  * @param props - {@link ProcessUnknownStepProps}
- * @returns The rendered unknown step fallback.
+ * @returns A `<div>` with an amber diagnostic notice and a sticky Cancel /
+ *   Back / Next|Submit action bar.  Component type names are rendered as
+ *   `<code>` elements for easy developer identification.
  */
 export function ProcessUnknownStep({
   step,

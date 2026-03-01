@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessSummaryChartStep — renders a PROCESS_SUMMARY_CHART process step.
- */
-/**
- * ProcessSummaryChartStep — renders a PROCESS_SUMMARY_CHART process step.
  *
  * Displays a visual summary of process results in chart form.  When structured
  * chart data is available in `stepValues` (under `chartData`, `labels`, or
@@ -28,9 +25,6 @@
  * Falls back to a placeholder message when chart data is absent.
  */
 'use client'
-
-// ProcessSummaryChartStep -- renders a PROCESS_SUMMARY_CHART step
-// Renders a bar chart from stepValues chart data; falls back to a placeholder.
 
 import React, { useState } from 'react'
 import { ChevronRight, X, BarChart2 } from 'lucide-react'
@@ -125,12 +119,16 @@ function resolveChartBars(stepValues: Record<string, unknown>): ChartBar[] {
 /**
  * Renders a PROCESS_SUMMARY_CHART process step.
  *
- * Displays a CSS/Tailwind horizontal bar chart when chart data is available in
- * `stepValues`, or a placeholder icon when it is absent.  Navigation controls
- * allow proceeding to the next step.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'RESULTS_CHART'`.
+ * Calls `resolveChartBars` to extract bars from `stepValues.chartData` or from
+ * the same well-known count keys used by `ProcessSummaryResultsStep`.  Bar widths
+ * are expressed as a percentage of `maxValue` so the widest bar fills 100%.  Uses
+ * only CSS/Tailwind — no Recharts — making this step fast to render and free of
+ * the chart code-split chunk.
  *
  * @param props - {@link ProcessSummaryChartStepProps}
- * @returns The rendered summary chart step.
+ * @returns A `<div>` with optional help-text banners, a CSS bar chart or
+ *   empty-state placeholder, and a sticky Cancel / Back / Finish|Next action bar.
  */
 export function ProcessSummaryChartStep({
   step,

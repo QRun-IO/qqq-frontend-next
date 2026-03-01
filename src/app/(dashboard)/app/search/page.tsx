@@ -20,9 +20,6 @@
 
 'use client'
 
-// Search results page — displays global search results grouped by table
-// Reads search query from URL params: /app/search?q=searchTerm
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -65,7 +62,12 @@ function groupByTable(
  * URL on change, and fetches results via TanStack Query. Results are grouped by
  * table label and rendered as linked rows.
  *
- * @returns The search results page with an input, loading skeletons, empty states, and result groups.
+ * @returns A composed page that assembles:
+ *   - A `<Search>`-prefixed text input (pre-filled from `?q=` URL param, debounced 300 ms)
+ *   - Loading skeleton cards (two groups with 3 and 2 rows) while the query is in-flight
+ *   - An empty-state panel when the search returns zero results
+ *   - A prompt panel when no search term has been entered yet
+ *   - Result groups rendered as bordered cards, one card per table label, each with linked record rows
  */
 export default function SearchResultsPage() {
   const searchParams = useSearchParams()

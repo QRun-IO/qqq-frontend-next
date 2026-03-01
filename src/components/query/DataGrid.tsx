@@ -20,8 +20,6 @@
 
 'use client'
 
-// DataGrid — TanStack Table v8 data grid for QQQ Record Query
-
 import React, { useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   useReactTable,
@@ -54,7 +52,14 @@ interface DataGridProps {
   isLoading: boolean
   /** Whether a background refetch is in progress (shows progress bar). */
   isFetching: boolean
-  /** Active sort order passed to the server; derived from QFilterOrderBy[]. */
+  /**
+   * Active sort order passed to the server; derived from `QFilterOrderBy[]`.
+   *
+   * The grid operates in **manual sorting mode** (`manualSorting: true`):
+   * clicking a column header fires `onSortChange` with the new sort descriptor,
+   * and the parent is responsible for re-fetching from the API with the updated
+   * sort. The table does NOT sort rows locally — all ordering is server-side.
+   */
   sortOrder: QFilterOrderBy[]
   /** Callback invoked when the user clicks a sortable column header. */
   onSortChange: (sort: QFilterOrderBy[]) => void
@@ -96,11 +101,20 @@ const DENSITY_CELL_CLASS: Record<Density, string> = {
  * TanStack Table v8 data grid component for the QQQ Record Query page.
  *
  * Renders a sortable, column-resizable HTML table with row selection checkboxes,
- * density variants, a skeleton loading state, an inline empty state, and a
- * background-fetch progress bar. Clicking a row navigates to the record detail view.
+ * density variants (compact / standard / comfortable), and arrow-key cell
+ * navigation. Clicking a data row navigates to the record detail view.
+ *
+ * Return value depends on the current loading and data state:
+ * - **`isLoading` is true** — returns a skeleton table (animated pulse rows
+ *   matching `pageSize` up to a cap of 10) to preserve layout during initial fetch.
+ * - **`records` is empty** — returns an empty-state panel (inbox icon + message +
+ *   "Clear filters" button that calls `onResetFilter`).
+ * - **`isFetching` is true (background refetch)** — returns the full data grid
+ *   with an animated progress bar along the top edge.
+ * - **Otherwise** — returns the full, interactive data grid.
  *
  * @param props - Component properties.
- * @returns The rendered data grid.
+ * @returns The rendered data grid, skeleton, or empty-state panel.
  */
 export function DataGrid({
   tableName,

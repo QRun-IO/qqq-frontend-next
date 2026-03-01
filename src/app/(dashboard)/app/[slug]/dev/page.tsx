@@ -20,9 +20,6 @@
 
 'use client'
 
-// TableDeveloperView — shows raw table metadata as formatted JSON
-// Useful for debugging field definitions, sections, and permissions
-
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -36,7 +33,10 @@ import { queryKeys } from '@/lib/query-client'
  * Renders a developer debug view for a QQQ table, showing summary statistics
  * and the full table metadata as a collapsible JSON block.
  *
- * @returns The developer view page with stat cards and a JSON metadata panel.
+ * @returns A composed page that assembles:
+ *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
+ *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
+ *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */
 export default function TableDeveloperViewPage() {
   const params = useParams<{ slug: string }>()

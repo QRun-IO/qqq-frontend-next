@@ -20,10 +20,6 @@
 
 'use client'
 
-// EntityForm — full create/edit form for a record
-// Wraps DynamicForm with React Hook Form + Zod validation + save/cancel actions
-// Includes unsaved changes guard for both browser navigation and client-side navigation
-
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -64,9 +60,19 @@ export interface EntityFormProps {
   /** Label for the primary submit button; defaults to `"Save"`. */
   saveButtonLabel?: string
 
-  /** Called with the saved record after a successful insert or update. */
+  /**
+   * Called with the saved record after a successful insert or update.
+   * If not provided, the component auto-navigates to the record detail page
+   * (edit/copy mode) or the table list page (create mode) after save.
+   */
   onSuccess?: (record: QRecord) => void
-  /** Called when the user clicks Cancel; defaults to navigating back to the record or table. */
+  /**
+   * Called when the user clicks Cancel.
+   * If not provided, the component auto-navigates back to the record detail page
+   * (edit mode) or the table list page (create/copy mode).
+   * When `isDirty` is `true`, an unsaved-changes confirmation dialog is shown
+   * before any navigation occurs (whether via this callback or the default).
+   */
   onCancel?: () => void
 
   /** Default field values that override values derived from `record`. */

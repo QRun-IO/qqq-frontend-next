@@ -16,18 +16,12 @@
 
 /**
  * @file ValidationReviewStep — renders a VALIDATION_REVIEW_SCREEN process step.
- */
-/**
- * ValidationReviewStep — renders a VALIDATION_REVIEW_SCREEN process step.
  *
  * Displays summary stat cards (total, valid, warnings, errors), a status banner,
  * and a detailed validation row table.  Proceeding is blocked when there are
  * errors; warnings allow proceeding with a caution message.
  */
 'use client'
-
-// ValidationReviewStep — renders a VALIDATION step
-// Shows validation errors/warnings table, allows user to proceed or go back
 
 import React, { useState } from 'react'
 import { AlertTriangle, AlertCircle, CheckCircle, ChevronRight, X } from 'lucide-react'
@@ -115,12 +109,17 @@ function getSummary(rows: ValidationRow[]) {
 /**
  * Renders a VALIDATION_REVIEW_SCREEN process step.
  *
- * Displays summary stat cards, a colour-coded status banner (error / warning /
- * success), and a detailed validation issue table.  The Proceed button is
- * disabled when `hasErrors` is true.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'VALIDATION'`.
+ * Displays summary stat cards, a colour-coded status banner (error → destructive /
+ * warning → yellow / success → green), and a scrollable validation issue table.
+ * The Proceed button is disabled when `hasErrors` is true; the button label reads
+ * "Cannot Proceed" in that state so the reason is self-evident.  Counts prefer
+ * the pre-summarised `stepValues.errorRecords` / `warningRecords` fields and
+ * fall back to counting `validationRows` entries directly.
  *
  * @param props - {@link ValidationReviewStepProps}
- * @returns The rendered validation review step.
+ * @returns A `<div>` containing stat cards, a status alert, an optional table of
+ *   validation rows, and a sticky navigation bar.
  */
 export function ValidationReviewStep({
   step,

@@ -16,17 +16,12 @@
 
 /**
  * @file StepWizard — horizontal step-progress indicator for multi-step processes.
- */
-/**
- * StepWizard — horizontal step-progress indicator for multi-step processes.
  *
  * Renders an ordered list of steps with numbered circles (or a checkmark for
  * completed steps) connected by progress lines.  Supports an `isComplete` flag
  * that marks every step as completed when the process has finished.
  */
 'use client'
-
-// StepWizard — progress indicator showing all steps with current position
 
 import React from 'react'
 import { Check } from 'lucide-react'
@@ -80,11 +75,19 @@ function getStepState(
 /**
  * Renders a horizontal step-progress indicator for a multi-step process.
  *
+ * Consumed by `ProcessRun` in both the active-step and complete views.
  * Each step shows a numbered circle (or checkmark when completed), its label,
- * and a connector line to the next step.  Returns null when `steps` is empty.
+ * and a connector line to the next step.  The connector line between a
+ * completed step and the next one is colored with `bg-primary`; pending
+ * connectors use `bg-border`.  Labels are truncated at `max-w-[6rem]` with a
+ * `title` tooltip showing the full text.  A horizontal scroll wrapper
+ * prevents layout breakage when many steps are present on narrow screens.
  *
- * @param props - {@link StepWizardProps}
- * @returns The rendered step wizard navigation, or null when steps is empty.
+ * @param props - {@link StepWizardProps} — `steps` drives the ordered list;
+ *   `currentStepName` controls which step is highlighted; `isComplete` forces
+ *   all steps into the 'completed' visual state.
+ * @returns A `<nav>` element containing the ordered step list, or null when
+ *   `steps` is empty.
  */
 export function StepWizard({ steps, currentStepName, isComplete = false, className }: StepWizardProps) {
   if (steps.length === 0) return null

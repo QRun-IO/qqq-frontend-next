@@ -20,9 +20,6 @@
 
 'use client'
 
-// RecordQuery with Saved View — loads a saved filter/view configuration
-// Full implementation in Package 2
-
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQContext } from '@/lib/context/q-context'

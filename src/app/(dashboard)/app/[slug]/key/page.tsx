@@ -20,9 +20,6 @@
 
 'use client'
 
-// RecordViewByUniqueKey — view a record by unique key
-// Full implementation in Package 3
-
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQContext } from '@/lib/context/q-context'

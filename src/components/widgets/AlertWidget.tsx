@@ -90,12 +90,16 @@ const SEVERITY_CONFIG: Record<
 /**
  * Renders a styled alert banner with an icon, optional title, and message body.
  *
- * Severity controls the color scheme: info (blue), warning (amber), error (red),
- * success (emerald). The component emits a `role="alert"` element for
- * screen-reader accessibility.
+ * Dispatched by `WidgetRenderer` for `'alert'`-type widgets.  Severity controls
+ * the full color scheme via `SEVERITY_CONFIG`: info (blue), warning (amber),
+ * error (red), success (emerald).  Defaults to `'info'` when `data.severity` is
+ * absent.  The root element uses `role="alert"` so screen readers announce it
+ * immediately on render without requiring user interaction.
  *
- * @param props - Component properties.
- * @returns The rendered alert banner.
+ * @param props - Component properties; `data.severity` selects the color theme,
+ *   `data.title` is optional, and `data.message` is always required.
+ * @returns A `<div role="alert">` with a severity icon, optional bold title, and
+ *   message text; all colored according to `SEVERITY_CONFIG[severity]`.
  */
 export function AlertWidget({ data, widgetName }: AlertWidgetProps) {
   const severity: AlertSeverity = data.severity ?? 'info'

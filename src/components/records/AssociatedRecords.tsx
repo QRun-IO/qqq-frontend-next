@@ -56,7 +56,11 @@ interface AssociatedRecordsProps {
  * create dialog when the join table allows inserts.
  *
  * @param props - Component properties.
- * @returns The associated records section element, or `null` when no fields are renderable.
+ * @returns A `<section>` with a heading (join label + count badge), optional
+ *   "View All" filter link, optional "+ Add" create button, and either an
+ *   overflow-scrollable `<table>` of child records (first two columns wrapped
+ *   in {@link RecordHoverCard}s) or an empty-state message. Returns `null`
+ *   when `joinTableMetaData` is absent or no visible fields exist.
  */
 export function AssociatedRecords({
   join,

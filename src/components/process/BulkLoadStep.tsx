@@ -16,9 +16,6 @@
 
 /**
  * @file BulkLoadStep — renders a BULK_LOAD step with differentiated UI by load type.
- */
-/**
- * BulkLoadStep — renders a BULK_LOAD step with differentiated UI by load type.
  *
  * Reads `QFrontendComponent.values.type` from the first bulk-load component to
  * select the appropriate credential or upload form:
@@ -30,9 +27,6 @@
  * For any unknown type the component falls back to `FILE_UPLOAD` behavior.
  */
 'use client'
-
-// BulkLoadStep — renders a BULK_LOAD step with type-differentiated UI
-// Handles FILE_UPLOAD, SFTP_CREDENTIALS, API_CREDENTIALS, and unknown types
 
 import React, { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
@@ -481,12 +475,16 @@ function ApiCredentialsForm({ stepValues, isLoading, onSubmit, isLastStep }: Sub
 /**
  * Renders a BULK_LOAD process step with UI differentiated by the component's load type.
  *
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'BULK_LOAD'`.
  * Reads `QFrontendComponent.values.type` from the step's bulk-load component and
- * renders the appropriate credential or upload form.  The action bar (Cancel / Back /
- * Upload) submits the currently active sub-form via a hidden button trigger.
+ * renders the appropriate sub-form (`FileUploadForm`, `SftpCredentialsForm`, or
+ * `ApiCredentialsForm`).  The action bar (Cancel / Back / Upload|Connect) submits
+ * the active sub-form via a hidden `<input type="submit">` trigger to avoid nesting
+ * `<form>` elements.
  *
  * @param props - {@link BulkLoadStepProps}
- * @returns The rendered bulk load step.
+ * @returns A `<div>` containing an optional type badge, the resolved sub-form, and a
+ *   sticky action bar.
  */
 export function BulkLoadStep({
   step,

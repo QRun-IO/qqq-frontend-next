@@ -20,11 +20,6 @@
 
 'use client'
 
-// FieldValue — renders a single field value in read-only display mode
-// Handles all QFieldType values with appropriate formatting
-// Supports adornment types: LINK, CHIP, FILE_DOWNLOAD, REVEAL, SIZE, RENDER_HTML,
-// CODE_EDITOR, TOOLTIP, ERROR
-
 import React, { useMemo } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
@@ -63,8 +58,9 @@ interface FieldValueProps {
  * Auto-links bare http(s) URLs and e-mail addresses in the default case.
  *
  * @param props - See {@link FieldValueProps}.
- * @returns A React element appropriate for the field type and adornments,
- *   or an em-dash span when the value is empty.
+ * @returns A React element with adornment-driven styling; empty values render
+ *   an em-dash; HTML values are DOMPurify-sanitized; HTTP URLs and email
+ *   addresses are auto-linked when no adornment applies.
  */
 export function FieldValue({ field, record, allTables, navigateFrom, className }: FieldValueProps) {
   const rawValue = record.values[field.name]

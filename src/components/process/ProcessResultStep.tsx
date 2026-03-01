@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessResultStep — renders the final COMPLETE state of a process.
- */
-/**
- * ProcessResultStep — renders the final COMPLETE state of a process.
  *
  * Displays a success icon, an optional success message from `resultValues`,
  * numeric stat counters (inserted, updated, deleted, sent, failed, processed),
@@ -26,9 +23,6 @@
  * toast is fired once on mount.
  */
 'use client'
-
-// ProcessResultStep — renders the COMPLETE state
-// Shows success message, record counts (inserted/updated/deleted), and navigation links
 
 import React, { useEffect } from 'react'
 import Link from 'next/link'
@@ -104,11 +98,21 @@ function parseResultStats(resultValues: Record<string, unknown>): ResultStat[] {
 /**
  * Renders the final completion screen for a process.
  *
- * Fires a success toast on mount, then displays a success icon, headline,
- * optional message, stat counters, and contextual navigation links.
+ * Rendered by `ProcessRun` when `state.status === 'complete'`.  Fires a
+ * `toast.success` on mount (intentionally once — the effect has an empty
+ * dependency array).  Displays a green success icon, the process label, an
+ * optional `successMessage` / `message` from `resultValues`, numeric stat
+ * counters extracted by `parseResultStats`, and contextual navigation links.
+ *
+ * Navigation links:
+ * - When `processMetaData.tableName` is set: "Back to {tableName}" (outline)
+ *   and "View Records" (primary) both route to `/app/{tableName}`.
+ * - Otherwise: "Back to Home" routes to `/app`.
  *
  * @param props - {@link ProcessResultStepProps}
- * @returns The rendered process result step.
+ * @returns A centered `<div>` with a success icon, heading, optional stats
+ *   grid, and navigation links.  No navigation links are rendered when
+ *   `processMetaData` is null and `tableName` is absent.
  */
 export function ProcessResultStep({
   processMetaData,

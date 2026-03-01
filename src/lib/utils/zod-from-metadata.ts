@@ -23,12 +23,18 @@ import { z } from 'zod'
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 
 /**
- * Builds a string-based Zod schema with optional required/maxLength constraints.
+ * Internal helper used by {@link zodFieldFromMetadata} to build a string-based Zod schema
+ * for STRING, TEXT, HTML, and PASSWORD field types.
  *
- * @param isRequired - When true, adds a `min(1)` constraint with a required message.
- * @param label - The field label used in validation error messages.
- * @param maxLength - When provided, adds a `max()` constraint.
- * @returns A `z.ZodString` or `z.ZodOptional<z.ZodString>` schema.
+ * @param isRequired - When `true`, adds a `min(1)` constraint so empty strings fail
+ *   validation with a `"${label} is required"` message; `false` makes the field optional.
+ * @param label - The human-readable field label from metadata, used verbatim in error
+ *   messages (e.g. `"First Name is required"`).
+ * @param maxLength - When provided (from `QFieldMetaData.maxLength`), adds a `max()`
+ *   constraint with a `"${label} must be at most ${maxLength} characters"` message.
+ * @returns A `z.ZodString` when required, or `z.ZodOptional<z.ZodString>` when optional.
+ *   The returned schema is typed as `z.ZodTypeAny` because the exact generic depends on
+ *   the `isRequired` branch.
  */
 function buildStringSchema(isRequired: boolean, label: string, maxLength?: number): z.ZodTypeAny {
   let schema = z.string()
@@ -38,14 +44,20 @@ function buildStringSchema(isRequired: boolean, label: string, maxLength?: numbe
 }
 
 /**
- * Builds a string-based Zod schema for date/time fields (same as string but without maxLength).
+ * Internal helper used by {@link zodFieldFromMetadata} to build a string-based Zod schema
+ * for DATE, TIME, and DATE_TIME field types.
  *
- * Date/time values are stored as strings in HTML `<input>` elements, so the schema is
- * identical to a plain string schema minus any length limit.
+ * Date and time values travel through HTML `<input type="date">` and `<input type="datetime-local">`
+ * elements as ISO-8601 strings (e.g. `"2026-03-01"` or `"2026-03-01T14:30"`). The form layer
+ * therefore keeps these as strings rather than JavaScript `Date` objects — Zod transforms
+ * (if needed) are applied at submit time by the form submit handler, not at the schema level.
+ * No `maxLength` is applied because the browser constrains the format to a fixed-width string.
  *
- * @param isRequired - When true, adds a `min(1)` constraint with a required message.
- * @param label - The field label used in validation error messages.
- * @returns A `z.ZodString` or `z.ZodOptional<z.ZodString>` schema.
+ * @param isRequired - When `true`, adds a `min(1)` constraint so an unpopulated date input
+ *   (which submits as an empty string `""`) fails validation with a `"${label} is required"`
+ *   message; `false` makes the field optional.
+ * @param label - The human-readable field label from metadata, used verbatim in error messages.
+ * @returns A `z.ZodString` when required, or `z.ZodOptional<z.ZodString>` when optional.
  */
 function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
   const schema = z.string()

@@ -74,8 +74,19 @@ export interface RouteMap {
  * Permission filtering is done server-side; the backend only returns nodes
  * the current user may access.
  *
- * @param metaData - The full QInstance metadata object, or undefined while loading.
- * @returns A {@link RouteMap} containing sidebar routes, label map, parent map, and default route.
+ * @param metaData - The full QInstance metadata object, or `undefined` while metadata is loading.
+ *   When `undefined` or when `appTree` is empty, the hook returns a safe empty `RouteMap`
+ *   with `defaultRoute: '/no-apps'` so the sidebar and breadcrumbs render without crashing.
+ * @returns `{ sidebarRoutes, pathToLabelMap, parentAppMap, defaultRoute }`:
+ *   - `sidebarRoutes` — ordered `SidebarRoute[]` consumed by the sidebar component; always
+ *     starts with the Dashboard entry; APP nodes have `type: 'collapse'` with optional children.
+ *   - `pathToLabelMap` — flat `Record<string, string>` mapping every known route path to its
+ *     human-readable label; use this in the breadcrumb component to look up display names
+ *     without needing the full metadata tree.
+ *   - `parentAppMap` — maps flat child paths (e.g. `/app/Products`) to their parent APP
+ *     info (`{ label, path }`); used by breadcrumbs to render the intermediate APP segment.
+ *   - `defaultRoute` — the first accessible app path (`/app/{name}`), used as the post-login
+ *     redirect target; falls back to `'/no-apps'` when the app tree is empty.
  */
 export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
   return useMemo(() => {

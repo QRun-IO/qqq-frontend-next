@@ -20,9 +20,6 @@
 
 'use client'
 
-// RecordQuery — orchestrator page component for the record query page
-// Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, etc.
-
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -66,7 +63,13 @@ interface RecordQueryProps {
  * error/empty states, DataGrid or RecordCardView, and Pagination.
  *
  * @param props - Component properties.
- * @returns The rendered record query page.
+ * @returns A composed page that assembles:
+ *   - `RecordQueryToolbar` (search, filter toggle, column config, density, view mode, export,
+ *     saved views, process launcher, refresh button)
+ *   - An inline `FilterBuilder` panel (desktop) and a modal bottom-sheet (mobile)
+ *   - `RecordQueryBulkBar` (selection count + bulk-process actions, visible when rows are selected)
+ *   - `RecordQueryContent` (DataGrid or RecordCardView based on `viewMode`, plus Pagination)
+ *   - `VariantPicker` dialog when the table requires a variant selection before querying
  */
 export function RecordQuery({ tableName, tableMetaData, processes }: RecordQueryProps) {
   const router = useRouter()
@@ -89,8 +92,10 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   const [localSearchTerm, setLocalSearchTerm] = useState(rq.filter.quickSearchTerm)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /**
-   * Updates local search term immediately for a responsive input feel, then debounces
-   * the propagation to the query hook to avoid firing an API request on every keystroke.
+   * Updates local state immediately so the search input feels responsive, then
+   * debounces propagation to the query hook by {@link SEARCH_DEBOUNCE_MS} (300 ms)
+   * to reduce API traffic during fast typing. The timer is cleared on each
+   * invocation and on component unmount to prevent stale requests.
    *
    * @param value - The current value of the quick-search input.
    */

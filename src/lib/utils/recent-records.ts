@@ -19,9 +19,6 @@
  * Used by GlobalSearch to show recent items when no search term is entered.
  */
 
-// Recently viewed records tracker — persists to localStorage
-// Used by GlobalSearch to show recent items when no search term is entered
-
 export interface RecentRecord {
   tableName: string
   tableLabel: string

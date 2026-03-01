@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessSummaryResultsStep — renders a PROCESS_SUMMARY_RESULTS process step.
- */
-/**
- * ProcessSummaryResultsStep — renders a PROCESS_SUMMARY_RESULTS process step.
  *
  * An intermediate mid-process step (distinct from the final {@link ProcessResultStep})
  * that shows a success icon, numeric stats, and optional view-field detail rows
@@ -26,10 +23,6 @@
  * sanitized with DOMPurify before rendering.
  */
 'use client'
-
-// ProcessSummaryResultsStep -- renders a PROCESS_SUMMARY_RESULTS step
-// Distinct from ProcessResultStep (which is the final completion screen).
-// This is an intermediate step that shows summary results before the user proceeds.
 
 import React, { useState } from 'react'
 import { CheckCircle, ChevronRight, X } from 'lucide-react'
@@ -138,12 +131,16 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
 /**
  * Renders a PROCESS_SUMMARY_RESULTS process step.
  *
- * Shows a success icon, an optional message from `stepValues`, numeric stat
- * counters, and view-field detail rows (with HTML fields sanitized by DOMPurify).
- * Navigation controls allow proceeding to the next step or going back.
+ * Dispatched from `ProcessRun` when `resolveStepType` returns `'RESULTS'`.
+ * This is an intermediate step — unlike `ProcessResultStep` (the final
+ * completion screen), this step still has forward navigation.  Shows a
+ * green success icon, an optional `successMessage` / `message` from
+ * `stepValues`, numeric stat counters extracted by `parseResultStats`, and
+ * `step.viewFields` detail rows (HTML-typed fields sanitized by DOMPurify).
  *
  * @param props - {@link ProcessSummaryResultsStepProps}
- * @returns The rendered summary results step.
+ * @returns A `<div>` with a success icon, optional message, stat counters,
+ *   view-field `<dl>`, and a sticky Cancel / Back / Finish|Next action bar.
  */
 export function ProcessSummaryResultsStep({
   step,

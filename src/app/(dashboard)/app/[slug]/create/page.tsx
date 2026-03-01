@@ -45,7 +45,10 @@ import { EntityForm } from '@/components/forms/EntityForm'
  * error banner when the user lacks `insertPermission` on the table, and a
  * loading spinner while metadata is being fetched.
  *
- * @returns The entity creation form, a loading spinner, or a permission error panel.
+ * @returns A composed page that renders one of:
+ *   - A full-screen spinner while metadata resolves
+ *   - A permission-error banner when the user lacks `insertPermission`
+ *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-4xl` container
  */
 export default function EntityCreatePage() {
   const params = useParams<{ slug: string }>()

@@ -19,8 +19,6 @@
  */
 'use client'
 
-// use-widget — TanStack Query hook for fetching widget data
-
 import { useQuery } from '@tanstack/react-query'
 
 import type { WidgetData } from '@/types'
@@ -34,9 +32,16 @@ const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
  *
  * Results are cached for 5 minutes. The query is disabled when `widgetName` is empty.
  *
- * @param widgetName - Backend-registered widget name.
- * @param params - Optional key-value pairs forwarded as query parameters.
- * @returns A TanStack Query result containing the widget's runtime data payload.
+ * @param widgetName - Backend-registered widget name as declared in the QInstance metadata.
+ *   The query is disabled when this is an empty string, so callers may pass an empty string
+ *   to safely defer fetching until the widget name is resolved.
+ * @param params - Optional key-value pairs forwarded as URL query parameters to the widget
+ *   endpoint (e.g. `{ tableName: 'Orders', recordId: 42 }`). Included in the TanStack Query
+ *   cache key so different param combinations are cached independently.
+ * @returns TanStack Query result for `WidgetData`:
+ *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is `undefined`
+ *   while loading or on error; `isLoading` is true only during the initial fetch;
+ *   `isFetching` covers subsequent background refetches after the 5-minute stale window.
  */
 export function useWidget(
   widgetName: string,

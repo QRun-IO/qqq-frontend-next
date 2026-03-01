@@ -93,8 +93,12 @@ function buildMenuItems(pathToLabelMap: Record<string, string>): CommandMenuItem
 /**
  * Renders a color-coded Lucide icon for a given command item type.
  *
+ * Color mapping: `'app'` → blue LayoutGrid, `'table'` → green Table2,
+ * `'process'` → purple Workflow, `'report'` → orange BarChart3.
+ * Used in each command list row to give quick visual type differentiation.
+ *
  * @param type - The resource type (`'app'`, `'table'`, `'process'`, or `'report'`).
- * @returns An `aria-hidden` icon element colored by type.
+ * @returns An `aria-hidden` Lucide icon element sized `h-4 w-4` and colored by type.
  */
 function TypeIcon({ type }: { type: CommandMenuItem['type'] }) {
   switch (type) {
@@ -128,7 +132,10 @@ interface CommandMenuProps {
  * navigates via the Next.js router and calls `onClose`.
  *
  * @param props - Component properties.
- * @returns A fixed full-screen overlay with the command palette dialog, or `null` when closed.
+ * @returns A fixed full-screen backdrop (blurred, 40 % black) with the
+ *   command palette dialog centered at 10 vh / 15 vh from the top. Returns
+ *   `null` when `open` is `false` so the DOM node is fully unmounted between
+ *   invocations. Keyboard: ↑↓ navigate, ↵ open, Esc close.
  */
 export function CommandMenu({ open, onClose }: CommandMenuProps) {
   const router = useRouter()

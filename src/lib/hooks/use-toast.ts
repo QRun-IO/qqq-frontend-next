@@ -19,9 +19,6 @@
  * Provides toast.success / toast.error / toast.info / toast.warning / toast.dismiss.
  */
 
-// use-toast — Lightweight toast hook backed by sonner
-// Provides toast.success / toast.error / toast.info / toast.warning / toast.dismiss
-
 import { toast as sonnerToast } from 'sonner'
 
 /**
@@ -104,9 +101,20 @@ function dismiss(id?: string | number) {
 export const toast = { success, error, info, warning, dismiss }
 
 /**
- * Returns the toast notification object with `success`, `error`, `info`, `warning`, and `dismiss` methods.
+ * Returns the toast notification object with semantic display methods.
  *
- * @returns An object containing the toast notification helpers.
+ * Prefer this hook over importing `toast` directly so consumers stay decoupled
+ * from the underlying sonner implementation.
+ *
+ * @returns `{ toast }` — where `toast` exposes:
+ *   - `success(message, options?)` — green success toast.
+ *   - `error(message, options?)` — red error toast.
+ *   - `info(message, options?)` — blue informational toast.
+ *   - `warning(message, options?)` — yellow warning toast.
+ *   - `dismiss(id?)` — dismisses the toast with the given ID, or all active toasts
+ *     when called with no argument.
+ *   Each method accepts a `message: string` and an optional `ToastOptions`
+ *   (`{ duration?: number; description?: string }`).
  */
 export function useToast() {
   return { toast }

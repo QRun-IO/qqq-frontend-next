@@ -19,8 +19,6 @@
  */
 'use client'
 
-// useRecord — TanStack Query hook for fetching a single record by primary key
-
 import { useQuery } from '@tanstack/react-query'
 
 import type { QRecord } from '@/types'

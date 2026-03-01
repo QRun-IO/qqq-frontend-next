@@ -50,7 +50,10 @@ export interface HeaderProps {
  * `onMenuOpen`, and the global search is hidden.
  *
  * @param props - Component properties.
- * @returns The sticky header bar element.
+ * @returns A `<header>` element with `height: var(--qqq-header-height)` that
+ *   contains the hamburger button + {@link Breadcrumbs} on the left and
+ *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
+ *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
 export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
   const [notificationCount] = useState(0)

@@ -110,11 +110,14 @@ function formatYAxis(value: number): string {
 /**
  * Renders a responsive line chart using Recharts.
  *
- * Displays a legend when more than one data series is present. Shows an
- * empty-state message when the normalized data set contains no entries.
+ * Dispatched by `WidgetRenderer` for `'lineChart'`-type widgets (lazy-loaded).
+ * Displays a `<Legend>` when more than one data series is present.  Y-axis
+ * values are formatted with K/M suffixes for large numbers via `formatYAxis`.
+ * Shows an empty-state message when the normalized data set contains no entries.
  *
- * @param props - Component properties.
- * @returns The rendered line chart.
+ * @param props - Component properties; `data.datasets` provides multi-series data
+ *   (Shape A), `data.data` provides single-series data (Shape B).
+ * @returns A `<div>` containing an optional title and a 240 px Recharts `<LineChart>`.
  */
 export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)

@@ -16,9 +16,6 @@
 
 /**
  * @file ProcessRun — top-level process orchestrator component.
- */
-/**
- * ProcessRun — top-level process orchestrator component.
  *
  * Manages the full QQQ process lifecycle: idle → initializing → active steps
  * → polling → complete / error.  Validates `minInputRecords` / `maxInputRecords`
@@ -27,9 +24,6 @@
  * process has more than one step.
  */
 'use client'
-
-// ProcessRun -- main process orchestrator component
-// Manages the full process lifecycle: init -> steps -> complete/error
 
 import React, { useEffect, useRef, useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -234,13 +228,21 @@ function applyModifiedFields(
 /**
  * Renders the complete process execution UI for a given process.
  *
- * Handles all lifecycle states from the `useProcess` hook: shows a spinner
- * while idle/initialising, renders `ProcessErrorState` on error, renders
- * `ProcessResultStep` on completion, and dispatches the active step to the
- * appropriate step component via `resolveStepType`.
+ * This is the master controller for the process lifecycle: it auto-inits on
+ * mount (validating record count constraints), watches for status transitions,
+ * memoizes `applyModifiedFields` overrides, and dispatches the active step to
+ * the correct step component.  The root container uses `data-qqq-id` scoped to
+ * the process name so integrators can target CSS overrides per process.
+ *
+ * Layout:
+ * - idle / initializing → centered spinner with process label
+ * - polling (no currentStep) → spinner with optional progress bar from `current`/`total`
+ * - error → `ProcessErrorState` with Retry and Go Back buttons
+ * - complete → `StepWizard` (all complete) + `ProcessResultStep`
+ * - active step → `StepWizard` header + step label + optional polling overlay + step component
  *
  * @param props - {@link ProcessRunProps}
- * @returns The rendered process execution UI.
+ * @returns A `<div>` containing the full process execution UI in the appropriate lifecycle state.
  */
 export function ProcessRun({
   processName,
