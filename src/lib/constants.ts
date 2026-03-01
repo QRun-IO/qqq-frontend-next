@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** constants — shared application-wide constants for pagination, debounce, and other tuning knobs */
+/**
+ * @file constants — shared application-wide constants for pagination, debounce, and other tuning knobs.
+ */
 
 /**
  * The set of allowed page-size values for the Record Query pagination control.

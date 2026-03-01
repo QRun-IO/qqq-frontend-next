@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** VariantPicker — modal dialog for selecting a table variant before viewing scoped data */
+/**
+ * @file VariantPicker — modal dialog for selecting a table variant before viewing scoped data.
+ */
+
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
@@ -58,6 +61,7 @@ export interface VariantPickerProps {
  * built on Radix `Dialog` which provides a full focus trap and Escape-key dismissal.
  *
  * @param props - See {@link VariantPickerProps}.
+ * @returns The rendered variant picker dialog.
  */
 export function VariantPicker({
   open,

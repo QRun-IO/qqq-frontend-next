@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** ProcessSummaryWidget — Displays a chronological list of recent process-run summaries with status badges. */
+/**
+ * @file ProcessSummaryWidget — Displays a chronological list of recent process-run summaries with status badges.
+ */
 'use client'
 
 import React from 'react'
@@ -128,8 +130,8 @@ function formatRelativeTime(isoString: string): string {
  * message, the record count, and a relative completion or start time.
  * Shows an empty-state message when the runs array is empty.
  *
- * @param data - Process-summary widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered process summary list.
  */
 export function ProcessSummaryWidget({ data, widgetName }: ProcessSummaryWidgetProps) {
   const { runs } = data

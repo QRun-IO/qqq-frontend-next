@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessGoogleDriveStep — renders a GOOGLE_DRIVE_SELECT_FOLDER process step.
+ */
+/**
  * ProcessGoogleDriveStep — renders a GOOGLE_DRIVE_SELECT_FOLDER process step.
  *
  * The full Google Drive folder-picker requires OAuth 2.0 and the Google Picker
@@ -72,6 +75,7 @@ export interface ProcessGoogleDriveStepProps {
  * a missing folder selection gracefully server-side).
  *
  * @param props - {@link ProcessGoogleDriveStepProps}
+ * @returns The rendered Google Drive placeholder step.
  */
 export function ProcessGoogleDriveStep({
   step,

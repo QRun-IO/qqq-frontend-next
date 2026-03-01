@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, SIZE, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments and type-based fallbacks. */
+/**
+ * @file DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, SIZE, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments and type-based fallbacks.
+ */
+
 'use client'
 
 // DataCell — dispatches to the correct renderer based on field type and adornments
@@ -45,10 +48,8 @@ interface DataCellProps {
  * is chosen based on `field.type`. HTML values are sanitized with DOMPurify before
  * being injected via `dangerouslySetInnerHTML`.
  *
- * @param field - Metadata describing the field (type, adornments, name, label).
- * @param value - The raw record value for this field.
- * @param displayValue - Optional server-provided display string (used instead of raw value when available).
- * @param record - The full parent QRecord, needed by adornments that reference record-level data.
+ * @param props - Component properties.
+ * @returns The rendered cell element.
  */
 export function DataCell({ field, value, displayValue, record }: DataCellProps) {
   const display = displayValue ?? (value != null ? String(value) : '')
@@ -266,7 +267,8 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
 /**
  * Renders an em-dash placeholder for null or empty field values.
  *
- * @param fieldName - The field name used for the `data-qqq-id` attribute.
+ * @param props - Component properties.
+ * @returns The rendered empty cell span.
  */
 function EmptyCell({ fieldName }: { fieldName: string }) {
   return (
@@ -281,8 +283,8 @@ function EmptyCell({ fieldName }: { fieldName: string }) {
  *
  * Used for fields with the `REVEAL` adornment (e.g., API keys, tokens).
  *
- * @param value - The sensitive string value to reveal when toggled.
- * @param fieldName - The field name used for the `data-qqq-id` attribute and aria-label.
+ * @param props - Component properties.
+ * @returns The rendered reveal toggle button.
  */
 function RevealCell({ value, fieldName }: { value: string; fieldName: string }) {
   const [revealed, setRevealed] = useState(false)

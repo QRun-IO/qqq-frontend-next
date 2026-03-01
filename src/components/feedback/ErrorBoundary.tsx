@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file ErrorBoundary — reusable React class-based error boundary that catches render errors in its children subtree.
+ */
 
-/** ErrorBoundary — reusable React class-based error boundary that catches render errors in its children subtree. */
+'use client'
 
 import React, { type ReactNode, type ErrorInfo } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
@@ -96,6 +98,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.setState({ hasError: false, error: null })
   }
 
+  /**
+   * Renders either the fallback UI (when an error has been caught) or the child tree.
+   *
+   * @returns The fallback node, the default error card, or the children subtree.
+   */
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+/**
+ * @file use-widget — TanStack Query hook for fetching widget data.
+ */
 'use client'
 
 // use-widget — TanStack Query hook for fetching widget data
@@ -26,6 +29,15 @@ import { queryKeys } from '@/lib/query-client'
 
 const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
 
+/**
+ * Fetches runtime data for a named widget via `GET /widget/{widgetName}`.
+ *
+ * Results are cached for 5 minutes. The query is disabled when `widgetName` is empty.
+ *
+ * @param widgetName - Backend-registered widget name.
+ * @param params - Optional key-value pairs forwarded as query parameters.
+ * @returns A TanStack Query result containing the widget's runtime data payload.
+ */
 export function useWidget(
   widgetName: string,
   params?: Record<string, string | number | boolean>

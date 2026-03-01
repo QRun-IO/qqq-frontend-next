@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+/**
+ * @file Toast — re-exports the `Toaster` component from sonner for placement in the providers tree.
+ */
+
 'use client'
 
 /**
- * Toast — re-exports the `Toaster` component from sonner for placement in the providers tree.
+ * Re-exports `Toaster` from sonner for global toast notification support.
  *
- * Add `<Toaster />` once in the root providers to enable global toast notifications.
- * Use `toast()`, `toast.success()`, `toast.error()`, etc. from `sonner` at the call site.
+ * Add `<Toaster />` once in the root providers to enable toast notifications.
+ * Trigger toasts with `toast()`, `toast.success()`, or `toast.error()` from `sonner`.
  */
-
 export { Toaster } from 'sonner'

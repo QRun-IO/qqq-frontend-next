@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** AlertWidget — Displays an alert/banner message with severity-based color and icon styling. */
+/**
+ * @file AlertWidget — Displays an alert/banner message with severity-based color and icon styling.
+ */
 'use client'
 
 import React from 'react'
@@ -92,8 +94,8 @@ const SEVERITY_CONFIG: Record<
  * success (emerald). The component emits a `role="alert"` element for
  * screen-reader accessibility.
  *
- * @param data - Alert widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered alert banner.
  */
 export function AlertWidget({ data, widgetName }: AlertWidgetProps) {
   const severity: AlertSeverity = data.severity ?? 'info'

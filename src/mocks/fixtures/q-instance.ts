@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Full QInstance fixture — CRM + Inventory apps with all table/process/widget metadata
+/**
+ * @file Full QInstance fixture — CRM and Inventory apps with all table, process, and widget metadata.
+ */
 
 import type {
   QInstance,
@@ -27,6 +29,16 @@ import type {
 
 // ─── Field helpers ────────────────────────────────────────────────────────────
 
+/**
+ * Builds a `QFieldMetaData` fixture with sensible defaults, allowing selective
+ * overrides via the `overrides` parameter.
+ *
+ * @param name - Backend field name (key in record value maps).
+ * @param label - Human-readable label shown in the UI.
+ * @param type - QQQ field data type.
+ * @param overrides - Partial field metadata to merge over the defaults.
+ * @returns A fully-constructed `QFieldMetaData` object.
+ */
 function field(
   name: string,
   label: string,

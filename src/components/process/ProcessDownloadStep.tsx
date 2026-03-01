@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessDownloadStep — renders a DOWNLOAD_FORM process step.
+ */
+/**
  * ProcessDownloadStep — renders a DOWNLOAD_FORM process step.
  *
  * Displays optional view-field context values and a prominent download link
@@ -132,6 +135,7 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * processing" message otherwise.
  *
  * @param props - {@link ProcessDownloadStepProps}
+ * @returns The rendered download step.
  */
 export function ProcessDownloadStep({
   step,

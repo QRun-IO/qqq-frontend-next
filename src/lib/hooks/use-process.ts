@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-process — TanStack Query hook for managing the full QQQ process lifecycle including init, step submission, async job polling, and cancellation */
+/**
+ * @file use-process — TanStack Query hook for managing the full QQQ process lifecycle including init, step submission, async job polling, and cancellation.
+ */
 
 'use client'
 

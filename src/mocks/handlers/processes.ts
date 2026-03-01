@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-// MSW handlers for process endpoints
-// Simulates full process flows for importPeople and sendEmail
+/**
+ * @file MSW handlers for process endpoints — simulates full process flows for importPeople and sendEmail.
+ */
 
 import { http, HttpResponse } from 'msw'
 import type { QJobComplete, QJobStarted } from '@/types'
@@ -31,6 +32,11 @@ interface ProcessSession {
 
 const activeSessions = new Map<string, ProcessSession>()
 
+/**
+ * Generates a random version-4 UUID string.
+ *
+ * @returns A UUID string in `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx` format.
+ */
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -44,6 +50,13 @@ const stepFlows: Record<string, string[]> = {
   sendEmail: ['compose', 'preview', 'send'],
 }
 
+/**
+ * Returns the name of the step that follows `currentStep` in a process's ordered step list.
+ *
+ * @param processName - Name of the process whose step flow to look up.
+ * @param currentStep - Name of the step that just completed.
+ * @returns The next step name, or `undefined` if `currentStep` is the last step.
+ */
 function getNextStep(processName: string, currentStep: string): string | undefined {
   const steps = stepFlows[processName]
   if (!steps) return undefined
@@ -81,6 +94,16 @@ const mockPeopleRecords = [
 
 // ─── Step value builders per process/step ────────────────────────────────
 
+/**
+ * Constructs the output values map returned in a `QJobComplete` response for a given process step.
+ *
+ * Merges `sessionValues` with step-specific mock output (validation results, record lists, counts).
+ *
+ * @param processName - Name of the process being executed.
+ * @param stepName - Name of the step that just completed.
+ * @param sessionValues - Accumulated values from the current process session.
+ * @returns The merged output values map to include in the `QJobComplete` response.
+ */
 function buildStepValues(
   processName: string,
   stepName: string,

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** AuthProvider — manages authentication state for AUTH_0, OAUTH2, FULLY_ANONYMOUS, and MOCK auth types */
+/**
+ * @file AuthProvider — manages authentication state for AUTH_0, OAUTH2, FULLY_ANONYMOUS, and MOCK auth types.
+ */
 'use client'
 
 // Auth provider — manages authentication state across all auth types
@@ -102,8 +104,10 @@ export interface AuthProviderProps {
  * session. It also wires up the global 401 interceptor so that expired sessions
  * automatically redirect to the login page.
  *
- * @param children - Application subtree that needs auth context.
- * @param onAuthError - Optional error handler called when auth initialization fails.
+ * @param props - Component props.
+ * @param props.children - Application subtree that needs auth context.
+ * @param props.onAuthError - Optional error handler called when auth initialization fails.
+ * @returns The rendered auth context provider wrapping the component tree.
  */
 export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   const router = useRouter()
@@ -149,6 +153,12 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   useEffect(() => {
     let cancelled = false
 
+    /**
+     * Fetches auth metadata and initialises the appropriate session on mount.
+     * Sets `isAuthenticated` and `user` on success; calls `onAuthError` on failure.
+     *
+     * @returns A promise that resolves when auth initialisation is complete.
+     */
     async function initAuth() {
       try {
         const metadata = await getAuthenticationMetaData()
@@ -224,6 +234,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    *   5. On next mount `setupAuth0Session` → `manageSession('')` → confirms session
    *
    * @param authMeta - Auth metadata from the backend (used for type narrowing only).
+   * @returns The resolved `AuthUser` from localStorage or a default user object.
    */
   async function setupAuth0Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
     void authMeta // PKCE flow is page-driven; this function only validates the session
@@ -248,6 +259,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    *   5. On next mount `setupOAuth2Session` → `manageSession('')` → confirms session
    *
    * @param authMeta - Auth metadata from the backend (used for type narrowing only).
+   * @returns The resolved `AuthUser` from localStorage or a default user object.
    */
   async function setupOAuth2Session(authMeta: QAuthenticationMetaData): Promise<AuthUser> {
     void authMeta // PKCE flow is page-driven; this function only validates the session
@@ -262,6 +274,8 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    * Calls `manageSession` with the literal string `'anonymous'` to obtain a
    * backend session cookie. Errors are swallowed because some anonymous
    * configurations do not require a token exchange.
+   *
+   * @returns A default anonymous `AuthUser` object.
    */
   async function setupAnonymousSession(): Promise<AuthUser> {
     // Anonymous auth: call manageSession with empty token to get a session cookie

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Widget fixture data — chart widgets
+/**
+ * @file Widget fixture data — chart and record grid widget payloads for the CRM dashboard.
+ */
 
 import type { ChartWidgetData, RecordGridWidgetData } from '@/types'
 

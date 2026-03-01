@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** EntityForm — full create/edit/copy form for a QQQ record with validation, mutations, and unsaved-changes guard */
+/**
+ * @file EntityForm — full create/edit/copy form for a QQQ record with validation, mutations, and unsaved-changes guard.
+ */
+
 'use client'
 
 // EntityForm — full create/edit form for a record
@@ -94,6 +97,7 @@ export interface EntityFormProps {
  *   calls `insertRecord`, producing a new record.
  *
  * @param props - See {@link EntityFormProps}.
+ * @returns The rendered form with action buttons and unsaved-changes dialog.
  */
 export function EntityForm({
   tableMetaData,

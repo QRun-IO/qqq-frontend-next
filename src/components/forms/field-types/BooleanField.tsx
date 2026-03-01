@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** BooleanField — three-state toggle switch for boolean form fields integrated with React Hook Form */
+/**
+ * @file BooleanField — three-state toggle switch for boolean form fields integrated with React Hook Form.
+ */
+
 'use client'
 
 // BooleanField — toggle switch for boolean form fields
@@ -56,6 +59,9 @@ interface BooleanFieldProps {
 /**
  * Resolves the current boolean state from a field value.
  * Returns true, false, or null (for indeterminate/three-state).
+ *
+ * @param value - The raw field value from React Hook Form.
+ * @returns `true`, `false`, or `null` for the indeterminate state.
  */
 function resolveBoolState(value: unknown): boolean | null {
   if (value === null || value === undefined) return null
@@ -68,6 +74,9 @@ function resolveBoolState(value: unknown): boolean | null {
  * Returns the aria-checked value for the current boolean state.
  * Uses role="checkbox" (not "switch") because checkbox supports aria-checked="mixed"
  * for the indeterminate/null state in three-state mode.
+ *
+ * @param state - The resolved boolean state (`true`, `false`, or `null`).
+ * @returns The ARIA checked string: `'true'`, `'false'`, or `'mixed'`.
  */
 function ariaCheckedValue(state: boolean | null): 'true' | 'false' | 'mixed' {
   if (state === true) return 'true'
@@ -84,6 +93,7 @@ function ariaCheckedValue(state: boolean | null): 'true' | 'false' | 'mixed' {
  * dash indicator and `aria-checked="mixed"`.
  *
  * @param props - See {@link BooleanFieldProps}.
+ * @returns The rendered toggle switch with label and optional error message.
  */
 export function BooleanField({
   id,

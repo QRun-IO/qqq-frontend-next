@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** FieldValue — read-only renderer for a single QQQ field value, supporting all adornment types */
+/**
+ * @file FieldValue — read-only renderer for a single QQQ field value, supporting all adornment types.
+ */
+
 'use client'
 
 // FieldValue — renders a single field value in read-only display mode
@@ -442,9 +445,8 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
  *
  * Used for PASSWORD field types and any field with a REVEAL adornment.
  *
- * @param value - The plaintext value to optionally display.
- * @param fieldName - The field name used to build the `data-qqq-id` attribute.
- * @param className - Optional additional CSS classes for the wrapper span.
+ * @param props - Component properties.
+ * @returns A span containing the masked/revealed value and an eye-toggle button.
  */
 function RevealField({
   value,

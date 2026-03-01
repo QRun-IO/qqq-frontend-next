@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-record-query — manages all state for the Record Query page including filters, pagination, sorting, column config, saved views, and data fetching */
+/**
+ * @file use-record-query — manages all state for the Record Query page including filters, pagination, sorting, column config, saved views, and data fetching.
+ */
 
 'use client'
 

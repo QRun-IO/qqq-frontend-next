@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Enums — QQQ backend string-union type aliases used across metadata, query, and process types */
+/**
+ * @file QQQ backend string-union type aliases used across metadata, query, and process types.
+ */
 
 // QQQ Enum Types - ported from qqq-frontend-core
 

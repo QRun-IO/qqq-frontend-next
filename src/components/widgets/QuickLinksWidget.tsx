@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** QuickLinksWidget — Renders a divided list of quick-access links with optional descriptions and external-link indicators. */
+/**
+ * @file QuickLinksWidget — Renders a divided list of quick-access links with optional descriptions and external-link indicators.
+ */
 'use client'
 
 import React from 'react'
@@ -58,8 +60,8 @@ interface QuickLinksWidgetProps {
  * use a chevron icon; external links use an ExternalLink icon.
  * Shows an empty-state message when no links are configured.
  *
- * @param data - Quick-links widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered quick links list.
  */
 export function QuickLinksWidget({ data, widgetName }: QuickLinksWidgetProps) {
   const { links } = data

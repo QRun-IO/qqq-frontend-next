@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Widgets API — Endpoint for fetching runtime data for dashboard and embedded widgets. */
+/**
+ * @file Widgets API — Endpoint for fetching runtime data for dashboard and embedded widgets.
+ */
 
 import type { WidgetData } from '@/types'
 import apiClient from './client'

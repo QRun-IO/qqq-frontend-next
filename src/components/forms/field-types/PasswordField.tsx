@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** PasswordField — password input with show/hide toggle, validation error display, and accessibility attributes */
+/**
+ * @file PasswordField — password input with show/hide toggle, validation error display, and accessibility attributes.
+ */
+
 'use client'
 
 import React, { useState } from 'react'
@@ -55,6 +58,7 @@ interface PasswordFieldProps {
  * from form submission focus order concerns because it has `type="button"`.
  *
  * @param props - See {@link PasswordFieldProps}.
+ * @returns The rendered password input field with show/hide toggle and optional error message.
  */
 export function PasswordField({
   id,

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file RecordListStep — renders a RECORD_LIST process step.
+ */
+/**
  * RecordListStep — renders a RECORD_LIST process step.
  *
  * Displays a client-side paginated read-only table of the records that will be
@@ -136,6 +139,7 @@ function parseColumns(
  * Confirm navigation.
  *
  * @param props - {@link RecordListStepProps}
+ * @returns The rendered record list step.
  */
 export function RecordListStep({
   step,

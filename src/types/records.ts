@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Records — QQQ record and possible-value shapes returned by the data API */
+/**
+ * @file QQQ record and possible-value shapes returned by the data API.
+ */
 
 // QQQ Record Types - ported from qqq-frontend-core
 

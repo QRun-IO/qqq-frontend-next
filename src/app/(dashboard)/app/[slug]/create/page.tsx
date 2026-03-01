@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file EntityCreate page — serves the route `/app/[slug]/create` and renders the record-creation form.
+ */
+
 'use client'
 
 /**

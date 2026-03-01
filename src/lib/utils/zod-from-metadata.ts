@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** zod-from-metadata — builds Zod validation schemas dynamically from QQQ field and table metadata */
+/**
+ * @file zod-from-metadata — builds Zod validation schemas dynamically from QQQ field and table metadata.
+ */
 
 import { z } from 'zod'
 

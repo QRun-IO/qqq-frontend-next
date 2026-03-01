@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file BulkLoadStep — renders a BULK_LOAD step with differentiated UI by load type.
+ */
+/**
  * BulkLoadStep — renders a BULK_LOAD step with differentiated UI by load type.
  *
  * Reads `QFrontendComponent.values.type` from the first bulk-load component to
@@ -132,6 +135,9 @@ interface SubFormProps {
 
 /**
  * File upload sub-form with drag-and-drop, upload mode, and duplicate-handling selects.
+ *
+ * @param props - Component properties.
+ * @returns The rendered file upload form.
  */
 function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep }: SubFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -285,6 +291,9 @@ function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep }: SubForm
 
 /**
  * SFTP credentials sub-form with host, username, password, and optional remote path.
+ *
+ * @param props - Component properties.
+ * @returns The rendered SFTP credentials form.
  */
 function SftpCredentialsForm({ stepValues, isLoading, onSubmit, isLastStep }: SubFormProps) {
   const { register, handleSubmit, formState: { errors } } = useForm<SftpFormValues>({
@@ -392,6 +401,9 @@ function SftpCredentialsForm({ stepValues, isLoading, onSubmit, isLastStep }: Su
 
 /**
  * API credentials sub-form with endpoint URL and API key fields.
+ *
+ * @param props - Component properties.
+ * @returns The rendered API credentials form.
  */
 function ApiCredentialsForm({ stepValues, isLoading, onSubmit, isLastStep }: SubFormProps) {
   const { register, handleSubmit, formState: { errors } } = useForm<ApiFormValues>({
@@ -474,6 +486,7 @@ function ApiCredentialsForm({ stepValues, isLoading, onSubmit, isLastStep }: Sub
  * Upload) submits the currently active sub-form via a hidden button trigger.
  *
  * @param props - {@link BulkLoadStepProps}
+ * @returns The rendered bulk load step.
  */
 export function BulkLoadStep({
   step,

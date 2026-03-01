@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessCancelDialog — confirmation dialog shown before cancelling an in-flight process.
+ */
+/**
  * ProcessCancelDialog — confirmation dialog shown before cancelling an in-flight process.
  *
  * Uses the native HTML `<dialog>` element for built-in focus trapping and
@@ -56,6 +59,7 @@ export interface ProcessCancelDialogProps {
  * confirming.
  *
  * @param props - {@link ProcessCancelDialogProps}
+ * @returns The rendered cancel confirmation dialog.
  */
 export function ProcessCancelDialog({
   open,

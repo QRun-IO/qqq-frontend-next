@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** ColumnConfig — floating panel for toggling column visibility and reordering columns via drag-and-drop or keyboard arrow keys. */
+/**
+ * @file ColumnConfig — floating panel for toggling column visibility and reordering columns via drag-and-drop or keyboard arrow keys.
+ */
+
 'use client'
 
 // ColumnConfig — show/hide/reorder columns panel
@@ -49,12 +52,8 @@ interface ColumnConfigProps {
  * friendly Up/Down arrow key support on the grip button. "Show all" and "Hide all"
  * shortcuts are provided at the top of the panel.
  *
- * @param tableMetaData - Table metadata for building the full field list.
- * @param columnVisibility - Current per-column visibility state.
- * @param columnOrder - Current column order (field names in display order).
- * @param onVisibilityChange - Callback when visibility changes.
- * @param onOrderChange - Callback when column order changes.
- * @param onClose - Callback when the close button is clicked.
+ * @param props - Component properties.
+ * @returns The rendered column configuration panel.
  */
 export function ColumnConfig({
   tableMetaData,

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RecordQueryContent — data grid / card view, pagination, empty state, and error state for the RecordQuery page */
+/**
+ * @file RecordQueryContent — data grid / card view, pagination, empty state, and error state for the RecordQuery page.
+ */
+
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
@@ -106,6 +109,9 @@ export interface RecordQueryContentProps {
  *
  * Renders the error state, empty state, DataGrid (or RecordCardView), and Pagination.
  * All state is passed in as props — this component holds no state of its own.
+ *
+ * @param props - Component properties.
+ * @returns The rendered content area with data grid or card view and pagination.
  */
 export function RecordQueryContent({
   tableName,

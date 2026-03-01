@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Dashboard home page — shows system stats, recently viewed records, quick actions, widgets, and app navigation.
+ */
+
 'use client'
 
 // Dashboard — top-level home page showing system overview
@@ -47,6 +51,16 @@ import type { RecentRecord } from '@/lib/utils/recent-records'
 import type { QWidgetMetaData } from '@/types'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
 
+/**
+ * Top-level dashboard home page rendered at `/app`.
+ *
+ * Displays system statistics derived from application metadata, a recently-viewed
+ * records list sourced from localStorage, quick-action links for creatable tables
+ * and runnable processes, home-level widgets from any app definition, and an
+ * applications overview grid.
+ *
+ * @returns The full dashboard home page layout.
+ */
 export default function DashboardPage() {
   const { setPageHeader } = useQContext()
   const { user } = useAuth()
@@ -111,7 +125,12 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const firstName = user?.name?.split(' ')[0] || ''
 
-  // Format relative time
+  /**
+   * Formats a Unix millisecond timestamp as a human-readable relative time string.
+   *
+   * @param timestamp - Milliseconds since epoch (e.g. from `Date.now()`).
+   * @returns A string such as "Just now", "5m ago", "3h ago", or "2d ago".
+   */
   function timeAgo(timestamp: number): string {
     const diff = Date.now() - timestamp
     const minutes = Math.floor(diff / 60000)

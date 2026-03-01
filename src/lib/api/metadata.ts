@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Metadata API — Endpoints that return QQQ instance, table, and process metadata. */
+/**
+ * @file Metadata API — Endpoints that return QQQ instance, table, and process metadata.
+ */
 
 import type { QInstance, QTableMetaData, QProcessMetaData } from '@/types'
 import apiClient from './client'

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** Pagination — page navigation controls and page-size selector for the DataGrid. Includes first/prev/next/last buttons and a numeric "Go to page" input for large datasets. */
+/**
+ * @file Pagination — page navigation controls and page-size selector for the DataGrid. Includes first/prev/next/last buttons and a numeric "Go to page" input for large datasets.
+ */
+
 'use client'
 
 // Pagination — page navigation + page size selector
@@ -53,13 +56,8 @@ interface PaginationProps {
  *
  * All navigation buttons are disabled while a background fetch is in progress.
  *
- * @param pageNum - Current 1-based page number.
- * @param pageSize - Records per page.
- * @param totalCount - Total matching records across all pages.
- * @param totalPages - Total number of pages.
- * @param isFetching - Disables buttons during background refetches.
- * @param onPageChange - Called when the user requests a page change.
- * @param onPageSizeChange - Called when the user changes the rows-per-page setting.
+ * @param props - Component properties.
+ * @returns The rendered pagination controls.
  */
 export function Pagination({
   pageNum,

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessErrorState — full-page error display for a failed process execution.
+ */
+/**
  * ProcessErrorState — full-page error display for a failed process execution.
  *
  * Shows a destructive icon, a human-readable error detail block, and action
@@ -51,6 +54,7 @@ export interface ProcessErrorStateProps {
  * provided.
  *
  * @param props - {@link ProcessErrorStateProps}
+ * @returns The rendered process error state.
  */
 export function ProcessErrorState({
   error,

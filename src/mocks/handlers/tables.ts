@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-// MSW handlers for table data endpoints (CRUD + query + count)
-// Uses an in-memory mutable store — mutations persist within a browser session.
+/**
+ * @file MSW handlers for table data endpoints (CRUD, query, count, and audits).
+ *
+ * Uses an in-memory mutable store — mutations persist within a browser session
+ * and are reset on page reload.
+ */
 
 import { http, HttpResponse } from 'msw'
 import type { QRecord } from '@/types'
@@ -31,7 +35,12 @@ const BASE = '/qqq/v1'
 
 // ─── In-memory store ──────────────────────────────────────────────────────────
 
-// Deep-clone fixture data so mutations don't contaminate the originals
+/**
+ * Deep-clones a value via JSON serialization so mutations do not contaminate the originals.
+ *
+ * @param data - The value to clone.
+ * @returns A deep clone of `data`.
+ */
 function deepClone<T>(data: T): T {
   return JSON.parse(JSON.stringify(data)) as T
 }
@@ -71,6 +80,16 @@ interface QueryFilter {
   orderBys?: Array<{ fieldName: string; isAscending: boolean }>
 }
 
+/**
+ * Tests whether a record satisfies a single filter criterion.
+ *
+ * Coerces field values and filter values to lowercase strings for comparison.
+ * Numeric operators (`LESS_THAN`, etc.) compare as numbers.
+ *
+ * @param record - The record to test.
+ * @param criteria - The filter criterion to apply.
+ * @returns `true` if the record's field value satisfies the criterion.
+ */
 function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
   const rawValue = record.values[criteria.fieldName]
   const value = rawValue !== undefined && rawValue !== null ? String(rawValue).toLowerCase() : ''
@@ -111,6 +130,16 @@ function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
   }
 }
 
+/**
+ * Applies filter criteria and sort order to a list of records.
+ *
+ * Criteria are combined with the `booleanOperator` from the filter (defaults to `AND`).
+ * Sort is stable and locale-aware, with numeric sensitivity.
+ *
+ * @param records - The full list of records to filter and sort.
+ * @param filter - The query filter containing criteria and sort order.
+ * @returns A new array containing only the records that match the filter, in sort order.
+ */
 function applyFilter(records: QRecord[], filter: QueryFilter): QRecord[] {
   let result = [...records]
 
@@ -150,12 +179,23 @@ const primaryKeyFields: Record<string, string> = {
   supplier: 'id',
 }
 
+/**
+ * Returns the primary key field name for a given table, defaulting to `'id'`.
+ *
+ * @param tableName - The table name to look up.
+ * @returns The primary key field name for that table.
+ */
 function getPkField(tableName: string): string {
   return primaryKeyFields[tableName] ?? 'id'
 }
 
 // ─── Auto-generate order number ───────────────────────────────────────────────
 
+/**
+ * Generates the next sequential order number in `ORD-YYYY-NNNN` format.
+ *
+ * @returns A new order number string based on the current year and auto-increment counter.
+ */
 function generateOrderNumber(): string {
   const year = new Date().getFullYear()
   const seq = String((nextId['order'] ?? 1)).padStart(4, '0')
@@ -164,6 +204,15 @@ function generateOrderNumber(): string {
 
 // ─── Record label generators ──────────────────────────────────────────────────
 
+/**
+ * Builds a human-readable record label from a record's field values.
+ *
+ * The label format is table-specific (e.g. full name for `person`, order number for `order`).
+ *
+ * @param tableName - The table the record belongs to.
+ * @param values - The record's raw field values.
+ * @returns A computed label string for display in search results and record views.
+ */
 function buildRecordLabel(tableName: string, values: Record<string, unknown>): string {
   switch (tableName) {
     case 'person':
@@ -184,6 +233,16 @@ function buildRecordLabel(tableName: string, values: Record<string, unknown>): s
 
 // ─── Request body parsing ─────────────────────────────────────────────────────
 
+/**
+ * Parses an incoming MSW request body as a key/value map.
+ *
+ * Handles JSON and form-encoded content types. Numeric string values are
+ * coerced to numbers; `"true"`/`"false"` are coerced to booleans. Falls
+ * back to an empty object if the body cannot be parsed.
+ *
+ * @param request - The incoming MSW request object.
+ * @returns The parsed body as a `Record<string, unknown>`.
+ */
 async function parseRequestBody(request: Request): Promise<Record<string, unknown>> {
   const contentType = request.headers.get('content-type') ?? ''
 

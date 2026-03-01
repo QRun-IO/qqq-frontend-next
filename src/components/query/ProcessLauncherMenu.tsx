@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file ProcessLauncherMenu — dropdown menu for launching processes from the record query toolbar.
+ * Supports both selected-record and filter-based process invocation.
+ */
+
 'use client'
 
 // ProcessLauncherMenu — dropdown menu for launching processes from the record query toolbar
@@ -32,6 +37,15 @@ interface ProcessLauncherMenuProps {
   currentFilter: QQueryFilter
 }
 
+/**
+ * Toolbar dropdown menu for launching QQQ processes from the record query page.
+ *
+ * Filters the process list to visible, permitted processes and navigates to the
+ * process route with either selected record IDs or the current filter as query params.
+ *
+ * @param props - Component properties.
+ * @returns The rendered process launcher button with dropdown, or null when no visible processes exist.
+ */
 export function ProcessLauncherMenu({
   processes,
   selectedRecordIds,

@@ -14,19 +14,29 @@
  * limitations under the License.
  */
 
-// Mock API initialization
-//
-// Usage:
-//   Start the app with mocks enabled:
-//     NEXT_PUBLIC_MOCK_API=true pnpm dev
-//   Or copy .env.mock to .env.local:
-//     cp .env.mock .env.local && pnpm dev
-//
-// The MSW service worker intercepts all /qqq/v1/* requests and returns
-// realistic fixture data. Mutations (POST/PUT/DELETE) are applied to an
-// in-memory store and persist for the duration of the browser session.
-// The store is reset on page reload.
+/**
+ * @file Mock API initialization for MSW service worker in browser environments.
+ *
+ * Usage:
+ *   Start the app with mocks enabled:
+ *     NEXT_PUBLIC_MOCK_API=true pnpm dev
+ *   Or copy .env.mock to .env.local:
+ *     cp .env.mock .env.local && pnpm dev
+ *
+ * The MSW service worker intercepts all /qqq/v1/* requests and returns
+ * realistic fixture data. Mutations (POST/PUT/DELETE) are applied to an
+ * in-memory store and persist for the duration of the browser session.
+ * The store is reset on page reload.
+ */
 
+/**
+ * Initializes the MSW mock service worker in browser environments.
+ *
+ * A no-op when called during SSR (no `window`) or when `NEXT_PUBLIC_MOCK_API`
+ * is not set to `"true"`. Logs a console message when mocks are active.
+ *
+ * @returns A promise that resolves once the service worker is registered.
+ */
 export async function initMocks(): Promise<void> {
   // Skip SSR — MSW browser worker requires window/navigator
   if (typeof window === 'undefined') return

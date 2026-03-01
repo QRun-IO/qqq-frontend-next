@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file Banner — displays top-of-site environment/status banners driven by branding metadata.
+ */
 
-/** Banner — displays top-of-site environment/status banners driven by branding metadata. */
+'use client'
 
 import React, { useState } from 'react'
 import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
@@ -69,8 +71,7 @@ const severityConfig = {
  * individual banner overrides the default background. Dismissed banners are
  * tracked in local state and optionally reported via `onDismiss`.
  *
- * @param banners - Map of banner key → Banner metadata from branding config.
- * @param onDismiss - Optional callback invoked with the dismissed banner key.
+ * @param props - Component properties.
  * @returns A region of banner elements, or `null` when none are visible.
  */
 export default function BannerComponent({ banners, onDismiss }: BannerProps) {

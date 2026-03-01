@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-local-storage — typed localStorage hook with cross-tab sync and SSR safety */
+/**
+ * @file use-local-storage — typed localStorage hook with cross-tab sync and SSR safety.
+ */
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -30,7 +32,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * - Stable remover reference: `removeValue` always resets to the original
  *   `initialValue` even if the caller passes an inline object literal.
  *
- * @typeParam T - The type of the value stored in localStorage.
+ * @template T - The type of the value stored in localStorage.
  * @param key - The localStorage key to read from and write to.
  * @param initialValue - Fallback value used when the key is absent or on SSR.
  * @returns A tuple of `[storedValue, setValue, removeValue]`.

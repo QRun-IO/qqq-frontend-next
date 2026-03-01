@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** API Client — Singleton Axios instance with global 401 interceptor for all QQQ API calls. */
+/**
+ * @file API Client — Singleton Axios instance with global 401 interceptor for all QQQ API calls.
+ */
 // All API calls must go through this client
 
 import axios, { type AxiosInstance, type AxiosError, type AxiosRequestConfig } from 'axios'

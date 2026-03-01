@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** filter-utils — filter construction, serialization, and type-guard helpers for QQQ Record Query */
+/**
+ * @file filter-utils — filter construction, serialization, and type-guard helpers for QQQ Record Query.
+ */
 
 import type {
   QQueryFilter,
@@ -320,6 +322,9 @@ export function isFilterEmpty(filter: QQueryFilter): boolean {
  * Uses TextEncoder → btoa so the output length is proportional to the UTF-8 byte count of
  * the JSON (≈1.33× the character count) rather than the double-encoded length produced by
  * encodeURIComponent + btoa (which can be 3–9× for non-ASCII values). MED-5.
+ *
+ * @param filter - The filter to serialize. Pagination fields (`skip`, `limit`) are excluded.
+ * @returns A URL-safe base64 string, or an empty string if serialization fails.
  */
 export function serializeFilter(filter: QQueryFilter): string {
   try {
@@ -342,6 +347,10 @@ export function serializeFilter(filter: QQueryFilter): string {
 /**
  * Deserialize a QQueryFilter from a string produced by {@link serializeFilter}.
  * Falls back to an empty filter on any parse error.
+ *
+ * @param encoded - A base64-encoded filter string produced by {@link serializeFilter}.
+ * @param pageSize - Page size to use for the `limit` field of the restored filter.
+ * @returns The deserialized `QQueryFilter`, or an empty filter if decoding fails.
  */
 export function deserializeFilter(
   encoded: string,

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Client-side providers wrapper — supplies TanStack Query, authentication, theme, and toast infrastructure.
+ */
+
 'use client'
 
 // Client-side providers wrapper
@@ -35,6 +39,17 @@ if (typeof window !== 'undefined') {
 
 const isMockMode = process.env.NEXT_PUBLIC_MOCK_API === 'true'
 
+/**
+ * Root client-side providers wrapper.
+ *
+ * In mock mode (`NEXT_PUBLIC_MOCK_API=true`) this component blocks rendering
+ * until the MSW service worker has fully started so that `AuthProvider` does not
+ * fire API calls before the mock handler is registered.
+ *
+ * @param props - Component props.
+ * @param props.children - The application tree to wrap with all providers.
+ * @returns The full provider tree, or a mock-loading spinner while MSW initializes.
+ */
 export default function Providers({ children }: { children: ReactNode }) {
   // When mock mode is enabled, block rendering until the MSW service worker
   // is fully started — otherwise AuthProvider fires its first API call before

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DynamicForm — core metadata-driven form renderer used by EntityForm and ProcessRun */
+/**
+ * @file DynamicForm — core metadata-driven form renderer used by EntityForm and ProcessRun.
+ */
+
 'use client'
 
 // DynamicForm — renders form fields from metadata using React Hook Form
@@ -75,6 +78,9 @@ export interface DynamicFormProps {
  * 1. Table-based: pass tableMetaData (uses its sections for layout)
  * 2. Process-based: pass fields directly (flat list, no sections)
  * 3. Both: pass both tableMetaData and fieldNamesToInclude to filter
+ *
+ * @param props - Component properties.
+ * @returns The rendered form fields grouped by section, or null when no renderable fields exist.
  */
 export function DynamicForm({
   register,

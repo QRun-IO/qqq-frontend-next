@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Widget fixture data — Inventory dashboard widgets
+/**
+ * @file Widget fixture data — Inventory dashboard widgets (KPIs, charts, and record grids).
+ */
 
 import type { ChartWidgetData, RecordGridWidgetData, QFieldMetaData } from '@/types'
 import type { StatisticsWidgetPayload } from '@/components/widgets/StatisticsWidget'
@@ -96,6 +98,14 @@ export const invValueTrend: ChartWidgetData = {
 // ─── Row 4: Products needing reorder (record grid, full-width) ───────────────
 // Sorted by urgency: out-of-stock first, then by qty/reorderLevel ratio
 
+/**
+ * Builds a read-only `QFieldMetaData` fixture for use as a grid column definition.
+ *
+ * @param name - Backend field name.
+ * @param label - Human-readable column header label.
+ * @param type - QQQ field data type; defaults to `'STRING'`.
+ * @returns A minimal read-only `QFieldMetaData` object.
+ */
 function f(name: string, label: string, type: QFieldMetaData['type'] = 'STRING'): QFieldMetaData {
   return { name, label, type, isRequired: false, isEditable: false, isHeavy: false, isHidden: false, adornments: [] }
 }

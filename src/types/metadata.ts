@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Metadata — QQQ backend metadata shapes used to drive all dynamic UI rendering */
+/**
+ * @file QQQ backend metadata shapes used to drive all dynamic UI rendering.
+ */
 
 // QQQ Metadata Types - ported from qqq-frontend-core
 

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessSummaryResultsStep — renders a PROCESS_SUMMARY_RESULTS process step.
+ */
+/**
  * ProcessSummaryResultsStep — renders a PROCESS_SUMMARY_RESULTS process step.
  *
  * An intermediate mid-process step (distinct from the final {@link ProcessResultStep})
@@ -140,6 +143,7 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * Navigation controls allow proceeding to the next step or going back.
  *
  * @param props - {@link ProcessSummaryResultsStepProps}
+ * @returns The rendered summary results step.
  */
 export function ProcessSummaryResultsStep({
   step,

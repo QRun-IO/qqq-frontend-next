@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file RecordView page — serves the route `/app/[slug]/[recordId]` and renders the record detail view.
+ */
+
 'use client'
 
 /**

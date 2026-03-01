@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file SearchDialog — "/" key search dialog showing recently-viewed records and live API results.
+ */
 
-/** SearchDialog — "/" key search dialog that shows recently-viewed records at rest and live API search results when typing. */
+'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -59,8 +61,7 @@ function getInitials(label: string): string {
  * Uses a capture-group split so that odd-indexed parts are the matched segments,
  * avoiding stateful `lastIndex` issues with `/gi` regexes.
  *
- * @param text - The full string to display.
- * @param query - The search term to highlight within `text`.
+ * @param props - Component properties.
  * @returns A React fragment containing plain spans and styled `<mark>` elements.
  */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -91,8 +92,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
  * Enter, Escape) is fully supported. Pressing Enter with no selection and a
  * non-empty query navigates to the global search results page.
  *
- * @param open - Whether the dialog is currently visible.
- * @param onClose - Callback invoked when the dialog should close.
+ * @param props - Component properties.
  * @returns A fixed full-screen overlay with the search dialog, or `null` when closed.
  */
 export function SearchDialog({ open, onClose }: SearchDialogProps) {

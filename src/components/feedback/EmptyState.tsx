@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file EmptyState — reusable placeholder shown when a query returns zero results or no data is available.
+ */
 
-/** EmptyState — reusable placeholder shown when a query returns zero results or no data is available. */
+'use client'
 
 import React, { type ReactNode } from 'react'
 import { Inbox } from 'lucide-react'
@@ -45,11 +47,7 @@ export interface EmptyStateProps {
  * Uses `role="status"` and `aria-live="polite"` so screen readers announce
  * the state when it appears after a data load.
  *
- * @param title - Primary heading shown in the empty state.
- * @param description - Optional supplementary text below the title.
- * @param icon - Custom icon node; defaults to `<Inbox>` when omitted.
- * @param action - Optional button configuration `{ label, onClick }`.
- * @param className - Additional class names applied to the container.
+ * @param props - Component properties.
  * @returns A bordered dashed container centered in its parent.
  */
 export function EmptyState({

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Fixture data for the `supplier` table
+/**
+ * @file Fixture data for the `supplier` table.
+ */
 
 import type { QRecord } from '@/types'
 

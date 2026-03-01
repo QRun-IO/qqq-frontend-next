@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Tables API — CRUD, query, count, global search, and audit endpoints for QQQ table records. */
+/**
+ * @file Tables API — CRUD, query, count, global search, and audit endpoints for QQQ table records.
+ */
 
 import { isAxiosError } from 'axios'
 

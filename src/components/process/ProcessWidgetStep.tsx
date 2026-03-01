@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessWidgetStep — renders a WIDGET process step.
+ */
+/**
  * ProcessWidgetStep — renders a WIDGET process step.
  *
  * If the backend has pre-rendered widget HTML in `stepValues.widgetHtml` (or
@@ -90,6 +93,7 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * definition list.
  *
  * @param props - {@link ProcessWidgetStepProps}
+ * @returns The rendered widget step.
  */
 export function ProcessWidgetStep({
   step,

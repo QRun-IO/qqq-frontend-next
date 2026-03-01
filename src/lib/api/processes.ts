@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Processes API — Process lifecycle endpoints: init, step, status, records, and cancel. */
+/**
+ * @file Processes API — Process lifecycle endpoints: init, step, status, records, and cancel.
+ */
 
 import type { QJobResponse, QRecord } from '@/types'
 import apiClient from './client'

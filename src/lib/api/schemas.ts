@@ -15,7 +15,7 @@
  */
 
 /**
- * schemas.ts — Zod runtime validation schemas for key QQQ API response shapes.
+ * @file schemas.ts — Zod runtime validation schemas for key QQQ API response shapes.
  *
  * These schemas are used at the API boundary to detect contract drift between the
  * frontend types and the actual backend responses.  All validations use `safeParse`

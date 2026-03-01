@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Reports API — Report run and status endpoints for QQQ report execution. */
+/**
+ * @file Reports API — Report run and status endpoints for QQQ report execution.
+ */
 
 import apiClient from './client'
 

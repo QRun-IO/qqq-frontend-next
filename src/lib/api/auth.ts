@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Auth API — Session management and authentication metadata endpoints. */
+/**
+ * @file Auth API — Session management and authentication metadata endpoints.
+ */
 
 import type { QAuthenticationMetaData } from '@/types'
 import apiClient from './client'

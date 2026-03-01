@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file RecordGridWidget — Read-only tabular record widget.
+ */
+/**
  * RecordGridWidget — Read-only tabular record widget.
  *
  * Renders a scrollable HTML table of QQQ records using DataCell for
@@ -68,8 +71,8 @@ interface RecordGridWidgetProps {
  * Displays a "Showing X of Y records" footer when the total count exceeds
  * the number of rows in the payload.
  *
- * @param data - Record-grid widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered record grid table.
  */
 export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
   const { records, columns, fields, tableName = '' } = data

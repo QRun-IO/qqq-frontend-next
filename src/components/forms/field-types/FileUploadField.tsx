@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** FileUploadField — drag-and-drop file upload field with click-to-browse support, integrated with React Hook Form */
+/**
+ * @file FileUploadField — drag-and-drop file upload field with click-to-browse support, integrated with React Hook Form.
+ */
+
 'use client'
 
 import React, { useRef, useState } from 'react'
@@ -60,6 +63,7 @@ interface FileUploadFieldProps {
  * remove option.
  *
  * @param props - See {@link FileUploadFieldProps}.
+ * @returns The rendered drag-and-drop upload zone with label and optional error message.
  */
 export function FileUploadField({
   id,

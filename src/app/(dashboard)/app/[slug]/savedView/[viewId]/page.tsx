@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file SavedView page — placeholder for loading a saved filter/view configuration (Package 2).
+ */
+
 'use client'
 
 // RecordQuery with Saved View — loads a saved filter/view configuration
@@ -23,6 +27,13 @@ import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQContext } from '@/lib/context/q-context'
 
+/**
+ * Placeholder page for loading a saved view by `viewId` for the table identified by `slug`.
+ *
+ * Full implementation is deferred to Package 2. Currently renders a stub card.
+ *
+ * @returns A placeholder panel indicating the feature is not yet implemented.
+ */
 export default function SavedViewPage() {
   const params = useParams<{ slug: string; viewId: string }>()
   const { setPageHeader } = useQContext()

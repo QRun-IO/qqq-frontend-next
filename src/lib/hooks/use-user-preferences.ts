@@ -14,19 +14,29 @@
  * limitations under the License.
  */
 
+/**
+ * @file useUserPreferences — manages global user preferences stored in localStorage.
+ */
 'use client'
 
 // useUserPreferences — manages global user preferences stored in localStorage
 
 import { useLocalStorage } from './use-local-storage'
 
+/**
+ * User-configurable display preferences persisted to localStorage.
+ */
 export interface UserPreferences {
   // Table / query screen defaults
+  /** Default number of rows per page for table views. */
   tableDefaultPageSize: 10 | 25 | 50 | 100
+  /** Default row density for the data grid. */
   tableDefaultDensity: 'compact' | 'standard' | 'comfortable'
+  /** Default view mode (grid or card layout) for table pages. */
   tableDefaultViewMode: 'grid' | 'card'
 
   // Record screen defaults
+  /** Default view mode (tabs or list) for record detail pages. */
   recordDefaultViewMode: 'tabs' | 'list'
 }
 
@@ -39,6 +49,14 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 
 const STORAGE_KEY = 'qqq-user-preferences'
 
+/**
+ * Reads and writes global user display preferences from localStorage.
+ *
+ * Provides the current preferences, a typed setter for individual keys,
+ * a reset function to restore all defaults, and the default values object.
+ *
+ * @returns The hook state and actions: `preferences`, `updatePreference`, `resetPreferences`, and `defaults`.
+ */
 export function useUserPreferences() {
   const [preferences, setPreferences] = useLocalStorage<UserPreferences>(
     STORAGE_KEY,

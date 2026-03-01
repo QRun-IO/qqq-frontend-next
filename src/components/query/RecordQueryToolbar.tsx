@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, process launcher */
+/**
+ * @file RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, process launcher.
+ */
+
 'use client'
 
 import React from 'react'
@@ -55,8 +58,8 @@ const DENSITY_OPTIONS: { value: Density; label: string }[] = [
 /**
  * Toolbar button that opens a listbox for selecting the row density of the data grid.
  *
- * @param density - The currently active density value.
- * @param onSelect - Callback invoked when the user picks a new density option.
+ * @param props - Component properties.
+ * @returns The rendered density selector dropdown.
  */
 function DensitySelector({
   density,
@@ -70,6 +73,10 @@ function DensitySelector({
 
   React.useEffect(() => {
     if (!open) return
+    /**
+     * Closes the dropdown when a click occurs outside the container.
+     * @param e - The native mousedown event.
+     */
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
@@ -129,8 +136,8 @@ function DensitySelector({
 /**
  * Paired toggle buttons for switching between the tabular grid view and the card view.
  *
- * @param viewMode - The currently active view mode.
- * @param onChange - Callback invoked when the user selects a different view mode.
+ * @param props - Component properties.
+ * @returns The rendered view mode toggle button pair.
  */
 function ViewModeToggle({
   viewMode,
@@ -263,6 +270,9 @@ export interface RecordQueryToolbarProps {
  * saved views menu, export button, view-mode toggle, density selector, column-config
  * toggle, and refresh button. All state is passed in as props — this component holds
  * no state of its own.
+ *
+ * @param props - Component properties.
+ * @returns The rendered toolbar.
  */
 export function RecordQueryToolbar({
   tableName,
@@ -312,6 +322,10 @@ export function RecordQueryToolbar({
       const rect = columnConfigBtnRef.current.getBoundingClientRect()
       setColumnConfigPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
     }
+    /**
+     * Closes the column-config panel when a click occurs outside the container.
+     * @param e - The native mousedown event.
+     */
     function handleClickOutside(e: MouseEvent) {
       if (columnConfigRef.current && !columnConfigRef.current.contains(e.target as Node)) {
         setColumnConfigOpen(false)

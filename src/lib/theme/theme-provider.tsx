@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** ThemeProvider — dynamic CSS custom-property injection from QThemeMetaData with light/dark mode toggle */
+/**
+ * @file ThemeProvider — dynamic CSS custom-property injection from QThemeMetaData with light/dark mode toggle.
+ */
 'use client'
 
 // Theme provider — dynamic CSS variable injection from QThemeMetaData
@@ -67,9 +69,11 @@ const DARK_MODE_KEY = 'qqq-dark-mode'
  * `document.documentElement`, which makes them available to all Tailwind and
  * shadcn/ui components via CSS cascade.
  *
- * @param children - The component subtree that needs access to the theme context.
- * @param initialTheme - Optional theme metadata to pre-populate before the
+ * @param props - Component props.
+ * @param props.children - The component subtree that needs access to the theme context.
+ * @param props.initialTheme - Optional theme metadata to pre-populate before the
  *   backend metadata is fetched (useful for SSR / first paint).
+ * @returns The rendered theme context provider wrapping the component tree.
  */
 export function ThemeProvider({
   children,

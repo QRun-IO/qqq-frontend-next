@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file BlockWidget — Renders a heterogeneous collection of block elements from the backend.
+ */
+/**
  * BlockWidget — Renders a heterogeneous collection of block elements from the backend.
  *
  * Supported block types: text, big_number, up_or_down, progress, button, icon,
@@ -71,8 +74,8 @@ const LAYOUT_CLASSES: Record<string, string> = {
  * Falls back to rendering raw sanitized HTML when the payload contains a legacy
  * `html` string without any structured `blocks` array.
  *
- * @param data - Block widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered block widget.
  */
 export function BlockWidget({ data, widgetName }: BlockWidgetProps) {
   // Legacy backward compat: if there's a raw html string and no blocks, render as HTML directly
@@ -129,9 +132,8 @@ interface BlockRendererProps {
  * on the `default` branch ensures TypeScript surfaces unhandled types at
  * compile time.
  *
- * @param block - The block element to render.
- * @param widgetName - Parent widget name for data-qqq-id scoping.
- * @param index - Position of this block in the parent list.
+ * @param props - Component properties.
+ * @returns The rendered block element for the given block type.
  */
 function BlockRenderer({ block, widgetName, index }: BlockRendererProps) {
   switch (block.type) {

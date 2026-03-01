@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file StatisticsWidget — KPI tile grid widget.
+ */
+/**
  * StatisticsWidget — KPI tile grid widget.
  *
  * Displays one or more numeric metric tiles, each with a label, value, optional
@@ -110,8 +113,8 @@ interface StatisticsWidgetProps {
  * When `data.mini === true`, renders each tile via `StatTileMini` instead —
  * a single-line compact layout suitable for dense dashboards or sidebar panels.
  *
- * @param data - Statistics widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered statistics tile grid.
  */
 export function StatisticsWidget({ data, widgetName }: StatisticsWidgetProps) {
   const isMini = data.mini === true
@@ -188,9 +191,8 @@ interface StatTileCardProps {
  * Displays a label, a large numeric value with optional unit suffix, and either
  * a TrendBadge (when trend data is present) or a plain description string.
  *
- * @param tile - The stat tile data to display.
- * @param widgetName - Parent widget name for data-qqq-id scoping.
- * @param index - Position of the tile within the grid (used in data-qqq-id).
+ * @param props - Component properties.
+ * @returns The rendered KPI stat tile card.
  */
 function StatTileCard({ tile, widgetName, index }: StatTileCardProps) {
   const { label, value, description, unit, trend } = tile
@@ -249,9 +251,8 @@ interface StatTileMiniProps {
  * An optional unit suffix is shown immediately after the value. Trend indicators
  * and secondary descriptions are omitted to keep the layout minimal.
  *
- * @param tile - The stat tile data to display.
- * @param widgetName - Parent widget name for data-qqq-id scoping.
- * @param index - Position of the tile within the list (used in data-qqq-id).
+ * @param props - Component properties.
+ * @returns The rendered compact KPI stat tile.
  */
 function StatTileMini({ tile, widgetName, index }: StatTileMiniProps) {
   const { label, value, unit } = tile
@@ -287,9 +288,8 @@ function StatTileMini({ tile, widgetName, index }: StatTileMiniProps) {
  * down → destructive/TrendingDown, flat → muted/Minus. An optional context
  * label is appended after the percentage in muted text.
  *
- * @param direction - Visual direction of the trend ('up', 'down', or 'flat').
- * @param value - Percentage magnitude of the change.
- * @param label - Optional context label shown after the percentage (e.g., 'vs last week').
+ * @param props - Component properties.
+ * @returns The rendered trend badge.
  */
 function TrendBadge({
   direction,

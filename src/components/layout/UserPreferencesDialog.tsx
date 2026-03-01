@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file UserPreferencesDialog — modal dialog for editing user display preferences stored in localStorage.
+ */
 
-/** UserPreferencesDialog — modal dialog for editing user display preferences stored in localStorage. */
+'use client'
 
 import React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -69,8 +71,7 @@ const RECORD_VIEW_OPTIONS = [
  * record view mode. A "Reset to Defaults" button is enabled only when at
  * least one preference differs from its default value.
  *
- * @param open - Whether the dialog is currently visible.
- * @param onOpenChange - Callback invoked when the dialog open state changes.
+ * @param props - Component properties.
  * @returns A Radix Dialog root with overlay and content panels.
  */
 export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDialogProps) {
@@ -236,8 +237,7 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
 /**
  * Renders a labeled group container for a set of preference controls.
  *
- * @param label - The human-readable section label displayed above the controls.
- * @param children - The control elements (chips, radio buttons, toggle cards).
+ * @param props - Component properties.
  * @returns A `<div>` with a `<label>` header and slotted children.
  */
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
@@ -254,9 +254,7 @@ function OptionGroup({ label, children }: { label: string; children: React.React
  *
  * Applies a filled primary style when selected, and a bordered outline style otherwise.
  *
- * @param selected - Whether this chip is the currently selected option.
- * @param onClick - Called when the chip is clicked to select it.
- * @param children - The chip label content.
+ * @param props - Component properties.
  * @returns A `<button>` styled as a pill toggle chip.
  */
 function ToggleChip({
@@ -294,10 +292,7 @@ function ToggleChip({
  * Renders a label and a supporting description string alongside a filled
  * circle when selected, and an empty circle otherwise.
  *
- * @param selected - Whether this option is the currently selected value.
- * @param onClick - Called when the row is clicked to select it.
- * @param label - The primary option label.
- * @param description - A brief description shown after the label.
+ * @param props - Component properties.
  * @returns A `<button>` styled as a radio option row.
  */
 function RadioOption({
@@ -350,10 +345,7 @@ function RadioOption({
  * Displays a bold label and a muted description. Applies a highlighted border
  * with primary tinting when selected, and a neutral border otherwise.
  *
- * @param selected - Whether this card is the currently selected option.
- * @param onClick - Called when the card is clicked to select it.
- * @param label - The card's primary label (e.g. "Table", "Cards").
- * @param description - A short description of the view mode.
+ * @param props - Component properties.
  * @returns A `<button>` styled as a selectable card.
  */
 function ToggleCard({

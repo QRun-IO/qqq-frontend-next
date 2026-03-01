@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** PossibleValueSelect — debounced async combobox for fields with a possibleValueSourceName */
+/**
+ * @file PossibleValueSelect — debounced async combobox for fields with a possibleValueSourceName.
+ */
+
 'use client'
 
 // PossibleValueSelect — async combobox for fields with possibleValueSourceName
@@ -72,6 +75,7 @@ interface PossibleValueSelectProps {
  * option's `id` (not its label).
  *
  * @param props - See {@link PossibleValueSelectProps}.
+ * @returns The rendered labeled combobox with dropdown.
  */
 export function PossibleValueSelect({
   id,

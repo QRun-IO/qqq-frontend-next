@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file WidgetRenderer — Master type dispatcher for dashboard widgets.
+ */
+/**
  * WidgetRenderer — Master type dispatcher for dashboard widgets.
  *
  * Receives widget metadata and raw API data, resolves the widget type from
@@ -89,8 +92,8 @@ interface WidgetRendererProps {
  * The 'chart' type delegates further dispatch to ChartTypeDispatcher using the
  * `chartType` field from the data payload.
  *
- * @param widgetMetaData - Widget metadata containing the type discriminator and widget name.
- * @param data - Untyped API response; cast to the appropriate typed payload per matched case.
+ * @param props - Component properties.
+ * @returns The rendered widget for the resolved type, or an unknown-type placeholder.
  */
 export function WidgetRenderer({ widgetMetaData, data }: WidgetRendererProps) {
   const { name, type } = widgetMetaData
@@ -241,8 +244,8 @@ interface ChartTypeDispatcherProps {
  * 'pie'/'donut' → PieChartWidget. Falls back to BarChartWidget for unknown values.
  * Returns null when `data` is not a plain object.
  *
- * @param data - Raw widget data payload expected to contain a `chartType` string.
- * @param widgetName - Widget name forwarded to the selected chart component.
+ * @param props - Component properties.
+ * @returns The rendered chart component for the resolved chartType, or null.
  */
 function ChartTypeDispatcher({ data, widgetName }: ChartTypeDispatcherProps) {
   if (!isObject(data)) {

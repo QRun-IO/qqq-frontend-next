@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RecordView — metadata-driven record detail page with tiered sections, tabs, and related records */
+/**
+ * @file RecordView — metadata-driven record detail page with tiered sections, tabs, and related records.
+ */
+
 'use client'
 
 // RecordView — displays a single record with sections, field values, and related records
@@ -139,6 +142,7 @@ interface RecordViewProps {
  * and many-to-many joins.
  *
  * @param props - See {@link RecordViewProps}.
+ * @returns The record detail layout, an appropriate error state, or a loading spinner.
  */
 export function RecordView({
   tableMetaData,
@@ -362,6 +366,9 @@ export function RecordView({
  * Provides {@link RecordViewContext} to the subtree, eliminating prop drilling
  * of `tableMetaData`, `allTables`, and `navigateFrom` through intermediate
  * subcomponents.
+ *
+ * @param props - Component properties (pre-partitioned sections and join arrays).
+ * @returns The full record detail layout within a RecordViewContext provider.
  */
 function RecordViewContent({
   tableMetaData,

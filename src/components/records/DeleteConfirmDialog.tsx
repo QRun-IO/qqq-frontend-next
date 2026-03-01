@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file DeleteConfirmDialog — modal confirmation before deleting a record.
+ */
 
-// DeleteConfirmDialog — modal confirmation before deleting a record
-// Uses Radix Dialog for accessible modal behavior with automatic focus trapping
+'use client'
 
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,6 +38,16 @@ interface DeleteConfirmDialogProps {
   onDeleted: () => void
 }
 
+/**
+ * DeleteConfirmDialog — accessible modal confirmation dialog for deleting a record.
+ *
+ * Uses Radix Dialog for focus trapping, Escape-key dismissal, and focus
+ * restoration. Executes the delete via a TanStack Query mutation and
+ * invalidates the table query cache on success.
+ *
+ * @param props - Component properties.
+ * @returns A Radix Dialog portal containing the confirmation UI.
+ */
 export function DeleteConfirmDialog({
   tableMetaData,
   record,

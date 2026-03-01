@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RecordQuery — orchestrator page component for the record query page. Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, and more. */
+/**
+ * @file RecordQuery — orchestrator page component for the record query page. Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, and more.
+ */
+
 'use client'
 
 // RecordQuery — orchestrator page component for the record query page
@@ -62,9 +65,8 @@ interface RecordQueryProps {
  * saved views, process launcher, refresh), inline/mobile filter panels, bulk action bar,
  * error/empty states, DataGrid or RecordCardView, and Pagination.
  *
- * @param tableName - Backend table name used in API routes and URLs.
- * @param tableMetaData - Table metadata describing fields, permissions, and labels.
- * @param processes - Optional processes available for bulk actions or toolbar launch.
+ * @param props - Component properties.
+ * @returns The rendered record query page.
  */
 export function RecordQuery({ tableName, tableMetaData, processes }: RecordQueryProps) {
   const router = useRouter()

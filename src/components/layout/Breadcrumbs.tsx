@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file Breadcrumbs — auto-generates breadcrumb navigation from the current pathname.
+ */
 
-/** Breadcrumbs — auto-generates breadcrumb navigation from the current pathname, injecting parent app labels for flat URLs. */
+'use client'
 
 import React from 'react'
 import Link from 'next/link'
@@ -51,8 +53,7 @@ interface Breadcrumb {
  * out. When a flat leaf path (e.g. `/app/Products`) has an entry in
  * `parentAppMap`, its parent app label is prepended as the first breadcrumb.
  *
- * @param pathToLabelMap - Map of path → label used to resolve display names.
- * @param parentAppMap - Map of child paths → parent app info for injection.
+ * @param props - Component properties.
  * @returns A `<nav>` breadcrumb element, or `null` if no segments exist.
  */
 export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: BreadcrumbsProps) {
@@ -118,7 +119,16 @@ export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: Bread
   )
 }
 
-/** For dynamic paths like /app/Products/123, find parent by matching /app/Products */
+/**
+ * Finds the parent app info for a dynamic path by matching progressively shorter prefixes.
+ *
+ * For example, for `/app/Products/123` this will try `/app/Products` and `/app`
+ * until a matching entry in `parentAppMap` is found.
+ *
+ * @param path - The dynamic path to find a parent for (e.g. `/app/Products/123`).
+ * @param parentAppMap - Map of static paths to their parent app info.
+ * @returns The matching `ParentAppInfo`, or `undefined` when no match is found.
+ */
 function findParentForDynamicPath(
   path: string,
   parentAppMap: Record<string, ParentAppInfo>

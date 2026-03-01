@@ -14,18 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
-
 /**
- * Skeleton — collection of animated placeholder components used while content is loading.
- *
- * @example
- * ```tsx
- * <Skeleton.Text lines={3} />
- * <Skeleton.Card />
- * <Skeleton.Table rows={5} cols={4} />
- * ```
+ * @file Skeleton — collection of animated placeholder components used while content is loading.
  */
+
+'use client'
 
 import React from 'react'
 import { cn } from '@/lib/utils/cn'
@@ -41,7 +34,7 @@ interface SkeletonBaseProps {
 /**
  * A single animated pulse bar used as a building block for skeleton variants.
  *
- * @param className - Additional Tailwind class names (e.g. width and height utilities).
+ * @param props - Component properties.
  * @returns An `aria-hidden` div styled with the pulse animation.
  */
 function Bar({ className }: SkeletonBaseProps) {
@@ -71,8 +64,7 @@ interface TextProps {
  *
  * Uses `role="status"` and `aria-busy="true"` for accessibility.
  *
- * @param lines - Number of bar lines to render (default: 3).
- * @param className - Additional class names applied to the wrapper.
+ * @param props - Component properties.
  * @returns A stack of `Bar` elements mimicking a block of text.
  */
 function Text({ lines = 3, className }: TextProps) {
@@ -105,7 +97,7 @@ interface CardProps {
  * Includes an avatar circle, two lines of meta text, body text bars, and a
  * tall image placeholder. Uses `role="status"` and `aria-busy="true"`.
  *
- * @param className - Additional class names applied to the card wrapper.
+ * @param props - Component properties.
  * @returns A bordered rounded card filled with `Bar` placeholders.
  */
 function Card({ className }: CardProps) {
@@ -157,10 +149,8 @@ interface TableProps {
  *
  * Uses `role="status"` and `aria-busy="true"` for accessibility.
  *
- * @param rows - Number of data rows to render (default: 5).
- * @param cols - Number of columns per row (default: 4).
- * @param className - Additional class names applied to the outer container.
- * @returns A bordered container with a header row and `rows` data rows of `Bar` cells.
+ * @param props - Component properties.
+ * @returns A bordered container with a header row and data rows of `Bar` cells.
  */
 function Table({ rows = 5, cols = 4, className }: TableProps) {
   return (

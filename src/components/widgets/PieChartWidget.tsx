@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** PieChartWidget — Recharts-based pie/donut chart widget with legend support. */
+/**
+ * @file PieChartWidget — Recharts-based pie/donut chart widget with legend support.
+ */
 'use client'
 
 import React from 'react'
@@ -101,8 +103,8 @@ function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
  * Displays a color-coded legend below the chart. Shows an empty-state
  * message when the normalized data set contains no slice entries.
  *
- * @param data - Pie-chart widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered pie chart.
  */
 export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   const entries = normalizeData(data)

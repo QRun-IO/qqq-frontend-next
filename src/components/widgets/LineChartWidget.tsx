@@ -15,9 +15,7 @@
  */
 
 /**
- * LineChartWidget — Recharts-based line chart widget supporting multi-series and single-series data.
- *
- * Y-axis values are formatted with K/M suffixes for readability on large numbers.
+ * @file LineChartWidget — Recharts-based line chart widget supporting multi-series and single-series data.
  */
 'use client'
 
@@ -115,8 +113,8 @@ function formatYAxis(value: number): string {
  * Displays a legend when more than one data series is present. Shows an
  * empty-state message when the normalized data set contains no entries.
  *
- * @param data - Line-chart widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered line chart.
  */
 export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)

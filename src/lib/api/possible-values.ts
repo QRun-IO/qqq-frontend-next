@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Possible Values API — Endpoints for fetching possible-value lists for table fields, process fields, and standalone PVSes. */
+/**
+ * @file Possible Values API — Endpoints for fetching possible-value lists for table fields, process fields, and standalone PVSes.
+ */
 
 import type { QPossibleValue } from '@/types'
 import apiClient from './client'

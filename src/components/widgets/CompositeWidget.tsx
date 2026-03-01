@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file CompositeWidget — Renders a parent widget that lays out multiple child widgets.
+ */
+/**
  * CompositeWidget — Renders a parent widget that lays out multiple child widgets.
  *
  * Each child is wrapped in its own ConnectedWidget so that each widget fetches
@@ -50,8 +53,8 @@ export interface CompositeWidgetProps {
  * Column count is derived from `widgetMetaData.gridColumns` (defaults to 2).
  * Shows an empty-state message when no child widgets are configured.
  *
- * @param widgetMetaData - Metadata for the parent widget (label, name, gridColumns).
- * @param childWidgets - Array of child widget descriptors to render.
+ * @param props - Component properties.
+ * @returns The rendered composite widget grid.
  */
 export function CompositeWidget({ widgetMetaData, childWidgets }: CompositeWidgetProps) {
   if (childWidgets.length === 0) {

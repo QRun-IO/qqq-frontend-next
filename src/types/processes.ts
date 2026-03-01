@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Processes — QQQ process job lifecycle response shapes used during step-wizard execution */
+/**
+ * @file QQQ process job lifecycle response shapes used during step-wizard execution.
+ */
 
 // QQQ Process Job Types - ported from qqq-frontend-core
 

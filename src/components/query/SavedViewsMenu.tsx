@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** SavedViewsMenu — dropdown menu for saving, loading, and deleting named filter and column configurations (saved views). */
+/**
+ * @file SavedViewsMenu — dropdown menu for saving, loading, and deleting named filter and column configurations (saved views).
+ */
+
 'use client'
 
 // SavedViewsMenu — save, load, and delete named filter+column configurations
@@ -46,10 +49,8 @@ interface SavedViewsMenuProps {
  * dropdown and restores the chosen view; deleting is available via a per-row trash icon
  * that is only visible on hover/focus.
  *
- * @param savedViews - Saved view list from the parent hook (use-record-query).
- * @param onSave - Called with the new view name when the user confirms the save.
- * @param onLoad - Called with the SavedView to restore when the user clicks a view.
- * @param onDelete - Called with the view ID when the user clicks the delete button.
+ * @param props - Component properties.
+ * @returns The rendered saved views menu button with dropdown.
  */
 export function SavedViewsMenu({
   savedViews,

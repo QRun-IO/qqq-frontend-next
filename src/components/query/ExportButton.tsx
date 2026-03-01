@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** ExportButton — toolbar dropdown for exporting records to CSV. Supports exporting all matching records (up to 10,000), the current page, or only the selected records. */
+/**
+ * @file ExportButton — toolbar dropdown for exporting records to CSV. Supports exporting all matching records (up to 10,000), the current page, or only the selected records.
+ */
+
 'use client'
 
 // ExportButton — exports records to CSV (or other formats)
@@ -55,12 +58,8 @@ interface ExportButtonProps {
  * The CSV is built in memory from visible fields (respecting `columnVisibility` and `columnOrder`),
  * then downloaded via a temporary anchor element. Errors are surfaced as a toast notification.
  *
- * @param tableName - Backend table name for API calls and file naming.
- * @param tableMetaData - Table metadata for field headers.
- * @param currentFilter - Active filter used in "all" and "page" export modes.
- * @param columnVisibility - Per-column visibility map.
- * @param columnOrder - Ordered field name list for CSV column order.
- * @param selectedRecordIds - IDs of checked rows; enables the "Selected" export option.
+ * @param props - Component properties.
+ * @returns The rendered export button with dropdown.
  */
 export function ExportButton({
   tableName,

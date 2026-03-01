@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Unified slug page — dispatches to AppHome, RecordQuery, ProcessRun, or ReportRun based on the slug.
+ */
+
 'use client'
 
 /**

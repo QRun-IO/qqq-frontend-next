@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file OAuth2 / Auth0 callback page — handles the PKCE redirect from the authorization server.
+ */
+
 'use client'
 
 // OAuth2 / Auth0 callback page — handles the redirect from the authorization server.
@@ -37,6 +41,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth/use-auth'
 
+/**
+ * Inner callback handler — reads `code`, `state`, and `error` from search params,
+ * validates the state nonce, retrieves the PKCE verifier from sessionStorage, and
+ * delegates to `handleOAuthCallback`. Redirects on success or failure.
+ *
+ * @returns A loading spinner card while the callback is being processed.
+ */
 function CallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -101,6 +112,14 @@ function CallbackContent() {
   )
 }
 
+/**
+ * OAuth2 / Auth0 callback page exported as the Next.js default for `/auth/callback`.
+ *
+ * Wraps `CallbackContent` in a `<Suspense>` boundary because `useSearchParams()`
+ * requires Suspense in the App Router.
+ *
+ * @returns The callback page wrapped in a full-screen centered container.
+ */
 export default function CallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

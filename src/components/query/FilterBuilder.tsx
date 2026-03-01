@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** FilterBuilder — advanced filter UI with recursive AND/OR group support. Renders filter criteria rows, nested sub-filter groups, and async possible-value comboboxes. */
+/**
+ * @file FilterBuilder — advanced filter UI with recursive AND/OR group support. Renders filter criteria rows, nested sub-filter groups, and async possible-value comboboxes.
+ */
+
 'use client'
 
 // FilterBuilder — advanced filter UI with recursive group support
@@ -71,10 +74,8 @@ interface FilterBuilderProps {
  * Renders the root FilterGroup along with "Clear all" and "Apply" buttons.
  * Hidden and heavy fields are excluded from the field selector.
  *
- * @param tableMetaData - Table metadata used to build the field selector list.
- * @param filter - The current QQueryFilter state.
- * @param onChange - Callback fired on every filter change; parent owns the state.
- * @param onClose - Optional callback for the "Apply" button; omit to hide the button.
+ * @param props - Component properties.
+ * @returns The rendered filter builder panel.
  */
 export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: FilterBuilderProps) {
   const fields: FilterField[] = Object.values(tableMetaData.fields)
@@ -679,12 +680,8 @@ interface PossibleValueSingleSelectProps {
  * `useAsyncCombobox`). Displays the selected option's label using local state and
  * provides a clear button to reset the selection.
  *
- * @param tableName - Backend table for the possible-value query.
- * @param fieldName - Backend field for the possible-value query.
- * @param fieldLabel - Human-readable label for aria attributes.
- * @param value - Currently selected value ID.
- * @param onChange - Callback with the new selected value ID (as string).
- * @param dataId - Optional data-qqq-id for the outer container.
+ * @param props - Component properties.
+ * @returns The rendered single-select combobox.
  */
 function PossibleValueSingleSelect({
   tableName,
@@ -852,12 +849,8 @@ interface PossibleValueMultiSelectProps {
  * as the user types (debounced). A local `labelMap` caches option labels so chips can display
  * human-readable text after the dropdown is closed.
  *
- * @param tableName - Backend table for possible-value queries.
- * @param fieldName - Backend field for possible-value queries.
- * @param fieldLabel - Human-readable label for aria attributes.
- * @param values - Array of currently selected value IDs.
- * @param onChange - Callback invoked with the updated selected value IDs array.
- * @param dataId - Optional data-qqq-id for the outer container.
+ * @param props - Component properties.
+ * @returns The rendered multi-select combobox.
  */
 function PossibleValueMultiSelect({
   tableName,
@@ -1057,12 +1050,8 @@ interface TypedInputProps {
  * - INTEGER / LONG / DECIMAL → `type="number"` (32px wide)
  * - Everything else → `type="text"` (min 160px wide)
  *
- * @param fieldType - The QQQ field type.
- * @param value - Current string value.
- * @param onChange - Callback with the new string value on change.
- * @param placeholder - Optional placeholder text.
- * @param ariaLabel - Accessible label passed to the input.
- * @param dataId - Optional data-qqq-id attribute.
+ * @param props - Component properties.
+ * @returns The rendered input element.
  */
 function TypedInput({
   fieldType,
@@ -1172,11 +1161,8 @@ interface TagInputProps {
  * Enter or comma, or by blurring the input. Backspace removes the last tag when the
  * input is empty. Duplicate values are silently ignored.
  *
- * @param values - Current set of tag values.
- * @param onChange - Callback with the updated tag array.
- * @param placeholder - Placeholder text for the text input.
- * @param ariaLabel - Accessible label for the text input.
- * @param dataId - Optional data-qqq-id for the container.
+ * @param props - Component properties.
+ * @returns The rendered tag input with chip display.
  */
 function TagInput({
   values,

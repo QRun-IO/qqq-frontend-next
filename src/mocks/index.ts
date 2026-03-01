@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-// MSW mock layer — conditional export for browser vs. node environments
-//
-// In browser: import from ./browser (service worker)
-// In tests:   import from ./node (setupServer)
-// Initialization: import { initMocks } from './init'
+/**
+ * @file MSW mock layer — conditional export for browser vs. node environments.
+ *
+ * In browser: import from ./browser (service worker).
+ * In tests:   import from ./node (setupServer).
+ * Initialization: import { initMocks } from './init'.
+ */
 
 export { initMocks } from './init'
 

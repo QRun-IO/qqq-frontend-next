@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file Header — top bar rendering breadcrumbs, global search, and notifications.
+ */
 
-/** Header — top bar rendering breadcrumbs on the left and global search + notifications on the right. On mobile, a hamburger button triggers the sidebar drawer. */
+'use client'
 
 import React, { useState } from 'react'
 import { Bell, Menu } from 'lucide-react'
@@ -47,9 +49,7 @@ export interface HeaderProps {
  * breakpoint the breadcrumbs are replaced by a hamburger button that invokes
  * `onMenuOpen`, and the global search is hidden.
  *
- * @param onMenuOpen - Callback to open the mobile sidebar drawer.
- * @param pathToLabelMap - Map of URL paths to display labels for breadcrumbs.
- * @param parentAppMap - Map of child paths to parent-app info for breadcrumb injection.
+ * @param props - Component properties.
  * @returns The sticky header bar element.
  */
 export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {

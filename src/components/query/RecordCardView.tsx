@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file RecordCardView — card-based rendering of records for mobile viewports.
+ * Displays each record as a card with key-value pairs, selection checkbox, and click-to-navigate.
+ */
+
 'use client'
 
 // RecordCardView — card-based rendering of records for mobile viewports
@@ -39,6 +44,16 @@ interface RecordCardViewProps {
 
 const MAX_VISIBLE_FIELDS = 5
 
+/**
+ * Card-based record list for mobile viewports.
+ *
+ * Renders each record as a clickable card with a selection checkbox, the record label
+ * as a heading, and key-value pairs for visible fields. Clicking a card navigates to
+ * the record detail view.
+ *
+ * @param props - Component properties.
+ * @returns The rendered card list, or an empty state when no records are present.
+ */
 export function RecordCardView({
   tableName,
   tableMetaData,

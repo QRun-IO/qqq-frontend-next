@@ -53,7 +53,8 @@
       "Bash(pnpm why:*)",
       "Bash(npm view:*)",
       "Bash(chmod +x:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(pnpm exec:*)"
     ]
   }
 }

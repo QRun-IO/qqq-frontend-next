@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// MSW handlers for authentication endpoints
+/**
+ * @file MSW handlers for authentication endpoints (`/metaData/authentication`, `/manageSession`, `/logout`).
+ */
 
 import { http, HttpResponse } from 'msw'
 import { authMetadata } from '../fixtures/auth-metadata'

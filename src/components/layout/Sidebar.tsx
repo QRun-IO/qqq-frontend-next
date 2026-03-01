@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file Sidebar — hierarchical navigation panel rendered from app-tree metadata, supporting desktop and mobile drawer layouts.
+ */
 
-/** Sidebar — hierarchical navigation panel rendered from the app tree metadata, supporting both desktop static layout and mobile drawer overlay. */
+'use client'
 
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
@@ -90,8 +92,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
  *
  * Falls back to `FolderOpen` when the name is absent or unknown.
  *
- * @param iconName - Material Icons name string from QQQ metadata.
- * @param className - Tailwind class string applied to the icon element.
+ * @param props - Component properties.
  * @returns An `aria-hidden` Lucide icon element.
  */
 function NavIcon({ iconName, className }: { iconName?: string; className?: string }) {
@@ -134,15 +135,7 @@ export interface SidebarProps {
  * component auto-expands the collapse group that contains the active route,
  * and closes the mobile drawer on route changes.
  *
- * @param routes - Sidebar routes from the QQQ app-tree metadata.
- * @param branding - Branding metadata for the logo and app name.
- * @param onMouseEnter - Called on mouse-enter (desktop hover expansion).
- * @param onMouseLeave - Called on mouse-leave (desktop hover collapse).
- * @param logout - Logout handler surfaced in the user footer menu.
- * @param userName - Logged-in user display name.
- * @param userEmail - Logged-in user email.
- * @param open - Controls mobile drawer visibility; omit for desktop mode.
- * @param onClose - Called when the mobile drawer should close.
+ * @param props - Component properties.
  * @returns The sidebar aside element or a drawer overlay wrapping it.
  */
 export default function Sidebar({
@@ -345,11 +338,7 @@ interface SidebarCollapseItemProps {
  * matches the current route; an exact-match style is applied when on the
  * app dashboard itself.
  *
- * @param route - The parent collapsible route definition.
- * @param isOpen - Whether the child list is currently visible.
- * @param onToggle - Callback to flip the expanded state.
- * @param isActive - Whether any descendant is the current route.
- * @param pathname - The current Next.js pathname.
+ * @param props - Component properties.
  * @returns A list item containing the collapsible header and optional child list.
  */
 function SidebarCollapseItem({
@@ -427,8 +416,7 @@ interface SidebarLinkItemProps {
  * Applies a primary background highlight when the route is active, and shows
  * the route's icon (mapped from the QQQ metadata icon name) alongside the label.
  *
- * @param route - The leaf-level route definition.
- * @param isActive - Whether this item corresponds to the current page.
+ * @param props - Component properties.
  * @returns A `<li>` containing a `<Link>` styled as a sidebar navigation item.
  */
 function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
@@ -460,9 +448,7 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
  * when `logout` is provided, a Log Out entry. The menu closes on outside
  * click, Escape key, or after an item is selected.
  *
- * @param userName - Display name of the authenticated user.
- * @param userEmail - Email of the authenticated user.
- * @param logout - Optional logout callback; menu shows Log Out only when present.
+ * @param props - Component properties.
  * @returns The footer element including the popover menu and the UserPreferencesDialog.
  */
 function UserFooter({

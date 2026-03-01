@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-async-combobox — shared fetch/debounce/abort/click-outside logic for async comboboxes */
+/**
+ * @file use-async-combobox — shared fetch/debounce/abort/click-outside logic for async comboboxes.
+ */
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessHtmlStep — renders an HTML process step.
+ */
+/**
  * ProcessHtmlStep — renders an HTML process step.
  *
  * Resolves HTML content from `stepValues`, the step's HTML component, or any
@@ -124,6 +127,7 @@ function resolveHtmlContent(
  * Next navigation below.
  *
  * @param props - {@link ProcessHtmlStepProps}
+ * @returns The rendered HTML step.
  */
 export function ProcessHtmlStep({
   step,

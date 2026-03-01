@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file FieldLabel — renders a field label with an optional help-text tooltip.
+ */
 
-// FieldLabel — renders a field label with optional help text tooltip
-// When a field has helpContents with content, hovering the label shows a tooltip
+'use client'
 
 import React from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
@@ -34,6 +35,15 @@ interface FieldLabelProps {
   id?: string
 }
 
+/**
+ * FieldLabel — renders a field label with an optional help-text tooltip.
+ *
+ * When the field's `helpContents` array has content, the label is wrapped in a
+ * Radix Tooltip that shows the help text on hover or focus.
+ *
+ * @param props - Component properties.
+ * @returns A `<span>` element, optionally wrapped in a Radix Tooltip.
+ */
 export function FieldLabel({
   field,
   className,

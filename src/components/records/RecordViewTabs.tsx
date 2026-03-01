@@ -15,12 +15,9 @@
  */
 
 /**
- * RecordViewTabs — pill-style tab bar and all tab-panel content for the tabs view mode.
- *
- * Renders the "tabs" view mode of the record detail page: the pill tab strip and
- * each tab panel (Overview, individual T2/T3 section panels, and the Related panel
- * for many-to-many joins).
+ * @file RecordViewTabs — pill-style tab bar and all tab-panel content for the tabs view mode.
  */
+
 'use client'
 
 import React, { useState } from 'react'
@@ -74,23 +71,10 @@ interface RecordViewTabsProps {
 }
 
 /**
- * Renders the tab bar and all tab-panel content for the "tabs" view mode.
- *
- * This component is only mounted when {@link RecordViewContent} is in tabs mode
- * and there is at least one tab defined.  Each tab maps to a panel:
- * - `overview` — a 2-column card grid of all T2 sections
- * - `section-{name}` — a focused single-section panel for each T2 or T3 section
- * - `related` — a stacked list of many-to-many AssociatedRecords panels
- *
- * @param props - See {@link RecordViewTabsProps}.
- */
-/**
  * A single collapsible accordion section for the mobile tab layout (MED-18).
  *
- * @param id - Unique section identifier used for aria attributes.
- * @param label - Human-readable heading shown in the accordion trigger.
- * @param defaultOpen - When true, the section starts expanded.
- * @param children - The panel content to reveal when open.
+ * @param props - Component properties.
+ * @returns A bordered collapsible section with an animated chevron trigger.
  */
 function AccordionSection({
   id,
@@ -146,6 +130,16 @@ function AccordionSection({
   )
 }
 
+/**
+ * RecordViewTabs — renders the tab bar and all tab-panel content for the "tabs" view mode.
+ *
+ * This component is only mounted when RecordViewContent is in tabs mode and there is
+ * at least one tab defined. On desktop a pill-style tab bar is shown; on mobile the
+ * same content is rendered as collapsible accordion sections.
+ *
+ * @param props - See {@link RecordViewTabsProps}.
+ * @returns A React fragment containing both desktop tab layout and mobile accordion layout.
+ */
 export function RecordViewTabs({
   tableMetaData,
   record,

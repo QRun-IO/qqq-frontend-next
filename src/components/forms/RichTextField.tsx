@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RichTextField — a controlled textarea with a basic HTML formatting toolbar */
+/**
+ * @file RichTextField — a controlled textarea with a basic HTML formatting toolbar.
+ */
+
 'use client'
 
 import React, { useRef } from 'react'
@@ -60,6 +63,7 @@ const TOOLBAR_ACTIONS = [
  * parent form can treat this field identically to any other controlled input.
  *
  * @param props - See {@link RichTextFieldProps}.
+ * @returns The rendered rich text editor with formatting toolbar.
  */
 export function RichTextField({
   value,

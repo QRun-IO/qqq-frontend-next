@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** UnsavedChangesDialog — accessible confirmation modal preventing accidental loss of unsaved form data */
+/**
+ * @file UnsavedChangesDialog — accessible confirmation modal preventing accidental loss of unsaved form data.
+ */
+
 'use client'
 
 // UnsavedChangesDialog — confirmation dialog shown when navigating away with unsaved form changes
@@ -47,6 +50,7 @@ interface UnsavedChangesDialogProps {
  * the overlay calls `onStay`, keeping the user on the current page.
  *
  * @param props - See {@link UnsavedChangesDialogProps}.
+ * @returns The rendered confirmation dialog, or null when `open` is false.
  */
 export function UnsavedChangesDialog({ open, onStay, onLeave }: UnsavedChangesDialogProps) {
   // Radix AlertDialog manages focus automatically (focus trap + initial focus).

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessUnknownStep — fallback renderer for unrecognized process step component types.
+ */
+/**
  * ProcessUnknownStep — fallback renderer for unrecognized process step component types.
  *
  * When `resolveStepType` cannot match any known component type, this component
@@ -68,6 +71,7 @@ export interface ProcessUnknownStepProps {
  * which renderer is missing.  Allows the user to navigate forward or back.
  *
  * @param props - {@link ProcessUnknownStepProps}
+ * @returns The rendered unknown step fallback.
  */
 export function ProcessUnknownStep({
   step,

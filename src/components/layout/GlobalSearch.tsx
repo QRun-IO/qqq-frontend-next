@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file GlobalSearch — inline header search component showing recent records and live API search results in a dropdown.
+ */
 
-/** GlobalSearch — inline header search component showing recent records and live API search results in a dropdown. */
+'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -42,6 +44,9 @@ export interface GlobalSearchProps {
 
 /**
  * Generates initials from a record label (first letter of first two words).
+ *
+ * @param label - The record display label to abbreviate.
+ * @returns A one- or two-character uppercase initials string.
  */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
@@ -51,7 +56,10 @@ function getInitials(label: string): string {
 }
 
 /**
- * Highlights matching portions of text by wrapping them in <mark> tags.
+ * Highlights matching portions of text by wrapping them in `<mark>` tags.
+ *
+ * @param props - Component properties.
+ * @returns A React fragment with matched segments wrapped in styled `<mark>` elements.
  */
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query || query.length < 2) {
@@ -170,6 +178,11 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
 
   // Close dropdown on outside click
   useEffect(() => {
+    /**
+     * Closes the dropdown when the user clicks outside the search container.
+     *
+     * @param event - The native mousedown event from the document listener.
+     */
     function handleClickOutside(event: MouseEvent) {
       if (!(event.target instanceof Node)) return
       if (containerRef.current && !containerRef.current.contains(event.target)) {

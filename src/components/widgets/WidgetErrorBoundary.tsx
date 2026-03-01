@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file WidgetErrorBoundary — React class-based error boundary for individual dashboard widgets.
+ */
+/**
  * WidgetErrorBoundary — React class-based error boundary for individual dashboard widgets.
  *
  * Catches render-time exceptions thrown by any descendant component and replaces

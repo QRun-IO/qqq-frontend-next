@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessScriptViewerStep — renders a SCRIPT_VIEWER process step.
+ */
+/**
  * ProcessScriptViewerStep — renders a SCRIPT_VIEWER process step.
  *
  * Displays code/script content from `stepValues` or step component metadata
@@ -119,6 +122,7 @@ function resolveLanguage(
  * with a copy-to-clipboard button.  Optional HELP_TEXT banners are shown above.
  *
  * @param props - {@link ProcessScriptViewerStepProps}
+ * @returns The rendered script viewer step.
  */
 export function ProcessScriptViewerStep({
   step,

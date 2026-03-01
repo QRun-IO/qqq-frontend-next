@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// MSW handlers for metadata endpoints
+/**
+ * @file MSW handlers for QQQ metadata endpoints (`/metaData`, `/metaData/table/:name`, `/metaData/process/:name`).
+ */
 
 import { http, HttpResponse } from 'msw'
 import { qInstance } from '../fixtures/q-instance'

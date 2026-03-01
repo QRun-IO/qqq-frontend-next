@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file KeyboardShortcutsDialog — "?" help dialog listing available keyboard shortcuts grouped by context.
+ */
 
-/** KeyboardShortcutsDialog — "?" help dialog listing available keyboard shortcuts grouped by context. */
+'use client'
 
 import React from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -111,8 +113,7 @@ interface KeyboardShortcutsDialogProps {
  * the Radix `Dialog` primitive with project design tokens and the `Kbd` badge
  * component to render key labels.
  *
- * @param open - Whether the dialog is currently visible.
- * @param onClose - Callback invoked when the dialog should close.
+ * @param props - Component properties.
  * @returns A Radix Dialog portal containing the shortcut list.
  */
 export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {

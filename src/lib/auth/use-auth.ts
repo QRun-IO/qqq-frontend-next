@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** useAuth — React hook that exposes the current authentication state to client components */
+/**
+ * @file useAuth — React hook that exposes the current authentication state to client components.
+ */
 'use client'
 
 // useAuth hook — provides auth state to client components

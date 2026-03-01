@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// MSW handlers for widget endpoints
+/**
+ * @file MSW handlers for widget data endpoints (`GET /widget/:widgetName`).
+ */
 
 import { http, HttpResponse } from 'msw'
 import {

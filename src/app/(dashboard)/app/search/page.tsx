@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Search results page — displays global search results grouped by table, reads query from URL params.
+ */
+
 'use client'
 
 // Search results page — displays global search results grouped by table
@@ -29,7 +33,12 @@ import { globalSearch, type GlobalSearchResult } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 
-/** Group search results by tableLabel */
+/**
+ * Groups an array of global search results by their `tableLabel` (falling back to `tableName`).
+ *
+ * @param results - The flat list of search results returned from the API.
+ * @returns A `Map` keyed by table label, where each value contains the table name and matching records.
+ */
 function groupByTable(
   results: GlobalSearchResult[]
 ): Map<string, { tableName: string; records: GlobalSearchResult[] }> {
@@ -49,6 +58,15 @@ function groupByTable(
   return groups
 }
 
+/**
+ * Renders the global search results page at `/app/search`.
+ *
+ * Reads the `q` query parameter from the URL, debounces user input, updates the
+ * URL on change, and fetches results via TanStack Query. Results are grouped by
+ * table label and rendered as linked rows.
+ *
+ * @returns The search results page with an input, loading skeletons, empty states, and result groups.
+ */
 export default function SearchResultsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()

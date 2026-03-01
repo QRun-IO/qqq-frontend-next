@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts.
+ */
+
 'use client'
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */

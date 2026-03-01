@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Widgets — data payload shapes returned by the `/widgets/{name}` API endpoint */
+/**
+ * @file Data payload shapes returned by the `/widgets/{name}` API endpoint.
+ */
 
 // QQQ Widget Data Types
 

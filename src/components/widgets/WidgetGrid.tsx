@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file WidgetGrid — Responsive CSS grid container for dashboard widget cards.
+ */
+/**
  * WidgetGrid — Responsive CSS grid container for dashboard widget cards.
  *
  * Stacks to a single column on mobile, expanding to the configured column count
@@ -78,9 +81,8 @@ const GRID_COLS_CLASS: Record<number, string> = {
  * by the item's `span` property. The overall column count defaults to 3 and
  * can be overridden via the `columns` prop.
  *
- * @param items - Ordered list of widget items to place in the grid.
- * @param columns - Maximum column count at the medium breakpoint (default: 3).
- * @param className - Additional Tailwind classes applied to the grid container.
+ * @param props - Component properties.
+ * @returns The rendered responsive widget grid.
  */
 export function WidgetGrid({ items, columns = 3, className }: WidgetGridProps) {
   const gridClass = GRID_COLS_CLASS[columns] ?? GRID_COLS_CLASS[3]

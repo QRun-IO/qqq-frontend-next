@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file BulkActionBar — shows when rows are selected; provides bulk actions including process launcher.
+ */
+
 'use client'
 
 // BulkActionBar — shows when rows are selected; provides bulk actions including process launcher
@@ -37,6 +41,15 @@ interface BulkActionBarProps {
   currentFilter?: QQueryFilter
 }
 
+/**
+ * Action bar displayed when one or more rows are selected in the DataGrid.
+ *
+ * Shows a count of selected records, a "Clear" button, and optional bulk
+ * actions: Export, Delete, and a process launcher dropdown.
+ *
+ * @param props - Component properties.
+ * @returns The rendered bulk action bar, or null when no rows are selected.
+ */
 export function BulkActionBar({
   tableMetaData,
   selectedCount,

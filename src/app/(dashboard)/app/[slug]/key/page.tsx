@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file RecordViewByUniqueKey page — placeholder for viewing a record by unique key (Package 3).
+ */
+
 'use client'
 
 // RecordViewByUniqueKey — view a record by unique key
@@ -23,6 +27,13 @@ import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQContext } from '@/lib/context/q-context'
 
+/**
+ * Placeholder page for viewing a record by its unique key.
+ *
+ * Full implementation is deferred to Package 3. Currently renders a stub card.
+ *
+ * @returns A placeholder panel indicating the feature is not yet implemented.
+ */
 export default function RecordViewByKeyPage() {
   const params = useParams<{ slug: string }>()
   const { setPageHeader } = useQContext()

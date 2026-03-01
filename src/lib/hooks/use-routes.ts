@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-routes — derives sidebar navigation routes and path metadata from a QInstance app tree */
+/**
+ * @file use-routes — derives sidebar navigation routes and path metadata from a QInstance app tree.
+ */
 'use client'
 
 import { useMemo } from 'react'

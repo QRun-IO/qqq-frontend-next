@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** SelectField — native `<select>` field for static option lists, integrated with React Hook Form */
+/**
+ * @file SelectField — native `<select>` field for static option lists, integrated with React Hook Form.
+ */
+
 'use client'
 
 import React from 'react'
@@ -58,6 +61,7 @@ interface SelectFieldProps {
  * user can deselect an existing value.
  *
  * @param props - See {@link SelectFieldProps}.
+ * @returns The rendered native select field with label and optional error message.
  */
 export function SelectField({
   id,

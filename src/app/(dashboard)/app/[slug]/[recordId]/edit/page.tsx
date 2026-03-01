@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file EntityEdit page — serves the route `/app/[slug]/[recordId]/edit` and renders the edit form.
+ */
+
 'use client'
 
 /**

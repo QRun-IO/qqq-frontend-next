@@ -14,10 +14,22 @@
  * limitations under the License.
  */
 
+/**
+ * @file Root page — redirects the application root to the dashboard.
+ */
+
 // Root page — redirects to dashboard or login
 
 import { redirect } from 'next/navigation'
 
+/**
+ * Root page that immediately redirects to `/app`.
+ *
+ * The `(dashboard)` layout handles authentication and will redirect to `/login`
+ * if the user is not authenticated.
+ *
+ * @returns Never — always issues a server-side redirect to `/app`.
+ */
 export default function RootPage() {
   // Redirect to the dashboard — the (dashboard) layout handles auth
   redirect('/app')

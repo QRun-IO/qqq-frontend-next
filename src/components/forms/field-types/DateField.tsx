@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DateField — date input form field with label, validation error display, and accessibility attributes */
+/**
+ * @file DateField — date input form field with label, validation error display, and accessibility attributes.
+ */
+
 'use client'
 
 import React from 'react'
@@ -49,6 +52,7 @@ interface DateFieldProps {
  * browsers.  The value format is `YYYY-MM-DD` as managed by the browser.
  *
  * @param props - See {@link DateFieldProps}.
+ * @returns The rendered date input field with label and optional error message.
  */
 export function DateField({
   id,

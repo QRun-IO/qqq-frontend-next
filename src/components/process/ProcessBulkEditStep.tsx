@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessBulkEditStep — renders a BULK_EDIT_FORM process step.
+ */
+/**
  * ProcessBulkEditStep — renders a BULK_EDIT_FORM process step.
  *
  * Displays each editable field with an opt-in checkbox toggle so users can
@@ -76,6 +79,7 @@ export interface ProcessBulkEditStepProps {
  * Submit is disabled until at least one field is enabled.
  *
  * @param props - {@link ProcessBulkEditStepProps}
+ * @returns The rendered bulk edit step form.
  */
 export function ProcessBulkEditStep({
   step,

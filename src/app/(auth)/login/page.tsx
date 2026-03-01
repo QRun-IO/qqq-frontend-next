@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Login page — authenticates the user and redirects to the dashboard.
+ */
+
 'use client'
 
 // Login page — authenticates user and redirects to dashboard.
@@ -44,6 +48,8 @@ import { useAuth } from '@/lib/auth/use-auth'
  * Generates a cryptographically random PKCE code_verifier (64 URL-safe chars).
  *
  * Spec: https://datatracker.ietf.org/doc/html/rfc7636#section-4.1
+ *
+ * @returns A 64-character hex string suitable for use as a PKCE code_verifier.
  */
 function generateCodeVerifier(): string {
   // Two UUIDs without hyphens gives 64 hex characters — well within the
@@ -73,6 +79,8 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 
 /**
  * Generates a cryptographically random state nonce for CSRF protection.
+ *
+ * @returns A 32-character hex string to use as the OAuth2 `state` parameter.
  */
 function generateState(): string {
   return crypto.randomUUID().replace(/-/g, '')
@@ -264,6 +272,13 @@ async function initiatePkceRedirect(
 // Login page component
 // ---------------------------------------------------------------------------
 
+/**
+ * Inner login content — handles auto-redirect when already authenticated,
+ * initiates PKCE redirect for OAUTH2 / AUTH_0 auth types, and renders
+ * appropriate loading or redirecting UI while authentication resolves.
+ *
+ * @returns A loading spinner, a "redirecting" card, or null once redirect fires.
+ */
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -365,6 +380,14 @@ function LoginContent() {
   )
 }
 
+/**
+ * Login page exported as the Next.js default for `/login`.
+ *
+ * Wraps `LoginContent` in a `<Suspense>` boundary because `useSearchParams()`
+ * requires Suspense in the App Router.
+ *
+ * @returns The login page wrapped in a full-screen centered container.
+ */
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

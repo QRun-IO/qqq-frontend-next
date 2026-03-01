@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file CommandMenu — Cmd+K / Ctrl+K command palette that fuzzy-searches all sidebar routes from QContext.
+ */
 
-/** CommandMenu — Cmd+K / Ctrl+K command palette that fuzzy-searches all sidebar routes from QContext. */
+'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
@@ -125,8 +127,7 @@ interface CommandMenuProps {
  * search term is cleared each time the palette closes. Selecting an item
  * navigates via the Next.js router and calls `onClose`.
  *
- * @param open - Whether the palette is visible.
- * @param onClose - Callback invoked to close the palette.
+ * @param props - Component properties.
  * @returns A fixed full-screen overlay with the command palette dialog, or `null` when closed.
  */
 export function CommandMenu({ open, onClose }: CommandMenuProps) {

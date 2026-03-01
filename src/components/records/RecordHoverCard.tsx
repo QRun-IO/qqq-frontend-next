@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file RecordHoverCard — hover preview card for linked record references.
+ */
 
-// RecordHoverCard — hover preview card for linked record references
-// Shows a compact preview of the referenced record with key fields
-// Fetches record data lazily on hover via TanStack Query
+'use client'
 
 import React, { type ReactNode } from 'react'
 import Link from 'next/link'
@@ -42,7 +42,12 @@ interface RecordHoverCardProps {
   children: ReactNode
 }
 
-/** Extract up to two uppercase initials from a label string */
+/**
+ * Extracts up to two uppercase initials from a label string.
+ *
+ * @param label - The label to abbreviate.
+ * @returns A one- or two-character uppercase string.
+ */
 function getInitials(label: string): string {
   const words = label.trim().split(/\s+/)
   if (words.length >= 2) {
@@ -51,6 +56,16 @@ function getInitials(label: string): string {
   return label.slice(0, 2).toUpperCase()
 }
 
+/**
+ * RecordHoverCard — hover preview card for a linked record reference.
+ *
+ * Wraps its children in a Radix HoverCard that lazily fetches the referenced
+ * record via TanStack Query when the card opens. Shows a compact preview of
+ * the record's T1 fields with a "View Record" footer link.
+ *
+ * @param props - Component properties.
+ * @returns The trigger element wrapped in a Radix HoverCard root.
+ */
 export function RecordHoverCard({
   tableName,
   primaryKey,

@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessFormStep — renders a FORM (or EDIT_FORM) process step.
+ */
+/**
  * ProcessFormStep — renders a FORM (or EDIT_FORM) process step.
  *
  * Builds a Zod validation schema from step field metadata, pre-populates
@@ -75,6 +78,7 @@ export interface ProcessFormStepProps {
  * values map and forwarded as a distinct `file` argument for multipart upload.
  *
  * @param props - {@link ProcessFormStepProps}
+ * @returns The rendered form step.
  */
 export function ProcessFormStep({
   step,

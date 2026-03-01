@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file AppHome — Dashboard page for a QQQ application.
+ */
+/**
  * AppHome — Dashboard page for a QQQ application.
  *
  * Reads widget names and section navigation items from app metadata and renders
@@ -76,8 +79,8 @@ function resolveWidgetSpan(
  * appMetaData.sections. Shows an empty-state placeholder when no content is
  * configured.
  *
- * @param appMetaData - Metadata describing the app, its widgets, and sections.
- * @param widgetRegistry - Registry of all widget metadata objects for look-up.
+ * @param props - Component properties.
+ * @returns The rendered app home dashboard.
  */
 export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
   const { name, label, widgets: widgetNames, sections } = appMetaData

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file RecordDeveloperView page — shows raw record data and table metadata as formatted JSON for debugging.
+ */
+
 'use client'
 
 // RecordDeveloperView — shows raw record data and table metadata as formatted JSON
@@ -29,6 +33,12 @@ import { getRecord } from '@/lib/api/tables'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * Renders a developer debug view for a single record, showing all field values
+ * in a table and the raw record and table metadata as collapsible JSON blocks.
+ *
+ * @returns The developer view page with field table and JSON inspector panels.
+ */
 export default function RecordDeveloperViewPage() {
   const params = useParams<{ slug: string; recordId: string }>()
   const { setPageHeader } = useQContext()
@@ -138,6 +148,15 @@ export default function RecordDeveloperViewPage() {
   )
 }
 
+/**
+ * Collapsible card that renders a JSON value as a formatted `<pre>` block.
+ *
+ * @param props - Component props.
+ * @param props.label - Heading displayed in the toggle button.
+ * @param props.value - The value to serialize and display as JSON.
+ * @param props.defaultOpen - Whether the panel starts expanded. Defaults to `true`.
+ * @returns A collapsible JSON inspector card.
+ */
 function JsonBlock({
   label,
   value,

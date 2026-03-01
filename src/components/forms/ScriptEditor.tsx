@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-'use client'
-
 /**
- * ScriptEditor — a styled textarea for editing QQQ automation scripts.
+ * @file ScriptEditor — a styled textarea for editing QQQ automation scripts.
  *
  * Provides a monospace editor with:
  * - Language badge and line-count toolbar
@@ -87,6 +85,7 @@ function countLines(value: string): number {
  * is the standard behavior users expect in code editors.
  *
  * @param props - {@link ScriptEditorProps}
+ * @returns The rendered script editor with toolbar and optional error message.
  */
 export function ScriptEditor({
   id,

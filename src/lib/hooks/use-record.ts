@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+/**
+ * @file useRecord — TanStack Query hook for fetching a single record by primary key.
+ */
 'use client'
 
 // useRecord — TanStack Query hook for fetching a single record by primary key
@@ -24,23 +27,48 @@ import type { QRecord } from '@/types'
 import { getRecord } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * Configuration options for {@link useRecord}.
+ */
 export interface UseRecordOptions {
+  /** Backend-registered table name. */
   tableName: string
+  /** Primary key of the record to fetch. */
   primaryKey: string | number
+  /** When `false`, the query is suspended until set to `true`. */
   enabled?: boolean
+  /** When `true`, the response includes associated child records. */
   includeAssociations?: boolean
+  /** Optional alternate backend table configuration to use. */
   tableVariant?: string
+  /** How long the cached record is considered fresh (default 5 minutes). */
   staleTime?: number
 }
 
+/**
+ * Shape of the object returned by {@link useRecord}.
+ */
 export interface UseRecordResult {
+  /** The fetched record, or `undefined` while loading or on error. */
   record: QRecord | undefined
+  /** `true` while the initial fetch is in flight. */
   isLoading: boolean
+  /** `true` if the fetch encountered an error. */
   isError: boolean
+  /** The error thrown by the query, or `null`. */
   error: Error | null
+  /** Manually re-trigger the query. */
   refetch: () => void
 }
 
+/**
+ * Fetches a single record by primary key via `GET /table/{tableName}/{primaryKey}`.
+ *
+ * Disabled when `tableName` is empty or `primaryKey` is undefined/empty.
+ *
+ * @param options - Table name, primary key, and optional fetch configuration.
+ * @returns The hook state and actions including `record`, `isLoading`, `isError`, `error`, and `refetch`.
+ */
 export function useRecord({
   tableName,
   primaryKey,

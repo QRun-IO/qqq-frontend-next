@@ -14,12 +14,20 @@
  * limitations under the License.
  */
 
+/**
+ * @file process-utils — utility functions for filtering and categorizing QQQ processes.
+ */
+
 // Utility functions for filtering and categorizing processes
 
 import type { QInstance, QProcessMetaData } from '@/types'
 
 /**
  * Returns all visible, permitted processes that belong to a given table.
+ *
+ * @param metaData - The full QInstance metadata object.
+ * @param tableName - Backend-registered name of the table to filter processes by.
+ * @returns Array of `QProcessMetaData` objects that target the specified table and are visible and permitted.
  */
 export function getProcessesForTable(
   metaData: QInstance,
@@ -32,6 +40,9 @@ export function getProcessesForTable(
 
 /**
  * Returns processes that can run against a single record (maxInputRecords >= 1).
+ *
+ * @param processes - The list of processes to filter.
+ * @returns Processes whose `maxInputRecords` is 1 or more (or unlimited).
  */
 export function getSingleRecordProcesses(
   processes: QProcessMetaData[]
@@ -43,6 +54,9 @@ export function getSingleRecordProcesses(
 
 /**
  * Returns processes that can run against multiple records (maxInputRecords > 1 or unlimited).
+ *
+ * @param processes - The list of processes to filter.
+ * @returns Processes whose `maxInputRecords` exceeds 1, is 0 (meaning unlimited), or is unset.
  */
 export function getBulkProcesses(
   processes: QProcessMetaData[]

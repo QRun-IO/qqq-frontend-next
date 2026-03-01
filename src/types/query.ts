@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Query — filter, sort, and join structures sent to the QQQ query API */
+/**
+ * @file Filter, sort, and join structures sent to the QQQ query API.
+ */
 
 // QQQ Query Types - ported from qqq-frontend-core
 

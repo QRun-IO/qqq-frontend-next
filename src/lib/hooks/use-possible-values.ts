@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+/**
+ * @file usePossibleValues — TanStack Query hook for fetching possible values with debounced search.
+ */
 'use client'
 
 // usePossibleValues — TanStack Query hook for fetching possible values with debounced search
@@ -54,6 +57,9 @@ export interface UsePossibleValuesResult {
 /**
  * Hook for fetching possible values with optional search.
  * Handles table, process, and standalone contexts.
+ *
+ * @param options - Configuration including field name, context, search term, and enabled flag.
+ * @returns Options list, loading state, error state, search term, and search term setter.
  */
 export function usePossibleValues({
   fieldName,
@@ -103,7 +109,10 @@ export function usePossibleValues({
 }
 
 /**
- * Hook that returns a debounced search setter for use with PossibleValueSelect
+ * Hook that returns a debounced search setter for use with PossibleValueSelect.
+ *
+ * @param debounceMs - Debounce delay in milliseconds before the term is committed.
+ * @returns The current debounced search term and a setter that applies the configured delay.
  */
 export function useDebouncedSearch(debounceMs = 300) {
   const [debouncedTerm, setDebouncedTerm] = useState('')

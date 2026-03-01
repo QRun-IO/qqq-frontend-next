@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** TextField — single-line text input form field with label, validation error display, and accessibility attributes */
+/**
+ * @file TextField — single-line text input form field with label, validation error display, and accessibility attributes.
+ */
+
 'use client'
 
 import React from 'react'
@@ -53,6 +56,7 @@ interface TextFieldProps {
  * renderer for any unrecognised field type in {@link DynamicFormField}.
  *
  * @param props - See {@link TextFieldProps}.
+ * @returns The rendered text input field with label and optional error message.
  */
 export function TextField({
   id,

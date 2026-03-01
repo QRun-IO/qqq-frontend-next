@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file EntityCopy page — copies a record by pre-populating the create form with existing values.
+ */
+
 'use client'
 
 // EntityCopy — copy a record (pre-populates form with existing values)
@@ -29,6 +33,17 @@ import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { EntityForm } from '@/components/forms/EntityForm'
 
+/**
+ * Renders the entity copy form for the record identified by `slug` and `recordId`.
+ *
+ * Fetches application metadata and the source record, then renders `<EntityForm>`
+ * in copy mode (`isCopy=true`) so field values are pre-populated but the form
+ * will create a new record on submit. Shows a loading spinner while data is
+ * pending, a permission error when the user lacks `insertPermission`, and a
+ * fetch-error panel when the source record cannot be loaded.
+ *
+ * @returns The entity copy form, a loading spinner, or an error/permission panel.
+ */
 export default function EntityCopyPage() {
   const params = useParams<{ slug: string; recordId: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()

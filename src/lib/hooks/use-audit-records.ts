@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file useAuditRecords — fetches audit change history for a record.
+ */
+
 // useAuditRecords — fetches audit change history for a record
 
 import { useQuery } from '@tanstack/react-query'
@@ -21,13 +25,27 @@ import { getAuditRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import type { QAuditRecord } from '@/types'
 
+/**
+ * Configuration options for {@link useAuditRecords}.
+ */
 interface UseAuditRecordsOptions {
+  /** Backend-registered table name. */
   tableName: string
+  /** Primary key of the record whose audit trail to fetch. */
   primaryKey: string | number
   /** Only fetch when true (lazy loading on expand) */
   enabled?: boolean
 }
 
+/**
+ * Fetches the audit change history for a single record.
+ *
+ * Results are cached for 5 minutes. Pass `enabled: false` to defer fetching
+ * until the audit panel is expanded (lazy loading).
+ *
+ * @param options - Table name, primary key, and optional enabled flag.
+ * @returns The audit records, loading state, and error state.
+ */
 export function useAuditRecords({ tableName, primaryKey, enabled = true }: UseAuditRecordsOptions) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: queryKeys.audits(tableName, primaryKey),

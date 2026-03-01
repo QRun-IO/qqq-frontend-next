@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Barrel export — re-exports all public components, types, and payload interfaces from the widgets module. */
+/**
+ * @file Barrel export — re-exports all public components, types, and payload interfaces from the widgets module.
+ */
 
 export { WidgetBlock } from './WidgetBlock'
 export { WidgetGrid } from './WidgetGrid'

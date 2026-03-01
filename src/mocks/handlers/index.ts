@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Combines all MSW handlers into a single export
+/**
+ * @file Combines all MSW handler arrays into a single export for use by browser and node setups.
+ */
 
 import { authHandlers } from './auth'
 import { metadataHandlers } from './metadata'

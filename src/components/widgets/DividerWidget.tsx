@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** DividerWidget — Renders a simple horizontal rule separator, optionally with a centered text label. */
+/**
+ * @file DividerWidget — Renders a simple horizontal rule separator, optionally with a centered text label.
+ */
 'use client'
 
 import React from 'react'
@@ -41,8 +43,8 @@ interface DividerWidgetProps {
  * When `data.label` is provided the divider displays the label centered between
  * two rule lines. Without a label a plain `<hr>` element is rendered.
  *
- * @param data - Divider widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered divider element.
  */
 export function DividerWidget({ data, widgetName }: DividerWidgetProps) {
   if (data.label) {

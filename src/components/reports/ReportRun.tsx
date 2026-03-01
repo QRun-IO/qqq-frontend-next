@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
-
 /**
- * ReportRun — page component for executing a QQQ backend report.
- *
- * Allows the user to select an output format, run the report, and either
- * download the generated file or view inline results. Async jobs are polled
- * until completion.
+ * @file ReportRun — page component for executing a QQQ backend report.
  */
+
+'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Download, FileBarChart, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -67,7 +63,8 @@ const MAX_POLLS = 60
  * - Inline success / error message
  * - Async polling for jobs that don't resolve immediately
  *
- * @param props - {@link ReportRunProps}
+ * @param props - See {@link ReportRunProps}.
+ * @returns The report execution UI container.
  */
 export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
   const [format, setFormat] = useState<'CSV' | 'EXCEL' | 'JSON'>('CSV')
@@ -87,8 +84,10 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
   }, [])
 
   /**
-   * Polls the async job status until the job completes, errors out, or the
-   * maximum poll count is reached.
+   * Polls the async job status until the job completes, errors, or MAX_POLLS is reached.
+   *
+   * Sets `isPolling` to true while running and calls `setResult` / `setErrorMessage`
+   * on completion. Schedules each poll with `setTimeout` and cleans up via `pollTimerRef`.
    *
    * @param jobUUID - The async job UUID returned by the initial run call.
    */
@@ -96,6 +95,9 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
     setIsPolling(true)
     pollCountRef.current = 0
 
+    /**
+     * Executes a single poll cycle and schedules the next one if the job is still running.
+     */
     function poll() {
       pollCountRef.current += 1
 
@@ -150,6 +152,9 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
 
   const isRunning = mutation.isPending || isPolling
 
+  /**
+   * Resets result/error state and triggers the report mutation.
+   */
   function handleRun() {
     setResult(null)
     setErrorMessage(null)

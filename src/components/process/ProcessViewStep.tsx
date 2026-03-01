@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
+ */
+/**
  * ProcessViewStep — renders a VIEW_FORM process step as a read-only field display.
  *
  * Iterates `step.viewFields` and renders each field's label and value from
@@ -94,6 +97,7 @@ function formatFieldValue(field: QFieldMetaData, value: unknown): string {
  * are formatted by {@link formatFieldValue}.
  *
  * @param props - {@link ProcessViewStepProps}
+ * @returns The rendered view step.
  */
 export function ProcessViewStep({
   step,

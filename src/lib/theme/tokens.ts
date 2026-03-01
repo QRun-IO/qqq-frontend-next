@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file tokens.ts — QQQ theme token definitions: 60+ CSS custom properties for brand colors,
+ * sidebar, header, grid, form, banner, typography, shadows, border radius, transitions, and z-index layers.
+ */
+
 // QQQ Theme Token definitions — 60+ CSS custom properties
 
 export const QQQ_THEME_TOKENS = {
@@ -102,6 +107,14 @@ export const QQQ_THEME_TOKENS = {
 
 export type ThemeToken = keyof typeof QQQ_THEME_TOKENS
 
+/**
+ * Injects QQQ theme tokens as CSS custom properties onto `document.documentElement`.
+ *
+ * Iterates over the provided token map (defaulting to the full {@link QQQ_THEME_TOKENS} set)
+ * and calls `setProperty` for each entry. A no-op during SSR when `document` is undefined.
+ *
+ * @param tokens - Partial token map to inject. Defaults to the full `QQQ_THEME_TOKENS` set.
+ */
 export function injectThemeTokens(
   tokens: Partial<Record<ThemeToken, string>> = QQQ_THEME_TOKENS
 ): void {

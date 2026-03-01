@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Mock order line records — child records of orders, referencing products
+/**
+ * @file Mock order line records — child records of orders, referencing products.
+ */
 
 import type { QRecord } from '@/types'
 

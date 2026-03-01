@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Global error boundary — Next.js `error.tsx` component that catches unhandled route-level exceptions.
+ */
+
 'use client'
 
 /**
@@ -36,8 +40,9 @@ import { AlertCircle, RefreshCw } from 'lucide-react'
  * Next.js automatically passes `error` and `reset` when any Server or Client
  * Component in the route segment throws an unhandled error.
  *
- * @param error - The thrown error, optionally decorated with a `digest` ID from Next.js.
- * @param reset - Next.js callback that retries rendering the failed route segment.
+ * @param props - The Next.js error boundary props.
+ * @param props.error - The thrown error, optionally decorated with a `digest` ID from Next.js.
+ * @param props.reset - Next.js callback that retries rendering the failed route segment.
  * @returns A full-screen card describing the error with recovery actions.
  */
 export default function GlobalError({

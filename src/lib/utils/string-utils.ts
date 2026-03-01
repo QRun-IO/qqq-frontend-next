@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** string-utils — lightweight string classification predicates used throughout the UI */
+/**
+ * @file string-utils — lightweight string classification predicates used throughout the UI.
+ */
 
 /**
  * Returns true when the string is an absolute HTTP or HTTPS URL.

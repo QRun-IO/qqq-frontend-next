@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file AssociatedRecords — renders child/related record tables below the main record.
+ */
 
-// AssociatedRecords — renders child/related record tables below the main record
+'use client'
 
 import React, { useState } from 'react'
 import Link from 'next/link'
@@ -46,6 +48,16 @@ interface AssociatedRecordsProps {
   className?: string
 }
 
+/**
+ * AssociatedRecords — renders a table of child/related records for a given join.
+ *
+ * Displays column headers derived from the join table's visible fields, a
+ * "View All" link when a foreign-key field can be resolved, and an inline
+ * create dialog when the join table allows inserts.
+ *
+ * @param props - Component properties.
+ * @returns The associated records section element, or `null` when no fields are renderable.
+ */
 export function AssociatedRecords({
   join,
   records,
@@ -248,6 +260,15 @@ export function AssociatedRecords({
 
 // --- Create child record dialog ---
 
+/**
+ * CreateChildRecordDialog — modal form for creating a new child record linked to the parent.
+ *
+ * Pre-fills the foreign-key field with the parent record's primary key and
+ * excludes that field from the visible form so users only fill in remaining fields.
+ *
+ * @param props - Component properties.
+ * @returns A Radix Dialog portal with an EntityForm for the join table.
+ */
 function CreateChildRecordDialog({
   open,
   onOpenChange,

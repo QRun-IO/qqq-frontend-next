@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** use-metadata — TanStack Query wrappers for all QQQ metadata API calls */
+/**
+ * @file use-metadata — TanStack Query wrappers for all QQQ metadata API calls.
+ */
 'use client'
 
 import { useQuery } from '@tanstack/react-query'

@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file RecordInfoFooter — footer showing created/modified timestamps and a searchable audit history dialog.
+ */
 
-// RecordInfoFooter — polished footer for record screens showing created/modified
-// timestamps with a "Change History" button that opens a searchable dialog
+'use client'
 
 import React, { useState, useMemo } from 'react'
 import { Clock, History, ArrowRight, User, Plus, Pencil, Trash2, X, Search } from 'lucide-react'
@@ -36,6 +37,15 @@ interface RecordInfoFooterProps {
   className?: string
 }
 
+/**
+ * RecordInfoFooter — displays created/modified timestamps and a "Change History" button.
+ *
+ * Derives timestamp values from T3 audit section fields (createDate, modifyDate).
+ * Clicking "Change History" opens the AuditHistoryDialog with searchable timeline entries.
+ *
+ * @param props - Component properties.
+ * @returns A footer element with timestamps and a history dialog trigger, or `null` when no data exists.
+ */
 export function RecordInfoFooter({
   tableMetaData,
   record,
@@ -135,6 +145,15 @@ export function RecordInfoFooter({
 
 // --- Audit history dialog ---
 
+/**
+ * AuditHistoryDialog — searchable timeline dialog listing all audit entries for a record.
+ *
+ * Fetches audit records via `useAuditRecords` when the dialog is open and
+ * filters them client-side as the user types into the search input.
+ *
+ * @param props - Component properties.
+ * @returns A Radix Dialog portal with a scrollable timeline of audit entries.
+ */
 function AuditHistoryDialog({
   open,
   onOpenChange,
@@ -320,7 +339,12 @@ const ACTION_CONFIG = {
   },
 } as const
 
-/** Highlight matching text within a string */
+/**
+ * Highlights the first occurrence of `query` within `text` using a `<mark>` element.
+ *
+ * @param props - Component properties.
+ * @returns A React fragment with the matched portion wrapped in a `<mark>` tag.
+ */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
   const idx = text.toLowerCase().indexOf(query.toLowerCase())
@@ -334,6 +358,15 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   )
 }
 
+/**
+ * AuditEntry — renders a single audit timeline entry with field-change details.
+ *
+ * Displays the action badge, timestamp, user, optional message, and a table
+ * of field changes. Matching text in each cell is highlighted via HighlightMatch.
+ *
+ * @param props - Component properties.
+ * @returns A timeline row element for the given audit record.
+ */
 function AuditEntry({
   entry,
   tableMetaData,

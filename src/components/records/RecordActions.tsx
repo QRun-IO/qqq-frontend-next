@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file RecordActions — edit/delete/copy action buttons for a record view page.
+ */
 
-// RecordActions — edit/delete/copy action buttons for a record view page
-// Includes an "Actions" dropdown menu when processes are available
+'use client'
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -36,6 +37,16 @@ interface RecordActionsProps {
   className?: string
 }
 
+/**
+ * RecordActions — renders edit, copy, delete, and process action buttons for a record.
+ *
+ * When processes are available, actions are grouped into a Radix dropdown menu
+ * with Edit as a standalone button for quick access. Without processes, all
+ * permitted actions are shown as individual buttons.
+ *
+ * @param props - Component properties.
+ * @returns A fragment containing the action buttons and the optional delete confirmation dialog.
+ */
 export function RecordActions({ tableMetaData, record, processes, className }: RecordActionsProps) {
   const router = useRouter()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)

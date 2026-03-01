@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-'use client'
+/**
+ * @file RecordViewSection — renders a group of fields from a table section, or a widget when one is configured.
+ */
 
-// RecordViewSection — renders a group of fields from a table section
-// When section.widgetName is set, renders a widget instead of field list
+'use client'
 
 import React from 'react'
 
@@ -45,6 +46,16 @@ interface RecordViewSectionProps {
   className?: string
 }
 
+/**
+ * RecordViewSection — renders a group of fields from a table section.
+ *
+ * When `section.widgetName` is set, renders a ConnectedWidget instead of field list.
+ * Otherwise renders visible fields in compact (row), stacked (vertical), or
+ * default grid layout depending on the `compact` and `stacked` flags.
+ *
+ * @param props - Component properties.
+ * @returns A section element with field rows, a widget, or `null` when there is nothing to render.
+ */
 export function RecordViewSection({
   section,
   tableMetaData,

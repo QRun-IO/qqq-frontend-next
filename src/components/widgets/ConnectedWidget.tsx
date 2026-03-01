@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
+ */
+/**
  * ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
  *
  * Orchestrates widget data fetching (via useWidget), dropdown option loading
@@ -50,9 +53,8 @@ interface ConnectedWidgetProps {
  * selections into the data-fetch params via useMemo, and delegates to WidgetBlock
  * (for chrome/loading/error states) and WidgetRenderer (for type-specific output).
  *
- * @param widgetMetaData - Widget metadata controlling type, label, dropdowns, and permissions.
- * @param params - Static query parameters forwarded to the widget data request.
- * @param className - Additional class names applied to the WidgetBlock container.
+ * @param props - Component properties.
+ * @returns The rendered connected widget, or null when the widget lacks permission.
  */
 export function ConnectedWidget({ widgetMetaData, params, className }: ConnectedWidgetProps) {
   // Initialize dropdown values from metadata defaults

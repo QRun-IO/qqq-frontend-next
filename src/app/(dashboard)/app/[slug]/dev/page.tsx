@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file TableDeveloperView page — shows raw table metadata as formatted JSON for debugging field definitions and permissions.
+ */
+
 'use client'
 
 // TableDeveloperView — shows raw table metadata as formatted JSON
@@ -28,6 +32,12 @@ import { useQContext } from '@/lib/context/q-context'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 
+/**
+ * Renders a developer debug view for a QQQ table, showing summary statistics
+ * and the full table metadata as a collapsible JSON block.
+ *
+ * @returns The developer view page with stat cards and a JSON metadata panel.
+ */
 export default function TableDeveloperViewPage() {
   const params = useParams<{ slug: string }>()
   const { setPageHeader } = useQContext()
@@ -99,6 +109,14 @@ export default function TableDeveloperViewPage() {
   )
 }
 
+/**
+ * Renders a single labeled statistic card.
+ *
+ * @param props - Component props.
+ * @param props.label - The stat label displayed above the value.
+ * @param props.value - The numeric or string value to display prominently.
+ * @returns A bordered card showing the label and value.
+ */
 function MetaStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -112,6 +130,15 @@ function MetaStat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+/**
+ * Collapsible card that renders a JSON value as a formatted `<pre>` block.
+ *
+ * @param props - Component props.
+ * @param props.label - Heading displayed in the toggle button.
+ * @param props.value - The value to serialize and display as JSON.
+ * @param props.defaultOpen - Whether the panel starts expanded. Defaults to `true`.
+ * @returns A collapsible JSON inspector card.
+ */
 function JsonBlock({
   label,
   value,

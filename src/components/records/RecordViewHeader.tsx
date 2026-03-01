@@ -15,12 +15,9 @@
  */
 
 /**
- * RecordViewHeader — record avatar, title, T1 field grid, and action controls.
- *
- * Renders the top section of a record detail page: the avatar initials badge,
- * record label heading, a compact T1 field/join dl, the view-mode toggle, and
- * the RecordActions button bar.
+ * @file RecordViewHeader — record avatar, title, T1 field grid, and action controls.
  */
+
 'use client'
 
 import React, { useState } from 'react'
@@ -86,6 +83,7 @@ interface RecordViewHeaderProps {
  * (card / list), and the actions button bar.
  *
  * @param props - See {@link RecordViewHeaderProps}.
+ * @returns The record header element including avatar, title, field chips, view toggle, and actions.
  */
 export function RecordViewHeader({
   tableMetaData,

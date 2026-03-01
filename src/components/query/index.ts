@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** Query components — barrel re-exports for all public components in the `query/` directory. */
+/**
+ * @file Query components — barrel re-exports for all public components in the `query/` directory.
+ */
+
 // Query components — re-export for convenience
 
 export { RecordQuery } from './RecordQuery'

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** NumberField — numeric input form field supporting integer, long, and decimal types with validation */
+/**
+ * @file NumberField — numeric input form field supporting integer, long, and decimal types with validation.
+ */
+
 'use client'
 
 import React from 'react'
@@ -57,6 +60,7 @@ interface NumberFieldProps {
  * the controlled value is a JavaScript number rather than a string.
  *
  * @param props - See {@link NumberFieldProps}.
+ * @returns The rendered numeric input field with label and optional error message.
  */
 export function NumberField({
   id,

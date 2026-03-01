@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// MSW browser worker setup — used in development (browser) environment
+/**
+ * @file MSW browser worker setup — used in development (browser) environment.
+ */
 
 import { setupWorker } from 'msw/browser'
 import { handlers } from './handlers'

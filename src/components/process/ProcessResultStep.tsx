@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessResultStep — renders the final COMPLETE state of a process.
+ */
+/**
  * ProcessResultStep — renders the final COMPLETE state of a process.
  *
  * Displays a success icon, an optional success message from `resultValues`,
@@ -105,6 +108,7 @@ function parseResultStats(resultValues: Record<string, unknown>): ResultStat[] {
  * optional message, stat counters, and contextual navigation links.
  *
  * @param props - {@link ProcessResultStepProps}
+ * @returns The rendered process result step.
  */
 export function ProcessResultStep({
   processMetaData,

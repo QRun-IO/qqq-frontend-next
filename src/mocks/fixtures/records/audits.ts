@@ -14,9 +14,25 @@
  * limitations under the License.
  */
 
-// Mock audit records — keyed by "{tableName}:{primaryKey}"
+/**
+ * @file Mock audit records keyed by `"{tableName}:{primaryKey}"` for use in table handler fixtures.
+ */
+
 import type { QAuditRecord } from '@/types'
 
+/**
+ * Constructs a `QAuditRecord` fixture with all required fields.
+ *
+ * @param id - Surrogate primary key for this audit row.
+ * @param tableName - Name of the audit table.
+ * @param recordId - Primary key of the audited record.
+ * @param timestamp - ISO-8601 timestamp of the action.
+ * @param user - Username or identifier of the actor.
+ * @param action - The type of mutation performed.
+ * @param fieldChanges - List of individual field-level changes.
+ * @param message - Optional human-readable action summary.
+ * @returns A fully-constructed `QAuditRecord` object.
+ */
 function audit(
   id: number,
   tableName: string,

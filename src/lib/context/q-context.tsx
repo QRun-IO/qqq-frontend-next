@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** QContext — application-wide UI state provider for navigation, page headers, theme, modals, branding, and table context */
+/**
+ * @file QContext — application-wide UI state provider for navigation, page headers, theme, modals, branding, and table context.
+ */
 'use client'
 
 // QContext — application-wide UI state provider
@@ -136,7 +138,9 @@ export const QContext = createContext<QContextType | undefined>(undefined)
  * branding. Wrap the entire application (or the authenticated layout) with
  * this component so that any descendant can call {@link useQContext}.
  *
- * @param children - The component subtree that needs access to the QContext.
+ * @param props - Component props.
+ * @param props.children - The component subtree that needs access to the QContext.
+ * @returns The rendered QContext provider wrapping the component tree.
  */
 export function QContextProvider({ children }: { children: ReactNode }) {
   const [pageHeader, setPageHeader] = useState<string | React.ReactNode>('')

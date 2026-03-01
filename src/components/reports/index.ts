@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** Reports components barrel — exports all public report-related components. */
+/**
+ * @file Reports components barrel — exports all public report-related components.
+ */
 
 export { ReportRun } from './ReportRun'
 export type { ReportRunProps } from './ReportRun'

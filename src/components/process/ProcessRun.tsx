@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessRun — top-level process orchestrator component.
+ */
+/**
  * ProcessRun — top-level process orchestrator component.
  *
  * Manages the full QQQ process lifecycle: idle → initializing → active steps
@@ -105,6 +108,9 @@ type ResolvedStepType =
  * String comparisons use `as string` casts to accommodate component types that are
  * not yet in the `QComponentType` union (e.g. `UPLOAD_FORM`, `SCRIPT_VIEWER`,
  * `PROCESS_SUMMARY_CHART`).
+ *
+ * @param step - The current step metadata to evaluate.
+ * @returns The resolved step type string for rendering dispatch.
  */
 function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
   const componentTypes = step.components.map((c) => c.type as string)
@@ -234,6 +240,7 @@ function applyModifiedFields(
  * appropriate step component via `resolveStepType`.
  *
  * @param props - {@link ProcessRunProps}
+ * @returns The rendered process execution UI.
  */
 export function ProcessRun({
   processName,
@@ -550,6 +557,9 @@ export function ProcessRun({
 
 /**
  * Render a progress bar inside the polling overlay when current/total are available.
+ *
+ * @param stepValues - The current step values checked for `current` and `total` keys.
+ * @returns A progress bar element when data is available, or null otherwise.
  */
 function renderPollingProgress(stepValues: Record<string, unknown>): React.ReactNode {
   const rawCurrent = stepValues.current

@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file recent-records — recently viewed records tracker persisted to localStorage.
+ * Used by GlobalSearch to show recent items when no search term is entered.
+ */
+
 // Recently viewed records tracker — persists to localStorage
 // Used by GlobalSearch to show recent items when no search term is entered
 
@@ -31,6 +36,8 @@ const MAX_RECORDS = 20
 
 /**
  * Returns recently viewed records sorted by viewedAt descending (most recent first).
+ *
+ * @returns Array of `RecentRecord` objects sorted newest-first, or an empty array on SSR or parse errors.
  */
 export function getRecentRecords(): RecentRecord[] {
   if (typeof window === 'undefined') return []
@@ -50,6 +57,8 @@ export function getRecentRecords(): RecentRecord[] {
  * Deduplicates by tableName + recordId combination — if the same record already
  * exists, the existing entry is removed and the new one is prepended with a fresh
  * timestamp. Trims the list to MAX_RECORDS entries.
+ *
+ * @param record - The record to add, without a `viewedAt` timestamp (added automatically).
  */
 export function addRecentRecord(record: Omit<RecentRecord, 'viewedAt'>): void {
   if (typeof window === 'undefined') return

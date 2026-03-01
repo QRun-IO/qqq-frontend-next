@@ -15,7 +15,7 @@
  */
 
 /**
- * BarChartWidget — Recharts-based bar chart widget supporting vertical, horizontal,
+ * @file BarChartWidget — Recharts-based bar chart widget supporting vertical, horizontal,
  * and stacked multi-series configurations driven by backend metadata.
  */
 'use client'
@@ -171,8 +171,8 @@ const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '
  * Supports vertical bars (default), horizontal bars, and stacked multi-series bars.
  * Shows an empty-state message when the normalized data set contains no entries.
  *
- * @param data - Bar-chart widget payload from the backend API.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered bar chart.
  */
 export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)

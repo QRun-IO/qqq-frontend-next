@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** RecordQueryBulkBar — bulk action bar wrapper for the RecordQuery page */
+/**
+ * @file RecordQueryBulkBar — bulk action bar wrapper for the RecordQuery page.
+ */
+
 'use client'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
@@ -45,6 +48,9 @@ export interface RecordQueryBulkBarProps {
  * Thin wrapper around `BulkActionBar` for the RecordQuery page.
  *
  * All state is passed in as props — this component holds no state of its own.
+ *
+ * @param props - Component properties.
+ * @returns The rendered bulk action bar, or null when no rows are selected.
  */
 export function RecordQueryBulkBar({
   tableMetaData,

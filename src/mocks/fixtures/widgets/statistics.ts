@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Widget fixture data — statistics widgets
+/**
+ * @file Widget fixture data — statistics widget payloads for the CRM dashboard.
+ */
 
 import type { StatisticsWidgetData } from '@/types'
 

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/**
+ * @file Developer page — shows debug information including session info, metadata stats, and API health.
+ */
+
 'use client'
 
 /**
@@ -61,6 +65,7 @@ interface SectionCardProps {
  * Renders a card section with a header and optional "Copy JSON" button.
  *
  * @param props - {@link SectionCardProps}
+ * @returns A bordered card containing the section heading and children.
  */
 function SectionCard({ title, children, copyData, dataQqqId }: SectionCardProps) {
   const [copied, setCopied] = useState(false)
@@ -118,7 +123,9 @@ function SectionCard({ title, children, copyData, dataQqqId }: SectionCardProps)
 /**
  * Renders a simple key/value table.
  *
- * @param rows - Array of `[key, value]` tuples to display.
+ * @param props - Component props.
+ * @param props.rows - Array of `[key, value]` tuples to display.
+ * @returns A definition list styled as a bordered table, or a "No data" message when empty.
  */
 function KeyValueTable({ rows }: { rows: Array<[string, React.ReactNode]> }) {
   if (rows.length === 0) {

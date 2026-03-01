@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file WidgetBlock — Standard container wrapper for all dashboard widget cards.
+ */
+/**
  * WidgetBlock — Standard container wrapper for all dashboard widget cards.
  *
  * Renders a card with a labeled header containing help, export, and reload
@@ -69,19 +72,8 @@ interface WidgetBlockProps {
  * content area wrapped in a WidgetErrorBoundary. In bare mode only the content
  * area (with boundary) is returned, suitable for child widgets inside a composite.
  *
- * @param widgetMetaData - Widget metadata for label, name, and button visibility.
- * @param isLoading - When true renders the loading skeleton.
- * @param isError - When true renders the error state.
- * @param error - Error instance whose message is displayed in the error state.
- * @param onReload - Handler for the reload / retry button.
- * @param onExport - Handler for the export button.
- * @param children - Widget content rendered when loaded without errors.
- * @param className - Additional Tailwind classes for the outer card element.
- * @param bare - When true, omits the card border and header.
- * @param dropdowns - Dropdown descriptors from widget metadata.
- * @param dropdownOptions - Pre-fetched select options keyed by dropdown name.
- * @param dropdownValues - Current selection values keyed by dropdown name.
- * @param onDropdownChange - Callback invoked when a dropdown value changes.
+ * @param props - Component properties.
+ * @returns The rendered widget card with header, body, and optional dropdowns.
  */
 export function WidgetBlock({
   widgetMetaData,
@@ -218,6 +210,8 @@ export function WidgetBlock({
  *
  * The skeleton mirrors the approximate shape of most widget body layouts
  * (a few text lines followed by a large content block).
+ *
+ * @returns The rendered skeleton placeholder.
  */
 function WidgetSkeleton() {
   return (
@@ -236,9 +230,8 @@ function WidgetSkeleton() {
  * Displays the error message and an optional inline "Retry" link button that
  * triggers the supplied onReload callback.
  *
- * @param error - Error whose message is displayed; shows a generic fallback when null.
- * @param onReload - Optional retry handler; when provided a Retry button is shown.
- * @param widgetName - Widget name scoped to data-qqq-id attributes.
+ * @param props - Component properties.
+ * @returns The rendered widget error state with an optional retry button.
  */
 function WidgetErrorState({
   error,

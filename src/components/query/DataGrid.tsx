@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DataGrid — TanStack Table v8 data grid for the QQQ Record Query page. Renders sortable, resizable columns with row selection and density support. */
+/**
+ * @file DataGrid — TanStack Table v8 data grid for the QQQ Record Query page. Renders sortable, resizable columns with row selection and density support.
+ */
+
 'use client'
 
 // DataGrid — TanStack Table v8 data grid for QQQ Record Query
@@ -95,6 +98,9 @@ const DENSITY_CELL_CLASS: Record<Density, string> = {
  * Renders a sortable, column-resizable HTML table with row selection checkboxes,
  * density variants, a skeleton loading state, an inline empty state, and a
  * background-fetch progress bar. Clicking a row navigates to the record detail view.
+ *
+ * @param props - Component properties.
+ * @returns The rendered data grid.
  */
 export function DataGrid({
   tableName,

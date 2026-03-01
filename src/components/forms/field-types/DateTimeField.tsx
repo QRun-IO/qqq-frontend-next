@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DateTimeField — datetime-local input form field with label, validation error display, and accessibility attributes */
+/**
+ * @file DateTimeField — datetime-local input form field with label, validation error display, and accessibility attributes.
+ */
+
 'use client'
 
 import React from 'react'
@@ -50,6 +53,7 @@ interface DateTimeFieldProps {
  * as managed by the browser.
  *
  * @param props - See {@link DateTimeFieldProps}.
+ * @returns The rendered datetime input field with label and optional error message.
  */
 export function DateTimeField({
   id,

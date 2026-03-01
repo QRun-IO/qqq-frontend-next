@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-/** DynamicFormField — single metadata-driven form field dispatcher with optional help tooltip */
+/**
+ * @file DynamicFormField — single metadata-driven form field dispatcher with optional help tooltip.
+ */
+
 'use client'
 
 // DynamicFormField — renders a single form field based on QFieldMetaData type
@@ -59,7 +62,12 @@ interface DynamicFormFieldProps {
   possibleValueContext?: PossibleValueContext
 }
 
-/** Renders a help tooltip icon next to a field label when helpContents is available */
+/**
+ * Renders a help tooltip icon next to a field label when helpContents is available.
+ *
+ * @param props - Component properties.
+ * @returns The rendered help tooltip button, or null when no help content is defined.
+ */
 function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
   const helpContent = field.helpContents?.[0]
   if (!helpContent?.content) return null
@@ -129,8 +137,8 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
  * When no help content is present the children are returned unwrapped to
  * avoid adding an unnecessary DOM node.
  *
- * @param field - The field whose `helpContents` determines whether wrapping occurs.
- * @param children - The field input element(s) to wrap.
+ * @param props - Component properties.
+ * @returns The children, optionally wrapped in an aria-describedby container.
  */
 function FieldWithHelp({
   field,
@@ -167,6 +175,7 @@ function FieldWithHelp({
  * not in disabled mode) are suppressed entirely.
  *
  * @param props - See {@link DynamicFormFieldProps}.
+ * @returns The rendered field input with label and error display, or null when suppressed.
  */
 export function DynamicFormField({
   field,

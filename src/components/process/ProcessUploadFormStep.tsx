@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessUploadFormStep — renders an UPLOAD_FORM process step.
+ */
+/**
  * ProcessUploadFormStep — renders an UPLOAD_FORM process step.
  *
  * Provides a simple file upload UI for process steps that use the `UPLOAD_FORM`
@@ -84,6 +87,7 @@ function resolveAcceptedTypes(step: QFrontendStepMetaData): string {
  * action bar.  The accepted file types come from the component metadata.
  *
  * @param props - {@link ProcessUploadFormStepProps}
+ * @returns The rendered upload form step.
  */
 export function ProcessUploadFormStep({
   step,

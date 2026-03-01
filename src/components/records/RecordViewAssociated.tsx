@@ -15,12 +15,9 @@
  */
 
 /**
- * RecordViewAssociated — list of many-to-many related-record panels.
- *
- * Renders one {@link AssociatedRecords} card per many-join in the "list" view
- * mode of the record detail page.  The same join data is shown in the "Related"
- * tab when the view mode is "tabs" (handled by {@link RecordViewTabs}).
+ * @file RecordViewAssociated — list of many-to-many related-record panels for the list view mode.
  */
+
 'use client'
 
 import React from 'react'
@@ -55,6 +52,7 @@ interface RecordViewAssociatedProps {
  * shadow matching the style of the section cards in the same view.
  *
  * @param props - See {@link RecordViewAssociatedProps}.
+ * @returns A React fragment containing one card per many-join.
  */
 export function RecordViewAssociated({
   tableMetaData,

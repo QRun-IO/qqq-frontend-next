@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ValidationReviewStep — renders a VALIDATION_REVIEW_SCREEN process step.
+ */
+/**
  * ValidationReviewStep — renders a VALIDATION_REVIEW_SCREEN process step.
  *
  * Displays summary stat cards (total, valid, warnings, errors), a status banner,
@@ -117,6 +120,7 @@ function getSummary(rows: ValidationRow[]) {
  * disabled when `hasErrors` is true.
  *
  * @param props - {@link ValidationReviewStepProps}
+ * @returns The rendered validation review step.
  */
 export function ValidationReviewStep({
   step,

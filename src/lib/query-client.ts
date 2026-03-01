@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** query-client — TanStack Query v5 client configuration and centralized query key factory */
+/**
+ * @file query-client — TanStack Query v5 client configuration and centralized query key factory.
+ */
 
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -77,6 +79,7 @@ function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
  *
  * @param failureCount - Number of failed attempts so far (0-indexed for retryDelay, 1-indexed here).
  * @param error - The error from the most recent attempt.
+ * @returns `true` when the request should be retried, `false` to stop retrying.
  */
 function smartRetry(failureCount: number, error: unknown): boolean {
   const status = getErrorStatusCode(error)
@@ -90,6 +93,7 @@ function smartRetry(failureCount: number, error: unknown): boolean {
  * Delays: 1 s → 2 s → 4 s → 8 s … capped at 30 s.
  *
  * @param attemptIndex - Zero-based attempt index (0 = first retry).
+ * @returns Delay in milliseconds before the next retry attempt.
  */
 function exponentialBackoff(attemptIndex: number): number {
   return Math.min(1000 * 2 ** attemptIndex, 30_000)
@@ -150,24 +154,45 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'search', ...]` — global search queries
  */
 export const queryKeys = {
-  /** Root namespace key shared by all QQQ queries. */
+  /**
+   * Root namespace key shared by all QQQ queries.
+   *
+   * @returns The root query key tuple.
+   */
   all: () => ['qqq'] as const,
 
   // Auth
-  /** Key for auth-scoped queries. */
+  /**
+   * Key for auth-scoped queries.
+   *
+   * @returns The auth namespace query key tuple.
+   */
   auth: () => [...queryKeys.all(), 'auth'] as const,
-  /** Key for the current session metadata (e.g. user info, permissions). */
+  /**
+   * Key for the current session metadata (e.g. user info, permissions).
+   *
+   * @returns The auth metadata query key tuple.
+   */
   authMeta: () => [...queryKeys.auth(), 'metadata'] as const,
 
   // Metadata
-  /** Key for all metadata queries. */
+  /**
+   * Key for all metadata queries.
+   *
+   * @returns The metadata namespace query key tuple.
+   */
   metadata: () => [...queryKeys.all(), 'metadata'] as const,
-  /** Key for the full application metadata payload (all tables + processes). */
+  /**
+   * Key for the full application metadata payload (all tables + processes).
+   *
+   * @returns The full metadata query key tuple.
+   */
   metadataAll: () => [...queryKeys.metadata(), 'all'] as const,
   /**
    * Key for a single table's metadata.
    *
    * @param tableName - Backend table name (e.g. `"order"`).
+   * @returns The table metadata query key tuple.
    */
   tableMetadata: (tableName: string) =>
     [...queryKeys.metadata(), 'table', tableName] as const,
@@ -175,17 +200,23 @@ export const queryKeys = {
    * Key for a single process's metadata.
    *
    * @param processName - Backend process name (e.g. `"importOrders"`).
+   * @returns The process metadata query key tuple.
    */
   processMetadata: (processName: string) =>
     [...queryKeys.metadata(), 'process', processName] as const,
 
   // Records
-  /** Key for all record queries (parent of all table record keys). */
+  /**
+   * Key for all record queries (parent of all table record keys).
+   *
+   * @returns The records namespace query key tuple.
+   */
   records: () => [...queryKeys.all(), 'records'] as const,
   /**
    * Key for all records belonging to a specific table.
    *
    * @param tableName - Backend table name.
+   * @returns The table records query key tuple.
    */
   tableRecords: (tableName: string) => [...queryKeys.records(), tableName] as const,
   /**
@@ -193,6 +224,7 @@ export const queryKeys = {
    *
    * @param tableName - Backend table name.
    * @param id - Primary key value (string or number).
+   * @returns The single record query key tuple.
    */
   tableRecord: (tableName: string, id: string | number) =>
     [...queryKeys.tableRecords(tableName), id] as const,
@@ -201,12 +233,17 @@ export const queryKeys = {
    *
    * @param tableName - Backend table name.
    * @param filterHash - Stable serialized representation of the active filter.
+   * @returns The count query key tuple.
    */
   tableCount: (tableName: string, filterHash: string) =>
     [...queryKeys.tableRecords(tableName), 'count', filterHash] as const,
 
   // Processes
-  /** Key for all process queries (parent of all process status keys). */
+  /**
+   * Key for all process queries (parent of all process status keys).
+   *
+   * @returns The processes namespace query key tuple.
+   */
   processes: () => [...queryKeys.all(), 'processes'] as const,
   /**
    * Key for a process job status poll.
@@ -218,12 +255,17 @@ export const queryKeys = {
    * @param processName - Backend process name.
    * @param processUUID - Server-assigned session UUID for the process instance.
    * @param jobUUID - Server-assigned UUID for the specific async job being polled.
+   * @returns The process status query key tuple.
    */
   processStatus: (processName: string, processUUID: string, jobUUID: string) =>
     [...queryKeys.processes(), processName, processUUID, 'status', jobUUID] as const,
 
   // Widgets
-  /** Key for all widget data queries (parent of all widget keys). */
+  /**
+   * Key for all widget data queries (parent of all widget keys).
+   *
+   * @returns The widgets namespace query key tuple.
+   */
   widgets: () => [...queryKeys.all(), 'widgets'] as const,
   /**
    * Key for a widget's data payload.
@@ -233,12 +275,17 @@ export const queryKeys = {
    *
    * @param widgetName - Backend widget name.
    * @param params - Optional arbitrary query parameters forwarded to the widget API.
+   * @returns The widget data query key tuple.
    */
   widgetData: (widgetName: string, params?: Record<string, unknown>) =>
     [...queryKeys.widgets(), widgetName, params ? Object.fromEntries(Object.entries(params).sort()) : undefined] as const,
 
   // Possible Values
-  /** Key for all possible-value queries (parent of all PV keys). */
+  /**
+   * Key for all possible-value queries (parent of all PV keys).
+   *
+   * @returns The possible values namespace query key tuple.
+   */
   possibleValues: () => [...queryKeys.all(), 'possibleValues'] as const,
   /**
    * Key for a field's possible-value list, optionally filtered by a search term.
@@ -246,6 +293,7 @@ export const queryKeys = {
    * @param tableName - Backend table name.
    * @param fieldName - Field whose enum/possible values are being fetched.
    * @param searchTerm - Optional type-ahead search string.
+   * @returns The possible values query key tuple.
    */
   tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string) =>
     [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm] as const,
@@ -258,17 +306,23 @@ export const queryKeys = {
    *
    * @param tableName - Backend table name.
    * @param primaryKey - Primary key of the record.
+   * @returns The audits query key tuple.
    */
   audits: (tableName: string, primaryKey: string | number) =>
     [...queryKeys.tableRecord(tableName, primaryKey), 'audits'] as const,
 
   // Search
-  /** Key for all global search queries. */
+  /**
+   * Key for all global search queries.
+   *
+   * @returns The search namespace query key tuple.
+   */
   search: () => [...queryKeys.all(), 'search'] as const,
   /**
    * Key for a global search result set.
    *
    * @param searchTerm - The user's search string.
+   * @returns The global search query key tuple.
    */
   globalSearch: (searchTerm: string) =>
     [...queryKeys.search(), searchTerm] as const,

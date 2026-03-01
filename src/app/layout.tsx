@@ -15,6 +15,10 @@
  */
 
 /**
+ * @file Root layout — Server Component that wraps the entire Next.js application.
+ */
+
+/**
  * Root layout — Server Component that wraps the entire Next.js application.
  *
  * Sets up the Inter font variable, global CSS, Next.js metadata defaults, and

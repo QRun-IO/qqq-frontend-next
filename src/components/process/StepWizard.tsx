@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file StepWizard — horizontal step-progress indicator for multi-step processes.
+ */
+/**
  * StepWizard — horizontal step-progress indicator for multi-step processes.
  *
  * Renders an ordered list of steps with numbered circles (or a checkmark for
@@ -81,6 +84,7 @@ function getStepState(
  * and a connector line to the next step.  Returns null when `steps` is empty.
  *
  * @param props - {@link StepWizardProps}
+ * @returns The rendered step wizard navigation, or null when steps is empty.
  */
 export function StepWizard({ steps, currentStepName, isComplete = false, className }: StepWizardProps) {
   if (steps.length === 0) return null

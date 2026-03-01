@@ -15,6 +15,10 @@
  */
 
 /**
+ * @file Not Found page — Next.js 404 page rendered when a route segment cannot be matched.
+ */
+
+/**
  * Not Found page — Next.js `not-found.tsx` rendered automatically when
  * `notFound()` is called or a route segment cannot be matched.
  *

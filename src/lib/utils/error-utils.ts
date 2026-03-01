@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-/** error-utils — shared utilities for inspecting and extracting information from error objects */
+/**
+ * @file error-utils — shared utilities for inspecting and extracting information from error objects.
+ */
 
 import { AxiosError } from 'axios'
 

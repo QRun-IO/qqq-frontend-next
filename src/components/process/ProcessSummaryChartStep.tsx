@@ -15,6 +15,9 @@
  */
 
 /**
+ * @file ProcessSummaryChartStep — renders a PROCESS_SUMMARY_CHART process step.
+ */
+/**
  * ProcessSummaryChartStep — renders a PROCESS_SUMMARY_CHART process step.
  *
  * Displays a visual summary of process results in chart form.  When structured
@@ -127,6 +130,7 @@ function resolveChartBars(stepValues: Record<string, unknown>): ChartBar[] {
  * allow proceeding to the next step.
  *
  * @param props - {@link ProcessSummaryChartStepProps}
+ * @returns The rendered summary chart step.
  */
 export function ProcessSummaryChartStep({
   step,
