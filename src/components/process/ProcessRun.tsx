@@ -25,8 +25,8 @@
  */
 'use client'
 
-import React, { useEffect, useRef, useMemo } from 'react'
-import { Loader2 } from 'lucide-react'
+import React, { useEffect, useRef, useMemo, useState } from 'react'
+import { Loader2, AlertTriangle } from 'lucide-react'
 
 import type { QProcessMetaData, QFrontendStepMetaData, QFieldMetaData } from '@/types'
 import { useProcess } from '@/lib/hooks/use-process'
@@ -269,6 +269,9 @@ export function ProcessRun({
   // is not moved on the initial mount (only on subsequent step transitions)
   const stepFocusedRef = useRef(false)
 
+  // D-P-3: show a timeout warning banner when polling runs longer than 60 seconds
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+
   // Auto-focus the step heading when the active step changes (a11y: WCAG 2.4.3)
   useEffect(() => {
     if (!stepFocusedRef.current) {
@@ -279,6 +282,17 @@ export function ProcessRun({
       stepHeadingRef.current?.focus()
     }
   }, [state.currentStep?.name])
+
+  // D-P-3: set / clear the 60-second timeout warning whenever polling starts or stops
+  useEffect(() => {
+    if (state.status !== 'polling') {
+      setShowTimeoutWarning(false)
+      return
+    }
+    setShowTimeoutWarning(false)
+    const timer = window.setTimeout(() => setShowTimeoutWarning(true), 60_000)
+    return () => window.clearTimeout(timer)
+  }, [state.status])
 
   // Auto-init on mount with input record validation (Fix 3: CRIT-7)
   useEffect(() => {
@@ -407,7 +421,7 @@ export function ProcessRun({
 
     return (
       <div
-        className={cn('flex items-center justify-center py-16', className)}
+        className={cn('flex flex-col items-center gap-4 py-16', className)}
         data-qqq-id={`process-run-${processName}`}
       >
         <div className="flex flex-col items-center gap-4 text-muted-foreground">
@@ -428,7 +442,7 @@ export function ProcessRun({
               <div className="h-2 rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${Math.min(100, (pollingCurrent / pollingTotal) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (pollingCurrent! / pollingTotal!) * 100)}%` }}
                 />
               </div>
               <p className="mt-1 text-center text-sm text-muted-foreground">
@@ -437,6 +451,26 @@ export function ProcessRun({
             </div>
           )}
         </div>
+
+        {/* D-P-3: timeout warning banner shown after 60 seconds of polling */}
+        {showTimeoutWarning && (
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700"
+            data-qqq-id="process-timeout-warning"
+          >
+            <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <span>This is taking longer than expected.</span>
+            <button
+              type="button"
+              onClick={cancel}
+              className="ml-auto inline-flex items-center rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              data-qqq-id="button-cancel-polling"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -466,9 +500,11 @@ export function ProcessRun({
         {/* Step wizard */}
         {steps.length > 1 && (
           <div className="border-b border-border px-6 pt-6 pb-4">
+            {/* D-P-2: pass onStepClick so completed steps are clickable back-buttons */}
             <StepWizard
               steps={steps}
               currentStepName={currentStep.name}
+              onStepClick={canGoBack ? () => goBack() : undefined}
             />
           </div>
         )}
@@ -491,7 +527,7 @@ export function ProcessRun({
 
         {/* Polling overlay with progress (Fix 6: MED-21 + P4-40) */}
         {state.status === 'polling' && (
-          <div className="border-b border-primary/20 bg-primary/5 px-6 py-3">
+          <div className="border-b border-primary/20 bg-primary/5 px-6 py-3 space-y-2">
             <div className="flex items-center gap-3">
               <Loader2
                 className="h-4 w-4 animate-spin text-primary"
@@ -502,6 +538,25 @@ export function ProcessRun({
               </span>
             </div>
             {renderPollingProgress(state.stepValues)}
+            {/* D-P-3: timeout warning shown after 60 seconds of in-step polling */}
+            {showTimeoutWarning && (
+              <div
+                role="status"
+                className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700"
+                data-qqq-id="process-timeout-warning"
+              >
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <span>This is taking longer than expected.</span>
+                <button
+                  type="button"
+                  onClick={cancel}
+                  className="ml-auto inline-flex items-center rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  data-qqq-id="button-cancel-polling"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -523,7 +578,7 @@ export function ProcessRun({
           )}
 
           {stepType === 'BULK_LOAD' && (
-            <BulkLoadStep {...sharedStepProps} />
+            <BulkLoadStep {...sharedStepProps} processName={processName} />
           )}
 
           {stepType === 'VIEW' && (

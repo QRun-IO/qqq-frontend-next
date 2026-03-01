@@ -28,7 +28,7 @@
 'use client'
 
 import React from 'react'
-import { RefreshCw, HelpCircle, Download } from 'lucide-react'
+import { RefreshCw, HelpCircle, Download, AlertCircle } from 'lucide-react'
 
 import type { QWidgetMetaData, QWidgetDropdown } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -227,8 +227,9 @@ function WidgetSkeleton() {
 /**
  * Renders the inline error state shown when a widget's data fetch fails.
  *
- * Displays the error message and an optional inline "Retry" link button that
- * triggers the supplied onReload callback.
+ * Displays an AlertCircle icon, the error message (or a generic fallback), and
+ * an optional "Retry" link button that triggers the supplied onReload callback.
+ * Styled to match the design spec for D-W-2.
  *
  * @param props - Component properties.
  * @returns The rendered widget error state with an optional retry button.
@@ -247,21 +248,19 @@ function WidgetErrorState({
 }) {
   return (
     <div
-      className="flex flex-col items-center gap-3 py-4 text-center"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground"
       role="alert"
-      data-qqq-id={`widget-error-state-${widgetName}`}
+      data-qqq-id={`widget-error-${widgetName}`}
     >
-      <p className="text-sm text-destructive">
-        {error?.message ?? 'Failed to load widget data'}
-      </p>
+      <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+      <p>{error?.message ?? 'Could not load widget'}</p>
       {onReload && (
         <button
           type="button"
           onClick={onReload}
-          className="inline-flex items-center gap-1.5 text-xs text-primary underline hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring"
+          className="text-xs text-primary underline hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id={`button-widget-retry-inline-${widgetName}`}
         >
-          <RefreshCw className="h-3 w-3" aria-hidden="true" />
           Retry
         </button>
       )}

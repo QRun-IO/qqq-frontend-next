@@ -48,19 +48,26 @@ interface NumberFieldProps {
    * Use `1` for integers/longs; use `"any"` for decimals.
    */
   step?: string | number
+  /** Minimum allowed value from field metadata; displayed as hint text below the input. */
+  minValue?: number | string | null
+  /** Maximum allowed value from field metadata; displayed as hint text below the input. */
+  maxValue?: number | string | null
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
 }
 
 /**
- * Renders an accessible numeric input field with label and validation error display.
+ * Renders an accessible numeric input field with label, optional min/max hint, and validation error display.
  *
  * Used for QQQ field types INTEGER, LONG (with `step={1}`), and DECIMAL
  * (with `step="any"`).  React Hook Form's `valueAsNumber` option ensures
  * the controlled value is a JavaScript number rather than a string.
  *
+ * When `minValue` or `maxValue` is provided, a hint line is rendered below
+ * the input showing the allowed range or bound before any error message.
+ *
  * @param props - See {@link NumberFieldProps}.
- * @returns The rendered numeric input field with label and optional error message.
+ * @returns The rendered numeric input field with label, optional constraint hint, and optional error message.
  */
 export function NumberField({
   id,
@@ -71,8 +78,13 @@ export function NumberField({
   placeholder,
   required = false,
   step,
+  minValue,
+  maxValue,
   'data-qqq-id': dataQqqId,
 }: NumberFieldProps) {
+  const hintId = (minValue != null || maxValue != null) ? `${id}-hint` : undefined
+  const describedByIds = [hintId, error ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined
+
   return (
     <div className="flex flex-col gap-1">
       <label
@@ -92,7 +104,7 @@ export function NumberField({
         placeholder={placeholder}
         aria-required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={describedByIds}
         data-qqq-id={dataQqqId}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',
@@ -106,6 +118,15 @@ export function NumberField({
             : 'border-input'
         )}
       />
+      {(minValue != null || maxValue != null) && (
+        <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
+          {minValue != null && maxValue != null
+            ? `Range: ${minValue} \u2013 ${maxValue}`
+            : minValue != null
+            ? `Minimum: ${minValue}`
+            : `Maximum: ${maxValue}`}
+        </p>
+      )}
       {error && (
         <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}

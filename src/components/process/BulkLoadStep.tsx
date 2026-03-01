@@ -62,6 +62,11 @@ export interface BulkLoadStepProps {
   canGoBack: boolean
   /** Whether this is the final step in the process (controls button label). */
   isLastStep: boolean
+  /**
+   * Technical name of the owning process, used to scope the localStorage save key
+   * for the column mapping (D-P-8).  Optional; when absent, save/load is disabled.
+   */
+  processName?: string
 }
 
 /** Internal React Hook Form values for the file-upload bulk load form. */
@@ -125,24 +130,62 @@ interface SubFormProps {
   isLoading: boolean
   onSubmit: (values: Record<string, unknown>, file?: File) => Promise<void>
   isLastStep: boolean
+  /** Process name used to scope the localStorage mapping save key (D-P-8). */
+  processName?: string
+}
+
+/**
+ * Reads a saved bulk-load mapping from localStorage for the given process.
+ *
+ * @param processName - The process name used as part of the storage key.
+ * @returns Parsed mapping values, or null if nothing is saved.
+ */
+function loadSavedMapping(processName: string): FileUploadFormValues | null {
+  try {
+    const raw = localStorage.getItem(`qqq:bulkload-mapping:${processName}`)
+    if (!raw) return null
+    return JSON.parse(raw) as FileUploadFormValues
+  } catch {
+    return null
+  }
 }
 
 /**
  * File upload sub-form with drag-and-drop, upload mode, and duplicate-handling selects.
  *
+ * D-P-8: includes "Save mapping" and "Load saved mapping" buttons that persist
+ * `uploadMode` and `duplicateHandling` to `localStorage` under the key
+ * `qqq:bulkload-mapping:{processName}`.
+ *
  * @param props - Component properties.
  * @returns The rendered file upload form.
  */
-function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep }: SubFormProps) {
+function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep, processName }: SubFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [savedMappingExists, setSavedMappingExists] = useState(
+    () => !!processName && !!localStorage.getItem(`qqq:bulkload-mapping:${processName}`)
+  )
 
-  const { register, handleSubmit } = useForm<FileUploadFormValues>({
+  const { register, handleSubmit, getValues, reset } = useForm<FileUploadFormValues>({
     defaultValues: {
       uploadMode: (stepValues.uploadMode as string) ?? 'INSERT_OR_UPDATE',
       duplicateHandling: (stepValues.duplicateHandling as string) ?? 'OVERWRITE',
     },
   })
+
+  const handleSaveMapping = () => {
+    if (!processName) return
+    const values = getValues()
+    localStorage.setItem(`qqq:bulkload-mapping:${processName}`, JSON.stringify(values))
+    setSavedMappingExists(true)
+  }
+
+  const handleLoadMapping = () => {
+    if (!processName) return
+    const saved = loadSavedMapping(processName)
+    if (saved) reset(saved)
+  }
 
   const handleFileChange = (file: File | null) => setSelectedFile(file)
 
@@ -276,6 +319,44 @@ function FileUploadForm({ stepValues, isLoading, onSubmit, isLastStep }: SubForm
           </select>
         </div>
       </div>
+
+      {/* D-P-8: save / load mapping buttons (only when processName is provided) */}
+      {processName && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveMapping}
+            disabled={isLoading}
+            data-qqq-id="button-save-mapping"
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              'transition-colors duration-150'
+            )}
+          >
+            Save mapping
+          </button>
+          {savedMappingExists && (
+            <button
+              type="button"
+              onClick={handleLoadMapping}
+              disabled={isLoading}
+              data-qqq-id="button-load-mapping"
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md border border-primary/30 px-3 py-1.5 text-xs font-medium',
+                'text-primary bg-primary/5 hover:bg-primary/10',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'transition-colors duration-150'
+              )}
+            >
+              Load saved mapping
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Hidden submit triggers from outer action bar */}
       <input type="submit" id="bulk-load-submit-trigger" disabled={!selectedFile || isLoading} className="hidden" aria-hidden="true" />
@@ -495,6 +576,7 @@ export function BulkLoadStep({
   onBack,
   canGoBack,
   isLastStep,
+  processName,
 }: BulkLoadStepProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const bulkLoadType = resolveBulkLoadType(step)
@@ -502,7 +584,7 @@ export function BulkLoadStep({
   // Help text from components
   const helpTextComponents = step.components.filter((c) => c.type === 'HELP_TEXT')
 
-  const subFormProps: SubFormProps = { stepValues, isLoading, onSubmit, isLastStep }
+  const subFormProps: SubFormProps = { stepValues, isLoading, onSubmit, isLastStep, processName }
 
   return (
     <div className="space-y-6" data-qqq-id={`process-bulk-load-step-${step.name}`}>

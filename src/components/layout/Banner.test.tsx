@@ -17,7 +17,7 @@
 // Tests for Banner component
 
 import React from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
@@ -25,6 +25,9 @@ import BannerComponent from './Banner'
 import type { Banner } from '@/types'
 
 describe('Banner', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
   const banners: Record<string, Banner> = {
     QFMD_TOP_OF_SITE: {
       text: 'This is a test environment',

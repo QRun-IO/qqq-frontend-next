@@ -41,6 +41,16 @@
   --color-chart-3: #f59e0b;
   --color-chart-4: #8b5cf6;
   --color-chart-5: #ec4899;
+  /* D-W-6: Extended chart palette (6–10) */
+  --color-chart-6: #06b6d4;   /* cyan */
+  --color-chart-7: #84cc16;   /* lime */
+  --color-chart-8: #f97316;   /* orange */
+  --color-chart-9: #6366f1;   /* indigo */
+  --color-chart-10: #14b8a6;  /* teal */
+
+  /* D-T-6: Dedicated disabled-state tokens */
+  --color-disabled-bg: #e5e7eb;
+  --color-disabled-text: #9ca3af;
 }
 
 @import "./qqq-theme.css";
@@ -68,6 +78,14 @@
     outline: 3px solid color-mix(in oklch, var(--color-ring) 50%, transparent);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+}
+
+/* D-T-5: Solid focus ring on dark backgrounds — the color-mix 50% opacity used in
+ * the default rule can disappear against dark surfaces. A solid ring is always visible. */
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: var(--color-ring);
   }
 }
 

@@ -63,13 +63,36 @@ const severityConfig = {
   },
 } as const
 
+/** localStorage key used to persist dismissed banner IDs across page loads. */
+const STORAGE_KEY = 'qqq:dismissed-banners'
+
+/**
+ * Reads the array of dismissed banner keys stored in localStorage.
+ *
+ * Returns an empty array when localStorage is unavailable (e.g. SSR) or the
+ * stored value cannot be parsed as a JSON array of strings.
+ *
+ * @returns An array of previously dismissed banner key strings.
+ */
+function readStoredDismissed(): string[] {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as string[]) : []
+  } catch {
+    return []
+  }
+}
+
 /**
  * Renders one or more dismissible banners at the top of the page.
  *
  * Banners are keyed by an arbitrary string (e.g. `QFMD_TOP_OF_SITE`).
  * Severity determines icon and color tokens used; the `color` field on an
  * individual banner overrides the default background. Dismissed banners are
- * tracked in local state and optionally reported via `onDismiss`.
+ * persisted in `localStorage` under `'qqq:dismissed-banners'` so they do
+ * not reappear on page reload.
  *
  * @param props - Component properties.
  * @returns A `role="region"` container with one `role="alert"` banner per
@@ -78,7 +101,7 @@ const severityConfig = {
  *   dismissed.
  */
 export default function BannerComponent({ banners, onDismiss }: BannerProps) {
-  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set())
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(() => new Set(readStoredDismissed()))
 
   const bannerKeys = Object.keys(banners)
 
@@ -89,12 +112,21 @@ export default function BannerComponent({ banners, onDismiss }: BannerProps) {
   if (visibleBanners.length === 0) return null
 
   /**
-   * Marks a banner as dismissed in local state and propagates the event upward.
+   * Marks a banner as dismissed in local state, persists the updated list to
+   * localStorage, and propagates the event upward via `onDismiss`.
    *
    * @param key - The banner key to dismiss.
    */
   const handleDismiss = (key: string) => {
-    setDismissedKeys((prev) => new Set([...prev, key]))
+    setDismissedKeys((prev) => {
+      const next = new Set([...prev, key])
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]))
+      } catch {
+        // localStorage may be unavailable (private browsing, storage quota)
+      }
+      return next
+    })
     onDismiss?.(key)
   }
 

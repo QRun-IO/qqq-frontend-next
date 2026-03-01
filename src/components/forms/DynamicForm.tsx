@@ -60,6 +60,14 @@ export interface DynamicFormProps {
   /** When `true`, all fields are rendered in a disabled, read-only state. */
   disabled?: boolean
 
+  /**
+   * Map of field names to a boolean indicating whether that field has been
+   * modified from its default value.  When `true` for a field, the field
+   * renders with a left-border accent to highlight the change.
+   * Typically sourced from `formState.dirtyFields` in React Hook Form.
+   */
+  dirtyFields?: Record<string, boolean>
+
   /** Optional heading rendered above the field grid. */
   formLabel?: string
 
@@ -95,6 +103,7 @@ export function DynamicForm({
   fieldNamesToInclude,
   possibleValueContext,
   disabled = false,
+  dirtyFields,
   formLabel,
   className,
 }: DynamicFormProps) {
@@ -208,6 +217,7 @@ export function DynamicForm({
                         control={control}
                         errors={errors}
                         disabled={disabled}
+                        isDirty={dirtyFields?.[f.name] === true}
                         possibleValueContext={possibleValueContext}
                       />
                     </div>
@@ -241,6 +251,7 @@ export function DynamicForm({
               control={control}
               errors={errors}
               disabled={disabled}
+              isDirty={dirtyFields?.[f.name] === true}
               possibleValueContext={possibleValueContext}
             />
           </div>

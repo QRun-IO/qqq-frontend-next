@@ -19,7 +19,7 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   LineChart,
   Line,
@@ -111,9 +111,11 @@ function formatYAxis(value: number): string {
  * Renders a responsive line chart using Recharts.
  *
  * Dispatched by `WidgetRenderer` for `'lineChart'`-type widgets (lazy-loaded).
- * Displays a `<Legend>` when more than one data series is present.  Y-axis
- * values are formatted with K/M suffixes for large numbers via `formatYAxis`.
- * Shows an empty-state message when the normalized data set contains no entries.
+ * Displays a `<Legend>` when more than one data series is present, switching to
+ * `layout="vertical"` when the container width drops below 400 px (tracked via
+ * ResizeObserver).  Y-axis values are formatted with K/M suffixes for large numbers
+ * via `formatYAxis`.  Shows an empty-state message when the normalized data set
+ * contains no entries.
  *
  * @param props - Component properties; `data.datasets` provides multi-series data
  *   (Shape A), `data.data` provides single-series data (Shape B).
@@ -121,6 +123,23 @@ function formatYAxis(value: number): string {
  */
 export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)
+
+  // Track container width for responsive Legend layout
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(600)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   if (entries.length === 0) {
     return (
@@ -133,8 +152,10 @@ export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
     )
   }
 
+  const legendLayout = containerWidth < 400 ? 'vertical' : 'horizontal'
+
   return (
-    <div data-qqq-id={`line-chart-${widgetName}`}>
+    <div ref={containerRef} data-qqq-id={`line-chart-${widgetName}`}>
       {data.title && (
         <p className="mb-3 text-xs font-medium text-muted-foreground">
           {data.title}
@@ -169,7 +190,9 @@ export function LineChartWidget({ data, widgetName }: LineChartWidgetProps) {
               fontSize: '12px',
             }}
           />
-          {dataKeys.length > 1 && <Legend wrapperStyle={{ fontSize: '11px' }} />}
+          {dataKeys.length > 1 && (
+            <Legend layout={legendLayout} wrapperStyle={{ fontSize: '11px' }} />
+          )}
           {dataKeys.map(({ key, color }) => (
             <Line
               key={key}

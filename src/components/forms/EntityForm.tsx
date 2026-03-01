@@ -146,7 +146,7 @@ export function EntityForm({
     register,
     control,
     handleSubmit,
-    formState: { errors, isDirty, isSubmitting },
+    formState: { errors, isDirty, isSubmitting, dirtyFields },
     reset,
   } = useForm<Record<string, unknown>>({
     resolver: zodResolver(schema),
@@ -345,6 +345,7 @@ export function EntityForm({
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
         disabled={disabled || isSubmitting}
+        dirtyFields={dirtyFields as Record<string, boolean>}
       />
 
       {/* Actions — sticky on mobile, static on desktop */}

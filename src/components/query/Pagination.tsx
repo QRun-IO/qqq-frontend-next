@@ -69,20 +69,26 @@ export function Pagination({
   onPageSizeChange,
 }: PaginationProps) {
   const [goToPage, setGoToPage] = useState('')
+  const [goToPageError, setGoToPageError] = useState<string | null>(null)
 
   const startRecord = totalCount === 0 ? 0 : (pageNum - 1) * pageSize + 1
   const endRecord = Math.min(pageNum * pageSize, totalCount)
 
   /**
    * Parses the "Go to page" input value and navigates if it is a valid page number.
-   * Resets the input after a successful navigation.
+   * Sets an inline error when the value is out of range. Resets the input after
+   * a successful navigation.
    */
   const handleGoToPage = () => {
     const p = parseInt(goToPage, 10)
-    if (!isNaN(p) && p >= 1 && p <= totalPages) {
-      onPageChange(p)
-      setGoToPage('')
+    if (isNaN(p)) return
+    if (p < 1 || p > totalPages) {
+      setGoToPageError(`Page must be between 1 and ${totalPages}`)
+      return
     }
+    setGoToPageError(null)
+    onPageChange(p)
+    setGoToPage('')
   }
 
   /**
@@ -126,7 +132,7 @@ export function Pagination({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSize)}
-            className="rounded border border-input bg-background px-2 py-1 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            className="min-h-[44px] rounded border border-input bg-background px-2 py-1 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
             aria-label="Rows per page"
             data-qqq-id="pagination-page-size"
           >
@@ -146,7 +152,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(1)}
           disabled={pageNum <= 1 || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="First page"
           data-qqq-id="pagination-first"
         >
@@ -158,7 +164,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(pageNum - 1)}
           disabled={pageNum <= 1 || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Previous page"
           data-qqq-id="pagination-prev"
         >
@@ -175,7 +181,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(pageNum + 1)}
           disabled={pageNum >= totalPages || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Next page"
           data-qqq-id="pagination-next"
         >
@@ -187,7 +193,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(totalPages)}
           disabled={pageNum >= totalPages || isFetching}
-          className="inline-flex h-8 w-8 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Last page"
           data-qqq-id="pagination-last"
         >
@@ -200,19 +206,31 @@ export function Pagination({
             <label htmlFor="goto-page" className="text-sm text-muted-foreground">
               Go to:
             </label>
-            <input
-              id="goto-page"
-              type="number"
-              min={1}
-              max={totalPages}
-              value={goToPage}
-              onChange={(e) => setGoToPage(e.target.value)}
-              onKeyDown={handleGoToPageKeyDown}
-              onBlur={handleGoToPage}
-              className="w-16 rounded border border-input bg-background px-2 py-1 text-center text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-              aria-label="Go to page number"
-              data-qqq-id="pagination-goto"
-            />
+            <div className="flex flex-col">
+              <input
+                id="goto-page"
+                type="number"
+                min={1}
+                max={totalPages}
+                value={goToPage}
+                onChange={(e) => {
+                  setGoToPage(e.target.value)
+                  setGoToPageError(null)
+                }}
+                onKeyDown={handleGoToPageKeyDown}
+                onBlur={handleGoToPage}
+                className={`w-16 rounded border bg-background px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-ring ${goToPageError ? 'border-destructive focus:border-destructive focus:ring-destructive' : 'border-input focus:border-primary'}`}
+                aria-label="Go to page number"
+                aria-describedby={goToPageError ? 'goto-page-error' : undefined}
+                aria-invalid={goToPageError ? true : undefined}
+                data-qqq-id="pagination-goto"
+              />
+              {goToPageError && (
+                <p id="goto-page-error" className="text-xs text-destructive mt-0.5" role="alert">
+                  {goToPageError}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

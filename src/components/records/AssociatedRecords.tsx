@@ -48,12 +48,19 @@ interface AssociatedRecordsProps {
   className?: string
 }
 
+/** Number of associated records to show per page/batch. */
+const PAGE_SIZE = 25
+
 /**
  * AssociatedRecords — renders a table of child/related records for a given join.
  *
  * Displays column headers derived from the join table's visible fields, a
  * "View All" link when a foreign-key field can be resolved, and an inline
  * create dialog when the join table allows inserts.
+ *
+ * Records are shown in batches of {@link PAGE_SIZE} (25). When there are more
+ * than 25 records a "Show more" button is rendered below the table to reveal
+ * the next batch, until all records are visible.
  *
  * @param props - Component properties.
  * @returns A `<section>` with a heading (join label + count badge), optional
@@ -74,6 +81,7 @@ export function AssociatedRecords({
 }: AssociatedRecordsProps) {
   const joinTableMetaData = join.joinTable
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   if (!joinTableMetaData) return null
 
@@ -162,90 +170,112 @@ export function AssociatedRecords({
           No {join.label} records
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border">
-          <table
-            className="min-w-full divide-y divide-border"
-            aria-label={`${join.label} records`}
-          >
-            <thead className="bg-muted">
-              <tr>
-                {visibleFields.map((field) => (
-                  <th
-                    key={field.name}
-                    scope="col"
-                    className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground"
-                    data-qqq-id={`grid-header-${field.name}`}
-                  >
-                    {field.label}
-                  </th>
-                ))}
-                {joinTableMetaData.readPermission && (
-                  <th scope="col" className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-card">
-              {records.map((childRecord, rowIdx) => {
-                const childPk =
-                  childRecord.values[joinTableMetaData.primaryKeyField] as string | number
-                const recordHref = joinTableMetaData.readPermission && childPk !== undefined
-                  ? `/app/${joinTableMetaData.name}/${childPk}${fromParamsFirst}`
-                  : undefined
-                return (
-                  <tr
-                    key={childPk ?? rowIdx}
-                    className="hover:bg-accent transition-colors"
-                    data-qqq-id={`assoc-row-${joinTableMetaData.name}-${childPk}`}
-                  >
-                    {visibleFields.map((field, fieldIdx) => (
-                      <td
-                        key={field.name}
-                        className="whitespace-nowrap px-3 py-2 text-sm"
-                        data-qqq-id={`grid-cell-${field.name}`}
-                      >
-                        {fieldIdx <= 1 && recordHref ? (
-                          <RecordHoverCard
-                            tableName={joinTableMetaData.name}
-                            primaryKey={childPk}
-                            tableMetaData={joinTableMetaData}
-                            navigateFrom={navigateFrom}
-                          >
-                            <Link
-                              href={recordHref}
-                              className="text-primary hover:text-primary/80 hover:underline"
-                              aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
-                            >
-                              {childRecord.displayValues?.[field.name] ?? String(childRecord.values[field.name] ?? '')}
-                            </Link>
-                          </RecordHoverCard>
-                        ) : (
-                          <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
-                        )}
-                      </td>
-                    ))}
-                    {recordHref && (
-                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm">
-                        <Link
-                          href={recordHref}
-                          className={cn(
-                            'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
-                            'focus:outline-none focus:underline'
-                          )}
-                          data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}
+        <>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table
+              className="min-w-full divide-y divide-border"
+              aria-label={`${join.label} records`}
+            >
+              <thead className="bg-muted">
+                <tr>
+                  {visibleFields.map((field) => (
+                    <th
+                      key={field.name}
+                      scope="col"
+                      className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground"
+                      data-qqq-id={`grid-header-${field.name}`}
+                    >
+                      {field.label}
+                    </th>
+                  ))}
+                  {joinTableMetaData.readPermission && (
+                    <th scope="col" className="px-3 py-2.5 text-right text-xs font-medium text-muted-foreground">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border bg-card">
+                {records.slice(0, visibleCount).map((childRecord, rowIdx) => {
+                  const childPk =
+                    childRecord.values[joinTableMetaData.primaryKeyField] as string | number
+                  const recordHref = joinTableMetaData.readPermission && childPk !== undefined
+                    ? `/app/${joinTableMetaData.name}/${childPk}${fromParamsFirst}`
+                    : undefined
+                  return (
+                    <tr
+                      key={childPk ?? rowIdx}
+                      className="hover:bg-accent transition-colors"
+                      data-qqq-id={`assoc-row-${joinTableMetaData.name}-${childPk}`}
+                    >
+                      {visibleFields.map((field, fieldIdx) => (
+                        <td
+                          key={field.name}
+                          className="whitespace-nowrap px-3 py-2 text-sm"
+                          data-qqq-id={`grid-cell-${field.name}`}
                         >
-                          View
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                        </Link>
-                      </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                          {fieldIdx <= 1 && recordHref ? (
+                            <RecordHoverCard
+                              tableName={joinTableMetaData.name}
+                              primaryKey={childPk}
+                              tableMetaData={joinTableMetaData}
+                              navigateFrom={navigateFrom}
+                            >
+                              <Link
+                                href={recordHref}
+                                className="text-primary hover:text-primary/80 hover:underline"
+                                aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
+                              >
+                                {childRecord.displayValues?.[field.name] ?? String(childRecord.values[field.name] ?? '')}
+                              </Link>
+                            </RecordHoverCard>
+                          ) : (
+                            <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
+                          )}
+                        </td>
+                      ))}
+                      {recordHref && (
+                        <td className="whitespace-nowrap px-3 py-2 text-right text-sm">
+                          <Link
+                            href={recordHref}
+                            className={cn(
+                              'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
+                              'focus:outline-none focus:underline'
+                            )}
+                            data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}
+                          >
+                            View
+                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          </Link>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Show more — reveals next batch of PAGE_SIZE records */}
+          {visibleCount < records.length && (
+            <div className="flex items-center justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium',
+                  'text-muted-foreground bg-card hover:bg-accent hover:text-foreground',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                  'transition-colors duration-150'
+                )}
+                data-qqq-id={`button-show-more-${joinTableMetaData.name}`}
+                aria-label={`Show more ${join.label} records`}
+              >
+                Show more ({records.length - visibleCount} remaining)
+              </button>
+            </div>
+          )}
+        </>
       )}
       {/* Create child record dialog */}
       {joinTableMetaData.insertPermission && (

@@ -3,10 +3,15 @@
 /* These are the default values — overridden by ThemeProvider from backend metadata */
 
 :root {
-  /* === Brand Colors === */
-  --qqq-primary-color: #2563eb;
+  /* === Aliases: --qqq-* color tokens read from canonical Tailwind v4 --color-* values === */
+  /* These ensure that any component using --qqq-primary-color / --qqq-accent-color
+     automatically picks up runtime theme overrides applied to the --color-* tokens. */
+  --qqq-primary-color: var(--color-primary);
+  --qqq-accent-color: var(--color-primary);
+  --qqq-sidebar-active-bg: var(--color-primary);
+
+  /* === Brand Colors (fallback literals — used when --color-* tokens are not yet resolved) === */
   --qqq-secondary-color: #9c27b0;
-  --qqq-accent-color: #2563eb;
 
   /* === Semantic Colors === */
   --qqq-success-color: #10b981;
@@ -20,7 +25,7 @@
   --qqq-sidebar-text-muted: #6b7280;
   --qqq-sidebar-hover: #e5e8ee;
   --qqq-sidebar-active: #ffffff;
-  --qqq-sidebar-active-bg: #2563eb;
+  /* --qqq-sidebar-active-bg is aliased to var(--color-primary) at the top of this block */
   --qqq-sidebar-border: #e2e5eb;
   --qqq-sidebar-width: 256px;
   --sidebar-width: 256px;
@@ -149,7 +154,7 @@
   --qqq-sidebar-text-muted: #737373;
   --qqq-sidebar-hover: #262626;
   --qqq-sidebar-active: #ffffff;
-  --qqq-sidebar-active-bg: #3b82f6;
+  --qqq-sidebar-active-bg: var(--color-primary);
   --qqq-sidebar-border: #262626;
 
   --qqq-grid-header-bg: #1e293b;
@@ -169,4 +174,8 @@
   --qqq-input-text: #f9fafb;
   --qqq-input-placeholder: #6b7280;
   --qqq-label-text: #d1d5db;
+
+  /* D-T-6: Dark mode disabled-state token overrides */
+  --color-disabled-bg: #374151;
+  --color-disabled-text: #6b7280;
 }

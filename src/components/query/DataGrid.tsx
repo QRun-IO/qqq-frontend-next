@@ -534,6 +534,16 @@ export function DataGrid({
   // ------------------------------------------------------------------
   return (
     <div className="relative w-full overflow-x-auto" data-qqq-id={`grid-${tableName}`}>
+      {/* D-Q-6: SR announcement for background refetches */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {isFetching ? 'Loading results' : ''}
+      </div>
+
       {isFetching && (
         <div className="absolute inset-x-0 top-0 h-0.5 bg-primary/20 overflow-hidden z-10">
           <div className="h-full bg-primary animate-[slideRight_1s_ease-in-out_infinite]" />
@@ -547,7 +557,7 @@ export function DataGrid({
               key={headerGroup.id}
               className="border-b border-border bg-muted"
             >
-              {headerGroup.headers.map((header) => {
+              {headerGroup.headers.map((header, colIndex) => {
                 // Compute aria-sort for sortable columns
                 const isSelectCol = header.id === '_select'
                 const sortInfo = !isSelectCol
@@ -562,11 +572,19 @@ export function DataGrid({
                       : 'descending'
                     : 'none'
 
+                // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
+                const stickyClass =
+                  colIndex === 0
+                    ? 'sticky left-0 z-[1] bg-muted'
+                    : colIndex === 1
+                      ? 'sticky left-[44px] z-[1] bg-muted'
+                      : ''
+
                 return (
                   <th
                     key={header.id}
                     scope="col"
-                    className={`group relative text-left font-semibold text-foreground select-none ${cellClass}`}
+                    className={`group relative text-left font-semibold text-foreground select-none ${cellClass} ${stickyClass}`}
                     style={{ width: `${header.getSize()}px` }}
                     aria-sort={ariaSortValue}
                   >
@@ -608,18 +626,28 @@ export function DataGrid({
               onClick={() => handleRowClick(row.original)}
               data-qqq-id={`grid-row-${row.index}`}
             >
-              {row.getVisibleCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass}`}
-                  style={{ width: `${cell.column.getSize()}px` }}
-                  data-qqq-id={`grid-cell-${cell.column.id}`}
-                  tabIndex={0}
-                  onKeyDown={handleCellKeyDown}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+              {row.getVisibleCells().map((cell, colIndex) => {
+                // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
+                const cellStickyClass =
+                  colIndex === 0
+                    ? 'sticky left-0 z-[1] bg-card'
+                    : colIndex === 1
+                      ? 'sticky left-[44px] z-[1] bg-card'
+                      : ''
+
+                return (
+                  <td
+                    key={cell.id}
+                    className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass}`}
+                    style={{ width: `${cell.column.getSize()}px` }}
+                    data-qqq-id={`grid-cell-${cell.column.id}`}
+                    tabIndex={0}
+                    onKeyDown={handleCellKeyDown}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                )
+              })}
             </tr>
           ))}
         </tbody>

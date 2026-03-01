@@ -15,7 +15,7 @@
  */
 
 /**
- * @file DateTimeField — datetime-local input form field with label, validation error display, and accessibility attributes.
+ * @file DateTimeField — datetime-local input form field with label, timezone hint, validation error display, and accessibility attributes.
  */
 
 'use client'
@@ -46,14 +46,15 @@ interface DateTimeFieldProps {
 }
 
 /**
- * Renders an accessible datetime-local input field with label and validation error display.
+ * Renders an accessible datetime-local input field with label, timezone hint, and validation error display.
  *
  * Uses `<input type="datetime-local">` which provides combined date + time
  * picker UI in supported browsers.  The value format is `YYYY-MM-DDTHH:mm`
- * as managed by the browser.
+ * as managed by the browser.  A small hint line identifies the user's local
+ * timezone so there is no ambiguity about which timezone is assumed.
  *
  * @param props - See {@link DateTimeFieldProps}.
- * @returns The rendered datetime input field with label and optional error message.
+ * @returns The rendered datetime input field with label, timezone hint, and optional error message.
  */
 export function DateTimeField({
   id,
@@ -64,6 +65,10 @@ export function DateTimeField({
   required = false,
   'data-qqq-id': dataQqqId,
 }: DateTimeFieldProps) {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const hintId = `${id}-tz-hint`
+  const describedByIds = [hintId, error ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined
+
   return (
     <div className="flex flex-col gap-1">
       <label
@@ -81,7 +86,7 @@ export function DateTimeField({
         disabled={disabled}
         aria-required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={describedByIds}
         data-qqq-id={dataQqqId}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',
@@ -94,6 +99,9 @@ export function DateTimeField({
             : 'border-input'
         )}
       />
+      <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
+        Your local time ({timeZone})
+      </p>
       {error && (
         <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
           {error.message}

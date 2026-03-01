@@ -21,7 +21,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Bell, Menu } from 'lucide-react'
+import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
@@ -35,6 +35,10 @@ export interface HeaderProps {
   appName?: string
   /** Called when the mobile hamburger menu button is clicked to open the sidebar drawer. */
   onMenuOpen?: () => void
+  /** Called when the mobile search icon button is clicked to open the search dialog. */
+  onSearchOpen?: () => void
+  /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
+  onHelpOpen?: () => void
   /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
   /** Maps flat child paths to their parent app, passed through to Breadcrumbs for injection. */
@@ -47,7 +51,9 @@ export interface HeaderProps {
  * Provides breadcrumb navigation on the left and a global search pill plus
  * notifications bell on the right. On viewports narrower than the `md`
  * breakpoint the breadcrumbs are replaced by a hamburger button that invokes
- * `onMenuOpen`, and the global search is hidden.
+ * `onMenuOpen`, and the global search is hidden. A search icon button and a
+ * keyboard-shortcuts help button are shown on mobile in place of the full
+ * search pill.
  *
  * @param props - Component properties.
  * @returns A `<header>` element with `height: var(--qqq-header-height)` that
@@ -55,7 +61,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
+export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (
@@ -78,10 +84,30 @@ export default function Header({ onMenuOpen, pathToLabelMap = {}, parentAppMap =
         <Breadcrumbs pathToLabelMap={pathToLabelMap} parentAppMap={parentAppMap} />
       </div>
 
-      {/* Right section: search + notifications */}
+      {/* Right section: search + help + notifications */}
       <div className="flex items-center gap-3">
+        {/* Mobile search icon — only visible below md breakpoint */}
+        <button
+          onClick={onSearchOpen}
+          className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Open search"
+          data-qqq-id="button-mobile-search"
+        >
+          <Search className="h-5 w-5" aria-hidden="true" />
+        </button>
+
         {/* Global search — hidden on mobile */}
         <GlobalSearch className="hidden md:block" />
+
+        {/* Keyboard shortcuts hint */}
+        <button
+          onClick={onHelpOpen}
+          className="rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Keyboard shortcuts (?)"
+          data-qqq-id="button-keyboard-shortcuts"
+        >
+          <HelpCircle className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+        </button>
 
         {/* Notifications bell */}
         <button

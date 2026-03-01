@@ -90,7 +90,7 @@ export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: Bread
 
   return (
     <nav
-      className="flex items-center gap-2 text-sm"
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
@@ -101,7 +101,7 @@ export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: Bread
           )}
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="font-semibold text-foreground"
+              className="max-w-[10rem] truncate font-semibold text-foreground"
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >
@@ -110,7 +110,7 @@ export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: Bread
           ) : (
             <Link
               href={crumb.path}
-              className="text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="max-w-[8rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-qqq-id={`breadcrumb-link-${index}`}
             >
               {crumb.label}

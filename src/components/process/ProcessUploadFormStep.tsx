@@ -23,6 +23,9 @@
  *
  * Accepted file types are read from the component's `values.acceptedTypes` field;
  * if absent, all file types are accepted.
+ *
+ * D-P-5: an indeterminate progress bar is displayed while `isLoading` is true
+ * (i.e. while the upload submission is in flight).
  */
 'use client'
 
@@ -215,6 +218,19 @@ export function ProcessUploadFormStep({
           </div>
         )}
       </div>
+
+      {/* D-P-5: indeterminate progress bar shown while upload is in progress */}
+      {isLoading && (
+        <div
+          className="overflow-hidden rounded-full h-1 w-full bg-muted"
+          role="progressbar"
+          aria-label="Upload in progress"
+          aria-busy="true"
+          data-qqq-id="upload-form-progress-bar"
+        >
+          <div className="h-full w-1/3 rounded-full bg-primary animate-[slideRight_1.2s_ease-in-out_infinite]" />
+        </div>
+      )}
 
       {/* Actions */}
       <div className="sticky bottom-0 z-10 -mx-6 border-t border-border bg-card px-6 py-3 md:relative md:bottom-auto">

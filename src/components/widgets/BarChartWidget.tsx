@@ -20,7 +20,7 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   BarChart,
   Bar,
@@ -171,8 +171,9 @@ const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '
  * Dispatched by `WidgetRenderer` for `'barChart'`-type widgets (lazy-loaded).
  * Supports vertical bars (default), horizontal bars (`data.orientation === 'horizontal'`),
  * and stacked multi-series bars (`data.stacked === true`).  A `<Legend>` is only
- * shown when more than one data key is present.  Shows an empty-state message
- * when the normalized data set contains no entries.
+ * shown when more than one data key is present, and switches to `layout="vertical"`
+ * when the container width is below 400 px (tracked via ResizeObserver).  Shows an
+ * empty-state message when the normalized data set contains no entries.
  *
  * @param props - Component properties; `data.orientation` and `data.stacked` control
  *   the chart layout; `data.title` is rendered above the chart when provided.
@@ -181,6 +182,23 @@ const DEFAULT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '
 export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
   const { entries, dataKeys } = normalizeChartData(data)
   const isHorizontal = data.orientation === 'horizontal'
+
+  // Track container width for responsive Legend layout
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(600)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   if (entries.length === 0) {
     return (
@@ -193,8 +211,10 @@ export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
     )
   }
 
+  const legendLayout = containerWidth < 400 ? 'vertical' : 'horizontal'
+
   return (
-    <div data-qqq-id={`bar-chart-${widgetName}`}>
+    <div ref={containerRef} data-qqq-id={`bar-chart-${widgetName}`}>
       {data.title && (
         <p className="mb-3 text-xs font-medium text-muted-foreground">
           {data.title}
@@ -249,7 +269,9 @@ export function BarChartWidget({ data, widgetName }: BarChartWidgetProps) {
               fontSize: '12px',
             }}
           />
-          {dataKeys.length > 1 && <Legend wrapperStyle={{ fontSize: '11px' }} />}
+          {dataKeys.length > 1 && (
+            <Legend layout={legendLayout} wrapperStyle={{ fontSize: '11px' }} />
+          )}
           {dataKeys.map(({ key, color, stack }) => (
             <Bar
               key={key}

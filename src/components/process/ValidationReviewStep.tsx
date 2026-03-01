@@ -20,11 +20,14 @@
  * Displays summary stat cards (total, valid, warnings, errors), a status banner,
  * and a detailed validation row table.  Proceeding is blocked when there are
  * errors; warnings allow proceeding with a caution message.
+ *
+ * D-P-4: includes severity filter buttons (All / Errors / Warnings) with count
+ * badges, and a text search input that filters by field name or message text.
  */
 'use client'
 
-import React, { useState } from 'react'
-import { AlertTriangle, AlertCircle, CheckCircle, ChevronRight, X } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import { AlertTriangle, AlertCircle, CheckCircle, ChevronRight, X, Search } from 'lucide-react'
 
 import type { QFrontendStepMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -121,6 +124,9 @@ function getSummary(rows: ValidationRow[]) {
  * @returns A `<div>` containing stat cards, a status alert, an optional table of
  *   validation rows, and a sticky navigation bar.
  */
+/** Filter options for the validation row list (D-P-4). */
+type ValidationFilter = 'all' | 'error' | 'warning'
+
 export function ValidationReviewStep({
   step,
   stepValues,
@@ -132,6 +138,10 @@ export function ValidationReviewStep({
   isLastStep,
 }: ValidationReviewStepProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
+  // D-P-4: filter and search state
+  const [filter, setFilter] = useState<ValidationFilter>('all')
+  const [search, setSearch] = useState('')
+
   const rows = parseValidationRows(stepValues)
   const { errors, warnings } = getSummary(rows)
 
@@ -142,6 +152,22 @@ export function ValidationReviewStep({
 
   const hasErrors = errorCount > 0
   const canProceed = !hasErrors
+
+  // D-P-4: derived filtered + searched row list
+  const filteredRows = useMemo(() => {
+    let result = rows
+    if (filter === 'error') result = result.filter((r) => r.type === 'ERROR')
+    else if (filter === 'warning') result = result.filter((r) => r.type === 'WARNING')
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      result = result.filter(
+        (r) =>
+          (r.fieldName?.toLowerCase().includes(q) ?? false) ||
+          r.message.toLowerCase().includes(q)
+      )
+    }
+    return result
+  }, [rows, filter, search])
 
   return (
     <div className="space-y-6" data-qqq-id={`process-validation-step-${step.name}`}>
@@ -209,6 +235,66 @@ export function ValidationReviewStep({
         </div>
       )}
 
+      {/* D-P-4: filter + search controls — only shown when there are validation rows */}
+      {rows.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Severity filter buttons */}
+          <div className="flex items-center gap-2" role="group" aria-label="Filter validation rows by severity">
+            {(
+              [
+                { key: 'all', label: 'All', count: rows.length },
+                { key: 'error', label: 'Errors', count: errors },
+                { key: 'warning', label: 'Warnings', count: warnings },
+              ] as { key: ValidationFilter; label: string; count: number }[]
+            ).map(({ key, label, count }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={filter === key}
+                data-qqq-id={`validation-filter-${key}`}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                  filter === key
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:bg-accent'
+                )}
+              >
+                {label}
+                <span
+                  className={cn(
+                    'inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px]',
+                    filter === key
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Search input */}
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search field or message…"
+              aria-label="Search validation rows"
+              data-qqq-id="validation-search"
+              className="rounded-md border border-input bg-card py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Validation rows table */}
       {rows.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border">
@@ -245,42 +331,50 @@ export function ValidationReviewStep({
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-card">
-              {rows.map((row, idx) => (
-                <tr
-                  key={idx}
-                  className="hover:bg-accent"
-                  data-qqq-id={`validation-row-${idx}`}
-                >
-                  <td className="px-4 py-3 text-sm">
-                    {row.type === 'ERROR' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                        <AlertCircle className="h-3 w-3" aria-hidden="true" />
-                        Error
-                      </span>
-                    )}
-                    {row.type === 'WARNING' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-                        Warning
-                      </span>
-                    )}
-                    {row.type === 'INFO' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        Info
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {row.rowNumber ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
-                    {row.fieldName ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-foreground">
-                    {row.message}
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    No results match your filter or search.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRows.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className="hover:bg-accent"
+                    data-qqq-id={`validation-row-${idx}`}
+                  >
+                    <td className="px-4 py-3 text-sm">
+                      {row.type === 'ERROR' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                          <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                          Error
+                        </span>
+                      )}
+                      {row.type === 'WARNING' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                          Warning
+                        </span>
+                      )}
+                      {row.type === 'INFO' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          Info
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {row.rowNumber ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
+                      {row.fieldName ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-foreground">
+                      {row.message}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

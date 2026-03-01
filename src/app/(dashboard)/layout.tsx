@@ -316,6 +316,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <Header
           appName={metaData?.branding?.appName}
           onMenuOpen={() => setSidebarOpen(true)}
+          onSearchOpen={() => setSearchOpen(true)}
+          onHelpOpen={() => setHelpOpen(true)}
           pathToLabelMap={pathToLabelMap}
           parentAppMap={parentAppMap}
         />

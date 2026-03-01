@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Eye, EyeOff, GripVertical, X } from 'lucide-react'
 
 import type { QTableMetaData } from '@/types'
@@ -76,6 +76,16 @@ export function ColumnConfig({
 
   const [fields, setFields] = useState(sortedFields)
 
+  // D-Q-7: SR announcement for column toggle
+  const [lastAnnouncement, setLastAnnouncement] = useState<string>('')
+
+  // Clear the SR announcement after 3 seconds
+  useEffect(() => {
+    if (!lastAnnouncement) return
+    const id = setTimeout(() => setLastAnnouncement(''), 3000)
+    return () => clearTimeout(id)
+  }, [lastAnnouncement])
+
   // Drag state
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -92,9 +102,12 @@ export function ColumnConfig({
    * @param fieldName - The backend field name of the column to toggle.
    */
   const toggleVisibility = (fieldName: string) => {
+    const willBeVisible = columnVisibility[fieldName] === false
+    const fieldLabel = fields.find((f) => f.name === fieldName)?.label ?? fieldName
+    setLastAnnouncement(willBeVisible ? `Column ${fieldLabel} visible` : `Column ${fieldLabel} hidden`)
     onVisibilityChange({
       ...columnVisibility,
-      [fieldName]: columnVisibility[fieldName] !== false ? false : true,
+      [fieldName]: willBeVisible ? true : false,
     })
   }
 
@@ -226,7 +239,7 @@ export function ColumnConfig({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           aria-label="Close column configuration"
           data-qqq-id="column-config-close"
         >
@@ -253,6 +266,16 @@ export function ColumnConfig({
         >
           Hide all
         </button>
+      </div>
+
+      {/* D-Q-7: SR-only live region for column toggle announcements */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {lastAnnouncement}
       </div>
 
       {/* Column list */}

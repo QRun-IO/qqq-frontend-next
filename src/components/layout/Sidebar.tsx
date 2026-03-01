@@ -262,26 +262,38 @@ export default function Sidebar({
         role="navigation"
         aria-label="App navigation"
       >
-        <ul className="space-y-0.5" role="list">
-          {routes.map((route) =>
-            route.type === 'collapse' && route.children?.length ? (
-              <SidebarCollapseItem
-                key={route.path}
-                route={route}
-                isOpen={openCollapses[route.path] ?? false}
-                onToggle={() => toggleCollapse(route.path)}
-                isActive={pathname.startsWith(route.path)}
-                pathname={pathname}
+        {routes.length === 0 ? (
+          /* Skeleton placeholder while metadata is loading */
+          <div aria-hidden="true" data-qqq-id="sidebar-skeleton">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse h-8 rounded-md bg-muted/60 mx-2 mb-1"
               />
-            ) : (
-              <SidebarLinkItem
-                key={route.path}
-                route={route}
-                isActive={route.path === '/app' ? pathname === '/app' : pathname === route.path || pathname.startsWith(route.path + '/')}
-              />
-            )
-          )}
-        </ul>
+            ))}
+          </div>
+        ) : (
+          <ul className="space-y-0.5" role="list">
+            {routes.map((route) =>
+              route.type === 'collapse' && route.children?.length ? (
+                <SidebarCollapseItem
+                  key={route.path}
+                  route={route}
+                  isOpen={openCollapses[route.path] ?? false}
+                  onToggle={() => toggleCollapse(route.path)}
+                  isActive={pathname.startsWith(route.path)}
+                  pathname={pathname}
+                />
+              ) : (
+                <SidebarLinkItem
+                  key={route.path}
+                  route={route}
+                  isActive={route.path === '/app' ? pathname === '/app' : pathname === route.path || pathname.startsWith(route.path + '/')}
+                />
+              )
+            )}
+          </ul>
+        )}
       </nav>
 
       {/* User info footer with menu */}
@@ -301,6 +313,7 @@ export default function Sidebar({
     return (
       <div
         className="fixed inset-0 z-[var(--qqq-z-sidebar,100)] flex"
+        aria-expanded={open ?? false}
         data-qqq-id="sidebar-mobile-drawer"
       >
         {/* Backdrop */}

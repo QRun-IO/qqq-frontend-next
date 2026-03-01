@@ -670,6 +670,18 @@ function RecordViewContent({
           </div>
         )}
 
+        {/* D-V-6: Audit trail footer — shown when backend provides createDate or modifyDate values */}
+        {(record.values['modifyDate'] != null || record.values['createDate'] != null) && (
+          <div className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground">
+            {record.values['createDate'] != null && (
+              <span>Created: {String(record.values['createDate'])}</span>
+            )}
+            {record.values['modifyDate'] != null && (
+              <span className="ml-4">Last modified: {String(record.values['modifyDate'])}</span>
+            )}
+          </div>
+        )}
+
         {/* Record info footer — timestamps + audit history, always last */}
         {recordInfoSections.length > 0 && (
           <RecordInfoFooter

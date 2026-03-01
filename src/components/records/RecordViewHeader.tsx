@@ -22,7 +22,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X } from 'lucide-react'
+import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -34,22 +34,23 @@ import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
- * two words ('John Smith' → 'JS'), first two chars for a single word,
- * '?' for empty or undefined input.
+ * two words ('John Smith' → 'JS'), first two chars for a single word
+ * (including CJK and other non-Latin scripts), or '?' for empty/whitespace-only input.
  *
  * Used to populate the 56 × 56 px avatar circle in the record view header.
  *
  * @param label - The display label to abbreviate (e.g. `record.recordLabel`).
- *   An empty or whitespace-only label produces an empty string (the avatar
- *   circle renders blank; callers should ensure a non-empty label is provided).
- * @returns A one-or-two character uppercase string suitable for an avatar.
+ * @returns A one-or-two character uppercase string suitable for an avatar,
+ *   or `'?'` when the label is empty or whitespace-only.
  */
 function getInitials(label: string): string {
-  const words = label.trim().split(/\s+/)
+  const trimmed = label.trim()
+  if (!trimmed) return '?'
+  const words = trimmed.split(/\s+/).filter(Boolean)
   if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase()
+    return ((words[0][0] ?? '') + (words[1][0] ?? '')).toUpperCase() || '?'
   }
-  return label.slice(0, 2).toUpperCase()
+  return trimmed.slice(0, 2).toUpperCase() || '?'
 }
 
 /**
@@ -107,8 +108,20 @@ export function RecordViewHeader({
   const router = useRouter()
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
+  const [idCopied, setIdCopied] = useState(false)
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
+
+  /**
+   * Copies the record's primary key value to the clipboard.
+   * Shows a {@link Check} icon for 2 seconds, then reverts to the copy icon.
+   */
+  function handleCopyId() {
+    void navigator.clipboard.writeText(String(primaryKey)).then(() => {
+      setIdCopied(true)
+      setTimeout(() => setIdCopied(false), 2000)
+    })
+  }
   const canEdit = tableMetaData.editPermission
   const canInsert = tableMetaData.insertPermission
   const canDelete = tableMetaData.deletePermission
@@ -130,9 +143,30 @@ export function RecordViewHeader({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
+          </h1>
+          {/* D-V-5: Copy record ID to clipboard */}
+          <button
+            type="button"
+            onClick={handleCopyId}
+            title="Copy record ID"
+            aria-label="Copy record ID"
+            data-qqq-id="button-copy-record-id"
+            className={cn(
+              'mt-1 flex-shrink-0 rounded-md p-1 text-muted-foreground',
+              'hover:bg-accent hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+              'transition-colors duration-150'
+            )}
+          >
+            {idCopied
+              ? <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
+              : <ClipboardCopy className="h-4 w-4" aria-hidden="true" />
+            }
+          </button>
+        </div>
         {/* T1 fields as a compact grid under the name */}
         {t1Fields.length > 0 && (
           <dl

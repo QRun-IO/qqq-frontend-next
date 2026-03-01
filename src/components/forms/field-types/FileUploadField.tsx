@@ -15,7 +15,7 @@
  */
 
 /**
- * @file FileUploadField — drag-and-drop file upload field with click-to-browse support, integrated with React Hook Form.
+ * @file FileUploadField — drag-and-drop file upload field with drag-over feedback, click-to-browse support, and React Hook Form integration.
  */
 
 'use client'
@@ -57,7 +57,9 @@ interface FileUploadFieldProps {
  * Drag-and-drop file upload field integrated with React Hook Form.
  *
  * Supports both click-to-browse (delegates to a visually hidden
- * `<input type="file">`) and native drag-and-drop.  A clear button removes
+ * `<input type="file">`) and native drag-and-drop.  While a file is being
+ * dragged over the drop zone, a highlighted border and "Drop file here"
+ * overlay are shown for clear visual feedback.  A clear button removes
  * the selected file from the form state.  When a file is already selected
  * or `existingFileName` is provided, the file name is displayed with the
  * remove option.
@@ -125,9 +127,11 @@ export function FileUploadField({
                 className={cn(
                   'flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center',
                   'transition-colors duration-150 cursor-pointer',
-                  dragOver && !disabled ? 'border-primary bg-accent' : 'border-input',
+                  dragOver && !disabled
+                    ? 'border-primary border-2 bg-accent'
+                    : 'border-input',
                   disabled && 'cursor-not-allowed opacity-50',
-                  error && 'border-destructive',
+                  error && !dragOver && 'border-destructive',
                   'hover:border-primary'
                 )}
                 onClick={() => !disabled && inputRef.current?.click()}
@@ -139,7 +143,9 @@ export function FileUploadField({
                 }}
                 tabIndex={disabled ? -1 : 0}
               >
-                {displayName ? (
+                {dragOver && !disabled ? (
+                  <span className="text-sm font-medium text-primary">Drop file here</span>
+                ) : displayName ? (
                   <div className="flex items-center gap-2 text-sm text-foreground">
                     <FileIcon className="h-5 w-5 text-primary" aria-hidden="true" />
                     <span className="max-w-[200px] truncate">{displayName}</span>

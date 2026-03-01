@@ -58,6 +58,9 @@ interface RecordGridWidgetProps {
   widgetName: string
 }
 
+/** Maximum number of rows displayed inline; rows beyond this count are truncated. */
+const MAX_DISPLAY_ROWS = 25
+
 /**
  * Renders a horizontally scrollable, read-only data table of QQQ records.
  *
@@ -67,8 +70,10 @@ interface RecordGridWidgetProps {
  * `type: 'STRING'` and `label: colName`).  Uses `DataCell` for field-type-aware
  * value rendering.  Records from the payload are cast to `QRecord` shape before
  * being passed to `DataCell`.  Shows an empty-state illustration when no records
- * or columns are present.  Displays a "Showing X of Y records" footer when
- * `data.totalCount` exceeds the number of rows in the payload.
+ * or columns are present.  Caps display at {@link MAX_DISPLAY_ROWS} rows and shows
+ * a "View all" link to the full record-query page when the payload has more rows.
+ * Also displays a "Showing X of Y records" footer when `data.totalCount` exceeds
+ * the number of rows in the payload.
  *
  * @param props - Component properties; `data.fields` takes precedence over
  *   `data.columns` for column resolution; `data.records` must be non-empty for
@@ -108,8 +113,12 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
     )
   }
 
+  // Cap displayed rows to MAX_DISPLAY_ROWS to prevent oversized widget bodies
+  const displayedRecords = records.slice(0, MAX_DISPLAY_ROWS)
+  const hasMore = records.length > MAX_DISPLAY_ROWS
+
   // Cast records to QRecord shape — DataCell expects the full QRecord interface
-  const qRecords: QRecord[] = records.map((r, i) => ({
+  const qRecords: QRecord[] = displayedRecords.map((r, i) => ({
     tableName,
     recordLabel: String(r.values?.id ?? i),
     values: r.values as Record<string, unknown>,
@@ -164,12 +173,25 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
         </tbody>
       </table>
 
+      {/* "View all" link when rows are capped at MAX_DISPLAY_ROWS */}
+      {hasMore && tableName && (
+        <div className="mt-2 text-center" data-qqq-id={`widget-grid-view-all-${widgetName}`}>
+          <a
+            href={`/app/${tableName}`}
+            className="text-sm text-primary underline hover:text-primary/80"
+          >
+            View all {records.length} records &rarr;
+          </a>
+        </div>
+      )}
+
+      {/* Server-side count footer when backend reports more records than were sent */}
       {data.totalCount !== undefined && data.totalCount > records.length && (
         <p
           className="mt-2 text-center text-xs text-muted-foreground"
           data-qqq-id={`widget-grid-more-${widgetName}`}
         >
-          Showing {records.length} of {data.totalCount.toLocaleString()} records
+          Showing {Math.min(displayedRecords.length, records.length)} of {data.totalCount.toLocaleString()} records
         </p>
       )}
     </div>

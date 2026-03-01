@@ -19,7 +19,7 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   PieChart,
   Pie,
@@ -102,8 +102,10 @@ function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
  *
  * Dispatched by `WidgetRenderer` for `'pieChart'`-type widgets (lazy-loaded).
  * Uses `innerRadius="40%"` and `outerRadius="70%"` to produce a donut shape.
- * Displays a color-coded `<Legend>` with circle icons below the chart.  Shows
- * an empty-state message when the normalized data set contains no slice entries.
+ * Displays a color-coded `<Legend>` with circle icons; switches to
+ * `layout="vertical"` when the container width is below 400 px (tracked via
+ * ResizeObserver).  Shows an empty-state message when the normalized data set
+ * contains no slice entries.
  *
  * @param props - Component properties; `data.data` provides Shape A (direct slice
  *   array) and `data.labels` + `data.datasets` provides Shape B (only the first
@@ -112,6 +114,23 @@ function normalizeData(data: PieChartWidgetPayload): PieEntry[] {
  */
 export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
   const entries = normalizeData(data)
+
+  // Track container width for responsive Legend layout
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(600)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   if (entries.length === 0) {
     return (
@@ -124,8 +143,10 @@ export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
     )
   }
 
+  const legendLayout = containerWidth < 400 ? 'vertical' : 'horizontal'
+
   return (
-    <div data-qqq-id={`pie-chart-${widgetName}`}>
+    <div ref={containerRef} data-qqq-id={`pie-chart-${widgetName}`}>
       {data.title && (
         <p className="mb-3 text-xs font-medium text-muted-foreground">
           {data.title}
@@ -159,6 +180,7 @@ export function PieChartWidget({ data, widgetName }: PieChartWidgetProps) {
             }}
           />
           <Legend
+            layout={legendLayout}
             wrapperStyle={{ fontSize: '11px' }}
             iconType="circle"
             iconSize={8}

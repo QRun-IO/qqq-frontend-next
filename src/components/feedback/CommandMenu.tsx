@@ -169,7 +169,8 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
   return (
     // Backdrop
     <div
-      className="fixed inset-0 z-[2000] flex items-start justify-center pt-[10vh] sm:pt-[15vh]"
+      className="fixed inset-0 flex items-start justify-center pt-[10vh] sm:pt-[15vh]"
+      style={{ zIndex: 'var(--qqq-z-toast)' } as React.CSSProperties}
       data-qqq-id="command-menu-backdrop"
     >
       <div
@@ -201,7 +202,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Close command palette"
               data-qqq-id="button-command-menu-close"
             >
