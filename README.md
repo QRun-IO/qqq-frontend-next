@@ -1,1 +1,97 @@
-# qqq-frontend-next
+# QQQ Frontend Next
+
+A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 15 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
+
+## Prerequisites
+
+- **Node.js** 20 or later
+- **pnpm** (install with `npm install -g pnpm` if not already present)
+
+## Quick Start
+
+```bash
+git clone <repo-url> qqq-frontend-next
+cd qqq-frontend-next
+pnpm install
+pnpm dev
+```
+
+The dev server starts at [http://localhost:3000](http://localhost:3000).
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | `/qqq/v1` | Base URL for all QQQ backend API calls |
+| `NEXT_PUBLIC_MOCK_API` | _(unset)_ | Set to `true` to activate MSW browser mocks for dev/demo without a live backend |
+
+Copy `.env.example` to `.env.local` and adjust as needed.
+
+## Available Commands
+
+| Command | Description |
+|---|---|
+| `pnpm dev` | Start the Next.js development server (Turbopack) |
+| `pnpm build` | Compile a production build |
+| `pnpm start` | Serve the production build |
+| `pnpm test` | Run Vitest unit tests (single pass) |
+| `pnpm test:watch` | Run Vitest in watch mode |
+| `pnpm test:coverage` | Run Vitest with V8 coverage report |
+| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm typecheck` | Run `tsc --noEmit` (type check without emitting files) |
+| `pnpm lint` | Run ESLint + Apache license header check |
+| `pnpm format` | Run Prettier over all source files |
+| `pnpm storybook` | Start Storybook component explorer on port 6006 |
+
+## Directory Structure
+
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── (auth)/             # Login and OAuth callback routes
+│   ├── (dashboard)/        # Authenticated shell (sidebar + nav)
+│   │   └── app/            # All app routes (tables, records, processes)
+│   ├── layout.tsx          # Root layout — providers
+│   ├── error.tsx           # Global error boundary
+│   └── not-found.tsx       # 404 page
+├── components/
+│   ├── ui/                 # shadcn/ui primitives (Button, Input, Dialog, …)
+│   ├── layout/             # Sidebar, Header, Breadcrumbs, Banner
+│   ├── records/            # RecordView, FieldValue
+│   ├── forms/              # DynamicForm, EntityForm, field components
+│   ├── query/              # DataGrid, FilterBuilder, ColumnConfig, Pagination
+│   ├── process/            # StepWizard, ValidationReview, BulkLoad
+│   ├── widgets/            # Widget containers, charts, stat blocks, grids
+│   └── feedback/           # Alerts, Toasts, Modals, CommandMenu
+├── lib/
+│   ├── api/                # Typed API client modules (client.ts, tables.ts, …)
+│   ├── auth/               # Auth providers (OAuth2, Auth0, Anonymous)
+│   ├── hooks/              # Shared React hooks (useLocalStorage, useMetadata, …)
+│   ├── utils/              # Pure utility functions
+│   ├── context/            # React contexts (QContext)
+│   └── theme/              # Theme provider and CSS custom property tokens
+├── types/                  # TypeScript type definitions
+└── styles/                 # Global styles and theme tokens
+```
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [`CLAUDE.md`](./CLAUDE.md) | Full architecture reference — conventions, patterns, key decisions |
+| [`docs/STATE-MANAGEMENT.md`](./docs/STATE-MANAGEMENT.md) | When to use each state container (TanStack Query, RHF, URL params, localStorage, QContext) |
+| [`docs/API-ERROR-HANDLING.md`](./docs/API-ERROR-HANDLING.md) | Global error handler, 401 interceptor, per-status guidance, code examples |
+| [`docs/implementation-plans/`](./docs/implementation-plans/) | Work-package implementation plans (6 packages) |
+
+## Tech Stack
+
+- **Framework:** Next.js 15 (App Router) with React 19
+- **Language:** TypeScript 5.x (`strict: true`)
+- **Styling:** Tailwind CSS 4.x with CSS custom properties
+- **Components:** shadcn/ui (Radix primitives + Tailwind)
+- **Data Grid:** TanStack Table v8
+- **Forms:** React Hook Form v7 + Zod
+- **Data Fetching:** TanStack Query v5
+- **Charts:** Recharts
+- **Testing:** Vitest (unit), Playwright (E2E), axe-core (a11y)
+- **Package Manager:** pnpm

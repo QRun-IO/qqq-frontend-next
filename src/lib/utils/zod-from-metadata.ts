@@ -110,6 +110,21 @@ function buildNumberSchema(
  * Used by {@link zodSchemaFromTableMetadata} and {@link zodSchemaFromFields} to build
  * full form validation schemas from table or process metadata.
  *
+ * @example
+ * // A required string field with max length 100
+ * const schema = zodFieldFromMetadata({
+ *   name: 'firstName', label: 'First Name', type: 'STRING',
+ *   isRequired: true, maxLength: 100, isEditable: true, isHidden: false, isHeavy: false, adornments: [],
+ * })
+ * // Produces: z.string().min(1, 'First Name is required').max(100, 'First Name must be at most 100 characters')
+ *
+ * // An optional integer field with bounds
+ * const schema = zodFieldFromMetadata({
+ *   name: 'age', label: 'Age', type: 'INTEGER',
+ *   isRequired: false, minValue: 0, maxValue: 150, isEditable: true, isHidden: false, isHeavy: false, adornments: [],
+ * })
+ * // Produces: z.union([z.literal(''), z.coerce.number().int().min(0).max(150)]).optional()
+ *
  * @param field - The field metadata object containing type, required, maxLength, and label.
  * @returns A `ZodTypeAny` appropriate for the field's type and constraints.
  */
