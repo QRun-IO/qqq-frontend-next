@@ -49,3 +49,13 @@ export const isRelativeUrl = (s: string): boolean => s.startsWith('/')
  * @returns `true` if `s` matches the email heuristic pattern.
  */
 export const isEmail = (s: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+
+/**
+ * Returns true only for safe same-origin redirect paths.
+ * Rejects protocol-relative URLs (//evil.com) and anything that is not a string or does not start with a single slash.
+ *
+ * @param s - The candidate redirect path.
+ * @returns `true` if `s` starts with exactly one `/` and is not protocol-relative (`//`).
+ */
+export const isSafeRedirectPath = (s: string): boolean =>
+  typeof s === 'string' && s.startsWith('/') && !s.startsWith('//')

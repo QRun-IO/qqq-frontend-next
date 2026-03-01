@@ -66,6 +66,44 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
 }
 
 /**
+ * Internal helper used by {@link zodFieldFromMetadata} to build a `coerce.number()` schema
+ * for INTEGER, LONG, and DECIMAL field types.
+ *
+ * HTML `<input type="number">` elements submit an empty string when left blank, which would
+ * cause a type error against a plain `z.number()`. The optional branch therefore returns
+ * `z.union([z.literal(''), schema]).optional()` so blank inputs pass validation cleanly.
+ *
+ * @param isRequired - When `true`, the schema rejects empty strings; `false` wraps the schema
+ *   in a union with `z.literal('')` and marks it optional.
+ * @param label - The human-readable field label used verbatim in all error messages.
+ * @param isInteger - When `true`, adds a `.int()` constraint (for INTEGER / LONG types);
+ *   `false` allows fractional values (DECIMAL).
+ * @param minValue - Optional lower bound from field metadata; adds a `.min()` constraint when
+ *   defined and non-null.
+ * @param maxValue - Optional upper bound from field metadata; adds a `.max()` constraint when
+ *   defined and non-null.
+ * @returns A `ZodTypeAny` — a plain `ZodNumber` when required, or a `ZodOptional` union when not.
+ */
+function buildNumberSchema(
+  isRequired: boolean,
+  label: string,
+  isInteger: boolean,
+  minValue?: number | string | null,
+  maxValue?: number | string | null
+): z.ZodTypeAny {
+  let schema: z.ZodNumber = isInteger
+    ? z.coerce.number().int(`${label} must be a whole number`)
+    : z.coerce.number({ message: `${label} must be a number` })
+  if (minValue !== undefined && minValue !== null) {
+    schema = schema.min(Number(minValue), `${label} must be at least ${minValue}`)
+  }
+  if (maxValue !== undefined && maxValue !== null) {
+    schema = schema.max(Number(maxValue), `${label} must be at most ${maxValue}`)
+  }
+  return isRequired ? schema : z.union([z.literal(''), schema]).optional()
+}
+
+/**
  * Builds a Zod schema for a single QQQ field based on its type, required flag,
  * and optional maxLength.
  *
@@ -80,43 +118,11 @@ export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
 
   switch (type) {
     case 'INTEGER':
-    case 'LONG': {
-      let num = z.coerce.number().int(`${label} must be a whole number`)
-      if (field.minValue !== undefined && field.minValue !== null) {
-        num = num.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
-      }
-      if (field.maxValue !== undefined && field.maxValue !== null) {
-        num = num.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
-      }
-      if (isRequired) return num
-      let optNum = z.coerce.number().int(`${label} must be a whole number`)
-      if (field.minValue !== undefined && field.minValue !== null) {
-        optNum = optNum.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
-      }
-      if (field.maxValue !== undefined && field.maxValue !== null) {
-        optNum = optNum.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
-      }
-      return z.union([z.literal(''), optNum]).optional()
-    }
+    case 'LONG':
+      return buildNumberSchema(isRequired ?? false, label ?? type, true, field.minValue, field.maxValue)
 
-    case 'DECIMAL': {
-      let dec = z.coerce.number({ message: `${label} must be a number` })
-      if (field.minValue !== undefined && field.minValue !== null) {
-        dec = dec.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
-      }
-      if (field.maxValue !== undefined && field.maxValue !== null) {
-        dec = dec.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
-      }
-      if (isRequired) return dec
-      let optDec = z.coerce.number()
-      if (field.minValue !== undefined && field.minValue !== null) {
-        optDec = optDec.min(Number(field.minValue), `${label} must be at least ${field.minValue}`)
-      }
-      if (field.maxValue !== undefined && field.maxValue !== null) {
-        optDec = optDec.max(Number(field.maxValue), `${label} must be at most ${field.maxValue}`)
-      }
-      return z.union([z.literal(''), optDec]).optional()
-    }
+    case 'DECIMAL':
+      return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue)
 
     case 'BOOLEAN':
       return z.boolean().optional()

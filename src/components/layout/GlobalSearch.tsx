@@ -73,7 +73,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        i % 2 !== 0 ? (
           <mark key={i} className="bg-primary/20 text-foreground rounded-sm px-0.5">
             {part}
           </mark>

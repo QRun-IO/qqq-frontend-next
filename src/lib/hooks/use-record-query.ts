@@ -42,6 +42,8 @@ import {
   isFilterEmpty,
 } from '@/lib/utils/filter-utils'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
+import { useColumnConfig } from '@/lib/hooks/use-column-config'
+import { useSavedViews } from '@/lib/hooks/use-saved-views'
 
 // ------------------------------------------------------------------
 // Types
@@ -128,7 +130,7 @@ export interface RecordQueryState {
  * Record Query page. Using a discriminated union provides exhaustive type checking
  * in the reducer switch statement.
  */
-type RecordQueryAction =
+export type RecordQueryAction =
   | { type: 'SET_PAGE'; pageNum: number }
   | { type: 'SET_PAGE_SIZE'; pageSize: PageSize }
   | { type: 'SET_USER_FILTER'; filter: QQueryFilter }
@@ -309,22 +311,14 @@ export function useRecordQuery({
   const storageKeyColumns = `qqq-${tableName}-columns`
   const storageKeyColumnOrder = `qqq-${tableName}-column-order`
   const storageKeyColumnWidths = `qqq-${tableName}-column-widths`
-  const storageKeySavedViews = `qqq-${tableName}-saved-views`
 
   const [density, setDensity] = useLocalStorage<Density>(storageKeyDensity, 'standard')
-  const [storedColumnVisibility, setStoredColumnVisibility] = useLocalStorage<Record<string, boolean>>(
+  const [storedColumnVisibility] = useLocalStorage<Record<string, boolean>>(
     storageKeyColumns,
     {}
   )
-  const [storedColumnOrder, setStoredColumnOrder] = useLocalStorage<string[]>(
-    storageKeyColumnOrder,
-    []
-  )
-  const [storedColumnWidths, setStoredColumnWidths] = useLocalStorage<Record<string, number>>(
-    storageKeyColumnWidths,
-    {}
-  )
-  const [savedViews, setSavedViews] = useLocalStorage<SavedView[]>(storageKeySavedViews, [])
+  const [storedColumnOrder] = useLocalStorage<string[]>(storageKeyColumnOrder, [])
+  const [storedColumnWidths] = useLocalStorage<Record<string, number>>(storageKeyColumnWidths, {})
 
   // ------------------------------------------------------------------
   // Initial state — hydrate from URL params (read once on mount via ref)
@@ -379,19 +373,10 @@ export function useRecordQuery({
   const [state, dispatch] = useReducer(recordQueryReducer, initialState)
 
   // ------------------------------------------------------------------
-  // Persist column settings to localStorage when they change
+  // Sub-hooks: column config and saved views
   // ------------------------------------------------------------------
-  useEffect(() => {
-    setStoredColumnVisibility(state.columnVisibility)
-  }, [state.columnVisibility]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setStoredColumnOrder(state.columnOrder)
-  }, [state.columnOrder]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setStoredColumnWidths(state.columnWidths)
-  }, [state.columnWidths]) // eslint-disable-line react-hooks/exhaustive-deps
+  const columns = useColumnConfig(tableName, state, dispatch)
+  const views = useSavedViews(tableName, state, dispatch)
 
   // ------------------------------------------------------------------
   // Sync state to URL params
@@ -570,68 +555,6 @@ export function useRecordQuery({
   }, [state.rowSelection])
 
   // ------------------------------------------------------------------
-  // Saved views API
-  // ------------------------------------------------------------------
-  /**
-   * Snapshot the current filter, column visibility, column order, and sort order
-   * into a new saved view and persist it to localStorage.
-   *
-   * Pagination offsets are intentionally excluded from the snapshot so that loading
-   * the view always starts at page 1.
-   *
-   * @param name - User-visible label for the saved view.
-   * @returns The newly created `SavedView` object.
-   */
-  const saveView = useCallback(
-    (name: string) => {
-      const view: SavedView = {
-        id: crypto.randomUUID(),
-        name,
-        filter: {
-          criteria: state.userFilter.criteria,
-          orderBys: state.userFilter.orderBys,
-          subFilters: state.userFilter.subFilters,
-          booleanOperator: state.userFilter.booleanOperator,
-        },
-        columnVisibility: state.columnVisibility,
-        columnOrder: state.columnOrder,
-        sortOrder: state.sortOrder,
-        createdAt: new Date().toISOString(),
-      }
-      setSavedViews((prev) => [...prev, view])
-      return view
-    },
-    [state.userFilter, state.columnVisibility, state.columnOrder, state.sortOrder, setSavedViews]
-  )
-
-  /**
-   * Apply a previously saved view to the current query state.
-   *
-   * Restores filter, column visibility, column order, and sort order from the view.
-   * Pagination resets to page 1 and the quick-search term is cleared.
-   *
-   * @param view - The saved view to load.
-   */
-  const loadView = useCallback(
-    (view: SavedView) => {
-      dispatch({ type: 'LOAD_SAVED_VIEW', view })
-    },
-    []
-  )
-
-  /**
-   * Remove a saved view from localStorage by its ID.
-   *
-   * @param id - The `id` of the `SavedView` to delete.
-   */
-  const deleteView = useCallback(
-    (id: string) => {
-      setSavedViews((prev) => prev.filter((v) => v.id !== id))
-    },
-    [setSavedViews]
-  )
-
-  // ------------------------------------------------------------------
   // Action dispatchers (stable references)
   // ------------------------------------------------------------------
   /** Navigate to a specific 1-based page number. */
@@ -647,39 +570,6 @@ export function useRecordQuery({
   /** Replace the active sort order; resets to page 1. */
   const setSort = useCallback((sortOrder: QFilterOrderBy[]) => dispatch({ type: 'SET_SORT', sortOrder }), [])
   /**
-   * Replace the entire column visibility map.
-   *
-   * @param visibility - Map of fieldName → boolean.
-   */
-  const setColumnVisibility = useCallback(
-    (visibility: Record<string, boolean>) => dispatch({ type: 'SET_COLUMN_VISIBILITY', visibility }),
-    []
-  )
-  /**
-   * Toggle a single column's visibility.
-   *
-   * Treats `undefined` (never toggled) as `true` before inverting (MED-11).
-   *
-   * @param fieldName - The field to toggle.
-   */
-  const toggleColumn = useCallback((fieldName: string) => dispatch({ type: 'TOGGLE_COLUMN', fieldName }), [])
-  /**
-   * Replace the ordered list of column field names.
-   *
-   * @param order - Array of field names in the desired display order.
-   */
-  const setColumnOrder = useCallback((order: string[]) => dispatch({ type: 'SET_COLUMN_ORDER', order }), [])
-  /**
-   * Record the pixel width of a resized column.
-   *
-   * @param fieldName - The resized column's field name.
-   * @param width - New width in pixels.
-   */
-  const setColumnWidth = useCallback(
-    (fieldName: string, width: number) => dispatch({ type: 'SET_COLUMN_WIDTH', fieldName, width }),
-    []
-  )
-  /**
    * Replace the row selection map (keyed by primary key string).
    *
    * @param selection - Map of PK string → selected boolean.
@@ -690,17 +580,6 @@ export function useRecordQuery({
   )
   /** Deselect all currently selected rows. */
   const clearRowSelection = useCallback(() => dispatch({ type: 'CLEAR_ROW_SELECTION' }), [])
-  /** Toggle the column-configuration side panel open/closed. */
-  const toggleColumnConfig = useCallback(() => dispatch({ type: 'TOGGLE_COLUMN_CONFIG' }), [])
-  /**
-   * Explicitly set the open state of the column-configuration side panel.
-   *
-   * @param open - `true` to open, `false` to close.
-   */
-  const setColumnConfigOpen = useCallback(
-    (open: boolean) => dispatch({ type: 'SET_COLUMN_CONFIG_OPEN', open }),
-    []
-  )
   /** Toggle the filter panel open/closed. */
   const toggleFilterPanel = useCallback(() => dispatch({ type: 'TOGGLE_FILTER_PANEL' }), [])
   /** Clear all active filters and quick-search, resetting to page 1. */
@@ -731,18 +610,7 @@ export function useRecordQuery({
       toggleFilterPanel,
     },
 
-    columns: {
-      columnVisibility: state.columnVisibility,
-      columnOrder: state.columnOrder,
-      columnWidths: state.columnWidths,
-      columnConfigOpen: state.columnConfigOpen,
-      setColumnVisibility,
-      toggleColumn,
-      setColumnOrder,
-      setColumnWidth,
-      toggleColumnConfig,
-      setColumnConfigOpen,
-    },
+    columns,
 
     selection: {
       rowSelection: state.rowSelection,
@@ -763,12 +631,7 @@ export function useRecordQuery({
     density,
     setDensity,
 
-    views: {
-      list: savedViews,
-      saveView,
-      loadView,
-      deleteView,
-    },
+    views,
   }
 }
 

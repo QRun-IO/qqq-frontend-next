@@ -30,6 +30,7 @@ import type { QTableMetaData, QProcessMetaData } from '@/types'
 import { useRecordQuery } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { countActiveCriteria } from '@/lib/utils/filter-utils'
+import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { SEARCH_DEBOUNCE_MS } from '@/lib/constants'
@@ -76,8 +77,8 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   const searchParams = useSearchParams()
   const fromPath = searchParams.get('from')
   const fromLabel = searchParams.get('fromLabel')
-  // MED-6: only allow same-origin paths to prevent open redirect
-  const safeFromPath = fromPath?.startsWith('/') ? fromPath : null
+  // MED-6: only allow same-origin paths to prevent open redirect (rejects //evil.com protocol-relative URLs)
+  const safeFromPath = fromPath && isSafeRedirectPath(fromPath) ? fromPath : null
   const queryClient = useQueryClient()
   const quickSearchRef = useRef<HTMLInputElement>(null)
   const { preferences } = useUserPreferences()

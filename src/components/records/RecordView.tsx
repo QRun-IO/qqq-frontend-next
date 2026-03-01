@@ -27,6 +27,7 @@ import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } fro
 import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -418,8 +419,8 @@ function RecordViewContent({
   // Back navigation — read source page info from URL params
   const fromPath = searchParams.get('from')
   const fromLabel = searchParams.get('fromLabel')
-  // MED-6: only allow same-origin paths to prevent open redirect
-  const safeFromPath = fromPath?.startsWith('/') ? fromPath : null
+  // MED-6: only allow same-origin paths to prevent open redirect (rejects //evil.com protocol-relative URLs)
+  const safeFromPath = fromPath && isSafeRedirectPath(fromPath) ? fromPath : null
 
   const activeTab = (urlTab && tabs.some((t) => t.id === urlTab)) ? urlTab : (tabs[0]?.id ?? '')
   // Use URL view param if set, otherwise fall back to user preference
