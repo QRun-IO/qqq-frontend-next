@@ -362,6 +362,25 @@ export function DataGrid({
     [onColumnWidthChange]
   )
 
+  /**
+   * Adjusts column width by ±10 px when the user presses ArrowLeft or ArrowRight
+   * while a resize handle is focused. Prevents default scroll behavior.
+   *
+   * @param e - The keyboard event fired on the resize handle element.
+   * @param colId - The column id (field name) being resized.
+   * @param currentWidth - The column's current pixel width.
+   */
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent, colId: string, currentWidth: number) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      e.preventDefault()
+      const delta = e.key === 'ArrowRight' ? 10 : -10
+      const newWidth = Math.max(60, currentWidth + delta)
+      onColumnWidthChange(colId, newWidth)
+    },
+    [onColumnWidthChange]
+  )
+
   // Remove any lingering resize listeners if the component unmounts during a drag
   useEffect(() => {
     return () => {
@@ -556,15 +575,24 @@ export function DataGrid({
                       : flexRender(header.column.columnDef.header, header.getContext())}
 
                     {/* Column resize handle */}
-                    {!isSelectCol && (
-                      <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/40 active:bg-primary"
-                        onMouseDown={(e) =>
-                          handleResizeMouseDown(e, header.id, header.getSize())
-                        }
-                        aria-hidden="true"
-                      />
-                    )}
+                    {!isSelectCol && (() => {
+                      const fieldLabel = visibleFields.find(f => f.name === header.id)?.label ?? header.id
+                      return (
+                        <div
+                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/40 active:bg-primary focus:outline-none focus-visible:bg-primary/60"
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-label={`Resize ${fieldLabel} column`}
+                          tabIndex={0}
+                          onMouseDown={(e) =>
+                            handleResizeMouseDown(e, header.id, header.getSize())
+                          }
+                          onKeyDown={(e) =>
+                            handleResizeKeyDown(e, header.id, header.getSize())
+                          }
+                        />
+                      )
+                    })()}
                   </th>
                 )
               })}

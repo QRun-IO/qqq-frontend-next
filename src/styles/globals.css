@@ -70,3 +70,49 @@
     border-radius: 2px;
   }
 }
+
+/* D-L-2 / D-T-1: Respect user's reduced-motion OS preference.
+ * Collapses animation and transition durations to near-zero so no motion
+ * is perceived, without fully disabling transitions (which can break layout). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* D-T-2: Enhanced contrast for users with the OS high-contrast preference enabled.
+ * Increases border weights and ensures text color is fully opaque. */
+@media (prefers-contrast: more) {
+  :root {
+    --color-border: #000000;
+    --color-input: #000000;
+    --color-muted-foreground: #000000;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border) !important;
+  }
+
+  :focus-visible {
+    outline: 3px solid #000000 !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/* D-R-1: Prevent iOS Safari from auto-zooming when form inputs receive focus.
+ * iOS zooms any input whose font-size is below 16px. This rule ensures a
+ * minimum of 16px on mobile without changing desktop appearance. */
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

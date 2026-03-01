@@ -263,6 +263,23 @@ export function ProcessRun({
     cancel,
   } = useProcess(processName, processMetaData)
 
+  // Ref for the active step heading — used to move focus when the step changes
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  // Tracks whether the component has already rendered its first step, so focus
+  // is not moved on the initial mount (only on subsequent step transitions)
+  const stepFocusedRef = useRef(false)
+
+  // Auto-focus the step heading when the active step changes (a11y: WCAG 2.4.3)
+  useEffect(() => {
+    if (!stepFocusedRef.current) {
+      stepFocusedRef.current = true
+      return
+    }
+    if (state.currentStep?.name) {
+      stepHeadingRef.current?.focus()
+    }
+  }, [state.currentStep?.name])
+
   // Auto-init on mount with input record validation (Fix 3: CRIT-7)
   useEffect(() => {
     if (state.status === 'idle' && !initCalledRef.current) {
@@ -458,7 +475,11 @@ export function ProcessRun({
 
         {/* Step header */}
         <div className="border-b border-border px-6 py-4">
-          <h3 className="text-base font-semibold text-foreground">
+          <h3
+            ref={stepHeadingRef}
+            tabIndex={-1}
+            className="text-base font-semibold text-foreground outline-none"
+          >
             {currentStep.label}
           </h3>
           {steps.length > 1 && (

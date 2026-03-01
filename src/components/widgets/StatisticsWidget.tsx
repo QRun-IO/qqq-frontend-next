@@ -307,16 +307,19 @@ function TrendBadge({
       icon: TrendingUp,
       classes: 'text-emerald-600',
       label: `+${value}%`,
+      srLabel: 'trending up,',
     },
     down: {
       icon: TrendingDown,
       classes: 'text-destructive',
       label: `-${value}%`,
+      srLabel: 'trending down,',
     },
     flat: {
       icon: Minus,
       classes: 'text-muted-foreground',
       label: `${value}%`,
+      srLabel: 'no change,',
     },
   }[direction]
 
@@ -324,6 +327,7 @@ function TrendBadge({
 
   return (
     <div className="flex items-center gap-1">
+      <span className="sr-only">{config.srLabel}</span>
       <Icon className={cn('h-3.5 w-3.5 shrink-0', config.classes)} aria-hidden="true" />
       <span className={cn('text-sm font-medium', config.classes)}>{config.label}</span>
       {label && <span className="text-sm text-muted-foreground">{label}</span>}
