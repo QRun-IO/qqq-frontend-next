@@ -169,3 +169,16 @@ The current frontend being replaced lives in the sibling `qqq-frontend-material-
 
 Set via `NEXT_PUBLIC_API_BASE_URL` environment variable. Defaults to `/qqq/v1`.
 The API uses cookie-based session auth (`sessionUUID` cookie).
+
+## Knowledge base
+
+Durable, cross-session knowledge about this repo and the wider QQQ platform lives in
+the second-brain vault (`R:/Git.Local/KofTwentyTwo/second-brain`):
+
+- Platform hub: `knowledge/qqq/qqq-hub.md`
+- This repo's dossier: `knowledge/qqq/repos/qqq-frontend-next.md`
+  (reviewed at commit `41cd6d2034a8` on branch `main`, 2026-07-04)
+
+Consult the dossier before deep-diving the code — it covers the API contract this
+frontend targets (including versioned-middleware endpoint gaps), maturity assessment,
+known parity gaps, and its relationship to `qqq-frontend-material-dashboard`.
