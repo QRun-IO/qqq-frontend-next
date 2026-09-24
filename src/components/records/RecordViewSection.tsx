@@ -23,6 +23,7 @@
 import React from 'react'
 
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
+import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
 
 import { FieldValue } from '@/components/records/FieldValue'
@@ -30,6 +31,7 @@ import { FieldLabel } from '@/components/records/FieldLabel'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
 
 interface RecordViewSectionProps {
+  renderAssociation?: (name: string, label?: string) => React.ReactNode
   section: QTableSection
   tableMetaData: QTableMetaData
   record: QRecord
@@ -62,6 +64,7 @@ interface RecordViewSectionProps {
  */
 export function RecordViewSection({
   section,
+  renderAssociation,
   tableMetaData,
   record,
   widgetMetaDataMap,
@@ -76,6 +79,12 @@ export function RecordViewSection({
   // If this section has a widgetName, render a widget instead of the field list
   if (section.widgetName) {
     const widgetMeta = widgetMetaDataMap?.[section.widgetName]
+    const binding = associationWidgetBinding(widgetMeta)
+    if (binding && renderAssociation) {
+      if (widgetMeta?.hasPermission === false) return null
+      if ('error' in binding) return <p role="alert">{binding.error}</p>
+      return renderAssociation(binding.name, section.label)
+    }
 
     if (widgetMeta) {
       // We have full widget metadata -- render the ConnectedWidget

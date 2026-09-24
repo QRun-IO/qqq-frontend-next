@@ -27,6 +27,7 @@ import { Loader2, ArrowRight, ExternalLink } from 'lucide-react'
 
 import type { QTableMetaData } from '@/types'
 import { useRecord } from '@/lib/hooks/use-record'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { cn } from '@/lib/utils/cn'
 
 interface RecordHoverCardProps {
@@ -34,8 +35,8 @@ interface RecordHoverCardProps {
   tableName: string
   /** The primary key value of the referenced record */
   primaryKey: string | number
-  /** Table metadata for the referenced record — used to display field labels */
-  tableMetaData: QTableMetaData
+  /** Lightweight registry metadata is sufficient for the closed link. */
+  tableMetaData: Pick<QTableMetaData, 'label'>
   /** Source page info for back navigation — appended to the "View" link */
   navigateFrom?: { path: string; label: string }
   /** The trigger element (typically the link text) */
@@ -86,26 +87,28 @@ export function RecordHoverCard({
   children,
 }: RecordHoverCardProps) {
   const [isOpen, setIsOpen] = React.useState(false)
+  const metadata = useTableMetaData(isOpen ? tableName : undefined)
 
-  const { record, isLoading } = useRecord({
+  const { record, isLoading, isError } = useRecord({
     tableName,
     primaryKey,
-    enabled: isOpen,
+    enabled: isOpen && Boolean(metadata.data) && !metadata.isError,
     includeAssociations: false,
     staleTime: 1000 * 60 * 10, // 10 min cache — previews rarely change
   })
 
   // Get the first visible T1 fields to preview (up to 5)
-  const t1Sections = tableMetaData.sections.filter(
+  const fields = metadata.data?.fields ?? {}
+  const t1Sections = (metadata.data?.sections ?? []).filter(
     (s) => !s.isHidden && (!s.tier || s.tier === 'T1' || s.tier === 'basic')
   )
   const previewFieldNames = t1Sections.length > 0
     ? t1Sections.flatMap((s) => s.fieldNames)
-    : Object.keys(tableMetaData.fields)
+    : Object.keys(fields)
 
   const previewFields = previewFieldNames
-    .map((fn) => tableMetaData.fields[fn])
-    .filter((f) => f && !f.isHidden && !f.isHeavy && f.name !== tableMetaData.primaryKeyField)
+    .map((fn) => fields[fn])
+    .filter((f) => f && !f.isHidden && !f.isHeavy && f.name !== metadata.data?.primaryKeyField)
     .slice(0, 5)
 
   const recordLabel = record?.recordLabel || `${tableMetaData.label} #${primaryKey}`
@@ -137,7 +140,9 @@ export function RecordHoverCard({
             'data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2'
           )}
         >
-          {isLoading || !record ? (
+          {metadata.isError || isError ? (
+            <p role="alert" className="text-sm text-muted-foreground">Record preview is unavailable.</p>
+          ) : metadata.isLoading || !metadata.data || isLoading || !record ? (
             <div className="flex items-center gap-3 py-2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
               <span className="text-sm text-muted-foreground">Loading...</span>

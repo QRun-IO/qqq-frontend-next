@@ -21,6 +21,8 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { useRecord } from './use-record'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -43,6 +45,27 @@ describe('useRecord', () => {
     expect(result.current.isError).toBe(false)
     expect(result.current.record).toBeDefined()
     expect(result.current.record?.tableName).toBe('person')
+  })
+
+  it('separates base, expanded and variant records in the same query cache', async () => {
+    const requests: string[] = []
+    const handler = ({ request }: { request: Request }) => {
+      const url = new URL(request.url)
+      const mode = url.searchParams.get('includeAssociations') + ':' + url.searchParams.get('tableVariant')
+      requests.push(mode)
+      return HttpResponse.json({ tableName: 'person', values: { id: 1, mode }, recordLabel: mode })
+    }
+    server.use(http.get('/data/person/1', handler), http.get('/qqq/v1/table/person/1', handler))
+    const { result } = renderHook(() => ({
+      base: useRecord({ tableName: 'person', primaryKey: 1, includeAssociations: false }),
+      expanded: useRecord({ tableName: 'person', primaryKey: 1, includeAssociations: true }),
+      variant: useRecord({ tableName: 'person', primaryKey: 1, includeAssociations: false, tableVariant: '{"type":"tenant","id":2}' }),
+    }), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.variant.record).toBeDefined())
+    expect(result.current.base.record?.values.mode).toBe('false:null')
+    expect(result.current.expanded.record?.values.mode).toBe('true:null')
+    expect(result.current.variant.record?.values.mode).toBe('false:{"type":"tenant","id":2}')
+    expect(requests).toHaveLength(3)
   })
 
   it('returns isError for a 404 record', async () => {

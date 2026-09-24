@@ -38,6 +38,7 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { EntityForm } from '@/components/forms/EntityForm'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 
 /**
  * Renders the record-edit form for the record identified by `slug` and `recordId`.
@@ -60,18 +61,19 @@ export default function EntityEditPage() {
   const { setPageHeader, setTableMetaData } = useQContext()
   const { slug, recordId } = params
 
-  const { data: metaData } = useQuery({
+  const { data: metaData, isError: metadataError } = useQuery({
     queryKey: queryKeys.metadataAll(),
     queryFn: loadMetaData,
     staleTime: 1000 * 60 * 30,
   })
 
-  const tableMetaData = metaData?.tables?.[slug]
+  const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData),
+    enabled: Boolean(tableMetaData?.editPermission),
+    includeAssociations: false,
   })
 
   useEffect(() => {
@@ -80,6 +82,10 @@ export default function EntityEditPage() {
       setTableMetaData(tableMetaData)
     }
   }, [tableMetaData?.label, slug, recordId, tableMetaData, setPageHeader, setTableMetaData])
+
+  if (metadataError || tableError || (metaData && !metaData.tables?.[slug])) {
+    return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
+  }
 
   if (!tableMetaData || isLoading) {
     return (

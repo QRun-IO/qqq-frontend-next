@@ -33,7 +33,7 @@ interface NumberFieldProps {
   id: string
   /** Human-readable field label rendered above the input. */
   label: string
-  /** Return value of `register(fieldName, { valueAsNumber: true })` from React Hook Form. */
+  /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
   /** Validation error; when present triggers error styling and an error message. */
   error?: FieldError
@@ -60,8 +60,8 @@ interface NumberFieldProps {
  * Renders an accessible numeric input field with label, optional min/max hint, and validation error display.
  *
  * Used for QQQ field types INTEGER, LONG (with `step={1}`), and DECIMAL
- * (with `step="any"`).  React Hook Form's `valueAsNumber` option ensures
- * the controlled value is a JavaScript number rather than a string.
+ * (with `step="any"`). Values remain input strings until schema validation,
+ * preserving an empty input separately from a numeric zero.
  *
  * When `minValue` or `maxValue` is provided, a hint line is rendered below
  * the input showing the allowed range or bound before any error message.

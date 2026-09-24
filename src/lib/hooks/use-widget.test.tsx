@@ -33,10 +33,9 @@ function createWrapper() {
 
 describe('useWidget', () => {
   it('fetches widget data from MSW', async () => {
-    const { result } = renderHook(() => useWidget('personStats'), { wrapper: createWrapper() })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    // Result may be error if MSW handler not present; just verify no crash
-    expect(result.current).toBeDefined()
+    const { result } = renderHook(() => useWidget('crmTotalPeople'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toMatchObject({ type: 'statistics', title: 'Total People', value: 25 })
   })
 
   it('does not fetch when widgetName is empty', () => {
@@ -45,10 +44,10 @@ describe('useWidget', () => {
     expect(result.current.data).toBeUndefined()
   })
 
-  it('passes params to query key', () => {
+  it('fetches widget data with params', async () => {
     const params = { month: '2025-01' }
-    const { result } = renderHook(() => useWidget('salesChart', params), { wrapper: createWrapper() })
-    // Query is enabled, should attempt to load
-    expect(result.current).toBeDefined()
+    const { result } = renderHook(() => useWidget('crmRevenueChart', params), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toMatchObject({ type: 'chart' })
   })
 })

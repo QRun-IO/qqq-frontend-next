@@ -18,6 +18,8 @@
  * @file Possible Values API — Endpoints for fetching possible-value lists for table fields, process fields, and standalone PVSes.
  */
 
+import { z } from 'zod'
+
 import type { QPossibleValue } from '@/types'
 import apiClient from './client'
 
@@ -52,111 +54,66 @@ export interface PossibleValuesRequest {
   useCase?: string
 }
 
+/** Validate the native envelope before exposing options to a picker. */
+const possibleValuesResponse = z.union([z.object({
+  options: z.array(z.object({ id: z.union([z.string(), z.number().finite()]), label: z.string() }).passthrough()),
+}), z.object({}).strict().transform(() => ({ options: [] }))])
+
 /**
- * Fetches possible values for a specific field on a table via
- * `POST /table/{tableName}/possibleValues/{fieldName}`.
- *
- * Encodes the request as `multipart/form-data`. Only non-empty fields are
- * appended to the form to keep the request body minimal.
- *
- * @param tableName - Exact backend table identifier; determines which
- *   possible-value source provider is consulted on the backend. Case-sensitive;
- *   must match the backend declaration exactly and is used as a URL path segment.
- * @param fieldName - Name of the field whose possible-value source to query.
- * @param request - Use `searchTerm` for live filtering in comboboxes as the
- *   user types; use `ids` or `labels` to resolve pre-populated values for
- *   existing records (e.g. when opening an edit form that already has a value).
- * @returns An array of matching `QPossibleValue` objects, each with an `id`
- *   and a `label` suitable for display in a dropdown or combobox.
+ * Search parameters are query parameters on all registered legacy PVS routes.
+ * @param url - Registered legacy route relative to the application prefix.
+ * @param request - Search text, identifiers and field context.
+ * @returns Validated native options; rejects HTTP and response-format failures.
+ */
+async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
+  const { values, ...params } = request
+  if (values && !params.ids) params.ids = values
+  const result = await apiClient.get<unknown>(url, {
+    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
+    params,
+  })
+  return possibleValuesResponse.parse(result).options
+}
+
+/**
+ * Load choices for a declared table field through its registered legacy route.
+ * @param tableName - Exact table identifier.
+ * @param fieldName - Exact field identifier.
+ * @param request - Search and identifier filters.
+ * @returns Validated choices for the field.
  */
 export async function fetchTablePossibleValues(
   tableName: string,
   fieldName: string,
   request: PossibleValuesRequest = {}
 ): Promise<QPossibleValue[]> {
-  const formData = new FormData()
-  if (request.searchTerm) formData.append('searchTerm', request.searchTerm)
-  if (request.ids) formData.append('ids', request.ids)
-  if (request.labels) formData.append('labels', request.labels)
-  if (request.values) formData.append('values', request.values)
-  if (request.useCase) formData.append('useCase', request.useCase)
-
-  return apiClient.post<QPossibleValue[]>(
-    `/table/${encodeURIComponent(tableName)}/possibleValues/${encodeURIComponent(fieldName)}`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  )
+  return loadPossibleValues(`/data/${encodeURIComponent(tableName)}/possibleValues/${encodeURIComponent(fieldName)}`, request)
 }
 
 /**
- * Fetches possible values for a specific field on a process step via
- * `POST /processes/{processName}/possibleValues/{fieldName}`.
- *
- * Encodes the request as `multipart/form-data`. Only non-empty fields are
- * appended to the form to keep the request body minimal.
- *
- * @param processName - Exact backend process identifier; determines which
- *   possible-value source provider is consulted on the backend. Case-sensitive;
- *   must match the backend declaration exactly and is used as a URL path segment.
- * @param fieldName - Name of the process field whose possible-value source to query.
- * @param request - Use `searchTerm` for live filtering in comboboxes as the
- *   user types; use `ids` or `labels` to resolve pre-populated values for
- *   existing process input (e.g. when re-opening a step with stored values).
- * @returns An array of matching `QPossibleValue` objects, each with an `id`
- *   and a `label` suitable for display in a dropdown or combobox.
+ * Load choices for a process field through its registered legacy route.
+ * @param processName - Exact process identifier.
+ * @param fieldName - Exact field identifier.
+ * @param request - Search and identifier filters.
+ * @returns Validated choices for the field.
  */
 export async function fetchProcessPossibleValues(
   processName: string,
   fieldName: string,
   request: PossibleValuesRequest = {}
 ): Promise<QPossibleValue[]> {
-  const formData = new FormData()
-  if (request.searchTerm) formData.append('searchTerm', request.searchTerm)
-  if (request.ids) formData.append('ids', request.ids)
-  if (request.labels) formData.append('labels', request.labels)
-  if (request.values) formData.append('values', request.values)
-  if (request.useCase) formData.append('useCase', request.useCase)
-
-  return apiClient.post<QPossibleValue[]>(
-    `/processes/${encodeURIComponent(processName)}/possibleValues/${encodeURIComponent(fieldName)}`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  )
+  return loadPossibleValues(`/processes/${encodeURIComponent(processName)}/possibleValues/${encodeURIComponent(fieldName)}`, request)
 }
 
 /**
- * Fetches possible values for a standalone possible-value source (PVS) via
- * `POST /possibleValues/{fieldName}`.
- *
- * Used for PVSes that are not tied to a specific table or process — for example,
- * enum-style lists shared across multiple fields or contexts.
- *
- * Encodes the request as `multipart/form-data`. Only non-empty fields are
- * appended to the form to keep the request body minimal.
- *
- * @param fieldName - Name of the standalone possible-value source to query;
- *   determines which PVS provider is consulted on the backend. Case-sensitive;
- *   used as a URL path segment.
- * @param request - Use `searchTerm` for live filtering in comboboxes as the
- *   user types; use `ids` or `labels` to resolve pre-populated values for
- *   existing records (e.g. when opening an edit form that already has a value).
- * @returns An array of matching `QPossibleValue` objects, each with an `id`
- *   and a `label` suitable for display in a dropdown or combobox.
+ * Load choices from a named standalone source through its registered legacy route.
+ * @param fieldName - Exact possible-value source identifier.
+ * @param request - Search and identifier filters.
+ * @returns Validated choices from the source.
  */
 export async function fetchPossibleValues(
   fieldName: string,
   request: PossibleValuesRequest = {}
 ): Promise<QPossibleValue[]> {
-  const formData = new FormData()
-  if (request.searchTerm) formData.append('searchTerm', request.searchTerm)
-  if (request.ids) formData.append('ids', request.ids)
-  if (request.labels) formData.append('labels', request.labels)
-  if (request.values) formData.append('values', request.values)
-  if (request.useCase) formData.append('useCase', request.useCase)
-
-  return apiClient.post<QPossibleValue[]>(
-    `/possibleValues/${encodeURIComponent(fieldName)}`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  )
+  return loadPossibleValues(`/possibleValues/${encodeURIComponent(fieldName)}`, request)
 }

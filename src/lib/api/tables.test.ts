@@ -25,6 +25,7 @@ vi.mock('./client', () => ({
     put: vi.fn(),
     delete: vi.fn(),
     setUnauthorizedCallback: vi.fn(),
+    getInstance: () => ({ defaults: { baseURL: 'https://sample.invalid/context/qqq/v1' } }),
   },
 }))
 
@@ -94,103 +95,139 @@ describe('Tables API', () => {
       const { getRecord } = await import('./tables')
       const result = await getRecord('person', 1)
 
-      expect(apiClient.get).toHaveBeenCalledWith('/table/person/1', { params: undefined })
+      expect(apiClient.get).toHaveBeenCalledWith('/data/person/1', { baseURL: 'https://sample.invalid/context', params: undefined })
       expect(result).toEqual(mockRecord)
+    })
+
+    it.each(['<html><body>Admin</body></html>', { tableName: 'person' }, { tableName: 'person', values: [] }])('rejects a successful non-record response: %j', async (response) => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue(response)
+      const { getRecord } = await import('./tables')
+      await expect(getRecord('person', 1)).rejects.toThrow('Invalid record response')
+    })
+
+    it('encodes the primary key as one legacy path segment', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ tableName: 'person', values: { id: 'one/two?' }, recordLabel: 'Key' })
+      const { getRecord } = await import('./tables')
+      await getRecord('my table', 'one/two?')
+      expect(vi.mocked(apiClient.get).mock.calls[0][0]).toBe('/data/my%20table/one%2Ftwo%3F')
     })
 
     it('passes options as query params', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({})
+      vi.mocked(apiClient.get).mockResolvedValue({ tableName: 'person', values: { id: 1 }, recordLabel: 'Person 1' })
 
       const { getRecord } = await import('./tables')
       await getRecord('person', 1, { includeAssociations: true, tableVariant: 'v1' })
 
       expect(vi.mocked(apiClient.get).mock.calls[0][1]).toEqual({
+        baseURL: 'https://sample.invalid/context',
         params: { includeAssociations: true, tableVariant: 'v1' },
       })
     })
   })
 
-  describe('insertRecord', () => {
-    it('posts FormData to /table/{name}', async () => {
+  describe.each(['insert', 'update'] as const)('%sRecord', (operation) => {
+    it('uses the legacy host and deployment prefix and unwraps one returned record', async () => {
       const { default: apiClient } = await import('./client')
-      const mockRecord = { tableName: 'person', values: { id: 26, firstName: 'Bob' }, recordLabel: 'Bob', displayValues: {} }
-      vi.mocked(apiClient.post).mockResolvedValue(mockRecord)
-
-      const { insertRecord } = await import('./tables')
-      const result = await insertRecord('person', { firstName: 'Bob', age: 30 })
-
-      expect(apiClient.post).toHaveBeenCalled()
-      const [url, body, config] = vi.mocked(apiClient.post).mock.calls[0]
-      expect(url).toBe('/table/person')
+      const { insertRecord, updateRecord } = await import('./tables')
+      const saved = { tableName: 'my table', values: { id: 'one/two?', name: 'Saved' } }
+      const request = operation === 'insert' ? apiClient.post : apiClient.put
+      vi.mocked(request).mockResolvedValue({ records: [saved] })
+      const values = { name: 'Saved' }
+      const result = operation === 'insert'
+        ? await insertRecord('my table', values)
+        : await updateRecord('my table', 'one/two?', values)
+      const [url, body, config] = vi.mocked(request).mock.calls[0]
+      expect(url).toBe(operation === 'insert' ? '/data/my%20table' : '/data/my%20table/one%2Ftwo%3F')
       expect(body).toBeInstanceOf(FormData)
-      expect((body as FormData).get('firstName')).toBe('Bob')
-      expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } })
-      expect(result).toEqual(mockRecord)
+      expect((body as FormData).get('name')).toBe('Saved')
+      expect(config).toEqual({ baseURL: 'https://sample.invalid/context', headers: { 'Content-Type': 'multipart/form-data' } })
+      expect(result).toEqual(saved)
     })
 
-    it('handles File values correctly', async () => {
+    it('preserves explicit clearing, omitted fields, false, zero, files and arrays', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue({})
-
-      const { insertRecord } = await import('./tables')
+      const { insertRecord, updateRecord } = await import('./tables')
+      const request = operation === 'insert' ? apiClient.post : apiClient.put
+      vi.mocked(request).mockResolvedValue({ records: [{ tableName: 'person', values: { id: 1 } }] })
       const file = new File(['data'], 'test.txt')
-      await insertRecord('person', { photo: file })
-
-      const formData = vi.mocked(apiClient.post).mock.calls[0][1] as FormData
-      expect(formData.get('photo')).toBe(file)
+      const values = { clear: null, omitted: undefined, text: 'null', flag: false, zero: 0, file, tags: ['a', 'b'] }
+      if (operation === 'insert') await insertRecord('person', values)
+      else await updateRecord('person', 1, values)
+      const form = vi.mocked(request).mock.calls[0][1] as FormData
+      expect(form.get('clear')).toBe('')
+      expect(form.has('omitted')).toBe(false)
+      expect(form.get('text')).toBe('null')
+      expect(form.get('flag')).toBe('false')
+      expect(form.get('zero')).toBe('0')
+      expect(form.get('file')).toBe(file)
+      expect(form.get('tags')).toBe('["a","b"]')
     })
 
-    it('handles Array values as JSON', async () => {
+    it('normalizes native status messages and retains valid associated records', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue({})
-
-      const { insertRecord } = await import('./tables')
-      await insertRecord('person', { tags: ['a', 'b'] })
-
-      const formData = vi.mocked(apiClient.post).mock.calls[0][1] as FormData
-      expect(formData.get('tags')).toBe('["a","b"]')
+      const { insertRecord, updateRecord } = await import('./tables')
+      const saved = { tableName: 'person', values: { id: 1 }, warnings: [{ message: 'Review value' }],
+        associatedRecords: { pets: [{ tableName: 'pet', values: { id: 2 } }] } }
+      vi.mocked(operation === 'insert' ? apiClient.post : apiClient.put).mockResolvedValue({ records: [saved] })
+      const result = await (operation === 'insert' ? insertRecord('person', {}) : updateRecord('person', 1, {}))
+      expect(result).toEqual({ ...saved, warnings: ['Review value'] })
     })
 
-    it('skips null and undefined values', async () => {
+    it('rejects object field values before sending a corrupt string', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue({})
-
-      const { insertRecord } = await import('./tables')
-      await insertRecord('person', { name: 'Alice', missing: null, undef: undefined })
-
-      const formData = vi.mocked(apiClient.post).mock.calls[0][1] as FormData
-      expect(formData.get('name')).toBe('Alice')
-      expect(formData.get('missing')).toBeNull()
-      expect(formData.get('undef')).toBeNull()
+      const { insertRecord, updateRecord } = await import('./tables')
+      const values = { address: { city: 'Example' } }
+      await expect(operation === 'insert' ? insertRecord('person', values) : updateRecord('person', 1, values)).rejects.toThrow()
+      expect(operation === 'insert' ? apiClient.post : apiClient.put).not.toHaveBeenCalled()
     })
-  })
 
-  describe('updateRecord', () => {
-    it('puts FormData to /table/{name}/{id}', async () => {
+    it.each([
+      '<html>Dashboard</html>', {}, { records: [] }, { records: [{ values: [] }] },
+      { records: [{ tableName: 'person', values: {} }, { tableName: 'person', values: {} }] },
+      { records: [{ tableName: 'anotherTable', values: {} }] },
+      { records: [{ tableName: 'person', values: {}, errors: ['Rejected'] }] },
+      { records: [{ tableName: 'person', values: {}, errors: [{ message: 'Rejected' }] }] },
+      { records: [{ tableName: 'person', values: {}, associatedRecords: {
+        pets: [{ tableName: 'pet', values: { id: 2 }, associatedRecords: {
+          tags: [{ tableName: 'tag', values: {}, errors: [{ message: 'Child failed' }] }],
+        } }],
+      } }] },
+    ])('rejects an invalid successful write response: %j', async (response) => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.put).mockResolvedValue({})
+      const { insertRecord, updateRecord } = await import('./tables')
+      vi.mocked(operation === 'insert' ? apiClient.post : apiClient.put).mockResolvedValue(response)
+      const write = operation === 'insert' ? insertRecord('person', {}) : updateRecord('person', 1, {})
+      await expect(write).rejects.toThrow()
+    })
 
-      const { updateRecord } = await import('./tables')
-      await updateRecord('person', 1, { firstName: 'Updated' })
-
-      const [url, body] = vi.mocked(apiClient.put).mock.calls[0]
-      expect(url).toBe('/table/person/1')
-      expect(body).toBeInstanceOf(FormData)
-      expect((body as FormData).get('firstName')).toBe('Updated')
+    it('retains HTTP failures without reporting a saved record', async () => {
+      const { default: apiClient } = await import('./client')
+      const { insertRecord, updateRecord } = await import('./tables')
+      const failure = new Error('Permission denied')
+      vi.mocked(operation === 'insert' ? apiClient.post : apiClient.put).mockRejectedValue(failure)
+      const write = operation === 'insert' ? insertRecord('person', {}) : updateRecord('person', 1, {})
+      await expect(write).rejects.toBe(failure)
     })
   })
 
   describe('deleteRecord', () => {
-    it('sends DELETE to /table/{name}/{id}', async () => {
+    it('uses the encoded legacy path and validates the native deleted count', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.delete).mockResolvedValue({ deletedCount: 1 })
-
+      vi.mocked(apiClient.delete).mockResolvedValue({ deletedRecordCount: 1, recordsWithErrors: [] })
       const { deleteRecord } = await import('./tables')
-      const result = await deleteRecord('person', 1)
+      expect(await deleteRecord('my table', 'one/two?')).toEqual({ deletedCount: 1 })
+      expect(apiClient.delete).toHaveBeenCalledWith('/data/my%20table/one%2Ftwo%3F', { baseURL: 'https://sample.invalid/context' })
+    })
 
-      expect(apiClient.delete).toHaveBeenCalledWith('/table/person/1')
-      expect(result).toEqual({ deletedCount: 1 })
+    it.each(['<html>Dashboard</html>', {}, { deletedRecordCount: 0 }, { deletedRecordCount: 2 },
+      { deletedRecordCount: 1, recordsWithErrors: [{ errors: ['Denied'] }] }])('rejects an unsuccessful delete: %j', async (response) => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.delete).mockResolvedValue(response)
+      const { deleteRecord } = await import('./tables')
+      await expect(deleteRecord('person', 1)).rejects.toThrow()
     })
   })
 
@@ -247,5 +284,38 @@ describe('Tables API', () => {
       expect(apiClient.get).toHaveBeenCalledWith('/table/person/1/audits')
       expect(result).toEqual(mockAudits)
     })
+  })
+})
+
+
+describe('Recursive insert transport', () => {
+  it('sends exact named records and binary tags with the explicit header and deployment prefix', async () => {
+    const { default: apiClient } = await import('./client')
+    vi.mocked(apiClient.post).mockResolvedValue({ records: [{ tableName: 'parent / a', values: { id: 7 }, associatedRecords: { 'named / group': [{ tableName: 'child', values: { id: 9 } }] } }] })
+    const { insertRecord } = await import('./tables')
+    const groups = { 'named / group': [{ values: { blob: new File([new Uint8Array([0, 128, 255])], 'bytes.bin'), clear: null, flag: false, zero: 0 }, associatedRecords: { empty: [] } }] }
+    await insertRecord('parent / a', { name: 'Copy' }, groups)
+    const call = vi.mocked(apiClient.post).mock.calls.at(-1)!
+    expect(call[0]).toBe('/data/parent%20%2F%20a')
+    expect(call[2]).toEqual({ baseURL: 'https://sample.invalid/context', headers: { 'Content-Type': 'multipart/form-data', 'X-QQQ-Association-Format': 'record-v1' } })
+    expect(JSON.parse((call[1] as FormData).get('associations') as string)).toEqual({ 'named / group': [{ values: { blob: { base64: 'AID/' }, clear: null, flag: false, zero: 0 }, associatedRecords: { empty: [] } }] })
+    expect(groups['named / group'][0].values.blob).toBeInstanceOf(File)
+  })
+})
+
+
+describe('Recursive transport boundaries', () => {
+  it('allows 64 actual levels with a known empty group, but rejects a 65th record before HTTP', async () => {
+    const { default: apiClient } = await import('./client'); const { insertRecord } = await import('./tables')
+    vi.mocked(apiClient.post).mockClear().mockResolvedValue({ records: [{ tableName: 'parent', values: { id: 1 } }] })
+    type Child = { values: Record<string, unknown>; associatedRecords: Record<string, Child[]> }
+    const root: Record<string, Child[]> = {}; let cursor = root
+    for (let i = 0; i < 64; i++) { const node: Child = { values: { name: 'value' }, associatedRecords: {} }; cursor.children = [node]; cursor = node.associatedRecords }
+    cursor.children = []
+    await insertRecord('parent', {}, root)
+    expect(apiClient.post).toHaveBeenCalledTimes(1)
+    cursor.children.push({ values: { name: 'too deep' }, associatedRecords: {} })
+    await expect(insertRecord('parent', {}, root)).rejects.toThrow(/64/)
+    expect(apiClient.post).toHaveBeenCalledTimes(1)
   })
 })

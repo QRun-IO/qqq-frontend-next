@@ -256,7 +256,9 @@ async function parseRequestBody(request: Request): Promise<Record<string, unknow
     formData.forEach((value, key) => {
       const str = String(value)
       // Attempt numeric coercion for known numeric-looking values
-      if (/^-?\d+(\.\d+)?$/.test(str)) {
+      if (str === '') {
+        values[key] = null
+      } else if (/^-?\d+(\.\d+)?$/.test(str)) {
         values[key] = Number(str)
       } else if (str === 'true') {
         values[key] = true
@@ -382,8 +384,8 @@ export const tableHandlers = [
     return HttpResponse.json({ records })
   }),
 
-  // GET /table/:tableName/:primaryKey
-  http.get(`${BASE}/table/:tableName/:primaryKey`, ({ params, request }) => {
+  // Legacy GET /data/:tableName/:primaryKey
+  http.get(`/data/:tableName/:primaryKey`, ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -450,8 +452,8 @@ export const tableHandlers = [
     return HttpResponse.json(record)
   }),
 
-  // POST /table/:tableName — insert
-  http.post(`${BASE}/table/:tableName`, async ({ params, request }) => {
+  // Legacy POST /data/:tableName — insert
+  http.post('/data/:tableName', async ({ params, request }) => {
     const { tableName } = params as { tableName: string }
     const records = store[tableName]
 
@@ -485,11 +487,11 @@ export const tableHandlers = [
 
     records.push(newRecord)
 
-    return HttpResponse.json(newRecord)
+    return HttpResponse.json({ records: [newRecord] })
   }),
 
-  // PUT /table/:tableName/:primaryKey — update
-  http.put(`${BASE}/table/:tableName/:primaryKey`, async ({ params, request }) => {
+  // Legacy PUT /data/:tableName/:primaryKey — update
+  http.put('/data/:tableName/:primaryKey', async ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -524,11 +526,11 @@ export const tableHandlers = [
 
     records[idx] = updated
 
-    return HttpResponse.json(updated)
+    return HttpResponse.json({ records: [updated] })
   }),
 
-  // DELETE /table/:tableName/:primaryKey
-  http.delete(`${BASE}/table/:tableName/:primaryKey`, ({ params }) => {
+  // Legacy DELETE /data/:tableName/:primaryKey
+  http.delete('/data/:tableName/:primaryKey', ({ params }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -548,6 +550,6 @@ export const tableHandlers = [
 
     records.splice(idx, 1)
 
-    return HttpResponse.json({ deletedCount: 1 })
+    return HttpResponse.json({ deletedRecordCount: 1 })
   }),
 ]

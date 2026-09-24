@@ -358,7 +358,8 @@ describe('ExportButton — download (all records)', () => {
 
     // Wait for completion
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /export records/i })).toHaveTextContent('Export')
+      expect(screen.getByRole('button', { name: /export records/i })).toHaveTextContent(/^Export$/)
+      expect(screen.getByRole('button', { name: /export records/i })).toBeEnabled()
     })
   })
 

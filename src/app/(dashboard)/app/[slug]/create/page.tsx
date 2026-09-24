@@ -36,6 +36,7 @@ import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { EntityForm } from '@/components/forms/EntityForm'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 
 /**
  * Renders the record-creation form for the table identified by `slug`.
@@ -55,13 +56,13 @@ export default function EntityCreatePage() {
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
 
-  const { data: metaData } = useQuery({
+  const { data: metaData, isError: metadataError } = useQuery({
     queryKey: queryKeys.metadataAll(),
     queryFn: loadMetaData,
     staleTime: 1000 * 60 * 30,
   })
 
-  const tableMetaData = metaData?.tables?.[slug]
+  const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
   useEffect(() => {
     setPageHeader(`Create ${tableMetaData?.label ?? slug}`)
@@ -69,6 +70,10 @@ export default function EntityCreatePage() {
       setTableMetaData(tableMetaData)
     }
   }, [tableMetaData?.label, slug, tableMetaData, setPageHeader, setTableMetaData])
+
+  if (metadataError || tableError || (metaData && !metaData.tables?.[slug])) {
+    return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
+  }
 
   if (!tableMetaData) {
     return (

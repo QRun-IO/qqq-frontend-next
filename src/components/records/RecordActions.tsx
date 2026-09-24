@@ -100,7 +100,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/app/${tableMetaData.name}/${primaryKey}/copy`
+                    `/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`
                   )
                 }
                 data-qqq-id="button-copy"
@@ -206,7 +206,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                   {/* Copy */}
                   {canInsert && (
                     <DropdownMenuPrimitive.Item
-                      onSelect={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/copy`)}
+                      onSelect={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)}
                       data-qqq-id="record-action-copy"
                       className={cn(
                         'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',

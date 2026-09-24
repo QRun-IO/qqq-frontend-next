@@ -21,6 +21,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./client', () => ({
   default: {
     get: vi.fn(),
+    getInstance: () => ({ defaults: { baseURL: 'https://example.invalid/prefix/qqq/v1' } }),
     setUnauthorizedCallback: vi.fn(),
   },
 }))
@@ -44,6 +45,29 @@ describe('Metadata API', () => {
       })
       expect(result).toEqual(mockInstance)
     })
+  })
+
+  it('resolves missing widget permissions from actual metadata and retains explicit denial', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { allowed: { name: 'allowed', type: 'statistics' } } }
+    const widgets = { allowed: { name: 'allowed', hasPermission: true, gridColumns: 4 }, denied: { name: 'denied', hasPermission: false } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets })
+    expect(await loadMetaData()).toEqual({ ...light, widgets })
+    expect(apiClient.get).toHaveBeenLastCalledWith('/metaData', expect.objectContaining({ baseURL: 'https://example.invalid/prefix' }))
+    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, widgets })
+    expect(await loadMetaData()).toEqual({ ...light, widgets })
+    expect(apiClient.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not infer permission when full widget metadata fails', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { hidden: { name: 'hidden' } } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockRejectedValueOnce(new Error('Permission denied'))
+    await expect(loadMetaData()).rejects.toThrow('Permission denied')
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce('<html>SPA</html>')
+    await expect(loadMetaData()).rejects.toThrow('Invalid widget metadata response')
   })
 
   describe('loadTableMetaData', () => {

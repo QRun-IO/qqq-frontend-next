@@ -17,7 +17,7 @@
 // Tests for Zod schema builders from QQQ metadata
 
 import { describe, it, expect } from 'vitest'
-import { zodFieldFromMetadata, zodSchemaFromTableMetadata, zodSchemaFromFields, defaultValuesFromRecord } from './zod-from-metadata'
+import { zodFieldFromMetadata, zodSchemaFromTableMetadata, zodSchemaFromFields, defaultValuesFromRecord, defaultValuesForCopy } from './zod-from-metadata'
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 
 function makeField(overrides: Partial<QFieldMetaData>): QFieldMetaData {
@@ -53,6 +53,30 @@ function makeTable(fields: Record<string, QFieldMetaData>): QTableMetaData {
   }
 }
 
+it('preserves explicit null only in copy defaults while retaining ordinary default behavior', () => {
+  const table = makeTable({
+    flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
+    note: makeField({ name: 'note', defaultValue: 'Default note' }),
+    missing: makeField({ name: 'missing', defaultValue: 'Omitted default' }),
+  })
+  const values = { flag: null, note: null }
+  expect(defaultValuesForCopy(table, values)).toEqual({ id: '', flag: null, note: null, missing: 'Omitted default' })
+  expect(defaultValuesFromRecord(table, values)).toEqual({ flag: false, note: 'Default note', missing: 'Omitted default' })
+  expect(values).toEqual({ flag: null, note: null })
+})
+
+it('accepts null only for optional copy fields without changing ordinary form schemas', () => {
+  const table = makeTable({
+    flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
+    note: makeField({ name: 'note' }),
+    required: makeField({ name: 'required', isRequired: true }),
+  })
+  const values = { flag: null, note: null, required: 'Required value' }
+  expect(zodSchemaFromTableMetadata(table, undefined, true).safeParse(values).success).toBe(true)
+  expect(zodSchemaFromTableMetadata(table).safeParse(values).success).toBe(false)
+  expect(zodSchemaFromTableMetadata(table, undefined, true).safeParse({ ...values, required: null }).success).toBe(false)
+})
+
 describe('zodFieldFromMetadata', () => {
   describe('STRING type', () => {
     it('optional string by default', () => {
@@ -81,7 +105,7 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse(42).success).toBe(true)
     })
 
-    it('required integer fails on empty', () => {
+    it('required integer accepts zero and rejects fractions', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'INTEGER', isRequired: true, label: 'Age' }))
       expect(schema.safeParse(0).success).toBe(true)
       expect(schema.safeParse(3.14).success).toBe(false) // not integer
@@ -104,6 +128,14 @@ describe('zodFieldFromMetadata', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'DECIMAL', isRequired: true, label: 'Price' }))
       expect(schema.safeParse(0.01).success).toBe(true)
     })
+  })
+
+  it.each(['INTEGER', 'LONG', 'DECIMAL'] as const)('rejects blank required %s without changing it to zero', (type) => {
+    const schema = zodFieldFromMetadata(makeField({ type, isRequired: true }))
+    for (const blank of ['', '   ', null, undefined]) expect(schema.safeParse(blank).success).toBe(false)
+    expect(schema.parse('0')).toBe(0)
+    expect(schema.parse(0)).toBe(0)
+    expect(schema.parse('12')).toBe(12)
   })
 
   describe('BOOLEAN type', () => {

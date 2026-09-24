@@ -52,6 +52,7 @@ export type {
   QTableSection,
   QExposedJoin,
   QJoinMetaData,
+  QAssociation,
   QReportMetaData,
   QHelpContent,
   QIcon,
@@ -60,7 +61,7 @@ export type {
   FieldAdornment,
 } from './metadata'
 
-export type { QRecord, QPossibleValue, QAuditFieldChange, QAuditRecord } from './records'
+export type { QRecord, QRecordInput, QPossibleValue, QAuditFieldChange, QAuditRecord } from './records'
 
 export type {
   QQueryFilter,

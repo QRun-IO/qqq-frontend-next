@@ -22,11 +22,11 @@
 
 import React, { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import type { QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordViewSection } from './RecordViewSection'
-import { AssociatedRecords } from './AssociatedRecords'
+import { RecordViewAssociated } from './RecordViewAssociated'
 
 /**
  * A single tab descriptor used in the tab strip.
@@ -56,18 +56,15 @@ interface RecordViewTabsProps {
   secondarySections: QTableMetaData['sections']
   /** T3 content sections rendered as individual section tabs. */
   tertiarySections: QTableMetaData['sections']
-  /** Many-to-many join definitions rendered in the Related tab. */
-  manyJoins: QTableMetaData['exposedJoins']
+  /** Declared associations without an explicit section binding. */
+  associations: QAssociation[]
+  renderAssociation: (name: string, label?: string) => React.ReactNode
   /** Widget metadata map forwarded to RecordViewSection for widget-backed sections. */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
   /** Full table metadata map forwarded for possibleValueSource link rendering. */
   allTables?: Record<string, QTableMetaData>
   /** Navigation context used to build outgoing record links with a back reference. */
   navigateFrom: { path: string; label: string }
-  /** Primary key value of the parent record (forwarded to AssociatedRecords). */
-  parentPk: string | number
-  /** Callback invoked after a new associated record is created (triggers parent refetch). */
-  onRefetch?: () => void
 }
 
 /**
@@ -157,12 +154,11 @@ export function RecordViewTabs({
   setActiveTab,
   secondarySections,
   tertiarySections,
-  manyJoins,
+  associations,
+  renderAssociation,
   widgetMetaDataMap,
   allTables,
   navigateFrom,
-  parentPk,
-  onRefetch,
 }: RecordViewTabsProps) {
   return (
     <>
@@ -212,6 +208,7 @@ export function RecordViewTabs({
               >
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -235,6 +232,7 @@ export function RecordViewTabs({
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -257,6 +255,7 @@ export function RecordViewTabs({
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -268,25 +267,10 @@ export function RecordViewTabs({
           )
         ))}
 
-        {/* Tab content: Related (many-to-many / one-to-many) */}
+        {/* Tab content: unbound named associations */}
         {activeTab === 'related' && (
           <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
-            {manyJoins.map((join) => {
-              const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-              return (
-                <div key={join.label} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <AssociatedRecords
-                    join={join}
-                    records={assocRecords}
-                    parentTableMetaData={tableMetaData}
-                    parentPrimaryKey={parentPk}
-                    allTables={allTables}
-                    navigateFrom={navigateFrom}
-                    onRecordCreated={onRefetch}
-                  />
-                </div>
-              )
-            })}
+            <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
           </div>
         )}
       </div>
@@ -305,6 +289,7 @@ export function RecordViewTabs({
           >
             <RecordViewSection
               section={section}
+              renderAssociation={renderAssociation}
               tableMetaData={tableMetaData}
               record={record}
               widgetMetaDataMap={widgetMetaDataMap}
@@ -325,6 +310,7 @@ export function RecordViewTabs({
           >
             <RecordViewSection
               section={section}
+              renderAssociation={renderAssociation}
               tableMetaData={tableMetaData}
               record={record}
               widgetMetaDataMap={widgetMetaDataMap}
@@ -334,28 +320,12 @@ export function RecordViewTabs({
           </AccordionSection>
         ))}
 
-        {/* Related / many-to-many joins */}
-        {manyJoins.map((join) => {
-          const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-          return (
-            <AccordionSection
-              key={join.label}
-              id={`related-${join.label}`}
-              label={join.label}
-              defaultOpen={false}
-            >
-              <AssociatedRecords
-                join={join}
-                records={assocRecords}
-                parentTableMetaData={tableMetaData}
-                parentPrimaryKey={parentPk}
-                allTables={allTables}
-                navigateFrom={navigateFrom}
-                onRecordCreated={onRefetch}
-              />
-            </AccordionSection>
-          )
-        })}
+        {/* Unbound named associations */}
+        {associations.map((association) => (
+          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name}>
+            {renderAssociation(association.name)}
+          </AccordionSection>
+        ))}
       </div>
     </>
   )

@@ -32,7 +32,7 @@ export interface QRecord {
   /** Name of the table this record belongs to. */
   tableName: string
   /** Human-readable label computed by the backend (e.g. a concatenation of key fields). */
-  recordLabel: string
+  recordLabel?: string
   /** Raw field values keyed by field name. */
   values: Record<string, unknown>
   /** Pre-formatted display strings keyed by field name, ready to render without transformation. Optional — not all backend endpoints return display values. */
@@ -86,4 +86,10 @@ export interface QAuditRecord {
   message?: string
   /** List of individual field-level changes recorded for this audit entry. */
   fieldChanges: QAuditFieldChange[]
+}
+
+/** Values and exact named descendants accepted by the opt-in recursive write format. */
+export interface QRecordInput {
+  values: Record<string, unknown>
+  associatedRecords?: Record<string, QRecordInput[]>
 }

@@ -27,11 +27,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, X } from 'lucide-react'
 
-import type { QTableMetaData, QRecord } from '@/types'
+import type { QTableMetaData, QRecord, QRecordInput } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
-import { zodSchemaFromTableMetadata, defaultValuesFromRecord } from '@/lib/utils/zod-from-metadata'
+import { zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, zodFieldFromMetadata, validateCopyPasswords } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 import { toast } from '@/lib/hooks/use-toast'
 
@@ -48,10 +48,19 @@ export interface EntityFormProps {
   /** Existing record values; when provided the form operates in edit mode. */
   record?: QRecord
 
-  /** When `true`, the form is rendered inside a modal dialog (heading is moved to a header bar). */
+  /** When `true`, the enclosing dialog supplies the heading. */
   isModal?: boolean
-  /** When `true`, the primary key is omitted from the submit payload, creating a copy of `record`. */
+  /** When `true`, copy base values into a new record with a blank key; an editable manual key may be supplied. */
   isCopy?: boolean
+  /** Full-copy descendants are validated again immediately before the one insert. */
+  copyAssociations?: {
+    getRecords: (rootValues: Record<string, unknown>) => Record<string, QRecordInput[]>
+    validateResult?: (record: QRecord) => void
+    error?: string
+    dirty?: boolean
+  }
+  /** Draft editors rendered inside the single root form, without child form tags. */
+  children?: React.ReactNode
   /** When `true`, all form inputs are rendered in a disabled, read-only state. */
   disabled?: boolean
 
@@ -77,6 +86,9 @@ export interface EntityFormProps {
 
   /** Default field values that override values derived from `record`. */
   defaultValues?: Record<string, unknown>
+
+  /** Declared relationship fields merged after ordinary input validation on insert. */
+  fixedValues?: Record<string, string | number | boolean>
 
   /** Restricts the form to only these fields; when omitted all editable non-hidden fields are shown. */
   fieldNamesToInclude?: string[]
@@ -110,12 +122,15 @@ export function EntityForm({
   record,
   isModal = false,
   isCopy = false,
+  copyAssociations,
+  children,
   disabled = false,
   overrideHeading,
   saveButtonLabel = 'Save',
   onSuccess,
   onCancel,
   defaultValues: propDefaultValues,
+  fixedValues,
   fieldNamesToInclude,
   possibleValueContext,
   className,
@@ -130,17 +145,21 @@ export function EntityForm({
 
   // Build Zod schema from metadata (memoized to avoid expensive recomputation)
   const schema = useMemo(
-    () => zodSchemaFromTableMetadata(tableMetaData, fieldNamesToInclude),
-    [tableMetaData, fieldNamesToInclude]
+    () => zodSchemaFromTableMetadata(tableMetaData, fieldNamesToInclude, isCopy),
+    [tableMetaData, fieldNamesToInclude, isCopy]
   )
 
   // Build default values (memoized to keep a stable reference for useForm)
-  const mergedDefaults = useMemo(() => {
-    const computedDefaults: Record<string, unknown> = record
-      ? defaultValuesFromRecord(tableMetaData, record.values)
-      : {}
-    return { ...computedDefaults, ...propDefaultValues }
-  }, [tableMetaData, record, propDefaultValues])
+  const { values: mergedDefaults, error: defaultsError } = useMemo(() => {
+    try {
+      const computedDefaults: Record<string, unknown> = record
+        ? (isCopy ? defaultValuesForCopy : defaultValuesFromRecord)(tableMetaData, record.values)
+        : {}
+      return { values: { ...computedDefaults, ...propDefaultValues }, error: null }
+    } catch (error) {
+      return { values: {}, error: error instanceof Error ? error.message : 'Source values are unavailable.' }
+    }
+  }, [tableMetaData, record, propDefaultValues, isCopy])
 
   const {
     register,
@@ -156,23 +175,25 @@ export function EntityForm({
   // Reset when record changes (e.g., navigating between records)
   useEffect(() => {
     if (record) {
-      reset(defaultValuesFromRecord(tableMetaData, record.values))
+      reset(mergedDefaults)
     }
-  }, [record, tableMetaData, reset])
+  }, [record, mergedDefaults, reset])
+
+  const hasChanges = isDirty || Boolean(copyAssociations?.dirty)
 
   // Browser-level navigation guard (tab close, URL change, refresh)
   // Both e.preventDefault() and e.returnValue are required for cross-browser support:
   // Chrome/Edge require returnValue to be set, Firefox/Safari rely on preventDefault().
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (hasChanges) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [isDirty])
+  }, [hasChanges])
 
   /**
    * Runs a navigation function only after confirming no unsaved changes exist.
@@ -185,14 +206,14 @@ export function EntityForm({
    */
   const guardedNavigate = useCallback(
     (navigateFn: () => void) => {
-      if (isDirty) {
+      if (hasChanges) {
         setPendingNavigation(() => navigateFn)
         setShowUnsavedDialog(true)
       } else {
         navigateFn()
       }
     },
-    [isDirty]
+    [hasChanges]
   )
 
   /**
@@ -216,10 +237,41 @@ export function EntityForm({
     setPendingNavigation(null)
   }, [])
 
+  /**
+   * Check the table's identifier before reporting success or navigating.
+   * @param savedRecord - The API adapter's validated record.
+   * @returns The record with a usable metadata-defined primary key.
+   */
+  function validateSavedRecord(savedRecord: QRecord): QRecord {
+    const primaryKey = savedRecord.values[tableMetaData.primaryKeyField]
+    if ((typeof primaryKey !== 'string' || primaryKey.length === 0) &&
+      (typeof primaryKey !== 'number' || !Number.isFinite(primaryKey))) {
+      throw new Error('The server did not return a valid record identifier.')
+    }
+    return savedRecord
+  }
+
   // --- Mutations ---
   const insertMutation = useMutation({
-    mutationFn: (values: Record<string, unknown>) =>
-      insertRecord(tableMetaData.name, values),
+    mutationFn: async (values: Record<string, unknown>) => {
+      const relationshipValues: Record<string, unknown> = {}
+      for (const [name, value] of Object.entries(fixedValues ?? {})) {
+        const field = tableMetaData.fields[name]
+        if (!field) throw new Error(`Relationship field ${name} is unavailable`)
+        relationshipValues[name] = zodFieldFromMetadata(field).parse(value)
+      }
+      const insertValues = { ...values, ...relationshipValues }
+      const key = tableMetaData.primaryKeyField
+      if (isCopy && (insertValues[key] === '' || insertValues[key] == null)) {
+        delete insertValues[key]
+      }
+      if (isCopy) validateCopyPasswords(tableMetaData, insertValues, fieldNamesToInclude)
+      if (copyAssociations?.error) throw new Error(copyAssociations.error)
+      const associations = copyAssociations?.getRecords(insertValues)
+      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, insertValues, associations))
+      copyAssociations?.validateResult?.(saved)
+      return saved
+    },
     onSuccess: (savedRecord) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
       toast.success(`${tableMetaData.label} created successfully.`)
@@ -227,7 +279,7 @@ export function EntityForm({
         onSuccess(savedRecord)
       } else {
         const pk = savedRecord.values[tableMetaData.primaryKeyField]
-        router.push(`/app/${tableMetaData.name}/${pk}`)
+        router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
       }
     },
     onError: (err: Error) => {
@@ -236,9 +288,9 @@ export function EntityForm({
   })
 
   const updateMutation = useMutation({
-    mutationFn: (values: Record<string, unknown>) => {
+    mutationFn: async (values: Record<string, unknown>) => {
       const pk = record!.values[tableMetaData.primaryKeyField] as string | number
-      return updateRecord(tableMetaData.name, pk, values)
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, values))
     },
     onSuccess: (savedRecord) => {
       const pk = savedRecord.values[tableMetaData.primaryKeyField] as string | number
@@ -248,7 +300,7 @@ export function EntityForm({
       if (onSuccess) {
         onSuccess(savedRecord)
       } else {
-        router.push(`/app/${tableMetaData.name}/${pk}`)
+        router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
       }
     },
     onError: (err: Error) => {
@@ -258,6 +310,7 @@ export function EntityForm({
 
   const activeMutation = isEdit ? updateMutation : insertMutation
   const mutationError = activeMutation.error as Error | null
+  const isSaving = isSubmitting || activeMutation.isPending
 
   /**
    * React Hook Form submit handler — delegates to the appropriate mutation
@@ -266,11 +319,31 @@ export function EntityForm({
    * @param values - The validated form field values.
    */
   const onSubmit = useCallback(
-    async (values: Record<string, unknown>) => {
-      await activeMutation.mutateAsync(values)
+    (values: Record<string, unknown>) => {
+      activeMutation.mutate(values)
     },
     [activeMutation]
   )
+
+  /**
+   * Preserve the browser's distinction between malformed numeric input and a blank.
+   * @param event - The form submission event.
+   * @returns Metadata validation when native numeric input is readable.
+   */
+  function onFormSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (defaultsError || copyAssociations?.error) {
+      event.preventDefault()
+      return
+    }
+    const invalidNumber = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="number"]'))
+      .find((input) => !input.matches(':disabled') && input.validity.badInput)
+    if (invalidNumber) {
+      event.preventDefault()
+      invalidNumber.reportValidity()
+      return
+    }
+    return handleSubmit(onSubmit)(event)
+  }
 
   /**
    * Handles the Cancel button click.
@@ -287,9 +360,9 @@ export function EntityForm({
         onCancel()
       } else if (isEdit && record) {
         const pk = record.values[tableMetaData.primaryKeyField]
-        router.push(`/app/${tableMetaData.name}/${pk}`)
+        router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
       } else {
-        router.push(`/app/${tableMetaData.name}`)
+        router.push(`/app/${encodeURIComponent(tableMetaData.name)}`)
       }
     }
 
@@ -313,7 +386,7 @@ export function EntityForm({
 
   const formContent = (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={onFormSubmit}
       noValidate
       className={cn('flex flex-col gap-6', className)}
       data-qqq-id={`entity-form-${tableMetaData.name}`}
@@ -326,15 +399,18 @@ export function EntityForm({
       )}
 
       {/* Mutation error alert */}
-      {mutationError && (
+      {(defaultsError || copyAssociations?.error || mutationError) && (
         <div
           role="alert"
           className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <strong>Error: </strong>
-          {mutationError.message || 'An error occurred while saving.'}
+          {defaultsError || copyAssociations?.error || mutationError?.message || 'An error occurred while saving.'}
         </div>
       )}
+
+      {isCopy && Object.values(tableMetaData.fields).some(field => field.type === 'PASSWORD' && field.isEditable && !field.isHidden && !field.adornments?.some(item => item.type === 'REVEAL')) &&
+        <p className="text-sm text-muted-foreground">Unreadable passwords are not copied. Enter new values before saving.</p>}
 
       {/* Fields */}
       <DynamicForm
@@ -344,9 +420,11 @@ export function EntityForm({
         tableMetaData={tableMetaData}
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
-        disabled={disabled || isSubmitting}
+        disabled={disabled || isSaving || Boolean(defaultsError)}
         dirtyFields={dirtyFields as Record<string, boolean>}
       />
+
+      {children && <fieldset disabled={disabled || isSaving} className="min-w-0">{children}</fieldset>}
 
       {/* Actions — sticky on mobile, static on desktop */}
       <div
@@ -360,7 +438,7 @@ export function EntityForm({
         <button
           type="button"
           onClick={handleCancel}
-          disabled={isSubmitting}
+          disabled={isSaving}
           data-qqq-id="button-cancel"
           className={cn(
             'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
@@ -375,7 +453,7 @@ export function EntityForm({
         </button>
         <button
           type="submit"
-          disabled={disabled || isSubmitting || (!isDirty && isEdit)}
+          disabled={disabled || isSaving || Boolean(defaultsError) || Boolean(copyAssociations?.error) || (!isDirty && isEdit)}
           data-qqq-id="button-save"
           className={cn(
             'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
@@ -385,12 +463,12 @@ export function EntityForm({
             'transition-colors duration-150'
           )}
         >
-          {isSubmitting ? (
+          {isSaving ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
             <Save className="h-4 w-4" aria-hidden="true" />
           )}
-          {isSubmitting ? 'Saving...' : saveButtonLabel}
+          {isSaving ? 'Saving...' : saveButtonLabel}
         </button>
       </div>
     </form>
@@ -400,9 +478,6 @@ export function EntityForm({
     <>
       {isModal ? (
         <div data-qqq-id={`entity-form-modal-${tableMetaData.name}`}>
-          <div className="border-b border-border px-6 py-4">
-            <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
-          </div>
           <div className="p-6">{formContent}</div>
         </div>
       ) : (

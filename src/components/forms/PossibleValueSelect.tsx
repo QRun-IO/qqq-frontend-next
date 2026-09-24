@@ -95,10 +95,12 @@ export function PossibleValueSelect({
   const [searchTerm, setSearchTerm] = useState('')
   const [options, setOptions] = useState<QPossibleValue[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [selectedOption, setSelectedOption] = useState<QPossibleValue | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestSequence = useRef(0)
 
   /**
    * Fetches possible values for the given search term from the appropriate
@@ -109,7 +111,9 @@ export function PossibleValueSelect({
    */
   const fetchOptions = useCallback(
     async (term: string) => {
+      const sequence = ++requestSequence.current
       setIsLoading(true)
+      setLoadFailed(false)
       try {
         const request = { searchTerm: term || undefined }
         let results: QPossibleValue[]
@@ -120,11 +124,14 @@ export function PossibleValueSelect({
         } else {
           results = await fetchPossibleValues(fieldName, request)
         }
-        setOptions(results)
+        if (sequence === requestSequence.current) setOptions(results)
       } catch {
-        setOptions([])
+        if (sequence === requestSequence.current) {
+          setOptions([])
+          setLoadFailed(true)
+        }
       } finally {
-        setIsLoading(false)
+        if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
     [context, fieldName]
@@ -177,6 +184,7 @@ export function PossibleValueSelect({
   return (
     <div className="flex flex-col gap-1">
       <label
+        id={`${id}-label`}
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
@@ -210,6 +218,7 @@ export function PossibleValueSelect({
               <div
                 id={id}
                 role="combobox"
+                aria-labelledby={`${id}-label`}
                 aria-expanded={isOpen}
                 aria-haspopup="listbox"
                 aria-required={required}
@@ -299,6 +308,10 @@ export function PossibleValueSelect({
                       <li className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                         Loading...
+                      </li>
+                    ) : loadFailed ? (
+                      <li role="alert" className="py-4 text-center text-sm text-destructive">
+                        Options could not be loaded.
                       </li>
                     ) : options.length === 0 ? (
                       <li className="py-4 text-center text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-// Playwright route-interception mocks for /qqq/v1/* endpoints.
+// Playwright route-interception mocks for V1 endpoints and legacy CRUD.
 // Used instead of MSW browser mocks — more reliable and server-config-independent.
 //
 // IMPORTANT: Playwright applies routes in REVERSE registration order (last = highest priority).
@@ -167,8 +167,8 @@ export async function setupApiMocks(page: Page): Promise<void> {
   })
 
   // Possible values
-  await page.route('**/qqq/v1/possibleValues**', (route) => {
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ records: [] }) })
+  await page.route('**/possibleValues/**', (route) => {
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ options: [] }) })
   })
 
   // Audits
@@ -176,14 +176,14 @@ export async function setupApiMocks(page: Page): Promise<void> {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ records: [] }) })
   })
 
-  // Person table — generic catch-all for remaining person requests
-  await page.route('**/qqq/v1/table/person**', (route) => {
+  // Legacy record writes; specific Get handler below passes other methods here.
+  await page.route('**/data/person**', (route) => {
     const method = route.request().method()
     if (method === 'POST') {
       // Insert — return new record with id 99
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 99 } }),
+        body: JSON.stringify({ records: [{ ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 99 } }] }),
       })
       return
     }
@@ -191,10 +191,10 @@ export async function setupApiMocks(page: Page): Promise<void> {
       // Update — return the updated record
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({
+        body: JSON.stringify({ records: [{
           ...PERSON_RECORD_1,
           values: { ...PERSON_RECORD_1.values, firstName: 'Alice Updated' },
-        }),
+        }] }),
       })
       return
     }
@@ -202,7 +202,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
       // Delete — return deletion count
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ deletedCount: 1 }),
+        body: JSON.stringify({ deletedRecordCount: 1 }),
       })
       return
     }
@@ -222,17 +222,11 @@ export async function setupApiMocks(page: Page): Promise<void> {
 
   // ── SPECIFIC routes (registered last = highest priority, checked first) ────
   //
-  // IMPORTANT: Playwright checks routes in LIFO order (last registered = first checked).
-  // The semi-generic per-record handler (*) must be registered BEFORE the specific sub-paths
-  // (count, query, 99999) so that the specific handlers are checked first and take precedence.
-  // If the per-record handler were registered last, its route.continue() call would bypass
-  // the specific handlers entirely for paths like /table/person/query.
-
-  // Person record by ID (e.g. /table/person/1, /table/person/2)
-  // Must be registered BEFORE count/query/99999 so those specific routes take priority.
-  await page.route('**/qqq/v1/table/person/*', (route) => {
+  // Legacy Get has its own namespace; the missing-record override is registered last.
+  await page.route('**/data/person/*', (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
     const url = route.request().url()
-    const idMatch = /\/table\/person\/(\d+)/.exec(url)
+    const idMatch = /\/data\/person\/(\d+)/.exec(url)
     if (idMatch) {
       const id = parseInt(idMatch[1], 10)
       const record = PERSON_RECORDS.find((r) => r.values.id === id)
@@ -251,7 +245,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
   })
 
   // Person record 99999 → 404 (must be after per-record handler = higher priority)
-  await page.route('**/qqq/v1/table/person/99999**', (route) => {
+  await page.route('**/data/person/99999**', (route) => {
     route.fulfill({
       status: 404,
       contentType: 'application/json',

@@ -21,6 +21,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./client', () => ({
   default: {
     get: vi.fn(),
+    getInstance: () => ({ defaults: { baseURL: 'https://example.invalid/prefix/qqq/v1' } }),
     setUnauthorizedCallback: vi.fn(),
   },
 }))
@@ -39,24 +40,47 @@ describe('Widgets API', () => {
       const { fetchWidgetData } = await import('./widgets')
       const result = await fetchWidgetData('revenueStats')
 
-      expect(apiClient.get).toHaveBeenCalledWith('/widget/revenueStats', { params: undefined })
+      expect(apiClient.get).toHaveBeenCalledWith('/widget/revenueStats', { params: undefined, baseURL: 'https://example.invalid/prefix' })
       expect(result).toEqual(mockData)
     })
 
     it('passes params to the endpoint', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({})
+      vi.mocked(apiClient.get).mockResolvedValue({ type: 'html', html: '' })
 
       const { fetchWidgetData } = await import('./widgets')
       const params = { month: '2025-01', showAll: true }
       await fetchWidgetData('salesChart', params)
 
-      expect(apiClient.get).toHaveBeenCalledWith('/widget/salesChart', { params })
+      expect(apiClient.get).toHaveBeenCalledWith('/widget/salesChart', { params, baseURL: 'https://example.invalid/prefix' })
+    })
+
+    it('adapts canonical chart and statistics values without losing zeros', async () => {
+      const { default: apiClient } = await import('./client')
+      const { fetchWidgetData } = await import('./widgets')
+      const chart = { labels: ['Apple'], datasets: [{ label: 'One', data: [100] }] }
+      vi.mocked(apiClient.get).mockResolvedValue({ type: 'chart', title: 'Owned chart', chartData: chart })
+      expect(await fetchWidgetData('chart')).toMatchObject({ type: 'chart', title: 'Owned chart', ...chart })
+      vi.mocked(apiClient.get).mockResolvedValue({ type: 'statistics', count: '98.5%', countContext: 'of 481', percentageAmount: -10, percentageLabel: 'vs prev week' })
+      expect(await fetchWidgetData('stat')).toMatchObject({ statistics: [{ value: '98.5%', description: 'of 481', trend: { direction: 'down', value: 10, label: 'vs prev week' } }] })
+      vi.mocked(apiClient.get).mockResolvedValue({ type: 'statistics', count: 0, percentageAmount: 0 })
+      expect(await fetchWidgetData('empty')).toMatchObject({ statistics: [{ value: 0, trend: { direction: 'flat', value: 0 } }] })
+    })
+
+    it('rejects HTML, null and malformed envelopes; preserves denied responses', async () => {
+      const { default: apiClient } = await import('./client')
+      const { fetchWidgetData } = await import('./widgets')
+      for (const body of ['<html>SPA</html>', null, [], {}]) {
+        vi.mocked(apiClient.get).mockResolvedValue(body)
+        await expect(fetchWidgetData('bad')).rejects.toThrow('Invalid widget data response')
+      }
+      vi.mocked(apiClient.get).mockRejectedValue(new Error('Permission denied'))
+      await expect(fetchWidgetData('denied')).rejects.toThrow('Permission denied')
     })
 
     it('URL-encodes the widget name', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({})
+      vi.mocked(apiClient.get).mockResolvedValue({ type: 'html', html: '' })
 
       const { fetchWidgetData } = await import('./widgets')
       await fetchWidgetData('my widget')
