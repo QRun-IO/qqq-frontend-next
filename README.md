@@ -14,7 +14,7 @@ The versioned image `ghcr.io/qrun-io/qqq-frontend-next:0.1.0` supplies Next on p
 
 ## Frontend development prerequisites
 
-- **Node.js** 20 or later
+- **Node.js** 20.19+ or 22.12+ (required by the Storybook developer tooling)
 - **pnpm** (install with `npm install -g pnpm` if not already present)
 
 ## Frontend development

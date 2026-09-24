@@ -150,67 +150,6 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     })
   }, [router])
 
-  useEffect(() => {
-    let cancelled = false
-
-    /**
-     * Fetches auth metadata and initialises the appropriate session on mount.
-     * Sets `isAuthenticated` and `user` on success; calls `onAuthError` on failure.
-     *
-     * @returns A promise that resolves when auth initialisation is complete.
-     */
-    async function initAuth() {
-      try {
-        const metadata = await getAuthenticationMetaData()
-
-        if (cancelled) return
-        setAuthMetadata(metadata)
-
-        let resolvedUser: AuthUser
-        switch (metadata.type) {
-          case 'AUTH_0':
-            resolvedUser = await setupAuth0Session(metadata)
-            break
-          case 'OAUTH2':
-            resolvedUser = await setupOAuth2Session(metadata)
-            break
-          case 'FULLY_ANONYMOUS':
-          case 'MOCK':
-            resolvedUser = await setupAnonymousSession()
-            break
-          default:
-            throw new Error(`Unrecognized auth type: ${(metadata as QAuthenticationMetaData).type}`)
-        }
-
-        if (!cancelled) {
-          setIsAuthenticated(true)
-          setUser(resolvedUser)
-        }
-      } catch (error) {
-        if (cancelled) return
-
-        if (onAuthError && error instanceof Error) {
-          onAuthError(error)
-        }
-        console.error('[Auth] Setup failed:', error)
-        setIsAuthenticated(false)
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void initAuth()
-
-    return () => {
-      cancelled = true
-    }
-  // intentional: only re-run if onAuthError changes; auth init is not repeatable
-  // (re-running on every render would cause infinite auth loops)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onAuthError])
-
   /**
    * Validates an existing Auth0 backend session on provider mount.
    *
@@ -350,6 +289,67 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     setUser(storedUser ?? { name: 'User', email: 'user@example.com' })
     setIsLoading(false)
   }
+
+  useEffect(() => {
+    let cancelled = false
+
+    /**
+     * Fetches auth metadata and initialises the appropriate session on mount.
+     * Sets `isAuthenticated` and `user` on success; calls `onAuthError` on failure.
+     *
+     * @returns A promise that resolves when auth initialisation is complete.
+     */
+    async function initAuth() {
+      try {
+        const metadata = await getAuthenticationMetaData()
+
+        if (cancelled) return
+        setAuthMetadata(metadata)
+
+        let resolvedUser: AuthUser
+        switch (metadata.type) {
+          case 'AUTH_0':
+            resolvedUser = await setupAuth0Session(metadata)
+            break
+          case 'OAUTH2':
+            resolvedUser = await setupOAuth2Session(metadata)
+            break
+          case 'FULLY_ANONYMOUS':
+          case 'MOCK':
+            resolvedUser = await setupAnonymousSession()
+            break
+          default:
+            throw new Error(`Unrecognized auth type: ${(metadata as QAuthenticationMetaData).type}`)
+        }
+
+        if (!cancelled) {
+          setIsAuthenticated(true)
+          setUser(resolvedUser)
+        }
+      } catch (error) {
+        if (cancelled) return
+
+        if (onAuthError && error instanceof Error) {
+          onAuthError(error)
+        }
+        console.error('[Auth] Setup failed:', error)
+        setIsAuthenticated(false)
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void initAuth()
+
+    return () => {
+      cancelled = true
+    }
+  // intentional: only re-run if onAuthError changes; auth init is not repeatable
+  // (re-running on every render would cause infinite auth loops)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onAuthError])
 
   return (
     <AuthContext.Provider
