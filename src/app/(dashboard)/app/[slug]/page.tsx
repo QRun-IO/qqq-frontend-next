@@ -35,6 +35,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { QInstance } from '@/types'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { RecordQuery } from '@/components/query'
@@ -101,7 +102,7 @@ export default function SlugPage() {
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
 
-  const { data: metaData } = useQuery({
+  const { data: metaData, isError: metadataError } = useQuery({
     queryKey: queryKeys.metadataAll(),
     queryFn: loadMetaData,
     staleTime: 1000 * 60 * 30,
@@ -114,7 +115,7 @@ export default function SlugPage() {
   const isReport = Boolean(metaData?.reports?.[slug])
 
   const app = metaData?.apps?.[slug]
-  const table = metaData?.tables?.[slug]
+  const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp ? slug : undefined)
   const process = metaData?.processes?.[slug]
   const report = metaData?.reports?.[slug]
 
@@ -132,6 +133,14 @@ export default function SlugPage() {
       setPageHeader(slug)
     }
   }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, setPageHeader, setTableMetaData])
+
+  if (metadataError || (isTable && !isApp && tableError)) {
+    return (
+      <div role="alert" className="py-12 text-center text-destructive">
+        Failed to load {metadataError ? 'application' : 'table'} metadata.
+      </div>
+    )
+  }
 
   if (!metaData) {
     return (
@@ -154,13 +163,13 @@ export default function SlugPage() {
   // Table record query — Package 2 implementation
   if (isTable && table) {
     const tableProcesses = getProcessesForTable(metaData, slug)
-    return <RecordQuery tableName={slug} tableMetaData={table} processes={tableProcesses} />
+    return <RecordQuery tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} />
   }
 
   // Table loading state (table found but metadata not yet available)
   if (isTable && !table) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div role="status" aria-label="Loading table metadata" className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )

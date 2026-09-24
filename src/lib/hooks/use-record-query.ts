@@ -262,6 +262,8 @@ interface UseRecordQueryOptions {
   tableName: string
   /** Table metadata from the backend; the hook is disabled until this is defined. */
   tableMetaData: QTableMetaData | undefined
+  /** All-table metadata used to check read permissions along exposed join paths. */
+  allTables: Record<string, QTableMetaData> | undefined
   /** Initial number of rows per page. Defaults to 25. */
   initialPageSize?: PageSize
   /** Initial row density for the data grid. Defaults to `'standard'`. */
@@ -281,7 +283,7 @@ interface UseRecordQueryOptions {
  *
  * @param options - Configuration including table name, metadata, and initial page size.
  *   `tableName` is used as the localStorage key prefix and in all API calls.
- *   `tableMetaData` must be defined before any queries run (the hook disables itself until then).
+ *   `tableMetaData` and `allTables` must be defined before any queries run.
  *   `initialPageSize` defaults to 25 and is overridden by the `pageSize` URL param on first mount.
  * @returns Grouped namespaces:
  *   - `pagination` — `{ pageNum, pageSize, totalCount, totalPages, setPage, setPageSize }`.
@@ -298,6 +300,7 @@ interface UseRecordQueryOptions {
 export function useRecordQuery({
   tableName,
   tableMetaData,
+  allTables,
   initialPageSize = 25,
 }: UseRecordQueryOptions) {
   const router = useRouter()
@@ -446,14 +449,26 @@ export function useRecordQuery({
   // Derived directly from stable tableMetaData prop — no useMemo needed
   // ------------------------------------------------------------------
   /**
-   * Join descriptors derived from `tableMetaData.exposedJoins`.
+   * Automatic joins require readable metadata for the target and every intermediate table.
+   * Only the query descriptors are filtered; related/create UI retains the full metadata.
+   * User criteria and sorting remain intact so the server can reject unauthorized reads.
    *
    * Many-side joins use `LEFT` so records without related rows are still returned;
    * one-side joins use `INNER`. Undefined when the table has no exposed joins.
    */
   const joins: QueryJoin[] | undefined = tableMetaData?.exposedJoins?.length
     ? tableMetaData.exposedJoins
-        .filter((exposedJoin) => exposedJoin.joinTable?.name)
+        .filter(({ joinTable, joinPath = [] }) => {
+          if (!joinTable?.name || !joinTable.readPermission) return false
+          const joinedTableNames = [
+            joinTable.name,
+            ...joinPath.flatMap(({ leftTable, rightTable }) => [leftTable, rightTable]),
+          ]
+          return joinedTableNames.every((name) => {
+            if (name === tableName) return true
+            return allTables?.[name]?.readPermission
+          })
+        })
         .map((exposedJoin): QueryJoin => ({
           joinTable: exposedJoin.joinTable!.name,
           select: true,
@@ -467,8 +482,8 @@ export function useRecordQuery({
   /**
    * TanStack Query result for the paginated records list.
    *
-   * Disabled until `tableMetaData` is available. Uses `placeholderData` so the
-   * previous page's records remain visible during transitions (avoids layout shift).
+   * Disabled until table and join-permission metadata are available. Uses `placeholderData`
+   * so the previous page's records remain visible during transitions (avoids layout shift).
    * Cache key includes the serialized `effectiveFilter` and `joins` so any filter
    * or join change triggers an independent cache entry.
    */
@@ -486,7 +501,7 @@ export function useRecordQuery({
       }),
     staleTime: 30 * 1000,
     placeholderData: (prev) => prev,
-    enabled: Boolean(tableMetaData),
+    enabled: Boolean(tableMetaData && allTables),
   })
 
   // ------------------------------------------------------------------
@@ -513,7 +528,7 @@ export function useRecordQuery({
       }),
     staleTime: 30 * 1000,
     placeholderData: (prev) => prev,
-    enabled: Boolean(tableMetaData),
+    enabled: Boolean(tableMetaData && allTables),
   })
 
   // ------------------------------------------------------------------
@@ -532,10 +547,10 @@ export function useRecordQuery({
   const isLoading = recordsQuery.isLoading || countQuery.isLoading
   /** `true` whenever the records query is fetching (includes background refetches). */
   const isFetching = recordsQuery.isFetching
-  /** `true` if the records query encountered an error. */
-  const isError = recordsQuery.isError
-  /** The error thrown by the records query, or `null`. */
-  const error = recordsQuery.error
+  /** `true` if either the records or count query encountered an error. */
+  const isError = recordsQuery.isError || countQuery.isError
+  /** The error thrown by either query, or `null`. */
+  const error = recordsQuery.error ?? countQuery.error
 
   /**
    * Primary-key values of all currently selected rows.

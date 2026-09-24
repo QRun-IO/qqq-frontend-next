@@ -65,6 +65,12 @@ describe('QRecordSchema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts legacy writes without a label and normalizes native status messages', () => {
+    expect(QRecordSchema.parse({ tableName: 'person', values: { id: 1 },
+      errors: [{ message: 'Invalid value' }], warnings: ['Review'],
+    })).toEqual({ tableName: 'person', values: { id: 1 }, errors: ['Invalid value'], warnings: ['Review'] })
+  })
+
   it('fails when values is missing', () => {
     const result = QRecordSchema.safeParse({ displayValues: { name: 'Alice' } })
     expect(result.success).toBe(false)

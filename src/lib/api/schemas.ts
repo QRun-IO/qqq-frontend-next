@@ -18,9 +18,8 @@
  * @file schemas.ts — Zod runtime validation schemas for key QQQ API response shapes.
  *
  * These schemas are used at the API boundary to detect contract drift between the
- * frontend types and the actual backend responses.  All validations use `safeParse`
- * so a mismatch logs a warning but does NOT throw — the app continues to function
- * with whatever data the server returned.
+ * frontend types and the actual backend responses. Callers decide whether a
+ * mismatch is a recoverable warning or must reject an invalid response.
  *
  * Only the highest-impact response shapes are validated here:
  *   - `QueryRecordsResponse` — drives the main data grid
@@ -45,11 +44,14 @@ import { z } from 'zod'
  * `associatedRecords` is self-referential, so it uses `z.lazy` to break the
  * circular reference at schema-construction time.
  */
-export const QRecordSchema: z.ZodType<import('@/types').QRecord> = z.object({
+const StatusMessageSchema = z.union([z.string(), z.object({ message: z.string() })])
+  .transform((status) => typeof status === 'string' ? status : status.message)
+
+export const QRecordSchema: z.ZodType<import('@/types').QRecord, z.ZodTypeDef, unknown> = z.object({
   /** Name of the table this record belongs to. */
   tableName: z.string(),
   /** Human-readable label computed by the backend. */
-  recordLabel: z.string(),
+  recordLabel: z.string().optional(),
   /** Raw field values keyed by field name. */
   values: z.record(z.unknown()),
   /** Pre-formatted display strings keyed by field name. */
@@ -57,9 +59,9 @@ export const QRecordSchema: z.ZodType<import('@/types').QRecord> = z.object({
   /** Optional map of relationship name → associated records for joined or child data. */
   associatedRecords: z.record(z.array(z.lazy(() => QRecordSchema))).optional(),
   /** Validation or server-side errors associated with this record. */
-  errors: z.array(z.string()).optional(),
+  errors: z.array(StatusMessageSchema).optional(),
   /** Non-fatal warnings associated with this record. */
-  warnings: z.array(z.string()).optional(),
+  warnings: z.array(StatusMessageSchema).optional(),
 })
 
 // ---------------------------------------------------------------------------

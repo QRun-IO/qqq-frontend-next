@@ -24,7 +24,7 @@ import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
-import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -36,6 +36,8 @@ import { FieldLabel } from './FieldLabel'
 import { RecordInfoFooter } from './RecordInfoFooter'
 import { RecordViewHeader } from './RecordViewHeader'
 import { RecordViewTabs } from './RecordViewTabs'
+import { associationWidgetBinding, type AssociationTableState } from '@/lib/utils/association-utils'
+import { AssociatedRecords } from './AssociatedRecords'
 import { RecordViewAssociated } from './RecordViewAssociated'
 
 /**
@@ -117,6 +119,8 @@ interface RecordViewProps {
   hideActions?: boolean
   /** Widget metadata map for sections that render widgets */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Full child metadata and its independent load status, supplied by the page. */
+  associationTables?: Record<string, AssociationTableState>
   /** Processes available for this table (single-record actions) */
   processes?: QProcessMetaData[]
   /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
@@ -133,7 +137,7 @@ interface RecordViewProps {
  * delegates to {@link RecordViewContent} once data is available.  Sections are
  * automatically partitioned into T1 (primary), T2 (secondary), and T3
  * (supplementary/audit) tiers, and tabs are synthesised from T2/T3 sections
- * and many-to-many joins.
+ * and named associations.
  *
  * @param props - See {@link RecordViewProps}.
  * @returns A loading spinner (`aria-busy`), a colored error alert (403 yellow,
@@ -150,6 +154,7 @@ export function RecordView({
   onRefetch,
   hideActions = false,
   widgetMetaDataMap,
+  associationTables,
   processes,
   allTables,
   className,
@@ -306,10 +311,11 @@ export function RecordView({
   const recordInfoSections = allTertiary.filter((s) => s.name === 'audit')
   const tertiarySections = allTertiary.filter((s) => s.name !== 'audit')
 
-  // Exposed joins with associated records
-  const exposedJoins = tableMetaData.exposedJoins ?? []
-  const manyJoins = exposedJoins.filter((j) => j.isMany && j.joinTable)
-  const oneJoins = exposedJoins.filter((j) => !j.isMany && j.joinTable)
+  const boundNames = new Set(visibleSections.flatMap((section) => {
+    const binding = associationWidgetBinding(widgetMetaDataMap?.[section.widgetName ?? ''])
+    return binding && 'name' in binding ? [binding.name] : []
+  }))
+  const associations = (tableMetaData.associations ?? []).filter((association) => !boundNames.has(association.name))
 
   // Build tabs — "Overview" shows all T2 sections in a card grid,
   // plus individual tabs for specific content if needed
@@ -326,7 +332,7 @@ export function RecordView({
   for (const s of tertiarySections) {
     tabs.push({ id: `section-${s.name}`, label: s.label })
   }
-  if (manyJoins.length > 0) {
+  if (associations.length > 0) {
     tabs.push({ id: 'related', label: 'Related' })
   }
 
@@ -336,6 +342,7 @@ export function RecordView({
       record={record}
       hideActions={hideActions}
       widgetMetaDataMap={widgetMetaDataMap}
+      associationTables={associationTables}
       processes={processes}
       allTables={allTables}
       className={className}
@@ -345,8 +352,7 @@ export function RecordView({
       tertiarySections={tertiarySections}
       recordInfoSections={recordInfoSections}
       visibleSections={visibleSections}
-      oneJoins={oneJoins}
-      manyJoins={manyJoins}
+      associations={associations}
       onRefetch={onRefetch}
     />
   )
@@ -377,6 +383,7 @@ function RecordViewContent({
   record,
   hideActions,
   widgetMetaDataMap,
+  associationTables,
   processes,
   allTables,
   className,
@@ -386,14 +393,15 @@ function RecordViewContent({
   tertiarySections,
   recordInfoSections,
   visibleSections,
-  oneJoins,
-  manyJoins,
+  associations,
   onRefetch,
 }: {
   tableMetaData: QTableMetaData
   record: QRecord
   hideActions: boolean
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Full child metadata and its independent load status, supplied by the page. */
+  associationTables?: Record<string, AssociationTableState>
   processes?: QProcessMetaData[]
   allTables?: Record<string, QTableMetaData>
   className?: string
@@ -403,8 +411,7 @@ function RecordViewContent({
   tertiarySections: typeof tableMetaData.sections
   recordInfoSections: typeof tableMetaData.sections
   visibleSections: typeof tableMetaData.sections
-  oneJoins: typeof tableMetaData.exposedJoins
-  manyJoins: typeof tableMetaData.exposedJoins
+  associations: QAssociation[]
   onRefetch?: () => void
 }) {
   const searchParams = useSearchParams()
@@ -488,7 +495,7 @@ function RecordViewContent({
   // Collect T1 fields, excluding those whose values are part of the record label
   const recordLabel = record.recordLabel ?? ''
   const t1Fields = t1Sections.flatMap((section) =>
-    section.fieldNames
+    (section.fieldNames ?? [])
       .map((fn) => tableMetaData.fields[fn])
       .filter((f) => {
         if (!f || f.isHidden || f.isHeavy) return false
@@ -504,6 +511,22 @@ function RecordViewContent({
         return true
       })
   )
+
+  const renderAssociation = (name: string, label?: string) => {
+    const association = tableMetaData.associations?.find((item) => item.name === name)
+    if (!association) return <p role="alert">Association binding is unavailable.</p>
+    return <AssociatedRecords
+      association={association}
+      label={label}
+      metadata={associationTables?.[association.associatedTableName]}
+      records={record.associatedRecords?.[association.name]}
+      parentTableMetaData={tableMetaData}
+      parentRecord={record}
+      allTables={allTables}
+      navigateFrom={navigateFrom}
+      onRecordCreated={onRefetch}
+    />
+  }
 
   // Context value shared with all subcomponents in the record detail subtree
   const contextValue = useMemo<RecordViewContextValue>(
@@ -532,7 +555,6 @@ function RecordViewContent({
           tableMetaData={tableMetaData}
           record={record}
           t1Fields={t1Fields}
-          oneJoins={oneJoins}
           viewMode={viewMode}
           setViewMode={setViewMode}
           hideActions={hideActions}
@@ -540,6 +562,12 @@ function RecordViewContent({
           allTables={allTables}
           navigateFrom={navigateFrom}
         />
+
+        {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (
+          <RecordViewSection key={section.name} section={section} tableMetaData={tableMetaData} record={record}
+            widgetMetaDataMap={widgetMetaDataMap} allTables={allTables} navigateFrom={navigateFrom}
+            renderAssociation={renderAssociation} />
+        ))}
 
         {/* Record errors/warnings */}
         {(record.errors?.length ?? 0) > 0 && (
@@ -571,12 +599,11 @@ function RecordViewContent({
             setActiveTab={setActiveTab}
             secondarySections={secondarySections}
             tertiarySections={tertiarySections}
-            manyJoins={manyJoins}
+            associations={associations}
+            renderAssociation={renderAssociation}
             widgetMetaDataMap={widgetMetaDataMap}
             allTables={allTables}
             navigateFrom={navigateFrom}
-            parentPk={parentPk as string | number}
-            onRefetch={onRefetch}
           />
         )}
 
@@ -591,6 +618,7 @@ function RecordViewContent({
               >
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -609,6 +637,7 @@ function RecordViewContent({
               >
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -627,6 +656,7 @@ function RecordViewContent({
               >
                 <RecordViewSection
                   section={section}
+                  renderAssociation={renderAssociation}
                   tableMetaData={tableMetaData}
                   record={record}
                   widgetMetaDataMap={widgetMetaDataMap}
@@ -638,15 +668,7 @@ function RecordViewContent({
             ))}
 
             {/* Related records */}
-            <RecordViewAssociated
-              tableMetaData={tableMetaData}
-              record={record}
-              manyJoins={manyJoins}
-              parentPk={parentPk as string | number}
-              allTables={allTables}
-              navigateFrom={navigateFrom}
-              onRefetch={onRefetch}
-            />
+            <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
           </div>
         )}
 

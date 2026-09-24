@@ -31,21 +31,23 @@
 
 import React, { useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { addRecentRecord } from '@/lib/utils/recent-records'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
-import { loadMetaData } from '@/lib/api/metadata'
+import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import type { AssociationTableState } from '@/lib/utils/association-utils'
 import { RecordView } from '@/components/records/RecordView'
 
 /**
  * Renders the detail view for a single record identified by `slug` (table name)
  * and `recordId` (primary key).
  *
- * Uses the `useRecord` hook to fetch the record including associations. Once
+ * Loads the base record and optional whole-association expansion independently. Once
  * the record loads it is registered in the recently-viewed history (via
  * `addRecentRecord`) so it surfaces in the GlobalSearch and SearchDialog.
  * The page header in QContext is updated to the record label.
@@ -61,20 +63,43 @@ export default function RecordViewPage() {
   const { setPageHeader, setTableMetaData } = useQContext()
   const { slug, recordId } = params
 
-  const { data: metaData } = useQuery({
+  const { data: metaData, isError: metadataError } = useQuery({
     queryKey: queryKeys.metadataAll(),
     queryFn: loadMetaData,
     staleTime: 1000 * 60 * 30,
   })
 
-  const tableMetaData = metaData?.tables?.[slug]
+  const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
   const { record, isLoading, isError, error, refetch } = useRecord({
     tableName: slug,
     primaryKey: recordId,
     enabled: Boolean(tableMetaData),
+    includeAssociations: false,
+  })
+
+  const targetNames = [...new Set(tableMetaData?.associations?.map((association) => association.associatedTableName) ?? [])]
+  const targetQueries = useQueries({ queries: targetNames.map((name) => ({
+    queryKey: queryKeys.tableMetadata(name),
+    queryFn: () => loadTableMetaData(name),
+    staleTime: 1000 * 60 * 30,
+  })) })
+  const associationTables: Record<string, AssociationTableState> = Object.fromEntries(targetNames.map((name, index) => [name, {
+    table: targetQueries[index].data,
+    isLoading: targetQueries[index].isLoading,
+    isError: targetQueries[index].isError,
+  }]))
+
+  // The legacy endpoint expands every association; a denial must not hide the base record.
+  const associations = useRecord({
+    tableName: slug,
+    primaryKey: recordId,
+    enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length),
     includeAssociations: true,
   })
+  const displayRecord = record && associations.record && !associations.isError
+    ? { ...record, associatedRecords: associations.record.associatedRecords }
+    : record
 
   useEffect(() => {
     if (record?.recordLabel) {
@@ -100,6 +125,10 @@ export default function RecordViewPage() {
     }
   }, [record, tableMetaData])
 
+  if (metadataError || tableError || (metaData && !metaData.tables?.[slug])) {
+    return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
+  }
+
   if (!tableMetaData) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
@@ -111,15 +140,26 @@ export default function RecordViewPage() {
   const tableProcesses = metaData ? getProcessesForTable(metaData, slug) : []
 
   return (
-    <RecordView
-      tableMetaData={tableMetaData}
-      record={record}
-      isLoading={isLoading}
-      isError={isError}
-      error={error}
-      onRefetch={refetch}
-      processes={tableProcesses}
-      allTables={metaData?.tables}
-    />
+    <>
+      {record && associations.isLoading && <p role="status">Loading related records...</p>}
+      {record && associations.isError && (
+        <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
+      )}
+      <RecordView
+        tableMetaData={tableMetaData}
+        record={displayRecord}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        onRefetch={() => {
+          refetch()
+          if (tableMetaData.associations?.length) associations.refetch()
+        }}
+        processes={tableProcesses}
+        allTables={metaData?.tables}
+        widgetMetaDataMap={metaData?.widgets}
+        associationTables={associationTables}
+      />
+    </>
   )
 }

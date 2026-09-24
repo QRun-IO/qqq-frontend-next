@@ -21,7 +21,7 @@
 import { http, HttpResponse } from 'msw'
 import type { QPossibleValue } from '@/types'
 
-const BASE = '/qqq/v1'
+const BASE = ''
 
 // ─── Static possible value sources ───────────────────────────────────────────
 
@@ -82,7 +82,7 @@ async function getDynamicPossibleValues(
       const { personRecords } = await import('../fixtures/records/person')
       let items = personRecords.map((r) => ({
         id: r.values['id'] as number,
-        label: r.recordLabel,
+        label: r.recordLabel ?? String(r.values.id),
       }))
       if (ids.length > 0) {
         items = items.filter((item) => ids.includes(String(item.id)))
@@ -97,7 +97,7 @@ async function getDynamicPossibleValues(
       const { companyRecords } = await import('../fixtures/records/company')
       let items = companyRecords.map((r) => ({
         id: r.values['id'] as number,
-        label: r.recordLabel,
+        label: r.recordLabel ?? String(r.values.id),
       }))
       if (ids.length > 0) {
         items = items.filter((item) => ids.includes(String(item.id)))
@@ -112,7 +112,7 @@ async function getDynamicPossibleValues(
       const { supplierRecords } = await import('../fixtures/records/supplier')
       let items = supplierRecords.map((r) => ({
         id: r.values['id'] as number,
-        label: r.recordLabel,
+        label: r.recordLabel ?? String(r.values.id),
       }))
       if (ids.length > 0) {
         items = items.filter((item) => ids.includes(String(item.id)))
@@ -130,60 +130,24 @@ async function getDynamicPossibleValues(
 
 // ─── Request body parser ──────────────────────────────────────────────────────
 
-interface PossibleValuesRequest {
-  searchTerm?: string
-  ids?: string
-  labels?: string
-  values?: string
-  useCase?: string
-}
-
-/**
- * Parses a possible-values POST request body from JSON or form-encoded content.
- *
- * Falls back to an empty object if the body cannot be parsed.
- *
- * @param request - The incoming MSW request object.
- * @returns The parsed request body as a `PossibleValuesRequest`.
- */
-async function parseBody(request: Request): Promise<PossibleValuesRequest> {
-  const contentType = request.headers.get('content-type') ?? ''
-  try {
-    if (contentType.includes('application/json')) {
-      return (await request.json()) as PossibleValuesRequest
-    }
-    if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
-      const fd = await request.formData()
-      const result: PossibleValuesRequest = {}
-      fd.forEach((v, k) => {
-        (result as Record<string, string>)[k] = String(v)
-      })
-      return result
-    }
-    return (await request.json()) as PossibleValuesRequest
-  } catch {
-    return {}
-  }
-}
-
 // ─── Handler factory ──────────────────────────────────────────────────────────
 
 /**
- * Creates an MSW POST handler for a possible-values URL pattern.
+ * Creates an MSW GET handler for a possible-values URL pattern.
  *
  * Resolves values from static sources first, then from record-based dynamic
  * sources. Returns an empty array for unknown source names.
  *
- * @param urlPattern - The MSW URL pattern string to register (e.g. `/qqq/v1/possibleValues/:fieldName`).
- * @returns An MSW `http.post` handler for the given pattern.
+ * @param urlPattern - The MSW URL pattern string to register (e.g. `/possibleValues/:fieldName`).
+ * @returns An MSW `http.get` handler for the given pattern.
  */
 function makePossibleValuesHandler(urlPattern: string) {
-  return http.post(urlPattern, async ({ params, request }) => {
+  return http.get(urlPattern, async ({ params, request }) => {
     const fieldName = (params as Record<string, string>)['fieldName'] ?? ''
-    const body = await parseBody(request)
+    const query = new URL(request.url).searchParams
 
-    const searchTerm = body.searchTerm ?? ''
-    const idsRaw = body.ids ?? ''
+    const searchTerm = query.get('searchTerm') ?? ''
+    const idsRaw = query.get('ids') ?? ''
     const ids = idsRaw ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean) : []
 
     // Check static sources first
@@ -197,27 +161,27 @@ function makePossibleValuesHandler(urlPattern: string) {
           item.label.toLowerCase().includes(searchTerm.toLowerCase())
         )
       }
-      return HttpResponse.json(results)
+      return HttpResponse.json({ options: results })
     }
 
     // Try dynamic (record-based) sources
     const dynamic = await getDynamicPossibleValues(fieldName, searchTerm, ids)
     if (dynamic !== null) {
-      return HttpResponse.json(dynamic)
+      return HttpResponse.json({ options: dynamic })
     }
 
     // Unknown source — return empty
-    return HttpResponse.json([])
+    return HttpResponse.json({ options: [] })
   })
 }
 
 export const possibleValuesHandlers = [
-  // POST /table/:tableName/possibleValues/:fieldName
-  makePossibleValuesHandler(`${BASE}/table/:tableName/possibleValues/:fieldName`),
+  // GET /data/:tableName/possibleValues/:fieldName
+  makePossibleValuesHandler(`${BASE}/data/:tableName/possibleValues/:fieldName`),
 
-  // POST /processes/:processName/possibleValues/:fieldName
+  // GET /processes/:processName/possibleValues/:fieldName
   makePossibleValuesHandler(`${BASE}/processes/:processName/possibleValues/:fieldName`),
 
-  // POST /possibleValues/:fieldName
+  // GET /possibleValues/:fieldName
   makePossibleValuesHandler(`${BASE}/possibleValues/:fieldName`),
 ]

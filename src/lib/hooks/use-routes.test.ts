@@ -147,7 +147,7 @@ describe('useAppTreeRoutes', () => {
     expect(result.current.pathToLabelMap['/app/bulkImport']).toBe('Bulk Import')
   })
 
-  it('should handle nested APP nodes (depth 2)', () => {
+  it('uses flat app URLs and preserves descendant table routes and breadcrumbs', () => {
     const appTree: QAppTreeNode[] = [
       {
         name: 'mainApp',
@@ -158,7 +158,7 @@ describe('useAppTreeRoutes', () => {
             name: 'subApp',
             label: 'Sub App',
             type: 'APP',
-            children: [],
+            children: [{ name: 'employee', label: 'Employees', type: 'TABLE' }],
           },
         ],
       },
@@ -173,6 +173,11 @@ describe('useAppTreeRoutes', () => {
     expect(mainApp).toBeDefined()
 
     expect(mainApp?.children).toBeDefined()
-    expect(mainApp?.children?.some((c) => c.path === '/app/mainApp/subApp')).toBe(true)
+    expect(mainApp?.children?.some((c) => c.path === '/app/subApp')).toBe(true)
+    expect(result.current.sidebarRoutes.find((r) => r.name === 'Sub App')?.path).toBe('/app/subApp')
+    expect(result.current.pathToLabelMap['/app/subApp']).toBe('Sub App')
+    expect(result.current.pathToLabelMap['/app/mainApp/subApp']).toBeUndefined()
+    expect(result.current.pathToLabelMap['/app/employee/create']).toBe('Create Employees')
+    expect(result.current.parentAppMap['/app/employee']).toEqual({ label: 'Sub App', path: '/app/subApp' })
   })
 })

@@ -60,7 +60,7 @@ export interface UseRecordResult {
 }
 
 /**
- * Fetches a single record by primary key via `GET /table/{tableName}/{primaryKey}`.
+ * Fetches a single record by primary key via the legacy `GET /data/{tableName}/{primaryKey}` route.
  *
  * Disabled when `tableName` is empty or `primaryKey` is undefined/empty.
  *
@@ -76,7 +76,7 @@ export function useRecord({
   staleTime = 1000 * 60 * 5, // 5 minutes
 }: UseRecordOptions): UseRecordResult {
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: queryKeys.tableRecord(tableName, primaryKey),
+    queryKey: [...queryKeys.tableRecord(tableName, primaryKey), { includeAssociations, tableVariant }],
     queryFn: () =>
       getRecord(tableName, primaryKey, {
         includeAssociations,

@@ -52,6 +52,8 @@ interface RecordQueryProps {
   tableName: string
   /** Full table metadata from the QQQ backend, describing fields and permissions. */
   tableMetaData: QTableMetaData
+  /** Complete table registry, including permissions for intermediate join tables. */
+  allTables: Record<string, QTableMetaData>
   /** Optional list of processes that can be launched from this table's toolbar or bulk action bar. */
   processes?: QProcessMetaData[]
 }
@@ -72,7 +74,7 @@ interface RecordQueryProps {
  *   - `RecordQueryContent` (DataGrid or RecordCardView based on `viewMode`, plus Pagination)
  *   - `VariantPicker` dialog when the table requires a variant selection before querying
  */
-export function RecordQuery({ tableName, tableMetaData, processes }: RecordQueryProps) {
+export function RecordQuery({ tableName, tableMetaData, allTables, processes }: RecordQueryProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromPath = searchParams.get('from')
@@ -86,6 +88,7 @@ export function RecordQuery({ tableName, tableMetaData, processes }: RecordQuery
   const rq = useRecordQuery({
     tableName,
     tableMetaData,
+    allTables,
     initialPageSize: preferences.tableDefaultPageSize,
   })
 

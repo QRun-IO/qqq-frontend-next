@@ -14,95 +14,58 @@
  * limitations under the License.
  */
 
-// Tests for possible values API functions
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+const defaults = vi.hoisted(() => ({ baseURL: 'https://sample.invalid/prefix/qqq/v1/' }))
+vi.mock('./client', () => ({ default: { get: vi.fn(), getInstance: () => ({ defaults }) } }))
+import apiClient from './client'
+import { fetchPossibleValues, fetchProcessPossibleValues, fetchTablePossibleValues } from './possible-values'
 
-vi.mock('./client', () => ({
-  default: {
-    post: vi.fn(),
-    setUnauthorizedCallback: vi.fn(),
-  },
-}))
-
-describe('Possible Values API', () => {
+describe('Native possible-value contracts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    defaults.baseURL = 'https://sample.invalid/prefix/qqq/v1/'
+    vi.mocked(apiClient.get).mockResolvedValue({ options: [] })
   })
 
-  describe('fetchTablePossibleValues', () => {
-    it('posts FormData to /table/{name}/possibleValues/{field}', async () => {
-      const { default: apiClient } = await import('./client')
-      const mockValues = [{ id: '1', label: 'Active', value: 'active' }]
-      vi.mocked(apiClient.post).mockResolvedValue(mockValues)
-
-      const { fetchTablePossibleValues } = await import('./possible-values')
-      const result = await fetchTablePossibleValues('person', 'status', { searchTerm: 'act' })
-
-      const [url, body] = vi.mocked(apiClient.post).mock.calls[0]
-      expect(url).toBe('/table/person/possibleValues/status')
-      expect(body).toBeInstanceOf(FormData)
-      expect((body as FormData).get('searchTerm')).toBe('act')
-      expect(result).toEqual(mockValues)
-    })
-
-    it('includes all request params in FormData', async () => {
-      const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue([])
-
-      const { fetchTablePossibleValues } = await import('./possible-values')
-      await fetchTablePossibleValues('order', 'status', {
-        searchTerm: 'test',
-        ids: '1,2',
-        labels: 'Active,Closed',
-        values: 'active,closed',
-        useCase: 'filter',
-      })
-
-      const formData = vi.mocked(apiClient.post).mock.calls[0][1] as FormData
-      expect(formData.get('searchTerm')).toBe('test')
-      expect(formData.get('ids')).toBe('1,2')
-      expect(formData.get('labels')).toBe('Active,Closed')
-      expect(formData.get('values')).toBe('active,closed')
-      expect(formData.get('useCase')).toBe('filter')
-    })
-
-    it('works with empty request', async () => {
-      const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue([])
-
-      const { fetchTablePossibleValues } = await import('./possible-values')
-      await fetchTablePossibleValues('person', 'companyId')
-
-      const formData = vi.mocked(apiClient.post).mock.calls[0][1] as FormData
-      expect([...formData.keys()]).toHaveLength(0)
+  it('uses the actual table route, query parameters and options envelope', async () => {
+    const options = [{ id: 0, label: 'Zero' }, { id: 'a/b', label: 'Text key', isNotFound: false }]
+    vi.mocked(apiClient.get).mockResolvedValue({ options })
+    expect(await fetchTablePossibleValues('some table', 'field/name', { searchTerm: 'A&B', ids: '0,a/b', labels: 'Zero', useCase: 'filter' })).toEqual(options)
+    expect(apiClient.get).toHaveBeenCalledWith('/data/some%20table/possibleValues/field%2Fname', {
+      baseURL: 'https://sample.invalid/prefix', params: { searchTerm: 'A&B', ids: '0,a/b', labels: 'Zero', useCase: 'filter' },
     })
   })
 
-  describe('fetchProcessPossibleValues', () => {
-    it('posts to /processes/{name}/possibleValues/{field}', async () => {
-      const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue([])
-
-      const { fetchProcessPossibleValues } = await import('./possible-values')
-      await fetchProcessPossibleValues('bulkImport', 'targetTable', { searchTerm: 'per' })
-
-      const [url] = vi.mocked(apiClient.post).mock.calls[0]
-      expect(url).toBe('/processes/bulkImport/possibleValues/targetTable')
-    })
+  it('uses the registered process route and encodes both identifiers', async () => {
+    await fetchProcessPossibleValues('process/name', 'field#1')
+    expect(apiClient.get).toHaveBeenCalledWith('/processes/process%2Fname/possibleValues/field%231', { baseURL: 'https://sample.invalid/prefix', params: {} })
   })
 
-  describe('fetchPossibleValues', () => {
-    it('posts to /possibleValues/{field}', async () => {
-      const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.post).mockResolvedValue([])
+  it('uses standalone source lookup and maps values to native ids', async () => {
+    await fetchPossibleValues('source/name', { values: '0,1' })
+    expect(apiClient.get).toHaveBeenCalledWith('/possibleValues/source%2Fname', { baseURL: 'https://sample.invalid/prefix', params: { ids: '0,1' } })
+  })
 
-      const { fetchPossibleValues } = await import('./possible-values')
-      await fetchPossibleValues('country', { searchTerm: 'US' })
+  it('keeps explicit ids authoritative and a custom non-V1 prefix intact', async () => {
+    defaults.baseURL = 'https://sample.invalid/custom'
+    await fetchPossibleValues('source', { values: '1', ids: '2' })
+    expect(apiClient.get).toHaveBeenCalledWith('/possibleValues/source', { baseURL: 'https://sample.invalid/custom', params: { ids: '2' } })
+  })
 
-      const [url, body] = vi.mocked(apiClient.post).mock.calls[0]
-      expect(url).toBe('/possibleValues/country')
-      expect((body as FormData).get('searchTerm')).toBe('US')
-    })
+  it('accepts the native NON_EMPTY serialization of an empty option list', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({})
+    expect(await fetchPossibleValues('source')).toEqual([])
+  })
+
+  it.each(['<html>fallback</html>', [], { records: [] }, { options: null }, { options: [{ id: 1 }] }, { options: [{ id: {}, label: 'Invalid key' }] }])('rejects an invalid native response instead of presenting it as empty: %j', async (response) => {
+    vi.mocked(apiClient.get).mockResolvedValue(response)
+    await expect(fetchPossibleValues('source')).rejects.toThrow()
+  })
+
+  it('preserves an HTTP failure', async () => {
+    const failure = new Error('404')
+    vi.mocked(apiClient.get).mockRejectedValue(failure)
+    await expect(fetchTablePossibleValues('pet', 'speciesId')).rejects.toBe(failure)
   })
 })

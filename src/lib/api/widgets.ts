@@ -37,7 +37,33 @@ export async function fetchWidgetData(
   widgetName: string,
   params?: Record<string, string | number | boolean>
 ): Promise<WidgetData> {
-  return apiClient.get<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {
+  const data = await apiClient.get<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {
     params,
+    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
   })
+  if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.type !== 'string') {
+    throw new Error('Invalid widget data response')
+  }
+  // Canonical QQQ charts nest labels/datasets; retain the existing demo shapes.
+  if (data.chartData && typeof data.chartData === 'object' && !Array.isArray(data.chartData)) {
+    return { ...data, ...data.chartData }
+  }
+  if (data.type === 'statistics' && data.value === undefined && data.statistics === undefined
+    && (typeof data.count === 'string' || typeof data.count === 'number')) {
+    const percentage = data.percentageAmount
+    return {
+      ...data,
+      statistics: [{
+        label: typeof data.title === 'string' ? data.title : '',
+        value: data.count,
+        description: data.countContext,
+        trend: typeof percentage === 'number' ? {
+          direction: percentage > 0 ? 'up' : percentage < 0 ? 'down' : 'flat',
+          value: Math.abs(percentage),
+          label: data.percentageLabel,
+        } : undefined,
+      }],
+    }
+  }
+  return data
 }

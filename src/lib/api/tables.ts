@@ -19,10 +19,12 @@
  */
 
 import { isAxiosError } from 'axios'
+import { z } from 'zod'
 
-import type { QRecord, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
+import type { QRecord, QRecordInput, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
 import apiClient from './client'
 import {
+  QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
   GlobalSearchResponseSchema,
@@ -71,7 +73,7 @@ export interface CountRecordsResponse {
 }
 
 /**
- * Response body returned by `DELETE /table/{tableName}/{primaryKey}`.
+ * Validated single-record delete result returned by this client.
  */
 export interface DeleteRecordResponse {
   /** Number of records that were successfully deleted. */
@@ -140,7 +142,7 @@ export async function countRecords(
 }
 
 /**
- * Fetches a single record by primary key via `GET /table/{tableName}/{primaryKey}`.
+ * Fetches a single record through the legacy `GET /data/{tableName}/{primaryKey}` route.
  *
  * Optional flags control whether associations and joined-table data are included
  * in the response.
@@ -150,9 +152,9 @@ export async function countRecords(
  * @param primaryKey - Primary key value of the record to retrieve; may be a
  *   numeric database ID or a string identifier depending on the table's PK type.
  * @param options - Optional query parameters forwarded verbatim to the server.
- * @param options.tableVariant - Alternate backend table configuration to use.
+ * @param options.tableVariant - JSON-encoded backend variant with `type` and `id`.
  * @param options.includeAssociations - When `true`, associated child records are embedded.
- * @param options.queryJoins - Comma-separated join names to include.
+ * @param options.queryJoins - JSON-encoded query join descriptors to include.
  * @returns The matching `QRecord`.
  */
 export async function getRecord(
@@ -164,99 +166,144 @@ export async function getRecord(
     queryJoins?: string
   }
 ): Promise<QRecord> {
-  return apiClient.get<QRecord>(`/table/${encodeURIComponent(tableName)}/${primaryKey}`, {
+  const baseURL = legacyBaseURL()
+  const result = await apiClient.get<QRecord>(`/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`, {
+    baseURL,
     params: options,
   })
+  if (!result || typeof result !== 'object' || typeof result.tableName !== 'string' ||
+    !result.values || typeof result.values !== 'object' || Array.isArray(result.values)) {
+    throw new Error('Invalid record response')
+  }
+  return result
 }
 
 /**
- * Creates a new record via `POST /table/{tableName}` using multipart/form-data.
- *
- * Each value in `values` is appended to the form:
- * - `File` instances are appended as binary parts.
- * - Arrays are JSON-stringified before appending.
- * - All other values are coerced to strings.
- * - `null` and `undefined` values are omitted.
- *
- * @param tableName - Exact backend table identifier used as a URL path segment;
- *   case-sensitive and must match the backend declaration exactly.
- * @param values - Map of field names to their new values. Field names must
- *   match the backend field declarations exactly (case-sensitive).
- * @returns The newly created `QRecord` as returned by the server.
+ * Preserve the configured host and deployment prefix for legacy CRUD routes.
+ * @returns The configured base URL without the V1 route suffix.
  */
-export async function insertRecord(
-  tableName: string,
-  values: Record<string, unknown>
-): Promise<QRecord> {
+function legacyBaseURL() {
+  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
+}
+
+/**
+ * Encode the legacy multipart field contract without coercing objects to unusable text.
+ * @param values - Declared field values to save.
+ * @returns Multipart fields, preserving explicit clears and omitted values.
+ */
+function recordFormData(values: Record<string, unknown>): FormData {
   const formData = new FormData()
   for (const [key, value] of Object.entries(values)) {
-    if (value === null || value === undefined) continue
+    if (value === undefined) continue
     if (value instanceof File) {
       formData.append(key, value)
+    } else if (value === null) {
+      // The legacy multipart endpoint treats an empty field as an explicit clear.
+      formData.append(key, '')
     } else if (Array.isArray(value)) {
       formData.append(key, JSON.stringify(value))
+    } else if (typeof value === 'object') {
+      throw new Error(`Invalid field value for ${key}`)
     } else {
       formData.append(key, String(value))
     }
   }
-  return apiClient.post<QRecord>(`/table/${encodeURIComponent(tableName)}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  return formData
+}
+
+const WriteRecordResponseSchema = z.object({ records: z.array(QRecordSchema).length(1) })
+const DeleteRecordResponseSchema = z.object({
+  deletedRecordCount: z.literal(1),
+  recordsWithErrors: z.array(z.unknown()).length(0).nullish(),
+})
+
+/**
+ * Reject partial association failures before announcing a successful save.
+ * @param record - A validated response record and any returned children.
+ */
+function checkRecordErrors(record: QRecord): void {
+  if (record.errors?.length) throw new Error(record.errors.join('; '))
+  for (const records of Object.values(record.associatedRecords ?? {})) {
+    for (const child of records) checkRecordErrors(child)
+  }
 }
 
 /**
- * Updates an existing record via `PUT /table/{tableName}/{primaryKey}` using multipart/form-data.
- *
- * Follows the same value serialization rules as {@link insertRecord}:
- * `File` → binary part, arrays → JSON string, others → string, null/undefined → omitted.
- *
- * @param tableName - Exact backend table identifier used as a URL path segment;
- *   case-sensitive and must match the backend declaration exactly.
- * @param primaryKey - Primary key of the record to update; may be a numeric
- *   database ID or a string identifier depending on the table's PK type.
- * @param values - Map of field names to their updated values. Field names must
- *   match the backend field declarations exactly (case-sensitive).
- * @returns The updated `QRecord` as returned by the server.
+ * Validate the legacy write envelope and surface record errors.
+ * @param response - Untrusted response body.
+ * @param tableName - Expected backend table identifier.
+ * @returns The single saved record.
+ */
+function savedRecord(response: unknown, tableName: string): QRecord {
+  const parsed = WriteRecordResponseSchema.safeParse(response)
+  if (!parsed.success || parsed.data.records[0].tableName !== tableName) {
+    throw new Error('Invalid saved record response')
+  }
+  const record = parsed.data.records[0]
+  checkRecordErrors(record)
+  return record
+}
+
+/**
+ * Creates a record through legacy `POST /data/{tableName}`.
+ * Files remain binary, arrays are JSON, null clears a field and undefined is omitted.
+ * Resolves only when exactly one valid record is returned without record errors.
+ * @param tableName - Exact backend table identifier.
+ * @param values - Field values to save.
+ * @param associations - Exact named descendants using the explicit recursive wire format.
+ * @returns The validated saved record.
+ */
+export async function insertRecord(
+  tableName: string,
+  values: Record<string, unknown>,
+  associations?: Record<string, QRecordInput[]>
+): Promise<QRecord> {
+  const formData = recordFormData(values)
+  if (associations !== undefined) formData.set('associations', JSON.stringify(await associationWireValues(associations)))
+  const response = await apiClient.post(`/data/${encodeURIComponent(tableName)}`, formData, {
+    baseURL: legacyBaseURL(),
+    headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) },
+  })
+  return savedRecord(response, tableName)
+}
+
+/**
+ * Updates a record through legacy PUT, using the same value rules as insert.
+ * @param tableName - Exact backend table identifier.
+ * @param primaryKey - Record identifier, encoded as one path segment.
+ * @param values - Field values to change; undefined fields remain untouched.
+ * @returns The validated saved record.
  */
 export async function updateRecord(
   tableName: string,
   primaryKey: string | number,
   values: Record<string, unknown>
 ): Promise<QRecord> {
-  const formData = new FormData()
-  for (const [key, value] of Object.entries(values)) {
-    if (value === null || value === undefined) continue
-    if (value instanceof File) {
-      formData.append(key, value)
-    } else if (Array.isArray(value)) {
-      formData.append(key, JSON.stringify(value))
-    } else {
-      formData.append(key, String(value))
-    }
-  }
-  return apiClient.put<QRecord>(
-    `/table/${encodeURIComponent(tableName)}/${primaryKey}`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
+  const response = await apiClient.put(
+    `/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
+    recordFormData(values),
+    { baseURL: legacyBaseURL(), headers: { 'Content-Type': 'multipart/form-data' } }
   )
+  return savedRecord(response, tableName)
 }
 
 /**
- * Deletes a single record via `DELETE /table/{tableName}/{primaryKey}`.
- *
- * @param tableName - Exact backend table identifier used as a URL path segment;
- *   case-sensitive and must match the backend declaration exactly.
- * @param primaryKey - Primary key of the record to delete; may be a numeric
- *   database ID or a string identifier depending on the table's PK type.
- * @returns An object containing the number of records that were deleted.
+ * Deletes a record through legacy DELETE and requires one confirmed deletion.
+ * @param tableName - Exact backend table identifier.
+ * @param primaryKey - Record identifier, encoded as one path segment.
+ * @returns The confirmed deletion count.
  */
 export async function deleteRecord(
   tableName: string,
   primaryKey: string | number
 ): Promise<DeleteRecordResponse> {
-  return apiClient.delete<DeleteRecordResponse>(
-    `/table/${encodeURIComponent(tableName)}/${primaryKey}`
+  const response = await apiClient.delete(
+    `/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
+    { baseURL: legacyBaseURL() }
   )
+  const parsed = DeleteRecordResponseSchema.safeParse(response)
+  if (!parsed.success) throw new Error('Invalid delete response: record deletion was not confirmed')
+  return { deletedCount: parsed.data.deletedRecordCount }
 }
 
 /**
@@ -334,4 +381,40 @@ export async function getAuditRecords(
     `/table/${encodeURIComponent(tableName)}/${primaryKey}/audits`
   )
   return response.records
+}
+
+/**
+ * Preserve binary values without guessing field types in the recursive wire tree.
+ * @param groups - Exact named child records prepared by the form.
+ * @returns JSON-safe values, including explicit BLOB tags.
+ */
+async function associationWireValues(groups: Record<string, QRecordInput[]>): Promise<unknown> {
+  let count = 0
+  /**
+   * Encode one bounded level without sending any partial request.
+   * @param input - Named records at this level.
+   * @param depth - Association depth, excluding the root record.
+   * @returns JSON-safe exact groups.
+   */
+  async function encode(input: Record<string, QRecordInput[]>, depth: number): Promise<unknown> {
+    if (depth > 64 && Object.values(input).some(records => records.length > 0)) throw new Error('Full copy exceeds 64 association levels.')
+    return Object.fromEntries(await Promise.all(Object.entries(input).map(async ([name, records]) => [name, await Promise.all(records.map(async record => {
+      if (++count > 1000) throw new Error('Full copy exceeds 1000 associated records.')
+      const values = Object.fromEntries(await Promise.all(Object.entries(record.values).filter(([, value]) => value !== undefined).map(async ([field, value]) => {
+        if (value instanceof File) {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result).split(',')[1])
+            reader.onerror = () => reject(new Error('Could not read a copied file.'))
+            reader.readAsDataURL(value)
+          })
+          return [field, { base64 }]
+        }
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) throw new Error(`Invalid associated field value for ${field}`)
+        return [field, value]
+      })))
+      return { values, ...(record.associatedRecords !== undefined ? { associatedRecords: await encode(record.associatedRecords, depth + 1) } : {}) }
+    }))])))
+  }
+  return encode(groups, 1)
 }

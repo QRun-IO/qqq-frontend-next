@@ -60,7 +60,7 @@ function makeTableMeta(overrides: Partial<QTableMetaData> = {}): QTableMetaData 
 describe('useRecordQuery — initialization', () => {
   it('initializes with default state', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -75,7 +75,7 @@ describe('useRecordQuery — initialization', () => {
 
   it('uses custom initialPageSize', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta(), initialPageSize: 50 }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta(), initialPageSize: 50 }),
       { wrapper: createWrapper() }
     )
     expect(result.current.pagination.pageSize).toBe(50)
@@ -85,7 +85,7 @@ describe('useRecordQuery — initialization', () => {
 describe('useRecordQuery — pagination actions', () => {
   it('setPage updates pageNum', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -95,7 +95,7 @@ describe('useRecordQuery — pagination actions', () => {
 
   it('setPageSize resets to page 1', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -109,7 +109,7 @@ describe('useRecordQuery — pagination actions', () => {
 describe('useRecordQuery — filter actions', () => {
   it('setQuickSearch updates term and resets page', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -121,7 +121,7 @@ describe('useRecordQuery — filter actions', () => {
 
   it('setUserFilter clears quickSearch and resets page', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -142,7 +142,7 @@ describe('useRecordQuery — filter actions', () => {
 
   it('setFilterMode toggles between basic and advanced', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -154,7 +154,7 @@ describe('useRecordQuery — filter actions', () => {
 
   it('resetFilter clears criteria and quickSearch', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -170,7 +170,7 @@ describe('useRecordQuery — filter actions', () => {
 describe('useRecordQuery — sort actions', () => {
   it('setSort updates sortOrder and resets page', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -184,7 +184,7 @@ describe('useRecordQuery — sort actions', () => {
 describe('useRecordQuery — column actions', () => {
   it('setColumnVisibility updates column visibility map', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -194,7 +194,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('toggleColumn flips a column visibility', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -207,7 +207,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('setColumnOrder updates column order', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -217,7 +217,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('setColumnWidth updates width for specific field', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -227,7 +227,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('toggleColumnConfig opens and closes the config panel', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -240,7 +240,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('setColumnConfigOpen sets panel state directly', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -252,7 +252,7 @@ describe('useRecordQuery — column actions', () => {
 
   it('toggleFilterPanel toggles panel state', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -264,7 +264,7 @@ describe('useRecordQuery — column actions', () => {
 describe('useRecordQuery — row selection', () => {
   it('setRowSelection updates selection map keyed by primary-key strings', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -276,7 +276,7 @@ describe('useRecordQuery — row selection', () => {
 
   it('selectedRecordIds derives numeric PK values from rowSelection keys', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -289,7 +289,7 @@ describe('useRecordQuery — row selection', () => {
 
   it('clearRowSelection empties selection', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -307,7 +307,7 @@ describe('useRecordQuery — saved views', () => {
 
   it('saveView creates a view and appends it', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -322,7 +322,7 @@ describe('useRecordQuery — saved views', () => {
 
   it('loadView applies saved view filter and column config', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -350,7 +350,7 @@ describe('useRecordQuery — saved views', () => {
 
   it('deleteView removes view by id', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
@@ -368,19 +368,18 @@ describe('useRecordQuery — saved views', () => {
 describe('useRecordQuery — data fetching', () => {
   it('fetches records from MSW when tableMetaData is provided', async () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 
     await waitFor(() => expect(result.current.data.isLoading).toBe(false))
     expect(result.current.data.isError).toBe(false)
-    expect(result.current.data.records).toBeDefined()
-    expect(Array.isArray(result.current.data.records)).toBe(true)
+    expect(result.current.data.records.length).toBeGreaterThan(0)
   })
 
   it('does not fetch when tableMetaData is undefined', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: undefined }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: undefined }),
       { wrapper: createWrapper() }
     )
     expect(result.current.data.isLoading).toBe(false)
@@ -389,7 +388,7 @@ describe('useRecordQuery — data fetching', () => {
 
   it('applies quick search to effective filter for string fields', async () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
 

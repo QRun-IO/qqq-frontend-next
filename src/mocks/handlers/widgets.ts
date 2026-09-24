@@ -38,8 +38,6 @@ import {
   invLowStockItems,
 } from '../fixtures/widgets/inventory'
 
-const BASE = '/qqq/v1'
-
 const widgetData: Record<string, unknown> = {
   // CRM widgets
   crmTotalPeople: totalPeopleStats,
@@ -59,7 +57,7 @@ const widgetData: Record<string, unknown> = {
 
 export const widgetHandlers = [
   // GET /widget/:widgetName
-  http.get(`${BASE}/widget/:widgetName`, ({ params }) => {
+  http.get('/widget/:widgetName', ({ params }) => {
     const { widgetName } = params as { widgetName: string }
     const data = widgetData[widgetName]
 

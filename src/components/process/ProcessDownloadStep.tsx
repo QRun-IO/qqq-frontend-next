@@ -27,6 +27,7 @@ import React, { useState } from 'react'
 import { Download, ChevronRight, X } from 'lucide-react'
 
 import type { QFrontendStepMetaData, QFieldMetaData } from '@/types'
+import apiClient from '@/lib/api/client'
 import { cn } from '@/lib/utils/cn'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
@@ -65,12 +66,9 @@ export interface ProcessDownloadStepProps {
  * @returns The first non-empty string URL found, or null if none is present.
  */
 function resolveDownloadUrl(stepValues: Record<string, unknown>): string | null {
-  // Check common step value keys used for download URLs
   const candidates = [
     'downloadUrl',
     'downloadURL',
-    'serverFilePath',
-    'filePath',
     'fileUrl',
     'fileURL',
     'resultUrl',
@@ -80,11 +78,32 @@ function resolveDownloadUrl(stepValues: Record<string, unknown>): string | null 
   for (const key of candidates) {
     const val = stepValues[key]
     if (typeof val === 'string' && val.length > 0) {
-      return val
+      try {
+        const protocol = new URL(val, 'https://qqq.invalid').protocol
+        if (protocol === 'http:' || protocol === 'https:') return val
+      } catch {
+        // A malformed URL must not become a download link.
+      }
     }
   }
 
-  return null
+  const params = new URLSearchParams()
+  const filePath = stepValues.serverFilePath ?? stepValues.filePath
+  if (typeof filePath === 'string' && filePath.length > 0) {
+    params.set('filePath', filePath)
+  } else if (
+    typeof stepValues.storageTableName === 'string' && stepValues.storageTableName.length > 0 &&
+    typeof stepValues.storageReference === 'string' && stepValues.storageReference.length > 0
+  ) {
+    params.set('storageTableName', stepValues.storageTableName)
+    params.set('storageReference', stepValues.storageReference)
+  } else {
+    return null
+  }
+
+  const baseURL = (apiClient.getInstance().defaults.baseURL ?? '')
+    .replace(/\/qqq\/v1\/?$/, '').replace(/\/$/, '')
+  return `${baseURL}/download/${encodeURIComponent(resolveFileName(stepValues))}?${params}`
 }
 
 /**

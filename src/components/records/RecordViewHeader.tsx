@@ -63,8 +63,6 @@ interface RecordViewHeaderProps {
   record: QRecord
   /** Ordered T1 fields to render as compact key/value pairs under the title. */
   t1Fields: QFieldMetaData[]
-  /** One-to-one join definitions used to append joined fields to the T1 dl. */
-  oneJoins: QTableMetaData['exposedJoins']
   /** Current view mode controlling which toggle button appears active. */
   viewMode: 'tabs' | 'list'
   /** Callback to switch the view mode. */
@@ -97,7 +95,6 @@ export function RecordViewHeader({
   tableMetaData,
   record,
   t1Fields,
-  oneJoins,
   viewMode,
   setViewMode,
   hideActions,
@@ -211,24 +208,7 @@ export function RecordViewHeader({
               )
             })}
             {/* One-to-one join fields */}
-            {oneJoins.map((join) => {
-              const joinRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-              if (joinRecords.length === 0) return null
-              const joinRecord = joinRecords[0]
-              return Object.values(join.joinTable!.fields)
-                .filter((f) => !f.isHidden && !f.isHeavy)
-                .slice(0, 3)
-                .map((field) => {
-                  const val = joinRecord.displayValues?.[field.name] ??
-                    (joinRecord.values[field.name] != null ? String(joinRecord.values[field.name]) : null)
-                  return (
-                    <div key={`${join.label}-${field.name}`} className="flex flex-col">
-                      <dt className="text-xs text-muted-foreground">{field.label}</dt>
-                      <dd className="text-sm text-foreground">{val ?? '\u2014'}</dd>
-                    </div>
-                  )
-                })
-            })}
+
           </dl>
         )}
       </div>

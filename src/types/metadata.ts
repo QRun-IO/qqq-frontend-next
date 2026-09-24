@@ -124,6 +124,8 @@ export interface QThemeMetaData {
 export interface QTableMetaData {
   /** Unique backend name for this table (used in API calls). */
   name: string
+  /** Named record groups, present only in full table metadata. */
+  associations?: QAssociation[]
   /** Human-readable label shown in the UI. */
   label: string
   /** When true, this table is excluded from navigation and search. */
@@ -358,6 +360,8 @@ export interface QWidgetDropdown {
  * grids, HTML blocks, etc. — whose data is fetched independently.
  */
 export interface QWidgetMetaData {
+  /** Frontend widget defaults, including explicit association bindings. */
+  defaultValues?: Record<string, unknown>
   /** Unique backend name for this widget (used in data-fetch API calls). */
   name: string
   /** Human-readable label shown in the widget header. */
@@ -422,6 +426,13 @@ export interface QExposedJoin {
   joinTable?: QTableMetaData
   /** Ordered list of join steps from the base table to the joined table. */
   joinPath?: QJoinMetaData[]
+}
+
+/** A named record group and the exact join that relates its records. */
+export interface QAssociation {
+  name: string
+  associatedTableName: string
+  join: QJoinMetaData & { joinOns: Array<{ leftField: string; rightField: string }> }
 }
 
 /**
@@ -524,5 +535,5 @@ export type FieldAdornment =
   | { type: 'CHIP'; values?: { colorMap?: Record<string, string>; color?: string } }
   | { type: 'TOOLTIP'; values?: { tooltipText?: string; text?: string; tooltip?: string } }
   | { type: 'ERROR'; values?: { errorText?: string; text?: string } }
-  | { type: 'FILE_DOWNLOAD'; values?: { downloadUrl?: string } }
+  | { type: 'FILE_DOWNLOAD'; values?: { downloadUrl?: string; fileNameField?: string; defaultMimeType?: string } }
   | { type: 'SIZE' | 'REVEAL' | 'CODE_EDITOR' | 'RENDER_HTML' | 'FILE_UPLOAD' }

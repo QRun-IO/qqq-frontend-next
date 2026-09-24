@@ -100,7 +100,9 @@ function buildNumberSchema(
   if (maxValue !== undefined && maxValue !== null) {
     schema = schema.max(Number(maxValue), `${label} must be at most ${maxValue}`)
   }
-  return isRequired ? schema : z.union([z.literal(''), schema]).optional()
+  return isRequired
+    ? z.union([z.string().trim().min(1, `${label} is required`), z.number()]).pipe(schema)
+    : z.union([z.literal(''), schema]).optional()
 }
 
 /**
@@ -169,11 +171,13 @@ export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
  *
  * @param tableMetaData - The table metadata whose fields drive the schema shape.
  * @param fieldNamesToInclude - Optional allowlist of field names to include. Defaults to all fields.
+ * @param allowNullValues - Preserve explicit nulls in optional copy fields; ordinary forms keep their existing schema.
  * @returns A `z.ZodObject` whose keys are editable field names and whose values are field schemas.
  */
 export function zodSchemaFromTableMetadata(
   tableMetaData: QTableMetaData,
-  fieldNamesToInclude?: string[]
+  fieldNamesToInclude?: string[],
+  allowNullValues = false
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {}
 
@@ -187,7 +191,8 @@ export function zodSchemaFromTableMetadata(
     if (field.isHidden) continue
     if (!field.isEditable) continue
 
-    shape[fieldName] = zodFieldFromMetadata(field)
+    const fieldSchema = zodFieldFromMetadata(field)
+    shape[fieldName] = allowNullValues && !field.isRequired ? fieldSchema.nullable() : fieldSchema
   }
 
   return z.object(shape)
@@ -260,4 +265,57 @@ export function defaultValuesFromRecord(
   }
 
   return defaults
+}
+
+/**
+ * Prepare editable base fields for a new record without retaining its source key.
+ * Native BLOB values are base64; upload files preserve their bytes and filename.
+ * @param tableMetaData - Full source table metadata.
+ * @param recordValues - Source values, which remain unchanged.
+ * @returns Fresh form values; malformed binary data raises an error before saving.
+ */
+export function defaultValuesForCopy(
+  tableMetaData: QTableMetaData,
+  recordValues: Record<string, unknown>
+): Record<string, unknown> {
+  const defaults = defaultValuesFromRecord(tableMetaData, recordValues)
+  defaults[tableMetaData.primaryKeyField] = ''
+  for (const field of Object.values(tableMetaData.fields)) {
+    const value = recordValues[field.name]
+    if (field.isHidden || !field.isEditable || field.name === tableMetaData.primaryKeyField) continue
+    if (field.type === 'PASSWORD' && !field.adornments?.some(item => item.type === 'REVEAL')) {
+      defaults[field.name] = ''
+      continue
+    }
+    if (value === null) {
+      defaults[field.name] = null
+      continue
+    }
+    if (field.type !== 'BLOB' || typeof value !== 'string') continue
+    try {
+      const bytes = Uint8Array.from(atob(value), (character) => character.charCodeAt(0))
+      const adornment = field.adornments?.find((item) => item.type === 'FILE_DOWNLOAD')
+      const fileNameField = adornment?.values?.fileNameField
+      const fileName = fileNameField ? recordValues[fileNameField] : undefined
+      defaults[field.name] = new File([bytes], typeof fileName === 'string' && fileName ? fileName : field.name, {
+        type: adornment?.values?.defaultMimeType ?? 'application/octet-stream',
+      })
+    } catch {
+      throw new Error(`Cannot copy ${field.label}: the source file data is invalid.`)
+    }
+  }
+  return defaults
+}
+
+/**
+ * A native password mask is not source data; require an explicit replacement.
+ * @param table - Full metadata defining editable fields and REVEAL adornments.
+ * @param values - Current copy draft values.
+ * @param fields - Optional fields not assigned by a copied parent.
+ */
+export function validateCopyPasswords(table: QTableMetaData, values: Record<string, unknown>, fields?: string[]): void {
+  for (const field of Object.values(table.fields)) {
+    if (field.type !== 'PASSWORD' || !field.isEditable || field.isHidden || field.adornments?.some(item => item.type === 'REVEAL') || (fields && !fields.includes(field.name))) continue
+    if (typeof values[field.name] !== 'string' || values[field.name] === '') throw new Error(`Enter a new value for ${field.label}; its source password is unreadable.`)
+  }
 }

@@ -124,18 +124,14 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
      * and parentAppMap.
      *
      * @param nodes - The current level of app tree nodes to process.
-     * @param parentPath - The URL path prefix built by ancestor APP nodes.
      * @param depth - Current recursion depth; stops at 2.
      * @param parentApp - The nearest enclosing APP node info, used for parentAppMap entries.
      */
-    function buildRoutes(nodes: QAppTreeNode[], parentPath: string, depth: number, parentApp?: { label: string; path: string }) {
+    function buildRoutes(nodes: QAppTreeNode[], depth: number, parentApp?: { label: string; path: string }) {
       if (depth > 2) return
 
       for (const node of nodes) {
-        // Tables, processes, and reports always use a flat /app/{name} path.
-        // Only APP nodes use the parent path to build their own URL.
-        const isLeaf = node.type === 'TABLE' || node.type === 'PROCESS' || node.type === 'REPORT'
-        const path = isLeaf ? `/app/${node.name}` : `${parentPath}/${node.name}`
+        const path = `/app/${node.name}`
 
         if (node.type === 'APP') {
           pathToLabelMap[path] = node.label
@@ -148,13 +144,11 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
           const appInfo = { label: node.label, path }
           const children: SidebarRoute[] = []
           if (node.children && depth < 2) {
-            buildRoutes(node.children, path, depth + 1, appInfo)
+            buildRoutes(node.children, depth + 1, appInfo)
 
             // Build sidebar children using each child's resolved flat path
             for (const child of node.children) {
-              const childPath = (child.type === 'TABLE' || child.type === 'PROCESS' || child.type === 'REPORT')
-                ? `/app/${child.name}`
-                : `${path}/${child.name}`
+              const childPath = `/app/${child.name}`
               children.push({
                 name: child.label,
                 path: childPath,
@@ -203,7 +197,7 @@ export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
       }
     }
 
-    buildRoutes(metaData.appTree, '/app', 0)
+    buildRoutes(metaData.appTree, 0)
 
     return { sidebarRoutes, pathToLabelMap, parentAppMap, defaultRoute }
   }, [metaData])

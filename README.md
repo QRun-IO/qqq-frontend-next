@@ -2,6 +2,10 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 15 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
+## QQQ 4.0 compatibility
+
+The local 4.0 candidate renders canonical statistics, HTML and bar/line/pie charts through the framework's authenticated `/widget/{name}` and full `/metaData` routes; deployments must forward these routes at the same application root as `/qqq/v1`. Next does not yet have full Material dashboard widget parity: multi-statistics, tables, stacked bars, steppers, small line charts and canonical composite children remain limited ([#550](https://github.com/QRun-IO/qqq/issues/550), deferred). Passing CRUD and chart checks do not establish complete dashboard acceptance or a published 4.0 release.
+
 ## Prerequisites
 
 - **Node.js** 20 or later

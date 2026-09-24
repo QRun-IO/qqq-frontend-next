@@ -45,6 +45,21 @@ export async function loadMetaData(): Promise<QInstance> {
   if (!parsed.success) {
     console.warn('[API] QInstance metadata response failed schema validation:', parsed.error.flatten())
   }
+  // V1 supplies light widget metadata. Resolve permission/presentation fields
+  // through the registered full metadata route instead of assuming access.
+  if (Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')) {
+    const full = await apiClient.get<QInstance>('/metaData', {
+      baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
+      params: {
+        frontendName: 'qqq-frontend-next',
+        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
+      },
+    })
+    if (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets)) {
+      throw new Error('Invalid widget metadata response')
+    }
+    return { ...result, widgets: full.widgets }
+  }
   return result
 }
 

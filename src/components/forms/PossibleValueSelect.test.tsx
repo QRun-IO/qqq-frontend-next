@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 
@@ -94,9 +94,9 @@ describe('PossibleValueSelect — rendering', () => {
     expect(screen.getByText('Person')).toBeInTheDocument()
   })
 
-  it('renders a combobox trigger with role="combobox"', () => {
+  it('names the combobox from its field label', () => {
     render(<Wrapper />)
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Person' })).toBeInTheDocument()
   })
 
   it('shows default placeholder when no value is selected', () => {
@@ -367,6 +367,40 @@ describe('PossibleValueSelect — search', () => {
 })
 
 describe('PossibleValueSelect — error state', () => {
+  it.each(['success', 'failure'])('keeps newer search results after an older request settles with %s', async (outcome) => {
+    const user = userEvent.setup()
+    let resolveOld!: (values: QPossibleValue[]) => void
+    let rejectOld!: (error: Error) => void
+    const older = new Promise<QPossibleValue[]>((resolve, reject) => { resolveOld = resolve; rejectOld = reject })
+    mockFetchTable.mockReturnValueOnce(older).mockResolvedValueOnce([{ id: 2, label: 'Bob' }])
+    render(<Wrapper />)
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search Person options' }), 'Bo')
+    expect(await screen.findByRole('option', { name: 'Bob' })).toBeVisible()
+    await act(async () => {
+      if (outcome === 'success') resolveOld([{ id: 1, label: 'Alice' }])
+      else rejectOld(new Error('Older request failed'))
+    })
+    expect(screen.getByRole('option', { name: 'Bob' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: 'Alice' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo' })
+  })
+
+  it('distinguishes a failed request from empty choices and retries on reopen', async () => {
+    const user = userEvent.setup()
+    mockFetchTable.mockRejectedValueOnce(new Error('404')).mockResolvedValueOnce(OPTIONS)
+    render(<Wrapper />)
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Options could not be loaded.')
+    expect(screen.queryByText('No options found')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    expect(await screen.findByRole('option', { name: 'Alice' })).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+
   it('renders error message when error prop is provided', () => {
     const { control } = (() => {
       let capturedControl: ReturnType<typeof useForm<Record<string, unknown>>>['control'] | undefined

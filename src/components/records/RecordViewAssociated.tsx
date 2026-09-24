@@ -14,76 +14,25 @@
  * limitations under the License.
  */
 
-/**
- * @file RecordViewAssociated — list of many-to-many related-record panels for the list view mode.
- */
+/** @file RecordViewAssociated — unbound named groups in the Related area. */
 
 'use client'
 
-import React from 'react'
-import type { QTableMetaData, QRecord } from '@/types'
-
-import { AssociatedRecords } from './AssociatedRecords'
+import type { ReactNode } from 'react'
+import type { QAssociation } from '@/types'
 
 /**
- * Props for the {@link RecordViewAssociated} component.
+ * Keep each declared group distinct even when targets and joins are shared.
+ * @param props - Unbound association descriptors and the shared panel renderer.
+ * @returns One separate card for each exact association name.
  */
-interface RecordViewAssociatedProps {
-  /** Table metadata for the parent record (forwarded to AssociatedRecords). */
-  tableMetaData: QTableMetaData
-  /** The parent record — used to extract associated record arrays. */
-  record: QRecord
-  /** Many-to-many join definitions; one card is rendered per join. */
-  manyJoins: QTableMetaData['exposedJoins']
-  /** Primary key value of the parent record. */
-  parentPk: string | number
-  /** Full table metadata map forwarded to AssociatedRecords for field lookups. */
-  allTables?: Record<string, QTableMetaData>
-  /** Navigation context used to build back-reference links in child components. */
-  navigateFrom: { path: string; label: string }
-  /** Callback invoked after a new associated record is created (triggers parent refetch). */
-  onRefetch?: () => void
-}
-
-/**
- * Renders a stacked list of many-to-many related-record grids in list view mode.
- *
- * Each {@link AssociatedRecords} panel is wrapped in a card with a border and
- * shadow matching the style of the section cards in the same view.
- *
- * @param props - See {@link RecordViewAssociatedProps}.
- * @returns A React fragment containing one `<div>` card per many-join, each
- *   styled with a rounded border, bg-card, and drop shadow to match the
- *   section cards in the list view. Returns an empty fragment when
- *   `manyJoins` is empty.
- */
-export function RecordViewAssociated({
-  tableMetaData,
-  record,
-  manyJoins,
-  parentPk,
-  allTables,
-  navigateFrom,
-  onRefetch,
-}: RecordViewAssociatedProps) {
-  return (
-    <>
-      {manyJoins.map((join) => {
-        const assocRecords = record.associatedRecords?.[join.joinTable!.name] ?? []
-        return (
-          <div key={join.label} className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
-            <AssociatedRecords
-              join={join}
-              records={assocRecords}
-              parentTableMetaData={tableMetaData}
-              parentPrimaryKey={parentPk}
-              allTables={allTables}
-              navigateFrom={navigateFrom}
-              onRecordCreated={onRefetch}
-            />
-          </div>
-        )
-      })}
-    </>
-  )
+export function RecordViewAssociated({ associations, renderAssociation }: {
+  associations: QAssociation[]
+  renderAssociation: (name: string, label?: string) => ReactNode
+}) {
+  return <>{associations.map((association) => (
+    <div key={association.name} className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
+      {renderAssociation(association.name)}
+    </div>
+  ))}</>
 }

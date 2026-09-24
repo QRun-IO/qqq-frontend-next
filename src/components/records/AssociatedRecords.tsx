@@ -20,12 +20,13 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ExternalLink, X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 
-import type { QTableMetaData, QRecord, QExposedJoin } from '@/types'
+import type { QTableMetaData, QRecord, QAssociation } from '@/types'
+import { resolveAssociationValues, type AssociationTableState } from '@/lib/utils/association-utils'
 import { serializeFilter } from '@/lib/utils/filter-utils'
 import { cn } from '@/lib/utils/cn'
 import { FieldValue } from './FieldValue'
@@ -33,12 +34,15 @@ import { RecordHoverCard } from './RecordHoverCard'
 import { EntityForm } from '@/components/forms/EntityForm'
 
 interface AssociatedRecordsProps {
-  join: QExposedJoin
-  records: QRecord[]
-  /** The parent table's metadata — used for building "View All" filter */
-  parentTableMetaData?: QTableMetaData
-  /** The parent record's primary key value — used for building "View All" filter */
-  parentPrimaryKey?: string | number
+  association: QAssociation
+  metadata?: AssociationTableState
+  label?: string
+  /** Undefined when this relationship has no resolved response data. */
+  records?: QRecord[]
+  /** Full parent metadata used to resolve the named join. */
+  parentTableMetaData: QTableMetaData
+  /** Actual parent values supply every relationship field. */
+  parentRecord: QRecord
   /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
   allTables?: Record<string, QTableMetaData>
   /** Source page info for back navigation — appended to outgoing links */
@@ -52,45 +56,44 @@ interface AssociatedRecordsProps {
 const PAGE_SIZE = 25
 
 /**
- * AssociatedRecords — renders a table of child/related records for a given join.
- *
- * Displays column headers derived from the join table's visible fields, a
- * "View All" link when a foreign-key field can be resolved, and an inline
- * create dialog when the join table allows inserts.
- *
- * Records are shown in batches of {@link PAGE_SIZE} (25). When there are more
- * than 25 records a "Show more" button is rendered below the table to reveal
- * the next batch, until all records are visible.
- *
- * @param props - Component properties.
- * @returns A `<section>` with a heading (join label + count badge), optional
- *   "View All" filter link, optional "+ Add" create button, and either an
- *   overflow-scrollable `<table>` of child records (first two columns wrapped
- *   in {@link RecordHoverCard}s) or an empty-state message. Returns `null`
- *   when `joinTableMetaData` is absent or no visible fields exist.
+ * Render one exact named group with independently resolved target metadata.
+ * Add needs INSERT and a complete relationship tuple; related data needs READ.
+ * @param props - Association descriptor, parent values, child metadata and response state.
+ * @returns The related panel, including localized unavailable states and permitted actions.
  */
 export function AssociatedRecords({
-  join,
-  records,
+  association,
+  metadata,
+  label = association.name,
+  records: loadedRecords,
   parentTableMetaData,
-  parentPrimaryKey,
+  parentRecord,
   allTables,
   navigateFrom,
   onRecordCreated,
   className,
 }: AssociatedRecordsProps) {
-  const joinTableMetaData = join.joinTable
+  const joinTableMetaData = metadata?.table
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const headingId = useId()
+  const associationId = encodeURIComponent(association.name)
 
-  if (!joinTableMetaData) return null
+  if (!joinTableMetaData || metadata?.isError) {
+    return <section data-qqq-id={`associated-records-${associationId}`} aria-labelledby={headingId}>
+      <h3 id={headingId}>{label}</h3>
+      <p role={metadata?.isLoading ? 'status' : 'alert'}>{metadata?.isLoading ? 'Loading related metadata...' : 'Related table metadata is unavailable.'}</p>
+    </section>
+  }
 
-  // Get visible fields for column headers (first 6 non-hidden fields)
+  const relationship = resolveAssociationValues(association, parentTableMetaData, parentRecord, joinTableMetaData)
+  const reverse = association.join.leftTable !== parentTableMetaData.name
+  const availableRecords = !reverse && joinTableMetaData.readPermission ? loadedRecords : undefined
+  const records = availableRecords ?? []
+  const fixedValues = 'values' in relationship ? relationship.values : undefined
   const visibleFields = Object.values(joinTableMetaData.fields)
     .filter((f) => !f.isHidden && !f.isHeavy)
     .slice(0, 6)
-
-  if (visibleFields.length === 0) return null
 
   // Build from params for outgoing links
   const fromParams = navigateFrom
@@ -100,35 +103,28 @@ export function AssociatedRecords({
     ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
     : ''
 
-  // Build "View All" URL — find the FK field in the join table that references the parent table
-  let viewAllHref: string | undefined
-  if (parentTableMetaData && parentPrimaryKey != null) {
-    const fkField = Object.values(joinTableMetaData.fields).find(
-      (f) => f.possibleValueSourceName === parentTableMetaData.name
-    )
-    if (fkField) {
-      const filterParam = serializeFilter({
-        criteria: [{ fieldName: fkField.name, operator: 'EQUALS', values: [parentPrimaryKey] }],
-        booleanOperator: 'AND',
-        skip: 0,
-        limit: 25,
-      })
-      viewAllHref = `/app/${joinTableMetaData.name}?filter=${filterParam}${fromParams}`
-    }
-  }
+  const filter = fixedValues ? {
+    criteria: Object.entries(fixedValues).map(([fieldName, value]) => ({ fieldName, operator: 'EQUALS' as const, values: [value] })),
+    booleanOperator: 'AND' as const,
+    skip: 0,
+    limit: 25,
+  } : undefined
+  const viewAllHref = joinTableMetaData.readPermission && filter
+    ? `/app/${encodeURIComponent(joinTableMetaData.name)}?filter=${encodeURIComponent(serializeFilter(filter))}${fromParams}`
+    : undefined
 
   return (
     <section
       className={cn('space-y-3', className)}
-      data-qqq-id={`associated-records-${join.label}`}
-      aria-labelledby={`assoc-heading-${join.label}`}
+      data-qqq-id={`associated-records-${associationId}`}
+      aria-labelledby={headingId}
     >
       <div className="flex items-center justify-between border-b border-border pb-2">
         <h3
-          id={`assoc-heading-${join.label}`}
+          id={headingId}
           className="text-sm font-semibold text-muted-foreground"
         >
-          {join.label}
+          {label}
           {records.length > 0 && (
             <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
               {records.length}
@@ -136,20 +132,20 @@ export function AssociatedRecords({
           )}
         </h3>
         <div className="flex items-center gap-3">
-          {viewAllHref && records.length > 0 && (
+          {viewAllHref && (
             <Link
               href={viewAllHref}
               className={cn(
                 'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
                 'focus:outline-none focus:underline'
               )}
-              data-qqq-id={`button-view-all-${joinTableMetaData.name}`}
+              data-qqq-id={`button-view-all-association-${associationId}`}
             >
               View All
               <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
             </Link>
           )}
-          {joinTableMetaData.insertPermission && (
+          {joinTableMetaData.insertPermission && fixedValues && (
             <button
               type="button"
               onClick={() => setCreateDialogOpen(true)}
@@ -157,7 +153,7 @@ export function AssociatedRecords({
                 'text-xs font-medium text-primary hover:text-primary/80',
                 'focus:outline-none focus:underline'
               )}
-              data-qqq-id={`button-create-${joinTableMetaData.name}`}
+              data-qqq-id={`button-create-association-${associationId}`}
             >
               + Add {joinTableMetaData.label}
             </button>
@@ -165,16 +161,21 @@ export function AssociatedRecords({
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {'error' in relationship && <p role="alert" className="text-sm text-destructive">{relationship.error}</p>}
+      {reverse ? (
+        <p className="py-4 text-sm text-muted-foreground">Related record loading for reverse associations is not supported.</p>
+      ) : availableRecords === undefined ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">Related records are unavailable.</p>
+      ) : records.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          No {join.label} records
+          No {label} records
         </p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border border-border">
+          <div className="relative overflow-x-auto rounded-md border border-border">
             <table
               className="min-w-full divide-y divide-border"
-              aria-label={`${join.label} records`}
+              aria-label={`${label} records`}
             >
               <thead className="bg-muted">
                 <tr>
@@ -200,7 +201,7 @@ export function AssociatedRecords({
                   const childPk =
                     childRecord.values[joinTableMetaData.primaryKeyField] as string | number
                   const recordHref = joinTableMetaData.readPermission && childPk !== undefined
-                    ? `/app/${joinTableMetaData.name}/${childPk}${fromParamsFirst}`
+                    ? `/app/${encodeURIComponent(joinTableMetaData.name)}/${encodeURIComponent(String(childPk))}${fromParamsFirst}`
                     : undefined
                   return (
                     <tr
@@ -269,7 +270,7 @@ export function AssociatedRecords({
                   'transition-colors duration-150'
                 )}
                 data-qqq-id={`button-show-more-${joinTableMetaData.name}`}
-                aria-label={`Show more ${join.label} records`}
+                aria-label={`Show more ${label} records`}
               >
                 Show more ({records.length - visibleCount} remaining)
               </button>
@@ -278,13 +279,13 @@ export function AssociatedRecords({
         </>
       )}
       {/* Create child record dialog */}
-      {joinTableMetaData.insertPermission && (
+      {joinTableMetaData.insertPermission && fixedValues && (
         <CreateChildRecordDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           joinTableMetaData={joinTableMetaData}
-          parentTableMetaData={parentTableMetaData}
-          parentPrimaryKey={parentPrimaryKey}
+          fixedValues={fixedValues}
+          associationId={associationId}
           onRecordCreated={onRecordCreated}
         />
       )}
@@ -297,8 +298,7 @@ export function AssociatedRecords({
 /**
  * CreateChildRecordDialog — modal form for creating a new child record linked to the parent.
  *
- * Pre-fills the foreign-key field with the parent record's primary key and
- * excludes that field from the visible form so users only fill in remaining fields.
+ * Fixed relationship fields are validated and submitted independently of editable inputs.
  *
  * @param props - Component properties.
  * @returns A Radix Dialog portal with an EntityForm for the join table.
@@ -307,37 +307,20 @@ function CreateChildRecordDialog({
   open,
   onOpenChange,
   joinTableMetaData,
-  parentTableMetaData,
-  parentPrimaryKey,
+  fixedValues,
+  associationId,
   onRecordCreated,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   joinTableMetaData: QTableMetaData
-  parentTableMetaData?: QTableMetaData
-  parentPrimaryKey?: string | number
+  fixedValues: Record<string, string | number | boolean>
+  associationId: string
   onRecordCreated?: () => void
 }) {
-  // Find the FK field that references the parent table and pre-fill it
-  const fkField = parentTableMetaData
-    ? Object.values(joinTableMetaData.fields).find(
-        (f) => f.possibleValueSourceName === parentTableMetaData.name
-      )
-    : undefined
-
-  const defaultValues: Record<string, unknown> = {}
-  if (fkField && parentPrimaryKey != null) {
-    defaultValues[fkField.name] = parentPrimaryKey
-  }
-
-  // Exclude the FK field from the form since it's pre-filled
-  const fieldNamesToExclude = fkField ? [fkField.name] : []
-  const allEditableFields = Object.values(joinTableMetaData.fields)
-    .filter((f) => !f.isHidden && f.isEditable)
-    .map((f) => f.name)
-  const fieldNamesToInclude = allEditableFields.filter(
-    (name) => !fieldNamesToExclude.includes(name)
-  )
+  const fieldNamesToInclude = Object.values(joinTableMetaData.fields)
+    .filter((field) => !field.isHidden && field.isEditable && !Object.prototype.hasOwnProperty.call(fixedValues, field.name))
+    .map((field) => field.name)
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -358,7 +341,7 @@ function CreateChildRecordDialog({
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
           )}
           aria-describedby={undefined}
-          data-qqq-id={`dialog-create-${joinTableMetaData.name}`}
+          data-qqq-id={`dialog-create-association-${associationId}`}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -381,9 +364,8 @@ function CreateChildRecordDialog({
             <EntityForm
               tableMetaData={joinTableMetaData}
               isModal
-              overrideHeading={`Add ${joinTableMetaData.label}`}
               saveButtonLabel="Create"
-              defaultValues={defaultValues}
+              fixedValues={fixedValues}
               fieldNamesToInclude={fieldNamesToInclude}
               onSuccess={() => {
                 onOpenChange(false)

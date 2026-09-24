@@ -50,6 +50,8 @@ import { RichTextField } from './RichTextField'
 interface DynamicFormFieldProps {
   /** Metadata describing the field to render. */
   field: QFieldMetaData
+  /** Distinguishes inputs when multiple draft records render the same field. */
+  idPrefix?: string
   /** React Hook Form register function from the parent `useForm` instance. */
   register: UseFormRegister<Record<string, unknown>>
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -80,11 +82,11 @@ interface DynamicFormFieldProps {
  * @param props - Component properties.
  * @returns The rendered help tooltip (desktop) and inline text (mobile), or null when no help content is defined.
  */
-function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
+function FieldHelpTooltip({ field, helpId: suppliedHelpId }: { field: QFieldMetaData; helpId?: string }) {
   const helpContent = field.helpContents?.[0]
   if (!helpContent?.content) return null
 
-  const helpId = `field-help-content-${field.name}`
+  const helpId = suppliedHelpId ?? `field-help-content-${field.name}`
 
   return (
     <>
@@ -163,10 +165,12 @@ function FieldHelpTooltip({ field }: { field: QFieldMetaData }) {
  */
 function FieldWithHelp({
   field,
+  helpId,
   children,
 }: {
   field: QFieldMetaData
   children: React.ReactNode
+  helpId?: string
 }) {
   const hasHelp = field.helpContents && field.helpContents.length > 0 && field.helpContents[0]?.content
 
@@ -177,7 +181,7 @@ function FieldWithHelp({
   return (
     <div
       className="relative"
-      aria-describedby={`field-help-content-${field.name}`}
+      aria-describedby={helpId ?? `field-help-content-${field.name}`}
     >
       {children}
     </div>
@@ -228,6 +232,7 @@ function DirtyWrapper({
  */
 export function DynamicFormField({
   field,
+  idPrefix,
   register,
   control,
   errors,
@@ -238,20 +243,20 @@ export function DynamicFormField({
   if (field.isHidden) return null
   if (!field.isEditable && !disabled) return null
 
-  const fieldId = `field-${field.name}`
+  const fieldId = `${idPrefix ? `${idPrefix}-` : ''}field-${field.name}`
   const fieldError = errors[field.name] as FieldError | undefined
   const isDisabled = disabled || !field.isEditable
   const dataQqqId = field.name
 
   const hasHelp = field.helpContents && field.helpContents.length > 0 && field.helpContents[0]?.content
-  const helpDescribedBy = hasHelp ? `field-help-content-${field.name}` : undefined
+  const helpDescribedBy = hasHelp ? `${idPrefix ? `${idPrefix}-` : ''}field-help-content-${field.name}` : undefined
 
   // Fields with possibleValues use PossibleValueSelect (async combobox)
   if (field.possibleValueSourceName) {
     const pvContext: PossibleValueContext = possibleValueContext ?? { type: 'standalone' }
     return (
       <DirtyWrapper isDirty={isDirty}>
-        <FieldWithHelp field={field}>
+        <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <PossibleValueSelect
             id={fieldId}
             label={field.label}
@@ -264,7 +269,7 @@ export function DynamicFormField({
             required={field.isRequired}
             data-qqq-id={dataQqqId}
           />
-          {hasHelp && <FieldHelpTooltip field={field} />}
+          {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
         </FieldWithHelp>
       </DirtyWrapper>
     )
@@ -275,7 +280,7 @@ export function DynamicFormField({
   if (hasFileUpload || field.type === 'BLOB') {
     return (
       <DirtyWrapper isDirty={isDirty}>
-        <FieldWithHelp field={field}>
+        <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <FileUploadField
             id={fieldId}
             label={field.label}
@@ -286,7 +291,7 @@ export function DynamicFormField({
             required={field.isRequired}
             data-qqq-id={dataQqqId}
           />
-          {hasHelp && <FieldHelpTooltip field={field} />}
+          {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
         </FieldWithHelp>
       </DirtyWrapper>
     )
@@ -296,7 +301,7 @@ export function DynamicFormField({
     case 'STRING':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               id={fieldId}
               label={field.label}
@@ -307,7 +312,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -315,7 +320,7 @@ export function DynamicFormField({
     case 'TEXT':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
                 <label
@@ -328,7 +333,7 @@ export function DynamicFormField({
                     <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                   )}
                 </label>
-                {hasHelp && <FieldHelpTooltip field={field} />}
+                {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
               </div>
               <textarea
                 id={fieldId}
@@ -360,7 +365,7 @@ export function DynamicFormField({
     case 'HTML':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
                 <label
@@ -373,7 +378,7 @@ export function DynamicFormField({
                     <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                   )}
                 </label>
-                {hasHelp && <FieldHelpTooltip field={field} />}
+                {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
               </div>
               <Controller
                 name={field.name}
@@ -403,11 +408,11 @@ export function DynamicFormField({
     case 'LONG':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               id={fieldId}
               label={field.label}
-              registration={register(field.name, { valueAsNumber: true })}
+              registration={register(field.name)}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -416,7 +421,7 @@ export function DynamicFormField({
               maxValue={field.maxValue}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -424,11 +429,11 @@ export function DynamicFormField({
     case 'DECIMAL':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               id={fieldId}
               label={field.label}
-              registration={register(field.name, { valueAsNumber: true })}
+              registration={register(field.name)}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -437,7 +442,7 @@ export function DynamicFormField({
               maxValue={field.maxValue}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -445,7 +450,7 @@ export function DynamicFormField({
     case 'BOOLEAN':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <BooleanField
               id={fieldId}
               label={field.label}
@@ -456,7 +461,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -464,7 +469,7 @@ export function DynamicFormField({
     case 'DATE':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateField
               id={fieldId}
               label={field.label}
@@ -474,7 +479,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -482,7 +487,7 @@ export function DynamicFormField({
     case 'DATE_TIME':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateTimeField
               id={fieldId}
               label={field.label}
@@ -492,7 +497,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -500,7 +505,7 @@ export function DynamicFormField({
     case 'TIME':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
                 <label
@@ -513,7 +518,7 @@ export function DynamicFormField({
                     <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                   )}
                 </label>
-                {hasHelp && <FieldHelpTooltip field={field} />}
+                {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
               </div>
               <input
                 id={fieldId}
@@ -545,7 +550,7 @@ export function DynamicFormField({
     case 'PASSWORD':
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <PasswordField
               id={fieldId}
               label={field.label}
@@ -556,7 +561,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -564,7 +569,7 @@ export function DynamicFormField({
     default:
       return (
         <DirtyWrapper isDirty={isDirty}>
-          <FieldWithHelp field={field}>
+          <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               id={fieldId}
               label={field.label}
@@ -575,7 +580,7 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {hasHelp && <FieldHelpTooltip field={field} />}
+            {hasHelp && <FieldHelpTooltip field={field} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
