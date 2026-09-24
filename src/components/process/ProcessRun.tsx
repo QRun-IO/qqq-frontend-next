@@ -579,7 +579,8 @@ export function ProcessRun({
           )}
 
           {stepType === 'RECORD_LIST' && (
-            <RecordListStep {...sharedStepProps} />
+            <RecordListStep key={`${state.processUUID}:${currentStep.name}`} {...sharedStepProps}
+              processName={processName} processUUID={state.processUUID ?? undefined} />
           )}
 
           {stepType === 'BULK_LOAD' && (

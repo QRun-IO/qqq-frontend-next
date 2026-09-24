@@ -17,17 +17,19 @@
 /**
  * @file RecordListStep — renders a RECORD_LIST process step.
  *
- * Displays a client-side paginated read-only table of the records that will be
+ * Displays a paginated read-only table of the records that will be
  * affected by the process.  Columns are derived from `step.recordListFields`
  * when available, falling back to the keys of the first record.
  */
 'use client'
 
 import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 import type { QFrontendStepMetaData, QRecord, QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { processRecords } from '@/lib/api/processes'
 
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 
@@ -38,9 +40,12 @@ const PAGE_SIZE = 10
  * Props for the {@link RecordListStep} component.
  */
 export interface RecordListStepProps {
+  /** Active process identifiers used to load records from the backend. */
+  processName?: string
+  processUUID?: string
   /** Metadata for the current process step, including optional `recordListFields`. */
   step: QFrontendStepMetaData
-  /** Current accumulated step values; must contain a `records` array of {@link QRecord}. */
+  /** Current accumulated step values; an inline records array is used when no process identifiers are supplied. */
   stepValues: Record<string, unknown>
   /** Whether a submission is in progress; disables navigation controls while true. */
   isLoading: boolean
@@ -129,9 +134,9 @@ function parseColumns(
  * Renders a RECORD_LIST process step.
  *
  * Dispatched from `ProcessRun` when `resolveStepType` returns `'RECORD_LIST'`.
- * Parses the `records` array from `stepValues.records` (cast to `QRecord[]`),
- * derives column definitions via `parseColumns`, and paginates client-side at
- * {@link PAGE_SIZE} (10) rows per page.  Pagination controls only appear when
+ * Fetches the active process records with server pagination, or uses an inline
+ * records array when no process identifiers are supplied. Columns derive from
+ * metadata and each page contains at most {@link PAGE_SIZE} (10) rows.  Pagination controls only appear when
  * more than one page is needed.  The Confirm button passes step values through
  * unchanged; the process backend decides what to do with the acknowledged list.
  *
@@ -140,6 +145,8 @@ function parseColumns(
  *   pagination controls, and a sticky Cancel / Back / Next|Confirm & Submit bar.
  */
 export function RecordListStep({
+  processName,
+  processUUID,
   step,
   stepValues,
   isLoading,
@@ -151,12 +158,29 @@ export function RecordListStep({
 }: RecordListStepProps) {
   const [page, setPage] = useState(0)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-
-  const records = parseRecords(stepValues)
+  const remote = Boolean(processName && processUUID)
+  const query = useQuery({
+    queryKey: ['process-records', processName, processUUID, step.name, page],
+    queryFn: () => processRecords(processName!, processUUID!, page * PAGE_SIZE, PAGE_SIZE),
+    enabled: remote,
+    retry: false,
+  })
+  const records = remote ? query.data?.records ?? [] : parseRecords(stepValues)
   const columns = parseColumns(step, records)
-  const totalRecords = records.length
+  const totalRecords = remote ? query.data?.totalRecords ?? 0 : records.length
   const totalPages = Math.ceil(totalRecords / PAGE_SIZE)
-  const pageRecords = records.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const pageRecords = remote ? records : records.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  if (remote && query.isPending) return <p role="status">Loading process records...</p>
+  if (remote && query.isError) {
+    return (
+      <div role="alert" className="space-y-3">
+        <p>Failed to load process records. Review them before continuing.</p>
+        <button type="button" onClick={() => query.refetch()} data-qqq-id="button-retry-process-records"
+          className="rounded border px-3 py-2 focus-visible:ring-2 focus-visible:ring-ring">Retry</button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6" data-qqq-id={`process-record-list-step-${step.name}`}>
