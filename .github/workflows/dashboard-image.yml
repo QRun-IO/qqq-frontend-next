@@ -51,7 +51,7 @@ jobs:
         run: |
           container=$(docker run -d --rm -p 127.0.0.1:3000:3000 "$TAG")
           trap 'docker rm -f "$container"' EXIT
-          curl -fsS --max-time 3 --retry 30 --retry-delay 1 --retry-connrefused \
+          curl -fsS --max-time 3 --retry 30 --retry-delay 1 --retry-all-errors \
             --retry-max-time 90 http://127.0.0.1:3000/app/person >/dev/null \
             || { docker logs "$container"; exit 1; }
 
