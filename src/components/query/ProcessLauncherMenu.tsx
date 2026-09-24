@@ -91,7 +91,7 @@ export function ProcessLauncherMenu({
       params.set('recordsParam', 'recordIds')
       params.set('recordIds', selectedRecordIds.join(','))
     } else if (currentFilter.criteria.length > 0) {
-      params.set('recordsParam', 'queryFilter')
+      params.set('recordsParam', 'filterJSON')
       params.set('filterJSON', JSON.stringify(currentFilter))
     }
 
