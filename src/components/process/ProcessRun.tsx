@@ -29,6 +29,7 @@ import React, { useEffect, useRef, useMemo, useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
 
 import type { QProcessMetaData, QFrontendStepMetaData, QFieldMetaData } from '@/types'
+import type { ProcessInitRequest } from '@/lib/api/processes'
 import { useProcess } from '@/lib/hooks/use-process'
 import { toast } from '@/lib/hooks/use-toast'
 import { cn } from '@/lib/utils/cn'
@@ -62,6 +63,8 @@ export interface ProcessRunProps {
   processMetaData: QProcessMetaData
   /** Optional initial values passed to the process init call (e.g. selected record IDs). */
   initialValues?: Record<string, unknown>
+  /** Record selection and other supported process initialization parameters. */
+  initialRequest?: ProcessInitRequest
   /**
    * Called when the process reaches the COMPLETE state.
    *
@@ -248,6 +251,7 @@ export function ProcessRun({
   processName,
   processMetaData,
   initialValues,
+  initialRequest,
   onComplete,
   className,
 }: ProcessRunProps) {
@@ -298,19 +302,20 @@ export function ProcessRun({
   useEffect(() => {
     if (state.status === 'idle' && !initCalledRef.current) {
       // Validate minInputRecords / maxInputRecords before init
-      const recordIds = initialValues?.recordIds
+      const recordIds = initialRequest?.recordIds?.split(',').filter(Boolean) ?? initialValues?.recordIds
       const recordCount = Array.isArray(recordIds) ? recordIds.length : 0
+      const hasFilter = initialRequest?.recordsParam === 'filterJSON'
       const minInput = processMetaData.minInputRecords ?? 0
       const maxInput = processMetaData.maxInputRecords ?? 0
 
-      if (minInput > 0 && recordCount < minInput) {
+      if (!hasFilter && minInput > 0 && recordCount < minInput) {
         toast.error(
           `This process requires at least ${minInput} record${minInput !== 1 ? 's' : ''}, but ${recordCount === 0 ? 'none were' : `only ${recordCount} ${recordCount === 1 ? 'was' : 'were'}`} provided.`
         )
         return
       }
 
-      if (maxInput > 0 && recordCount > maxInput) {
+      if (!hasFilter && maxInput > 0 && recordCount > maxInput) {
         toast.error(
           `This process allows at most ${maxInput} record${maxInput !== 1 ? 's' : ''}, but ${recordCount} were provided.`
         )
@@ -319,7 +324,7 @@ export function ProcessRun({
 
       // Set ref AFTER validation passes so a failed validation allows retry
       initCalledRef.current = true
-      initProcess(initialValues ? { values: initialValues } : {})
+      initProcess({ ...initialRequest, ...(initialValues ? { values: initialValues } : {}) })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // intentionally only run on mount
@@ -574,7 +579,8 @@ export function ProcessRun({
           )}
 
           {stepType === 'RECORD_LIST' && (
-            <RecordListStep {...sharedStepProps} />
+            <RecordListStep key={`${state.processUUID}:${currentStep.name}`} {...sharedStepProps}
+              processName={processName} processUUID={state.processUUID ?? undefined} />
           )}
 
           {stepType === 'BULK_LOAD' && (

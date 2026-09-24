@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Search, Clock, ArrowRight, X } from 'lucide-react'
@@ -145,24 +145,27 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
   }, [searchResults, recentRecords, searchTerm])
 
   // Build navigable items
-  const navigableItems: Array<{ path: string; label: string; tableLabel?: string }> = []
-  if (searchTerm.length >= 2 && searchResults.length > 0) {
-    for (const result of searchResults) {
-      navigableItems.push({
-        path: `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`,
-        label: result.recordLabel,
-        tableLabel: result.tableLabel || result.tableName,
-      })
+  const navigableItems = useMemo(() => {
+    const items: Array<{ path: string; label: string; tableLabel?: string }> = []
+    if (searchTerm.length >= 2 && searchResults.length > 0) {
+      for (const result of searchResults) {
+        items.push({
+          path: `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`,
+          label: result.recordLabel,
+          tableLabel: result.tableLabel || result.tableName,
+        })
+      }
+    } else if (searchTerm.length < 2 && recentRecords.length > 0) {
+      for (const record of recentRecords) {
+        items.push({
+          path: record.path,
+          label: record.recordLabel,
+          tableLabel: record.tableLabel,
+        })
+      }
     }
-  } else if (searchTerm.length < 2 && recentRecords.length > 0) {
-    for (const record of recentRecords) {
-      navigableItems.push({
-        path: record.path,
-        label: record.recordLabel,
-        tableLabel: record.tableLabel,
-      })
-    }
-  }
+    return items
+  }, [searchTerm, searchResults, recentRecords])
 
   /**
    * Closes the dialog and navigates to the given path.

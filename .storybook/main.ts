@@ -1,24 +1,20 @@
 import type { StorybookConfig } from '@storybook/nextjs'
-import { resolve } from 'path'
+import { fileURLToPath } from 'node:url'
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
   addons: [
-    '@storybook/addon-essentials',
-    '@storybook/addon-interactions',
+    '@storybook/addon-docs',
   ],
   framework: {
     name: '@storybook/nextjs',
     options: {},
   },
-  docs: {
-    autodocs: 'tag',
-  },
   webpackFinal: async (config) => {
     if (config.resolve) {
       config.resolve.alias = {
         ...config.resolve.alias,
-        '@': resolve(__dirname, '../src'),
+        '@': fileURLToPath(new URL('../src', import.meta.url)),
       }
     }
     return config

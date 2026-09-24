@@ -197,7 +197,10 @@ export async function processRecords(
 ): Promise<ProcessRecordsResponse> {
   return apiClient.get<ProcessRecordsResponse>(
     `/processes/${encodeURIComponent(processName)}/${processUUID}/records`,
-    { params: { skip, limit } }
+    {
+      baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
+      params: { skip, limit },
+    }
   )
 }
 

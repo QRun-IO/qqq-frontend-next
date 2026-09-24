@@ -22,13 +22,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QContextProvider } from '@/lib/context/q-context'
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { server } from '@/mocks/node'
+import * as processesApi from '@/lib/api/processes'
 import SlugPage from './page'
 
-const { recordQuery, params } = vi.hoisted(() => ({
+const { recordQuery, params, location } = vi.hoisted(() => ({
   recordQuery: vi.fn(() => <div data-testid="record-query" />),
   params: { slug: 'person' },
+  location: { search: '' },
 }))
-vi.mock('next/navigation', () => ({ useParams: () => params }))
+vi.mock('next/navigation', () => ({
+  useParams: () => params,
+  useSearchParams: () => new URLSearchParams(location.search),
+  useRouter: () => ({ push: vi.fn() }),
+}))
 vi.mock('@/components/query', () => ({ RecordQuery: recordQuery }))
 vi.mock('@/components/widgets', () => ({ AppHome: () => <div>App home</div> }))
 
@@ -53,6 +59,7 @@ const registry = {
 describe('SlugPage table metadata readiness', () => {
   beforeEach(() => {
     params.slug = 'person'
+    location.search = ''
     recordQuery.mockClear()
     server.use(http.get('/qqq/v1/metaData', () => HttpResponse.json(registry)))
   })
@@ -103,5 +110,67 @@ describe('SlugPage table metadata readiness', () => {
     await screen.findByText('App home')
     expect(requested).toBe(false)
     expect(recordQuery).not.toHaveBeenCalled()
+  })
+})
+
+const greeting = {
+  name: 'greetInteractive', label: 'Greet Interactive', hasPermission: true,
+  tableName: 'person', minInputRecords: 1, maxInputRecords: 2,
+  frontendSteps: [{
+    name: 'setup', label: 'Setup', components: [{ type: 'EDIT_FORM' }],
+    formFields: [{ name: 'greetingPrefix', label: 'Greeting Prefix', type: 'STRING', isEditable: true, isHidden: false, isRequired: false }],
+  }],
+}
+
+describe('SlugPage process initialization', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    params.slug = greeting.name
+    location.search = 'recordsParam=recordIds&recordIds=1,3'
+    server.use(http.get('/qqq/v1/metaData', () => HttpResponse.json({
+      ...registry, processes: { [greeting.name]: { name: greeting.name, label: greeting.label } },
+    })))
+  })
+
+  it.each([
+    ['recordIds', 'recordIds', '1,3', 'recordIds'],
+    ['filterJSON', 'filterJSON', '{"criteria":[]}', 'filterJSON'],
+    ['queryFilter', 'filterJSON', '{"criteria":[]}', 'filterJSON'],
+  ])('loads full metadata before initializing with %s selection', async (selector, field, value, expectedSelector) => {
+    location.search = new URLSearchParams({ recordsParam: selector, [field]: value }).toString()
+    let releaseMetadata!: () => void
+    const metadataReady = new Promise<void>((resolve) => { releaseMetadata = resolve })
+    const initialize = vi.spyOn(processesApi, 'processInit').mockResolvedValue({
+      processUUID: 'selected-run', nextStep: 'setup', values: {},
+    })
+    server.use(
+      http.get('/qqq/v1/metaData/process/greetInteractive', async () => {
+        await metadataReady
+        return HttpResponse.json(greeting)
+      }),
+    )
+    renderPage()
+    await screen.findByRole('status', { name: 'Loading process metadata' })
+    expect(initialize).not.toHaveBeenCalled()
+    await act(async () => { releaseMetadata() })
+    await screen.findByRole('textbox', { name: 'Greeting Prefix' })
+    expect(initialize).toHaveBeenCalledWith(greeting.name, {
+      recordsParam: expectedSelector, [field]: value,
+    })
+  })
+
+  it('does not initialize when full process metadata is denied', async () => {
+    let initialized = false
+    server.use(
+      http.get('/qqq/v1/metaData/process/greetInteractive', () =>
+        HttpResponse.json({ error: 'Permission denied' }, { status: 403 })),
+      http.post('/qqq/v1/processes/greetInteractive/init', () => {
+        initialized = true
+        return HttpResponse.json({ processUUID: 'unexpected', values: {} })
+      }),
+    )
+    renderPage()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load process metadata')
+    expect(initialized).toBe(false)
   })
 })

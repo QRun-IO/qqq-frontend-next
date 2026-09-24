@@ -30,12 +30,13 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import type { QInstance } from '@/types'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
-import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { useProcessMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
+import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { RecordQuery } from '@/components/query'
@@ -99,6 +100,7 @@ export function resolveSlugTarget(
  */
 export default function SlugPage() {
   const params = useParams<{ slug: string }>()
+  const searchParams = useSearchParams()
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
 
@@ -116,7 +118,7 @@ export default function SlugPage() {
 
   const app = metaData?.apps?.[slug]
   const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp ? slug : undefined)
-  const process = metaData?.processes?.[slug]
+  const { data: process, isError: processError } = useProcessMetaData(isProcess && !isApp && !isTable ? slug : undefined)
   const report = metaData?.reports?.[slug]
 
   useEffect(() => {
@@ -134,10 +136,10 @@ export default function SlugPage() {
     }
   }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, setPageHeader, setTableMetaData])
 
-  if (metadataError || (isTable && !isApp && tableError)) {
+  if (metadataError || (isTable && !isApp && tableError) || (isProcess && !isApp && !isTable && processError)) {
     return (
       <div role="alert" className="py-12 text-center text-destructive">
-        Failed to load {metadataError ? 'application' : 'table'} metadata.
+        Failed to load {metadataError ? 'application' : isTable ? 'table' : 'process'} metadata.
       </div>
     )
   }
@@ -177,13 +179,22 @@ export default function SlugPage() {
 
   // Process run — Package 4 implementation
   if (isProcess && process) {
-    return <ProcessRun processName={slug} processMetaData={process} />
+    const initialRequest: ProcessInitRequest = {}
+    const selection = searchParams.get('recordsParam')
+    if (selection === 'recordIds') {
+      initialRequest.recordsParam = 'recordIds'
+      initialRequest.recordIds = searchParams.get('recordIds') ?? ''
+    } else if (selection === 'filterJSON' || selection === 'queryFilter') {
+      initialRequest.recordsParam = 'filterJSON'
+      initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
+    }
+    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} />
   }
 
   // Process loading state (process found but metadata not yet available)
   if (isProcess && !process) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div role="status" aria-label="Loading process metadata" className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     )

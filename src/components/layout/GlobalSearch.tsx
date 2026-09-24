@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Search, Clock, ArrowRight } from 'lucide-react'
@@ -169,23 +169,26 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
   }, [isOpen])
 
   // Build the list of navigable items for keyboard navigation
-  const navigableItems: Array<{ path: string; label: string }> = []
+  const navigableItems = useMemo(() => {
+    const items: Array<{ path: string; label: string }> = []
 
-  if (searchTerm.length >= 2 && searchResults.length > 0) {
-    for (const result of searchResults) {
-      navigableItems.push({
-        path: `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`,
-        label: result.recordLabel,
-      })
+    if (searchTerm.length >= 2 && searchResults.length > 0) {
+      for (const result of searchResults) {
+        items.push({
+          path: `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`,
+          label: result.recordLabel,
+        })
+      }
+    } else if (searchTerm.length < 2 && recentRecords.length > 0) {
+      for (const record of recentRecords) {
+        items.push({
+          path: record.path,
+          label: record.recordLabel,
+        })
+      }
     }
-  } else if (searchTerm.length < 2 && recentRecords.length > 0) {
-    for (const record of recentRecords) {
-      navigableItems.push({
-        path: record.path,
-        label: record.recordLabel,
-      })
-    }
-  }
+    return items
+  }, [searchTerm, searchResults, recentRecords])
 
   // Close dropdown on outside click
   useEffect(() => {

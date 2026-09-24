@@ -23,6 +23,7 @@ vi.mock('./client', () => ({
     get: vi.fn(),
     post: vi.fn(),
     setUnauthorizedCallback: vi.fn(),
+    getInstance: () => ({ defaults: { baseURL: 'https://sample.invalid/context/qqq/v1' } }),
   },
 }))
 
@@ -165,7 +166,7 @@ describe('Processes API', () => {
 
       expect(apiClient.get).toHaveBeenCalledWith(
         '/processes/bulkImport/proc-uuid/records',
-        { params: { skip: 10, limit: 25 } }
+        { baseURL: 'https://sample.invalid/context', params: { skip: 10, limit: 25 } }
       )
       expect(result.totalRecords).toBe(100)
     })
@@ -177,7 +178,7 @@ describe('Processes API', () => {
       const { processRecords } = await import('./processes')
       await processRecords('proc', 'uuid')
 
-      expect(vi.mocked(apiClient.get).mock.calls[0][1]).toEqual({ params: { skip: 0, limit: 50 } })
+      expect(vi.mocked(apiClient.get).mock.calls[0][1]).toEqual({ baseURL: 'https://sample.invalid/context', params: { skip: 0, limit: 50 } })
     })
   })
 
