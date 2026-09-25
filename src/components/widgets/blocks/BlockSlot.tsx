@@ -25,6 +25,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QqqBlockData, QqqBlockLink, QqqBlockTooltip, QqqCompositeData } from '../widget-types'
 import { isPlainObject } from '../widget-types'
+import { TOUCH_LINK } from '../widget-utils'
 
 /**
  * Renders a nested composite (used for tooltips whose content is a composite).
@@ -98,7 +99,7 @@ export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotPro
   let content: React.ReactElement
   if (href) {
     const linkProps = {
-      className: linkClassName ? `text-[#546E7A] ${linkClassName}` : 'text-[#546E7A]',
+      className: linkClassName ? `text-[#546E7A] ${TOUCH_LINK} ${linkClassName}` : `text-[#546E7A] ${TOUCH_LINK}`,
       target,
       rel: target === '_blank' ? 'noopener noreferrer' : undefined,
       'data-block-slot': slotAttribute,
