@@ -1055,6 +1055,58 @@
         "QRun-IO/qqq#714"
       ],
       "required": true
+    },
+    {
+      "id": "REC-053",
+      "feature": "Table developer view shows the API Docs & Playground section for the table's application APIs",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/developer/TableDeveloperView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/developer/RapiDocReact.tsx",
+        "qqq-middleware-api/src/main/java/com/kingsrook/qqq/api/javalin/QJavalinApiHandler.java (/apis.json, versions.json, openapi.json)"
+      ],
+      "fixture": "stock sample tables (the sample classpath has no qqq-middleware-api, so no application APIs)",
+      "scenarios": [
+        "developer page for a table keeps its metadata sections and shows the API Docs & Playground section",
+        "with no application APIs it shows \"This table is not available in any APIs.\" and no API or Version selectors"
+      ],
+      "negative": [
+        "a viewer persona sees the same empty state and cannot fetch any table spec"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-054",
+      "feature": "Record developer view manages associated scripts: versions, new versions, test runs, logs, docs and script creation",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordDeveloperView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/ScriptViewer.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptEditor.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptTestForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptLogsView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptDocsForm.tsx",
+        "qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinScriptsHandler.java"
+      ],
+      "fixture": "scriptLab (RecordsFixtures: Alpha with script 101, revisions 101-102, logs 101-102; Beta without a script) on the scripts tables from WidgetsFixtures",
+      "scenarios": [
+        "versions list with CURRENT on the current revision and per-file code for the selected version; an older version offers Edit and Activate",
+        "save a new version with a commit message (SQL: new script_revision row, its file and script.current_script_revision_id; persists after reload)",
+        "test run output and log lines equal the backend testScript response; a failing run shows the error the backend returns",
+        "logs list the script_log rows of the selected version with their lines",
+        "docs show the script type help text and sample code",
+        "create a script for an empty associated script field"
+      ],
+      "negative": [
+        "a viewer cannot save or test a revision (no Edit or Test offered; the backend refuses storeScriptRevision and testScript)",
+        "a viewer cannot create a script (no Create Script offered; the backend refuses the create route)",
+        "a table without associated scripts shows none"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
     }
   ]
 }

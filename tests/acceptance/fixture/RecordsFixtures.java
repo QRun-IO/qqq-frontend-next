@@ -11,17 +11,24 @@
  * limitations under the License.
  */
 
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizerInterface;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
+import com.kingsrook.qqq.backend.core.actions.scripts.TestScriptActionInterface;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
+import com.kingsrook.qqq.backend.core.model.actions.scripts.ExecuteCodeInput;
+import com.kingsrook.qqq.backend.core.model.actions.scripts.TestScriptInput;
+import com.kingsrook.qqq.backend.core.model.actions.scripts.TestScriptOutput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.QueryOrGetInputInterface;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
@@ -47,6 +54,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValue;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.AssociatedScript;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Tier;
@@ -67,16 +75,22 @@ import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
  **
  ** Lab Pick (REC-052) has an Item field whose table possible value source is
  ** filtered on ${input.categoryId}: its choices follow the pick's Category.
+ **
+ ** Script Lab (same app) has an associated greeting script per record, with
+ ** a Java script tester, for the record developer view (versions, logs, test
+ ** runs, docs and script creation).
  *******************************************************************************/
 final class RecordsFixtures
 {
-   static final String APP_NAME        = "recordsLab";
-   static final String TABLE_NAME      = "recordLab";
-   static final String STATUS_PVS_NAME = "recordLabStatus";
-   static final String WIDGET_NAME     = "recordLabSummary";
-   static final String CATEGORY_TABLE  = "recPvCategory";
-   static final String ITEM_TABLE      = "recPvItem";
-   static final String PICK_TABLE      = "recPvPick";
+   static final String APP_NAME          = "recordsLab";
+   static final String TABLE_NAME        = "recordLab";
+   static final String STATUS_PVS_NAME   = "recordLabStatus";
+   static final String WIDGET_NAME       = "recordLabSummary";
+   static final String CATEGORY_TABLE    = "recPvCategory";
+   static final String ITEM_TABLE        = "recPvItem";
+   static final String PICK_TABLE        = "recPvPick";
+   static final String SCRIPT_TABLE_NAME = "scriptLab";
+   static final int    SCRIPT_TYPE_ID    = 101;
 
 
 
@@ -184,11 +198,30 @@ final class RecordsFixtures
 
       defineDependentPicks(instance);
 
+      QTableMetaData scriptLab = new QTableMetaData()
+         .withName(SCRIPT_TABLE_NAME)
+         .withLabel("Script Lab")
+         .withBackendName(SampleMetaDataProvider.RDBMS_BACKEND_NAME)
+         .withPrimaryKeyField("id")
+         .withRecordLabelFormat("%s")
+         .withRecordLabelFields("name")
+         .withIcon(new QIcon("code"))
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING).withLabel("Name").withMaxLength(100))
+         .withField(new QFieldMetaData("greetingScriptId", QFieldType.INTEGER).withLabel("Greeting Script").withPossibleValueSourceName("script"))
+         .withAssociatedScript(new AssociatedScript()
+            .withFieldName("greetingScriptId")
+            .withScriptTypeId(SCRIPT_TYPE_ID)
+            .withScriptTester(new QCodeReference(GreetingScriptTester.class)));
+      useSnakeCaseNames(scriptLab);
+      instance.addTable(scriptLab);
+
       instance.addApp(new QAppMetaData()
          .withName(APP_NAME)
          .withLabel("Records Lab")
          .withIcon(new QIcon("biotech"))
-         .withChild(instance.getTable(TABLE_NAME)));
+         .withChild(instance.getTable(TABLE_NAME))
+         .withChild(instance.getTable(SCRIPT_TABLE_NAME)));
    }
 
 
@@ -261,6 +294,7 @@ final class RecordsFixtures
             "INSERT INTO rec_pv_item (id, name, category_id) VALUES (1, 'Apple', 1), (2, 'Banana', 1), (3, 'Carrot', 2), (4, 'Leek', 2)",
             "INSERT INTO rec_pv_pick (id, name, category_id, item_id) VALUES (1, 'Lunch', 1, 2)",
             "ALTER TABLE rec_pv_pick ALTER COLUMN id RESTART WITH 100",
+            "DROP TABLE IF EXISTS script_lab",
             """
                CREATE TABLE audit_table (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(250) NOT NULL UNIQUE, label VARCHAR(250),
                   create_date TIMESTAMP, modify_date TIMESTAMP)""",
@@ -277,7 +311,11 @@ final class RecordsFixtures
                CREATE TABLE record_lab (id INTEGER AUTO_INCREMENT PRIMARY KEY, title VARCHAR(60) NOT NULL UNIQUE, status VARCHAR(20),
                   owner_id INTEGER, website VARCHAR(250), short_code VARCHAR(12), config TEXT, html_note VARCHAR(250), api_token VARCHAR(250),
                   hint VARCHAR(250), problem VARCHAR(250), summary_widget VARCHAR(250), attachment BLOB, attachment_name VARCHAR(250),
-                  notes_file BLOB, hidden_code VARCHAR(40), legacy_code VARCHAR(40), create_date TIMESTAMP, modify_date TIMESTAMP)"""))
+                  notes_file BLOB, hidden_code VARCHAR(40), legacy_code VARCHAR(40), create_date TIMESTAMP, modify_date TIMESTAMP)""",
+            """
+               CREATE TABLE script_lab (id INTEGER GENERATED BY DEFAULT AS IDENTITY (START WITH 1000) PRIMARY KEY, name VARCHAR(100),
+                  greeting_script_id INTEGER)""",
+            "INSERT INTO script_lab (id, name, greeting_script_id) VALUES (1, 'Alpha', 101), (2, 'Beta', NULL)"))
          {
             statement.execute(sql);
          }
@@ -309,6 +347,117 @@ final class RecordsFixtures
          insert.setObject(index + 1, isBlob && value != null ? ((String) value).getBytes(StandardCharsets.UTF_8) : value);
       }
       insert.executeUpdate();
+   }
+
+
+
+   /*******************************************************************************
+    ** Seed Script Lab's greeting script: its type (with the Java tester), the
+    ** script on record Alpha with two revisions (the second current), a file per
+    ** revision, and two logs of the current revision (one clean, one failed) with
+    ** their log lines. Runs after WidgetsFixtures.prime recreated the scripts tables.
+    *******************************************************************************/
+   static void primeScripts(Connection connection) throws Exception
+   {
+      try(Statement statement = connection.createStatement())
+      {
+         for(String sql : List.of(
+            """
+               INSERT INTO script_type (id, name, help_text, sample_code, file_mode, test_script_interface_name, create_date, modify_date)
+               VALUES (101, 'Greeting Script Type', 'Greeting scripts return a greeting for the given name.', 'return ''Hello, '' + input.name;', 1,
+                  '%s', TIMESTAMP '2026-03-01 09:00:00', TIMESTAMP '2026-03-01 09:00:00')""".formatted(GreetingScriptTester.class.getName()),
+            """
+               INSERT INTO script (id, name, script_type_id, table_name, current_script_revision_id, create_date, modify_date)
+               VALUES (101, 'Alpha Greeting', 101, 'scriptLab', 102, TIMESTAMP '2026-03-01 10:00:00', TIMESTAMP '2026-03-02 11:30:00')""",
+            """
+               INSERT INTO script_revision (id, script_id, sequence_no, commit_message, author, create_date, modify_date) VALUES
+                  (101, 101, 1, 'Initial version', 'Owned author', TIMESTAMP '2026-03-01 10:00:00', TIMESTAMP '2026-03-01 10:00:00'),
+                  (102, 101, 2, 'Friendlier greeting', 'Owned author', TIMESTAMP '2026-03-02 11:30:00', TIMESTAMP '2026-03-02 11:30:00')""",
+            """
+               INSERT INTO script_revision_file (id, script_revision_id, file_name, contents, create_date, modify_date) VALUES
+                  (101, 101, 'Script.js', 'return ''Hello '' + input.name;', TIMESTAMP '2026-03-01 10:00:00', TIMESTAMP '2026-03-01 10:00:00'),
+                  (102, 102, 'Script.js', 'return ''Hello, '' + input.name + ''!'';', TIMESTAMP '2026-03-02 11:30:00', TIMESTAMP '2026-03-02 11:30:00')""",
+            """
+               INSERT INTO script_log (id, script_id, script_revision_id, start_timestamp, end_timestamp, run_time_millis, had_error, input, output, error,
+                  create_date, modify_date) VALUES
+                  (101, 101, 102, TIMESTAMP '2026-03-03 08:00:00', TIMESTAMP '2026-03-03 08:00:00.042', 42, FALSE, '{"name":"Ada"}', 'Hello, Ada!', NULL,
+                     TIMESTAMP '2026-03-03 08:00:00', TIMESTAMP '2026-03-03 08:00:00'),
+                  (102, 101, 102, TIMESTAMP '2026-03-04 09:15:00', TIMESTAMP '2026-03-04 09:15:01.500', 1500, TRUE, '{"name":""}', NULL, 'Name is required',
+                     TIMESTAMP '2026-03-04 09:15:00', TIMESTAMP '2026-03-04 09:15:00')""",
+            """
+               INSERT INTO script_log_line (id, script_log_id, `timestamp`, text, create_date, modify_date) VALUES
+                  (101, 101, TIMESTAMP '2026-03-03 08:00:00.010', 'Greeting Ada', TIMESTAMP '2026-03-03 08:00:00', TIMESTAMP '2026-03-03 08:00:00'),
+                  (102, 101, TIMESTAMP '2026-03-03 08:00:00.020', 'Returned the greeting', TIMESTAMP '2026-03-03 08:00:00', TIMESTAMP '2026-03-03 08:00:00'),
+                  (103, 102, TIMESTAMP '2026-03-04 09:15:00.500', 'Name was empty', TIMESTAMP '2026-03-04 09:15:00', TIMESTAMP '2026-03-04 09:15:00')"""))
+         {
+            statement.execute(sql);
+         }
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Tests greeting scripts in Java (the sample has no JavaScript runtime): the
+    ** greeting depends on the submitted code and the name, so a test run proves
+    ** both reached the backend. Code containing "throw" fails the test run.
+    *******************************************************************************/
+   public static class GreetingScriptTester implements TestScriptActionInterface
+   {
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public void setupTestScriptInput(TestScriptInput testScriptInput, ExecuteCodeInput executeCodeInput)
+      {
+         //////////////////////////////////////////////////////
+         // nothing to set up: execute does not run any code //
+         //////////////////////////////////////////////////////
+      }
+
+
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public List<QFieldMetaData> getTestInputFields()
+      {
+         return (new ArrayList<>(List.of(new QFieldMetaData("name", QFieldType.STRING).withLabel("Greeting Name").withDefaultValue("World"))));
+      }
+
+
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public List<QFieldMetaData> getTestOutputFields()
+      {
+         return (new ArrayList<>(List.of(new QFieldMetaData("greeting", QFieldType.STRING).withLabel("Greeting"))));
+      }
+
+
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public void execute(TestScriptInput input, TestScriptOutput output)
+      {
+         String       code      = input.getCodeReference() == null || input.getCodeReference().getInlineCode() == null ? "" : input.getCodeReference().getInlineCode();
+         Serializable nameValue = input.getInputValues() == null ? null : input.getInputValues().get("name");
+         String       name      = nameValue == null ? "" : nameValue.toString();
+         output.setScriptLogLines(new ArrayList<>(List.of(new QRecord().withValue("timestamp", Instant.now()).withValue("text", "Tested with " + name))));
+         if(code.contains("throw"))
+         {
+            output.setException(new QException("Greeting script failed"));
+            return;
+         }
+         LinkedHashMap<String, Serializable> result = new LinkedHashMap<>();
+         result.put("greeting", "Hello, " + name + "! (" + code.length() + " characters)");
+         output.setOutputObject(result);
+      }
    }
 
 
