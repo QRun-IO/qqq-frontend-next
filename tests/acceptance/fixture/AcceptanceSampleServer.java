@@ -51,6 +51,7 @@ public class AcceptanceSampleServer
 {
    private static final Map<String, String> PERSONAS = new ConcurrentHashMap<>();
    private static final Map<String, String> USERS    = new ConcurrentHashMap<>();
+   private static final ThreadLocal<String> REQUEST_SESSION_COOKIE = new ThreadLocal<>();
    private static volatile QInstance        instance;
 
 
@@ -81,6 +82,15 @@ public class AcceptanceSampleServer
       {
          config.jetty.host = "127.0.0.1";
          config.routes.get("/acceptance/ready", context -> context.result("ready"));
+         //////////////////////////////////////////////////////////////////////////////
+         // manageSession creates a new mock session; keep the test's persona and user //
+         // by resolving them from the request's sessionId cookie for that request.    //
+         //////////////////////////////////////////////////////////////////////////////
+         for(String path : List.of("/qqq/v1/manageSession", "/manageSession"))
+         {
+            config.routes.before(path, context -> REQUEST_SESSION_COOKIE.set(context.cookie("sessionId")));
+            config.routes.after(path, context -> REQUEST_SESSION_COOKIE.remove());
+         }
          config.routes.post("/acceptance/reset", context ->
          {
             reset();
@@ -206,8 +216,9 @@ public class AcceptanceSampleServer
       @Override
       public void customizeSession(QInstance qInstance, QSession session, Map<String, Object> context)
       {
-         String persona = PERSONAS.getOrDefault(session.getUuid(), "admin");
-         String user    = USERS.getOrDefault(session.getUuid(), "alice");
+         String key     = PERSONAS.containsKey(session.getUuid()) ? session.getUuid() : REQUEST_SESSION_COOKIE.get();
+         String persona = key == null ? "admin" : PERSONAS.getOrDefault(key, "admin");
+         String user    = key == null ? "alice" : USERS.getOrDefault(key, "alice");
          if("expired".equals(persona))
          {
             // Same path as a provider rejecting an expired token: 401 and the session cookie is cleared.
