@@ -30,6 +30,8 @@ import type { RowSelectionState } from '@tanstack/react-table'
 import { Inbox } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QFieldMetaData } from '@/types'
+import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
+import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 
 interface RecordCardViewProps {
   tableName: string
@@ -74,27 +76,14 @@ export function RecordCardView({
   const router = useRouter()
 
   // Build a list of visible fields respecting column order and visibility
-  const visibleFields = useMemo<QFieldMetaData[]>(() => {
-    const allFields = Object.values(tableMetaData.fields).filter(
-      (f) => !f.isHidden && !f.isHeavy
-    )
-
-    const visible = allFields.filter((f) => columnVisibility[f.name] !== false)
-
-    if (columnOrder.length > 0) {
-      const orderMap: Record<string, number> = {}
-      columnOrder.forEach((name, idx) => {
-        orderMap[name] = idx
-      })
-      visible.sort((a, b) => {
-        const ia = orderMap[a.name] ?? 9999
-        const ib = orderMap[b.name] ?? 9999
-        return ia - ib
-      })
-    }
-
-    return visible.slice(0, maxFieldsPerCard)
-  }, [tableMetaData.fields, columnVisibility, columnOrder, maxFieldsPerCard])
+  // The grid's columns (sections order, user order and visibility), so cards and grid agree
+  const visibleFields = useMemo<QFieldMetaData[]>(
+    () => orderColumns(getQueryColumns(tableMetaData), columnOrder)
+      .filter((column) => isColumnVisible(column.name, columnVisibility))
+      .slice(0, maxFieldsPerCard)
+      .map((column) => ({ ...column.field, name: column.name, label: column.label })),
+    [tableMetaData, columnVisibility, columnOrder, maxFieldsPerCard]
+  )
 
   const getRecordId = useCallback(
     (record: QRecord, index: number): string => {
