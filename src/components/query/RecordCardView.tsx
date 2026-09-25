@@ -33,6 +33,8 @@ import type { QTableMetaData, QRecord, QFieldMetaData } from '@/types'
 import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 
+import { DataCell } from './DataCell'
+
 interface RecordCardViewProps {
   tableName: string
   tableMetaData: QTableMetaData
@@ -125,17 +127,6 @@ export function RecordCardView({
     },
     [rowSelection, onRowSelectionChange, isRowSelectedByQuery, records, getRecordId]
   )
-
-  const getDisplayValue = (record: QRecord, field: QFieldMetaData): string => {
-    const displayVal = record.displayValues?.[field.name]
-    if (displayVal != null && displayVal !== '') return displayVal
-    const rawVal = record.values[field.name]
-    if (rawVal == null || rawVal === '') return '\u2014'
-    if (field.type === 'BOOLEAN') {
-      return rawVal === true || rawVal === 'true' || rawVal === 1 ? 'Yes' : 'No'
-    }
-    return String(rawVal)
-  }
 
   // Loading: placeholder cards, like the grid's skeleton rows (QRun-IO/qqq#694)
   if (isLoading && records.length === 0) {
@@ -248,7 +239,8 @@ export function RecordCardView({
                       {field.label}:
                     </dt>
                     <dd className="min-w-0 break-words text-card-foreground">
-                      {getDisplayValue(record, field)}
+                      {/* Formatted exactly like the grid cell (dates, money, possible-value links) */}
+                      <DataCell field={field} value={record.values[field.name]} displayValue={record.displayValues?.[field.name]} record={record} />
                     </dd>
                   </div>
                 )
