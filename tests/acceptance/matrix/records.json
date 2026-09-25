@@ -722,7 +722,8 @@
       ],
       "negative": [],
       "issues": [
-        "QRun-IO/qqq#677"
+        "QRun-IO/qqq#677",
+        685
       ],
       "required": true
     },
