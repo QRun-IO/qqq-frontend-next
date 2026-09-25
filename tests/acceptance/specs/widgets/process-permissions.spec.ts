@@ -69,7 +69,8 @@ test.describe('widget permission', () => {
       await expectLoaded(page, 'accHealthy')
       await expect(widget(page, 'accDenied')).toHaveCount(0)
       await expect(page.getByText('Restricted widget content')).toHaveCount(0)
-      expect(requested).not.toContain('/widget/accDenied')
+      expect(requested).not.toContain('/qqq/v1/widget/accDenied')
+      expect(requested).toContain('/qqq/v1/widget/accHealthy')
       // none of the denied attempts reached the renderer
       await backend.setPersona('admin')
       expect(await renders()).toBe(before + 1)

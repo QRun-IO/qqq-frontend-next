@@ -82,7 +82,7 @@ function defaultString(meta: CronUIWidgetProps['widgetMetaData'], key: string): 
  * backend description, the time zone (`defaultValues.timeZoneFieldName`) and any
  * description error; with no expression it shows `No schedule set`. Editable
  * mode renders labeled inputs and refreshes the description from
- * `GET /widget/{name}?cronExpression=…` after typing pauses.
+ * `POST /qqq/v1/widget/{name}` with the `cronExpression` after typing pauses.
  *
  * @param props - See {@link CronUIWidgetProps}.
  * @returns The rendered schedule view or editor.

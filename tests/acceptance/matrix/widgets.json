@@ -1359,6 +1359,27 @@
         "QRun-IO/qqq#406"
       ],
       "required": true
+    },
+    {
+      "id": "WID-064",
+      "feature": "Widget metadata and widget data come from the v1 API",
+      "source": [
+        "src/lib/api/metadata.ts",
+        "src/lib/api/widgets.ts"
+      ],
+      "fixture": "widgetPermissions (accHealthy, accDenied), accPersonReport",
+      "scenarios": [
+        "v1 /metaData lists permitted widgets with hasPermission and the reports map",
+        "the dashboard renders its widgets from POST /qqq/v1/widget/{name} and makes no legacy metadata or widget request"
+      ],
+      "negative": [
+        "a denied widget is absent from v1 metadata, never requested, and refused (403) by POST /qqq/v1/widget without rendering"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

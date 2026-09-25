@@ -45,47 +45,16 @@ export async function loadMetaData(): Promise<QInstance> {
   if (!parsed.success) {
     console.warn('[API] QInstance metadata response failed schema validation:', parsed.error.flatten())
   }
-  // V1 supplies light widget metadata and no report metadata. Resolve widget
-  // permission/presentation fields, and the reports the app tree links to,
-  // through the registered full metadata route instead of assuming access.
-  const needsWidgets = Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')
-  const needsReports = !result.reports && hasReportNode(result.appTree ?? [])
-  if (needsWidgets || needsReports) {
-    const full = await apiClient.get<QInstance>('/metaData', {
-      baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
-      params: {
-        frontendName: 'qqq-frontend-next',
-        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
-      },
-    })
-    if (needsWidgets && (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets))) {
-      throw new Error('Invalid widget metadata response')
-    }
-    if (needsReports && (!full || typeof full !== 'object' || Array.isArray(full.reports))) {
-      throw new Error('Invalid report metadata response')
-    }
-    // V1 has no reports map; the full route carries each report's permission and
-    // process, so take it whenever the full route was fetched (for widgets or reports).
-    const fullReports = full && typeof full === 'object' && full.reports && typeof full.reports === 'object' && !Array.isArray(full.reports)
-      ? full.reports
-      : undefined
-    return {
-      ...result,
-      ...(needsWidgets ? { widgets: full.widgets } : {}),
-      reports: fullReports ?? result.reports ?? {},
-    }
+  // V1 carries each widget's full frontend metadata (including hasPermission) and the
+  // reports map (permission and process) - QRun-IO/qqq#406. A widget without an explicit
+  // permission is not assumed renderable.
+  if (Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')) {
+    throw new Error('Invalid widget metadata response')
   }
-  return result
-}
-
-/**
- * Whether an app tree links to any report.
- *
- * @param nodes - App-tree nodes.
- * @returns `true` when a REPORT node appears at any depth.
- */
-function hasReportNode(nodes: QInstance['appTree']): boolean {
-  return nodes.some((node) => node.type === 'REPORT' || hasReportNode(node.children ?? []))
+  if (result.reports !== undefined && (typeof result.reports !== 'object' || result.reports === null || Array.isArray(result.reports))) {
+    throw new Error('Invalid report metadata response')
+  }
+  return { ...result, reports: result.reports ?? {} }
 }
 
 /**

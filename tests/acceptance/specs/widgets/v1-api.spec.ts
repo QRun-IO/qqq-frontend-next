@@ -6,7 +6,7 @@
  */
 
 import { expect, open, test } from '../../support/fixtures'
-import { downloadText, parseCsv, sqlRows } from './widget-support'
+import { downloadText, expectLoaded, parseCsv, sqlRows } from './widget-support'
 
 test('[RPT-019] report files download from the v1 download and report routes, which enforce access', async ({ page, backend, diagnostics }) => {
   void diagnostics
@@ -44,6 +44,30 @@ test('[RPT-019] report files download from the v1 download and report routes, wh
 
 test.describe('persona without pet permissions', () => {
   test.use({ persona: 'noPets' })
+
+  test('[WID-064] widget metadata and data come from v1, which refuses a denied widget without rendering it', async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    const renders = async () => Number(/renders=(\d+)/.exec((await (await backend.api.post('/qqq/v1/widget/accDenied')).json()).html)![1])
+    await backend.setPersona('admin')
+    const before = await renders()
+    await backend.setPersona('noPets')
+    const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
+    expect(Object.keys(meta.widgets)).not.toContain('accDenied')
+    expect(meta.widgets.accHealthy).toMatchObject({ name: 'accHealthy', hasPermission: true })
+    expect(meta.reports.accPersonReport).toMatchObject({ name: 'accPersonReport', hasPermission: true })
+    expect(Object.keys(meta.reports)).not.toContain('accRestrictedReport')
+    expect((await backend.api.post('/qqq/v1/widget/accDenied')).status()).toBe(403)
+
+    const requests: string[] = []
+    page.on('request', (request) => { if (/\/(metaData|widget\/)/.test(new URL(request.url()).pathname)) requests.push(`${request.method()} ${new URL(request.url()).pathname}`) })
+    await open(page, '/app/widgetPermissions')
+    await expectLoaded(page, 'accHealthy')
+    expect(requests).toContain('POST /qqq/v1/widget/accHealthy')
+    expect(requests.every((request) => request.includes(' /qqq/v1/'))).toBe(true)
+    expect(requests).not.toContain('POST /qqq/v1/widget/accDenied')
+    await backend.setPersona('admin')
+    expect(await renders()).toBe(before + 1)
+  })
 
   test('[RPT-019] the v1 report route refuses a report the persona may not run', async ({ backend, diagnostics }) => {
     void diagnostics
