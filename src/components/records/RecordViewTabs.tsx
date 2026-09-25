@@ -82,18 +82,21 @@ function AccordionSection({
   id,
   label,
   defaultOpen = false,
+  openOnPhone = false,
   children,
 }: {
   id: string
   label: string
   defaultOpen?: boolean
+  /** Opens the section on a phone, where the URL's tab names it. */
+  openOnPhone?: boolean
   children: React.ReactNode
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
-  // A deep link (?tab=...) that names this section opens it, also once metadata arrives
+  // On a phone (accordion layout) a deep link (?tab=...) naming this section opens it
   useEffect(() => {
-    if (defaultOpen) setIsOpen(true)
-  }, [defaultOpen])
+    if (openOnPhone && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)')?.matches) setIsOpen(true)
+  }, [openOnPhone])
   const panelId = `accordion-panel-${id}`
   const triggerId = `accordion-trigger-${id}`
 
@@ -289,7 +292,8 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={idx === 0 || activeTab === `section-${section.name}`}
+            defaultOpen={idx === 0}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -310,7 +314,7 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={activeTab === `section-${section.name}`}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -326,7 +330,7 @@ export function RecordViewTabs({
 
         {/* Unbound named associations */}
         {associations.map((association) => (
-          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name} defaultOpen={activeTab === 'related'}>
+          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name} openOnPhone={activeTab === 'related'}>
             {renderAssociation(association.name)}
           </AccordionSection>
         ))}
