@@ -23,12 +23,15 @@
 
 import React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
 import type { HashFormPresets } from '@/lib/utils/material-links'
 import { lockedPresetValues } from '@/lib/utils/material-links'
 import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { loadMetaData } from '@/lib/api/metadata'
+import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { EntityForm } from '@/components/forms/EntityForm'
 
@@ -53,6 +56,8 @@ interface CreateChildFromLinkDialogProps {
  */
 export function CreateChildFromLinkDialog({ tableName, presets, onClose, onCreated }: CreateChildFromLinkDialogProps) {
   const { data: table, isError, isLoading } = useTableMetaData(tableName)
+  // widget-driven form sections (such as a cron schedule editor) need the instance widgets, as on the create page
+  const { data: metaData } = useQuery({ queryKey: queryKeys.metadataAll(), queryFn: loadMetaData, staleTime: 1000 * 60 * 30 })
 
   let body: React.ReactNode
   if (isLoading) {
@@ -69,6 +74,7 @@ export function CreateChildFromLinkDialog({ tableName, presets, onClose, onCreat
     body = (
       <EntityForm
         tableMetaData={table}
+        widgets={metaData?.widgets}
         isModal
         saveButtonLabel="Create"
         defaultValues={presets.defaultValues}
