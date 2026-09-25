@@ -97,11 +97,15 @@ export default function RecordViewPage() {
   }))
 
   // The legacy endpoint expands every association (all or nothing), so it is not requested
-  // when an associated table is hidden from the user; a denial must not hide the base record.
+  // when an associated table is hidden from the user or listed without read permission
+  // (DenyBehavior.DISABLED; its panel says the records are unavailable). A denial must not
+  // hide the base record.
+  const unreadableTargets = readableTargets.filter((name) => metaData?.tables?.[name]?.readPermission === false)
   const associations = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length) && Boolean(metaData) && deniedTargets.size === 0,
+    enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length) && Boolean(metaData)
+      && deniedTargets.size === 0 && unreadableTargets.length === 0,
     includeAssociations: true,
   })
   const displayRecord = record && associations.record && !associations.isError
