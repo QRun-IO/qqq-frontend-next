@@ -1,21 +1,25 @@
-import type { StorybookConfig } from '@storybook/nextjs'
+import type { StorybookConfig } from '@storybook/nextjs-vite'
 import { fileURLToPath } from 'node:url'
 
+// The Vite builder: the webpack-based @storybook/nextjs framework bundled Node core
+// polyfills (crypto-browserify -> elliptic, GHSA-848j-6mx2-7j84) that no story needs.
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
   addons: [
     '@storybook/addon-docs',
   ],
   framework: {
-    name: '@storybook/nextjs',
+    name: '@storybook/nextjs-vite',
     options: {},
   },
-  webpackFinal: async (config) => {
-    if (config.resolve) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@': fileURLToPath(new URL('../src', import.meta.url)),
-      }
+  viteFinal: async (config) => {
+    const src = fileURLToPath(new URL('../src', import.meta.url))
+    const alias = config.resolve?.alias
+    config.resolve = {
+      ...config.resolve,
+      alias: Array.isArray(alias)
+        ? [...alias, { find: '@', replacement: src }]
+        : { ...alias, '@': src },
     }
     return config
   },
