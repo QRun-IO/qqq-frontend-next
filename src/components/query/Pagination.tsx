@@ -35,8 +35,12 @@ interface PaginationProps {
   pageNum: number
   /** Number of records displayed per page (constrained to the PageSize union type). */
   pageSize: PageSize
-  /** Total number of records matching the active filter (across all pages). */
-  totalCount: number
+  /** Total number of records matching the active filter, or null when the table cannot count. */
+  totalCount: number | null
+  /** Distinct base records when a many-side join repeats rows, else null. */
+  distinctCount?: number | null
+  /** Rows on the current page (used when the table cannot count). */
+  pageRowCount?: number
   /** Total number of pages, derived from totalCount / pageSize. */
   totalPages: number
   /** Whether a background fetch is in progress; navigation buttons are disabled when true. */
@@ -63,6 +67,8 @@ export function Pagination({
   pageNum,
   pageSize,
   totalCount,
+  distinctCount = null,
+  pageRowCount = 0,
   totalPages,
   isFetching,
   onPageChange,
@@ -71,8 +77,10 @@ export function Pagination({
   const [goToPage, setGoToPage] = useState('')
   const [goToPageError, setGoToPageError] = useState<string | null>(null)
 
-  const startRecord = totalCount === 0 ? 0 : (pageNum - 1) * pageSize + 1
-  const endRecord = Math.min(pageNum * pageSize, totalCount)
+  const uncounted = totalCount === null
+  const shown = uncounted ? pageRowCount : totalCount
+  const startRecord = shown === 0 ? 0 : (pageNum - 1) * pageSize + 1
+  const endRecord = uncounted ? (pageNum - 1) * pageSize + pageRowCount : Math.min(pageNum * pageSize, totalCount)
 
   /**
    * Parses the "Go to page" input value and navigates if it is a valid page number.
@@ -110,18 +118,27 @@ export function Pagination({
       {/* Left: record count summary */}
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span aria-live="polite" aria-atomic="true">
-          {totalCount === 0 ? (
+          {shown === 0 ? (
             'No records'
           ) : (
             <>
               Showing{' '}
               <span className="font-medium text-foreground">
                 {startRecord}–{endRecord}
-              </span>{' '}
-              of{' '}
-              <span className="font-medium text-foreground">
-                {totalCount.toLocaleString()}
               </span>
+              {!uncounted && (
+                <>
+                  {' '}of{' '}
+                  <span className="font-medium text-foreground" data-qqq-id="pagination-total">
+                    {totalCount.toLocaleString()}
+                  </span>
+                  {distinctCount !== null && (
+                    <span title="A joined table can repeat records, so the number of rows may be greater than the number of matching records.">
+                      {' '}({distinctCount.toLocaleString()} distinct)
+                    </span>
+                  )}
+                </>
+              )}
             </>
           )}
         </span>
@@ -173,7 +190,7 @@ export function Pagination({
 
         {/* Page indicator */}
         <span className="px-3 text-sm text-foreground" aria-current="page">
-          {pageNum} / {totalPages}
+          {uncounted ? pageNum : `${pageNum} / ${totalPages}`}
         </span>
 
         {/* Next page */}
@@ -188,20 +205,22 @@ export function Pagination({
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
 
-        {/* Last page */}
-        <button
-          type="button"
-          onClick={() => onPageChange(totalPages)}
-          disabled={pageNum >= totalPages || isFetching}
-          className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Last page"
-          data-qqq-id="pagination-last"
-        >
-          <ChevronsRight className="h-4 w-4" aria-hidden="true" />
-        </button>
+        {/* Last page (unknown without a count) */}
+        {!uncounted && (
+          <button
+            type="button"
+            onClick={() => onPageChange(totalPages)}
+            disabled={pageNum >= totalPages || isFetching}
+            className="inline-flex min-h-[44px] w-10 items-center justify-center rounded border border-input bg-background text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Last page"
+            data-qqq-id="pagination-last"
+          >
+            <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
 
         {/* Go to page input */}
-        {totalPages > 5 && (
+        {!uncounted && totalPages > 5 && (
           <div className="ml-2 flex items-center gap-1.5">
             <label htmlFor="goto-page" className="text-sm text-muted-foreground">
               Go to:

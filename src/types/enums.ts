@@ -82,6 +82,8 @@ export type Capability =
   | 'TABLE_INSERT'
   | 'TABLE_UPDATE'
   | 'TABLE_DELETE'
+  | 'TABLE_EXPORT'
+  | 'QUERY_STATS'
 
 /**
  * Comparison operators available when constructing `QFilterCriteria`.
@@ -117,6 +119,9 @@ export type QCriteriaOperator =
   | 'NOT_EQUALS_OR_IS_NULL'
   | 'IN'
   | 'NOT_IN'
+  | 'IS_NULL_OR_IN'
+  | 'LIKE'
+  | 'NOT_LIKE'
   | 'STARTS_WITH'
   | 'ENDS_WITH'
   | 'CONTAINS'
@@ -131,6 +136,8 @@ export type QCriteriaOperator =
   | 'IS_NOT_BLANK'
   | 'BETWEEN'
   | 'NOT_BETWEEN'
+  | 'TRUE'
+  | 'FALSE'
 
 /**
  * The set of UI component types that can appear inside a `QFrontendStepMetaData`.

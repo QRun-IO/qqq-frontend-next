@@ -71,7 +71,8 @@ export default function Breadcrumbs({ pathToLabelMap, parentAppMap = {} }: Bread
       return { path, label }
     })
     // Skip route group segments and the /app root (parent app replaces it)
-    .filter(({ path, label }) => !label.startsWith('(') && path !== '/app')
+    // `/app/{table}/savedView` is not a page (only `/savedView/{id}` is), so it gets no crumb
+    .filter(({ path, label }) => !label.startsWith('(') && path !== '/app' && !path.endsWith('/savedView'))
 
   // Inject parent app at the start if the first crumb is a flat leaf (e.g. /app/Products)
   const breadcrumbs: Breadcrumb[] = []

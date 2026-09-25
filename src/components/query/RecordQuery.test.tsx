@@ -21,10 +21,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { QTableMetaData } from '@/types'
 import type { QueryRecordsRequest } from '@/lib/api/tables'
-import { useRecordQuery, type SavedView } from '@/lib/hooks/use-record-query'
+import { useRecordQuery } from '@/lib/hooks/use-record-query'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { server } from '@/mocks/node'
+import { QContextProvider } from '@/lib/context/q-context'
 import { RecordQuery } from './RecordQuery'
 
 const records = [{ tableName: 'person', recordLabel: 'Alice', values: { id: 1, firstName: 'Alice' } }]
@@ -32,7 +33,7 @@ const records = [{ tableName: 'person', recordLabel: 'Alice', values: { id: 1, f
 function createWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    return <QueryClientProvider client={client}><QContextProvider>{children}</QContextProvider></QueryClientProvider>
   }
 }
 
@@ -75,118 +76,72 @@ function captureRequests(deny: (body: QueryRecordsRequest, action: string) => bo
 describe('RecordQuery joined read permissions', () => {
   beforeEach(() => localStorage.clear())
 
-  it('lists base records with readable joins and retains full metadata and create controls', async () => {
+  it('lists base records without joins until a join column, criterion or sort needs one', async () => {
     const options = makeOptions()
     const originalMetadata = structuredClone(options.allTables)
-    const requests = captureRequests((body) => body.joins?.some((join) =>
-      join.joinTable === 'order' || join.joinTable === 'orderLine') ?? false)
+    const requests = captureRequests()
 
     render(<RecordQuery {...options} />, { wrapper: createWrapper() })
 
     expect(await screen.findByText('Alice')).toBeVisible()
-    await waitFor(() => expect(requests).toHaveLength(2))
-    for (const { body } of requests) {
-      expect(body.joins).toEqual([
-        { joinTable: 'company', select: true, type: 'INNER' },
-        { joinTable: 'supplier', select: true, type: 'LEFT' },
-      ])
-    }
+    await waitFor(() => expect(requests.length).toBeGreaterThanOrEqual(1))
+    expect(requests.every(({ body }) => !body.joins?.length)).toBe(true)
     expect(screen.getByRole('button', { name: 'Create new People record' })).toBeEnabled()
     expect(options.allTables).toEqual(originalMetadata)
-    expect(options.tableMetaData.exposedJoins[0].joinTable?.insertPermission).toBe(true)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('omits a join with an intermediate table absent from permission metadata', async () => {
+  it('sends a LEFT join, named for a single-hop path, for a visible readable join column', async () => {
     const options = makeOptions()
-    options.tableMetaData.exposedJoins = [options.tableMetaData.exposedJoins[3]]
-    delete options.allTables.company
+    options.tableMetaData.exposedJoins = [{ ...options.tableMetaData.exposedJoins[2], joinPath: [{ name: 'personCompany', type: 'MANY_TO_ONE', leftTable: 'person', rightTable: 'company' }] }]
+    localStorage.setItem('qqq-person-columns', JSON.stringify({ 'company.name': true }))
     const requests = captureRequests()
     const { result } = renderHook(() => useRecordQuery(options), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.data.records).toEqual(records))
-    await waitFor(() => expect(requests).toHaveLength(2))
-    expect(requests.every(({ body }) => !body.joins?.length)).toBe(true)
+    expect(requests.find(({ action }) => action === 'query')?.body.joins).toEqual([{ joinTable: 'company', select: true, type: 'LEFT', joinName: 'personCompany' }])
   })
 
-  it.each(['missing target', 'denied target', 'denied exposed target'] as const)(
-    'omits a join with a %s', async (state) => {
+  it.each(['missing target', 'denied target', 'denied exposed target', 'denied bridge'] as const)(
+    'never joins through a %s, even when a column asks for it', async (state) => {
       const options = makeOptions()
-      const joinTable = structuredClone(options.allTables.company)
-      options.tableMetaData.exposedJoins = [{ label: 'Company', isMany: false, joinTable }]
-      if (state === 'missing target') delete options.allTables.company
-      else if (state === 'denied target') options.allTables.company.readPermission = false
-      else joinTable.readPermission = false
+      const supplier = options.tableMetaData.exposedJoins[3]
+      options.tableMetaData.exposedJoins = [supplier]
+      if (state === 'missing target') delete options.allTables.supplier
+      else if (state === 'denied target') options.allTables.supplier.readPermission = false
+      else if (state === 'denied exposed target') options.tableMetaData.exposedJoins = [{ ...supplier, joinTable: { ...supplier.joinTable!, readPermission: false } }]
+      else options.allTables.company.readPermission = false
+      localStorage.setItem('qqq-person-columns', JSON.stringify({ 'supplier.name': true }))
       const requests = captureRequests()
       const { result } = renderHook(() => useRecordQuery(options), { wrapper: createWrapper() })
 
       await waitFor(() => expect(result.current.data.records).toEqual(records))
-      await waitFor(() => expect(requests).toHaveLength(2))
       expect(requests.every(({ body }) => !body.joins?.length)).toBe(true)
     }
   )
 
-  it('retains a readable join through a bridge hidden from navigation', async () => {
+  it('keeps joined criteria and sorting from a view and exposes the server denial', async () => {
     const options = makeOptions()
-    options.tableMetaData.exposedJoins = [options.tableMetaData.exposedJoins[3]]
-    options.allTables.company.isHidden = true
-    const requests = captureRequests()
+    const requests = captureRequests((body) => Boolean(body.filter.subFilters?.length))
     const { result } = renderHook(() => useRecordQuery(options), { wrapper: createWrapper() })
-
     await waitFor(() => expect(result.current.data.records).toEqual(records))
-    await waitFor(() => expect(requests).toHaveLength(2))
-    for (const { body } of requests) {
-      expect(body.joins).toEqual([{ joinTable: 'supplier', select: true, type: 'LEFT' }])
-    }
-  })
 
-  it('waits for all-table metadata before requesting automatic joins', async () => {
-    const options = makeOptions()
-    const requests = captureRequests()
-    const initialProps: { allTables: Record<string, QTableMetaData> | undefined } = { allTables: undefined }
-    const { result, rerender } = renderHook(
-      ({ allTables }) => useRecordQuery({ ...options, allTables }),
-      { initialProps, wrapper: createWrapper() }
-    )
-
-    await waitFor(() => expect(result.current.data.isFetching).toBe(false))
-    expect(requests).toHaveLength(0)
-    rerender({ allTables: options.allTables })
-    await waitFor(() => expect(result.current.data.records).toEqual(records))
-    await waitFor(() => expect(requests).toHaveLength(2))
-  })
-
-  it('preserves saved joined criteria and sorting and exposes the server denial', async () => {
-    const options = makeOptions()
-    const view: SavedView = {
-      id: 'restricted-view', name: 'Orders', createdAt: '2026-09-10T00:00:00Z',
-      filter: {
-        booleanOperator: 'AND', criteria: [], orderBys: [],
-        subFilters: [{
-          booleanOperator: 'OR', subFilters: [], orderBys: [], skip: 0, limit: 0,
-          criteria: [{ fieldName: 'order.id', operator: 'EQUALS', values: [17] }],
-        }],
-      },
+    act(() => result.current.applyView({
+      userFilter: { booleanOperator: 'AND', criteria: [], orderBys: [], skip: 0, limit: 25, subFilters: [{
+        booleanOperator: 'OR', subFilters: [], orderBys: [], skip: 0, limit: 0,
+        criteria: [{ fieldName: 'order.id', operator: 'EQUALS', values: [17] }],
+      }] },
       sortOrder: [{ fieldName: 'order.id', isAscending: false }],
-      columnVisibility: {}, columnOrder: [],
-    }
-    const originalView = structuredClone(view)
-    const requests = captureRequests((body) => Boolean(body.filter.subFilters?.length || body.filter.orderBys?.length))
-    const { result } = renderHook(() => useRecordQuery(options), { wrapper: createWrapper() })
-    await waitFor(() => expect(result.current.data.records).toEqual(records))
-
-    act(() => result.current.views.loadView(view))
+      columnVisibility: {}, columnOrder: [], columnWidths: {}, pageSize: 25, filterMode: 'advanced',
+    }))
 
     await waitFor(() => expect(result.current.data.isError).toBe(true))
     expect(getErrorStatusCode(result.current.data.error)).toBe(403)
-    await waitFor(() => expect(requests.filter(({ body }) => body.filter.subFilters?.length)).toHaveLength(2))
-    const savedRequests = requests.filter(({ body }) => body.filter.subFilters?.length)
-    expect(savedRequests.find(({ action }) => action === 'query')?.body.filter).toEqual({
-      ...view.filter, orderBys: view.sortOrder, skip: 0, limit: 25,
-    })
-    expect(savedRequests.find(({ action }) => action === 'count')?.body.filter.subFilters).toEqual(view.filter.subFilters)
-    expect(result.current.filter.sortOrder).toEqual(view.sortOrder)
-    expect(view).toEqual(originalView)
+    const denied = requests.find(({ action, body }) => action === 'query' && body.filter.subFilters?.length)
+    expect(denied?.body.filter.subFilters?.[0].criteria).toEqual([{ fieldName: 'order.id', operator: 'EQUALS', values: [17] }])
+    expect(denied?.body.filter.orderBys).toEqual([{ fieldName: 'order.id', isAscending: false }])
+    // the order table is not readable, so it is never joined automatically
+    expect(denied?.body.joins).toBeUndefined()
   })
 
   it('shows a denied count as an error even when the records query succeeds', async () => {

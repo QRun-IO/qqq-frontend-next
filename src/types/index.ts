@@ -72,6 +72,7 @@ export type {
   NowExpression,
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
+  ExpressionTimeUnit,
 } from './query'
 
 export type {

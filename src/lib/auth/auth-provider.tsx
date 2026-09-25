@@ -219,7 +219,12 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   async function setupAnonymousSession(): Promise<AuthUser> {
     // Anonymous auth: call manageSession with empty token to get a session cookie
     try {
-      await manageSession('anonymous')
+      const session = await manageSession('anonymous')
+      // The backend reports the session user in values.user (as Material reads it)
+      const sessionUser = session?.values?.user as { name?: unknown; email?: unknown } | undefined
+      if (sessionUser && typeof sessionUser.name === 'string') {
+        return { name: sessionUser.name, email: typeof sessionUser.email === 'string' ? sessionUser.email : undefined }
+      }
     } catch {
       // Anonymous may not need a token exchange
     }

@@ -24,7 +24,7 @@
  * Rendered as selectable options in the rows-per-page dropdown. The `as const`
  * assertion ensures the tuple is used as a literal type throughout the codebase.
  */
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const
 
 /**
  * Debounce delay (in milliseconds) for the quick-search input on the Record Query page.

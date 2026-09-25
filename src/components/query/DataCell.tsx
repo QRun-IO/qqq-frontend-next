@@ -23,6 +23,7 @@
 // DataCell — dispatches to the correct renderer based on field type and adornments
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import DOMPurify from 'dompurify'
 import type { QFieldMetaData, QRecord } from '@/types'
 
@@ -58,6 +59,20 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
   for (const adornment of field.adornments ?? []) {
     switch (adornment.type) {
       case 'LINK': {
+        // A possible-value field linked to its record (backend-generated `toRecordFromTable`)
+        const toTable = adornment.values?.toRecordFromTable
+        if (toTable && value != null && value !== '') {
+          return (
+            <Link
+              href={`/app/${encodeURIComponent(toTable)}/${encodeURIComponent(String(value))}`}
+              className="text-primary underline hover:text-primary/90"
+              data-qqq-id={`grid-cell-link-${field.name}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {display}
+            </Link>
+          )
+        }
         const url = adornment.values?.linkURL ?? (typeof value === 'string' ? value : undefined)
         if (url) {
           return (
@@ -174,6 +189,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
   // Type-based rendering (when no matching adornment)
   switch (field.type) {
     case 'BOOLEAN': {
+      if (value == null || value === '') return <EmptyCell fieldName={field.name} />
       const boolVal = value === true || value === 'true' || value === 1
       return (
         <span
@@ -198,7 +214,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       if (!value) return <EmptyCell fieldName={field.name} />
       return (
         <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
-          {display || formatDateTime(String(value))}
+          {displayValue && displayValue !== String(value) ? displayValue : formatDateTime(String(value))}
         </span>
       )
     }
@@ -350,11 +366,11 @@ function formatDate(value: string): string {
  * @returns A locale-formatted datetime string (e.g., `"6/15/2024, 2:30:00 PM"`).
  */
 function formatDateTime(value: string): string {
-  try {
-    const d = new Date(value)
-    if (isNaN(d.getTime())) return value
-    return d.toLocaleString()
-  } catch {
-    return value
-  }
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const hours = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12
+  const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? ''
+  // Material's "yyyy-MM-dd hh:mm:ss AM TZ", in the browser's time zone
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(hours)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'} ${zone}`.trim()
 }

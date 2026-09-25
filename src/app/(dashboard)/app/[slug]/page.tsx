@@ -166,7 +166,7 @@ export default function SlugPage() {
   // Table record query — Package 2 implementation
   if (isTable && table) {
     const tableProcesses = getProcessesForTable(metaData, slug)
-    return <RecordQuery tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} />
+    return <RecordQuery key={slug} tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} metaData={metaData} />
   }
 
   // Table loading state (table found but metadata not yet available)

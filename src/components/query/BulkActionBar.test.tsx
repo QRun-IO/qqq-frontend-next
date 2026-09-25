@@ -14,347 +14,84 @@
  * limitations under the License.
  */
 
-// Tests for BulkActionBar component
+// Tests for the selection banner, bulk shortcuts and the Actions menu entries (#649)
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
+import type { QProcessMetaData, QTableMetaData } from '@/types'
 import { BulkActionBar } from './BulkActionBar'
-import type { QTableMetaData } from '@/types'
+import { RecordQueryBulkBar } from './RecordQueryBulkBar'
+import { buildActionEntries } from './ProcessLauncherMenu'
+import { selectionBannerText } from './SelectionMenu'
 
-// ProcessLauncherMenu uses useRouter internally
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    back: vi.fn(),
-  }),
-  usePathname: () => '/',
-  useSearchParams: () => new URLSearchParams(),
-}))
+const table = (overrides: Partial<QTableMetaData> = {}): QTableMetaData => ({
+  name: 'person', label: 'Person', isHidden: false, primaryKeyField: 'id', fields: {}, sections: [], exposedJoins: [],
+  capabilities: ['TABLE_QUERY', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'], readPermission: true, insertPermission: true,
+  editPermission: true, deletePermission: true, usesVariants: false, variantTableLabel: '', ...overrides,
+})
+const process = (name: string, extra: Partial<QProcessMetaData> = {}): QProcessMetaData => ({
+  name, label: name, tableName: 'person', isHidden: name.includes('.bulk'), iconName: '', hasPermission: true, stepFlow: 'LINEAR',
+  minInputRecords: 0, frontendSteps: [], ...extra,
+})
+const allProcesses = Object.fromEntries(['person.bulkInsert', 'person.bulkEdit', 'person.bulkEditWithFile', 'person.bulkDelete'].map((n) => [n, process(n)]))
 
-function makeTableMeta(overrides: Partial<QTableMetaData> = {}): QTableMetaData {
-  return {
-    name: 'person',
-    label: 'People',
-    isHidden: false,
-    primaryKeyField: 'id',
-    fields: {
-      id: {
-        name: 'id',
-        label: 'ID',
-        type: 'INTEGER',
-        isRequired: true,
-        isEditable: false,
-        isHeavy: false,
-        isHidden: false,
-        adornments: [],
-      },
-      firstName: {
-        name: 'firstName',
-        label: 'First Name',
-        type: 'STRING',
-        isRequired: false,
-        isEditable: true,
-        isHeavy: false,
-        isHidden: false,
-        adornments: [],
-      },
-    },
-    sections: [],
-    capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'],
-    exposedJoins: [],
-    readPermission: true,
-    insertPermission: true,
-    editPermission: true,
-    deletePermission: true,
-    usesVariants: false,
-    variantTableLabel: '',
-    ...overrides,
-  }
-}
-
-const baseFilter = {
-  criteria: [],
-  orderBys: [],
-  subFilters: [],
-  booleanOperator: 'AND' as const,
-  skip: 0,
-  limit: 25,
-}
-
-describe('BulkActionBar — visibility', () => {
-  it('returns null when selectedCount is 0', () => {
-    const { container } = render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={0}
-        totalCount={100}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(container.firstChild).toBeNull()
+describe('BulkActionBar', () => {
+  it('is hidden without a selection and shows the banner and actions with one', async () => {
+    const onClear = vi.fn()
+    const onClick = vi.fn()
+    const { rerender, container } = render(<BulkActionBar selectionCount={0} selectionText="" onClearSelection={onClear} />)
+    expect(container).toBeEmptyDOMElement()
+    rerender(<BulkActionBar selectionCount={2} selectionText="2 records are selected." onClearSelection={onClear}
+      actions={[{ key: 'x', label: 'Bulk Edit', dataId: 'bulk-edit', onClick }]} />)
+    expect(screen.getByText('2 records are selected.')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Bulk Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(onClear).toHaveBeenCalledOnce()
   })
 
-  it('renders the bar when selectedCount > 0', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={3}
-        totalCount={100}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('region', { name: /bulk actions/i })).toBeInTheDocument()
+  it('launches bulk edit and bulk delete processes from the query bar', async () => {
+    const onLaunch = vi.fn()
+    render(<RecordQueryBulkBar tableMetaData={table()} allProcesses={allProcesses} selectionMode="all" selectionCount={11}
+      pageRowCount={10} allPageRowsSelected={false} distinct={false} onClearSelection={vi.fn()} onLaunch={onLaunch} />)
+    expect(screen.getByText('All 11 records matching this query are selected.')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Bulk Delete' }))
+    expect(onLaunch).toHaveBeenCalledWith(allProcesses['person.bulkDelete'])
   })
 })
 
-describe('BulkActionBar — selection count', () => {
-  it('shows correct selectedCount out of totalCount', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={5}
-        totalCount={200}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.getByText(/5 of 200 selected/i)).toBeInTheDocument()
-  })
-
-  it('formats large totalCount with locale separators', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={1500}
-        onClearSelection={vi.fn()}
-      />
-    )
-    // toLocaleString on 1500 in en-US gives "1,500"
-    expect(screen.getByText(/2 of/i)).toBeInTheDocument()
+describe('selection banner text (Material wording)', () => {
+  it('describes each selection mode', () => {
+    expect(selectionBannerText('rows', 10, 10, true, false)).toBe('The 10 records on this page are selected.')
+    expect(selectionBannerText('rows', 1, 10, false, false)).toBe('1 record is selected.')
+    expect(selectionBannerText('all', 30, 25, false, true)).toBe('All 30 distinct records matching this query are selected.')
+    expect(selectionBannerText('subset', 5, 25, false, false)).toBe('The first 5 records matching this query are selected.')
   })
 })
 
-describe('BulkActionBar — clear selection', () => {
-  it('calls onClearSelection when "Clear" button is clicked', async () => {
-    const user = userEvent.setup()
-    const onClearSelection = vi.fn()
-
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={3}
-        totalCount={100}
-        onClearSelection={onClearSelection}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /clear selection/i }))
-    expect(onClearSelection).toHaveBeenCalledOnce()
-  })
-})
-
-describe('BulkActionBar — export action', () => {
-  it('shows export button when onExportSelected is provided', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onExportSelected={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('button', { name: /export selected/i })).toBeInTheDocument()
+describe('buildActionEntries', () => {
+  it('offers bulk processes per capability, permission and process, in Material order', () => {
+    const { bulk } = buildActionEntries({ tableMetaData: table(), allProcesses, processes: [], selectionCount: 1 })
+    expect(bulk.map((e) => e.label)).toEqual(['Bulk Load', 'Bulk Edit', 'Bulk Edit With File', 'Bulk Delete'])
+    const viewer = buildActionEntries({ tableMetaData: table({ insertPermission: false, editPermission: false, deletePermission: false }), allProcesses, processes: [], selectionCount: 1 })
+    expect(viewer.bulk).toEqual([])
+    const readOnly = buildActionEntries({ tableMetaData: table({ capabilities: ['TABLE_QUERY'] }), allProcesses, processes: [], selectionCount: 1 })
+    expect(readOnly.bulk).toEqual([])
   })
 
-  it('calls onExportSelected when export button is clicked', async () => {
-    const user = userEvent.setup()
-    const onExportSelected = vi.fn()
-
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onExportSelected={onExportSelected}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export selected/i }))
-    expect(onExportSelected).toHaveBeenCalledOnce()
-  })
-
-  it('does not show export button when onExportSelected is not provided', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /export selected/i })).not.toBeInTheDocument()
-  })
-})
-
-describe('BulkActionBar — delete action', () => {
-  it('shows delete button when deletePermission=true and onDeleteSelected is provided', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: true })}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onDeleteSelected={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
-  })
-
-  it('calls onDeleteSelected when delete button is clicked', async () => {
-    const user = userEvent.setup()
-    const onDeleteSelected = vi.fn()
-
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: true })}
-        selectedCount={3}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onDeleteSelected={onDeleteSelected}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /delete/i }))
-    expect(onDeleteSelected).toHaveBeenCalledOnce()
-  })
-
-  it('does not show delete button when deletePermission=false', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: false })}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onDeleteSelected={vi.fn()}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
-  })
-
-  it('does not show delete button when onDeleteSelected is not provided', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: true })}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
-  })
-
-  it('shows singular "record" label when only 1 item selected', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: true })}
-        selectedCount={1}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onDeleteSelected={vi.fn()}
-      />
-    )
-    const btn = screen.getByRole('button', { name: /delete 1 selected record$/i })
-    expect(btn).toBeInTheDocument()
-  })
-
-  it('shows plural "records" label when multiple items selected', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta({ deletePermission: true })}
-        selectedCount={4}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        onDeleteSelected={vi.fn()}
-      />
-    )
-    const btn = screen.getByRole('button', { name: /delete 4 selected records$/i })
-    expect(btn).toBeInTheDocument()
-  })
-})
-
-describe('BulkActionBar — process launcher', () => {
-  it('does not show process launcher when no processes provided', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /run process/i })).not.toBeInTheDocument()
-  })
-
-  it('shows process launcher when processes, selectedRecordIds, and currentFilter are provided', () => {
-    const processes = [
-      {
-        name: 'sendEmail',
-        label: 'Send Email',
-        tableName: 'person',
-        isHidden: false,
-        iconName: '',
-        hasPermission: true,
-        stepFlow: 'LINEAR' as const,
-        minInputRecords: 1,
-        frontendSteps: [],
-      },
-    ]
-
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={2}
-        totalCount={50}
-        onClearSelection={vi.fn()}
-        processes={processes}
-        selectedRecordIds={[1, 2]}
-        currentFilter={baseFilter}
-      />
-    )
-
-    // ProcessLauncherMenu renders a trigger button
-    expect(screen.getByRole('button', { name: /run process/i })).toBeInTheDocument()
-  })
-})
-
-describe('BulkActionBar — accessibility', () => {
-  it('has data-qqq-id="bulk-action-bar"', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={1}
-        totalCount={10}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(document.querySelector('[data-qqq-id="bulk-action-bar"]')).toBeInTheDocument()
-  })
-
-  it('has aria-live="polite" on the region', () => {
-    render(
-      <BulkActionBar
-        tableMetaData={makeTableMeta()}
-        selectedCount={1}
-        totalCount={10}
-        onClearSelection={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('region', { name: /bulk actions/i })).toHaveAttribute('aria-live', 'polite')
+  it('blocks bulk edit/delete without a selection and enforces process record limits', () => {
+    const { bulk, table: processes } = buildActionEntries({
+      tableMetaData: table(), allProcesses, selectionCount: 0,
+      processes: [process('greet', { label: 'Greet', minInputRecords: 1 }), process('clone', { label: 'Clone', maxInputRecords: 1 })],
+    })
+    expect(bulk.find((e) => e.key === 'bulkEdit')?.blockedMessage).toBe('No records were selected to Bulk Edit.')
+    expect(bulk.find((e) => e.key === 'bulkInsert')?.blockedMessage).toBeUndefined()
+    expect(processes.map((e) => e.label)).toEqual(['Clone', 'Greet'])
+    expect(processes[1].blockedMessage).toBe('No records were selected for the process: Greet')
+    const many = buildActionEntries({ tableMetaData: table(), allProcesses, selectionCount: 2, processes: [process('clone', { label: 'Clone', maxInputRecords: 1 })] })
+    expect(many.table[0].blockedMessage).toBe('Too many records were selected for the process: Clone.  A maximum of 1 is allowed.')
   })
 })

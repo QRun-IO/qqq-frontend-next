@@ -29,12 +29,14 @@ import {
   type SortingState,
   type RowSelectionState,
 } from '@tanstack/react-table'
-import { ArrowUp, ArrowDown, ArrowUpDown, Inbox } from 'lucide-react'
+import { ArrowUp, ArrowDown, ArrowUpDown, BarChart3, Inbox } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
-import { DataCell } from './DataCell'
 import type { Density } from '@/lib/hooks/use-record-query'
+import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
+import { isColumnVisible } from '@/lib/utils/saved-view-utils'
+import { DataCell } from './DataCell'
 
 /**
  * Props for the DataGrid component.
@@ -81,6 +83,13 @@ interface DataGridProps {
   pageSize: number
   /** Callback invoked when the user clicks "Clear filters" in the empty state. */
   onResetFilter: () => void
+  /**
+   * When the selection is "all matching" or "first N" (not individual rows), reports whether
+   * the row at a page index is covered, so its checkbox shows as checked.
+   */
+  isRowSelectedByQuery?: (rowIndex: number) => boolean
+  /** When provided, each header offers column statistics for its column. */
+  onColumnStats?: (columnName: string, columnLabel: string) => void
 }
 
 /** Tailwind height classes for each row density variant. */
@@ -134,6 +143,8 @@ export function DataGrid({
   density,
   pageSize,
   onResetFilter,
+  isRowSelectedByQuery,
+  onColumnStats,
 }: DataGridProps) {
   const router = useRouter()
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null)
@@ -146,30 +157,25 @@ export function DataGrid({
    * Computes the ordered list of visible fields by filtering out hidden fields, applying
    * `columnVisibility`, and sorting by `columnOrder`.
    */
-  // Build sorted field list respecting columnOrder + visibility
-  const visibleFields = useMemo(() => {
-    const allFields = Object.values(tableMetaData.fields).filter(
-      (f) => !f.isHidden
-    )
+  // Build sorted column list (base and exposed-join fields) respecting columnOrder + visibility
+  const visibleFields = useMemo(
+    () => orderColumns(getQueryColumns(tableMetaData), columnOrder).filter((c) => isColumnVisible(c.name, columnVisibility)),
+    [tableMetaData, columnVisibility, columnOrder]
+  )
 
-    // Apply column visibility
-    const visible = allFields.filter((f) => columnVisibility[f.name] !== false)
-
-    // Sort by columnOrder (if provided)
-    if (columnOrder.length > 0) {
-      const orderMap: Record<string, number> = {}
-      columnOrder.forEach((name, idx) => {
-        orderMap[name] = idx
-      })
-      visible.sort((a, b) => {
-        const ia = orderMap[a.name] ?? 9999
-        const ib = orderMap[b.name] ?? 9999
-        return ia - ib
-      })
-    }
-
-    return visible
-  }, [tableMetaData.fields, columnVisibility, columnOrder])
+  // Row ids must be unique; a many-side join can repeat a primary key, so repeats get "#n"
+  const rowIds = useMemo(() => {
+    const seen = new Map<string, number>()
+    return records.map((record, index) => {
+      const pk = record.values[tableMetaData.primaryKeyField]
+      if (pk == null) return `row-${index}`
+      const key = String(pk)
+      const n = seen.get(key) ?? 0
+      seen.set(key, n + 1)
+      return n === 0 ? key : `${key}#${n}`
+    })
+  }, [records, tableMetaData.primaryKeyField])
+  const rowIdByRecord = useMemo(() => new Map(records.map((record, index) => [record, rowIds[index]])), [records, rowIds])
 
   /**
    * Converts the server-side `QFilterOrderBy[]` sort order into the `SortingState`
@@ -219,11 +225,11 @@ export function DataGrid({
       header: ({ table }) => (
         <input
           type="checkbox"
-          checked={table.getIsAllRowsSelected()}
+          checked={isRowSelectedByQuery ? records.length > 0 && records.every((_, i) => isRowSelectedByQuery(i)) : table.getIsAllRowsSelected()}
           ref={(el) => {
-            if (el) el.indeterminate = table.getIsSomeRowsSelected()
+            if (el) el.indeterminate = !isRowSelectedByQuery && table.getIsSomeRowsSelected()
           }}
-          onChange={table.getToggleAllRowsSelectedHandler()}
+          onChange={isRowSelectedByQuery ? () => onRowSelectionChange({}) : table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all rows on this page"
           className="h-4 w-4 rounded border-input text-primary focus:ring-ring cursor-pointer"
           data-qqq-id="grid-select-all"
@@ -233,8 +239,10 @@ export function DataGrid({
       cell: ({ row }) => (
         <input
           type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
+          checked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
+          onChange={isRowSelectedByQuery
+            ? () => onRowSelectionChange(Object.fromEntries(rowIds.filter((id, i) => i !== row.index && isRowSelectedByQuery(i)).map((id) => [id, true])))
+            : row.getToggleSelectedHandler()}
           aria-label={`Select ${row.original.recordLabel ?? 'record'}`}
           className="h-4 w-4 rounded border-input text-primary focus:ring-ring cursor-pointer"
           data-qqq-id={`grid-select-row-${row.index}`}
@@ -246,25 +254,27 @@ export function DataGrid({
     // MED-3: pre-build a Map for O(1) sort lookups instead of O(n) find per column
     const sortMap = new Map(sortOrder.map((s) => [s.fieldName, s]))
 
-    const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((field) => {
-      const sortInfo = sortMap.get(field.name)
-      const defaultWidth = columnWidths[field.name] ?? 150
+    const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((column) => {
+      const field = column.field
+      const sortInfo = sortMap.get(column.name)
+      const defaultWidth = columnWidths[column.name] ?? 150
 
       return {
-        id: field.name,
+        id: column.name,
         size: defaultWidth,
         enableSorting: true,
         header: () => {
           const isSorted = sortInfo != null
           return (
+            <div className="flex w-full items-center gap-1">
             <button
               type="button"
-              className="flex w-full items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
-              onClick={() => handleSortColumn(field.name)}
-              aria-label={`Sort by ${field.label}`}
-              data-qqq-id={`grid-header-${field.name}`}
+              className="flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
+              onClick={() => handleSortColumn(column.name)}
+              aria-label={`Sort by ${column.label}`}
+              data-qqq-id={`grid-header-${column.name}`}
             >
-              <span className="truncate">{field.label}</span>
+              <span className="truncate">{column.label}</span>
               {isSorted ? (
                 sortInfo.isAscending ? (
                   <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
@@ -275,13 +285,25 @@ export function DataGrid({
                 <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden="true" />
               )}
             </button>
+            {onColumnStats && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onColumnStats(column.name, column.label) }}
+                className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring group-hover:opacity-100"
+                aria-label={`Column statistics for ${column.label}`}
+                data-qqq-id={`grid-column-stats-${column.name}`}
+              >
+                <BarChart3 className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
+            </div>
           )
         },
         cell: ({ row }) => (
           <DataCell
             field={field}
-            value={row.original.values[field.name]}
-            displayValue={row.original.displayValues?.[field.name]}
+            value={row.original.values[column.name]}
+            displayValue={row.original.displayValues?.[column.name]}
             record={row.original}
           />
         ),
@@ -289,7 +311,7 @@ export function DataGrid({
     })
 
     return [selectColumn, ...fieldColumns]
-  }, [visibleFields, sortOrder, columnWidths, handleSortColumn])
+  }, [visibleFields, sortOrder, columnWidths, handleSortColumn, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats])
 
   const table = useReactTable<QRecord>({
     data: records,
@@ -309,16 +331,7 @@ export function DataGrid({
     manualPagination: true,
     rowCount: totalCount,
     manualSorting: true,
-    getRowId: (row, index) => {
-      const primaryKey = tableMetaData.primaryKeyField
-      if (row.values[primaryKey] != null) {
-        return String(row.values[primaryKey])
-      }
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[DataGrid] Row at index', index, 'has null/undefined PK. Row selection may be unstable.', row)
-      }
-      return `row-${index}`
-    },
+    getRowId: (row, index) => rowIdByRecord.get(row) ?? `row-${index}`,
   })
 
   // ------------------------------------------------------------------
@@ -601,6 +614,9 @@ export function DataGrid({
                           role="separator"
                           aria-orientation="vertical"
                           aria-label={`Resize ${fieldLabel} column`}
+                          aria-valuenow={Math.round(header.getSize())}
+                          aria-valuemin={60}
+                          aria-valuemax={2000}
                           tabIndex={0}
                           onMouseDown={(e) =>
                             handleResizeMouseDown(e, header.id, header.getSize())

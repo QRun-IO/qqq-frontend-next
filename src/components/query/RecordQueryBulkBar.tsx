@@ -15,62 +15,56 @@
  */
 
 /**
- * @file RecordQueryBulkBar — bulk action bar wrapper for the RecordQuery page.
+ * @file RecordQueryBulkBar — connects the query screen's selection to the BulkActionBar,
+ * offering Bulk Edit and Bulk Delete shortcuts when the table allows them.
  */
 
 'use client'
 
-import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
-
-import { BulkActionBar } from './BulkActionBar'
+import type { QTableMetaData, QProcessMetaData } from '@/types'
+import type { SelectionMode } from '@/lib/hooks/use-record-query'
+import { BulkActionBar, type BulkAction } from './BulkActionBar'
+import { buildActionEntries } from './ProcessLauncherMenu'
+import { selectionBannerText } from './SelectionMenu'
 
 /**
- * Props for the RecordQueryBulkBar component.
+ * Props for RecordQueryBulkBar.
  */
 export interface RecordQueryBulkBarProps {
-  /** Full table metadata from the QQQ backend. */
   tableMetaData: QTableMetaData
-  /** Optional list of processes available for bulk execution. */
-  processes?: QProcessMetaData[]
-  /** IDs of all currently selected rows. */
-  selectedRecordIds: (string | number)[]
-  /** Total number of records matching the active filter. */
-  totalCount: number
-  /** Callback to deselect all selected rows. */
+  allProcesses: Record<string, QProcessMetaData>
+  selectionMode: SelectionMode
+  selectionCount: number
+  pageRowCount: number
+  allPageRowsSelected: boolean
+  distinct: boolean
   onClearSelection: () => void
-  /** Callback to navigate to a process with the selected record IDs as params. */
-  handleRunProcess?: (processName: string) => void
-  /** The fully assembled effective filter (for bulk process context). */
-  effectiveFilter: QQueryFilter
+  onLaunch: (process: QProcessMetaData) => void
 }
 
 /**
- * Thin wrapper around `BulkActionBar` for the RecordQuery page.
- *
- * All state is passed in as props — this component holds no state of its own.
+ * Selection banner plus Bulk Edit / Bulk Delete shortcuts.
  *
  * @param props - Component properties.
- * @returns The rendered bulk action bar, or null when no rows are selected.
+ * @returns The bar (null when nothing is selected).
  */
-export function RecordQueryBulkBar({
-  tableMetaData,
-  processes,
-  selectedRecordIds,
-  totalCount,
-  onClearSelection,
-  handleRunProcess,
-  effectiveFilter,
-}: RecordQueryBulkBarProps) {
+export function RecordQueryBulkBar({ tableMetaData, allProcesses, selectionMode, selectionCount, pageRowCount, allPageRowsSelected, distinct, onClearSelection, onLaunch }: RecordQueryBulkBarProps) {
+  const { bulk } = buildActionEntries({ tableMetaData, allProcesses, processes: [], selectionCount })
+  const actions: BulkAction[] = bulk
+    .filter((entry) => entry.key === 'bulkEdit' || entry.key === 'bulkDelete')
+    .map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      dataId: entry.key === 'bulkDelete' ? 'bulk-delete' : 'bulk-edit',
+      destructive: entry.key === 'bulkDelete',
+      onClick: () => onLaunch(entry.process),
+    }))
   return (
     <BulkActionBar
-      tableMetaData={tableMetaData}
-      selectedCount={selectedRecordIds.length}
-      totalCount={totalCount}
+      selectionCount={selectionCount}
+      selectionText={selectionBannerText(selectionMode, selectionCount, pageRowCount, allPageRowsSelected, distinct)}
       onClearSelection={onClearSelection}
-      onRunProcess={processes && processes.length > 0 ? handleRunProcess : undefined}
-      processes={processes}
-      selectedRecordIds={selectedRecordIds}
-      currentFilter={effectiveFilter}
+      actions={actions}
     />
   )
 }

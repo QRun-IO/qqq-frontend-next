@@ -531,7 +531,7 @@ export interface Banner {
  * Use `Extract<FieldAdornment, { type: X }>` to narrow to a specific variant.
  */
 export type FieldAdornment =
-  | { type: 'LINK'; values?: { linkURL?: string } }
+  | { type: 'LINK'; values?: { linkURL?: string; toRecordFromTable?: string; toRecordFromTableDynamic?: boolean; linkTarget?: string } }
   | { type: 'CHIP'; values?: { colorMap?: Record<string, string>; color?: string } }
   | { type: 'TOOLTIP'; values?: { tooltipText?: string; text?: string; tooltip?: string } }
   | { type: 'ERROR'; values?: { errorText?: string; text?: string } }

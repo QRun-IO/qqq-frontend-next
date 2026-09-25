@@ -15,137 +15,105 @@
  */
 
 /**
- * @file ExportButton — toolbar dropdown for exporting records to CSV. Supports exporting all matching records (up to 10,000), the current page, or only the selected records.
+ * @file ExportButton — exports the query's matching records through the backend's streaming
+ * export (CSV, XLSX or JSON) with the visible columns, in order, and the active filter and
+ * sort, as the Material dashboard does.
  */
 
 'use client'
 
-// ExportButton — exports records to CSV (or other formats)
-
 import React, { useState } from 'react'
+import { isAxiosError } from 'axios'
 import { Download, ChevronDown } from 'lucide-react'
 
-import type { QTableMetaData, QRecord, QQueryFilter } from '@/types'
-import { queryRecords } from '@/lib/api/tables'
+import type { QTableMetaData, QQueryFilter } from '@/types'
+import { exportRecords, type ExportFormat, type TableVariant } from '@/lib/api/tables'
+import { hasCapability } from '@/lib/utils/query-columns'
 import { toast } from '@/lib/hooks/use-toast'
 
 /**
  * Props for the ExportButton component.
  */
 interface ExportButtonProps {
-  /** Backend table name used in API calls and the generated file name. */
+  /** Backend table name. */
   tableName: string
-  /** Table metadata providing the field list for CSV column headers. */
+  /** Table metadata (label, capabilities). */
   tableMetaData: QTableMetaData
-  /** The currently active filter, used for "all" and "page" export scopes. */
-  currentFilter: QQueryFilter
-  /** Map of field name → visibility; hidden columns are excluded from the export. */
-  columnVisibility: Record<string, boolean>
-  /** Ordered list of field names controlling the column order in the CSV. */
-  columnOrder: string[]
-  /** Selected record IDs; when non-empty, an additional "Selected (N)" export option is shown. */
-  selectedRecordIds?: (string | number)[]
+  /** Filter and sort of the rows to export (paging is ignored). */
+  exportFilter: QQueryFilter
+  /** Visible column names (including `joinTable.field`) in display order. */
+  columnNames: string[]
+  /** Number of matching records, or null when the table cannot count. */
+  totalCount: number | null
+  /** Variant for tables whose backend uses variants. */
+  tableVariant?: TableVariant | null
+}
+
+const FORMATS: ExportFormat[] = ['csv', 'xlsx', 'json']
+
+/**
+ * Formats a date for export file names like Material ("2026-09-24 1512").
+ *
+ * @param date - The date.
+ * @returns The formatted date.
+ */
+export function formatDateTimeForFileName(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}${pad(date.getMinutes())}`
 }
 
 /**
- * Toolbar dropdown button for exporting table records to a CSV file.
+ * Reads a readable error message from a failed export response.
  *
- * Offers three export scopes:
- * - **All records** — fetches up to 10,000 records matching the current filter.
- * - **Current page** — re-fetches the current page using the current filter.
- * - **Selected** — fetches only the checked records (visible only when `selectedRecordIds` is non-empty).
- *
- * The CSV is built in memory from visible fields (respecting `columnVisibility` and `columnOrder`),
- * then downloaded via a temporary anchor element. Errors are surfaced as a toast notification.
+ * @param error - The thrown error.
+ * @returns The message.
+ */
+async function exportErrorMessage(error: unknown): Promise<string> {
+  if (isAxiosError(error) && error.response?.data instanceof Blob) {
+    const text = (await error.response.data.text()).trim()
+    try {
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) return parsed.error
+    } catch {
+      // not JSON
+    }
+    if (text) return text.replace(/^Error generating report: /, '')
+  }
+  return error instanceof Error ? error.message : 'Export failed.'
+}
+
+/**
+ * Dropdown button offering CSV, XLSX and JSON exports of the query result.
  *
  * @param props - Component properties.
- * @returns The rendered export button with dropdown.
+ * @returns The rendered export menu.
  */
-export function ExportButton({
-  tableName,
-  tableMetaData,
-  currentFilter,
-  columnVisibility,
-  columnOrder,
-  selectedRecordIds = [],
-}: ExportButtonProps) {
+export function ExportButton({ tableName, tableMetaData, exportFilter, columnNames, totalCount, tableVariant }: ExportButtonProps) {
   const [open, setOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const allowed = hasCapability(tableMetaData, 'TABLE_EXPORT')
+  const nothingToExport = totalCount === 0
 
-  const visibleFields = Object.values(tableMetaData.fields)
-    .filter((f) => !f.isHidden && columnVisibility[f.name] !== false)
-    .sort((a, b) => {
-      const orderMap: Record<string, number> = {}
-      columnOrder.forEach((name, idx) => { orderMap[name] = idx })
-      return (orderMap[a.name] ?? 9999) - (orderMap[b.name] ?? 9999)
-    })
-
-  /**
-   * Fetches records for the given scope and triggers a CSV file download.
-   *
-   * - `'all'` — fetches up to 10,000 records matching the current filter.
-   * - `'selected'` — fetches only the records whose IDs are in `selectedRecordIds`.
-   * - `'page'` — re-fetches the current page using the unmodified `currentFilter`.
-   *
-   * Closes the dropdown before fetching. Shows a toast on error.
-   *
-   * @param scope - Which records to include in the export.
-   */
-  const exportToCSV = async (scope: 'all' | 'selected' | 'page') => {
-    setExporting(true)
+  const runExport = async (format: ExportFormat) => {
     setOpen(false)
+    setExporting(true)
+    const filename = `${tableMetaData.label} Export ${formatDateTimeForFileName(new Date())}.${format}`
     try {
-      let records: QRecord[] = []
-
-      if (scope === 'selected' && selectedRecordIds.length > 0) {
-        // Build a filter for selected IDs
-        const pk = tableMetaData.primaryKeyField
-        const response = await queryRecords(tableName, {
-          filter: {
-            criteria: [{ fieldName: pk, operator: 'IN', values: selectedRecordIds.map(String) }],
-            booleanOperator: 'AND',
-            skip: 0,
-            limit: selectedRecordIds.length,
-          },
-        })
-        records = response.records
-      } else if (scope === 'page') {
-        // Export just the current page — re-use current filter as-is
-        const response = await queryRecords(tableName, { filter: currentFilter })
-        records = response.records
-      } else {
-        // Export all (up to 10,000)
-        const exportFilter = { ...currentFilter, skip: 0, limit: 10000, orderBys: [] }
-        const response = await queryRecords(tableName, { filter: exportFilter })
-        records = response.records
-      }
-
-      // Build CSV content
-      const headers = visibleFields.map((f) => `"${f.label.replace(/"/g, '""')}"`)
-      const rows = records.map((record) =>
-        visibleFields.map((f) => {
-          const displayVal = record.displayValues?.[f.name] ?? record.values[f.name]
-          const str = displayVal != null ? String(displayVal) : ''
-          return `"${str.replace(/"/g, '""')}"`
-        }).join(',')
-      )
-
-      const csv = [headers.join(','), ...rows].join('\n')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const { skip: _skip, limit: _limit, ...filter } = exportFilter
+      void _skip
+      void _limit
+      const blob = await exportRecords(tableName, filename, columnNames, filter, tableVariant ?? undefined)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${tableName}-export-${new Date().toISOString().slice(0, 10)}.csv`
-      // LOW-7: append to DOM before clicking for cross-browser reliability (Firefox),
-      // then remove immediately after to avoid polluting the document.
+      a.download = filename
       a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (err) {
-      console.error('[ExportButton] Export failed:', err)
-      toast.error('Export failed. Please try again.')
+      toast.error(`Export failed: ${await exportErrorMessage(err)}`)
     } finally {
       setExporting(false)
     }
@@ -156,10 +124,11 @@ export function ExportButton({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        disabled={exporting}
+        disabled={exporting || !allowed}
+        title={allowed ? undefined : 'Exports are not allowed for this table.'}
         className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Export records"
-        aria-haspopup="true"
+        aria-label={allowed ? 'Export records' : 'Export records (exports are not allowed for this table)'}
+        aria-haspopup="menu"
         aria-expanded={open}
         data-qqq-id="button-export"
       >
@@ -170,45 +139,26 @@ export function ExportButton({
 
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-border bg-popover shadow-sm"
-            role="menu"
-            aria-label="Export options"
-          >
-            <button
-              type="button"
-              onClick={() => exportToCSV('all')}
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
-              data-qqq-id="export-all"
-            >
-              All records (CSV)
-            </button>
-            <button
-              type="button"
-              onClick={() => exportToCSV('page')}
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
-              data-qqq-id="export-page"
-            >
-              Current page (CSV)
-            </button>
-            {selectedRecordIds.length > 0 && (
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-border bg-popover py-1 shadow-sm" role="menu" aria-label="Export options">
+            {FORMATS.map((format) => (
               <button
+                key={format}
                 type="button"
-                onClick={() => exportToCSV('selected')}
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-popover-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
-                data-qqq-id="export-selected"
+                disabled={nothingToExport}
+                onClick={() => runExport(format)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring"
+                data-qqq-id={`export-${format}`}
               >
-                Selected ({selectedRecordIds.length}) (CSV)
+                Export {format.toUpperCase()}
+                {totalCount !== null && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {totalCount.toLocaleString()} record{totalCount === 1 ? '' : 's'}
+                  </span>
+                )}
               </button>
-            )}
+            ))}
           </div>
         </>
       )}

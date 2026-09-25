@@ -119,7 +119,7 @@ describe('useRecordQuery — filter actions', () => {
     expect(result.current.pagination.pageNum).toBe(1)
   })
 
-  it('setUserFilter clears quickSearch and resets page', () => {
+  it('setUserFilter keeps the quick search (they combine) and resets page', () => {
     const { result } = renderHook(
       () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
@@ -135,9 +135,14 @@ describe('useRecordQuery — filter actions', () => {
       skip: 0,
       limit: 25,
     }))
-    expect(result.current.filter.quickSearchTerm).toBe('')
+    expect(result.current.filter.quickSearchTerm).toBe('Alice')
     expect(result.current.pagination.pageNum).toBe(1)
     expect(result.current.filter.userFilter.criteria).toHaveLength(1)
+    // Regression (#649): the quick search is ANDed with the advanced filter, not a replacement
+    const combined = result.current.filter.effectiveFilter
+    expect(combined.booleanOperator).toBe('AND')
+    expect(combined.subFilters?.[0].criteria).toEqual([{ fieldName: 'firstName', operator: 'EQUALS', values: ['Bob'] }])
+    expect(combined.subFilters?.[1].booleanOperator).toBe('OR')
   })
 
   it('setFilterMode toggles between basic and advanced', () => {
@@ -300,68 +305,71 @@ describe('useRecordQuery — row selection', () => {
   })
 })
 
-describe('useRecordQuery — saved views', () => {
-  beforeEach(() => {
-    localStorage.clear()
+describe('useRecordQuery — selection modes and joins', () => {
+  it('describes an all-matching selection as the query filter without paging', () => {
+    const { result } = renderHook(
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta({ capabilities: ['TABLE_QUERY', 'TABLE_COUNT'] }) }),
+      { wrapper: createWrapper() }
+    )
+    act(() => result.current.pagination.setPage(3))
+    act(() => result.current.selection.setSelectionMode('all'))
+    const filter = result.current.selection.selectionFilter
+    expect(filter?.skip).toBe(0)
+    expect(filter && 'limit' in filter && filter.limit !== undefined).toBe(false)
+    act(() => result.current.selection.setSelectionMode('subset', 7))
+    expect(result.current.selection.selectionFilter?.limit).toBe(7)
+    act(() => result.current.selection.clearRowSelection())
+    expect(result.current.selection.selectionFilter).toBeNull()
   })
 
-  it('saveView creates a view and appends it', () => {
+  it('dedupes repeated primary keys from many-side joins', () => {
     const { result } = renderHook(
       () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
+    act(() => result.current.selection.setRowSelection({ '1': true, '1#1': true, '2': true }))
+    expect(result.current.selection.selectedRecordIds).toEqual([1, 2])
+  })
 
-    act(() => {
-      result.current.views.saveView('My View')
+  it('joins an exposed table only when a visible column, criterion or sort uses it', () => {
+    const table = makeTableMeta({
+      exposedJoins: [{ label: 'Pet', isMany: true, joinTable: { name: 'pet', label: 'Pet', readPermission: true, fields: {} } as unknown as QTableMetaData, joinPath: [{ name: 'personJoinPet', type: 'ONE_TO_MANY', leftTable: 'person', rightTable: 'pet' }] }],
     })
-
-    expect(result.current.views.list).toHaveLength(1)
-    expect(result.current.views.list[0].name).toBe('My View')
-    expect(result.current.views.list[0].id).toBeDefined()
+    const { result } = renderHook(
+      () => useRecordQuery({ tableName: 'person', allTables: { pet: table }, tableMetaData: table }),
+      { wrapper: createWrapper() }
+    )
+    expect(result.current.joins).toBeUndefined()
+    act(() => result.current.columns.setColumnVisibility({ 'pet.name': true }))
+    expect(result.current.joins).toEqual([{ joinTable: 'pet', select: true, type: 'LEFT', joinName: 'personJoinPet' }])
   })
 
-  it('loadView applies saved view filter and column config', () => {
+  it('defaults the sort to the primary key descending (Material)', () => {
     const { result } = renderHook(
       () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
       { wrapper: createWrapper() }
     )
-
-    const savedView = {
-      id: 'view-1',
-      name: 'Test View',
-      filter: {
-        criteria: [{ fieldName: 'firstName', operator: 'EQUALS' as const, values: ['Alice'] }],
-        orderBys: [],
-        subFilters: [],
-        booleanOperator: 'AND' as const,
-      },
-      columnVisibility: { age: false },
-      columnOrder: ['firstName', 'id'],
-      sortOrder: [],
-      createdAt: new Date().toISOString(),
-    }
-
-    act(() => result.current.views.loadView(savedView))
-    expect(result.current.filter.userFilter.criteria).toHaveLength(1)
-    expect(result.current.columns.columnVisibility.age).toBe(false)
-    expect(result.current.columns.columnOrder).toEqual(['firstName', 'id'])
-    expect(result.current.pagination.pageNum).toBe(1)
+    expect(result.current.filter.sortOrder).toEqual([{ fieldName: 'id', isAscending: false }])
+    act(() => result.current.filter.setSort([]))
+    expect(result.current.filter.sortOrder).toEqual([{ fieldName: 'id', isAscending: false }])
   })
 
-  it('deleteView removes view by id', () => {
+  it('does not count when the table lacks TABLE_COUNT', () => {
     const { result } = renderHook(
-      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta({ capabilities: ['TABLE_QUERY'] }) }),
       { wrapper: createWrapper() }
     )
+    expect(result.current.data.canCount).toBe(false)
+    expect(result.current.pagination.totalCount).toBeNull()
+  })
 
-    act(() => result.current.views.saveView('View 1'))
-    act(() => result.current.views.saveView('View 2'))
-
-    const viewToDelete = result.current.views.list[0]
-    act(() => result.current.views.deleteView(viewToDelete.id))
-
-    expect(result.current.views.list).toHaveLength(1)
-    expect(result.current.views.list[0].name).toBe('View 2')
+  it('waits for a variant on tables whose backend uses variants', () => {
+    const { result } = renderHook(
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta({ usesVariants: true, variantTableLabel: 'Store' }) }),
+      { wrapper: createWrapper() }
+    )
+    expect(result.current.data.needsVariant).toBe(true)
+    expect(result.current.data.isLoading).toBe(false)
   })
 })
 
@@ -396,7 +404,7 @@ describe('useRecordQuery — data fetching', () => {
 
     act(() => result.current.filter.setQuickSearch('Alice'))
 
-    // effectiveFilter should use OR across string fields
+    // with no advanced filter, the quick search is an OR across string fields
     expect(result.current.filter.effectiveFilter.booleanOperator).toBe('OR')
     expect(result.current.filter.effectiveFilter.criteria.length).toBeGreaterThan(0)
     // Should filter on firstName and lastName (both STRING)
