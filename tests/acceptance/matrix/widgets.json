@@ -1380,6 +1380,26 @@
         "QRun-IO/qqq#706"
       ],
       "required": true
+    },
+    {
+      "id": "RPT-019",
+      "feature": "render report input step shows only its fields; a report without variables adds no no-fields message",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ReportValuesDynamicFormWidgetRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/DynamicFormWidget.tsx",
+        "src/components/widgets/DynamicFormWidget.tsx"
+      ],
+      "fixture": "savedReport 1 (Pet Species Report, no variables)",
+      "scenarios": [
+        "Report Format, Email To and Email Subject are shown; the values widget renders nothing"
+      ],
+      "negative": [
+        "no \"No fields\" text on the input step"
+      ],
+      "issues": [
+        "QRun-IO/qqq#707"
+      ],
+      "required": true
     }
   ]
 }

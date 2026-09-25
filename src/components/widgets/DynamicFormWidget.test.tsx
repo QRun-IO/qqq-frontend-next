@@ -64,9 +64,9 @@ describe('DynamicFormWidget', () => {
     expect(screen.getByText('No owned fields')).toBeInTheDocument()
   })
 
-  it('defaults the no-fields message', () => {
-    render(<DynamicFormWidget widgetMetaData={meta} data={{ type: 'dynamicForm' }} />)
-    expect(screen.getByText('No fields')).toBeInTheDocument()
+  it('renders nothing when there are no fields and no message', () => {
+    const { container } = render(<DynamicFormWidget widgetMetaData={meta} data={{ type: 'dynamicForm', fieldList: [] }} />)
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('shows a contained notice for a malformed field list', () => {

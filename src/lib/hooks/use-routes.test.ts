@@ -235,6 +235,25 @@ describe('useAppTreeRoutes', () => {
     expect(ancestorAppMap['/app/hiddenTable']).toEqual([{ label: 'App', path: '/app/app' }])
   })
 
+  it('labels tables, processes and reports that are outside the app tree', () => {
+    const metaData = makeMetaData([{ name: 'app', label: 'App', type: 'APP', children: [{ name: 'shown', label: 'Shown In App', type: 'TABLE' }] }])
+    metaData.tables = {
+      shown: { name: 'shown', label: 'Shown Table Label' } as QInstance['tables'][string],
+      scheduledReport: { name: 'scheduledReport', label: 'Scheduled Report' } as QInstance['tables'][string],
+    }
+    metaData.processes = { renderSavedReport: { name: 'renderSavedReport', label: 'Render Report' } as QInstance['processes'][string] }
+    metaData.reports = { orphanReport: { name: 'orphanReport', label: 'Orphan Report', isHidden: false, hasPermission: true } }
+
+    const { pathToLabelMap, navTargets } = buildRouteMap(metaData)
+    expect(pathToLabelMap['/app/scheduledReport']).toBe('Scheduled Report')
+    expect(pathToLabelMap['/app/scheduledReport/create']).toBe('Create Scheduled Report')
+    expect(pathToLabelMap['/app/renderSavedReport']).toBe('Render Report')
+    expect(pathToLabelMap['/app/orphanReport']).toBe('Orphan Report')
+    // the app tree's label wins, and nothing outside the tree is added to navigation
+    expect(pathToLabelMap['/app/shown']).toBe('Shown In App')
+    expect(navTargets.map((target) => target.key)).toEqual(['app', 'shown'])
+  })
+
   it('labels the fixed dashboard pages', () => {
     const { pathToLabelMap } = buildRouteMap(makeMetaData([{ name: 'a', label: 'A', type: 'APP', children: [] }]))
     expect(pathToLabelMap['/app']).toBe('Dashboard')

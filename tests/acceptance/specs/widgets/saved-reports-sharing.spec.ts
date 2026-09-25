@@ -171,6 +171,22 @@ test('[WID-064] a schedule is required: saving without one shows the error in th
   expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
+test('[RPT-019] the render report input step shows only its fields, without a stray no-fields message', async ({ page, diagnostics }) => {
+  void diagnostics
+  await open(page, '/app/savedReport/1')
+  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name: 'Render Report' }).click()
+  await expect(page).toHaveURL(/\/app\/renderSavedReport/)
+  await expect(page.getByLabel(/^Report Format/)).toBeVisible()
+  await expect(page.getByLabel(/^Email To/)).toBeVisible()
+  await expect(page.getByLabel(/^Email Subject/)).toBeVisible()
+  // the report has no variables: its values widget loads and renders nothing
+  const values = page.locator('[data-qqq-id="process-widget-renderReportProcessValuesWidget"]')
+  await expect(values).toHaveCount(1)
+  await expect(values).toHaveText('')
+  await expect(page.getByText('No fields', { exact: true })).toHaveCount(0)
+})
+
 test('[RPT-012] a scheduled report is created for a saved report and shows its schedule', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await fillSchedule(page, '0 0 9 * * ?')
