@@ -64,14 +64,16 @@ export interface QAuthenticationMetaData {
   name: string
   /** The authentication strategy this instance uses. */
   type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK'
-  /** Provider-specific values (client ID, base URL, audience) for the chosen auth type. */
-  values: {
+  /** Provider-specific values (client ID, base URL, audience); absent for MOCK and FULLY_ANONYMOUS. */
+  values?: {
     /** OAuth2 / Auth0 client ID registered with the identity provider. */
     clientId?: string
     /** Base URL for the identity provider (used by OAUTH2 and AUTH_0 flows). */
     baseUrl?: string
     /** API audience identifier passed in Auth0 token requests. */
     audience?: string
+    /** Space-separated scopes to request from an OAUTH2 provider. */
+    scopes?: string
   }
 }
 

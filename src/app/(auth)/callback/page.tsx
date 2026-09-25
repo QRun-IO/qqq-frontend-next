@@ -29,91 +29,21 @@
 //   2. Retrieves the `pkce_code_verifier` stored by the login page.
 //   3. Calls `handleOAuthCallback(code, state, codeVerifier)` which:
 //        a. Re-validates the state nonce.
-//        b. Posts the code + verifier to the QQQ backend via `manageSession`.
-//        c. The backend exchanges the code + verifier with the IdP and issues a
-//           session cookie.
+//        b. OAUTH2: posts code + verifier + redirect URI to the backend, which
+//           exchanges them with the IdP and issues a session cookie.
+//           AUTH_0: exchanges the code with Auth0 (public PKCE client) and posts
+//           the access token to the backend.
 //   4. Redirects to `oauth2ReturnTo` (set by the login page) or '/'.
 //
+// `/token` (the registered redirect URI) renders the same handler.
 // Wrapped in Suspense because it uses useSearchParams().
 
-import React, { Suspense, useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { Suspense } from 'react'
 
-import { useAuth } from '@/lib/auth/use-auth'
-
-/**
- * Inner callback handler — reads `code`, `state`, and `error` from search params,
- * validates the state nonce, retrieves the PKCE verifier from sessionStorage, and
- * delegates to `handleOAuthCallback`. Redirects on success or failure.
- *
- * @returns A loading spinner card while the callback is being processed.
- */
-function CallbackContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { handleOAuthCallback } = useAuth()
-  const handled = useRef(false)
-
-  useEffect(() => {
-    if (handled.current) return
-    handled.current = true
-
-    const code = searchParams.get('code')
-    const state = searchParams.get('state')
-    const error = searchParams.get('error')
-    const errorDescription = searchParams.get('error_description')
-
-    if (error) {
-      console.error('[Callback] Auth error:', error, errorDescription)
-      router.replace(`/login?error=${encodeURIComponent(error)}`)
-      return
-    }
-
-    if (!code || !state) {
-      console.error('[Callback] Missing code or state params')
-      router.replace('/login')
-      return
-    }
-
-    // Retrieve the PKCE code_verifier that the login page stored before
-    // redirecting to the IdP.  This is forwarded to the backend so it can
-    // complete the authorization-code → access-token exchange.
-    const codeVerifier = sessionStorage.getItem('pkce_code_verifier') ?? undefined
-    sessionStorage.removeItem('pkce_code_verifier')
-
-    handleOAuthCallback(code, state, codeVerifier)
-      .then(() => {
-        // Retrieve the post-login destination that was saved before the redirect.
-        const returnTo = sessionStorage.getItem('oauth2ReturnTo') ?? '/'
-        sessionStorage.removeItem('oauth2ReturnTo')
-        router.replace(returnTo)
-      })
-      .catch((err: unknown) => {
-        console.error('[Callback] Failed to handle callback:', err)
-        router.replace('/login?error=callback_failed')
-      })
-  }, [searchParams, handleOAuthCallback, router])
-
-  return (
-    <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
-          aria-hidden="true"
-        />
-        <h1 className="text-xl font-semibold text-foreground">
-          Completing login...
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Please wait while we complete authentication.
-        </p>
-      </div>
-    </div>
-  )
-}
+import CallbackContent from './CallbackContent'
 
 /**
- * OAuth2 / Auth0 callback page exported as the Next.js default for `/auth/callback`.
+ * OAuth2 / Auth0 callback page exported as the Next.js default for `/callback`.
  *
  * Wraps `CallbackContent` in a `<Suspense>` boundary because `useSearchParams()`
  * requires Suspense in the App Router.
@@ -122,7 +52,7 @@ function CallbackContent() {
  */
 export default function CallbackPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
+    <main className="flex min-h-screen items-center justify-center bg-muted p-4">
       <Suspense
         fallback={
           <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
@@ -134,6 +64,6 @@ export default function CallbackPage() {
       >
         <CallbackContent />
       </Suspense>
-    </div>
+    </main>
   )
 }
