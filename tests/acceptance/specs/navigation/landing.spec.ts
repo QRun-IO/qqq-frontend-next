@@ -86,13 +86,13 @@ test.describe('dashboard landing page', () => {
   })
 
   test.describe('with no permitted apps', () => {
-    // Requires the harness persona 'noApps' (every permission except App access), requested in the navigation report
-    test.use({ persona: 'noApps' as Persona })
+    test.use({ persona: 'noApps' })
 
     test('[NAV-029] a user without app access sees the dashboard entry and the no-apps message', async ({ page, backend, diagnostics }) => {
       const meta = await v1MetaData(backend)
-      expect(meta.appTree).toEqual([])
-      expect(meta.apps).toEqual({})
+      // v1 omits empty collections
+      expect(meta.appTree ?? []).toEqual([])
+      expect(meta.apps ?? {}).toEqual({})
 
       await open(page, '/app')
       const nav = await appNavigation(page)

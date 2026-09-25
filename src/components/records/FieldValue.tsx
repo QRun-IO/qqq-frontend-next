@@ -29,6 +29,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import DOMPurify from 'dompurify'
 
 import type { QFieldMetaData, QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
+import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
@@ -75,11 +76,12 @@ export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaD
   const content = <FieldValueContent field={field} record={record} allTables={allTables}
     navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} />
   const tooltip = tooltipText(field, record)
+  const tooltipState = useFocusSafeTooltip()
   if (!tooltip) return content
   return (
     <TooltipPrimitive.Provider delayDuration={300}>
-      <TooltipPrimitive.Root>
-        <TooltipPrimitive.Trigger asChild>
+      <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
+        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
           <span tabIndex={0} className="cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4"
             data-qqq-id={`field-value-tooltip-trigger-${field.name}`}>
             {content}

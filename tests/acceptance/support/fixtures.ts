@@ -10,7 +10,7 @@ import { test as base, expect, type APIRequestContext, type Page, type Response 
 import { ACCEPTANCE_BACKEND_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
-export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'expired'
+export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired'
 
 /** Sample sharing-demo identities (owners of the seeded saved view and report). */
 export type SampleUser = 'alice' | 'bob' | 'casey'

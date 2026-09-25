@@ -36,8 +36,8 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   a scenario to go green.
 - **Use `test` and `expect` from `support/fixtures`.** Each test gets a freshly reset
   database, its own mock session, and a persona (`test.use({ persona: 'viewer' })`).
-  - Personas are `admin`, `viewer` (reads only, no processes), `noPets`, `noProcesses`
-    and `expired` (401 with the cookie cleared). The sample sharing demo is enabled;
+  - Personas are `admin`, `viewer` (reads only, no processes), `noPets`, `noProcesses`,
+    `noApps` and `expired` (401 with the cookie cleared). The sample sharing demo is enabled;
     choose its identity with `test.use({ user: 'bob' })` (alice by default).
   - `backend.sql(select)` reads the owned H2 database directly. Use it to verify persisted
     values independently of the UI and API.

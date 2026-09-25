@@ -31,6 +31,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
 
 import type { QFieldMetaData, QHelpContent, QRecord } from '@/types'
+import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
@@ -96,6 +97,7 @@ interface DynamicFormFieldProps {
  * @returns The rendered help tooltip (desktop) and inline text (mobile), or null when no help content is defined.
  */
 function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { field: QFieldMetaData; helpContent?: QHelpContent; helpId?: string }) {
+  const tooltipState = useFocusSafeTooltip()
   if (!helpContent?.content) return null
 
   const helpId = suppliedHelpId ?? `field-help-content-${field.name}`
@@ -105,8 +107,8 @@ function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { fiel
       {/* Desktop: hover tooltip — hidden on mobile */}
       <span className="hidden sm:inline-flex">
         <TooltipPrimitive.Provider delayDuration={300}>
-          <TooltipPrimitive.Root>
-            <TooltipPrimitive.Trigger asChild>
+          <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
+            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
               <button
                 type="button"
                 tabIndex={0}

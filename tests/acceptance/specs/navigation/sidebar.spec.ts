@@ -12,7 +12,8 @@ test.describe('sidebar', () => {
   test('[NAV-002] sidebar lists every permitted top-level app once, by label, in backend order', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const expected = meta.appTree.map((node) => node.label)
-    expect(expected).toEqual(['Miscellaneous', 'Nav Empty App', 'Nav Level One', 'People App', 'Sample Widgets Dashboard', 'Sharing Demo'])
+    // Other areas' fixtures add apps; the sample and navigation apps must be present, and the sidebar must match the backend order exactly.
+    expect(expected).toEqual(expect.arrayContaining(['Miscellaneous', 'Nav Empty App', 'Nav Level One', 'People App', 'Sample Widgets Dashboard', 'Sharing Demo']))
 
     await open(page, '/app')
     const nav = await appNavigation(page)
