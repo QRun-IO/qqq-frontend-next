@@ -343,11 +343,13 @@ export const queryKeys = {
    */
   search: () => [...queryKeys.all(), 'search'] as const,
   /**
-   * Key for a global search result set.
+   * Key for a record search result set (`POST /search`).
    *
-   * @param searchTerm - The user's search string.
-   * @returns The global search query key tuple.
+   * @param searchTerm - The trimmed search term.
+   * @param tableNames - The searched tables.
+   * @param limitPerTable - Maximum records per table.
+   * @returns The record search query key tuple.
    */
-  globalSearch: (searchTerm: string) =>
-    [...queryKeys.search(), searchTerm] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number) =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable] as const,
 }

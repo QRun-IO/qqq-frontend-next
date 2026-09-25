@@ -22,7 +22,7 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
@@ -32,6 +32,7 @@ import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
+import { searchableTables } from '@/lib/utils/record-search'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -88,6 +89,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Generate sidebar routes and path map from app tree
   const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
+
+  // Tables the backend record search covers for this user (none: search stays local)
+  const searchTables = useMemo(() => searchableTables(metaData), [metaData])
 
   // Sync pathToLabelMap to QContext
   useEffect(() => {
@@ -332,6 +336,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
             navTargets={navTargets}
+            searchTables={searchTables}
           />
 
           {/* Page content */}
@@ -359,7 +364,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} />
 
       {/* Search Dialog */}
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} />
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
 
       {/* Keyboard Shortcuts Help Dialog */}
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />

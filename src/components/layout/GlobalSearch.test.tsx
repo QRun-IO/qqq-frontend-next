@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-// Tests for GlobalSearch: local "jump to" search over navigation targets and recent records
+// Tests for GlobalSearch: local "jump to" search over navigation targets and recent records,
+// plus backend record search when (and only when) searchable tables are given
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const pushMock = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -29,9 +31,13 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }))
 
+const searchRecordsMock = vi.fn()
+vi.mock('@/lib/api/tables', () => ({ searchRecords: (...args: unknown[]) => searchRecordsMock(...args) }))
+
 import { GlobalSearch } from './GlobalSearch'
 import type { NavTarget } from '@/lib/hooks/use-routes'
 import { addRecentRecord, clearRecentRecords } from '@/lib/utils/recent-records'
+import type { SearchableTable } from '@/lib/utils/record-search'
 
 const peopleApp = { label: 'People App', path: '/app/peopleApp' }
 const greetingsApp = { label: 'Greetings App', path: '/app/greetingsApp' }
@@ -43,11 +49,18 @@ const navTargets: NavTarget[] = [
   { key: 'greetInteractive', label: 'Greet Interactive', path: '/app/greetInteractive', nodeType: 'PROCESS', ancestors: [peopleApp, greetingsApp] },
 ]
 
-function renderSearch() {
-  return render(<GlobalSearch navTargets={navTargets} />)
+function renderSearch(searchTables?: SearchableTable[]) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <GlobalSearch navTargets={navTargets} searchTables={searchTables} />
+    </QueryClientProvider>
+  )
 }
 
 const input = () => screen.getByRole('combobox', { name: 'Search pages and recent records' })
+const recordInput = () => screen.getByRole('combobox', { name: 'Search pages and records' })
+const people: SearchableTable[] = [{ name: 'person', label: 'Person' }, { name: 'pet', label: 'Pet' }]
 
 describe('GlobalSearch', () => {
   const fetchSpy = vi.fn()
@@ -56,6 +69,7 @@ describe('GlobalSearch', () => {
     pushMock.mockReset()
     clearRecentRecords()
     fetchSpy.mockReset()
+    searchRecordsMock.mockReset()
     vi.stubGlobal('fetch', fetchSpy)
   })
 
@@ -151,10 +165,70 @@ describe('GlobalSearch', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('never calls the backend (QQQ has no global search endpoint)', async () => {
+  it('never calls the backend without searchable tables (no record search capability)', async () => {
     const user = userEvent.setup()
     renderSearch()
-    await user.type(input(), 'person{Enter}')
+    await user.type(input(), 'person')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await user.keyboard('{Enter}')
+    expect(searchRecordsMock).not.toHaveBeenCalled()
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  describe('with record search', () => {
+    it('labels the box for records and lists found records by label with their table, after pages', async () => {
+      searchRecordsMock.mockResolvedValue([
+        { tableName: 'person', tableLabel: 'Person', recordId: '1', recordLabel: 'Avery Petersen' },
+        { tableName: 'pet', tableLabel: 'Pet', recordId: '4', recordLabel: 'Pepper' },
+      ])
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'pe')
+      const records = within(await screen.findByRole('group', { name: 'Records' })).getAllByRole('option')
+      expect(records.map((option) => option.querySelector('span span')?.textContent)).toEqual(['Avery Petersen', 'Pepper'])
+      expect(records[0].querySelectorAll('span span')[1]).toHaveTextContent('Person')
+      expect(records[1].querySelectorAll('span span')[1]).toHaveTextContent('Pet')
+      expect(searchRecordsMock).toHaveBeenCalledTimes(1)
+      expect(searchRecordsMock).toHaveBeenCalledWith('pe', { tableNames: ['person', 'pet'], limitPerTable: 5 })
+      const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'))
+      expect(groups).toEqual(['Pages', 'Records'])
+    })
+
+    it('opens a found record by keyboard', async () => {
+      searchRecordsMock.mockResolvedValue([{ tableName: 'person', tableLabel: 'Person', recordId: '7', recordLabel: 'Zed Zulu' }])
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'zulu')
+      await screen.findByRole('option', { name: /Zed Zulu/ })
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getByRole('option', { name: /Zed Zulu/ })).toHaveAttribute('aria-selected', 'true')
+      await user.keyboard('{Enter}')
+      expect(pushMock).toHaveBeenCalledWith('/app/person/7')
+    })
+
+    it('does not search a one-character term, and drops recent records that were found', async () => {
+      addRecentRecord({ tableName: 'person', tableLabel: 'Person', recordId: '7', recordLabel: 'Zed Zulu', path: '/app/person/7' })
+      searchRecordsMock.mockResolvedValue([{ tableName: 'person', tableLabel: 'Person', recordId: '7', recordLabel: 'Zed Zulu' }])
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'z')
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(searchRecordsMock).not.toHaveBeenCalled()
+      await user.type(recordInput(), 'e')
+      await screen.findByRole('group', { name: 'Records' })
+      expect(screen.queryByRole('group', { name: 'Recently viewed' })).not.toBeInTheDocument()
+      // (jsdom names the highlighted label "Ze d Zulu": match the unhighlighted part)
+      expect(screen.getAllByRole('option', { name: /Zulu/ })).toHaveLength(1)
+    })
+
+    it('announces searching and failures, and says what nothing matched', async () => {
+      searchRecordsMock.mockRejectedValue(new Error('boom'))
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'qqqq')
+      expect(screen.getByRole('status')).toHaveTextContent('Searching records…')
+      await screen.findByText('Record search failed. Try again.')
+      expect(screen.getByRole('listbox')).toHaveTextContent('No pages or records match “qqqq”')
+    })
   })
 })

@@ -231,44 +231,41 @@ describe('Tables API', () => {
     })
   })
 
-  describe('globalSearch', () => {
-    it('posts to /search endpoint', async () => {
+  describe('searchRecords', () => {
+    it('posts the term, table scope and limit to /search and returns the results', async () => {
       const { default: apiClient } = await import('./client')
-      const mockResults = [{ tableName: 'person', tableLabel: 'People', recordId: '1', recordLabel: 'Alice' }]
-      vi.mocked(apiClient.post).mockResolvedValue(mockResults)
+      const results = [{ tableName: 'person', tableLabel: 'People', recordId: '1', recordLabel: 'Alice' }]
+      vi.mocked(apiClient.post).mockResolvedValue({ results })
 
-      const { globalSearch } = await import('./tables')
-      const result = await globalSearch('Alice', ['person'])
-
-      expect(apiClient.post).toHaveBeenCalledWith('/search', { searchTerm: 'Alice', tableNames: ['person'] })
-      expect(result).toEqual(mockResults)
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('Alice', { tableNames: ['person'], limitPerTable: 5 })).resolves.toEqual(results)
+      expect(apiClient.post).toHaveBeenCalledWith('/search', { searchTerm: 'Alice', tableNames: ['person'], limitPerTable: 5 })
     })
 
-    it('returns empty array on 404', async () => {
+    it('sends only the term when no options are given', async () => {
       const { default: apiClient } = await import('./client')
-      // Simulate an Axios 404 — isAxiosError checks for the isAxiosError property
-      const notFound = Object.assign(new Error('Not Found'), {
-        isAxiosError: true,
-        response: { status: 404 },
-      })
+      vi.mocked(apiClient.post).mockResolvedValue({ results: [] })
+
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('x')).resolves.toEqual([])
+      expect(apiClient.post).toHaveBeenCalledWith('/search', { searchTerm: 'x' })
+    })
+
+    it.each([[[]], [{}], ['<html>Dashboard</html>'], [{ results: [{ tableName: 'person' }] }]])('rejects an invalid response: %j', async (response) => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue(response)
+
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('x')).rejects.toThrow('Invalid record search response')
+    })
+
+    it('re-throws request errors, including 404 (callers only search when the capability is advertised)', async () => {
+      const { default: apiClient } = await import('./client')
+      const notFound = Object.assign(new Error('Not Found'), { isAxiosError: true, response: { status: 404 } })
       vi.mocked(apiClient.post).mockRejectedValue(notFound)
 
-      const { globalSearch } = await import('./tables')
-      const result = await globalSearch('test')
-
-      expect(result).toEqual([])
-    })
-
-    it('re-throws non-404 errors', async () => {
-      const { default: apiClient } = await import('./client')
-      const serverError = Object.assign(new Error('Server Error'), {
-        isAxiosError: true,
-        response: { status: 500 },
-      })
-      vi.mocked(apiClient.post).mockRejectedValue(serverError)
-
-      const { globalSearch } = await import('./tables')
-      await expect(globalSearch('test')).rejects.toThrow('Server Error')
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('x')).rejects.toThrow('Not Found')
     })
   })
 
