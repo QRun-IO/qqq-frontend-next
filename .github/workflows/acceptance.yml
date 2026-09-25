@@ -32,7 +32,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit, mobile]
+        # The phone project runs only @mobile tests, so it shares the chromium job's gate.
+        browser: ['chromium,mobile', firefox, webkit]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -75,6 +76,6 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: acceptance-${{ matrix.browser }}
+          name: acceptance-${{ matrix.browser == 'chromium,mobile' && 'chromium-mobile' || matrix.browser }}
           path: test-results/acceptance/
           retention-days: 30
