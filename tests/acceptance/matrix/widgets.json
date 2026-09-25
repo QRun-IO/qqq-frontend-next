@@ -1336,6 +1336,30 @@
         "#665"
       ],
       "required": true
+    },
+    {
+      "id": "WID-064",
+      "feature": "cronUI schedule editor on record forms: Basic days/hours/minutes, Advanced expression, live description, validation, time zone",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/CronUIWidget.tsx",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/scheduler/CronDescriber.java",
+        "src/components/forms/CronScheduleEditor.tsx",
+        "src/lib/utils/cron-utils.ts"
+      ],
+      "fixture": "scheduledReport (memory) for savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron",
+      "scenarios": [
+        "Basic mode builds weekdays, hours and minutes; the live description equals the cronDescription QQQ stores",
+        "Advanced mode edits the stored expression; the live description equals the backend widget description; expression and time zone persist (SQL)",
+        "an expression Basic mode cannot show opens Advanced with Basic disabled and the reason"
+      ],
+      "negative": [
+        "an out-of-range expression shows the error live and marks the input invalid",
+        "saving without a schedule shows the required error in the editor, focuses it, and saves nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#702"
+      ],
+      "required": true
     }
   ]
 }
