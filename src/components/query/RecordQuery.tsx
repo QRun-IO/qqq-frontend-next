@@ -43,6 +43,7 @@ import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
+import { launchTableName } from '@/lib/utils/process-utils'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
@@ -241,10 +242,13 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
       params.set('recordsParam', 'recordIds')
       params.set('recordIds', rq.selection.selectedRecordIds.join(','))
     }
+    // a process added to every screen reads the selection from this table
+    const forTable = launchTableName(process, tableName)
+    if (forTable) params.set('tableName', forTable)
     // the run comes back to this query (filter, sort and page kept), as Material's modal does
     params.set('returnTo', `${window.location.pathname}${window.location.search}`)
     router.push(`/app/${encodeURIComponent(process.name)}?${params.toString()}`)
-  }, [router, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
+  }, [router, tableName, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
   const handleFilterToggle = useCallback(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)

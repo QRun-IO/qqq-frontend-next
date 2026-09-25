@@ -50,14 +50,21 @@ export async function loadMetaData(): Promise<QInstance> {
   // through the registered full metadata route instead of assuming access.
   const needsWidgets = Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')
   const needsReports = !result.reports && hasReportNode(result.appTree ?? [])
-  if (needsWidgets || needsReports) {
-    const full = await apiClient.get<QInstance>('/metaData', {
+  // V1 has no supplemental instance metadata (such as the Material dashboard's processes for
+  // every screen); only the full route does. It is optional, so its failure alone is not fatal.
+  const needsSupplemental = result.supplementalInstanceMetaData === undefined
+  if (needsWidgets || needsReports || needsSupplemental) {
+    const fullRequest = apiClient.get<QInstance>('/metaData', {
       baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
       params: {
         frontendName: 'qqq-frontend-next',
         frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
       },
     })
+    const full = needsWidgets || needsReports ? await fullRequest : await fullRequest.catch(() => undefined)
+    const supplemental = isPlainObject(full) && isPlainObject(full.supplementalInstanceMetaData) ? full.supplementalInstanceMetaData : undefined
+    const withSupplemental = supplemental ? { supplementalInstanceMetaData: supplemental } : {}
+    if (!needsWidgets && !needsReports) return { ...result, ...withSupplemental }
     if (needsWidgets && (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets))) {
       throw new Error('Invalid widget metadata response')
     }
@@ -71,11 +78,22 @@ export async function loadMetaData(): Promise<QInstance> {
       : undefined
     return {
       ...result,
-      ...(needsWidgets ? { widgets: full.widgets } : {}),
+      ...(needsWidgets && full ? { widgets: full.widgets } : {}),
       reports: fullReports ?? result.reports ?? {},
+      ...withSupplemental,
     }
   }
   return result
+}
+
+/**
+ * Whether a value is a non-array object.
+ *
+ * @param value - Any value.
+ * @returns `true` for a plain object.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> & Partial<QInstance> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 /**

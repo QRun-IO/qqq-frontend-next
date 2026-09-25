@@ -32,6 +32,7 @@ import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
 import { queryKeys } from '@/lib/query-client'
 import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
+import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 
 import { RecordActions } from './RecordActions'
 import { FieldLabel } from './FieldLabel'
@@ -161,9 +162,7 @@ export function RecordViewHeader({
   const canInsert = canInsertRecords(tableMetaData)
   const canDelete = canDeleteRecords(tableMetaData)
 
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
-  )
+  const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
 
   // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
   const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
@@ -172,12 +171,16 @@ export function RecordViewHeader({
   const [hash, clearHash] = useLocationHash()
   const hashAction = useMemo(() => recordHashAction(hash), [hash])
   const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
+  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table
+  const hashLaunchTable = hashAction?.type === 'launchProcess'
+    ? launchTableName(processes?.find((process) => process.name === hashAction.processName), tableMetaData.name)
+    : undefined
   useEffect(() => {
     if (!hashAction) return
     if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)
-    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath }))
+    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath, tableName: hashLaunchTable }))
     else if (hashAction.type === 'createChild') setCreateChild(hashAction)
-  }, [hashAction, auditSource, router, primaryKey, recordPath])
+  }, [hashAction, auditSource, router, primaryKey, recordPath, hashLaunchTable])
 
   usePageShortcuts({
     n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
@@ -435,7 +438,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath }))
+                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(process, tableMetaData.name) }))
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',

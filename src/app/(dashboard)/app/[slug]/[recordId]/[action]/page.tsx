@@ -28,6 +28,7 @@ import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { processRunHref, tableProcessForSegment } from '@/lib/utils/material-links'
+import { launchTableName } from '@/lib/utils/process-utils'
 import { NotFoundState } from '@/components/layout/NotFoundState'
 import { RouteRedirect } from '@/components/layout/RouteRedirect'
 
@@ -60,6 +61,7 @@ export default function RecordProcessPage() {
     recordId,
     search,
     returnTo: `/app/${encodeURIComponent(slug)}/${encodeURIComponent(recordId)}`,
+    tableName: launchTableName(metaData.processes[processName], slug),
   })
   return <RouteRedirect href={href} label={metaData.processes[processName]?.label ?? processName} />
 }

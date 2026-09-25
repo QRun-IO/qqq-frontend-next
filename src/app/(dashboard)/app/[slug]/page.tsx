@@ -208,6 +208,9 @@ export default function SlugPage() {
       initialRequest.recordsParam = 'filterJSON'
       initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
     }
+    // a process added to every screen (no table of its own) runs over the launching table
+    const launchTable = searchParams.get('tableName')
+    if (!process.tableName && launchTable && metaData.tables?.[launchTable]) initialRequest.tableName = launchTable
     ////////////////////////////////////////////////////////////////////////
     // links may preset process inputs, as in the Material dashboard:     //
     // ?defaultProcessValues={"name":"value"}                             //

@@ -55,8 +55,9 @@ describe('Metadata API', () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets })
     expect(await loadMetaData()).toEqual({ ...light, widgets, reports: {} })
     expect(apiClient.get).toHaveBeenLastCalledWith('/metaData', expect.objectContaining({ baseURL: 'https://example.invalid/prefix' }))
-    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, widgets })
-    expect(await loadMetaData()).toEqual({ ...light, widgets })
+    // complete widgets (and supplemental instance metadata) need no second request
+    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, widgets, supplementalInstanceMetaData: {} })
+    expect(await loadMetaData()).toEqual({ ...light, widgets, supplementalInstanceMetaData: {} })
     expect(apiClient.get).toHaveBeenCalledTimes(1)
   })
 
@@ -68,8 +69,8 @@ describe('Metadata API', () => {
     const reports = { rpt: { name: 'rpt', label: 'Rpt', isHidden: false, hasPermission: true } }
     vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ reports })
     expect(await loadMetaData()).toEqual({ ...light, reports })
-    // An app tree without report nodes needs no second request
-    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, appTree: [] })
+    // An app tree without report nodes needs no second request (given supplemental instance metadata)
+    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, appTree: [], supplementalInstanceMetaData: {} })
     await loadMetaData()
     expect(apiClient.get).toHaveBeenCalledTimes(1)
   })
@@ -90,6 +91,33 @@ describe('Metadata API', () => {
     const reports = { people: { name: 'people', label: 'People', processName: 'reports.basic', hasPermission: true } }
     vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets: { w: { name: 'w', hasPermission: true } }, reports })
     expect((await loadMetaData()).reports).toEqual(reports)
+  })
+
+  it('takes supplemental instance metadata (absent from V1) from the full metadata route', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const materialDashboard = { processNamesToAddToAllQueryAndViewScreens: ['tagRecords'] }
+    const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { w: { name: 'w' } } }
+    const widgets = { w: { name: 'w', hasPermission: true } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets, supplementalInstanceMetaData: { materialDashboard } })
+    expect(await loadMetaData()).toEqual({ ...light, widgets, reports: {}, supplementalInstanceMetaData: { materialDashboard } })
+
+    // needed on its own: one more request, and the V1 result is otherwise unchanged
+    const complete = { ...light, widgets, reports: {} }
+    vi.mocked(apiClient.get).mockClear().mockResolvedValueOnce(complete).mockResolvedValueOnce({ supplementalInstanceMetaData: { materialDashboard } })
+    expect(await loadMetaData()).toEqual({ ...complete, supplementalInstanceMetaData: { materialDashboard } })
+    expect(apiClient.get).toHaveBeenCalledTimes(2)
+    expect(apiClient.get).toHaveBeenLastCalledWith('/metaData', expect.objectContaining({ baseURL: 'https://example.invalid/prefix' }))
+  })
+
+  it('keeps the V1 metadata when only the optional supplemental metadata cannot be loaded', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const complete = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: {}, reports: {} }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(complete).mockRejectedValueOnce(new Error('Not found'))
+    expect(await loadMetaData()).toEqual(complete)
+    vi.mocked(apiClient.get).mockResolvedValueOnce(complete).mockResolvedValueOnce({ supplementalInstanceMetaData: ['not', 'a', 'map'] })
+    expect(await loadMetaData()).toEqual(complete)
   })
 
   it('does not infer permission when full widget metadata fails', async () => {

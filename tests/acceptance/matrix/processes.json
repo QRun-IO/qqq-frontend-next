@@ -866,6 +866,32 @@
       "negative": [],
       "issues": [],
       "required": true
+    },
+    {
+      "id": "PRC-048",
+      "feature": "Processes the instance adds to every query and record screen (Material processNamesToAddToAllQueryAndViewScreens)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/App.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/query/QueryScreenActionMenu.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardInstanceMetaData.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "ProcessesFixtures.java prcTagRecords (no table, in no app) named by MaterialDashboardInstanceMetaData; a metadata customizer lists it only for the sample user casey, so other areas keep their menus; person, qryBin",
+      "scenarios": [
+        "legacy /metaData names the process in supplementalInstanceMetaData.materialDashboard; casey receives it with no table and in no app (API)",
+        "the person query Actions menu lists it last, after a divider, and runs it on the selected rows with tableName=person (SQL)",
+        "the record actions menu of qryBin (no processes of its own) runs it on that record (SQL)",
+        "the phone record action sheet runs it on that record (SQL)"
+      ],
+      "negative": [
+        "a user whose metadata omits it (alice): not offered on query or record screens and its run page is not found (no SQL rows)",
+        "noProcesses persona: absent from the metadata, not offered on query or record screens, and the backend refuses it (403, no SQL rows)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
     }
   ]
 }

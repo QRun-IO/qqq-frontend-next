@@ -180,14 +180,17 @@ export function tableReportForSegment(instance: QInstance | undefined, tableName
  * @param options.search - Query string of the launching URL (its record selection and
  *   default process values are kept).
  * @param options.returnTo - In-app path to come back to.
+ * @param options.tableName - Table the records come from, for a process that is not that
+ *   table's own (one added to every screen).
  * @returns The URL.
  */
-export function processRunHref(processName: string, options: { recordId?: string | number; search?: string; returnTo: string }): string {
+export function processRunHref(processName: string, options: { recordId?: string | number; search?: string; returnTo: string; tableName?: string }): string {
   const params = new URLSearchParams(options.search ?? '')
   if (options.recordId !== undefined && options.recordId !== '') {
     params.set('recordsParam', 'recordIds')
     params.set('recordIds', String(options.recordId))
   }
+  if (options.tableName) params.set('tableName', options.tableName)
   params.set('returnTo', options.returnTo)
   return `/app/${encodeURIComponent(processName)}?${params.toString()}`
 }
