@@ -522,7 +522,7 @@
       "negative": [],
       "issues": [],
       "required": false,
-      "approval": "PENDING James: needs a real Auth0 tenant and credentials; the owned Auth0-compatible provider covers the flow in SEC-029"
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): real Auth0 tenant; the AUTH_0 flow is covered against an owned Auth0-compatible provider by SEC-029/SEC-031; real-service testing is follow-up work."
     },
     {
       "id": "SEC-031",

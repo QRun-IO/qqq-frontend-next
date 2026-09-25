@@ -719,7 +719,7 @@
       "negative": [],
       "issues": [],
       "required": false,
-      "approval": "PENDING James: needs an external Google OAuth client and Google account the harness cannot own; the rest of the step is covered by PRC-038"
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): Google Drive folder picker needs a real Google OAuth client and account; the rest of the step is covered by PRC-038; real-service testing is follow-up work."
     },
     {
       "id": "PRC-040",

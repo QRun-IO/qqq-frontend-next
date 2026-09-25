@@ -613,7 +613,7 @@
       "negative": [],
       "issues": [],
       "required": false,
-      "approval": "PENDING James: needs an AWS QuickSight account and dashboard we can own; the real renderer and the embed are covered against the owned local provider endpoint in WID-015"
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): real AWS QuickSight dashboard; the widget and renderer are covered against an owned loopback provider by WID-015; real-service testing is follow-up work."
     },
     {
       "id": "WID-040",
