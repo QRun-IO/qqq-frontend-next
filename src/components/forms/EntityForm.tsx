@@ -183,6 +183,8 @@ export function EntityForm({
 
   // Latest dirty-field map for the update mutation (values that cannot round-trip are sent only when changed).
   const dirtyFieldsRef = useRef<Record<string, unknown>>({})
+  // Staying on the form after the unsaved-changes prompt returns focus to Cancel
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
   dirtyFieldsRef.current = dirtyFields as Record<string, unknown>
 
   // Reset when record changes (e.g., navigating between records)
@@ -462,6 +464,7 @@ export function EntityForm({
         data-qqq-id="entity-form-actions"
       >
         <button
+          ref={cancelButtonRef}
           type="button"
           onClick={handleCancel}
           disabled={isSaving}
@@ -515,6 +518,7 @@ export function EntityForm({
         open={showUnsavedDialog}
         onStay={handleCancelLeave}
         onLeave={handleConfirmLeave}
+        returnFocusRef={cancelButtonRef}
       />
     </>
   )
