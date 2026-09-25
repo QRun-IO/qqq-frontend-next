@@ -30,9 +30,8 @@ import Link from 'next/link'
 import { Table2, Workflow } from 'lucide-react'
 
 import type { QAppMetaData, QWidgetMetaData } from '@/types'
-import { WidgetGrid } from './WidgetGrid'
-import type { WidgetGridItem } from './WidgetGrid'
 import { ConnectedWidget } from './ConnectedWidget'
+import { widgetColumnClasses } from './widget-utils'
 
 /** Props accepted by the AppHome component. */
 interface AppHomeProps {
@@ -40,34 +39,6 @@ interface AppHomeProps {
   appMetaData: QAppMetaData
   /** Map of all known widget metadata objects, keyed by widget name. */
   widgetRegistry: Record<string, QWidgetMetaData>
-}
-
-/**
- * Determines the column span a widget should occupy in the dashboard grid.
- *
- * Prefers the explicit `gridColumns` value from widget metadata, and falls back
- * to a type-based heuristic: record-grid and chart widgets get 2 columns, all
- * others get 1 column.
- *
- * @param widgetMeta - Metadata for the widget being measured.
- * @returns Column span value compatible with WidgetGridItem.span (1, 2, or 3).
- */
-function resolveWidgetSpan(
-  widgetMeta: QWidgetMetaData
-): WidgetGridItem['span'] {
-  // Prefer the explicit gridColumns from metadata
-  if (widgetMeta.gridColumns !== undefined) {
-    const cols = widgetMeta.gridColumns
-    if (cols >= 3) return 3
-    if (cols === 2) return 2
-    return 1
-  }
-
-  // Fallback heuristic: record grid and chart widgets get 2 columns; stats get 1
-  const type = widgetMeta.type
-  if (type === 'recordGrid' || type === 'lineChart' || type === 'barChart') return 2
-  if (type === 'chart') return 2
-  return 1
 }
 
 /**
@@ -85,15 +56,10 @@ function resolveWidgetSpan(
 export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
   const { name, label, widgets: widgetNames, sections } = appMetaData
 
-  // Build the widget grid items from declared widget names
-  const widgetItems: WidgetGridItem[] = widgetNames.flatMap((wName) => {
+  // Widgets the user may see, in declared order; denied or unknown widgets are skipped without a request.
+  const widgetItems = (widgetNames ?? []).flatMap((wName) => {
     const meta = widgetRegistry[wName]
-    if (!meta || !meta.hasPermission) return []
-    return [{
-      key: wName,
-      span: resolveWidgetSpan(meta),
-      children: <ConnectedWidget key={wName} widgetMetaData={meta} />,
-    }]
+    return meta && meta.hasPermission !== false ? [meta] : []
   })
 
   return (
@@ -104,10 +70,14 @@ export function AppHome({ appMetaData, widgetRegistry }: AppHomeProps) {
         <p className="text-sm text-muted-foreground">Welcome to your {label} dashboard</p>
       </div>
 
-      {/* Widget grid */}
+      {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}
       {widgetItems.length > 0 && (
-        <section aria-label="Dashboard widgets">
-          <WidgetGrid items={widgetItems} columns={3} />
+        <section aria-label="Dashboard widgets" className="grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
+          {widgetItems.map((meta) => (
+            <div key={meta.name} className={widgetColumnClasses(meta.gridColumns)} data-qqq-id={`widget-grid-item-${meta.name}`}>
+              <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
+            </div>
+          ))}
         </section>
       )}
 

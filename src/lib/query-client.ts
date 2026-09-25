@@ -112,7 +112,11 @@ function exponentialBackoff(attemptIndex: number): number {
  */
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => handleQueryError(error, 'query'),
+    // Queries that render their own error state (e.g. widgets) opt out with meta.inlineErrors.
+    onError: (error, query) => {
+      if (query.meta?.inlineErrors === true) return
+      handleQueryError(error, 'query')
+    },
   }),
   mutationCache: new MutationCache({
     onError: (error) => handleQueryError(error, 'mutation'),

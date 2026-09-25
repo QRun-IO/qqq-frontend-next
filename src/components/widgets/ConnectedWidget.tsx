@@ -17,123 +17,233 @@
 /**
  * @file ConnectedWidget — Primary entrypoint for rendering a single dashboard widget.
  *
- * Orchestrates widget data fetching (via useWidget), dropdown option loading
- * (via fetchPossibleValues), and state management for dropdown selections.
- * Delegates layout to WidgetBlock and type-based rendering to WidgetRenderer.
+ * Fetches the widget's data (via useWidget) with the widget's request parameters:
+ * record context, the parent widget's selections (for children), persisted
+ * dropdown selections, and the current dropdown choices. Dropdown options come
+ * from the payload (`dropdownNameList` / `dropdownLabelList` / `dropdownDataList`
+ * / `dropdownDefaultValueList`), exactly as the backend's renderer declared them.
+ * Delegates chrome to WidgetBlock and type-based rendering to WidgetRenderer.
  * Returns null for widgets that lack permission.
  */
 'use client'
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
-import type { QWidgetMetaData } from '@/types'
-import { fetchPossibleValues } from '@/lib/api/possible-values'
+import type { QWidgetMetaData, WidgetData } from '@/types'
 import { useWidget } from '@/lib/hooks/use-widget'
+import type { BlockActionCallback, WidgetRecordContext } from './widget-types'
 import { WidgetBlock } from './WidgetBlock'
+import type { WidgetChromeData, WidgetDropdownControl } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
+import {
+  downloadText, dropdownStorageKey, plainText, storedDropdownParams, widgetCsvToString, widgetExportFileName,
+  writeStoredSelection,
+} from './widget-utils'
 
 /** Props accepted by the ConnectedWidget component. */
 interface ConnectedWidgetProps {
   /** Full widget metadata from the server, including type, dropdowns, and permission flag. */
   widgetMetaData: QWidgetMetaData
-  /** Optional static query parameters merged into the widget data-fetch request. */
+  /** Static request parameters (record context `id`/`tableName`, a parent's selections). */
   params?: Record<string, string | number | boolean>
   /** Optional Tailwind class string forwarded to the WidgetBlock container. */
   className?: string
+  /** Record context when rendered inside a record view section. */
+  recordContext?: WidgetRecordContext
+  /** Interactive block callback (process steps hosting composite widgets). */
+  actionCallback?: BlockActionCallback
+  /** All widget metadata, for parent widgets resolving their children. */
+  widgetRegistry?: Record<string, QWidgetMetaData>
+  /** The parent widget, for children whose selections the parent stores. */
+  parentMetaData?: QWidgetMetaData
+  /** Renders only the body (tab panels of a parent widget). */
+  bare?: boolean
+}
+
+/** Dropdown fields every payload may carry. */
+interface DropdownPayload {
+  dropdownNameList?: unknown
+  dropdownLabelList?: unknown
+  dropdownDataList?: unknown
+  dropdownDefaultValueList?: unknown
+  csvData?: unknown
+  columns?: unknown
+  rows?: unknown
+}
+
+/**
+ * Resolves the dropdown controls declared by a payload, pairing each with its
+ * metadata entry (by position, as the backend emits them) for type and labels.
+ *
+ * @param data - Widget payload.
+ * @param widgetMetaData - Widget metadata.
+ * @param selections - Current selections keyed by parameter name.
+ * @returns The controls, or an empty list.
+ */
+function resolveDropdowns(data: DropdownPayload | undefined, widgetMetaData: QWidgetMetaData, selections: Record<string, string | null>): WidgetDropdownControl[] {
+  const names = Array.isArray(data?.dropdownNameList) ? data.dropdownNameList : []
+  const labels = Array.isArray(data?.dropdownLabelList) ? data.dropdownLabelList : []
+  const lists = Array.isArray(data?.dropdownDataList) ? data.dropdownDataList : []
+  return names.flatMap((name, index) => {
+    if (typeof name !== 'string') return []
+    const meta = widgetMetaData.dropdowns?.[index]
+    const rawOptions: unknown[] = Array.isArray(lists[index]) ? lists[index] : []
+    const options = rawOptions.flatMap((option) => {
+      if (!option || typeof option !== 'object') return []
+      const { id, label } = option as { id?: unknown; label?: unknown }
+      return id === undefined || id === null ? [] : [{ id: String(id), label: String(label ?? id) }]
+    })
+    return [{
+      paramName: name,
+      label: typeof labels[index] === 'string' ? labels[index] : (meta?.label ?? name),
+      type: meta?.type === 'DATE_PICKER' ? 'DATE_PICKER' as const : 'POSSIBLE_VALUE_SOURCE' as const,
+      options,
+      value: selections[name] ?? null,
+      labelForNullValue: meta?.labelForNullValue,
+    }]
+  })
+}
+
+/**
+ * CSV rows for export: the payload's `csvData`, else a table payload's columns and rows.
+ *
+ * @param data - Widget payload.
+ * @returns Rows of cells, or null when there is nothing to export.
+ */
+function exportRows(data: DropdownPayload | undefined): unknown[][] | null {
+  if (Array.isArray(data?.csvData) && data.csvData.every((row) => Array.isArray(row))) return data.csvData as unknown[][]
+  if (Array.isArray(data?.columns) && Array.isArray(data?.rows) && data.rows.length > 0) {
+    const columns = data.columns.filter((column): column is { header?: string; accessor?: string } => Boolean(column) && typeof column === 'object')
+    return [
+      columns.map((column) => column.header ?? column.accessor ?? ''),
+      ...data.rows.map((row) => columns.map((column) => plainText((row as Record<string, unknown>)?.[column.accessor ?? '']))),
+    ]
+  }
+  return null
 }
 
 /**
  * Renders a fully connected dashboard widget with data fetching and dropdown support.
  *
- * The primary entrypoint for any single widget on a dashboard page.  Used directly
- * by dashboard page components and by `CompositeWidget` for each child.
- * Initializes dropdown selections from `widgetMetaData.dropdowns[].defaultValue`,
- * asynchronously loads possible-value options for dropdowns that declare a
- * `possibleValueSourceName`, merges current dropdown selections into the data-fetch
- * params via `useMemo`, and delegates to `WidgetBlock` (for title/loading/error
- * chrome) and `WidgetRenderer` (for type-specific output).
- *
- * @param props - Component properties; `widgetMetaData.hasPermission === false`
- *   causes an early `return null` before any rendering; `params` are static query
- *   parameters merged with dropdown selections for the `useWidget` call.
- * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree, or null when
- *   `widgetMetaData.hasPermission` is false.
+ * @param props - Component properties; `widgetMetaData.hasPermission === false` renders nothing
+ *   and makes no request.
+ * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree, or null when not permitted.
  */
-export function ConnectedWidget({ widgetMetaData, params, className }: ConnectedWidgetProps) {
-  // Initialize dropdown values from metadata defaults
-  const [dropdownValues, setDropdownValues] = useState<Record<string, string>>(() => {
-    const defaults: Record<string, string> = {}
-    if (widgetMetaData.dropdowns) {
-      for (const dropdown of widgetMetaData.dropdowns) {
-        if (dropdown.defaultValue !== undefined) {
-          defaults[dropdown.name] = dropdown.defaultValue
-        }
-      }
+export function ConnectedWidget({
+  widgetMetaData, params, className, recordContext, actionCallback, widgetRegistry, parentMetaData, bare,
+}: ConnectedWidgetProps) {
+  const permitted = widgetMetaData.hasPermission !== false
+
+  // Selections: persisted choices first (stores are keyed by the storing widget), then user changes.
+  const [selections, setSelections] = useState<Record<string, string | null>>(() => storedDropdownParams(widgetMetaData, parentMetaData))
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
+
+  const requestParams = useMemo(() => {
+    const merged: Record<string, string | number | boolean> = { ...params }
+    for (const [key, value] of Object.entries(selections)) {
+      if (value !== null && value !== '') merged[key] = value
     }
-    return defaults
-  })
+    return merged
+  }, [params, selections])
 
-  // Fetch possible values for dropdowns that have a possibleValueSourceName
-  const [dropdownOptions, setDropdownOptions] = useState<Record<string, Array<{ label: string; value: string }>>>({})
+  const { data, isLoading, isFetching, isError, error, refetch } = useWidget(widgetMetaData.name, requestParams, { enabled: permitted })
+  const payload = data as (WidgetData & DropdownPayload) | undefined
 
+  // Apply backend default selections, and drop persisted choices that are no longer offered.
   useEffect(() => {
-    if (!widgetMetaData.dropdowns?.length) return
-
-    widgetMetaData.dropdowns.forEach(async (dropdown) => {
-      if (!dropdown.possibleValueSourceName) return
-      try {
-        const response = await fetchPossibleValues(dropdown.possibleValueSourceName)
-        setDropdownOptions((prev) => ({
-          ...prev,
-          [dropdown.name]: response.map((pv) => ({ label: pv.label, value: String(pv.id) })),
-        }))
-      } catch {
-        // Silently fail — dropdown will just have no options
-      }
+    if (!payload) return
+    const names = Array.isArray(payload.dropdownNameList) ? payload.dropdownNameList : []
+    const defaults = Array.isArray(payload.dropdownDefaultValueList) ? payload.dropdownDefaultValueList : []
+    const lists = Array.isArray(payload.dropdownDataList) ? payload.dropdownDataList : []
+    setSelections((current) => {
+      let next = current
+      names.forEach((name, index) => {
+        if (typeof name !== 'string') return
+        const meta = widgetMetaData.dropdowns?.[index]
+        if (meta?.type === 'DATE_PICKER') return
+        const ids = (Array.isArray(lists[index]) ? lists[index] : []).map((option: { id?: unknown }) => String(option?.id))
+        const selected = current[name]
+        if (selected && !ids.includes(selected)) {
+          next = { ...next, [name]: null }
+          if (widgetMetaData.storeDropdownSelections) writeStoredSelection(dropdownStorageKey(widgetMetaData.name, name), null)
+        } else if ((selected === undefined) && defaults[index] !== undefined && defaults[index] !== null && ids.includes(String(defaults[index]))) {
+          next = { ...next, [name]: String(defaults[index]) }
+        }
+      })
+      return next
     })
-  }, [widgetMetaData.dropdowns])
+  }, [payload, widgetMetaData.dropdowns, widgetMetaData.name, widgetMetaData.storeDropdownSelections])
 
-  // Merge dropdown values into widget params
-  const mergedParams = useMemo(() => {
-    const base: Record<string, string | number | boolean> = { ...params }
-    for (const [key, value] of Object.entries(dropdownValues)) {
-      base[key] = value
+  const handleDropdownChange = useCallback((paramName: string, selection: { id: string; label: string } | null) => {
+    if (widgetMetaData.storeDropdownSelections) {
+      writeStoredSelection(dropdownStorageKey(widgetMetaData.name, paramName), selection)
     }
-    return base
-  }, [params, dropdownValues])
+    setSelections((current) => ({ ...current, [paramName]: selection?.id ?? null }))
+  }, [widgetMetaData.name, widgetMetaData.storeDropdownSelections])
 
-  const { data, isLoading, isError, error, refetch } = useWidget(widgetMetaData.name, mergedParams)
+  const handleExport = useCallback(() => {
+    const rows = exportRows(payload)
+    if (!rows) {
+      setExportMessage('There is no data available to export.')
+      return
+    }
+    setExportMessage(null)
+    downloadText(widgetExportFileName(typeof payload?.label === 'string' ? payload.label : widgetMetaData.label), widgetCsvToString(rows))
+  }, [payload, widgetMetaData.label])
 
-  /**
-   * Updates the stored dropdown selection for a single named dropdown.
-   *
-   * @param name - The dropdown's metadata name property.
-   * @param value - The newly selected option value string.
-   */
-  const handleDropdownChange = useCallback((name: string, value: string) => {
-    setDropdownValues((prev) => ({ ...prev, [name]: value }))
-  }, [])
+  const handleReload = useCallback(() => { void refetch() }, [refetch])
 
-  // Widgets with no permission should not render
-  if (!widgetMetaData.hasPermission) {
+  if (!permitted) {
     return null
+  }
+
+  // Alerts that ask to be hidden, or have no message, render nothing at all (as in Material).
+  if (payload?.type === 'alert' && ((payload as { hideWidget?: unknown }).hideWidget === true
+    || !((payload as { html?: unknown }).html || (payload as { message?: unknown }).message))) {
+    return null
+  }
+
+  // A divider is only a rule: no card, label or controls.
+  if ((widgetMetaData.type ?? payload?.type) === 'divider' && payload) {
+    return (
+      <div className={className} data-qqq-id={`widget-${widgetMetaData.name}`} data-widget-type="divider">
+        <WidgetRenderer widgetMetaData={widgetMetaData} data={payload} />
+      </div>
+    )
+  }
+
+  const dropdowns = resolveDropdowns(payload, widgetMetaData, selections)
+  const childParams: Record<string, string | number | boolean> = { ...params }
+  for (const control of dropdowns) {
+    if (control.value) childParams[control.paramName] = control.value
   }
 
   return (
     <WidgetBlock
       widgetMetaData={widgetMetaData}
-      isLoading={isLoading}
+      data={payload as WidgetChromeData | undefined}
+      isLoading={isLoading && !payload}
+      isFetching={isFetching}
       isError={isError}
       error={error}
-      onReload={refetch}
-      dropdowns={widgetMetaData.dropdowns}
-      dropdownOptions={dropdownOptions}
-      dropdownValues={dropdownValues}
+      onReload={handleReload}
+      onExport={handleExport}
+      exportMessage={exportMessage}
+      dropdowns={dropdowns}
       onDropdownChange={handleDropdownChange}
       className={className}
+      bare={bare}
     >
-      {data && (
-        <WidgetRenderer widgetMetaData={widgetMetaData} data={data} />
+      {payload && (
+        <WidgetRenderer
+          widgetMetaData={widgetMetaData}
+          data={payload}
+          recordContext={recordContext}
+          actionCallback={actionCallback}
+          widgetRegistry={widgetRegistry}
+          childParams={childParams}
+          onReload={handleReload}
+        />
       )}
     </WidgetBlock>
   )

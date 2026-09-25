@@ -128,7 +128,7 @@ export function DynamicForm({
     const resolvedSections = sections ?? tableMetaData.sections
     for (const section of resolvedSections) {
       if (section.isHidden) continue
-      for (const fn of section.fieldNames) {
+      for (const fn of section.fieldNames ?? []) {
         if (!fieldOrder.includes(fn)) fieldOrder.push(fn)
       }
     }
@@ -168,7 +168,7 @@ export function DynamicForm({
         {resolvedSections
           .filter((s) => !s.isHidden)
           .map((section) => {
-            const sectionFields = section.fieldNames
+            const sectionFields = (section.fieldNames ?? [])
               .map((fn) => tableMetaData.fields[fn])
               .filter((f): f is QFieldMetaData => {
                 if (!f) return false
