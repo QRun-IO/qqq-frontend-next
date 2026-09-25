@@ -628,7 +628,8 @@
       ],
       "issues": [
         "QRun-IO/qqq#682",
-        "QRun-IO/qqq#683"
+        "QRun-IO/qqq#683",
+        "QRun-IO/qqq#694"
       ],
       "required": true
     },
@@ -730,7 +731,9 @@
         "busy indicator while the real request is held, then rows"
       ],
       "negative": [],
-      "issues": [],
+      "issues": [
+        "QRun-IO/qqq#694"
+      ],
       "required": true
     },
     {

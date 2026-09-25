@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { navigation, openUserMenu, recordRequests } from './support/ui'
+import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -51,7 +51,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     const authorize = auth0.requests.find((request) => request.path === '/authorize')
     expect(authorize?.query).toMatchObject({ client_id: AUTH0_CLIENT, audience: AUDIENCE, code_challenge_method: 'S256', redirect_uri: `${SECURITY_URL}/token` })
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
 
     // a public SPA client: the browser redeems the code with its PKCE verifier, no secret
     const [token] = auth0.requests.filter((request) => request.path === '/oauth/token')
@@ -65,14 +65,14 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
 
     await page.reload()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
 
     const menu = await openUserMenu(page)
     await menu.getByRole('menuitem', { name: 'Log Out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
-    expect(auth0.requests.some((request) => request.path === '/v2/logout' && request.query.client_id === AUTH0_CLIENT && request.query.returnTo === `${SECURITY_URL}/login`)).toBe(true)
-    expect(auth0.activeSessions()).toBe(0)
+    await expect.poll(() => auth0.requests.some((request) => request.path === '/v2/logout' && request.query.client_id === AUTH0_CLIENT && request.query.returnTo === `${SECURITY_URL}/login`)).toBe(true)
+    await expect.poll(() => auth0.activeSessions()).toBe(0)
     expect((await context.cookies()).map((cookie) => cookie.name)).not.toContain('sessionUUID')
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
@@ -83,7 +83,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     void auth0
     await open(page, '/app/person')
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     const sessionUUID = (await context.cookies()).find((cookie) => cookie.name === 'sessionUUID')?.value
     expect(sessionUUID).toBeTruthy()
     const menu = await openUserMenu(page)
@@ -118,7 +118,7 @@ anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logo
   void anonymous
   void diagnostics
   await open(page, '/app/person')
-  await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+  await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Anonymous')
   const menu = await openUserMenu(page)
   await menu.getByRole('menuitem', { name: 'Log Out' }).click()
@@ -126,7 +126,7 @@ anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logo
   await open(page, '/app/person')
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+  await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
 })
 
 const tableBasedTest = acceptanceTest.extend<{ tableBased: void }>({

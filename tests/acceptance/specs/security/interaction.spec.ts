@@ -11,7 +11,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Locator, Page, Route } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { navigation, openUserMenu } from './support/ui'
+import { listCell, navigation, openUserMenu, tabKey } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -26,7 +26,7 @@ async function tabTo(page: Page, target: Locator, max = 80) {
   await expect(target).toBeVisible()
   for (let presses = 0; presses < max; presses++) {
     if (await target.evaluate((element) => element === document.activeElement).catch(() => false)) return
-    await page.keyboard.press('Tab')
+    await page.keyboard.press(tabKey(page))
   }
   throw new Error(`Could not reach ${target} with Tab in ${max} presses`)
 }
@@ -49,11 +49,11 @@ test.describe('keyboard operation', () => {
     await tabTo(page, nav.getByRole('link', { name: 'Person', exact: true }))
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/app\/person\/?$/)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Blair')).toBeVisible()
 
-    await tabTo(page, personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true }), 120)
+    await tabTo(page, listCell(page, 'Person', 'Avery'), 120)
     await page.keyboard.press('ArrowDown')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true })).toBeFocused()
+    await expect(listCell(page, 'Person', 'Blair')).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
 
@@ -97,13 +97,17 @@ test.describe('dialogs and focus', () => {
     await open(page, '/app/person/5')
     await expect(page.getByRole('heading', { name: /Morgan/ }).first()).toBeVisible()
     // with processes available the record actions live in a menu: open it and pick Delete by keyboard
-    const trigger = visible(page.getByRole('button', { name: 'Record actions menu' }))
+    // (a menu on desktop, an action sheet on phones)
+    const trigger = visible(page.getByRole('button', { name: /^Record actions( menu)?$/ }))
     const chooseDelete = async () => {
       await page.keyboard.press('Enter')
-      const deleteItem = page.getByRole('menuitem', { name: /Delete/ })
-      await expect(deleteItem).toBeVisible()
-      for (let presses = 0; presses < 10 && !(await deleteItem.evaluate((element) => element === document.activeElement)); presses++) {
-        await page.keyboard.press('ArrowDown')
+      const menuItem = page.getByRole('menuitem', { name: /Delete/ })
+      const sheetItem = page.locator('[data-qqq-id="mobile-action-delete"]')
+      await expect(menuItem.or(sheetItem).first()).toBeVisible()
+      const inMenu = await menuItem.isVisible()
+      const deleteItem = inMenu ? menuItem : sheetItem
+      for (let presses = 0; presses < 12 && !(await deleteItem.evaluate((element) => element === document.activeElement)); presses++) {
+        await page.keyboard.press(inMenu ? 'ArrowDown' : tabKey(page))
       }
       await expect(deleteItem).toBeFocused()
       await page.keyboard.press('Enter')
@@ -114,7 +118,7 @@ test.describe('dialogs and focus', () => {
     await expect(dialog).toBeVisible()
     expect(await isFocusedWithin(dialog)).toBe(true)
     for (let presses = 0; presses < 8; presses++) {
-      await page.keyboard.press('Tab')
+      await page.keyboard.press(tabKey(page))
       expect(await isFocusedWithin(dialog)).toBe(true)
     }
     await page.keyboard.press('Escape')
@@ -134,7 +138,7 @@ test.describe('dialogs and focus', () => {
     void diagnostics
     void backend
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     const refresh = page.getByRole('button', { name: 'Refresh data' })
     await refresh.focus()
     await page.keyboard.press('ControlOrMeta+k')
@@ -290,7 +294,7 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(page.locator('[data-qqq-id="grid-loading"]')).toBeVisible()
     await expect(personGrid(page)).toHaveCount(0)
     release()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page.locator('[data-qqq-id="grid-loading"]')).toHaveCount(0)
   })
 
@@ -305,7 +309,7 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(failure).toContainText('Temporary storage failure')
     await page.unroute('**/qqq/v1/table/person/query')
     await failure.getByRole('button', { name: 'Retry' }).click()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(failure).toHaveCount(0)
   })
 
@@ -353,22 +357,22 @@ test.describe('loading, failure, delay and stale data', () => {
     diagnostics.allow('/data/person/3 404')
     diagnostics.allow('status of 404')
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true })).toBeVisible()
-    await personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true }).click()
+    await expect(listCell(page, 'Person', 'Blair')).toBeVisible()
+    await listCell(page, 'Person', 'Blair').click()
     await expect(page.getByRole('heading', { name: /Blair/ }).first()).toBeVisible()
     await page.goBack()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Casey', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Casey')).toBeVisible()
 
     // another user renames Blair and deletes Casey
     expect((await backend.api.put('/data/person/2', { multipart: { firstName: 'Bryn' } })).ok()).toBe(true)
     expect(await (await backend.api.delete('/data/person/3')).json()).toMatchObject({ deletedRecordCount: 1 })
 
-    await personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true }).click()
+    await listCell(page, 'Person', 'Avery').click()
     await expect(page).toHaveURL(/\/app\/person\/1\/?$/)
     await page.goBack()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Bryn', exact: true })).toBeVisible()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Casey', exact: true })).toHaveCount(0)
-    await personGrid(page).getByRole('gridcell', { name: 'Bryn', exact: true }).click()
+    await expect(listCell(page, 'Person', 'Bryn')).toBeVisible()
+    await expect(listCell(page, 'Person', 'Casey')).toHaveCount(0)
+    await listCell(page, 'Person', 'Bryn').click()
     await expect(page.getByRole('heading', { name: /Bryn/ }).first()).toBeVisible()
 
     await open(page, '/app/person/3')
@@ -379,18 +383,19 @@ test.describe('loading, failure, delay and stale data', () => {
     void diagnostics
     void backend
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await page.getByRole('searchbox', { name: 'Quick search Person' }).fill('zz-no-such-person')
     await expect(page.getByRole('heading', { name: 'No records found' })).toBeVisible()
     await expect(page.getByText('Try adjusting your filters or search term.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create new Person record' })).toBeVisible()
     await page.getByRole('button', { name: 'Clear Filters' }).click()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   })
 
   test('[INT-014] an unreachable backend at sign-in is explained and Try again recovers', async ({ page, backend, diagnostics }) => {
     void backend
-    diagnostics.allow(/manageSession.*(failed|ERR_|net::)/i)
+    // the aborted request is reported differently per browser (net::ERR_FAILED, NS_ERROR_FAILURE, Web Inspector)
+    diagnostics.allow(/POST \S*\/qqq\/v1\/manageSession /)
     diagnostics.allow('net::ERR_FAILED')
     let fail = true
     await page.route('**/qqq/v1/manageSession', (route: Route) => fail ? route.abort('failed') : route.continue())
@@ -398,6 +403,6 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(page.locator('[data-qqq-id="login-error"]')).toContainText('Sign-in failed')
     fail = false
     await page.getByRole('button', { name: 'Try again' }).click()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   })
 })

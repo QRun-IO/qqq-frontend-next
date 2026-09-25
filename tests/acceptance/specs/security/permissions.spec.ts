@@ -10,7 +10,7 @@
 // the backend must refuse it with nothing written.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { allowExternalQuickSightWidget, navigation, recordRequests } from './support/ui'
+import { allowExternalQuickSightWidget, listCell, listRows, navigation, recordRequests } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 const personCount = async (sql: (query: string) => Promise<Record<string, string | null>[]>) => Number((await sql('select count(*) as n from person'))[0].n)
@@ -22,7 +22,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     allowExternalQuickSightWidget(diagnostics)
     const before = await personCount(backend.sql)
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create new Person record' })).toHaveCount(0)
 
     await open(page, '/app/person/create')
@@ -65,8 +65,8 @@ test.describe('viewer persona (read only, no processes)', () => {
     await expect(page.getByRole('button', { name: 'Delete Person record' })).toHaveCount(0)
 
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
-    await personGrid(page).getByRole('checkbox', { name: 'Select Avery Sample' }).check()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    await page.getByRole('checkbox', { name: 'Select Avery Sample' }).check()
     await expect(page.locator('[data-qqq-id="bulk-action-bar"]')).toBeVisible()
     await expect(page.locator('[data-qqq-id="bulk-delete"]')).toHaveCount(0)
 
@@ -98,7 +98,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     const processCalls: string[] = []
     page.on('request', (request) => { if (/\/processes\//.test(request.url())) processCalls.push(request.url()) })
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page.locator('[data-qqq-id="process-launcher-trigger"]')).toHaveCount(0)
     const nav = await navigation(page)
     await expect(nav.getByRole('link', { name: 'Person', exact: true })).toBeVisible()
@@ -124,7 +124,7 @@ test.describe('noProcesses persona (full table rights, no processes)', () => {
     void diagnostics
     const before = await personCount(backend.sql)
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create new Person record' })).toBeVisible()
     await expect(page.locator('[data-qqq-id="process-launcher-trigger"]')).toHaveCount(0)
     const nav = await navigation(page)
@@ -171,7 +171,7 @@ test.describe('record-level security (sharing demo)', () => {
     void diagnostics
     void backend
     await open(page, '/app/savedView')
-    await expect(page.getByRole('grid', { name: 'View records' }).getByRole('gridcell', { name: 'Alice People View', exact: true })).toBeVisible()
+    await expect(listCell(page, 'View', 'Alice People View')).toBeVisible()
     await open(page, '/app/savedView/1')
     await expect(page.getByRole('heading', { name: 'Alice People View' }).first()).toBeVisible()
     await open(page, '/app/savedReport/1')
@@ -188,7 +188,7 @@ test.describe('record-level security (sharing demo)', () => {
       await open(page, '/app/savedView')
       await expect(page.getByRole('heading', { name: 'No records found' })).toBeVisible()
       await expect(page.getByText('Alice People View')).toHaveCount(0)
-      await expect(page.locator('[data-qqq-id^="grid-row-"]')).toHaveCount(0)
+      await expect(listRows(page)).toHaveCount(0)
 
       await open(page, '/app/savedView/1')
       await expect(page.locator('[data-qqq-id="record-view-not-found-savedView"]')).toContainText('Record Not Found')

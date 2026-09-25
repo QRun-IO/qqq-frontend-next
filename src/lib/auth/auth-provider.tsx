@@ -331,13 +331,17 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   const handleLogout = useCallback(async () => {
     const metadata = authMetadata
     const loginPath = `/login?returnTo=${encodeURIComponent(currentReturnTo())}`
-    // Signed out first: protected pages unmount (no refetch with an ending session)
-    // and the login page shows the signed-out state instead of signing in again.
+    const providerLogout = Boolean(metadata && (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0'))
+    // Signed out first: protected pages unmount (no refetch with an ending session) and the
+    // login page shows the signed-out state instead of signing in again. Provider logouts
+    // leave the page for the identity provider instead, so no in-app navigation is started.
     redirectingToLogin.current = true
     setSignedOut(true)
-    setSignedOutState(true)
-    setIsAuthenticated(false)
-    setUser(null)
+    if (!providerLogout) {
+      setSignedOutState(true)
+      setIsAuthenticated(false)
+      setUser(null)
+    }
     try {
       await apiLogout()
     } catch (error) {
@@ -365,6 +369,9 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         console.warn('[Auth] Identity provider sign-out unavailable:', error instanceof Error ? error.message : error)
       }
     }
+    setSignedOutState(true)
+    setIsAuthenticated(false)
+    setUser(null)
     router.push(loginPath)
   }, [authMetadata, router])
 

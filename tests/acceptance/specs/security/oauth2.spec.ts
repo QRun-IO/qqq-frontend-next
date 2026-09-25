@@ -11,7 +11,7 @@ import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { navigation, openUserMenu } from './support/ui'
+import { listCell, navigation, openUserMenu } from './support/ui'
 
 const CLIENT_ID = 'qqq-acceptance'
 const CLIENT_SECRET = 'acceptance-secret'
@@ -61,7 +61,7 @@ test.describe('OAUTH2 with PKCE', () => {
 
     await signInAtProvider(page)
     await expect(page).toHaveURL(/\/app\/person\/?$/)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
 
     // the backend (not the browser) redeemed the code, with its secret and the PKCE verifier
     const token = idp.requests.filter((request) => request.path === '/oauth/token')
@@ -76,7 +76,7 @@ test.describe('OAUTH2 with PKCE', () => {
     await expect(nav.locator('[data-qqq-id="sidebar-user-email"]')).toHaveText('dana@qrun.example')
 
     await page.reload()
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     expect(authorizeRequests(idp)).toHaveLength(1)
     expect(await sessions()).toBe(1)
   })
@@ -121,7 +121,7 @@ test.describe('OAUTH2 with PKCE', () => {
     void diagnostics
     await open(page, '/app/person')
     await signInAtProvider(page)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     expect(await sessions()).toBe(1)
     expect(idp.activeSessions()).toBe(1)
 
@@ -131,9 +131,9 @@ test.describe('OAUTH2 with PKCE', () => {
     expect((await backendLogout).status()).toBe(200)
     await expect(page).toHaveURL(/\/login\/?$/)
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
-    expect(idp.requests.some((request) => request.path === '/logout' && request.query.post_logout_redirect_uri === `${SECURITY_URL}/login`)).toBe(true)
+    await expect.poll(() => idp.requests.some((request) => request.path === '/logout' && request.query.post_logout_redirect_uri === `${SECURITY_URL}/login`)).toBe(true)
     expect(await sessions()).toBe(0)
-    expect(idp.activeSessions()).toBe(0)
+    await expect.poll(() => idp.activeSessions()).toBe(0)
 
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
@@ -141,7 +141,7 @@ test.describe('OAUTH2 with PKCE', () => {
     // no provider session any more: the provider asks for the account again
     await signInAtProvider(page, 'Eli Reader (OIDC)')
     await expect(page).toHaveURL(/\/app\/person\/?$/)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     expect(await variantSql('select user_id from user_session')).toEqual([{ user_id: 'oidc|eli' }])
   })
 
@@ -150,7 +150,7 @@ test.describe('OAUTH2 with PKCE', () => {
     diagnostics.allow('status of 401')
     await open(page, '/app/person')
     await signInAtProvider(page)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
 
     // another tab or an administrator ends this session on the server
     const sessionUUID = (await context.cookies()).find((cookie) => cookie.name === 'sessionUUID')?.value
@@ -160,25 +160,28 @@ test.describe('OAUTH2 with PKCE', () => {
     await outside.dispose()
     expect(await sessions()).toBe(0)
 
-    await personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true }).click()
+    await listCell(page, 'Person', 'Blair').click()
     await expect(page).toHaveURL(/\/app\/person\/2\/?$/, { timeout: 30_000 })
     await expect(page.getByRole('heading', { name: /Blair/ }).first()).toBeVisible()
     expect(authorizeRequests(idp)).toHaveLength(2)
     expect(await sessions()).toBe(1)
   })
 
-  test('[SEC-033] v1 logout expires every session cookie the server issued', async ({ page, idp, diagnostics }) => {
+  test('[SEC-033] v1 logout expires every session cookie the server issued', async ({ page, idp, diagnostics, context, playwright }) => {
     void diagnostics
     void idp
     await open(page, '/app/person')
     await signInAtProvider(page)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
-    const menu = await openUserMenu(page)
-    const logout = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
-    const setCookies = (await (await logout).headersArray()).filter((header) => header.name.toLowerCase() === 'set-cookie').map((header) => header.value)
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    const cookies = (await context.cookies()).filter((cookie) => ['sessionUUID', 'sessionId'].includes(cookie.name))
+    expect(cookies.map((cookie) => cookie.name).sort()).toEqual(['sessionId', 'sessionUUID'])
+    const client = await playwright.request.newContext({ baseURL: SECURITY_URL, extraHTTPHeaders: { Cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ') } })
+    const logout = await client.post('/qqq/v1/logout')
+    expect(logout.status()).toBe(200)
+    const setCookies = logout.headersArray().filter((header) => header.name.toLowerCase() === 'set-cookie').map((header) => header.value)
+    await client.dispose()
     for (const name of ['sessionUUID', 'sessionId']) {
-      expect(setCookies.some((cookie) => cookie.startsWith(`${name}=`) && /Max-Age=0|Expires=Thu, 01[- ]Jan[- ]1970/i.test(cookie)), `${name} expired by the server`).toBe(true)
+      expect(setCookies.some((cookie) => cookie.startsWith(`${name}=;`) && /Max-Age=0|Expires=Thu, 01[- ]Jan[- ]1970/i.test(cookie)), `${name} expired by the server`).toBe(true)
     }
   })
 })

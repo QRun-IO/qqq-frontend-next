@@ -96,7 +96,6 @@ function LoginContent() {
   const signInAgain = () => {
     resetReauthAttempts()
     setLoopStopped(false)
-    if (callbackErrorCode) router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`)
     void signIn(returnTo)
   }
 

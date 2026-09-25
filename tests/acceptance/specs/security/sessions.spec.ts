@@ -8,7 +8,7 @@
 // Sessions and MOCK authentication against the shared acceptance backend.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { allowExternalQuickSightWidget, navigation, openUserMenu } from './support/ui'
+import { allowExternalQuickSightWidget, listCell, navigation, openUserMenu } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -18,7 +18,7 @@ test.describe('MOCK sessions', () => {
     const manageSession = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/manageSession')
     await open(page, '/app/person')
     expect((await manageSession).status()).toBe(200)
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page).toHaveURL(/\/app\/person\/?$/)
     const sidebar = await navigation(page)
     await expect(sidebar.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Alice (sample)')
@@ -32,7 +32,7 @@ test.describe('MOCK sessions', () => {
     void diagnostics
     void backend
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     expect((await context.cookies()).map((cookie) => cookie.name)).toContain('sessionUUID')
 
     const menu = await openUserMenu(page)
@@ -95,7 +95,7 @@ test.describe('MOCK sessions', () => {
       await open(page, '/app/person')
       await unauthorized
       await expect(page).toHaveURL(/\/app\/person\/?$/, { timeout: 30_000 })
-      await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+      await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     })
   })
 
@@ -103,10 +103,10 @@ test.describe('MOCK sessions', () => {
     diagnostics.allow(/ 401$/)
       diagnostics.allow('status of 401')
     await open(page, '/app/person')
-    await expect(personGrid(page).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await backend.setPersona('expired')
     const loginVisit = page.waitForURL(/\/login\/?\?returnTo=%2Fapp%2Fperson%2F2/)
-    await personGrid(page).getByRole('gridcell', { name: 'Blair', exact: true }).click()
+    await listCell(page, 'Person', 'Blair').click()
     await loginVisit
     await expect(page).toHaveURL(/\/app\/person\/2\/?$/, { timeout: 30_000 })
     await expect(page.getByRole('heading', { name: /Blair/ }).first()).toBeVisible()
@@ -136,6 +136,7 @@ test.describe('MOCK sessions', () => {
     for (const target of ['https://evil.example/steal', '//evil.example/steal', '/\\evil.example', 'javascript:alert(1)']) {
       await open(page, `/login?returnTo=${encodeURIComponent(target)}`)
       await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/app\/?$/)
+      await page.waitForLoadState('networkidle')
     }
     await open(page, `/login?returnTo=${encodeURIComponent('/app/person/2?x=1')}`)
     await expect(page).toHaveURL(/\/app\/person\/2\/?\?x=1$/)

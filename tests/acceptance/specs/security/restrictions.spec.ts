@@ -11,7 +11,7 @@
 import type { Page } from '@playwright/test'
 import { open } from '../../support/fixtures'
 import { expect, test } from './support/variant'
-import { navigation, recordRequests } from './support/ui'
+import { listCell, listRows, navigation, recordRequests } from './support/ui'
 
 const grid = (page: Page, label: string) => page.getByRole('grid', { name: `${label} records` })
 const denied = (page: Page) => page.locator('[data-qqq-id="permission-denied"]')
@@ -20,7 +20,7 @@ test.describe('disabled table (DenyBehavior.DISABLED)', () => {
   test('[SEC-002] admin lists the ledger; noPets sees it listed but every link explains the denial and loads nothing', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityLedger')
-    await expect(grid(page, 'Security Ledger').getByRole('gridcell', { name: 'Opening Balance', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Security Ledger', 'Opening Balance')).toBeVisible()
 
     await security.setPersona('noPets')
     const reads = recordRequests(page)
@@ -125,8 +125,10 @@ test.describe('app restrictions', () => {
     await expect(nav.getByRole('link', { name: 'Pet Vault App', exact: true })).toHaveCount(0)
     await expect(nav.getByRole('link', { name: 'Pet Disabled App', exact: true })).toBeVisible()
 
+    await page.waitForLoadState('networkidle')
     await open(page, '/app/securityPetApp')
     await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'securityPetApp' })).toBeVisible()
+    await page.waitForLoadState('networkidle')
     await open(page, '/app/securityPetDisabledApp')
     await expect(page.locator('[data-qqq-id="app-section-table-securityLedger"]')).toHaveAttribute('aria-disabled', 'true')
     expect(reads.filter((url) => /securityLedger/.test(url))).toEqual([])
@@ -137,11 +139,10 @@ test.describe('record security lock', () => {
   test('[SEC-012] alice sees and edits only her notes', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityNote')
-    const notes = grid(page, 'Security Note')
-    await expect(notes.getByRole('gridcell', { name: 'Alice Plan', exact: true })).toBeVisible()
-    await expect(notes.getByRole('gridcell', { name: 'Alice Budget', exact: true })).toBeVisible()
-    await expect(notes.getByRole('gridcell', { name: 'Bob Memo', exact: true })).toHaveCount(0)
-    await expect(page.locator('[data-qqq-id^="grid-row-"]')).toHaveCount(2)
+    await expect(listCell(page, 'Security Note', 'Alice Plan')).toBeVisible()
+    await expect(listCell(page, 'Security Note', 'Alice Budget')).toBeVisible()
+    await expect(listCell(page, 'Security Note', 'Bob Memo')).toHaveCount(0)
+    await expect(listRows(page)).toHaveCount(2)
 
     await open(page, '/app/securityNote/1/edit')
     const title = page.getByRole('textbox', { name: 'Title' })
@@ -159,10 +160,9 @@ test.describe('record security lock', () => {
       diagnostics.allow('/data/securityNote/1 404')
       diagnostics.allow('status of 404')
       await open(page, '/app/securityNote')
-      const notes = grid(page, 'Security Note')
-      await expect(notes.getByRole('gridcell', { name: 'Bob Memo', exact: true })).toBeVisible()
-      await expect(page.locator('[data-qqq-id^="grid-row-"]')).toHaveCount(1)
-      await expect(notes.getByText('Alice Plan')).toHaveCount(0)
+        await expect(listCell(page, 'Security Note', 'Bob Memo')).toBeVisible()
+      await expect(listRows(page)).toHaveCount(1)
+      await expect(page.getByText('Alice Plan')).toHaveCount(0)
 
       await open(page, '/app/securityNote/1')
       await expect(page.locator('[data-qqq-id="record-view-not-found-securityNote"]')).toContainText('Record Not Found')
@@ -201,6 +201,9 @@ test.describe('protected fields', () => {
       }
     })
     await open(page, '/app/securityVault')
+    await expect(listCell(page, 'Security Vault', 'Primary Vault')).toBeVisible()
+    // column-level checks need the grid (phones start in card view)
+    if (await page.getByRole('list', { name: 'Security Vault records' }).isVisible()) await page.getByRole('button', { name: 'Table view' }).click()
     const vault = grid(page, 'Security Vault')
     await expect(vault.getByRole('gridcell', { name: 'Primary Vault', exact: true })).toBeVisible()
     await expect(vault.getByRole('columnheader', { name: /Vault Note/ })).toHaveCount(0)
@@ -254,7 +257,7 @@ test.describe('capability restrictions', () => {
   test('[SEC-014] a table without insert/update/delete capabilities offers none of them and refuses them', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityArchive')
-    await expect(grid(page, 'Security Archive').getByRole('gridcell', { name: 'Archived Contract', exact: true })).toBeVisible()
+    await expect(listCell(page, 'Security Archive', 'Archived Contract')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create new Security Archive record' })).toHaveCount(0)
     await open(page, '/app/securityArchive/1')
     await expect(page.getByRole('heading', { name: 'Archived Contract' }).first()).toBeVisible()
