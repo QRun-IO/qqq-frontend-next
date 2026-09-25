@@ -17,6 +17,7 @@
 /** @file Bounded, exact named association drafts for a single recursive insert. */
 
 import type { QRecord, QRecordInput, QTableMetaData } from '@/types'
+import { adornmentString } from './adornment-utils'
 import { defaultValuesForCopy, zodSchemaFromTableMetadata, validateCopyPasswords } from './zod-from-metadata'
 
 export const MAX_COPY_DEPTH = 64
@@ -89,7 +90,7 @@ export function prepareCopyTree(table: QTableMetaData, source: QRecord, tables: 
     const companions: Record<string, unknown> = {}
     for (const name of fields) {
       if (active.fields[name].type !== 'BLOB') continue
-      const companion = active.fields[name].adornments?.find(item => item.type === 'FILE_DOWNLOAD')?.values?.fileNameField
+      const companion = adornmentString(active.fields[name], 'FILE_DOWNLOAD', 'fileNameField')
       if (companion && !assigned.includes(companion) && companion !== active.primaryKeyField) {
         if (!active.fields[companion] || active.fields[companion].isHidden || !Object.prototype.hasOwnProperty.call(record.values, companion)) throw new Error('Full copy file metadata is unavailable.')
         if (!fields.includes(companion)) companions[companion] = record.values[companion]

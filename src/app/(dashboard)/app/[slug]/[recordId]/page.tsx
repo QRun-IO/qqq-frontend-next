@@ -37,6 +37,7 @@ import { addRecentRecord } from '@/lib/utils/recent-records'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
+import { auditSource } from '@/lib/api/audits'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
@@ -159,6 +160,7 @@ export default function RecordViewPage() {
         allTables={metaData?.tables}
         widgetMetaDataMap={metaData?.widgets}
         associationTables={associationTables}
+        auditSource={auditSource(metaData)}
       />
     </>
   )

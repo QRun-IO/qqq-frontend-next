@@ -23,7 +23,7 @@
 import React from 'react'
 import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
-import type { QFieldMetaData, QTableSection, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 
@@ -68,6 +68,21 @@ export interface DynamicFormProps {
    */
   dirtyFields?: Record<string, boolean>
 
+  /**
+   * The record being edited, if any: supplies the display of read-only fields, the
+   * current file of upload fields and the labels of possible-value selections.
+   */
+  record?: QRecord
+
+  /** Show non-editable fields as read-only controls (the edit screen does; create and copy do not). */
+  showReadOnlyFields?: boolean
+
+  /** Screen roles used to choose field help content, most specific first. */
+  helpRoles?: readonly string[]
+
+  /** Limit typing to each field's `maxLength` (default); record forms turn this off. */
+  enforceMaxLength?: boolean
+
   /** Optional heading rendered above the field grid. */
   formLabel?: string
 
@@ -104,6 +119,10 @@ export function DynamicForm({
   possibleValueContext,
   disabled = false,
   dirtyFields,
+  record,
+  showReadOnlyFields = false,
+  helpRoles,
+  enforceMaxLength = true,
   formLabel,
   className,
 }: DynamicFormProps) {
@@ -127,7 +146,7 @@ export function DynamicForm({
     // Collect field names in section order
     const resolvedSections = sections ?? tableMetaData.sections
     for (const section of resolvedSections) {
-      if (section.isHidden) continue
+      if (section.isHidden || section.hidden) continue
       for (const fn of section.fieldNames) {
         if (!fieldOrder.includes(fn)) fieldOrder.push(fn)
       }
@@ -155,7 +174,7 @@ export function DynamicForm({
   const hasSections =
     tableMetaData &&
     tableMetaData.sections &&
-    tableMetaData.sections.filter((s) => !s.isHidden).length > 0 &&
+    tableMetaData.sections.filter((s) => !s.isHidden && !s.hidden).length > 0 &&
     !fields
 
   if (hasSections && tableMetaData) {
@@ -166,13 +185,14 @@ export function DynamicForm({
           <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
         )}
         {resolvedSections
-          .filter((s) => !s.isHidden)
+          .filter((s) => !s.isHidden && !s.hidden)
           .map((section) => {
             const sectionFields = section.fieldNames
               .map((fn) => tableMetaData.fields[fn])
               .filter((f): f is QFieldMetaData => {
                 if (!f) return false
                 if (f.isHidden) return false
+                if (!f.isEditable && !showReadOnlyFields && !disabled) return false
                 if (fieldNamesToInclude && !fieldNamesToInclude.includes(f.name)) return false
                 return true
               })
@@ -219,6 +239,10 @@ export function DynamicForm({
                         disabled={disabled}
                         isDirty={dirtyFields?.[f.name] === true}
                         possibleValueContext={possibleValueContext}
+                        record={record}
+                        showReadOnly={showReadOnlyFields}
+                        helpRoles={helpRoles}
+                        enforceMaxLength={enforceMaxLength}
                       />
                     </div>
                   ))}
@@ -253,6 +277,10 @@ export function DynamicForm({
               disabled={disabled}
               isDirty={dirtyFields?.[f.name] === true}
               possibleValueContext={possibleValueContext}
+              record={record}
+              showReadOnly={showReadOnlyFields}
+              helpRoles={helpRoles}
+              enforceMaxLength={enforceMaxLength}
             />
           </div>
         ))}

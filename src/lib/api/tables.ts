@@ -21,7 +21,7 @@
 import { isAxiosError } from 'axios'
 import { z } from 'zod'
 
-import type { QRecord, QRecordInput, QQueryFilter, QueryJoin, QAuditRecord } from '@/types'
+import type { QRecord, QRecordInput, QQueryFilter, QueryJoin } from '@/types'
 import apiClient from './client'
 import {
   QRecordSchema,
@@ -352,35 +352,6 @@ export async function globalSearch(
     if (isAxiosError(err) && err.response?.status === 404) return []
     throw err
   }
-}
-
-/**
- * Response body returned by the audits endpoint.
- */
-export interface AuditRecordsResponse {
-  /** Ordered list of audit log entries for the requested record. */
-  records: QAuditRecord[]
-}
-
-/**
- * Fetches the audit log for a single record via `GET /table/{tableName}/{primaryKey}/audits`.
- *
- * @param tableName - Exact backend table identifier used as a URL path segment;
- *   case-sensitive and must match the backend declaration exactly.
- * @param primaryKey - Primary key of the record whose audit trail to retrieve;
- *   may be a numeric database ID or a string identifier.
- * @returns An array of `QAuditRecord` entries in reverse-chronological order,
- *   each describing a single field-level change event with actor, timestamp,
- *   and old/new values.
- */
-export async function getAuditRecords(
-  tableName: string,
-  primaryKey: string | number
-): Promise<QAuditRecord[]> {
-  const response = await apiClient.get<AuditRecordsResponse>(
-    `/table/${encodeURIComponent(tableName)}/${primaryKey}/audits`
-  )
-  return response.records
 }
 
 /**

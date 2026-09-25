@@ -21,16 +21,17 @@
 'use client'
 
 import React, { useState } from 'react'
-import Link from 'next/link'
-import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy } from 'lucide-react'
+import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
+import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordActions } from './RecordActions'
-import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
+import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { AuditHistoryDialog } from './AuditHistoryDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -75,6 +76,10 @@ interface RecordViewHeaderProps {
   allTables?: Record<string, QTableMetaData>
   /** Navigation context used to build outgoing record links with a back reference. */
   navigateFrom: { path: string; label: string }
+  /** How the current user can read audits; `null` hides the Audit action. */
+  auditSource?: AuditSource
+  /** Widget metadata, for WIDGET-adorned T1 fields. */
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
 }
 
 /**
@@ -101,8 +106,11 @@ export function RecordViewHeader({
   processes,
   allTables,
   navigateFrom,
+  auditSource = null,
+  widgetMetaDataMap,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
@@ -170,43 +178,16 @@ export function RecordViewHeader({
             className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4"
             data-qqq-id="record-primary-sections"
           >
-            {t1Fields.map((field) => {
-              const displayVal = record.displayValues?.[field.name]
-              const rawVal = record.values[field.name]
-              const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
-              const pvsName = field.possibleValueSourceName
-              const refMeta = pvsName ? allTables?.[pvsName] : undefined
-              const isLink = Boolean(refMeta) && rawVal != null
-              const fromParams = navigateFrom
-                ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
-                : ''
-              return (
-                <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
-                  <dt className="text-xs text-muted-foreground">
-                    <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
-                  </dt>
-                  <dd className="text-sm">
-                    {val == null ? '\u2014' : isLink && refMeta ? (
-                      <RecordHoverCard
-                        tableName={pvsName!}
-                        primaryKey={rawVal as string | number}
-                        tableMetaData={refMeta}
-                        navigateFrom={navigateFrom}
-                      >
-                        <Link
-                          href={`/app/${pvsName}/${rawVal}${fromParams}`}
-                          className="text-primary hover:text-primary/80 hover:underline"
-                        >
-                          {val}
-                        </Link>
-                      </RecordHoverCard>
-                    ) : (
-                      <span className="text-foreground">{val}</span>
-                    )}
-                  </dd>
-                </div>
-              )
-            })}
+            {t1Fields.map((field) => (
+              <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
+                <dt className="text-xs text-muted-foreground">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                </dt>
+                <dd className="text-sm">
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                </dd>
+              </div>
+            ))}
             {/* One-to-one join fields */}
 
           </dl>
@@ -249,6 +230,24 @@ export function RecordViewHeader({
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+
+        {auditSource && (
+          <button
+            type="button"
+            onClick={() => setAuditOpen(true)}
+            data-qqq-id="button-audit"
+            aria-label={`Audit history for ${record.recordLabel || tableMetaData.label}`}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'transition-colors duration-150'
+            )}
+          >
+            <History className="h-4 w-4" aria-hidden="true" />
+            Audit
+          </button>
+        )}
 
         {!hideActions && (
           <>
@@ -413,6 +412,17 @@ export function RecordViewHeader({
        * provides a built-in focus trap, Escape-key dismissal, and focus restoration on close.
        * No additional focus-trap logic is needed — Radix handles it automatically.
        */}
+      {auditSource && (
+        <AuditHistoryDialog
+          open={auditOpen}
+          onOpenChange={setAuditOpen}
+          source={auditSource}
+          tableMetaData={tableMetaData}
+          primaryKey={primaryKey}
+          recordLabel={record.recordLabel || String(primaryKey)}
+        />
+      )}
+
       {showMobileDeleteDialog && (
         <DeleteConfirmDialog
           tableMetaData={tableMetaData}

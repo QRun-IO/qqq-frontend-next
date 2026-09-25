@@ -37,6 +37,7 @@ import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
+import { recordLoadFailure } from '@/lib/utils/error-utils'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 
@@ -115,7 +116,7 @@ export default function EntityEditPage() {
         role="alert"
       >
         <p className="text-sm text-destructive">
-          {error?.message ?? `Failed to load ${tableMetaData.label} #${recordId}`}
+          {recordLoadFailure(tableMetaData.label, recordId, error)}
         </p>
       </div>
     )

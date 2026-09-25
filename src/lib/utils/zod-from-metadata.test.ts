@@ -61,7 +61,8 @@ it('preserves explicit null only in copy defaults while retaining ordinary defau
   })
   const values = { flag: null, note: null }
   expect(defaultValuesForCopy(table, values)).toEqual({ id: '', flag: null, note: null, missing: 'Omitted default' })
-  expect(defaultValuesFromRecord(table, values)).toEqual({ flag: false, note: 'Default note', missing: 'Omitted default' })
+  // Editing shows what is stored; metadata defaults are for new records only.
+  expect(defaultValuesFromRecord(table, values)).toEqual({ flag: null, note: '', missing: '' })
   expect(values).toEqual({ flag: null, note: null })
 })
 
@@ -91,10 +92,13 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse('Alice').success).toBe(true)
     })
 
-    it('enforces maxLength', () => {
-      const schema = zodFieldFromMetadata(makeField({ type: 'STRING', maxLength: 5 }))
+    it('enforces maxLength for process fields but leaves record forms to the server policy', () => {
+      const field = makeField({ name: 'code', type: 'STRING', maxLength: 5 })
+      const schema = zodFieldFromMetadata(field)
       expect(schema.safeParse('hello').success).toBe(true)
       expect(schema.safeParse('toolong').success).toBe(false)
+      expect(zodFieldFromMetadata(field, { enforceMaxLength: false }).safeParse('toolong').success).toBe(true)
+      expect(zodSchemaFromTableMetadata(makeTable({ code: field })).safeParse({ code: 'toolong' }).success).toBe(true)
     })
   })
 
@@ -111,9 +115,13 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse(3.14).success).toBe(false) // not integer
     })
 
-    it('LONG behaves same as INTEGER', () => {
+    it('LONG keeps the exact digits, including values beyond 2^53', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'LONG' }))
       expect(schema.safeParse(9999999).success).toBe(true)
+      expect(schema.parse('9007199254740993')).toBe('9007199254740993')
+      expect(schema.parse('')).toBe('')
+      expect(schema.safeParse('1.5').success).toBe(false)
+      expect(schema.safeParse('12abc').success).toBe(false)
     })
   })
 
@@ -133,9 +141,11 @@ describe('zodFieldFromMetadata', () => {
   it.each(['INTEGER', 'LONG', 'DECIMAL'] as const)('rejects blank required %s without changing it to zero', (type) => {
     const schema = zodFieldFromMetadata(makeField({ type, isRequired: true }))
     for (const blank of ['', '   ', null, undefined]) expect(schema.safeParse(blank).success).toBe(false)
-    expect(schema.parse('0')).toBe(0)
-    expect(schema.parse(0)).toBe(0)
-    expect(schema.parse('12')).toBe(12)
+    // LONG keeps the digits as text (exact beyond 2^53); the others parse to numbers.
+    const number = (value: number) => (type === 'LONG' ? String(value) : value)
+    expect(schema.parse('0')).toBe(number(0))
+    expect(schema.parse(0)).toBe(number(0))
+    expect(schema.parse('12')).toBe(number(12))
   })
 
   describe('BOOLEAN type', () => {
@@ -215,6 +225,15 @@ describe('zodFieldFromMetadata', () => {
     it('accepts string (URL)', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'BLOB' }))
       expect(schema.safeParse('https://example.com/file.pdf').success).toBe(true)
+    })
+
+    it('accepts removing an optional file and requires a required one', () => {
+      expect(zodFieldFromMetadata(makeField({ type: 'BLOB' })).safeParse(null).success).toBe(true)
+      const required = zodFieldFromMetadata(makeField({ type: 'BLOB', isRequired: true, label: 'Scan' }))
+      expect(required.safeParse(null).success).toBe(false)
+      expect(required.safeParse('').success).toBe(false)
+      expect(required.safeParse(new File(['x'], 'x.txt')).success).toBe(true)
+      expect(required.safeParse(42).error?.issues[0].message).toBe('Scan must be a file')
     })
   })
 })
@@ -301,12 +320,12 @@ describe('defaultValuesFromRecord', () => {
     expect(defaults.active).toBe(true)
   })
 
-  it('uses defaultValue from metadata when no record value', () => {
+  it('shows a stored null instead of the metadata default when editing', () => {
     const table = makeTable({
       status: makeField({ name: 'status', type: 'STRING', isEditable: true, defaultValue: 'pending' }),
     })
-    const defaults = defaultValuesFromRecord(table, {})
-    expect(defaults.status).toBe('pending')
+    const defaults = defaultValuesFromRecord(table, { status: null })
+    expect(defaults.status).toBe('')
   })
 
   it('uses empty string for string fields with no value and no default', () => {
@@ -317,11 +336,11 @@ describe('defaultValuesFromRecord', () => {
     expect(defaults.notes).toBe('')
   })
 
-  it('uses false for boolean fields with no value and no default', () => {
+  it('keeps an unset boolean unset (tri-state) instead of showing false', () => {
     const table = makeTable({
       active: makeField({ name: 'active', type: 'BOOLEAN', isEditable: true }),
     })
     const defaults = defaultValuesFromRecord(table, {})
-    expect(defaults.active).toBe(false)
+    expect(defaults.active).toBeNull()
   })
 })

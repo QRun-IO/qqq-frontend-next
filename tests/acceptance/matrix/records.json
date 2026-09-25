@@ -4,5 +4,958 @@
     "REC"
   ],
   "description": "Records, fields, editors, adornments, validation and persistence",
-  "rows": []
+  "rows": [
+    {
+      "id": "REC-001",
+      "feature": "Record view shows the record label, tiered sections and backend-formatted values",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "src/components/records/RecordView.tsx"
+      ],
+      "fixture": "prime-test-database.sql (person 1)",
+      "scenarios": [
+        "label heading",
+        "T1 header fields",
+        "T2 section cards",
+        "currency, grouped integer, Yes/No, date"
+      ],
+      "negative": [
+        "values match independent SQL readback"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-002",
+      "feature": "Empty values render a placeholder; hidden fields and hidden sections are never shown",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "src/components/records/RecordViewSection.tsx"
+      ],
+      "fixture": "person 4 (NULL birth date); recordLab hiddenCode + hidden legacy section",
+      "scenarios": [
+        "NULL date shows an em dash",
+        "hidden field absent from view and from the GET payload",
+        "hidden section not rendered"
+      ],
+      "negative": [
+        "hidden value stays stored (SQL)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677",
+        "QRun-IO/qqq#680"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-003",
+      "feature": "Record view of a missing record shows Record Not Found and a way back",
+      "source": [
+        "src/components/records/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx"
+      ],
+      "fixture": "person 999 (absent)",
+      "scenarios": [
+        "not-found panel",
+        "back to the table list"
+      ],
+      "negative": [
+        "404 read is the only failed request",
+        "no generic error toast"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-004",
+      "feature": "Record view tabs and list view expose every visible section",
+      "source": [
+        "src/components/records/RecordViewTabs.tsx",
+        "src/components/records/RecordView.tsx"
+      ],
+      "fixture": "fieldLab record created in the test",
+      "scenarios": [
+        "Overview shows all T2 sections",
+        "a section tab shows only that section",
+        "list view shows every section"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-005",
+      "feature": "Create form validates required fields in the browser before any request",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "src/lib/utils/zod-from-metadata.ts",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "person",
+      "scenarios": [
+        "required markers and messages for each required field"
+      ],
+      "negative": [
+        "no insert request, no row"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-006",
+      "feature": "Create persists the entered values and opens the new record",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "person",
+      "scenarios": [
+        "success toast",
+        "navigates to /app/person/<new id>",
+        "view shows the entered values"
+      ],
+      "negative": [
+        "non-editable fields are not offered on create",
+        "row matches SQL readback"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-007",
+      "feature": "Backend enforces required fields when the UI is bypassed",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core InsertAction (Missing value in required field)"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "direct insert without Name is rejected with the backend message"
+      ],
+      "negative": [
+        "no row written"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-008",
+      "feature": "Cancel from create and edit, with the unsaved-changes guard",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/components/forms/UnsavedChangesDialog.tsx"
+      ],
+      "fixture": "person",
+      "scenarios": [
+        "clean cancel returns immediately",
+        "dirty cancel asks Stay/Leave",
+        "Stay keeps typed values",
+        "Leave discards"
+      ],
+      "negative": [
+        "no insert or update request",
+        "no row created or changed"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-009",
+      "feature": "Edit loads stored values, saves only what changed, and shows the updated record",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "src/components/forms/EntityForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "person 1",
+      "scenarios": [
+        "fields prefilled from the record",
+        "Save disabled until a change",
+        "view shows the new value without reload"
+      ],
+      "negative": [
+        "only the changed field is submitted",
+        "other columns unchanged in SQL"
+      ],
+      "issues": [
+        "QRun-IO/qqq#672",
+        "QRun-IO/qqq#676"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-010",
+      "feature": "Edit shows non-editable fields read-only and never submits them",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "src/components/forms/DynamicFormField.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "person 1 (id, createDate, modifyDate)",
+      "scenarios": [
+        "read-only controls with the stored values"
+      ],
+      "negative": [
+        "controls are disabled",
+        "create date unchanged in SQL after save"
+      ],
+      "issues": [
+        "QRun-IO/qqq#680",
+        "QRun-IO/qqq#537"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-011",
+      "feature": "Edit of a missing record shows the load failure instead of a form",
+      "source": [
+        "src/app/(dashboard)/app/[slug]/[recordId]/edit/page.tsx"
+      ],
+      "fixture": "person 999",
+      "scenarios": [
+        "error message, no form fields"
+      ],
+      "negative": [
+        "404 is the only failed request"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-012",
+      "feature": "Delete asks for confirmation, removes the record and returns to the list without errors",
+      "source": [
+        "src/components/records/DeleteConfirmDialog.tsx",
+        "src/lib/utils/record-cache.ts"
+      ],
+      "fixture": "person 5",
+      "scenarios": [
+        "dialog names the record",
+        "Cancel keeps it",
+        "Delete removes it and returns to the list",
+        "success toast"
+      ],
+      "negative": [
+        "no Resource not found toast",
+        "no 404 read of the deleted record",
+        "row gone in SQL"
+      ],
+      "issues": [
+        "QRun-IO/qqq#541"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-013",
+      "feature": "Copy prefills a new record from the source and saves it as a separate record",
+      "source": [
+        "src/app/(dashboard)/app/[slug]/[recordId]/copy/page.tsx",
+        "src/lib/utils/zod-from-metadata.ts"
+      ],
+      "fixture": "person 1; recordLab 1",
+      "scenarios": [
+        "source values prefilled without the key",
+        "save creates a new row and opens it",
+        "source unchanged"
+      ],
+      "negative": [
+        "unique-key conflict on copy shows the backend message and keeps the form",
+        "download-URL files are not copied"
+      ],
+      "issues": [
+        "QRun-IO/qqq#672"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-014",
+      "feature": "STRING and TEXT editors round-trip single and multi-line text",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/components/forms/DynamicFormField.tsx"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "single-line input",
+        "multi-line textarea keeps line breaks in view and SQL"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-015",
+      "feature": "INTEGER, LONG and DECIMAL editors keep exact values",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/lib/utils/zod-from-metadata.ts"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "LONG beyond 2^53 saved and shown exactly",
+        "DECIMAL with 4 places"
+      ],
+      "negative": [
+        "fractional LONG rejected in the browser",
+        "backend rejects a fractional LONG sent directly"
+      ],
+      "issues": [
+        "QRun-IO/qqq#679"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-016",
+      "feature": "BOOLEAN editor applies the metadata default and saves true/false",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/components/forms/field-types/BooleanField.tsx"
+      ],
+      "fixture": "fieldLab (booleanValue default true)",
+      "scenarios": [
+        "create form starts at the default (true)",
+        "switching to false persists false",
+        "view shows Yes/No"
+      ],
+      "negative": [
+        "unchanged boolean is not rewritten on edit"
+      ],
+      "issues": [
+        "QRun-IO/qqq#680"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-017",
+      "feature": "DATE and TIME editors round-trip values and clearing",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "date input value and view",
+        "time input value and backend 12-hour display",
+        "clearing a date stores NULL"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-018",
+      "feature": "DATE_TIME is entered and shown in the viewer's time zone and stored in UTC",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/lib/utils/datetime-utils.ts",
+        "qqq-frontend-material-dashboard/src/qqq/utils/qqq/ValueUtils.tsx"
+      ],
+      "fixture": "fieldLab; browser zone America/New_York",
+      "scenarios": [
+        "typed local time stored as the UTC instant",
+        "view shows yyyy-MM-dd hh:mm:ss AM EDT",
+        "edit form shows the local time"
+      ],
+      "negative": [
+        "unchanged date-times are not rewritten",
+        "non-editable date-times read-only"
+      ],
+      "issues": [
+        "QRun-IO/qqq#679"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-019",
+      "feature": "Zoned DATE_TIME display behaviors (fixed zone and per-record zone)",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core DateTimeDisplayValueBehavior"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "fixed America/Chicago display",
+        "display in the record's own timeZone",
+        "daylight-saving boundary"
+      ],
+      "negative": [
+        "invalid zone falls back to UTC"
+      ],
+      "issues": [
+        "QRun-IO/qqq#679"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-020",
+      "feature": "HTML field edits in the rich-text editor and renders sanitized",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/components/forms/RichTextField.tsx"
+      ],
+      "fixture": "fieldLab htmlValue",
+      "scenarios": [
+        "formatted text rendered on the view"
+      ],
+      "negative": [
+        "script content is not executed"
+      ],
+      "issues": [
+        "QRun-IO/qqq#676"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-021",
+      "feature": "PASSWORD is masked on read and never overwritten by the mask",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "fieldLab passwordValue",
+      "scenarios": [
+        "view shows the mask",
+        "typing a new password saves it"
+      ],
+      "negative": [
+        "editing another field keeps the stored password (SQL)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#672"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-022",
+      "feature": "BLOB upload and download without a download adornment",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "src/components/forms/field-types/FileUploadField.tsx",
+        "src/components/records/FieldValue.tsx"
+      ],
+      "fixture": "fieldLab blobValue",
+      "scenarios": [
+        "file chosen on create is stored byte-for-byte",
+        "view offers the bytes as a download"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-023",
+      "feature": "Dynamic default values (user id, create day, modify day, explicit NONE)",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core DynamicDefaultValueBehavior"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "user id and dates filled on create",
+        "modify day updated on edit, create day kept"
+      ],
+      "negative": [
+        "NONE leaves the value empty"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-024",
+      "feature": "Max-length policies: truncate, ellipsis, pass-through and reject",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core ValueTooLongBehavior"
+      ],
+      "fixture": "fieldLab (maxLength 8)",
+      "scenarios": [
+        "truncate, ellipsis and pass-through stored as declared"
+      ],
+      "negative": [
+        "reject shows the backend message, keeps the form and writes nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#680"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-025",
+      "feature": "Case and whitespace normalization on save",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "upper, lower, trim variants, remove-all-whitespace and unchanged stored as declared"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-026",
+      "feature": "Numeric range policies: reject, exclusive reject, inclusive clip and exclusive clip",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core ValueRangeBehavior"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "clip to 0/100 and 0.01/99.99"
+      ],
+      "negative": [
+        "out-of-range and exclusive-boundary values show the backend message and write nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-027",
+      "feature": "Unique keys are enforced with the backend message on create and edit",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/FieldLabTableMetaDataProducer.java",
+        "qqq-backend-core UniqueKeyHelper"
+      ],
+      "fixture": "fieldLab (name, normalizedKey)",
+      "scenarios": [
+        "distinct values save"
+      ],
+      "negative": [
+        "duplicate Name on create",
+        "duplicate normalized key on edit",
+        "form keeps values, row unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-028",
+      "feature": "LINK adornment: record links and URL links",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "src/lib/utils/adornment-utils.ts",
+        "qqq-frontend-material-dashboard/src/qqq/utils/qqq/ValueUtils.tsx"
+      ],
+      "fixture": "recordLab (ownerId, website)",
+      "scenarios": [
+        "toRecordFromTable opens the referenced record",
+        "URL opens in a new tab (target _blank)"
+      ],
+      "negative": [
+        "a non-http value is not turned into a link"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-029",
+      "feature": "CHIP adornment colors and icons by value",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java"
+      ],
+      "fixture": "recordLab status",
+      "scenarios": [
+        "label is the display value",
+        "color from color.<value>",
+        "icon from icon.<value>"
+      ],
+      "negative": [
+        "undeclared value uses the default color"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-030",
+      "feature": "SIZE adornment sets the query grid column width",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "src/components/query/DataGrid.tsx"
+      ],
+      "fixture": "recordLab shortCode (width small)",
+      "scenarios": [
+        "column is 100px wide"
+      ],
+      "negative": [
+        "undeclared columns keep the default width"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-031",
+      "feature": "CODE_EDITOR adornment: code view with formatting and a code editor on forms",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "src/components/forms/ScriptEditor.tsx"
+      ],
+      "fixture": "recordLab config (json)",
+      "scenarios": [
+        "view shows the code and its language",
+        "Format JSON / Reset Format",
+        "editor saves edited code"
+      ],
+      "negative": [
+        "invalid JSON reports a formatting error"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-032",
+      "feature": "RENDER_HTML adornment renders sanitized HTML",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java"
+      ],
+      "fixture": "recordLab htmlNote",
+      "scenarios": [
+        "markup rendered"
+      ],
+      "negative": [
+        "script removed and not executed"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-033",
+      "feature": "REVEAL adornment masks, reveals and copies the value",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java"
+      ],
+      "fixture": "recordLab apiToken (PASSWORD + REVEAL)",
+      "scenarios": [
+        "masked by default",
+        "reveal shows the exact stored value",
+        "hide masks again"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-034",
+      "feature": "FILE_DOWNLOAD adornment links to the stored file with its name",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-middleware-javalin QJavalinImplementation.dataDownloadRecordField"
+      ],
+      "fixture": "recordLab attachment (heavy, fileNameField) and notesFile (fileNameFormat)",
+      "scenarios": [
+        "file name from the companion field",
+        "file name from the format",
+        "open and download return the stored bytes"
+      ],
+      "negative": [
+        "record without a file shows no link"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-035",
+      "feature": "FILE_UPLOAD adornment formats, replacing and removing a stored file",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "src/components/forms/field-types/FileUploadField.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/FileInputField.tsx"
+      ],
+      "fixture": "recordLab attachment (dragAndDrop), notesFile (button)",
+      "scenarios": [
+        "drag-and-drop zone and button formats",
+        "current file shown on edit",
+        "new file replaces bytes and file name"
+      ],
+      "negative": [
+        "removing the file clears bytes and name"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677",
+        "QRun-IO/qqq#680"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-036",
+      "feature": "TOOLTIP adornment shows its text on the value",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java"
+      ],
+      "fixture": "recordLab hint (staticText)",
+      "scenarios": [
+        "tooltip on hover and keyboard focus"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-037",
+      "feature": "WIDGET adornment renders the field value as the named widget",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/FieldValueAsWidget.tsx"
+      ],
+      "fixture": "recordLab summaryWidget",
+      "scenarios": [
+        "widget content from the record"
+      ],
+      "negative": [
+        "the value is not offered as an editable field"
+      ],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-038",
+      "feature": "ERROR adornment highlights the value",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/fields/AdornmentType.java",
+        "tests/acceptance/fixture/RecordsFixtures.java"
+      ],
+      "fixture": "recordLab problem",
+      "scenarios": [
+        "value shown with error styling"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#677"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-039",
+      "feature": "Field help content follows screen roles and formats",
+      "source": [
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-backend-core QHelpContent/QHelpRole",
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/HelpContent.tsx",
+        "qqq-middleware-javalin v1 FieldMetaData"
+      ],
+      "fixture": "recordLab title/website/ownerId help",
+      "scenarios": [
+        "view: READ_SCREENS text and VIEW_SCREEN HTML",
+        "edit: WRITE_SCREENS markdown rendered and EDIT_SCREEN text",
+        "create: INSERT_SCREEN text"
+      ],
+      "negative": [
+        "help for other screens is not shown"
+      ],
+      "issues": [
+        "QRun-IO/qqq#681",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-040",
+      "feature": "Section help content on the record view",
+      "source": [
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-backend-core QFieldSection.helpContents"
+      ],
+      "fixture": "recordLab presentation section",
+      "scenarios": [
+        "HTML help under the section heading"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#681"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-041",
+      "feature": "Table help content slots are delivered in table metadata",
+      "source": [
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-middleware-javalin v1 TableMetaDataLight.getHelpContents"
+      ],
+      "fixture": "recordLab summary slot",
+      "scenarios": [
+        "v1 table metadata carries the slot help"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-042",
+      "feature": "Audit history lists who changed what, newest first",
+      "source": [
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-backend-core GetAuditsForRecordProcess/DMLAuditAction",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/AuditBody.tsx"
+      ],
+      "fixture": "recordLab (FIELD audits)",
+      "scenarios": [
+        "edit then open Audit: message, user and per-field sentences",
+        "audit rows independently verified in SQL"
+      ],
+      "negative": [
+        "unaudited record shows no audits"
+      ],
+      "issues": [
+        "QRun-IO/qqq#678"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-043",
+      "feature": "Audit history without process permission reads the audit table",
+      "source": [
+        "src/lib/api/audits.ts",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/AuditBody.tsx"
+      ],
+      "fixture": "recordLab; persona noProcesses",
+      "scenarios": [
+        "same entries via the audit table query"
+      ],
+      "negative": [
+        "no process request is made"
+      ],
+      "issues": [
+        "QRun-IO/qqq#678"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-044",
+      "feature": "Record label format is used for the record's title and dialogs",
+      "source": [
+        "tests/acceptance/fixture/RecordsFixtures.java",
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml",
+        "qqq-backend-core QValueFormatter.formatRecordLabel"
+      ],
+      "fixture": "recordLab (Lab: %s)",
+      "scenarios": [
+        "heading",
+        "delete dialog",
+        "audit title"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#678"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-045",
+      "feature": "Possible-value editor shows stored labels, looks up defaults and selects by keyboard",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/DynamicSelect.tsx"
+      ],
+      "fixture": "recordLab status/ownerId",
+      "scenarios": [
+        "edit shows the stored label, not the id",
+        "create default shows its label",
+        "keyboard search and select saves the id"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#667"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-046",
+      "feature": "Read-only persona sees no write actions and the backend refuses writes",
+      "source": [
+        "tests/acceptance/fixture/AcceptanceSampleServer.java (viewer)",
+        "src/components/records/RecordActions.tsx"
+      ],
+      "fixture": "persona viewer",
+      "scenarios": [
+        "no Edit, Copy or Delete",
+        "create and edit URLs show the permission message"
+      ],
+      "negative": [
+        "direct insert, update and delete are 403 and change nothing"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-047",
+      "feature": "Forms are labelled and keyboard operable",
+      "source": [
+        "src/components/forms/DynamicFormField.tsx",
+        "CLAUDE.md accessibility"
+      ],
+      "fixture": "person",
+      "scenarios": [
+        "every control has a label",
+        "keyboard-only create saves the record"
+      ],
+      "negative": [
+        "invalid fields expose aria-invalid and a described error"
+      ],
+      "issues": [
+        "QRun-IO/qqq#676"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-048",
+      "feature": "Server validation errors show the backend message once and keep the form",
+      "source": [
+        "src/lib/utils/error-utils.ts",
+        "src/lib/query-client.ts",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "fieldLab",
+      "scenarios": [
+        "alert and toast show the backend message",
+        "typed values remain"
+      ],
+      "negative": [
+        "no generic Something went wrong toast"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    }
+  ]
 }

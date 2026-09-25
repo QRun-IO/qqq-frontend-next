@@ -46,3 +46,42 @@ export function getErrorStatusCode(error: unknown): number | undefined {
 
   return undefined
 }
+
+/**
+ * Returns the user-facing message for an error, preferring the QQQ backend's
+ * `userFacingError` or `error` response body over the generic transport message
+ * (for example "Request failed with status code 400").
+ *
+ * @param error - The unknown error thrown by an API call.
+ * @param fallback - Message used when no text can be extracted.
+ * @returns The most specific message available.
+ */
+export function getErrorMessage(error: unknown, fallback = 'An unexpected error occurred.'): string {
+  if (error instanceof AxiosError) {
+    const body: unknown = error.response?.data
+    if (body && typeof body === 'object') {
+      for (const key of ['userFacingError', 'error'] as const) {
+        const text = (body as Record<string, unknown>)[key]
+        if (typeof text === 'string' && text.trim()) return text
+      }
+    }
+  }
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'string' && error) return error
+  return fallback
+}
+
+/**
+ * Explains why a single record could not be loaded, worded like the Material dashboard.
+ *
+ * @param tableLabel - The table's label.
+ * @param recordId - The requested primary key.
+ * @param error - The load error.
+ * @returns A sentence for the page.
+ */
+export function recordLoadFailure(tableLabel: string, recordId: string | number, error: unknown): string {
+  const status = getErrorStatusCode(error)
+  if (status === 404) return `${tableLabel} ${recordId} could not be found.`
+  if (status === 403) return `You do not have permission to view ${tableLabel} records`
+  return getErrorMessage(error, `Failed to load ${tableLabel} ${recordId}`)
+}

@@ -272,19 +272,6 @@ describe('Tables API', () => {
     })
   })
 
-  describe('getAuditRecords', () => {
-    it('gets audit records for a table record', async () => {
-      const { default: apiClient } = await import('./client')
-      const mockAudits = [{ message: 'Created', timestamp: '2025-01-01', username: 'admin', fieldChanges: [] }]
-      vi.mocked(apiClient.get).mockResolvedValue({ records: mockAudits })
-
-      const { getAuditRecords } = await import('./tables')
-      const result = await getAuditRecords('person', 1)
-
-      expect(apiClient.get).toHaveBeenCalledWith('/table/person/1/audits')
-      expect(result).toEqual(mockAudits)
-    })
-  })
 })
 
 

@@ -110,12 +110,33 @@ function exponentialBackoff(attemptIndex: number): number {
  *   for all unhandled API errors without requiring per-call error handling.
  * - Pending queries are included in dehydration so SSR can pass them to the client shell.
  */
+/**
+ * Meta flag for queries and mutations whose component renders its own error state
+ * (for example a record-not-found panel or a form error alert). The global toast is
+ * skipped for them so the user sees one accurate message instead of a generic duplicate.
+ */
+export const HANDLES_OWN_ERRORS = { handlesOwnErrors: true } as const
+
+/**
+ * Whether a query or mutation opted out of the global error toast.
+ *
+ * @param meta - The query or mutation `meta` object.
+ * @returns `true` when `meta.handlesOwnErrors` is set.
+ */
+function handlesOwnErrors(meta: Record<string, unknown> | undefined): boolean {
+  return meta?.handlesOwnErrors === true
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => handleQueryError(error, 'query'),
+    onError: (error, query) => {
+      if (!handlesOwnErrors(query.meta)) handleQueryError(error, 'query')
+    },
   }),
   mutationCache: new MutationCache({
-    onError: (error) => handleQueryError(error, 'mutation'),
+    onError: (error, _variables, _context, mutation) => {
+      if (!handlesOwnErrors(mutation.meta)) handleQueryError(error, 'mutation')
+    },
   }),
   defaultOptions: {
     queries: {

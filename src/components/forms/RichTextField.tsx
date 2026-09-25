@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import DOMPurify from 'dompurify'
 import { Bold, Italic, Underline, Link } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -75,6 +75,14 @@ export function RichTextField({
   className,
 }: RichTextFieldProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+
+  // Write the value into the editor only when it changed from outside (initial load,
+  // form reset). Re-writing the user's own input would move the caret to the start
+  // on every keystroke. Values are sanitized to prevent stored XSS.
+  useEffect(() => {
+    const editor = editorRef.current
+    if (editor && editor.innerHTML !== value) editor.innerHTML = DOMPurify.sanitize(value)
+  }, [value])
 
   /**
    * Applies a `document.execCommand` formatting instruction to the current
@@ -193,9 +201,6 @@ export function RichTextField({
         suppressContentEditableWarning
         onInput={handleInput}
         onBlur={handleInput}
-        // Set initial HTML; subsequent updates are managed by execCommand.
-        // Sanitize on init to prevent stored XSS from backend-sourced values.
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
         className={cn(
           'min-h-[120px] w-full rounded-b-md border border-input bg-background px-3 py-2',
           'text-sm text-foreground',

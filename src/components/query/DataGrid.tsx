@@ -35,6 +35,7 @@ import { useRouter } from 'next/navigation'
 import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
 import { DataCell } from './DataCell'
 import type { Density } from '@/lib/hooks/use-record-query'
+import { sizeWidth } from '@/lib/utils/adornment-utils'
 
 /**
  * Props for the DataGrid component.
@@ -248,7 +249,8 @@ export function DataGrid({
 
     const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((field) => {
       const sortInfo = sortMap.get(field.name)
-      const defaultWidth = columnWidths[field.name] ?? 150
+      // A user-resized width wins; otherwise the field's SIZE adornment suggests one.
+      const defaultWidth = columnWidths[field.name] ?? sizeWidth(field) ?? 150
 
       return {
         id: field.name,
