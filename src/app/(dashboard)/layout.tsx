@@ -29,6 +29,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth/use-auth'
 import { useQContext, QContextProvider } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
+import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import Sidebar from '@/components/layout/Sidebar'
@@ -143,12 +144,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }, [metaData?.branding, setBranding, setAccentColor])
 
   // Document title: current page, enclosing breadcrumbs, then the app name
-  useEffect(() => {
-    if (!metaData) return
-    const crumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
-    const pageTitle = typeof pageHeader === 'string' ? pageHeader : undefined
-    document.title = buildDocumentTitle(crumbs, pageTitle, metaData.branding?.appName || 'QQQ')
-  }, [metaData, pathname, pathToLabelMap, ancestorAppMap, pageHeader])
+  const documentTitle = metaData
+    ? buildDocumentTitle(
+      buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap),
+      typeof pageHeader === 'string' ? pageHeader : undefined,
+      metaData.branding?.appName || 'QQQ'
+    )
+    : undefined
+  useDocumentTitle(documentTitle)
 
   // Inject customCss from branding metadata
   // MED-2: strip known CSS injection vectors before applying
