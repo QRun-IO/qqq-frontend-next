@@ -72,7 +72,7 @@ test.describe('viewer persona (read only, no processes)', () => {
 
     // the table's bulk delete process follows the table delete permission
     await open(page, '/app/person.bulkDelete?recordsParam=recordIds&recordIds=1')
-    await expect(page.locator('[data-qqq-id="unknown-slug-person.bulkDelete"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'person.bulkDelete' })).toBeVisible()
 
     const removal = await backend.api.delete('/data/person/1')
     expect(removal.status()).toBe(403)
@@ -106,7 +106,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     await expect(nav.getByText('Greet Interactive')).toHaveCount(0)
 
     await open(page, '/app/clonePeople?recordsParam=recordIds&recordIds=1')
-    await expect(page.locator('[data-qqq-id="unknown-slug-clonePeople"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'clonePeople' })).toBeVisible()
     expect(processCalls).toEqual([])
 
     const init = await backend.api.post('/processes/clonePeople/init?recordsParam=recordIds&recordIds=1')
@@ -130,7 +130,7 @@ test.describe('noProcesses persona (full table rights, no processes)', () => {
     const nav = await navigation(page)
     await expect(nav.getByText('Clone People')).toHaveCount(0)
     await open(page, '/app/greetInteractive')
-    await expect(page.locator('[data-qqq-id="unknown-slug-greetInteractive"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'greetInteractive' })).toBeVisible()
     expect((await backend.api.post('/processes/clonePeople/init?recordsParam=recordIds&recordIds=1')).status()).toBe(403)
     expect((await backend.api.post('/processes/greetInteractive/init')).status()).toBe(403)
     expect(await personCount(backend.sql)).toBe(before)
@@ -156,7 +156,7 @@ test.describe('noPets persona (pet tables hidden)', () => {
 
     reads.length = 0
     await open(page, '/app/pet')
-    await expect(page.locator('[data-qqq-id="unknown-slug-pet"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'pet' })).toBeVisible()
     await expect(page.getByRole('grid')).toHaveCount(0)
     expect(reads.filter((url) => /pet/i.test(url))).toEqual([])
 
@@ -216,8 +216,8 @@ test.describe('permission revoked mid-session', () => {
     await backend.setPersona('viewer')
     await firstName.fill('Revoked')
     await page.getByRole('button', { name: /^Save/ }).click()
-    await expect(page.getByText('You do not have permission to perform this action')).toBeVisible()
-    await expect(page.getByText('Failed to save Person: Permission denied.')).toBeVisible()
+    // one clear explanation, from the form, carrying the backend's reason
+    await expect(page.getByText(/^Failed to save Person: .*permission/i)).toBeVisible()
     await expect(page).toHaveURL(/\/app\/person\/1\/edit\/?$/)
     expect(await backend.sql('select first_name from person where id = 1')).toEqual([{ first_name: 'Avery' }])
 

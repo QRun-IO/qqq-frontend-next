@@ -25,7 +25,7 @@
         "API query/get of pet returns 403, table metadata 404"
       ],
       "issues": [
-        "#671"
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -48,7 +48,7 @@
         "API query/get/insert/update return 403 and rows are unchanged"
       ],
       "issues": [
-        "#671"
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -166,7 +166,7 @@
         "process init returns 403 and the audit log stays empty"
       ],
       "issues": [
-        "#671"
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -189,7 +189,7 @@
         "GET /widget/<denied> returns 403"
       ],
       "issues": [
-        "#671"
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -209,8 +209,8 @@
         "noPets: Pet Vault App absent and /app/securityPetApp unknown; Pet Disabled App children stay permission-gated"
       ],
       "issues": [
-        "#651",
-        "#671"
+        "QRun-IO/qqq#651",
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -267,7 +267,7 @@
         "masked password shows only the mask; the list query does not carry the heavy BLOB"
       ],
       "issues": [
-        "#672"
+        "QRun-IO/qqq#672"
       ],
       "required": true
     },
@@ -288,7 +288,7 @@
         "backend insert/update/delete are refused; SQL unchanged"
       ],
       "issues": [
-        "#671"
+        "QRun-IO/qqq#671"
       ],
       "required": true
     },
@@ -307,7 +307,7 @@
         "saving an open edit form after revocation shows a permission error and the row is unchanged"
       ],
       "issues": [
-        "#673"
+        "QRun-IO/qqq#673"
       ],
       "required": true
     },
@@ -326,8 +326,8 @@
       ],
       "negative": [],
       "issues": [
-        "#332",
-        "#669"
+        "QRun-IO/qqq#332",
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -348,7 +348,7 @@
         "a different user signing in on the same browser never sees the previous user's cached pages or recent records"
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -368,7 +368,7 @@
         "no hang on \"Setting up anonymous session\""
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -385,7 +385,7 @@
         "login shows \"Sign-in was denied\", no navigation or data is rendered"
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -404,7 +404,7 @@
         "absolute, protocol-relative, backslash and javascript: targets land on /app"
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -425,8 +425,8 @@
       ],
       "negative": [],
       "issues": [
-        "#670",
-        "#406"
+        "QRun-IO/qqq#670",
+        "QRun-IO/qqq#406"
       ],
       "required": true
     },
@@ -445,7 +445,7 @@
         "a rejected code exchange shows the failure; no user_session row"
       ],
       "issues": [
-        "#670"
+        "QRun-IO/qqq#670"
       ],
       "required": true
     },
@@ -464,8 +464,8 @@
         "protected page after logout returns to the provider login"
       ],
       "issues": [
-        "#670",
-        "#674"
+        "QRun-IO/qqq#670",
+        "QRun-IO/qqq#674"
       ],
       "required": true
     },
@@ -484,7 +484,7 @@
         "revoked session gets 401, not stale data"
       ],
       "issues": [
-        "#670"
+        "QRun-IO/qqq#670"
       ],
       "required": true
     },
@@ -505,7 +505,7 @@
         "provider denial is reported"
       ],
       "issues": [
-        "#670"
+        "QRun-IO/qqq#670"
       ],
       "required": true
     },
@@ -538,7 +538,7 @@
         "after logout the page stays signed out until Sign in"
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -555,7 +555,7 @@
         "login shows \"Unsupported authentication type: TABLE_BASED\" and no data is requested"
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     },
@@ -575,8 +575,8 @@
         "a logged-out Auth0 sessionUUID replayed against the API gets 401"
       ],
       "issues": [
-        "#674",
-        "#675"
+        "QRun-IO/qqq#674",
+        "QRun-IO/qqq#675"
       ],
       "required": true
     },
@@ -594,8 +594,8 @@
       ],
       "negative": [],
       "issues": [
-        "#676",
-        "#682"
+        "QRun-IO/qqq#676",
+        "QRun-IO/qqq#682"
       ],
       "required": true
     },
@@ -627,8 +627,8 @@
         "Escape cancels without deleting; focus returns to Delete"
       ],
       "issues": [
-        "#682",
-        "#683"
+        "QRun-IO/qqq#682",
+        "QRun-IO/qqq#683"
       ],
       "required": true
     },
@@ -648,7 +648,7 @@
         "Escape closes and returns focus"
       ],
       "issues": [
-        "#682"
+        "QRun-IO/qqq#682"
       ],
       "required": true
     },
@@ -665,7 +665,7 @@
       ],
       "negative": [],
       "issues": [
-        "#682"
+        "QRun-IO/qqq#682"
       ],
       "required": true
     },
@@ -715,7 +715,7 @@
         "no horizontal page overflow"
       ],
       "issues": [
-        "#676"
+        "QRun-IO/qqq#676"
       ],
       "required": true
     },
@@ -764,7 +764,7 @@
         "second click while pending is ignored"
       ],
       "issues": [
-        "#673"
+        "QRun-IO/qqq#673"
       ],
       "required": true
     },
@@ -783,7 +783,7 @@
         "record deleted through the API shows not found"
       ],
       "issues": [
-        "#683"
+        "QRun-IO/qqq#683"
       ],
       "required": true
     },
@@ -815,7 +815,7 @@
         "network failure shows \"Sign-in failed\""
       ],
       "issues": [
-        "#669"
+        "QRun-IO/qqq#669"
       ],
       "required": true
     }

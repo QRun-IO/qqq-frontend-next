@@ -233,6 +233,7 @@ public class SecurityAcceptanceServer
             && !permission.getName().matches(".*\\.(insert|edit|delete)$");
          case "noPets" -> permission -> !permission.getName().startsWith("pet.") && !permission.getName().startsWith("petNote.");
          case "noProcesses" -> permission -> !"Process".equals(permission.getObjectType());
+         case "noApps" -> permission -> !"App".equals(permission.getObjectType());
          default -> permission -> true;
       };
       return all.stream().filter(keep).map(AvailablePermission::getName).collect(Collectors.toSet());

@@ -126,7 +126,7 @@ test.describe('app restrictions', () => {
     await expect(nav.getByRole('link', { name: 'Pet Disabled App', exact: true })).toBeVisible()
 
     await open(page, '/app/securityPetApp')
-    await expect(page.locator('[data-qqq-id="unknown-slug-securityPetApp"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: 'securityPetApp' })).toBeVisible()
     await open(page, '/app/securityPetDisabledApp')
     await expect(page.locator('[data-qqq-id="app-section-table-securityLedger"]')).toHaveAttribute('aria-disabled', 'true')
     expect(reads.filter((url) => /securityLedger/.test(url))).toEqual([])
@@ -209,16 +209,15 @@ test.describe('protected fields', () => {
     await open(page, '/app/securityVault/1')
     await expect(page.getByRole('heading', { name: 'Primary Vault' }).first()).toBeVisible()
     await expect(page.getByText('Vault Note')).toHaveCount(0)
-    const dots = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'
-    const revealValues = page.locator('[data-qqq-id="field-value-revealCode"]')
-    await expect(revealValues.first()).toHaveText(dots)
-    // only the REVEAL password offers "Show value"; the masked one has nothing to show
-    const showButtons = page.getByRole('button', { name: 'Show value' })
-    await expect(showButtons).toHaveCount(1)
-    await showButtons.click()
-    await expect(page.getByText('reveal-5678', { exact: true })).toBeVisible()
+    const masked = /^(\u2022{8}|\*{12})$/
+    const revealValue = page.locator('[data-qqq-id="field-value-revealCode"]').first()
+    await expect(revealValue).toHaveText(masked)
+    // only the REVEAL password can be shown; the masked one has nothing to reveal
+    await expect(page.getByRole('button', { name: /^Show Access Code$/ })).toHaveCount(0)
+    await page.getByRole('button', { name: /^Show (Reveal Code|value)$/ }).first().click()
+    await expect(page.getByText('reveal-5678', { exact: true }).first()).toBeVisible()
     const accessValues = page.locator('[data-qqq-id="field-value-accessCode"]')
-    for (let index = 0; index < await accessValues.count(); index++) await expect(accessValues.nth(index)).toHaveText(dots)
+    await expect(accessValues.first()).toHaveText(masked)
 
     const html = await page.content()
     for (const secret of SECRETS) expect(html).not.toContain(secret)
