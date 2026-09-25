@@ -11,7 +11,7 @@ import { waitForShell } from './nav-helpers'
 test.describe('mobile navigation', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('[NAV-026] the header menu opens the navigation drawer, which navigates and closes', async ({ page, backend, diagnostics }) => {
+  test('[NAV-026] the header menu opens the navigation drawer, which navigates and closes @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app')
     await waitForShell(page)
     const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')

@@ -88,7 +88,7 @@ test.describe('Component Lab', () => {
     expect(await page.evaluate(() => (window as unknown as { prcXss?: number }).prcXss)).toBeUndefined()
   })
 
-  test('[PRC-009] edit forms render their field subsets and submitted values persist', async ({ page, backend, diagnostics }) => {
+  test('[PRC-009] edit forms render their field subsets and submitted values persist @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')

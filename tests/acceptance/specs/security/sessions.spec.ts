@@ -13,7 +13,7 @@ import { allowExternalQuickSightWidget, listCell, navigation, openUserMenu } fro
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
 test.describe('MOCK sessions', () => {
-  test('[SEC-020] a deep link establishes the session and shows the session user', async ({ page, backend, diagnostics }) => {
+  test('[SEC-020] a deep link establishes the session and shows the session user @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const manageSession = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/manageSession')
     await open(page, '/app/person')
@@ -28,7 +28,7 @@ test.describe('MOCK sessions', () => {
     expect(probe.status()).toBe(200)
   })
 
-  test('[SEC-021] logout ends the session, guards protected pages and signs back in to the original page', async ({ page, backend, diagnostics, context }) => {
+  test('[SEC-021] logout ends the session, guards protected pages and signs back in to the original page @mobile', async ({ page, backend, diagnostics, context }) => {
     void diagnostics
     void backend
     await open(page, '/app/person')
@@ -53,7 +53,8 @@ test.describe('MOCK sessions', () => {
 
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page).toHaveURL(/\/app\/pet\/?$/)
-    await expect(page.getByRole('grid', { name: 'Pet records' })).toBeVisible()
+    // the grid on desktop, the card list on a phone
+    await expect(page.getByRole('grid', { name: 'Pet records' }).or(page.getByRole('list', { name: 'Pet records' }))).toBeVisible()
     await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Alice (sample)')
   })
 
@@ -87,7 +88,7 @@ test.describe('MOCK sessions', () => {
   test.describe('expired session', () => {
     test.use({ persona: 'expired' })
 
-    test('[SEC-022] an expired session redirects to login with returnTo and re-authenticates back to the page', async ({ page, backend, diagnostics }) => {
+    test('[SEC-022] an expired session redirects to login with returnTo and re-authenticates back to the page @mobile', async ({ page, backend, diagnostics }) => {
       void backend
       diagnostics.allow(/ 401$/)
       diagnostics.allow('status of 401')
@@ -99,7 +100,7 @@ test.describe('MOCK sessions', () => {
     })
   })
 
-  test('[SEC-022] a session that expires mid-use returns to the page the user was on', async ({ page, backend, diagnostics }) => {
+  test('[SEC-022] a session that expires mid-use returns to the page the user was on @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow(/ 401$/)
       diagnostics.allow('status of 401')
     await open(page, '/app/person')

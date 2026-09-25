@@ -14,6 +14,7 @@ import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_FRONTEND_PORT, ACCEPTANCE_MODE, ACC
  * Retries stay at zero so a flaky scenario fails the gate instead of passing silently.
  */
 const browsers = (process.env.QQQ_ACCEPTANCE_BROWSERS ?? 'chromium').split(',')
+const MOBILE_TAG = /@mobile\b/
 const deviceFor: Record<string, (typeof devices)[string]> = {
   chromium: devices['Desktop Chrome'],
   firefox: devices['Desktop Firefox'],
@@ -42,7 +43,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: browsers.map((name) => ({ name, use: { ...deviceFor[name] } })),
+  // The phone project runs the specs that prove phone behavior (tagged @mobile in the title):
+  // navigation drawer, card list, record view, form, process run, dialogs and sign-in. The
+  // desktop projects run everything; desktop-only layouts (grid columns, resizing, grid
+  // keyboard navigation) are not phone scenarios. See docs/acceptance/browser-matrix.md.
+  projects: browsers.map((name) => ({ name, use: { ...deviceFor[name] }, ...(name === 'mobile' ? { grep: MOBILE_TAG } : {}) })),
   webServer: [
     {
       command: 'node scripts/acceptance-backend.mjs',

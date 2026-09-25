@@ -8,7 +8,7 @@
 import { expect, test } from '../../support/fixtures'
 import { advance, expectScreen, openProcess, recordRows, viewValue } from './process-helpers'
 
-test('[PRC-001] selected records flow through edit, backend work and mixed results', async ({ page, diagnostics }) => {
+test('[PRC-001] selected records flow through edit, backend work and mixed results @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openProcess(page, 'greetInteractive', { recordIds: [1, 2] })
   const setup = await expectScreen(page, 'setup', 'Setup')

@@ -44,7 +44,7 @@ test.describe('Record selection', () => {
     await expect(page.locator('[data-qqq-id="process-error-message"]')).toHaveText('Missing input records.')
   })
 
-  test('[PRC-004] processes launched from an app run without records', async ({ page, diagnostics }) => {
+  test('[PRC-004] processes launched from an app run without records @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await open(page, '/app/prcLab')
     await page.locator('[data-qqq-id="app-section-process-prcComponents"]').click()

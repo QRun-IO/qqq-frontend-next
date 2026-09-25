@@ -25,6 +25,7 @@ const report = JSON.parse(readFileSync('test-results/acceptance/report.json', 'u
 const rows = new Map(matrix.rows.map((row) => [row.id, row]))
 const results = new Map()
 const problems = []
+const byProject = Object.fromEntries((report.config?.projects ?? []).map((project) => [project.name, { passed: 0, failed: 0, skipped: 0, flaky: 0 }]))
 
 function walk(suite, titles = []) {
   for (const child of suite.suites ?? []) walk(child, [...titles, child.title])
@@ -36,6 +37,8 @@ function walk(suite, titles = []) {
       const outcome = test.status === 'skipped' ? 'skipped'
         : attempts.length === 1 && attempts[0].status === 'passed' ? 'passed'
           : attempts.some((attempt) => attempt.status === 'passed') ? 'flaky' : 'failed'
+      byProject[test.projectName] ??= { passed: 0, failed: 0, skipped: 0, flaky: 0 }
+      byProject[test.projectName][outcome]++
       for (const id of ids) {
         if (!rows.has(id)) problems.push(`Unknown matrix ID ${id} in ${spec.file}`)
         const list = results.get(id) ?? []
@@ -68,9 +71,14 @@ for (const row of matrix.rows) {
   } else summary.passed++
 }
 
-const status = { partial, generatedAt: new Date().toISOString(), summary, problems,
+// Every configured project must run something (the phone project runs only @mobile tests).
+if (!partial) for (const [project, counts] of Object.entries(byProject)) {
+  if (Object.values(counts).every((count) => count === 0)) problems.push(`Project ${project} ran no tests`)
+}
+
+const status = { partial, generatedAt: new Date().toISOString(), summary, byProject, problems,
   rows: matrix.rows.map((row) => ({ id: row.id, results: results.get(row.id) ?? [] })) }
 writeFileSync('test-results/acceptance/gate.json', JSON.stringify(status, null, 2) + '\n')
-console.log(`Acceptance gate${partial ? ' (partial run, not an acceptance result)' : ''}:`, JSON.stringify(summary))
+console.log(`Acceptance gate${partial ? ' (partial run, not an acceptance result)' : ''}:`, JSON.stringify(summary), JSON.stringify(byProject))
 for (const problem of problems) console.log(`  FAIL ${problem}`)
 process.exit(problems.length ? 1 : 0)

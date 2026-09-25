@@ -96,7 +96,7 @@ test.describe('keyboard operation', () => {
 })
 
 test.describe('dialogs and focus', () => {
-  test('[INT-003] the delete dialog traps focus, Escape restores focus, and keyboard confirmation deletes', async ({ page, backend, diagnostics }) => {
+  test('[INT-003] the delete dialog traps focus, Escape restores focus, and keyboard confirmation deletes @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/5')
     await expect(page.getByRole('heading', { name: /Morgan/ }).first()).toBeVisible()
@@ -176,12 +176,12 @@ test.describe('accessibility', () => {
       .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).slice(0, 5).join(' | ')}`)
   }
 
-  test('[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations', async ({ page, backend, diagnostics }) => {
+  test('[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     const pages: Array<[string, (page: Page) => Promise<unknown>]> = [
       ['/app/miscellaneous', (p) => expect(p.getByRole('heading', { name: 'Miscellaneous', level: 1 })).toBeVisible()],
-      ['/app/person', (p) => expect(personGrid(p).getByRole('gridcell', { name: 'Avery', exact: true })).toBeVisible()],
+      ['/app/person', (p) => expect(listCell(p, 'Person', 'Avery')).toBeVisible()],
       ['/app/person/1', (p) => expect(p.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()],
       ['/app/person/1/edit', (p) => expect(p.getByRole('textbox', { name: 'First Name' })).toHaveValue('Avery')],
       ['/app/greetInteractive?recordsParam=recordIds&recordIds=1', (p) => expect(p.getByRole('textbox', { name: 'Greeting Prefix' })).toBeVisible()],
@@ -223,7 +223,7 @@ test.describe('accessibility', () => {
 })
 
 test.describe('validation', () => {
-  test('[INT-007] a missing required value is named and focused, and nothing is saved', async ({ page, backend, diagnostics }) => {
+  test('[INT-007] a missing required value is named and focused, and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const before = await backend.sql('select count(*) as n from person')
     await open(page, '/app/person/create')
@@ -255,7 +255,7 @@ test.describe('validation', () => {
 test.describe('phone layout', () => {
   test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
 
-  test('[INT-008] the drawer, list, record and form work at phone width without horizontal scrolling', async ({ page, backend, diagnostics }) => {
+  test('[INT-008] the drawer, list, record and form work at phone width without horizontal scrolling @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
     await open(page, '/app/miscellaneous')
@@ -284,6 +284,24 @@ test.describe('phone layout', () => {
     await page.getByRole('button', { name: /^Save/ }).click()
     await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
     expect(await backend.sql('select first_name from person where id = 2')).toEqual([{ first_name: 'Blaine' }])
+  })
+
+  test('[INT-009] a held list request shows busy placeholder cards on a phone, then the real cards @mobile', async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    // QRun-IO/qqq#694: the card list rendered "No records found" while the records loaded
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/qqq/v1/table/person/query', async (route: Route) => { await held; await route.continue() })
+    await open(page, '/app/person')
+    const loading = page.locator('[data-qqq-id="record-card-view-loading-person"]')
+    await expect(loading).toBeVisible()
+    await expect(loading).toHaveAttribute('aria-busy', 'true')
+    await expect(page.getByRole('status', { name: 'Loading Person records' })).toBeVisible()
+    await expect(page.getByText('No records found')).toHaveCount(0)
+    release()
+    const cards = page.getByRole('list', { name: 'Person records' }).getByRole('listitem')
+    await expect(cards).toHaveCount(Number((await backend.sql('select count(*) as n from person'))[0].n))
+    await expect(loading).toHaveCount(0)
   })
 })
 
