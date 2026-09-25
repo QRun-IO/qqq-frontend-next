@@ -235,7 +235,7 @@ export default function DeveloperPage() {
   const buildRows: Array<[string, React.ReactNode]> = [
     ['framework', nextVersion ? `Next.js ${nextVersion}` : 'Next.js'],
     ['react', React.version],
-    ['appVersion', process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0'],
+    ['appVersion', process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown'],
     ['apiBaseUrl', process.env.NEXT_PUBLIC_API_BASE_URL ?? '/qqq/v1'],
   ]
 

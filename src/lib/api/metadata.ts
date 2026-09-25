@@ -38,7 +38,7 @@ export async function loadMetaData(): Promise<QInstance> {
   const result = await apiClient.get<QInstance>('/metaData', {
     params: {
       frontendName: 'qqq-frontend-next',
-      frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
+      frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
     },
   })
   const parsed = QInstanceMinimalSchema.safeParse(result)
@@ -55,7 +55,7 @@ export async function loadMetaData(): Promise<QInstance> {
       baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
       params: {
         frontendName: 'qqq-frontend-next',
-        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
+        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
       },
     })
     if (needsWidgets && (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets))) {

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import packageJson from './package.json'
 
 /**
  * Two build outputs:
@@ -14,6 +15,8 @@ const BACKEND_PREFIXES = ['qqq', 'data', 'widget', 'metaData', 'download', 'proc
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Reported to the backend as frontendVersion and shown on the developer page.
+  env: { NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || packageJson.version },
   ...(exportBuild
     ? { output: 'export', trailingSlash: true, images: { unoptimized: true } }
     : {
