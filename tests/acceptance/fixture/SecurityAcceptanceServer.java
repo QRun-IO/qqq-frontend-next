@@ -32,12 +32,13 @@ import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.authentication.Auth0AuthenticationMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.authentication.AuthScope;
 import com.kingsrook.qqq.backend.core.model.metadata.authentication.QAuthenticationMetaData;
-import com.kingsrook.qqq.backend.core.model.metadata.authentication.TableBasedAuthenticationMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModuleCustomizerInterface;
+import com.kingsrook.qqq.backend.core.modules.authentication.implementations.TableBasedAuthenticationModule;
+import com.kingsrook.qqq.backend.core.state.SimpleStateKey;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.sampleapp.SampleJavalinServer;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
@@ -58,15 +59,19 @@ import org.json.JSONObject;
  **  - AUTH_0: Auth0 metadata from -Dqqq.security.auth0.* pointed at the same
  **    local provider;
  **  - FULLY_ANONYMOUS: anonymous sessions, no identity provider;
- **  - TABLE_BASED: table-based authentication metadata, which neither the Next
- **    nor the Material dashboard supports (the UI must say so).
- ** Loopback-only control routes: ready, reset, persona and single-SELECT sql.
+ **  - TABLE_BASED: username and password checked against the module's user
+ **    table, sessions stored in its session table (SecurityFixtures);
+ **  - UNSUPPORTED: anonymous sessions, but the v1 authentication metadata names
+ **    a type no UI knows (a newer backend), which the UI must report.
+ ** Loopback-only control routes: ready, reset, persona, single-SELECT sql, and
+ ** expire-table-sessions (TABLE_BASED: every session idle past the timeout).
  *******************************************************************************/
 public class SecurityAcceptanceServer
 {
    private static final Map<String, String> PERSONAS = new ConcurrentHashMap<>();
    private static final Map<String, String> USERS    = new ConcurrentHashMap<>();
    private static final String              AUTH     = System.getProperty("qqq.security.auth", "MOCK");
+   private static final String              UNSUPPORTED_TYPE = "ACCEPTANCE_UNKNOWN";
    private static volatile QInstance        instance;
 
 
@@ -90,10 +95,9 @@ public class SecurityAcceptanceServer
                   defined.getAuthentication().setCustomizer(new QCodeReference(PersonaCustomizer.class));
                   SecurityFixtures.define(defined);
                }
-               case "FULLY_ANONYMOUS" -> defined.registerAuthenticationProvider(AuthScope.instanceDefault(),
+               case "FULLY_ANONYMOUS", "UNSUPPORTED" -> defined.registerAuthenticationProvider(AuthScope.instanceDefault(),
                   new QAuthenticationMetaData().withName("anonymous").withType(QAuthenticationType.FULLY_ANONYMOUS));
-               case "TABLE_BASED" -> defined.registerAuthenticationProvider(AuthScope.instanceDefault(),
-                  new TableBasedAuthenticationMetaData().withName("tableBased"));
+               case "TABLE_BASED" -> defined.registerAuthenticationProvider(AuthScope.instanceDefault(), SecurityFixtures.defineTableBased(defined));
                case "AUTH_0" -> defined.registerAuthenticationProvider(AuthScope.instanceDefault(), new Auth0AuthenticationMetaData()
                   .withBaseUrl(System.getProperty("qqq.security.auth0.baseUrl"))
                   .withClientId(System.getProperty("qqq.security.auth0.clientId"))
@@ -117,6 +121,18 @@ public class SecurityAcceptanceServer
       {
          config.jetty.host = "127.0.0.1";
          config.routes.get("/acceptance/ready", context -> context.result("ready"));
+         if("UNSUPPORTED".equals(AUTH))
+         {
+            config.routes.before("/qqq/v1/metaData/authentication", context ->
+            {
+               context.contentType("application/json").result(new JSONObject().put("name", "futureAuth").put("type", UNSUPPORTED_TYPE).toString());
+               context.skipRemainingHandlers();
+            });
+         }
+         config.routes.post("/acceptance/expire-table-sessions", context ->
+         {
+            context.contentType("application/json").result(new JSONObject().put("expired", expireTableSessions()).toString());
+         });
          config.routes.post("/acceptance/reset", context ->
          {
             reset();
@@ -167,14 +183,50 @@ public class SecurityAcceptanceServer
     *******************************************************************************/
    private static void primeFixtures() throws Exception
    {
-      if(!"MOCK".equals(AUTH))
+      if(!"MOCK".equals(AUTH) && !"TABLE_BASED".equals(AUTH))
       {
          return;
       }
       try(Connection connection = ownedConnection())
       {
-         SecurityFixtures.prime(connection);
+         if("MOCK".equals(AUTH))
+         {
+            SecurityFixtures.prime(connection);
+         }
+         else
+         {
+            SecurityFixtures.primeTableBased(connection);
+         }
       }
+   }
+
+
+
+   /*******************************************************************************
+    ** TABLE_BASED: make every stored session idle for a day (past the module's
+    ** inactivity timeout) and forget when each was last validated, so the next
+    ** request with it goes through the module's real expiry check.
+    *******************************************************************************/
+   private static synchronized int expireTableSessions() throws Exception
+   {
+      if(!"TABLE_BASED".equals(AUTH))
+      {
+         throw new IllegalStateException("Only the TABLE_BASED variant stores table sessions.");
+      }
+      int expired = 0;
+      try(Connection connection = ownedConnection(); PreparedStatement ids = connection.prepareStatement("SELECT id FROM table_auth_session"); ResultSet rows = ids.executeQuery())
+      {
+         while(rows.next())
+         {
+            TableBasedAuthenticationModule.getStateProvider().remove(new SimpleStateKey<>(rows.getString(1)));
+            expired++;
+         }
+         try(PreparedStatement update = connection.prepareStatement("UPDATE table_auth_session SET access_timestamp = DATEADD('DAY', -1, CURRENT_TIMESTAMP)"))
+         {
+            update.executeUpdate();
+         }
+      }
+      return (expired);
    }
 
 

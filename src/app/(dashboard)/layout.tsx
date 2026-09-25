@@ -31,6 +31,7 @@ import { useQContext, QContextProvider } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
+import { applyBrandingTheme } from '@/lib/theme/apply-branding'
 import { queryKeys } from '@/lib/query-client'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
@@ -100,46 +101,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (metaData?.branding) {
       setBranding(metaData.branding)
-
-      // MED-3: validate color format before applying to CSS custom properties
-      const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
-      if (metaData.branding.accentColor && ACCENT_COLOR_RE.test(metaData.branding.accentColor)) {
-        setAccentColor(metaData.branding.accentColor)
-        document.documentElement.style.setProperty(
-          '--qqq-accent-color',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--color-primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--ring',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--qqq-sidebar-active-bg',
-          metaData.branding.accentColor
-        )
-      }
-
-      if (metaData.branding.accentColorLight && ACCENT_COLOR_RE.test(metaData.branding.accentColorLight)) {
-        document.documentElement.style.setProperty('--qqq-accent-color-light', metaData.branding.accentColorLight)
-      }
-
-      // Favicon and touch icon from branding (as Material Dashboard does)
-      if (metaData.branding.icon) {
-        for (const selector of ["link[rel~='icon']", "link[rel~='apple-touch-icon']"]) {
-          const linkEl = document.querySelector(selector)
-          if (linkEl instanceof HTMLLinkElement) {
-            linkEl.href = metaData.branding.icon
-          }
-        }
-      }
+      // accent colors (validated, MED-3) and the favicon
+      const accentColor = applyBrandingTheme(metaData.branding)
+      if (accentColor) setAccentColor(accentColor)
     }
   }, [metaData?.branding, setBranding, setAccentColor])
 

@@ -69,16 +69,20 @@ export function setSignedOut(signedOut: boolean): void {
 /**
  * Normalizes a session's `values.user` from `manageSession`.
  *
+ * `email` is the identity line shown under the name; TABLE_BASED sessions name
+ * their user by `username` instead (QRun-IO/qqq#700), which fills the same line.
+ *
  * @param values - The session values for the frontend.
  * @returns The user when it has a name or email.
  */
 export function userFromSessionValues(values: Record<string, unknown> | undefined): StoredUser | null {
   const user = values?.user
   if (!user || typeof user !== 'object') return null
-  const { name, email } = user as Record<string, unknown>
+  const { name, email, username } = user as Record<string, unknown>
+  const identity = typeof email === 'string' && email ? email : typeof username === 'string' && username ? username : undefined
   const result: StoredUser = {
     name: typeof name === 'string' && name ? name : undefined,
-    email: typeof email === 'string' && email ? email : undefined,
+    email: identity,
   }
   return result.name || result.email ? result : null
 }

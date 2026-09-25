@@ -126,6 +126,37 @@ export async function manageSession(accessToken: string): Promise<SessionRespons
 }
 
 /**
+ * Encodes a username and password as HTTP Basic credentials (RFC 7617, UTF-8).
+ *
+ * @param username - The username; it may not contain a colon.
+ * @param password - The password (colons allowed).
+ * @returns The base64 `username:password` value for an `Authorization: Basic` header.
+ */
+export function encodeBasicCredentials(username: string, password: string): string {
+  if (username.includes(':')) throw new Error('A username cannot contain a colon.')
+  const bytes = new TextEncoder().encode(`${username}:${password}`)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+/**
+ * Signs in with a username and password (TABLE_BASED authentication) via
+ * `POST /qqq/v1/manageSession` with an `Authorization: Basic` header. The backend
+ * checks the password against its user table, stores a session row and sets the
+ * `sessionUUID` cookie; a 401 means the credentials were refused.
+ *
+ * @param username - The username.
+ * @param password - The password. It is sent once and never stored.
+ * @returns The session UUID and its frontend values (the signed-in user).
+ */
+export async function createPasswordSession(username: string, password: string): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', {}, {
+    headers: { Authorization: `Basic ${encodeBasicCredentials(username, password)}` },
+  })
+}
+
+/**
  * Completes an OAuth2 authorization-code + PKCE login: the backend exchanges the
  * code with the identity provider (using its client secret) and creates a session.
  *

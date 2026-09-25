@@ -6,6 +6,8 @@
  */
 
 import { expect, open, test } from '../../support/fixtures'
+import { ACCEPTANCE_BACKEND_URL } from '../../support/ports'
+import { openUserMenu } from '../security/support/ui'
 import { appNavigation, v1MetaData, waitForShell } from './nav-helpers'
 
 test.describe('branding', () => {
@@ -73,5 +75,42 @@ test.describe('branding', () => {
     }
     // Exactly the three declared slots render
     await expect(page.locator('[data-qqq-id^="banner-QFMD_"][role="region"]:visible')).toHaveCount(3)
+  })
+
+  test('[NAV-030] the login page shows the app logo, name and accent before sign-in, and never the banners @mobile', async ({ page, backend, diagnostics, playwright }) => {
+    void backend
+    void diagnostics
+    // Without any session, GET /qqq/v1/metaData/authentication carries the display branding only
+    const anonymous = await playwright.request.newContext({ baseURL: ACCEPTANCE_BACKEND_URL })
+    const response = await anonymous.get('/qqq/v1/metaData/authentication')
+    expect(response.status()).toBe(200)
+    const body = await response.json() as { type: string; branding?: Record<string, unknown> }
+    expect(body.branding).toEqual({ appName: 'QQQ Sample', logo: '/samples-logo.png', icon: '/kr-icon.png', accentColor: '#1d4ed8' })
+    const text = JSON.stringify(body)
+    for (const banner of ['Acceptance site banner', 'Acceptance body banner', 'NAV FIXTURE']) expect(text).not.toContain(banner)
+    // ... while the signed-in metadata still has them (NAV-013)
+    expect(JSON.stringify((await v1MetaData(backend)).branding)).toContain('Acceptance site banner')
+    await anonymous.dispose()
+
+    // Sign out, then load the login page fresh: only the unauthenticated metadata is available
+    await open(page, '/app')
+    await waitForShell(page)
+    await (await openUserMenu(page)).getByRole('menuitem', { name: 'Log Out' }).click()
+    await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+    const metadata = page.waitForResponse((reply) => new URL(reply.url()).pathname === '/qqq/v1/metaData/authentication')
+    await page.reload()
+    expect((await metadata).status()).toBe(200)
+    await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+
+    const logo = page.locator('[data-qqq-id="login-logo"]')
+    await expect(logo).toHaveAttribute('src', '/samples-logo.png')
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+    await expect(page.locator('[data-qqq-id="login-app-name"]')).toHaveText('QQQ Sample')
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--color-primary'))).toBe('#1d4ed8')
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCSS('background-color', 'rgb(29, 78, 216)')
+    await expect(page.locator("link[rel~='icon']").first()).toHaveAttribute('href', '/kr-icon.png')
+    await expect(page).toHaveTitle('Sign in | QQQ Sample')
+    await expect(page.locator('[data-qqq-id^="banner-QFMD_"]')).toHaveCount(0)
+    await expect(page.getByText('Acceptance site banner')).toHaveCount(0)
   })
 })
