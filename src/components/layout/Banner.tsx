@@ -21,7 +21,7 @@
 'use client'
 
 import React from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 
 import type { Banner } from '@/types'
@@ -72,7 +72,7 @@ export interface BannerProps {
 export default function BannerComponent({ banners, slot, className }: BannerProps) {
   const banner = banners?.[slot]
   if (!banner || (!banner.messageHTML && !banner.messageText)) return null
-  const html = banner.messageHTML ? DOMPurify.sanitize(banner.messageHTML) : ''
+  const html = banner.messageHTML ? sanitizeHtml(banner.messageHTML) : ''
 
   const config = severityConfig[banner.severity ?? 'INFO'] ?? severityConfig.INFO
   const Icon = config.icon

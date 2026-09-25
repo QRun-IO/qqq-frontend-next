@@ -26,7 +26,7 @@ import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
 import type { QFieldMetaData, QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
@@ -314,7 +314,7 @@ function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId:
  * @returns The rendered HTML container.
  */
 function SanitizedHtml({ html, dataQqqId, className }: { html: string; dataQqqId: string; className?: string }) {
-  const sanitized = useMemo(() => DOMPurify.sanitize(html), [html])
+  const sanitized = useMemo(() => sanitizeHtml(html), [html])
   return <div className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)} data-qqq-id={dataQqqId}
     dangerouslySetInnerHTML={{ __html: sanitized }} />
 }
