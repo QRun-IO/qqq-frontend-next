@@ -36,10 +36,10 @@ import {
 } from 'lucide-react'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
-import type { Density, SavedView } from '@/lib/hooks/use-record-query'
+import type { Density } from '@/lib/hooks/use-record-query'
+import type { TableVariant } from '@/lib/api/tables'
 
 import { ColumnConfig } from './ColumnConfig'
-import { SavedViewsMenu } from './SavedViewsMenu'
 import { ExportButton } from './ExportButton'
 import { ProcessLauncherMenu } from './ProcessLauncherMenu'
 
@@ -215,18 +215,26 @@ export interface RecordQueryToolbarProps {
   activeFilterCount: number
   /** Callback to toggle the filter panel (desktop or mobile). */
   handleFilterToggle: () => void
-  /** IDs of all currently selected rows (for ProcessLauncherMenu and ExportButton). */
-  selectedRecordIds: (string | number)[]
-  /** The fully assembled effective filter (for export and process launcher). */
-  effectiveFilter: QQueryFilter
-  /** Current saved views list. */
-  savedViews: SavedView[]
-  /** Callback to save the current view under a given name. */
-  onSaveView: (name: string) => SavedView
-  /** Callback to load a previously saved view. */
-  onLoadView: (view: SavedView) => void
-  /** Callback to delete a saved view by ID. */
-  onDeleteView: (id: string) => void
+  /** Every process in the instance (the table's hidden bulk processes are found here). */
+  allProcesses: Record<string, QProcessMetaData>
+  /** How many records the current selection covers. */
+  selectionCount: number
+  /** Launches a process with the current selection. */
+  onLaunchProcess: (process: QProcessMetaData) => void
+  /** Reports why a process was not launched. */
+  onProcessBlocked: (message: string) => void
+  /** Filter and sort for exports (paging ignored). */
+  exportFilter: QQueryFilter
+  /** Visible column names in order, for exports. */
+  exportColumns: string[]
+  /** Matching record count, or null when the table cannot count. */
+  totalCount: number | null
+  /** Selected backend variant (for exports). */
+  tableVariant?: TableVariant | null
+  /** Saved views menu, rendered by the page. */
+  savedViewsMenu?: React.ReactNode
+  /** Selection menu, rendered by the page. */
+  selectionMenu?: React.ReactNode
   /** Current column visibility map. */
   columnVisibility: Record<string, boolean>
   /** Ordered list of column field names. */
@@ -289,12 +297,16 @@ export function RecordQueryToolbar({
   mobileFilterOpen,
   activeFilterCount,
   handleFilterToggle,
-  selectedRecordIds,
-  effectiveFilter,
-  savedViews,
-  onSaveView,
-  onLoadView,
-  onDeleteView,
+  allProcesses,
+  selectionCount,
+  onLaunchProcess,
+  onProcessBlocked,
+  exportFilter,
+  exportColumns,
+  totalCount,
+  tableVariant,
+  savedViewsMenu,
+  selectionMenu,
   columnVisibility,
   columnOrder,
   columnConfigOpen,
@@ -331,8 +343,23 @@ export function RecordQueryToolbar({
         setColumnConfigOpen(false)
       }
     }
+    /**
+     * Closes the column panel on Escape and returns focus to its button.
+     *
+     * @param e - The key event.
+     */
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setColumnConfigOpen(false)
+        columnConfigBtnRef.current?.focus()
+      }
+    }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [columnConfigOpen, setColumnConfigOpen])
 
   return (
@@ -436,35 +463,33 @@ export function RecordQueryToolbar({
         )}
       </button>
 
+      {/* Selection menu (this page / full query result / first N) */}
+      {selectionMenu}
+
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Process launcher */}
-      {processes && processes.length > 0 && (
-        <ProcessLauncherMenu
-          processes={processes}
-          selectedRecordIds={selectedRecordIds}
-          tableName={tableName}
-          currentFilter={effectiveFilter}
-        />
-      )}
+      {/* Actions: bulk processes and table processes */}
+      <ProcessLauncherMenu
+        tableMetaData={tableMetaData}
+        allProcesses={allProcesses}
+        processes={processes ?? []}
+        selectionCount={selectionCount}
+        onLaunch={onLaunchProcess}
+        onBlocked={onProcessBlocked}
+      />
 
       {/* Saved views */}
-      <SavedViewsMenu
-        savedViews={savedViews}
-        onSave={onSaveView}
-        onLoad={onLoadView}
-        onDelete={onDeleteView}
-      />
+      {savedViewsMenu}
 
       {/* Export */}
       <ExportButton
         tableName={tableName}
         tableMetaData={tableMetaData}
-        currentFilter={effectiveFilter}
-        columnVisibility={columnVisibility}
-        columnOrder={columnOrder}
-        selectedRecordIds={selectedRecordIds}
+        exportFilter={exportFilter}
+        columnNames={exportColumns}
+        totalCount={totalCount}
+        tableVariant={tableVariant}
       />
 
       {/* View mode toggle: grid / card */}

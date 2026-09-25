@@ -110,55 +110,52 @@ export interface QueryJoin {
 /**
  * A filter criteria value expression that references a named runtime variable.
  *
- * Variable names are resolved by the backend at query time, allowing saved
- * filter views to remain dynamic (e.g. current user, current date).
+ * Serialized exactly as the backend's `FilterVariableExpression` class, whose simple
+ * class name is the `type` discriminator read by `QFilterCriteriaDeserializer`.
  */
 export interface FilterVariableExpression {
-  /** Discriminant that identifies this as a variable reference expression. */
-  type: 'FILTER_VARIABLE'
+  /** Discriminant: the backend expression class name. */
+  type: 'FilterVariableExpression'
   /** The name of the runtime variable whose value is substituted at query time. */
   variableName: string
 }
 
 /**
- * A filter criteria value expression that resolves to the current date/time.
- *
- * Use this instead of a hard-coded date so that saved filters remain current.
+ * A filter criteria value expression that resolves to the current date/time
+ * (or today, for DATE fields). Backend class `Now`.
  */
 export interface NowExpression {
-  /** Discriminant that identifies this as a "now" expression. */
-  type: 'NOW'
+  /** Discriminant: the backend expression class name. */
+  type: 'Now'
 }
 
+/** Time units accepted by the backend `NowWithOffset` and `ThisOrLastPeriod` expressions (Java `ChronoUnit` names). */
+export type ExpressionTimeUnit = 'SECONDS' | 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS' | 'YEARS'
+
 /**
- * A filter criteria value expression that resolves to the current date/time
- * adjusted by a fixed calendar offset.
- *
- * Useful for "in the last N days/weeks/months" style filters.
+ * A filter criteria value expression that resolves to now plus or minus an amount
+ * of time, for example "7 days ago". Backend class `NowWithOffset`.
  */
 export interface NowWithOffsetExpression {
-  /** Discriminant that identifies this as a now-with-offset expression. */
-  type: 'NOW_WITH_OFFSET'
-  /** The magnitude of the offset (e.g. `7` for seven days). */
-  offsetValue: number
-  /** The calendar unit the offset is measured in. */
-  offsetUnit: 'DAY' | 'WEEK' | 'MONTH' | 'YEAR'
-  /** When true, the offset is subtracted from now (past); false means future. */
-  isNegativeOffset: boolean
+  /** Discriminant: the backend expression class name. */
+  type: 'NowWithOffset'
+  /** `MINUS` for the past ("ago"), `PLUS` for the future ("from now"). */
+  operator: 'PLUS' | 'MINUS'
+  /** The magnitude of the offset (for example `7` for seven days). */
+  amount: number
+  /** The unit the offset is measured in. */
+  timeUnit: ExpressionTimeUnit
 }
 
 /**
- * A filter criteria value expression that resolves to the boundary of the
- * current or previous calendar period.
- *
- * Allows "this week", "last month", "last quarter" style date range filters
- * to remain accurate without storing hard-coded dates.
+ * A filter criteria value expression that resolves to the start of the current or
+ * previous period, for example "start of last month". Backend class `ThisOrLastPeriod`.
  */
 export interface ThisOrLastPeriodExpression {
-  /** Discriminant that identifies this as a this-or-last-period expression. */
-  type: 'THIS_OR_LAST_PERIOD'
-  /** The calendar period granularity to use. */
-  period: 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR'
-  /** When true, resolves to the previous period; false resolves to the current period. */
-  isLast: boolean
+  /** Discriminant: the backend expression class name. */
+  type: 'ThisOrLastPeriod'
+  /** `THIS` for the current period, `LAST` for the previous one. */
+  operator: 'THIS' | 'LAST'
+  /** The period granularity. */
+  timeUnit: ExpressionTimeUnit
 }

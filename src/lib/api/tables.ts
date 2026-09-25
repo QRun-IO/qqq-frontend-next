@@ -47,8 +47,66 @@ export interface QueryRecordsRequest {
   filter: Partial<QQueryFilter>
   /** Optional join specifications to include related table data in the result. */
   joins?: QueryJoin[]
-  /** Optional table variant name to use an alternate backend configuration. */
-  tableVariant?: string
+  /** Backend variant the query runs against (tables whose backend uses variants). */
+  tableVariant?: TableVariant
+}
+
+/**
+ * One backend variant option, as returned by `GET /data/{tableName}/variants` and sent back
+ * in query/count bodies (v1) or the `tableVariant` parameter (legacy routes).
+ */
+export interface TableVariant {
+  /** Variant record id. */
+  id: string | number
+  /** Variant type key from the backend's variants config. */
+  type: string
+  /** Variant record label. */
+  name?: string
+}
+
+/**
+ * Lists the variants a table's backend can be scoped to.
+ *
+ * @param tableName - Exact backend table identifier.
+ * @returns The variant options.
+ */
+export async function fetchTableVariants(tableName: string): Promise<TableVariant[]> {
+  const result = await apiClient.get<unknown>(`/data/${encodeURIComponent(tableName)}/variants`, { baseURL: legacyBaseURL() })
+  if (!Array.isArray(result)) throw new Error('Invalid variants response')
+  return result.filter((v): v is TableVariant => Boolean(v) && typeof v === 'object' && 'id' in v && 'type' in v)
+}
+
+/** Formats accepted by the backend export route. */
+export type ExportFormat = 'csv' | 'xlsx' | 'json'
+
+/**
+ * Exports records through the backend's streaming export route
+ * (`POST /data/{tableName}/export/{filename}`), as the Material dashboard does.
+ *
+ * @param tableName - Exact backend table identifier.
+ * @param filename - Download file name; its extension selects the format.
+ * @param fields - Field names (including `joinTable.field`) in column order.
+ * @param filter - Filter (and sort) of the rows to export, without paging.
+ * @param tableVariant - Variant for tables whose backend uses variants.
+ * @returns The exported file.
+ */
+export async function exportRecords(
+  tableName: string,
+  filename: string,
+  fields: string[],
+  filter: Partial<QQueryFilter>,
+  tableVariant?: TableVariant
+): Promise<Blob> {
+  const form = new URLSearchParams()
+  form.set('fields', fields.join(','))
+  form.set('filter', JSON.stringify(filter))
+  if (tableVariant) form.set('tableVariant', JSON.stringify({ type: tableVariant.type, id: tableVariant.id }))
+  return apiClient.post<Blob>(`/data/${encodeURIComponent(tableName)}/export/${encodeURIComponent(filename)}`, form, {
+    baseURL: legacyBaseURL(),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    responseType: 'blob',
+    timeout: 5 * 60 * 1000,
+  })
 }
 
 /**

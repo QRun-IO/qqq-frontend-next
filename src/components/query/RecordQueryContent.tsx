@@ -94,8 +94,14 @@ export interface RecordQueryContentProps {
   pageNum: number
   /** Number of records per page. */
   pageSize: PageSize
-  /** Total number of records matching the active filter. */
-  totalCount: number
+  /** Total number of records matching the active filter, or null when the table cannot count. */
+  totalCount: number | null
+  /** Distinct base records when a many-side join repeats rows. */
+  distinctCount?: number | null
+  /** Reports whether a page row is covered by an all/first-N selection. */
+  isRowSelectedByQuery?: (rowIndex: number) => boolean
+  /** Opens column statistics for a column (only when the table supports them). */
+  onColumnStats?: (columnName: string, columnLabel: string) => void
   /** Total number of pages. */
   totalPages: number
   /** Callback to navigate to a specific page. */
@@ -137,6 +143,9 @@ export function RecordQueryContent({
   pageNum,
   pageSize,
   totalCount,
+  distinctCount = null,
+  isRowSelectedByQuery,
+  onColumnStats,
   totalPages,
   onPageChange,
   onPageSizeChange,
@@ -202,7 +211,7 @@ export function RecordQueryContent({
                 tableName={tableName}
                 tableMetaData={tableMetaData}
                 records={records}
-                totalCount={totalCount}
+                totalCount={totalCount ?? records.length}
                 isLoading={isLoading}
                 isFetching={isFetching}
                 sortOrder={sortOrder}
@@ -216,6 +225,8 @@ export function RecordQueryContent({
                 density={density}
                 pageSize={pageSize}
                 onResetFilter={onResetFilter}
+                isRowSelectedByQuery={isRowSelectedByQuery}
+                onColumnStats={onColumnStats}
               />
             )}
 
@@ -239,6 +250,8 @@ export function RecordQueryContent({
               pageNum={pageNum}
               pageSize={pageSize}
               totalCount={totalCount}
+              distinctCount={distinctCount}
+              pageRowCount={records.length}
               totalPages={totalPages}
               isFetching={isFetching}
               onPageChange={onPageChange}

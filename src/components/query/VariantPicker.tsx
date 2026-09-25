@@ -15,320 +15,152 @@
  */
 
 /**
- * @file VariantPicker — modal dialog for selecting a table variant before viewing scoped data.
+ * @file VariantPicker — dialog for choosing the backend variant of a table whose backend uses
+ * variants (Material's TableVariantDialog). Options come from `GET /data/{table}/variants`.
  */
 
 'use client'
 
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useQuery } from '@tanstack/react-query'
 import { Search, X, Check, Loader2 } from 'lucide-react'
 
-import { globalSearch } from '@/lib/api/tables'
-import type { GlobalSearchResult } from '@/lib/api/tables'
+import { fetchTableVariants, type TableVariant } from '@/lib/api/tables'
+import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
-import { COMBOBOX_DEBOUNCE_MS } from '@/lib/constants'
 
 /**
- * Props for the {@link VariantPicker} component.
+ * Props for the VariantPicker dialog.
  */
 export interface VariantPickerProps {
-  /** Whether the dialog is currently open. */
+  /** Whether the dialog is open. */
   open: boolean
-  /** Callback invoked when the dialog is dismissed without making a selection. */
-  onCancel: () => void
-  /**
-   * Callback invoked when the user confirms a variant selection.
-   *
-   * @param variantId - The primary key of the selected variant record.
-   * @param variantLabel - The human-readable label of the selected variant record.
-   */
-  onSelect: (variantId: string | number, variantLabel: string) => void
-  /** Human-readable label for the variant dimension (e.g. "Client"). */
+  /** Table whose variants are listed. */
+  tableName: string
+  /** Label of the variant options table (for example "Store"). */
   variantTableLabel: string
-  /**
-   * Backend table name used to scope the global search.
-   * Falls back to searching across all tables when not provided.
-   */
-  variantTableName?: string
+  /** The currently selected variant, if any. */
+  selected?: TableVariant | null
+  /** Called when the user dismisses the dialog without choosing. */
+  onCancel: () => void
+  /** Called with the chosen variant. */
+  onSelect: (variant: TableVariant) => void
 }
 
 /**
- * A searchable modal dialog that lets the user pick a variant record before the query page
- * loads scoped data.
+ * Variant selection dialog with a type-to-filter list.
  *
- * Uses `globalSearch` to fetch matching variant options as the user types.  The dialog is
- * built on Radix `Dialog` which provides a full focus trap and Escape-key dismissal.
- *
- * @param props - See {@link VariantPickerProps}.
- * @returns The rendered variant picker dialog.
+ * @param props - Component properties.
+ * @returns The dialog.
  */
-export function VariantPicker({
-  open,
-  onCancel,
-  onSelect,
-  variantTableLabel,
-  variantTableName,
-}: VariantPickerProps) {
+export function VariantPicker({ open, tableName, variantTableLabel, selected, onCancel, onSelect }: VariantPickerProps) {
   const [searchTerm, setSearchTerm] = useState('')
-  const [results, setResults] = useState<GlobalSearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [selectedResult, setSelectedResult] = useState<GlobalSearchResult | null>(null)
-  const [searchError, setSearchError] = useState<string | null>(null)
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [highlighted, setHighlighted] = useState<TableVariant | null>(selected ?? null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const variantsQuery = useQuery({
+    queryKey: [...queryKeys.tableRecords(tableName), 'variants'],
+    queryFn: () => fetchTableVariants(tableName),
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  })
 
-  /** Runs a debounced globalSearch and updates the results list. */
-  const runSearch = useCallback(
-    (term: string) => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-      if (!term.trim()) {
-        setResults([])
-        setIsSearching(false)
-        return
-      }
-      setIsSearching(true)
-      setSearchError(null)
-      searchTimeoutRef.current = setTimeout(async () => {
-        try {
-          const tableNames = variantTableName ? [variantTableName] : []
-          const data = await globalSearch(term, tableNames)
-          setResults(data)
-        } catch (err) {
-          const message = err instanceof Error ? err.message : 'Search failed'
-          setSearchError(message)
-          setResults([])
-        } finally {
-          setIsSearching(false)
-        }
-      }, COMBOBOX_DEBOUNCE_MS)
-    },
-    [variantTableName]
-  )
-
-  /** Reset internal state when the dialog closes or re-opens. */
   useEffect(() => {
     if (open) {
       setSearchTerm('')
-      setResults([])
-      setSelectedResult(null)
-      setSearchError(null)
-      setIsSearching(false)
+      setHighlighted(selected ?? null)
     }
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    }
-  }, [open])
+  }, [open, selected])
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchTerm(value)
-    setSelectedResult(null)
-    runSearch(value)
-  }
-
-  const handleConfirm = () => {
-    if (!selectedResult) return
-    onSelect(selectedResult.recordId, selectedResult.recordLabel)
-  }
+  const variants = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    return (variantsQuery.data ?? []).filter((v) => !term || String(v.name ?? v.id).toLowerCase().includes(term))
+  }, [variantsQuery.data, searchTerm])
+  const same = (a: TableVariant | null | undefined, b: TableVariant) => Boolean(a) && String(a!.id) === String(b.id) && a!.type === b.type
 
   return (
-    <DialogPrimitive.Root
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onCancel()
-      }}
-    >
+    <DialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel() }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <DialogPrimitive.Content
           data-qqq-id="variant-picker-dialog"
-          className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg border border-border bg-card shadow-lg',
-            'focus:outline-none'
-          )}
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card shadow-lg focus:outline-none"
           aria-describedby="variant-picker-description"
-          onOpenAutoFocus={(e) => {
-            // Focus the search input when the dialog opens
-            e.preventDefault()
-            searchInputRef.current?.focus()
-          }}
+          onOpenAutoFocus={(e) => { e.preventDefault(); searchInputRef.current?.focus() }}
         >
-          <DialogPrimitive.Title className="sr-only">
-            Select {variantTableLabel}
-          </DialogPrimitive.Title>
-
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <h2 className="text-lg font-semibold text-foreground">
-              Select {variantTableLabel}
-            </h2>
+            <DialogPrimitive.Title className="text-lg font-semibold text-foreground">{variantTableLabel}</DialogPrimitive.Title>
             <DialogPrimitive.Close asChild>
-              <button
-                type="button"
-                aria-label="Close dialog"
-                className={cn(
-                  'rounded-md p-1 text-muted-foreground hover:text-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-ring'
-                )}
-              >
+              <button type="button" aria-label="Close dialog" className="rounded-md p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </DialogPrimitive.Close>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-4 space-y-4">
+          <div className="space-y-4 px-6 py-4">
             <p id="variant-picker-description" className="text-sm text-muted-foreground">
-              Search for a {variantTableLabel} to scope the data you want to view.
+              Select the {variantTableLabel} to be used on this table:
             </p>
-
-            {/* Search input */}
             <div className="relative">
-              <label htmlFor="variant-search" className="sr-only">
-                Search {variantTableLabel}
-              </label>
-              <Search
-                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
+              <label htmlFor="variant-search" className="sr-only">Filter {variantTableLabel} options</label>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 id="variant-search"
                 type="search"
                 value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder={`Search ${variantTableLabel}...`}
-                className={cn(
-                  'w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm',
-                  'text-foreground placeholder:text-muted-foreground',
-                  'focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring'
-                )}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={`Filter ${variantTableLabel}...`}
+                className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 data-qqq-id="variant-search-input"
-                aria-autocomplete="list"
-                aria-controls="variant-results-list"
-                aria-activedescendant={selectedResult ? `variant-result-${selectedResult.recordId}` : undefined}
               />
-              {isSearching && (
-                <Loader2
-                  className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
-                  aria-hidden="true"
-                />
-              )}
-              {!isSearching && searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm('')
-                    setResults([])
-                    setSelectedResult(null)
-                    searchInputRef.current?.focus()
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
-                  aria-label="Clear search"
-                  data-qqq-id="variant-search-clear"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              )}
             </div>
 
-            {/* Error message */}
-            {searchError && (
-              <div
-                role="alert"
-                className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-              >
-                {searchError}
+            {variantsQuery.isLoading && (
+              <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading {variantTableLabel} options...
+              </p>
+            )}
+            {variantsQuery.isError && (
+              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {variantTableLabel} options could not be loaded.
+              </p>
+            )}
+            {variantsQuery.isSuccess && variants.length === 0 && (
+              <p role="status" className="py-2 text-center text-sm text-muted-foreground">No {variantTableLabel} options found.</p>
+            )}
+            {variants.length > 0 && (
+              <div role="listbox" aria-label={`${variantTableLabel} options`} className="max-h-60 overflow-y-auto rounded-md border border-border bg-background">
+                {variants.map((variant) => {
+                  const isSelected = same(highlighted, variant)
+                  return (
+                    <button
+                      key={`${variant.type}-${variant.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => setHighlighted(variant)}
+                      onDoubleClick={() => onSelect(variant)}
+                      className={cn('flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring',
+                        isSelected ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-accent')}
+                      data-qqq-id={`variant-option-${variant.id}`}
+                    >
+                      <span className="flex-1 truncate">{variant.name ?? String(variant.id)}</span>
+                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
+                    </button>
+                  )
+                })}
               </div>
-            )}
-
-            {/* Results list */}
-            <div
-              id="variant-results-list"
-              role="listbox"
-              aria-label={`${variantTableLabel} search results`}
-              className={cn(
-                'max-h-60 overflow-y-auto rounded-md border border-border bg-background',
-                results.length === 0 ? 'hidden' : ''
-              )}
-            >
-              {results.map((result) => {
-                const isSelected = selectedResult?.recordId === result.recordId
-                return (
-                  <button
-                    key={`${result.tableName}-${result.recordId}`}
-                    id={`variant-result-${result.recordId}`}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => setSelectedResult(result)}
-                    onDoubleClick={() => {
-                      setSelectedResult(result)
-                      onSelect(result.recordId, result.recordLabel)
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors',
-                      'focus:outline-none focus:ring-1 focus:ring-ring',
-                      isSelected
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-foreground hover:bg-accent'
-                    )}
-                    data-qqq-id={`variant-result-${result.recordId}`}
-                  >
-                    <span className="flex-1 truncate">{result.recordLabel}</span>
-                    {isSelected && (
-                      <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Empty state */}
-            {!isSearching && searchTerm && results.length === 0 && !searchError && (
-              <p className="py-2 text-center text-sm text-muted-foreground" role="status">
-                No {variantTableLabel} records found for &ldquo;{searchTerm}&rdquo;
-              </p>
-            )}
-
-            {/* Prompt to search */}
-            {!searchTerm && !isSearching && (
-              <p className="py-2 text-center text-sm text-muted-foreground">
-                Type to search for a {variantTableLabel}
-              </p>
             )}
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 rounded-b-lg border-t border-border bg-muted px-6 py-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              data-qqq-id="variant-picker-cancel"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
-                'text-foreground bg-card hover:bg-accent',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                'transition-colors duration-150'
-              )}
-            >
+            <button type="button" onClick={onCancel} data-qqq-id="variant-picker-cancel"
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={!selectedResult}
-              data-qqq-id="variant-picker-select"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-primary-foreground bg-primary hover:bg-primary/90',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'transition-colors duration-150'
-              )}
-            >
+            <button type="button" onClick={() => highlighted && onSelect(highlighted)} disabled={!highlighted} data-qqq-id="variant-picker-select"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
               Select
             </button>
           </div>

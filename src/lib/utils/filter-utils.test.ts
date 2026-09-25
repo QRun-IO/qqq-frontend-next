@@ -19,388 +19,274 @@
 import { describe, it, expect } from 'vitest'
 import {
   emptyFilter,
+  getOperatorOptions,
   getOperatorsForFieldType,
   getDefaultOperatorForFieldType,
+  selectedOperatorOption,
+  newCriterionForField,
   isNumericType,
   isStringType,
   isDateTimeType,
+  isCriterionComplete,
   countActiveCriteria,
   isFilterEmpty,
   serializeFilter,
   deserializeFilter,
   buildQuickFilter,
+  combineWithQuickFilter,
   applyPagination,
   applySort,
+  prepFilterForBackend,
+  referencedFieldNames,
+  resolveField,
+  localDateTimeToUtc,
   isFilterVariableExpression,
   isNowExpression,
   isNowWithOffsetExpression,
   isThisOrLastPeriodExpression,
+  describeExpression,
   formatCriterionDisplay,
   OPERATOR_CONFIG,
 } from './filter-utils'
-import type { QQueryFilter, QFilterCriteria } from '@/types'
+import type { QQueryFilter, QFilterCriteria, QTableMetaData, QFieldMetaData, QCriteriaOperator } from '@/types'
+
+const field = (name: string, type: QFieldMetaData['type'], extra: Partial<QFieldMetaData> = {}): QFieldMetaData => ({
+  name, label: name, type, isRequired: false, isEditable: true, isHeavy: false, isHidden: false, adornments: [], ...extra,
+})
 
 describe('emptyFilter', () => {
   it('returns default page size of 25', () => {
     const f = emptyFilter()
-    expect(f.limit).toBe(25)
-    expect(f.skip).toBe(0)
-    expect(f.criteria).toEqual([])
-    expect(f.orderBys).toEqual([])
-    expect(f.booleanOperator).toBe('AND')
-  })
-
-  it('respects custom page size', () => {
-    const f = emptyFilter(50)
-    expect(f.limit).toBe(50)
+    expect(f).toEqual({ criteria: [], orderBys: [], subFilters: [], booleanOperator: 'AND', skip: 0, limit: 25 })
   })
 })
 
-describe('getOperatorsForFieldType', () => {
-  it('returns CONTAINS for STRING type', () => {
-    const ops = getOperatorsForFieldType('STRING')
-    expect(ops).toContain('CONTAINS')
-    expect(ops).toContain('EQUALS')
-    expect(ops).toContain('STARTS_WITH')
+describe('operator options (Material parity)', () => {
+  it('offers the Material string operators in order', () => {
+    expect(getOperatorOptions({ type: 'STRING' }).map((o) => `${o.operator}:${o.label}`)).toEqual([
+      'EQUALS:equals', 'NOT_EQUALS_OR_IS_NULL:does not equal', 'CONTAINS:contains', 'NOT_CONTAINS:does not contain',
+      'STARTS_WITH:starts with', 'NOT_STARTS_WITH:does not start with', 'ENDS_WITH:ends with', 'NOT_ENDS_WITH:does not end with',
+      'IS_BLANK:is empty', 'IS_NOT_BLANK:is not empty', 'IN:is any of', 'NOT_IN:is none of',
+    ])
   })
 
-  it('returns numeric operators for INTEGER', () => {
+  it('offers numeric comparison, range and list operators', () => {
     const ops = getOperatorsForFieldType('INTEGER')
-    expect(ops).toContain('LESS_THAN')
-    expect(ops).toContain('GREATER_THAN')
-    expect(ops).toContain('BETWEEN')
+    expect(ops).toEqual(['EQUALS', 'NOT_EQUALS_OR_IS_NULL', 'GREATER_THAN', 'GREATER_THAN_OR_EQUALS', 'LESS_THAN', 'LESS_THAN_OR_EQUALS', 'IS_BLANK', 'IS_NOT_BLANK', 'BETWEEN', 'NOT_BETWEEN', 'IN', 'NOT_IN'])
     expect(ops).not.toContain('CONTAINS')
   })
 
-  it('returns blank operators for BOOLEAN', () => {
-    const ops = getOperatorsForFieldType('BOOLEAN')
-    expect(ops).toContain('IS_BLANK')
-    expect(ops).toContain('IS_NOT_BLANK')
-    expect(ops).toContain('EQUALS')
+  it('uses date wording and has no list operators for dates', () => {
+    const labels = getOperatorOptions({ type: 'DATE' }).map((o) => o.label)
+    expect(labels).toContain('is on or after')
+    expect(getOperatorOptions({ type: 'DATE_TIME' }).map((o) => o.label)).toContain('is at or before')
+    expect(getOperatorsForFieldType('DATE')).not.toContain('IN')
   })
 
-  it('returns date operators for DATE type', () => {
-    const ops = getOperatorsForFieldType('DATE')
-    expect(ops).toContain('LESS_THAN')
-    expect(ops).toContain('BETWEEN')
-    expect(ops).not.toContain('CONTAINS')
+  it('models boolean yes/no as EQUALS with implicit values', () => {
+    const options = getOperatorOptions({ type: 'BOOLEAN' })
+    expect(options.map((o) => o.label)).toEqual(['equals yes', 'equals no', 'is empty', 'is not empty'])
+    expect(options[1].implicitValues).toEqual([false])
+    expect(selectedOperatorOption(options, { fieldName: 'b', operator: 'EQUALS', values: [false] }).label).toBe('equals no')
   })
 
-  it('returns HTML operators for HTML type', () => {
-    const ops = getOperatorsForFieldType('HTML')
-    expect(ops).toContain('CONTAINS')
-    expect(ops).toContain('STARTS_WITH')
-  })
-})
-
-describe('getDefaultOperatorForFieldType', () => {
-  it('returns CONTAINS for string types', () => {
-    expect(getDefaultOperatorForFieldType('STRING')).toBe('CONTAINS')
-    expect(getDefaultOperatorForFieldType('TEXT')).toBe('CONTAINS')
-    expect(getDefaultOperatorForFieldType('HTML')).toBe('CONTAINS')
+  it('offers only emptiness for BLOB and the possible-value set for PVS fields', () => {
+    expect(getOperatorsForFieldType('BLOB')).toEqual(['IS_BLANK', 'IS_NOT_BLANK'])
+    expect(getOperatorOptions({ type: 'INTEGER', possibleValueSourceName: 'person' }).map((o) => o.label))
+      .toEqual(['equals', 'does not equal', 'is empty', 'is not empty', 'is any of', 'is none of'])
   })
 
-  it('returns EQUALS for numeric types', () => {
-    expect(getDefaultOperatorForFieldType('INTEGER')).toBe('EQUALS')
-    expect(getDefaultOperatorForFieldType('LONG')).toBe('EQUALS')
-    expect(getDefaultOperatorForFieldType('DECIMAL')).toBe('EQUALS')
+  it('synthesizes an option for backend-only operators so saved filters still render', () => {
+    const options = getOperatorOptions({ type: 'STRING' })
+    for (const operator of ['LIKE', 'NOT_LIKE', 'IS_NULL_OR_IN', 'TRUE', 'FALSE', 'NOT_EQUALS'] as QCriteriaOperator[]) {
+      const selected = selectedOperatorOption(options, { fieldName: 'name', operator, values: [] })
+      expect(selected.operator).toBe(operator)
+      expect(selected.label).toBe(OPERATOR_CONFIG[operator].label)
+    }
   })
 
-  it('returns EQUALS for date/time types', () => {
-    expect(getDefaultOperatorForFieldType('DATE')).toBe('EQUALS')
-    expect(getDefaultOperatorForFieldType('DATE_TIME')).toBe('EQUALS')
-    expect(getDefaultOperatorForFieldType('TIME')).toBe('EQUALS')
+  it('starts new criteria with the first option and its implicit values', () => {
+    expect(getDefaultOperatorForFieldType('STRING')).toBe('EQUALS')
+    expect(newCriterionForField('isActive', { type: 'BOOLEAN' })).toEqual({ fieldName: 'isActive', operator: 'EQUALS', values: [true] })
   })
 
-  it('returns EQUALS for BOOLEAN', () => {
-    expect(getDefaultOperatorForFieldType('BOOLEAN')).toBe('EQUALS')
-  })
-
-  it('returns EQUALS for unknown type', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(getDefaultOperatorForFieldType('UNKNOWN' as any)).toBe('EQUALS')
+  it('covers every backend operator in OPERATOR_CONFIG', () => {
+    expect(Object.keys(OPERATOR_CONFIG)).toHaveLength(24)
+    expect(OPERATOR_CONFIG.BETWEEN.valueCount).toBe('range')
+    expect(OPERATOR_CONFIG.TRUE.valueCount).toBe('none')
   })
 })
 
-describe('type guards', () => {
-  it('isNumericType returns true for numeric types', () => {
-    expect(isNumericType('INTEGER')).toBe(true)
-    expect(isNumericType('LONG')).toBe(true)
+describe('type helpers', () => {
+  it('classifies field types', () => {
     expect(isNumericType('DECIMAL')).toBe(true)
-    expect(isNumericType('STRING')).toBe(false)
-    expect(isNumericType('BOOLEAN')).toBe(false)
-  })
-
-  it('isStringType returns true for string types', () => {
-    expect(isStringType('STRING')).toBe(true)
     expect(isStringType('TEXT')).toBe(true)
-    expect(isStringType('HTML')).toBe(true)
-    expect(isStringType('INTEGER')).toBe(false)
-  })
-
-  it('isDateTimeType returns true for date/time types', () => {
-    expect(isDateTimeType('DATE')).toBe(true)
     expect(isDateTimeType('TIME')).toBe(true)
-    expect(isDateTimeType('DATE_TIME')).toBe(true)
-    expect(isDateTimeType('STRING')).toBe(false)
+    expect(isNumericType('STRING')).toBe(false)
   })
 })
 
-describe('countActiveCriteria', () => {
-  it('returns 0 for empty filter', () => {
-    expect(countActiveCriteria(emptyFilter())).toBe(0)
+describe('criterion completeness and counting', () => {
+  it('requires values per operator shape (Material validateCriteria)', () => {
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'IS_BLANK', values: [] })).toBe(true)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'EQUALS', values: [''] })).toBe(false)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'EQUALS', values: [0] })).toBe(true)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'BETWEEN', values: ['1'] })).toBe(false)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'BETWEEN', values: ['1', '2'] })).toBe(true)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'IN', values: [] })).toBe(false)
+    expect(isCriterionComplete({ fieldName: 'a', operator: 'GREATER_THAN', values: [{ type: 'Now' }] })).toBe(true)
   })
 
-  it('counts criteria with non-empty values', () => {
+  it('counts complete criteria including sub-filters', () => {
     const filter: QQueryFilter = {
       ...emptyFilter(),
-      criteria: [
-        { fieldName: 'name', operator: 'EQUALS', values: ['Alice'] },
-        { fieldName: 'age', operator: 'GREATER_THAN', values: ['30'] },
-      ],
+      criteria: [{ fieldName: 'a', operator: 'EQUALS', values: ['x'] }, { fieldName: 'b', operator: 'EQUALS', values: [] }],
+      subFilters: [{ ...emptyFilter(), criteria: [{ fieldName: 'c', operator: 'IS_NOT_BLANK', values: [] }] }],
     }
     expect(countActiveCriteria(filter)).toBe(2)
-  })
-
-  it('does not count criteria with empty values', () => {
-    const filter: QQueryFilter = {
-      ...emptyFilter(),
-      criteria: [{ fieldName: 'name', operator: 'EQUALS', values: [''] }],
-    }
-    expect(countActiveCriteria(filter)).toBe(0)
-  })
-
-  it('counts IS_BLANK and IS_NOT_BLANK even without values', () => {
-    const filter: QQueryFilter = {
-      ...emptyFilter(),
-      criteria: [
-        { fieldName: 'name', operator: 'IS_BLANK', values: [] },
-        { fieldName: 'age', operator: 'IS_NOT_BLANK', values: [] },
-      ],
-    }
-    expect(countActiveCriteria(filter)).toBe(2)
-  })
-
-  it('counts nested subFilter criteria', () => {
-    const filter: QQueryFilter = {
-      ...emptyFilter(),
-      criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Alice'] }],
-      subFilters: [
-        {
-          ...emptyFilter(),
-          criteria: [{ fieldName: 'status', operator: 'EQUALS', values: ['active'] }],
-        },
-      ],
-    }
-    expect(countActiveCriteria(filter)).toBe(2)
-  })
-})
-
-describe('isFilterEmpty', () => {
-  it('returns true for empty filter', () => {
     expect(isFilterEmpty(emptyFilter())).toBe(true)
   })
+})
 
-  it('returns false when criteria are set', () => {
-    const filter: QQueryFilter = {
+describe('serialization', () => {
+  const filter: QQueryFilter = {
+    criteria: [{ fieldName: 'firstName', operator: 'CONTAINS', values: ['Ávery'] }],
+    orderBys: [{ fieldName: 'id', isAscending: false }],
+    subFilters: [],
+    booleanOperator: 'OR',
+    skip: 50,
+    limit: 25,
+  }
+
+  it('round-trips base64 filters without paging', () => {
+    const restored = deserializeFilter(serializeFilter(filter), 10)
+    expect(restored.criteria).toEqual(filter.criteria)
+    expect(restored.orderBys).toEqual(filter.orderBys)
+    expect(restored.booleanOperator).toBe('OR')
+    expect(restored.skip).toBe(0)
+    expect(restored.limit).toBe(10)
+  })
+
+  it('accepts plain JSON filters (Material and backend links)', () => {
+    const restored = deserializeFilter(JSON.stringify({ criteria: [{ fieldName: 'personId', operator: 'EQUALS', values: [1] }] }))
+    expect(restored.criteria).toEqual([{ fieldName: 'personId', operator: 'EQUALS', values: [1] }])
+    expect(restored.booleanOperator).toBe('AND')
+  })
+
+  it('falls back to an empty filter for garbage', () => {
+    expect(deserializeFilter('not-base64!!!').criteria).toEqual([])
+  })
+})
+
+describe('quick search', () => {
+  it('ORs CONTAINS across visible string fields and ignores blank terms', () => {
+    expect(buildQuickFilter('   ', ['a'], { a: 'STRING' }).criteria).toEqual([])
+    const quick = buildQuickFilter(' Av ', ['firstName', 'age'], { firstName: 'STRING', age: 'INTEGER' })
+    expect(quick.booleanOperator).toBe('OR')
+    expect(quick.criteria).toEqual([{ fieldName: 'firstName', operator: 'CONTAINS', values: ['Av'] }])
+  })
+
+  it('ANDs the quick search with the advanced filter instead of replacing it', () => {
+    const user: QQueryFilter = { ...emptyFilter(), booleanOperator: 'OR', criteria: [{ fieldName: 'a', operator: 'EQUALS', values: ['1'] }], orderBys: [{ fieldName: 'id', isAscending: true }] }
+    const quick = buildQuickFilter('x', ['b'], { b: 'STRING' })
+    const combined = combineWithQuickFilter(user, quick)
+    expect(combined.booleanOperator).toBe('AND')
+    expect(combined.criteria).toEqual([])
+    expect(combined.subFilters?.[0].criteria).toEqual(user.criteria)
+    expect(combined.subFilters?.[0].booleanOperator).toBe('OR')
+    expect(combined.subFilters?.[1].criteria).toEqual(quick.criteria)
+    expect(combined.orderBys).toEqual(user.orderBys)
+    expect(combineWithQuickFilter(user, null)).toBe(user)
+  })
+})
+
+describe('paging and sort', () => {
+  it('sets skip/limit and replaces order', () => {
+    expect(applyPagination(emptyFilter(), 3, 10)).toMatchObject({ skip: 20, limit: 10 })
+    expect(applySort(emptyFilter(), [{ fieldName: 'x', isAscending: true }]).orderBys).toEqual([{ fieldName: 'x', isAscending: true }])
+  })
+})
+
+describe('prepFilterForBackend', () => {
+  const fields: Record<string, QFieldMetaData> = {
+    quantity: field('quantity', 'INTEGER'),
+    isActive: field('isActive', 'BOOLEAN'),
+    checkedAt: field('checkedAt', 'DATE_TIME'),
+    name: field('name', 'STRING'),
+  }
+  const fieldFor = (name: string) => fields[name]
+
+  it('drops incomplete criteria, clears value-less operators and coerces types', () => {
+    const prepared = prepFilterForBackend({
       ...emptyFilter(),
-      criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Alice'] }],
-    }
-    expect(isFilterEmpty(filter)).toBe(false)
+      criteria: [
+        { fieldName: 'quantity', operator: 'IN', values: ['1', ' 2 ', ''] },
+        { fieldName: 'name', operator: 'EQUALS', values: [''] },
+        { fieldName: 'name', operator: 'IS_BLANK', values: ['stale'] },
+        { fieldName: 'isActive', operator: 'EQUALS', values: ['false'] },
+        { fieldName: 'checkedAt', operator: 'GREATER_THAN', values: [{ type: 'NowWithOffset', operator: 'MINUS', amount: 3, timeUnit: 'DAYS' }] },
+      ],
+      subFilters: [{ ...emptyFilter(), criteria: [{ fieldName: 'name', operator: 'CONTAINS', values: [] }] }],
+    }, fieldFor)
+    expect(prepared.criteria).toEqual([
+      { fieldName: 'quantity', operator: 'IN', values: [1, 2] },
+      { fieldName: 'name', operator: 'IS_BLANK', values: [] },
+      { fieldName: 'isActive', operator: 'EQUALS', values: [false] },
+      { fieldName: 'checkedAt', operator: 'GREATER_THAN', values: [{ type: 'NowWithOffset', operator: 'MINUS', amount: 3, timeUnit: 'DAYS' }] },
+    ])
+    expect(prepared.subFilters).toEqual([])
+  })
+
+  it('converts local date-times to UTC instants', () => {
+    const local = '2026-03-04T05:06'
+    expect(localDateTimeToUtc(local)).toBe(new Date(local).toISOString())
+    expect(localDateTimeToUtc('2026-03-04T05:06:00Z')).toBe('2026-03-04T05:06:00Z')
   })
 })
 
-describe('serializeFilter / deserializeFilter', () => {
-  it('round-trips a filter', () => {
-    const original: QQueryFilter = {
-      criteria: [{ fieldName: 'name', operator: 'CONTAINS', values: ['test'] }],
+describe('field resolution', () => {
+  const table: QTableMetaData = {
+    name: 'pet', label: 'Pet', isHidden: false, primaryKeyField: 'id', sections: [], capabilities: [],
+    readPermission: true, insertPermission: true, editPermission: true, deletePermission: true, usesVariants: false, variantTableLabel: '',
+    fields: { id: field('id', 'INTEGER'), name: { ...field('name', 'STRING'), label: 'Name' } },
+    exposedJoins: [{ label: 'Owner', isMany: false, joinTable: { name: 'person', label: 'Person', fields: { firstName: { ...field('firstName', 'STRING'), label: 'First Name' } } } as unknown as QTableMetaData }],
+  }
+
+  it('resolves base and exposed-join fields with Material labels', () => {
+    expect(resolveField(table, 'name')?.label).toBe('Name')
+    expect(resolveField(table, 'person.firstName')).toMatchObject({ isJoin: true, tableName: 'person', label: 'Owner: First Name' })
+    expect(resolveField(table, 'person.missing')).toBeUndefined()
+  })
+
+  it('lists referenced fields from criteria, sort and sub-filters', () => {
+    expect(referencedFieldNames({
+      criteria: [{ fieldName: 'person.firstName', operator: 'EQUALS', values: ['x'] }],
       orderBys: [{ fieldName: 'name', isAscending: true }],
-      subFilters: [],
-      booleanOperator: 'OR',
-      skip: 0,
-      limit: 25,
-    }
-
-    const encoded = serializeFilter(original)
-    expect(typeof encoded).toBe('string')
-    expect(encoded.length).toBeGreaterThan(0)
-
-    const decoded = deserializeFilter(encoded)
-    expect(decoded.criteria).toEqual(original.criteria)
-    expect(decoded.orderBys).toEqual(original.orderBys)
-    expect(decoded.booleanOperator).toBe('OR')
-  })
-
-  it('returns empty filter for invalid input', () => {
-    const result = deserializeFilter('not-valid-base64!!!')
-    expect(result.criteria).toEqual([])
-  })
-
-  it('deserializeFilter uses supplied pageSize', () => {
-    const encoded = serializeFilter(emptyFilter())
-    const result = deserializeFilter(encoded, 100)
-    expect(result.limit).toBe(100)
+      subFilters: [{ ...emptyFilter(), criteria: [{ fieldName: 'id', operator: 'IS_BLANK', values: [] }] }],
+    }).sort()).toEqual(['id', 'name', 'person.firstName'])
   })
 })
 
-describe('buildQuickFilter', () => {
-  it('returns empty filter for empty search term', () => {
-    const result = buildQuickFilter('', ['name'], { name: 'STRING' })
-    expect(isFilterEmpty(result)).toBe(true)
+describe('expressions', () => {
+  it('recognizes the backend expression classes', () => {
+    expect(isNowExpression({ type: 'Now' })).toBe(true)
+    expect(isNowWithOffsetExpression({ type: 'NowWithOffset', operator: 'MINUS', amount: 1, timeUnit: 'DAYS' })).toBe(true)
+    expect(isThisOrLastPeriodExpression({ type: 'ThisOrLastPeriod', operator: 'THIS', timeUnit: 'MONTHS' })).toBe(true)
+    expect(isFilterVariableExpression({ type: 'FilterVariableExpression', variableName: 'x' })).toBe(true)
+    expect(isNowExpression({ type: 'NOW' })).toBe(false)
   })
 
-  it('returns empty filter for whitespace-only search term', () => {
-    const result = buildQuickFilter('   ', ['name'], { name: 'STRING' })
-    expect(isFilterEmpty(result)).toBe(true)
+  it('describes expressions in words', () => {
+    expect(describeExpression({ type: 'Now' }, 'DATE')).toBe('today')
+    expect(describeExpression({ type: 'Now' }, 'DATE_TIME')).toBe('now')
+    expect(describeExpression({ type: 'NowWithOffset', operator: 'MINUS', amount: 3, timeUnit: 'DAYS' })).toBe('3 days ago')
+    expect(describeExpression({ type: 'NowWithOffset', operator: 'PLUS', amount: 1, timeUnit: 'WEEKS' })).toBe('1 week from now')
+    expect(describeExpression({ type: 'ThisOrLastPeriod', operator: 'LAST', timeUnit: 'MONTHS' })).toBe('start of last month')
   })
 
-  it('builds OR filter across string fields', () => {
-    const result = buildQuickFilter('Alice', ['firstName', 'lastName', 'age'], {
-      firstName: 'STRING',
-      lastName: 'STRING',
-      age: 'INTEGER',
-    })
-    expect(result.booleanOperator).toBe('OR')
-    // Only string fields get criteria
-    expect(result.criteria).toHaveLength(2)
-    expect(result.criteria[0].fieldName).toBe('firstName')
-    expect(result.criteria[0].operator).toBe('CONTAINS')
-    expect(result.criteria[0].values).toEqual(['Alice'])
-  })
-
-  it('ignores non-string field types', () => {
-    const result = buildQuickFilter('123', ['id', 'name'], {
-      id: 'INTEGER',
-      name: 'STRING',
-    })
-    expect(result.criteria).toHaveLength(1)
-    expect(result.criteria[0].fieldName).toBe('name')
-  })
-})
-
-describe('applyPagination', () => {
-  it('sets skip and limit correctly', () => {
-    const base = emptyFilter()
-    const result = applyPagination(base, 2, 25)
-    expect(result.skip).toBe(25)
-    expect(result.limit).toBe(25)
-  })
-
-  it('page 1 has skip 0', () => {
-    const result = applyPagination(emptyFilter(), 1, 50)
-    expect(result.skip).toBe(0)
-    expect(result.limit).toBe(50)
-  })
-
-  it('page 3 with pageSize 10 = skip 20', () => {
-    const result = applyPagination(emptyFilter(), 3, 10)
-    expect(result.skip).toBe(20)
-  })
-})
-
-describe('applySort', () => {
-  it('sets orderBys on filter', () => {
-    const base = emptyFilter()
-    const orderBys = [{ fieldName: 'name', isAscending: true }]
-    const result = applySort(base, orderBys)
-    expect(result.orderBys).toEqual(orderBys)
-  })
-})
-
-describe('expression type guards', () => {
-  it('isFilterVariableExpression identifies FILTER_VARIABLE', () => {
-    expect(isFilterVariableExpression({ type: 'FILTER_VARIABLE', variableName: 'x' })).toBe(true)
-    expect(isFilterVariableExpression({ type: 'NOW' })).toBe(false)
-    expect(isFilterVariableExpression(null)).toBe(false)
-    expect(isFilterVariableExpression('string')).toBe(false)
-  })
-
-  it('isNowExpression identifies NOW', () => {
-    expect(isNowExpression({ type: 'NOW' })).toBe(true)
-    expect(isNowExpression({ type: 'OTHER' })).toBe(false)
-  })
-
-  it('isNowWithOffsetExpression identifies NOW_WITH_OFFSET', () => {
-    expect(isNowWithOffsetExpression({ type: 'NOW_WITH_OFFSET' })).toBe(true)
-    expect(isNowWithOffsetExpression(null)).toBe(false)
-  })
-
-  it('isThisOrLastPeriodExpression identifies THIS_OR_LAST_PERIOD', () => {
-    expect(isThisOrLastPeriodExpression({ type: 'THIS_OR_LAST_PERIOD' })).toBe(true)
-    expect(isThisOrLastPeriodExpression({ type: 'NOW' })).toBe(false)
-  })
-})
-
-describe('formatCriterionDisplay', () => {
-  it('formats simple equality criterion', () => {
-    const criterion: QFilterCriteria = { fieldName: 'name', operator: 'EQUALS', values: ['Alice'] }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('name')
-    expect(display).toContain('Equals')
-    expect(display).toContain('Alice')
-  })
-
-  it('formats no-value operators', () => {
-    const criterion: QFilterCriteria = { fieldName: 'email', operator: 'IS_BLANK', values: [] }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toBe('email Is blank')
-  })
-
-  it('formats NOW expression', () => {
-    const criterion: QFilterCriteria = {
-      fieldName: 'date',
-      operator: 'EQUALS',
-      values: [{ type: 'NOW' }],
-    }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('now')
-  })
-
-  it('formats NOW_WITH_OFFSET expression', () => {
-    const criterion: QFilterCriteria = {
-      fieldName: 'date',
-      operator: 'GREATER_THAN',
-      values: [{ type: 'NOW_WITH_OFFSET', isNegativeOffset: true, offsetValue: 7, offsetUnit: 'DAY' }],
-    }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('now -7 day')
-  })
-
-  it('formats THIS_OR_LAST_PERIOD expression', () => {
-    const criterion: QFilterCriteria = {
-      fieldName: 'date',
-      operator: 'EQUALS',
-      values: [{ type: 'THIS_OR_LAST_PERIOD', isLast: false, period: 'MONTH' }],
-    }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('this month')
-  })
-
-  it('formats LAST period expression', () => {
-    const criterion: QFilterCriteria = {
-      fieldName: 'date',
-      operator: 'EQUALS',
-      values: [{ type: 'THIS_OR_LAST_PERIOD', isLast: true, period: 'WEEK' }],
-    }
-    const display = formatCriterionDisplay(criterion)
-    expect(display).toContain('last week')
-  })
-})
-
-describe('OPERATOR_CONFIG', () => {
-  it('has all expected operators', () => {
-    const operators = Object.keys(OPERATOR_CONFIG)
-    expect(operators).toContain('EQUALS')
-    expect(operators).toContain('CONTAINS')
-    expect(operators).toContain('IS_BLANK')
-    expect(operators).toContain('BETWEEN')
-  })
-
-  it('BETWEEN has range valueCount', () => {
-    expect(OPERATOR_CONFIG.BETWEEN.valueCount).toBe('range')
-  })
-
-  it('IS_BLANK has none valueCount', () => {
-    expect(OPERATOR_CONFIG.IS_BLANK.valueCount).toBe('none')
+  it('formats criteria for display', () => {
+    const criterion: QFilterCriteria = { fieldName: 'name', operator: 'CONTAINS', values: ['Widget'] }
+    expect(formatCriterionDisplay(criterion, () => 'Name')).toBe('Name contains Widget')
+    expect(formatCriterionDisplay({ fieldName: 'name', operator: 'IS_BLANK', values: [] })).toBe('name is empty')
   })
 })

@@ -13,7 +13,7 @@ const AUTH_META = { name: 'mockAuth', type: 'FULLY_ANONYMOUS', values: {} }
 const SESSION = { uuid: 'mock-session-uuid-e2e', values: {} }
 
 // Minimal QInstance — just enough for the app to render
-const METADATA = {
+export const METADATA = {
   apps: {
     crm: {
       name: 'crm',
