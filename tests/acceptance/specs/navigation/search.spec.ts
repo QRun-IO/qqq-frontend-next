@@ -108,7 +108,10 @@ test.describe('command palette and search', () => {
     for (const attempt of ['navigate', 'reload']) {
       if (attempt === 'reload') await page.reload()
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search results for “pet”')
-      await expect(page.getByRole('region', { name: 'Pages' }).getByRole('link')).toHaveText([/^Pet Species/, /^Pet(?! )/, /^Pet Note/])
+      const pageLinks = page.getByRole('region', { name: 'Pages' }).getByRole('link')
+      // Other areas' fixtures add matching pages (e.g. "Owned Pet … Report"); every result must match and the pet tables keep their order
+      await expect(pageLinks.filter({ hasText: /^Pet/ })).toHaveText([/^Pet Species/, /^Pet(?! )/, /^Pet Note/])
+      for (const text of await pageLinks.allTextContents()) expect(text).toMatch(/pet/i)
     }
     await page.getByRole('region', { name: 'Pages' }).getByRole('link', { name: /^Pet Note/ }).click()
     await expect(page).toHaveURL(/\/app\/petNote\/?$/)

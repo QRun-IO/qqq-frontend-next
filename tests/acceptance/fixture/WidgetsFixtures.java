@@ -274,14 +274,16 @@ final class WidgetsFixtures
 
 
    /*******************************************************************************
-    ** Scripts live in the sample memory backend; replace only the owned rows.
+    ** Scripts and scheduled reports live in the sample memory backend, which the
+    ** database reset does not touch; replace only the owned script rows and clear
+    ** the scheduled reports tests create, so every test starts without them.
     *******************************************************************************/
    private static void primeScripts() throws QException
    {
       QContext.init(instance, new QSystemUserSession());
       try
       {
-         for(String table : List.of("scriptRevisionFile", "scriptRevision", "script", "scriptTypeFileSchema", "scriptType"))
+         for(String table : List.of("scheduledReport", "scriptRevisionFile", "scriptRevision", "script", "scriptTypeFileSchema", "scriptType"))
          {
             new DeleteAction().execute(new DeleteInput(table).withQueryFilter(new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IS_NOT_BLANK))));
          }

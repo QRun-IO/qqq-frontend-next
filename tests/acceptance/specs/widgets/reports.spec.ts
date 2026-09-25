@@ -160,7 +160,7 @@ test.describe('without the report permission', () => {
     expect(JSON.stringify(await viaProcess.json())).not.toContain('serverFilePath')
     // a direct link does not reveal or run it, and navigation does not list it
     await open(page, '/app/accRestrictedReport')
-    await expect(page.locator('[data-qqq-id="unknown-slug-accRestrictedReport"]')).toContainText('Unknown resource')
+    await expect(page.locator('[data-qqq-id="not-found-state"]')).toContainText('There is no app, table, process or report named accRestrictedReport that you can open.')
     await expect(page.getByRole('button', { name: 'Run Report' })).toHaveCount(0)
     const nav = page.getByRole('navigation', { name: 'App navigation' })
     await nav.getByRole('button', { name: 'Expand Acceptance Reports' }).click()

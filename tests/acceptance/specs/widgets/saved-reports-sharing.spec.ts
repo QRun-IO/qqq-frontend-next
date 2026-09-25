@@ -77,8 +77,9 @@ test('[RPT-010] a saved report renders to a CSV with its saved columns and rows'
   await expect(page).toHaveURL(/\/app\/renderSavedReport/)
   await page.getByLabel(/Report Format/).click()
   await page.getByRole('option', { name: 'CSV' }).click()
-  await page.getByRole('button', { name: 'Next' }).click()
-  const link = page.locator('[data-qqq-id="button-download-file"]')
+  await page.getByRole('button', { name: 'Submit' }).click()
+  // the process download form component (#649 processes) delivers the report file
+  const link = page.locator('[data-qqq-id="link-process-download"]')
   await expect(link).toContainText('Pet Species Report')
   const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
   const rows = parseCsv(await downloadText(download))
@@ -95,7 +96,8 @@ async function fillSchedule(page: Page, cronExpression: string) {
   const form = page.locator('form')
   await form.getByLabel(/^Saved Report/).click()
   await page.getByRole('option', { name: 'Pet Species Report' }).click()
-  await form.getByRole('checkbox', { name: 'Is Active' }).click()
+  // Is Active defaults to on from its metadata default (#649 records); make sure it ends checked
+  await form.getByRole('checkbox', { name: 'Is Active' }).check()
   await form.getByLabel(/^Format/).click()
   await page.getByRole('option', { name: /^CSV/ }).click()
   await form.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')

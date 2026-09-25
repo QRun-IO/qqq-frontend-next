@@ -19,7 +19,8 @@ test('[WID-021] a process widget runs the interactive greeting inline and shows 
   const card = widget(page, 'accProcess')
   await card.getByLabel('Greeting Prefix').fill('Widget')
   await card.getByLabel('Greeting Suffix').fill('checked')
-  await card.getByRole('button', { name: 'Next' }).click()
+  // The setup step is the last frontend step before the backend runs, so it submits (Material parity, #649 processes)
+  await card.getByRole('button', { name: 'Submit' }).click()
   await expect(card).toContainText(`Widget ${person.first_name} checked`)
   await expect(widgetBody(page, 'accHealthy')).toHaveText('Healthy neighbor content')
 })
@@ -28,7 +29,8 @@ test.describe('without process permission', () => {
   test.use({ persona: 'noProcesses' })
 
   test('[WID-061] a process widget is contained when the user may not run its process', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/qqq/v1/metaData/process/greetInteractive 403')
+    // process metadata comes from the registered /metaData/process route, which refuses the denied process
+    diagnostics.allow('/metaData/process/greetInteractive 403')
     diagnostics.allow('Failed to load resource: the server responded with a status of 403')
     expect((await backend.api.post('/qqq/v1/processes/greetInteractive/init', { multipart: { values: '{}' } })).status()).toBe(403)
     await open(page, '/app/widgetProcess?recordIds=1')

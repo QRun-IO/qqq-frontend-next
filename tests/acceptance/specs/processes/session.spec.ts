@@ -57,7 +57,7 @@ test.describe('Refresh and session', () => {
 
     // a fresh page no longer offers the process at all
     await open(page, '/app/prcComponents')
-    await expect(page.getByText('Unknown resource:')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="not-found-state"]')).toContainText('There is no app, table, process or report named prcComponents that you can open.')
     await expect(page.locator('[data-qqq-id="process-run-prcComponents"]')).toHaveCount(0)
     const refused = await backend.api.post('/processes/prcComponents/init', { multipart: {} })
     expect(refused.status()).toBe(403)
