@@ -23,6 +23,7 @@ import apiClient from '@/lib/api/client'
 import { QContextProvider } from '@/lib/context/q-context'
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { server } from '@/mocks/node'
+import { recordGet } from '@/mocks/v1-record'
 import EntityCreatePage from './create/page'
 import EntityEditPage from './[recordId]/edit/page'
 import EntityCopyPage from './[recordId]/copy/page'
@@ -58,7 +59,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   it('edits the base without requesting denied children or replacing associations', async () => {
     const reads: string[] = []
     server.use(
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         const mode = new URL(request.url).searchParams.get('includeAssociations') ?? ''
         reads.push(mode)
         return mode === 'false' ? HttpResponse.json({ tableName: 'person', values: {
@@ -66,7 +67,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
         } }) : HttpResponse.json({ error: 'Children denied' }, { status: 403 })
       }),
     )
-    const put = vi.spyOn(apiClient, 'put').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 1, firstName: 'Updated' } }] })
+    const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'person', values: { id: 1, firstName: 'Updated' } } })
     renderPage(<EntityEditPage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Updated' } })
     fireEvent.change(screen.getByRole('textbox', { name: /Email/ }), { target: { value: '' } })
@@ -74,7 +75,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/person/1'))
     expect(reads.length).toBeGreaterThan(0)
     expect(new Set(reads)).toEqual(new Set(['false']))
-    expect(put.mock.calls[0][0]).toBe('/data/person/1')
+    expect(put.mock.calls[0][0]).toBe('/table/person/1')
     const submitted = put.mock.calls[0][1] as FormData
     expect(submitted?.get('firstName')).toBe('Updated')
     expect(submitted?.get('email')).toBe('')
@@ -83,13 +84,13 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   })
 
   it('creates from full fields and unwraps the legacy envelope before navigating', async () => {
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 7 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 7 } } })
     renderPage(<EntityCreatePage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Created' } })
     fireEvent.change(screen.getByLabelText(/Last Name/), { target: { value: 'Sample' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/person/7'))
-    expect(post.mock.calls[0][0]).toBe('/data/person')
+    expect(post.mock.calls[0][0]).toBe('/table/person')
     const submitted = post.mock.calls[0][1] as FormData
     expect(submitted?.get('firstName')).toBe('Created')
     expect(submitted?.has('associations')).toBe(false)
@@ -111,13 +112,13 @@ describe('Create and base edit use full metadata and actual write contracts', ()
         await pendingMetadata
         return HttpResponse.json(person)
       }),
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         const mode = new URL(request.url).searchParams.get('includeAssociations') ?? ''
         reads.push(mode)
         return mode === 'false' ? HttpResponse.json(source) : HttpResponse.json({ error: 'Children denied' }, { status: 403 })
       }),
     )
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 8 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 8 } } })
     renderPage(<EntityCopyPage />)
     await waitFor(() => expect(requestedMetadata).toBe(true))
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
@@ -153,7 +154,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
       person.fields[name] = { ...person.fields.firstName, name, label: name, type, isRequired: false }
       person.sections[0].fieldNames.push(name)
     }
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 9 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 9 } } })
     renderPage(<EntityCreatePage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Numeric' } })
     fireEvent.change(screen.getByLabelText(/Last Name/), { target: { value: 'Sample' } })
@@ -181,7 +182,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
     fireEvent.click(saving)
     expect(post).toHaveBeenCalledTimes(1)
-    await act(async () => { finish({ records: [{ tableName: 'person', values: { id: 8 } }] }) })
+    await act(async () => { finish({ record: { tableName: 'person', values: { id: 8 } } }) })
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/person/8'))
   })
 
@@ -189,7 +190,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
     const person = fixture()
     person.primaryKeyField = 'recordCode'
     person.fields.recordCode = { ...person.fields.firstName, name: 'recordCode', label: 'Code', isEditable: false }
-    vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { recordCode: 'A/B#1' } }] })
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { recordCode: 'A/B#1' } } })
     renderPage(<EntityCreatePage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Natural' } })
     fireEvent.change(screen.getByLabelText(/Last Name/), { target: { value: 'Key' } })
@@ -198,7 +199,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   })
 
   it('does not announce a saved record when the response has no usable primary key', async () => {
-    vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: {} }] })
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: {} } })
     renderPage(<EntityCreatePage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Keep input' } })
     fireEvent.change(screen.getByLabelText(/Last Name/), { target: { value: 'Sample' } })
@@ -226,7 +227,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
     const person = fixture()
     person[permission] = false
     const read = vi.fn()
-    server.use(http.get('/data/person/1', () => {
+    server.use(recordGet('/table/person/1', () => {
       read()
       return HttpResponse.json({ tableName: 'person', values: { id: 1, firstName: 'Must not load' } })
     }))
@@ -238,7 +239,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   })
 
   it('shows a failed base-copy source read without offering a blank create form', async () => {
-    server.use(http.get('/data/person/1', () => HttpResponse.json({ error: 'Source denied' }, { status: 403 })))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json({ error: 'Source denied' }, { status: 403 })))
     renderPage(<EntityCopyPage />)
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to view People records')
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
@@ -264,12 +265,12 @@ describe('Explicit full copy', () => {
     server.use(
       http.get('/qqq/v1/metaData/table/person', () => HttpResponse.json(parent)),
       http.get('/qqq/v1/metaData/table/child', () => HttpResponse.json(child)),
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         const expanded = new URL(request.url).searchParams.get('includeAssociations') === 'true'; reads.push(String(expanded))
         return HttpResponse.json({ tableName: 'person', values, ...(expanded ? { associatedRecords: { 'care / primary': [originalChild] } } : {}) })
       }),
     )
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 9 }, associatedRecords: { 'care / primary': [{ tableName: 'child', values: { manualKey: 'fresh-child', owner: 9 } }] } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 9 }, associatedRecords: { 'care / primary': [{ tableName: 'child', values: { manualKey: 'fresh-child', owner: 9 } }] } } })
     const view = renderPage(<EntityCopyPage />)
     fireEvent.change(await screen.findByLabelText(/Preferred given name/), { target: { value: 'Edited parent' } })
     expect(reads).toEqual(['false'])
@@ -306,7 +307,7 @@ describe('Full copy failures stay visible and cannot save a base-only fallback',
     server.use(
       http.get('/qqq/v1/metaData/table/person', () => HttpResponse.json(parent)),
       http.get('/qqq/v1/metaData/table/child', () => problem.startsWith('metadata') ? HttpResponse.json({ error: 'Metadata unavailable' }, { status: problem === 'metadata-server' ? 500 : 403 }) : HttpResponse.json(child)),
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         if (new URL(request.url).searchParams.get('includeAssociations') !== 'true') return HttpResponse.json({ tableName: 'person', values })
         if (problem.startsWith('read')) return HttpResponse.json({ error: 'Read unavailable' }, { status: problem === 'read-server' ? 500 : 403 })
         return HttpResponse.json({ tableName: 'person', values, ...(problem === 'group' ? {} : { associatedRecords: { children: [{ tableName: 'child', values: { id: 2, owner: 1, ...(problem === 'value' ? {} : { firstName: problem === 'numeric' ? 5 : 'Child' }) } }] } }) })
@@ -327,7 +328,7 @@ describe('Full copy failures stay visible and cannot save a base-only fallback',
   })
   it('does not announce success when a saved response omits a nonempty requested group', async () => {
     sources('none')
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 9 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 9 } } })
     renderPage(<EntityCopyPage />)
     await screen.findByLabelText(/Preferred given name/)
     fireEvent.click(screen.getByRole('radio', { name: 'Full copy' }))
@@ -339,7 +340,7 @@ describe('Full copy failures stay visible and cannot save a base-only fallback',
   })
   it('ignores a disabled hidden numeric child draft in Base mode while Full still checks it', async () => {
     sources('numeric')
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 9 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 9 } } })
     const view = renderPage(<EntityCopyPage />)
     await screen.findByLabelText(/Preferred given name/)
     fireEvent.click(screen.getByRole('radio', { name: 'Full copy' }))
@@ -362,7 +363,7 @@ describe('Full copy failures stay visible and cannot save a base-only fallback',
 
   it.each(['read', 'metadata'])('explains %s denial and lets the user explicitly save a Base Copy', async problem => {
     sources(problem)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'person', values: { id: 9 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'person', values: { id: 9 } } })
     const view = renderPage(<EntityCopyPage />)
     await screen.findByLabelText(/Preferred given name/)
     fireEvent.click(screen.getByRole('radio', { name: 'Full copy' }))

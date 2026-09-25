@@ -38,11 +38,16 @@ export async function sqlCount(backend: Backend, query: string): Promise<number>
   return Number((await sqlOne(backend, query)).n)
 }
 
-/** Records every request whose path starts with a prefix, for asserting what was (not) sent. */
+/**
+ * Records every request whose path starts with a prefix, for asserting what was (not) sent.
+ * The table's v1 query, count and possible-value requests share a table prefix and are not
+ * record requests (unless the prefix names them).
+ */
 export function recordRequests(page: Page, pathPrefix: string): Request[] {
   const requests: Request[] = []
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname.startsWith(pathPrefix)) requests.push(request)
+    const path = new URL(request.url()).pathname
+    if (path.startsWith(pathPrefix) && !/^\/(query|count|possibleValues\/.*)$/.test(path.slice(pathPrefix.length))) requests.push(request)
   })
   return requests
 }

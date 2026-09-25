@@ -129,10 +129,10 @@ test('[REC-034] FILE_DOWNLOAD links to the stored file under its declared name',
   await page.getByRole('tab', { name: 'Files' }).click()
   const attachment = fieldValue(page, 'attachment')
   await expect(attachment).toContainText('alpha.txt')
-  await expect(page.locator('[data-qqq-id="field-value-attachment-open"]')).toHaveAttribute('href', '/data/recordLab/1/attachment/alpha.txt')
-  await expect(page.locator('[data-qqq-id="field-value-attachment-download"]')).toHaveAttribute('href', '/data/recordLab/1/attachment/alpha.txt?download=1')
+  await expect(page.locator('[data-qqq-id="field-value-attachment-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt')
+  await expect(page.locator('[data-qqq-id="field-value-attachment-download"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt?download=1')
   await expect(fieldValue(page, 'notesFile')).toContainText('Record 1 Notes')
-  await expect(page.locator('[data-qqq-id="field-value-notesFile-open"]')).toHaveAttribute('href', '/data/recordLab/1/notesFile/Record%201%20Notes')
+  await expect(page.locator('[data-qqq-id="field-value-notesFile-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/notesFile/Record%201%20Notes')
 
   const downloadPromise = page.waitForEvent('download')
   await page.locator('[data-qqq-id="field-value-attachment-download"]').click()
@@ -165,7 +165,7 @@ test('[REC-035] FILE_UPLOAD replaces and removes stored files in either format',
   await expect(page.getByRole('button', { name: /Notes File Choose file to upload/ })).toBeVisible()
   const current = page.locator('[data-qqq-id="attachment-current-file"]')
   await expect(current).toContainText('Current File:')
-  await expect(current.getByRole('link', { name: 'alpha.txt' })).toHaveAttribute('href', '/data/recordLab/1/attachment/alpha.txt')
+  await expect(current.getByRole('link', { name: 'alpha.txt' })).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt')
 
   await page.locator('[data-qqq-id="attachment-file-input"]').setInputFiles({ name: 'replacement.txt', mimeType: 'text/plain', buffer: Buffer.from('replaced bytes') })
   await expect(page.locator('[data-qqq-id="attachment-selected-file"]')).toContainText('replacement.txt')

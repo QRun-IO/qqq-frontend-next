@@ -20,6 +20,24 @@
  */
 
 import type { AdornmentType, FieldAdornment, QFieldMetaData, QRecord } from '@/types'
+import { apiUrl } from '@/lib/api/client'
+
+/** The field-download path the backend writes into record values: `/data/{table}/{pk}/{field}/{fileName}`. */
+const FIELD_DOWNLOAD_PATH = /^\/data\/([^/?#]+)\/([^/?#]+)\/([^/?#]+)\/([^?#]+)(\?[^#]*)?$/
+
+/**
+ * Serve a backend field-download path from the v1 record field download route
+ * (`/table/{table}/{pk}/{field}/{fileName}` under the API base URL); other URLs are unchanged.
+ *
+ * @param url - A download URL from a record value.
+ * @returns The v1 URL for a field download, or the URL as given.
+ */
+export function fieldDownloadUrl(url: string): string {
+  const match = FIELD_DOWNLOAD_PATH.exec(url)
+  if (!match) return url
+  const [, table, primaryKey, field, fileName, query = ''] = match
+  return apiUrl(`/table/${table}/${primaryKey}/${field}/${fileName}${query}`)
+}
 
 /**
  * Returns the first adornment of a type on a field.
@@ -118,7 +136,8 @@ export function linkTarget(field: QFieldMetaData, record: QRecord): LinkTarget |
 /**
  * The download of a FILE_DOWNLOAD-adorned value. The backend replaces the value with
  * `/data/{table}/{pk}/{field}/{fileName}` (or supplies `<field>:downloadUrlDynamic`)
- * and puts the file name in the display value.
+ * and puts the file name in the display value; field downloads are served from the
+ * v1 route (see {@link fieldDownloadUrl}).
  *
  * @param field - Field metadata with a FILE_DOWNLOAD adornment.
  * @param record - The record holding the value.
@@ -132,7 +151,7 @@ export function fileDownload(field: QFieldMetaData, record: QRecord): { url: str
   if (typeof url !== 'string' || !url || (!url.startsWith('/') && !/^https?:\/\//i.test(url)) || url.startsWith('//')) return null
   const display = record.displayValues?.[field.name]
   const fileName = typeof display === 'string' && display ? display : safeDecode(url.split('?')[0].split('/').pop() || field.label)
-  return { url, fileName }
+  return { url: fieldDownloadUrl(url), fileName }
 }
 
 /**

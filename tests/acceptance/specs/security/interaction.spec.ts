@@ -238,8 +238,8 @@ test.describe('validation', () => {
   })
 
   test('[INT-007] a backend validation rejection is shown and nothing is saved', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/fieldLab 400')
-    diagnostics.allow('/data/fieldLab 500')
+    diagnostics.allow('/qqq/v1/table/fieldLab 400')
+    diagnostics.allow('/qqq/v1/table/fieldLab 500')
     diagnostics.allow(/status of (400|500)/)
     await open(page, '/app/fieldLab/create')
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Range check')
@@ -337,7 +337,7 @@ test.describe('loading, failure, delay and stale data', () => {
 
   test('[INT-011] a slow save disables the submit control and a double submit creates one record', async ({ page, backend, diagnostics }) => {
     void diagnostics
-    await page.route('**/data/person', async (route: Route) => {
+    await page.route('**/qqq/v1/table/person', async (route: Route) => {
       if (route.request().method() === 'POST') await new Promise((resolve) => setTimeout(resolve, 1500))
       await route.continue()
     })
@@ -354,10 +354,10 @@ test.describe('loading, failure, delay and stale data', () => {
   })
 
   test('[INT-011] a failed save is reported and not silently re-sent', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/person 500')
+    diagnostics.allow('/qqq/v1/table/person 500')
     diagnostics.allow('status of 500')
     let attempts = 0
-    await page.route('**/data/person', async (route: Route) => {
+    await page.route('**/qqq/v1/table/person', async (route: Route) => {
       if (route.request().method() !== 'POST') return route.continue()
       attempts++
       if (attempts === 1) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Connection reset' }) })
@@ -376,7 +376,7 @@ test.describe('loading, failure, delay and stale data', () => {
   })
 
   test('[INT-012] records changed or deleted elsewhere are not shown stale after navigation', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/person/3 404')
+    diagnostics.allow('/qqq/v1/table/person/3 404')
     diagnostics.allow('status of 404')
     await open(page, '/app/person')
     await expect(listCell(page, 'Person', 'Blair')).toBeVisible()

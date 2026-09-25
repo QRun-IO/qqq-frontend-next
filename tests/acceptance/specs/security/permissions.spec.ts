@@ -51,7 +51,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     await open(page, '/app/person/1/edit')
     await expect(page.locator('[data-qqq-id="permission-denied"]')).toHaveText('You do not have permission to edit Person records.')
     await expect(page.getByRole('textbox')).toHaveCount(0)
-    expect(reads.filter((url) => url.includes('/data/person/1'))).toEqual([])
+    expect(reads.filter((url) => url.includes('/qqq/v1/table/person/1'))).toEqual([])
 
     const update = await backend.api.put('/data/person/1', { multipart: { firstName: 'Mallory' } })
     expect(update.status()).toBe(403)
@@ -191,7 +191,7 @@ test.describe('record-level security (sharing demo)', () => {
     test.use({ user: 'bob' })
 
     test("[SEC-011] bob cannot list, open, change or delete alice's saved view and report", async ({ page, backend, diagnostics }) => {
-      diagnostics.allow('/data/savedReport/1 404')
+      diagnostics.allow('/qqq/v1/table/savedReport/1 404')
       diagnostics.allow('status of 404')
       // Alice saves a view she shares with nobody (other areas share her stock view with bob).
       await backend.setPersona('admin', 'alice')
@@ -202,7 +202,7 @@ test.describe('record-level security (sharing demo)', () => {
       const [privateView] = await backend.sql("select id, user_id from saved_view where label = 'Alice Private View'")
       expect(privateView).toMatchObject({ user_id: 'sample:alice' })
       expect(await backend.sql(`select id from shared_saved_view where saved_view_id = ${privateView.id}`)).toEqual([])
-      diagnostics.allow(`/data/savedView/${privateView.id} 404`)
+      diagnostics.allow(`/qqq/v1/table/savedView/${privateView.id} 404`)
       const savedViews = 'select id, label, user_id from saved_view order by id'
       const savedReports = 'select id, label, user_id from saved_report order by id'
       const viewsBefore = await backend.sql(savedViews)
@@ -238,7 +238,7 @@ test.describe('record-level security (sharing demo)', () => {
 
 test.describe('permission revoked mid-session', () => {
   test('[SEC-015] a stale edit form is refused by the backend with a clear message and nothing is written', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/person/1 403')
+    diagnostics.allow('/qqq/v1/table/person/1 403')
     diagnostics.allow('status of 403')
     await open(page, '/app/person/1/edit')
     const firstName = page.getByRole('textbox', { name: 'First Name' })

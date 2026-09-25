@@ -60,7 +60,7 @@ export interface UseRecordResult {
 }
 
 /**
- * Fetches a single record by primary key via the legacy `GET /data/{tableName}/{primaryKey}` route.
+ * Fetches a single record by primary key via the v1 `GET /table/{tableName}/{primaryKey}` route.
  *
  * Disabled when `tableName` is empty or `primaryKey` is undefined/empty.
  *

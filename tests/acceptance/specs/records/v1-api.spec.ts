@@ -7,7 +7,7 @@
 
 import type { Page, Request } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
-import { VIEWER, control, fieldValue, openForm, sqlOne } from './helpers'
+import { VIEWER, control, fieldValue, multipartFields, openForm, openRecord, recordAction, recordIdFromUrl, sqlCount, sqlOne } from './helpers'
 
 test.use(VIEWER)
 
@@ -55,5 +55,81 @@ test.describe('persona without pet access', () => {
     expect(await denied.text()).not.toContain('"options"')
     const unknown = await backend.api.post('/qqq/v1/table/recordLab/possibleValues/noSuchField', { data: {} })
     expect(unknown.status()).toBe(404)
+  })
+})
+
+test('[REC-050] create, view, edit and delete run on the v1 record routes', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const records = requestsMatching(page, /^\/(qqq\/v1\/table|data)\/person(\/|$)/)
+  await openForm(page, '/app/person/create', 'Create Person')
+  await control(page, 'firstName').fill('Vera')
+  await control(page, 'lastName').fill('Version')
+  await control(page, 'email').fill('vera@example.invalid')
+  await page.getByRole('checkbox', { name: 'Is Employed' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Vera Version' })).toBeVisible()
+  const id = recordIdFromUrl(page, 'person')
+  expect(await sqlOne(backend, `select first_name, last_name, email from person where id = ${id}`)).toEqual({ first_name: 'Vera', last_name: 'Version', email: 'vera@example.invalid' })
+
+  await openForm(page, `/app/person/${id}/edit`, 'Edit Person')
+  await control(page, 'firstName').fill('Verity')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Verity Version' })).toBeVisible()
+  expect(await sqlOne(backend, `select first_name from person where id = ${id}`)).toEqual({ first_name: 'Verity' })
+
+  await openRecord(page, 'person', id, 'Verity Version')
+  await recordAction(page, 'Delete', 'Person')
+  await page.locator('[data-qqq-id="delete-confirm-dialog"]').getByRole('button', { name: 'Delete' }).click()
+  await expect(page).toHaveURL(/\/app\/person\/?$/)
+  expect(await sqlCount(backend, `select count(*) as n from person where id = ${id}`)).toBe(0)
+
+  // Every record request used the v1 routes: POST insert, GET view, PATCH update, DELETE.
+  const calls = records.filter((request) => !/\/(query|count)$/.test(new URL(request.url()).pathname))
+    .map((request) => `${request.method()} ${new URL(request.url()).pathname}`)
+  expect(calls.every((call) => /^[A-Z]+ \/qqq\/v1\/table\/person(\/|$)/.test(call))).toBe(true)
+  expect(calls).toContain('POST /qqq/v1/table/person')
+  expect(calls).toContain(`GET /qqq/v1/table/person/${id}`)
+  expect(calls).toContain(`PATCH /qqq/v1/table/person/${id}`)
+  expect(calls).toContain(`DELETE /qqq/v1/table/person/${id}`)
+  const patch = records.find((request) => request.method() === 'PATCH')!
+  expect(multipartFields(patch).firstName).toBe('Verity')
+})
+
+test('[REC-050] the v1 record routes enforce required fields and write associations', async ({ backend, diagnostics }) => {
+  void diagnostics
+  const before = await sqlCount(backend, 'select count(*) as n from field_lab')
+  const missing = await backend.api.post('/qqq/v1/table/fieldLab', { multipart: { longValue: '5' } })
+  expect(missing.status()).toBe(400)
+  expect(await missing.json()).toEqual({ error: 'Error inserting Field Lab: Missing value in required field: Name' })
+  expect(await sqlCount(backend, 'select count(*) as n from field_lab')).toBe(before)
+
+  const household = await backend.api.post('/qqq/v1/table/qryHousehold', {
+    headers: { 'X-QQQ-Association-Format': 'record-v1' },
+    multipart: { name: 'Versioned Home', code: 'V1', associations: JSON.stringify({ members: [{ values: { name: 'Nested Member' } }] }) },
+  })
+  expect(household.status()).toBe(200)
+  const saved = (await household.json()).record
+  expect(saved.values.name).toBe('Versioned Home')
+  expect(saved.associatedRecords.members.map((member: { values: { name: string } }) => member.values.name)).toEqual(['Nested Member'])
+  expect(await backend.sql(`select name, household_id from qry_member where household_id = ${saved.values.id}`)).toEqual([{ name: 'Nested Member', household_id: String(saved.values.id) }])
+
+  const fetched = await backend.api.get(`/qqq/v1/table/qryHousehold/${saved.values.id}?includeAssociations=true`)
+  expect((await fetched.json()).record.associatedRecords.members.map((member: { values: { name: string } }) => member.values.name)).toEqual(['Nested Member'])
+})
+
+test.describe('read-only persona on v1', () => {
+  test.use({ persona: 'viewer' })
+
+  test('[REC-050] the v1 record routes refuse writes the persona may not make', async ({ backend, diagnostics }) => {
+    void diagnostics
+    const before = await sqlOne(backend, 'select first_name from person where id = 1')
+    expect((await backend.api.post('/qqq/v1/table/person', { multipart: { firstName: 'Mallory', lastName: 'Denied' } })).status()).toBe(403)
+    expect((await backend.api.patch('/qqq/v1/table/person/1', { multipart: { firstName: 'Mallory' } })).status()).toBe(403)
+    expect((await backend.api.delete('/qqq/v1/table/person/1')).status()).toBe(403)
+    expect(await sqlOne(backend, 'select first_name from person where id = 1')).toEqual(before)
+    expect(await sqlCount(backend, "select count(*) as n from person where first_name = 'Mallory'")).toBe(0)
+    const read = await backend.api.get('/qqq/v1/table/person/1')
+    expect(read.status()).toBe(200)
+    expect((await read.json()).record.values.firstName).toBe(before.first_name)
   })
 })

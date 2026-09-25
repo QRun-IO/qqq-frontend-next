@@ -24,6 +24,7 @@ import apiClient from '@/lib/api/client'
 import { QContextProvider } from '@/lib/context/q-context'
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { server } from '@/mocks/node'
+import { recordGet } from '@/mocks/v1-record'
 import RecordViewPage from './page'
 
 const navigation = vi.hoisted(() => ({ search: 'tab=related' }))
@@ -65,7 +66,7 @@ describe('RecordViewPage independent association loading', () => {
   it('keeps the base and child Add, and requests no expansion, when the child table is listed without read permission (QRun-IO/qqq#671)', async () => {
     fixture()
     const requests: string[] = []
-    server.use(http.get('/data/person/1', ({ request }) => {
+    server.use(recordGet('/table/person/1', ({ request }) => {
       requests.push(new URL(request.url).searchParams.get('includeAssociations') ?? '')
       return HttpResponse.json(baseRecord)
     }))
@@ -82,7 +83,7 @@ describe('RecordViewPage independent association loading', () => {
     pet.readPermission = false
     const before = structuredClone(metadata)
     const requests: string[] = []
-    server.use(http.get('/data/person/1', ({ request }) => {
+    server.use(recordGet('/table/person/1', ({ request }) => {
       const mode = new URL(request.url).searchParams.get('includeAssociations') ?? ''
       requests.push(mode)
       return mode === 'true'
@@ -110,7 +111,7 @@ describe('RecordViewPage independent association loading', () => {
     server.use(
       http.get('/qqq/v1/metaData', () => HttpResponse.json({ ...registry, tables: visibleTables })),
       http.get('/qqq/v1/metaData/table/pet', () => { requests.push('pet metadata'); return HttpResponse.json({ error: 'not found' }, { status: 404 }) }),
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         requests.push(`includeAssociations=${new URL(request.url).searchParams.get('includeAssociations')}`)
         return HttpResponse.json(baseRecord)
       }),
@@ -125,7 +126,7 @@ describe('RecordViewPage independent association loading', () => {
 
   it('does not rename association keys or present an unmatched association as empty', async () => {
     fixture(true)
-    server.use(http.get('/data/person/1', ({ request }) => HttpResponse.json({
+    server.use(recordGet('/table/person/1', ({ request }) => HttpResponse.json({
       ...baseRecord,
       ...(new URL(request.url).searchParams.get('includeAssociations') === 'true' ? {
         associatedRecords: { pet: [{ tableName: 'pet', values: { id: 2, name: 'Actual pet' }, recordLabel: 'Actual pet' }] },
@@ -140,7 +141,7 @@ describe('RecordViewPage independent association loading', () => {
   })
   it('retains explicitly keyed related records when the response binding is available', async () => {
     fixture(true)
-    server.use(http.get('/data/person/1', ({ request }) => HttpResponse.json({
+    server.use(recordGet('/table/person/1', ({ request }) => HttpResponse.json({
       ...baseRecord,
       ...(new URL(request.url).searchParams.get('includeAssociations') === 'true' ? {
         associatedRecords: { pets: [{ tableName: 'pet', values: { id: 2, name: 'Mapped pet' }, recordLabel: 'Mapped pet' }] },
@@ -160,7 +161,7 @@ describe('RecordViewPage independent association loading', () => {
     const ready = new Promise<void>((resolve) => { releaseMetadata = resolve })
     server.use(
       http.get('/qqq/v1/metaData/table/pet', async () => { metadataCalls.push('pet'); await ready; return HttpResponse.json(pet) }),
-      http.get('/data/person/1', ({ request }) => HttpResponse.json({ ...baseRecord,
+      recordGet('/table/person/1', ({ request }) => HttpResponse.json({ ...baseRecord,
         ...(new URL(request.url).searchParams.get('includeAssociations') === 'true'
           ? { associatedRecords: { 'care / primary': [], 'scheduled reviews': [{ tableName: 'pet', values: { id: 4, name: 'Review pet' } }] } } : {}),
       })),
@@ -186,7 +187,7 @@ describe('RecordViewPage independent association loading', () => {
     ]
     registry.widgets.companionPanel = { name: 'companionPanel', label: 'Different widget title', type: 'childRecordList', hasPermission: true, defaultValues: { manageAssociationName: 'care / primary' } }
     registry.widgets.reviewEditor = { name: 'reviewEditor', label: 'Another title', type: 'rowBuilder', hasPermission: true, defaultValues: { associationName: 'scheduled reviews' } }
-    server.use(http.get('/data/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { 'care / primary': [], 'scheduled reviews': [] } })))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { 'care / primary': [], 'scheduled reviews': [] } })))
     const { container } = renderPage()
     const byId = (id: string) => Array.from(container.querySelectorAll('[data-qqq-id]')).find((element) => element.getAttribute('data-qqq-id') === id)
     await waitFor(() => expect(byId('button-create-association-care%20%2F%20primary')).toBeEnabled())
@@ -199,7 +200,7 @@ describe('RecordViewPage independent association loading', () => {
     fixture(true)
     server.use(
       http.get('/qqq/v1/metaData/table/pet', () => HttpResponse.json({ error: 'Unavailable' }, { status: 500 })),
-      http.get('/data/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [] } })),
+      recordGet('/table/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [] } })),
     )
     renderPage()
     expect(await screen.findByText('Avery Sample')).toBeVisible()
@@ -215,10 +216,10 @@ describe('RecordViewPage independent association loading', () => {
     pet.fields.birthDate = { ...person.fields.visitDate, name: 'birthDate', isEditable: true }
     pet.fields.personId.possibleValueSourceName = undefined
     person.associations![0].join.joinOns = [{ leftField: 'schedule', rightField: 'personId' }, { leftField: 'visitDate', rightField: 'birthDate' }]
-    server.use(http.get('/data/person/1', ({ request }) => new URL(request.url).searchParams.get('includeAssociations') === 'true'
+    server.use(recordGet('/table/person/1', ({ request }) => new URL(request.url).searchParams.get('includeAssociations') === 'true'
       ? HttpResponse.json({ error: 'Denied' }, { status: 403 })
       : HttpResponse.json({ ...baseRecord, values: { ...baseRecord.values, schedule: 2, visitDate: '1990-01-15' } })))
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'pet', values: { id: 8, personId: 2, birthDate: '1990-01-15' } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'pet', values: { id: 8, personId: 2, birthDate: '1990-01-15' } } })
     const before = structuredClone({ person, pet })
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: '+ Add Pet' }))
@@ -228,7 +229,7 @@ describe('RecordViewPage independent association loading', () => {
     fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: 'Created child' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
     await waitFor(() => expect(post).toHaveBeenCalled())
-    expect(post.mock.calls[0][0]).toBe('/data/pet')
+    expect(post.mock.calls[0][0]).toBe('/table/pet')
     const values = post.mock.calls[0][1] as FormData
     expect(values.get('personId')).toBe('2')
     expect(values.get('birthDate')).toBe('1990-01-15')
@@ -243,7 +244,7 @@ describe('RecordViewPage independent association loading', () => {
     person.associations![0].join.joinOns = [{ leftField: 'firstName', rightField: 'personId' }]
     pet.fields.personId.type = 'STRING'
     const value = '>>>漢'
-    server.use(http.get('/data/person/1', () => HttpResponse.json({ ...baseRecord, values: { id: 1, firstName: value }, associatedRecords: { pets: [] } })))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json({ ...baseRecord, values: { id: 1, firstName: value }, associatedRecords: { pets: [] } })))
     renderPage()
     const link = await screen.findByRole('link', { name: 'View All' })
     const url = new URL(link.getAttribute('href')!, 'http://localhost')
@@ -254,7 +255,7 @@ describe('RecordViewPage independent association loading', () => {
   it('allows correctly oriented direct Add for reverse joins without claiming expanded absence', async () => {
     const { person } = fixture(true)
     person.associations![0].join = { ...person.associations![0].join, leftTable: 'pet', rightTable: 'person', type: 'MANY_TO_ONE', joinOns: [{ leftField: 'personId', rightField: 'id' }] }
-    server.use(http.get('/data/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [] } })))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [] } })))
     renderPage()
     expect(await screen.findByText('Related record loading for reverse associations is not supported.')).toBeVisible()
     expect(screen.queryByText('No pets records')).not.toBeInTheDocument()
@@ -265,7 +266,7 @@ describe('RecordViewPage independent association loading', () => {
     const { person, pet } = fixture(false)
     Object.values(pet.fields).forEach((field) => { field.isHidden = true })
     delete person.fields.id
-    server.use(http.get('/data/person/1', () => HttpResponse.json(baseRecord)))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json(baseRecord)))
     renderPage()
     expect(await screen.findByText('Relationship values are unavailable; this record cannot be linked.')).toBeVisible()
     expect(screen.getByText('Related records are unavailable.')).toBeVisible()
@@ -275,7 +276,7 @@ describe('RecordViewPage independent association loading', () => {
   it('keeps permitted Add available when there are no visible child columns', async () => {
     const { pet } = fixture(false)
     Object.values(pet.fields).forEach((field) => { field.isHidden = true })
-    server.use(http.get('/data/person/1', () => HttpResponse.json(baseRecord)))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json(baseRecord)))
     renderPage()
     expect(await screen.findByRole('button', { name: '+ Add Pet' })).toBeEnabled()
     expect(screen.getByText('Related records are unavailable.')).toBeVisible()
@@ -284,7 +285,7 @@ describe('RecordViewPage independent association loading', () => {
   it('keeps readable data and View All when INSERT alone is denied', async () => {
     const { pet } = fixture(true)
     pet.insertPermission = false
-    server.use(http.get('/data/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [{ tableName: 'pet', values: { id: 'one/two?', name: 'Readable pet' } }] } })))
+    server.use(recordGet('/table/person/1', () => HttpResponse.json({ ...baseRecord, associatedRecords: { pets: [{ tableName: 'pet', values: { id: 'one/two?', name: 'Readable pet' } }] } })))
     renderPage()
     const recordLinks = await screen.findAllByRole('link', { name: 'View Pet record one/two?' })
     for (const link of recordLinks) expect(link.getAttribute('href')).toContain('/app/pet/one%2Ftwo%3F?')

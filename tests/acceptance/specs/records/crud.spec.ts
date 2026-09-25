@@ -15,7 +15,7 @@ test.use(VIEWER)
 test('[REC-005] create validates required fields in the browser before any request', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await sqlCount(backend, 'select count(*) as n from person')
-  const writes = recordRequests(page, '/data/person')
+  const writes = recordRequests(page, '/qqq/v1/table/person')
   await openForm(page, '/app/person/create', 'Create Person')
 
   for (const [name, label] of [['firstName', 'First Name'], ['lastName', 'Last Name'], ['email', 'Email']]) {
@@ -73,7 +73,7 @@ test('[REC-007] the backend enforces required fields when the UI is bypassed', a
 test('[REC-008] cancel leaves create and edit, guarding unsaved changes', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await sqlCount(backend, 'select count(*) as n from person')
-  const writes = recordRequests(page, '/data/person')
+  const writes = recordRequests(page, '/qqq/v1/table/person')
 
   // Clean cancel from create returns to the list at once.
   await openForm(page, '/app/person/create', 'Create Person')
@@ -110,7 +110,7 @@ test('[REC-008] cancel leaves create and edit, guarding unsaved changes', async 
 test('[REC-009] edit prefills stored values, saves only the change and shows the updated record', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await sqlOne(backend, 'select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed from person where id = 1')
-  const writes = recordRequests(page, '/data/person/1')
+  const writes = recordRequests(page, '/qqq/v1/table/person/1')
   await openRecord(page, 'person', 1, 'Avery Sample')
   await recordAction(page, 'Edit', 'Person')
   await expect(page.getByRole('heading', { level: 2, name: 'Edit Person' })).toBeVisible()
@@ -131,7 +131,7 @@ test('[REC-009] edit prefills stored values, saves only the change and shows the
   await expect(fieldValue(page, 'email')).toHaveText('avery.updated@example.invalid')
   await expect(toasts(page).filter({ hasText: 'Person saved successfully.' })).toBeVisible()
 
-  const put = writes.filter((request) => request.method() === 'PUT')
+  const put = writes.filter((request) => request.method() === 'PATCH')
   expect(put).toHaveLength(1)
   // Editable values are re-sent as stored (as the Material dashboard does); only email changed.
   expect(multipartFields(put[0])).toEqual({ firstName: 'Avery', lastName: 'Sample', email: 'avery.updated@example.invalid',
@@ -143,7 +143,7 @@ test('[REC-009] edit prefills stored values, saves only the change and shows the
 test('[REC-010] edit shows non-editable fields read-only and never submits them', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await sqlOne(backend, 'select id, create_date from person where id = 3')
-  const writes = recordRequests(page, '/data/person/3')
+  const writes = recordRequests(page, '/qqq/v1/table/person/3')
   await openForm(page, '/app/person/3/edit', 'Edit Person')
 
   await expect(control(page, 'id')).toHaveValue('3')
@@ -160,7 +160,7 @@ test('[REC-010] edit shows non-editable fields read-only and never submits them'
   await control(page, 'daysWorked').fill('100101')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Casey Sample' })).toBeVisible()
-  const put = writes.filter((request) => request.method() === 'PUT')
+  const put = writes.filter((request) => request.method() === 'PATCH')
   expect(put).toHaveLength(1)
   const submitted = multipartFields(put[0])
   expect(submitted.daysWorked).toBe('100101')
@@ -170,18 +170,18 @@ test('[REC-010] edit shows non-editable fields read-only and never submits them'
 })
 
 test('[REC-011] editing a missing record shows the load failure instead of a form', async ({ page, diagnostics }) => {
-  diagnostics.allow('/data/person/999 404')
+  diagnostics.allow('/qqq/v1/table/person/999 404')
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
   await page.goto('/app/person/999/edit', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('alert').filter({ hasText: 'could not be found' })).toHaveText('Person 999 could not be found.')
   await expect(page.locator('form')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0)
-  expect(diagnostics.failedRequests).toEqual(['GET /data/person/999 404'])
+  expect(diagnostics.failedRequests).toEqual(['GET /qqq/v1/table/person/999 404'])
 })
 
 test('[REC-012] delete confirms, removes the record and returns to the list without error noise', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  const reads = recordRequests(page, '/data/person/5')
+  const reads = recordRequests(page, '/qqq/v1/table/person/5')
   await openRecord(page, 'person', 5, 'Morgan Sample')
 
   // Cancel keeps the record.
@@ -210,7 +210,7 @@ test('[REC-012] delete confirms, removes the record and returns to the list with
 })
 
 test('[REC-013] copy prefills a new record and saves it separately from the source', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/recordLab 400')
+  diagnostics.allow('/qqq/v1/table/recordLab 400')
   diagnostics.allow('Failed to load resource: the server responded with a status of 400')
   const source = await sqlOne(backend, 'select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed, modify_date from person where id = 1')
   await openRecord(page, 'person', 1, 'Avery Sample')
