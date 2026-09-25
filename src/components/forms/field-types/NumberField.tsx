@@ -54,6 +54,8 @@ interface NumberFieldProps {
   maxValue?: number | string | null
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help text that describes this control. */
+  describedBy?: string
 }
 
 /**
@@ -81,9 +83,10 @@ export function NumberField({
   minValue,
   maxValue,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: NumberFieldProps) {
   const hintId = (minValue != null || maxValue != null) ? `${id}-hint` : undefined
-  const describedByIds = [hintId, error ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined
+  const describedByIds = [hintId, error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined
 
   return (
     <div className="flex flex-col gap-1">

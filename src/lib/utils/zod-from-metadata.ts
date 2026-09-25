@@ -21,6 +21,8 @@
 import { z } from 'zod'
 
 import type { QFieldMetaData, QTableMetaData } from '@/types'
+import { adornmentString } from './adornment-utils'
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from './datetime-utils'
 
 /**
  * Internal helper used by {@link zodFieldFromMetadata} to build a string-based Zod schema
@@ -63,6 +65,26 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
   const schema = z.string()
   if (isRequired) return schema.min(1, `${label} is required`)
   return schema.optional()
+}
+
+/**
+ * Builds the schema of a LONG field. The value stays the exact digits typed (a string):
+ * a JavaScript number cannot hold every LONG (beyond 2^53 it silently changes).
+ *
+ * @param isRequired - When `true`, blank values are rejected.
+ * @param label - Field label for messages.
+ * @param minValue - Optional lower bound.
+ * @param maxValue - Optional upper bound.
+ * @returns The schema, producing the digits as a string ('' when blank and optional).
+ */
+function buildLongSchema(isRequired: boolean, label: string, minValue?: number | string | null, maxValue?: number | string | null): z.ZodTypeAny {
+  const text = z.union([z.string(), z.number(), z.bigint()]).transform((value) => String(value).trim())
+  const checked = text
+    .refine((value) => !isRequired || value !== '', `${label} is required`)
+    .refine((value) => value === '' || /^[+-]?\d+$/.test(value), `${label} must be a whole number`)
+    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= BigInt(Math.ceil(Number(minValue))), `${label} must be at least ${minValue}`)
+    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= BigInt(Math.floor(Number(maxValue))), `${label} must be at most ${maxValue}`)
+  return isRequired ? checked : checked.optional()
 }
 
 /**
@@ -128,15 +150,22 @@ function buildNumberSchema(
  * // Produces: z.union([z.literal(''), z.coerce.number().int().min(0).max(150)]).optional()
  *
  * @param field - The field metadata object containing type, required, maxLength, and label.
+ * @param options - `enforceMaxLength: false` skips the `maxLength` limit (record forms, whose
+ *   server applies each field's too-long policy).
  * @returns A `ZodTypeAny` appropriate for the field's type and constraints.
  */
-export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
-  const { type, isRequired, maxLength, label } = field
+export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength = true }: { enforceMaxLength?: boolean } = {}): z.ZodTypeAny {
+  const { type, isRequired, label } = field
+  // Table writes apply the field's own too-long policy (truncate, ellipsis, pass through
+  // or reject) on the server, so record forms do not pre-empt it with a client limit.
+  const maxLength = enforceMaxLength ? field.maxLength : undefined
 
   switch (type) {
     case 'INTEGER':
-    case 'LONG':
       return buildNumberSchema(isRequired ?? false, label ?? type, true, field.minValue, field.maxValue)
+
+    case 'LONG':
+      return buildLongSchema(isRequired ?? false, label ?? type, field.minValue, field.maxValue)
 
     case 'DECIMAL':
       return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue)
@@ -149,9 +178,14 @@ export function zodFieldFromMetadata(field: QFieldMetaData): z.ZodTypeAny {
     case 'DATE_TIME':
       return buildDateTimeSchema(isRequired ?? false, label ?? type)
 
-    case 'BLOB':
-      // BLOB fields accept File objects or strings (existing file URLs)
-      return z.union([z.instanceof(File), z.string()]).optional()
+    case 'BLOB': {
+      // A new File, the stored value (download URL or bytes) left unchanged, or null when
+      // the stored file is removed. A required file must be present.
+      const file = z.union([z.instanceof(File), z.string(), z.null()], { errorMap: () => ({ message: `${label ?? type} must be a file` }) })
+      return isRequired
+        ? file.refine((value) => value instanceof File || (typeof value === 'string' && value !== ''), `${label ?? type} is required`)
+        : file.optional()
+    }
 
     case 'PASSWORD':
     case 'TEXT':
@@ -191,7 +225,7 @@ export function zodSchemaFromTableMetadata(
     if (field.isHidden) continue
     if (!field.isEditable) continue
 
-    const fieldSchema = zodFieldFromMetadata(field)
+    const fieldSchema = zodFieldFromMetadata(field, { enforceMaxLength: false })
     shape[fieldName] = allowNullValues && !field.isRequired ? fieldSchema.nullable() : fieldSchema
   }
 
@@ -221,14 +255,33 @@ export function zodSchemaFromFields(
 }
 
 /**
- * Builds default form values from existing record data and table metadata.
+ * Converts one stored record value to the value its form control edits.
+ *
+ * DATE_TIME instants become local `datetime-local` text, DATE and TIME become
+ * strings, and a stored null stays empty (`null` for BOOLEAN, `''` otherwise) so
+ * the form shows what is actually stored rather than a metadata default.
+ *
+ * @param field - Field metadata.
+ * @param value - The stored value from the record.
+ * @returns The form control value.
+ */
+export function formValueFromRecordValue(field: QFieldMetaData, value: unknown): unknown {
+  if (value === undefined || value === null) return field.type === 'BOOLEAN' ? null : ''
+  if (field.type === 'DATE_TIME') return toLocalDateTimeInput(value) || String(value)
+  if (field.type === 'DATE' || field.type === 'TIME') return String(value)
+  if (field.type === 'BOOLEAN') return value === true || value === 'true' || value === 1 || value === '1'
+  return value
+}
+
+/**
+ * Builds form values for editing an existing record.
  *
  * Returns an object suitable for passing to React Hook Form's `defaultValues` option.
- * For each editable, visible field:
- * - Uses the record value if present, coercing date/time to string and boolean to boolean.
- * - Falls back to `field.defaultValue` from metadata, then `false` for booleans, then `''`.
+ * Only editable, visible fields are included; each shows its stored value
+ * (see {@link formValueFromRecordValue}). Metadata defaults apply to new records only
+ * ({@link defaultValuesForCreate}).
  *
- * @param tableMetaData - The table metadata describing field types and defaults.
+ * @param tableMetaData - The table metadata describing field types.
  * @param recordValues - The raw record data keyed by field name (e.g. from the API response).
  * @returns A plain object of default values ready for `useForm({ defaultValues })`.
  */
@@ -237,34 +290,59 @@ export function defaultValuesFromRecord(
   recordValues: Record<string, unknown>
 ): Record<string, unknown> {
   const defaults: Record<string, unknown> = {}
-
   for (const [fieldName, field] of Object.entries(tableMetaData.fields)) {
     if (field.isHidden || !field.isEditable) continue
-
-    const value = recordValues[fieldName]
-
-    if (value !== undefined && value !== null) {
-      // Convert to string for date/time fields to work with HTML inputs
-      if (field.type === 'DATE' || field.type === 'TIME' || field.type === 'DATE_TIME') {
-        defaults[fieldName] = String(value)
-      } else if (field.type === 'BOOLEAN') {
-        defaults[fieldName] = Boolean(value)
-      } else {
-        defaults[fieldName] = value
-      }
-    } else {
-      // Use default value from metadata if available
-      if (field.defaultValue !== undefined) {
-        defaults[fieldName] = field.defaultValue
-      } else if (field.type === 'BOOLEAN') {
-        defaults[fieldName] = false
-      } else {
-        defaults[fieldName] = ''
-      }
-    }
+    // A stored password reads back as a mask, not its value: start empty (typing replaces it).
+    defaults[fieldName] = field.type === 'PASSWORD' && !field.adornments?.some((item) => item.type === 'REVEAL')
+      ? ''
+      : formValueFromRecordValue(field, recordValues[fieldName])
   }
-
   return defaults
+}
+
+/**
+ * Converts a metadata `defaultValue` (serialized as text by the backend, for example
+ * `"true"` for a BOOLEAN) to the value its form control edits.
+ *
+ * @param field - Field metadata.
+ * @returns The typed default, or `undefined` when the field declares none.
+ */
+export function metadataDefaultValue(field: QFieldMetaData): unknown {
+  const value = field.defaultValue
+  if (value === undefined || value === null || value === '') return undefined
+  if (field.type === 'BOOLEAN') return value === true || value === 'true' || value === 1 || value === '1'
+  if (field.type === 'DATE_TIME') return toLocalDateTimeInput(value) || String(value)
+  return typeof value === 'object' ? undefined : value
+}
+
+/**
+ * Builds the initial values of a create form from each editable field's metadata
+ * `defaultValue`. Fields without a default are left unset.
+ *
+ * @param tableMetaData - Table metadata.
+ * @returns Defaults keyed by field name.
+ */
+export function defaultValuesForCreate(tableMetaData: QTableMetaData): Record<string, unknown> {
+  const defaults: Record<string, unknown> = {}
+  for (const [fieldName, field] of Object.entries(tableMetaData.fields)) {
+    if (field.isHidden || !field.isEditable) continue
+    const value = metadataDefaultValue(field)
+    if (value !== undefined) defaults[fieldName] = value
+  }
+  return defaults
+}
+
+/**
+ * Converts form values to what the record endpoints store: local DATE_TIME text
+ * becomes the UTC instant; every other value passes through.
+ *
+ * @param tableMetaData - Table metadata.
+ * @param values - Form values keyed by field name.
+ * @returns A new object with wire values.
+ */
+export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(values).map(([name, value]) => [name,
+    tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value) : value]))
 }
 
 /**
@@ -291,14 +369,25 @@ export function defaultValuesForCopy(
       defaults[field.name] = null
       continue
     }
+    if (value === undefined) {
+      // A value the source did not return starts from the insert default, as on create.
+      const fallback = metadataDefaultValue(field)
+      if (fallback !== undefined) defaults[field.name] = fallback
+      continue
+    }
     if (field.type !== 'BLOB' || typeof value !== 'string') continue
+    if (fileDownloadUrlValue(field, value)) {
+      // A FILE_DOWNLOAD field reads as its download URL, not its bytes: the file is not
+      // copied (as in the Material dashboard); the new record starts without it.
+      delete defaults[field.name]
+      continue
+    }
     try {
       const bytes = Uint8Array.from(atob(value), (character) => character.charCodeAt(0))
-      const adornment = field.adornments?.find((item) => item.type === 'FILE_DOWNLOAD')
-      const fileNameField = adornment?.values?.fileNameField
+      const fileNameField = adornmentString(field, 'FILE_DOWNLOAD', 'fileNameField')
       const fileName = fileNameField ? recordValues[fileNameField] : undefined
       defaults[field.name] = new File([bytes], typeof fileName === 'string' && fileName ? fileName : field.name, {
-        type: adornment?.values?.defaultMimeType ?? 'application/octet-stream',
+        type: adornmentString(field, 'FILE_DOWNLOAD', 'defaultMimeType') ?? 'application/octet-stream',
       })
     } catch {
       throw new Error(`Cannot copy ${field.label}: the source file data is invalid.`)
@@ -318,4 +407,15 @@ export function validateCopyPasswords(table: QTableMetaData, values: Record<stri
     if (field.type !== 'PASSWORD' || !field.isEditable || field.isHidden || field.adornments?.some(item => item.type === 'REVEAL') || (fields && !fields.includes(field.name))) continue
     if (typeof values[field.name] !== 'string' || values[field.name] === '') throw new Error(`Enter a new value for ${field.label}; its source password is unreadable.`)
   }
+}
+
+/**
+ * Whether a BLOB value is the backend's FILE_DOWNLOAD URL rather than base64 bytes.
+ *
+ * @param field - Field metadata.
+ * @param value - The stored value.
+ * @returns `true` for a download URL.
+ */
+function fileDownloadUrlValue(field: QFieldMetaData, value: string): boolean {
+  return Boolean(field.adornments?.some((item) => item.type === 'FILE_DOWNLOAD')) && (value.startsWith('/') || /^https?:\/\//i.test(value))
 }

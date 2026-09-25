@@ -32,7 +32,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { QTableMetaData } from '@/types'
 import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
-import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
 import { EntityForm, type EntityFormProps } from '@/components/forms/EntityForm'
 import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
 
@@ -157,7 +157,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         role="alert"
       >
         <p className="text-sm text-destructive">
-          {error?.message ?? `Failed to load ${tableMetaData.label} #${recordId}`}
+          {recordLoadFailure(tableMetaData.label, recordId, error)}
         </p>
       </div>
     )

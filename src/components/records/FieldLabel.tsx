@@ -25,11 +25,13 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QFieldMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { selectHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { HelpContent } from './HelpContent'
 
 interface FieldLabelProps {
   /**
    * Field metadata from which `label` and `helpContents` are read.
-   * The tooltip is suppressed when `helpContents` is empty or undefined.
+   * The tooltip is suppressed when no help content applies to `helpRoles`.
    */
   field: QFieldMetaData
   className?: string
@@ -37,31 +39,32 @@ interface FieldLabelProps {
   'data-qqq-id'?: string
   /** Optional id for aria-labelledby linkage */
   id?: string
+  /** Screen roles used to choose the help entry, most specific first (defaults to the view screen). */
+  helpRoles?: readonly string[]
 }
 
 /**
- * Renders a field's `label` as an inline span with an optional help-text
- * tooltip driven by the field's `helpContents` metadata.
- *
- * Used by {@link RecordViewSection} and {@link RecordViewHeader} to render
- * every field label in the record detail view. When `helpContents` has at
- * least one entry, the label gains `cursor-help` styling, `tabIndex={0}` for
- * keyboard accessibility, and a Radix Tooltip that pops up on hover or focus.
- * The tooltip is suppressed entirely when `helpContents` is empty or undefined.
+ * Renders a field's `label` as an inline span with an optional help tooltip
+ * (heading = the field label) for the help content that applies to the screen.
  *
  * @param props - Component properties.
- * @returns A plain `<span>` when the field has no help text, or a `<span>`
- *   wrapped in a Radix TooltipProvider + Tooltip when help text is present.
+ * @param props.field - Field metadata providing `label` and `helpContents`.
+ * @param props.className - Optional additional CSS classes for the label span.
+ * @param props.'data-qqq-id' - Optional `data-qqq-id` attribute for CSS customization hooks.
+ * @param props.id - Optional DOM `id` for `aria-labelledby` linkage.
+ * @param props.helpRoles - Screen roles for choosing the help entry.
+ * @returns A plain `<span>` when no help applies, otherwise a focusable label with a Radix tooltip.
  */
 export function FieldLabel({
   field,
   className,
   'data-qqq-id': dataQqqId,
   id,
+  helpRoles = VIEW_SCREEN_HELP_ROLES,
 }: FieldLabelProps) {
-  const helpText = field.helpContents?.[0]?.content
+  const helpContent = selectHelpContent(field.helpContents, helpRoles)
 
-  if (!helpText) {
+  if (!helpContent) {
     return (
       <span
         className={className}
@@ -78,8 +81,9 @@ export function FieldLabel({
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger asChild>
           <span
-            className={cn(className, 'cursor-help')}
+            className={cn(className, 'cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4')}
             data-qqq-id={dataQqqId}
+            data-has-help="true"
             id={id}
             tabIndex={0}
           >
@@ -90,13 +94,15 @@ export function FieldLabel({
           <TooltipPrimitive.Content
             side="top"
             sideOffset={4}
+            data-qqq-id={`field-help-tooltip-${field.name}`}
             className={cn(
               'z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm shadow-md',
               'text-foreground',
               'animate-in fade-in-0 zoom-in-95'
             )}
           >
-            {helpText}
+            <p className="mb-1 font-semibold">{field.label}</p>
+            <HelpContent helpContent={helpContent} />
             <TooltipPrimitive.Arrow className="fill-border" />
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>

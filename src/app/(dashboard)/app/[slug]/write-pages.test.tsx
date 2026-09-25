@@ -240,7 +240,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   it('shows a failed base-copy source read without offering a blank create form', async () => {
     server.use(http.get('/data/person/1', () => HttpResponse.json({ error: 'Source denied' }, { status: 403 })))
     renderPage(<EntityCopyPage />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('403')
+    expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to view People records')
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 })

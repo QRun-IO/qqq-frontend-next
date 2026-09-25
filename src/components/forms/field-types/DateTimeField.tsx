@@ -43,6 +43,8 @@ interface DateTimeFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help text that describes this control. */
+  describedBy?: string
 }
 
 /**
@@ -64,10 +66,11 @@ export function DateTimeField({
   disabled = false,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: DateTimeFieldProps) {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const hintId = `${id}-tz-hint`
-  const describedByIds = [hintId, error ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined
+  const describedByIds = [hintId, error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined
 
   return (
     <div className="flex flex-col gap-1">
@@ -82,6 +85,7 @@ export function DateTimeField({
       <input
         id={id}
         type="datetime-local"
+        step={1}
         {...registration}
         disabled={disabled}
         aria-required={required}

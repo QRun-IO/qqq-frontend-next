@@ -19,40 +19,38 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { getAuditRecords } from '@/lib/api/tables'
-import { queryKeys } from '@/lib/query-client'
+
 import type { QAuditRecord } from '@/types'
+import { getAuditRecords, type AuditSource } from '@/lib/api/audits'
+import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 
 /**
- * Configuration options for {@link useAuditRecords}.
+ * Options for {@link useAuditRecords}.
  */
 interface UseAuditRecordsOptions {
-  /** Backend-registered table name. */
+  /** How the current user can read audits (see `auditSource`); `null` disables the query. */
+  source: AuditSource
+  /** The audited table. */
   tableName: string
-  /** Primary key of the record whose audit trail to fetch. */
+  /** The record's primary key. */
   primaryKey: string | number
-  /** Only fetch when true (lazy loading on expand) */
+  /** When false the query does not run (e.g. until the history dialog opens). */
   enabled?: boolean
 }
 
 /**
- * Fetches the audit change history for a single record.
+ * Loads a record's audit history, newest first.
  *
- * Results are cached for 5 minutes. Pass `enabled: false` to defer fetching
- * until the audit panel is expanded (lazy loading).
- *
- * @param options - Table name, primary key, and optional enabled flag.
- * @returns `{ auditRecords, isLoading, isError, error }` — `auditRecords` is a
- *   `QAuditRecord[]` (empty array while loading or on error, never undefined);
- *   `isLoading` is true only on the initial fetch; `isError` and `error` surface
- *   any network or server failure so the caller can show an error state.
+ * @param options - See {@link UseAuditRecordsOptions}.
+ * @returns The entries plus loading and error state (the caller renders errors).
  */
-export function useAuditRecords({ tableName, primaryKey, enabled = true }: UseAuditRecordsOptions) {
-  const { data, isLoading, isError, error } = useQuery({
+export function useAuditRecords({ source, tableName, primaryKey, enabled = true }: UseAuditRecordsOptions) {
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: queryKeys.audits(tableName, primaryKey),
-    queryFn: () => getAuditRecords(tableName, primaryKey),
-    enabled,
-    staleTime: 1000 * 60 * 5, // 5 min cache
+    queryFn: () => getAuditRecords(source!, tableName, primaryKey),
+    enabled: enabled && source !== null,
+    staleTime: 0,
+    meta: HANDLES_OWN_ERRORS,
   })
 
   return {
@@ -60,5 +58,6 @@ export function useAuditRecords({ tableName, primaryKey, enabled = true }: UseAu
     isLoading,
     isError,
     error,
+    refetch,
   }
 }

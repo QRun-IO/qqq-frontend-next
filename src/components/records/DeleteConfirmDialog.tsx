@@ -27,8 +27,10 @@ import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
 
 import type { QTableMetaData, QRecord } from '@/types'
 import { deleteRecord } from '@/lib/api/tables'
-import { queryKeys } from '@/lib/query-client'
+import { HANDLES_OWN_ERRORS } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
+import { getErrorMessage } from '@/lib/utils/error-utils'
+import { forgetDeletedRecord } from '@/lib/utils/record-cache'
 import { toast } from '@/lib/hooks/use-toast'
 
 interface DeleteConfirmDialogProps {
@@ -65,20 +67,19 @@ export function DeleteConfirmDialog({
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteRecord(tableMetaData.name, primaryKey),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
-      queryClient.removeQueries({
-        queryKey: queryKeys.tableRecord(tableMetaData.name, primaryKey),
-      })
+    meta: HANDLES_OWN_ERRORS,
+    onSuccess: async () => {
+      // #541: never refetch the deleted record while its view is still mounted.
+      await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
       toast.success(`${recordLabel} deleted successfully.`)
       onDeleted()
     },
     onError: (err: Error) => {
-      toast.error(`Failed to delete: ${err.message}`)
+      toast.error(`Failed to delete: ${getErrorMessage(err)}`)
     },
   })
 
-  const mutationError = deleteMutation.error as Error | null
+  const mutationError = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
 
   return (
     <DialogPrimitive.Root open onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
@@ -139,7 +140,7 @@ export function DeleteConfirmDialog({
                 role="alert"
                 className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
               >
-                {mutationError.message || 'Failed to delete record. Please try again.'}
+                {mutationError}
               </div>
             )}
           </div>

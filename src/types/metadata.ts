@@ -20,7 +20,7 @@
 
 // QQQ Metadata Types - ported from qqq-frontend-core
 
-import type { QFieldType, Capability, QComponentType, QAppNodeType } from './enums'
+import type { QFieldType, Capability, QComponentType, QAppNodeType, AdornmentType } from './enums'
 
 /**
  * Top-level QQQ instance descriptor returned by the `/metaData/instance` endpoint.
@@ -154,6 +154,8 @@ export interface QTableMetaData {
   variantTableLabel: string
   /** Optional contextual help content shown on this table's pages. */
   helpContent?: QHelpContent
+  /** Table help content by slot name, as the backend declares it. */
+  helpContents?: Record<string, QHelpContent[]>
   /** Optional plugin-specific supplemental metadata not covered by the core schema. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
@@ -406,6 +408,10 @@ export interface QTableSection {
   widgetName?: string
   /** When true, this section is collapsed / hidden from view by default. */
   isHidden: boolean
+  /** The v1 metadata spelling of `isHidden`. */
+  hidden?: boolean
+  /** Help content shown with the section heading, per each entry's screen roles. */
+  helpContents?: QHelpContent[]
   /** Number of grid columns this section occupies in the record layout. */
   gridColumns?: number
 }
@@ -471,11 +477,15 @@ export interface QReportMetaData {
 export interface QHelpContent {
   /** Optional heading text shown at the top of the help panel. */
   title?: string
-  /** Main help body (may contain Markdown). */
+  /** Main help body, in `format`. */
   content?: string
+  /** How `content` is written: `TEXT` (default), `HTML` or `MARKDOWN`. */
+  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
+  /** Backend-rendered HTML for `content` (MARKDOWN converted; TEXT and HTML as-is). */
+  contentAsHtml?: string
   /** Optional list of external documentation links. */
   links?: Array<{ label: string; url: string }>
-  /** Role names that restrict which users see this help content. */
+  /** Screens this entry applies to (for example `READ_SCREENS`, `EDIT_SCREEN`); none means every screen. */
   roles?: string[]
 }
 
@@ -524,16 +534,19 @@ export interface Banner {
 }
 
 /**
- * A discriminated union of all field adornment shapes supported by QQQ.
+ * A field adornment exactly as the backend declares it (`FieldAdornment.java`).
  *
  * Adornments modify how a field value is rendered — as a hyperlink, chip badge,
- * tooltip, error indicator, downloadable file, or a special renderer mode.
- * Use `Extract<FieldAdornment, { type: X }>` to narrow to a specific variant.
+ * tooltip, error indicator, downloadable file, code editor or widget. `values`
+ * uses the backend's keys, for example `toRecordFromTable` / `target` (LINK),
+ * `color.<value>` / `icon.<value>` (CHIP), `width` (SIZE), `languageMode`
+ * (CODE_EDITOR), `fileNameField` / `defaultMimeType` (FILE_DOWNLOAD), `format`
+ * (FILE_UPLOAD), `staticText` / `tooltipDynamic` (TOOLTIP) and `widgetName` (WIDGET).
+ * Read them with the helpers in `@/lib/utils/adornment-utils`.
  */
-export type FieldAdornment =
-  | { type: 'LINK'; values?: { linkURL?: string } }
-  | { type: 'CHIP'; values?: { colorMap?: Record<string, string>; color?: string } }
-  | { type: 'TOOLTIP'; values?: { tooltipText?: string; text?: string; tooltip?: string } }
-  | { type: 'ERROR'; values?: { errorText?: string; text?: string } }
-  | { type: 'FILE_DOWNLOAD'; values?: { downloadUrl?: string; fileNameField?: string; defaultMimeType?: string } }
-  | { type: 'SIZE' | 'REVEAL' | 'CODE_EDITOR' | 'RENDER_HTML' | 'FILE_UPLOAD' }
+export interface FieldAdornment {
+  /** Which adornment this is. */
+  type: AdornmentType
+  /** Adornment settings keyed as the backend declares them. */
+  values?: Record<string, unknown>
+}

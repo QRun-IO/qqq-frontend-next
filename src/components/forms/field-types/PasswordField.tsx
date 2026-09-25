@@ -48,6 +48,8 @@ interface PasswordFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help text that describes this control. */
+  describedBy?: string
 }
 
 /**
@@ -70,6 +72,7 @@ export function PasswordField({
   maxLength,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: PasswordFieldProps) {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -93,7 +96,7 @@ export function PasswordField({
           maxLength={maxLength}
           aria-required={required}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
           data-qqq-id={dataQqqId}
           className={cn(
             'w-full rounded-md border px-3 py-2 pr-10 text-sm text-foreground',
