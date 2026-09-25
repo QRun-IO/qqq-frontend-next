@@ -112,7 +112,8 @@ function exponentialBackoff(attemptIndex: number): number {
  */
 /**
  * Meta flag for queries and mutations whose component renders its own error state
- * (for example a record-not-found panel or a form error alert). The global toast is
+ * (for example a record-not-found panel, a form error alert, or a widget's inline
+ * error with a retry button). The global toast is
  * skipped for them so the user sees one accurate message instead of a generic duplicate.
  */
 export const HANDLES_OWN_ERRORS = { handlesOwnErrors: true } as const
@@ -129,6 +130,7 @@ function handlesOwnErrors(meta: Record<string, unknown> | undefined): boolean {
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
+    // Queries that render their own error state (records, widgets) opt out with HANDLES_OWN_ERRORS.
     onError: (error, query) => {
       if (!handlesOwnErrors(query.meta)) handleQueryError(error, 'query')
     },

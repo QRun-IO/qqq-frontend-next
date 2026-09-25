@@ -365,6 +365,31 @@ export interface QWidgetDropdown {
   possibleValueSourceName?: string
   /** Pre-selected value used when the user has not made an explicit selection. */
   defaultValue?: string
+  /** `POSSIBLE_VALUE_SOURCE` (default) or `DATE_PICKER`. */
+  type?: 'POSSIBLE_VALUE_SOURCE' | 'DATE_PICKER'
+  /** When true the widget waits for a selection before showing content. */
+  isRequired?: boolean
+  /** Label of an explicit "no selection" option. */
+  labelForNullValue?: string
+  /** Preferred control width in pixels. */
+  width?: number
+}
+
+/** An icon placed in a widget header, keyed by role (e.g. `topRightInsideCard`). */
+export interface QWidgetIcon {
+  /** Material Icons name. */
+  name?: string
+  /** CSS color. */
+  color?: string
+  /** Image path used instead of a named icon. */
+  path?: string
+}
+
+/** One help-content entry as served by the full widget metadata route. */
+export interface QWidgetHelpContent {
+  content?: string
+  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
+  roles?: string[]
 }
 
 /**
@@ -392,8 +417,23 @@ export interface QWidgetMetaData {
   showExportButton?: boolean
   /** Filter dropdown controls available in this widget's toolbar. */
   dropdowns?: QWidgetDropdown[]
-  /** Optional contextual help content associated with this widget. */
-  helpContent?: QHelpContent
+  /**
+   * Optional contextual help content associated with this widget. The full
+   * metadata route serves a map of slot name (e.g. `label`) to entries.
+   */
+  helpContent?: QHelpContent | Record<string, QWidgetHelpContent[]>
+  /** When false the widget renders without card chrome. Defaults to true. */
+  isCard?: boolean
+  /** Tooltip shown on the widget label. */
+  tooltip?: string
+  /** Header icons keyed by role (`topLeftInsideCard`, `topRightInsideCard`). */
+  icons?: Record<string, QWidgetIcon>
+  /** When true, dropdown selections persist in local storage. */
+  storeDropdownSelections?: boolean
+  /** Minimum body height (CSS length). */
+  minHeight?: string
+  /** Static footer HTML declared in metadata. */
+  footerHTML?: string
 }
 
 /**
@@ -481,6 +521,10 @@ export interface QReportMetaData {
   isHidden: boolean
   /** Whether the current user is permitted to run this report. */
   hasPermission: boolean
+  /** Process that runs this report (e.g. the basic report process). */
+  processName?: string
+  /** Material Icons name for navigation. */
+  iconName?: string
 }
 
 /**

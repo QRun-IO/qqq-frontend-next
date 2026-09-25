@@ -48,6 +48,8 @@ export type {
   QAppTreeNode,
   QAppSection,
   QWidgetDropdown,
+  QWidgetHelpContent,
+  QWidgetIcon,
   QWidgetMetaData,
   QTableSection,
   QExposedJoin,

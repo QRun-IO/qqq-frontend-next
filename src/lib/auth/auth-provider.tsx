@@ -219,7 +219,13 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   async function setupAnonymousSession(): Promise<AuthUser> {
     // Anonymous auth: call manageSession with empty token to get a session cookie
     try {
-      await manageSession('anonymous')
+      const session = await manageSession('anonymous')
+      // A mock session may identify its user (values.user = { name, email }); use it
+      // so ownership checks (e.g. who may share a record) compare real identities.
+      const sessionUser = session?.values?.user as { name?: unknown; email?: unknown } | undefined
+      if (sessionUser && typeof sessionUser.name === 'string' && typeof sessionUser.email === 'string') {
+        return { name: sessionUser.name, email: sessionUser.email }
+      }
     } catch {
       // Anonymous may not need a token exchange
     }

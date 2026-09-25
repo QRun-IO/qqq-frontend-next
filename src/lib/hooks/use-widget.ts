@@ -19,38 +19,48 @@
  */
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import type { WidgetData } from '@/types'
 import { fetchWidgetData } from '@/lib/api/widgets'
-import { queryKeys } from '@/lib/query-client'
+import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 
 const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
+
+/** Options for {@link useWidget}. */
+export interface UseWidgetOptions {
+  /** When false the query does not run (e.g. a denied widget). Defaults to true. */
+  enabled?: boolean
+}
 
 /**
  * Fetches runtime data for a named widget via `GET /widget/{widgetName}`.
  *
- * Results are cached for 5 minutes. The query is disabled when `widgetName` is empty.
+ * Results are cached for 5 minutes. When the parameters change (for example a
+ * dropdown selection), the previous payload stays visible until the new one
+ * arrives, so header controls derived from it do not disappear. Failures are not
+ * retried and do not raise the global error toast: widgets render their own
+ * error state with a retry button, as the Material dashboard does.
  *
  * @param widgetName - Backend-registered widget name as declared in the QInstance metadata.
- *   The query is disabled when this is an empty string, so callers may pass an empty string
- *   to safely defer fetching until the widget name is resolved.
+ *   The query is disabled when this is an empty string.
  * @param params - Optional key-value pairs forwarded as URL query parameters to the widget
- *   endpoint (e.g. `{ tableName: 'Orders', recordId: 42 }`). Included in the TanStack Query
- *   cache key so different param combinations are cached independently.
- * @returns TanStack Query result for `WidgetData`:
- *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is `undefined`
- *   while loading or on error; `isLoading` is true only during the initial fetch;
- *   `isFetching` covers subsequent background refetches after the 5-minute stale window.
+ *   endpoint (e.g. `{ tableName: 'Orders', id: 42 }`). Included in the cache key.
+ * @param options - See {@link UseWidgetOptions}.
+ * @returns TanStack Query result for `WidgetData`.
  */
 export function useWidget(
   widgetName: string,
-  params?: Record<string, string | number | boolean>
+  params?: Record<string, string | number | boolean>,
+  options: UseWidgetOptions = {}
 ) {
   return useQuery<WidgetData, Error>({
     queryKey: queryKeys.widgetData(widgetName, params),
     queryFn: () => fetchWidgetData(widgetName, params),
     staleTime: WIDGET_STALE_TIME,
-    enabled: Boolean(widgetName),
+    enabled: Boolean(widgetName) && options.enabled !== false,
+    placeholderData: keepPreviousData,
+    retry: false,
+    meta: HANDLES_OWN_ERRORS,
   })
 }

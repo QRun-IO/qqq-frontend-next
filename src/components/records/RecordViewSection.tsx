@@ -115,6 +115,13 @@ export function RecordViewSection({
               tableName: tableMetaData.name,
               id: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : '',
             }}
+            recordContext={{
+              tableName: tableMetaData.name,
+              recordId: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : undefined,
+              record,
+              tableMetaData,
+            }}
+            widgetRegistry={widgetMetaDataMap}
           />
         </section>
       )
