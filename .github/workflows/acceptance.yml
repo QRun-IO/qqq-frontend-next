@@ -64,8 +64,9 @@ jobs:
           echo "NEXT_JAR_VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_ENV"
       - name: Build the sample application jar
         run: |
-          mvn -B -q -f qqq-backend/qqq-sample-project/pom.xml package -DskipTests -Djacoco.skip=true \
-            -Dqqq.frontend.next.version="$NEXT_JAR_VERSION"
+          # Run from the QQQ checkout: its checkstyle/pmd configuration paths are relative to it.
+          (cd qqq-backend && mvn -B -q -f qqq-sample-project/pom.xml package -DskipTests -Djacoco.skip=true \
+            -Dqqq.frontend.next.version="$NEXT_JAR_VERSION")
           echo "QQQ_SAMPLE_JAR=$(ls "$PWD"/qqq-backend/qqq-sample-project/target/*-jar-with-dependencies.jar)" >> "$GITHUB_ENV"
       - name: Acceptance (${{ matrix.browser }})
         env:
