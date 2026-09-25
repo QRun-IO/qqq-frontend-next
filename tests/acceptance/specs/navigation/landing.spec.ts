@@ -48,9 +48,13 @@ test.describe('dashboard landing page', () => {
     const actions = page.getByRole('region', { name: 'Quick Actions' }).getByRole('link')
     const creatable = tables.filter((node) => meta.tables[node.name].insertPermission && meta.tables[node.name].capabilities?.includes('TABLE_INSERT')).slice(0, 6)
     const expected = [...creatable.map((node) => `Create ${meta.tables[node.name].label}`), ...processes.slice(0, 4).map((node) => meta.processes[node.name].label)]
-    expect(expected).toEqual(['Create Carrier', 'Create Field Lab', 'Create Pet Species', 'Create Nav Deep Item', 'Create Person', 'Create Pet',
+    // Pet Species is navigable but enumeration-backed, so the backend offers no insert for it
+    expect(tables.map((node) => node.name)).toContain('petSpecies')
+    expect(meta.tables.petSpecies.insertPermission).toBe(false)
+    expect(expected).toEqual(['Create Carrier', 'Create Field Lab', 'Create Nav Deep Item', 'Create Person', 'Create Pet', 'Create Pet Note',
       'Sleep Interactive', 'Simple Throw', 'Greet Interactive', 'Clone People'])
     await expect(actions).toHaveText(expected)
+    await expect(page.getByRole('link', { name: 'Create Pet Species' })).toHaveCount(0)
     // Regression: internal processes and table-bulk processes were offered
     for (const internal of ['Run Scheduled Report', 'Get Shared Records', 'Store Saved View', 'Person Bulk Edit']) {
       await expect(page.getByRole('link', { name: internal })).toHaveCount(0)
