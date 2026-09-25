@@ -73,6 +73,7 @@ public class SecurityAcceptanceServer
    private static final String              AUTH     = System.getProperty("qqq.security.auth", "MOCK");
    private static final String              UNSUPPORTED_TYPE = "ACCEPTANCE_UNKNOWN";
    private static volatile QInstance        instance;
+   private static volatile boolean          primed;
 
 
 
@@ -120,7 +121,21 @@ public class SecurityAcceptanceServer
       server.withJavalinConfigCustomizer(config ->
       {
          config.jetty.host = "127.0.0.1";
-         config.routes.get("/acceptance/ready", context -> context.result("ready"));
+         ///////////////////////////////////////////////////////////////////////
+         // ready only once the startup priming is done: a reset racing it    //
+         // would drop and create the fixture tables concurrently             //
+         ///////////////////////////////////////////////////////////////////////
+         config.routes.get("/acceptance/ready", context ->
+         {
+            if(primed)
+            {
+               context.result("ready");
+            }
+            else
+            {
+               context.status(503).result("priming");
+            }
+         });
          if("UNSUPPORTED".equals(AUTH))
          {
             config.routes.before("/qqq/v1/metaData/authentication", context ->
@@ -158,7 +173,11 @@ public class SecurityAcceptanceServer
       });
       Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
       server.start();
-      primeFixtures();
+      synchronized(SecurityAcceptanceServer.class)
+      {
+         primeFixtures();
+      }
+      primed = true;
    }
 
 
