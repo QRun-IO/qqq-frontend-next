@@ -946,6 +946,27 @@
       ],
       "issues": [],
       "required": true
+    },
+    {
+      "id": "QRY-065",
+      "feature": "Export streams from the v1 export route",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/components/query/ExportButton.tsx"
+      ],
+      "fixture": "qryItem, qryLedger",
+      "scenarios": [
+        "the export menu posts {format, filename, fieldNames, filter} to /qqq/v1/table/{table}/export and downloads every row",
+        "the v1 route streams the same rows as CSV"
+      ],
+      "negative": [
+        "a table without the export capability is refused (403) by the v1 route"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

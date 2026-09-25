@@ -26,6 +26,7 @@ vi.mock('./client', () => ({
     setUnauthorizedCallback: vi.fn(),
     getInstance: () => ({ defaults: { baseURL: 'https://sample.invalid/context/qqq/v1' } }),
   },
+  apiUrl: (path: string) => `https://sample.invalid/context/qqq/v1${path}`,
 }))
 
 const LEGACY = 'https://sample.invalid/context'
@@ -238,9 +239,9 @@ describe('Processes API', () => {
     it('builds server-file and storage download links', async () => {
       const { processDownloadUrl } = await import('./processes')
       expect(processDownloadUrl({ downloadFileName: 'lab a.txt', serverFilePath: '/tmp/x y.txt' }))
-        .toBe(`${LEGACY}/download/lab%20a.txt?filePath=%2Ftmp%2Fx+y.txt`)
+        .toBe(`${LEGACY}/qqq/v1/download/lab%20a.txt?filePath=%2Ftmp%2Fx+y.txt`)
       expect(processDownloadUrl({ downloadFileName: 'r.csv', storageTableName: 'store', storageReference: 'a/b' }))
-        .toBe(`${LEGACY}/download/r.csv?storageTableName=store&storageReference=a%2Fb`)
+        .toBe(`${LEGACY}/qqq/v1/download/r.csv?storageTableName=store&storageReference=a%2Fb`)
       expect(processDownloadUrl({ downloadFileName: 'r.csv' })).toBeNull()
       expect(processDownloadUrl({ serverFilePath: '/tmp/x' })).toBeNull()
     })

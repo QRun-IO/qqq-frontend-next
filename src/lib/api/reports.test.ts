@@ -23,7 +23,7 @@ vi.mock('./processes', () => ({ processInit: vi.fn(), processStep: vi.fn(), proc
 
 import type { ProcessResponse } from './processes'
 import { processInit, processStatus, processStep } from './processes'
-import { legacyReportUrl, pollReport, reportDownloadUrl, reportStateFromResponse, startReport, submitReportInputs } from './reports'
+import { pollReport, reportDownloadUrl, reportFileUrl, reportStateFromResponse, startReport, submitReportInputs } from './reports'
 
 const initMock = vi.mocked(processInit)
 
@@ -35,7 +35,7 @@ describe('reports API', () => {
     const state = await startReport('reports.basic', 'accPersonReport', 'CSV')
     expect(initMock).toHaveBeenCalledWith('reports.basic', { values: { reportName: 'accPersonReport', reportFormat: 'CSV' } })
     expect(state).toEqual({ kind: 'done', processUUID: 'p1', fileName: 'Owned Report - 2026.csv', downloadUrl: reportDownloadUrl('Owned Report - 2026.csv', '/tmp/r.csv') })
-    expect(reportDownloadUrl('Owned Report - 2026.csv', '/tmp/r.csv')).toMatch(/\/download\/Owned%20Report%20-%202026\.csv\?filePath=%2Ftmp%2Fr\.csv$/)
+    expect(reportDownloadUrl('Owned Report - 2026.csv', '/tmp/r.csv')).toBe('/qqq/v1/download/Owned%20Report%20-%202026.csv?filePath=%2Ftmp%2Fr.csv')
   })
 
   it('returns the input fields when the report declares them, and submits them to the input step', async () => {
@@ -71,7 +71,7 @@ describe('reports API', () => {
     expect(await startReport('reports.basic', 'big', 'CSV')).toMatchObject({ kind: 'running', processUUID: 'p4', message: 'Generating Report' })
   })
 
-  it('builds the streaming route for reports without a process', () => {
-    expect(legacyReportUrl('accStreamedReport', 'CSV', { minimumId: '2' })).toMatch(/\/reports\/accStreamedReport\?minimumId=2&format=csv$/)
+  it('builds the v1 streaming route for reports without a process', () => {
+    expect(reportFileUrl('accStreamedReport', 'CSV', { minimumId: '2' })).toBe('/qqq/v1/reports/accStreamedReport?minimumId=2&format=csv')
   })
 })

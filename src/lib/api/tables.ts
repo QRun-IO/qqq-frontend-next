@@ -80,8 +80,8 @@ export async function fetchTableVariants(tableName: string): Promise<TableVarian
 export type ExportFormat = 'csv' | 'xlsx' | 'json'
 
 /**
- * Exports records through the backend's streaming export route
- * (`POST /data/{tableName}/export/{filename}`), as the Material dashboard does.
+ * Exports records through the v1 streaming export route (`POST /table/{tableName}/export`,
+ * JSON body); the file name's extension selects the format.
  *
  * @param tableName - Exact backend table identifier.
  * @param filename - Download file name; its extension selects the format.
@@ -97,13 +97,11 @@ export async function exportRecords(
   filter: Partial<QQueryFilter>,
   tableVariant?: TableVariant
 ): Promise<Blob> {
-  const form = new URLSearchParams()
-  form.set('fields', fields.join(','))
-  form.set('filter', JSON.stringify(filter))
-  if (tableVariant) form.set('tableVariant', JSON.stringify({ type: tableVariant.type, id: tableVariant.id }))
-  return apiClient.post<Blob>(`/data/${encodeURIComponent(tableName)}/export/${encodeURIComponent(filename)}`, form, {
-    baseURL: legacyBaseURL(),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.') + 1) : undefined
+  const body: Record<string, unknown> = { filename, fieldNames: fields, filter }
+  if (extension) body.format = extension
+  if (tableVariant) body.tableVariant = { type: tableVariant.type, id: String(tableVariant.id) }
+  return apiClient.post<Blob>(`/table/${encodeURIComponent(tableName)}/export`, body, {
     responseType: 'blob',
     timeout: 5 * 60 * 1000,
   })

@@ -1336,6 +1336,29 @@
         "#665"
       ],
       "required": true
+    },
+    {
+      "id": "RPT-019",
+      "feature": "Report files download from the v1 download and report routes",
+      "source": [
+        "src/lib/api/reports.ts",
+        "src/lib/api/processes.ts",
+        "src/components/reports/ReportRun.tsx"
+      ],
+      "fixture": "accPersonReport, accStreamedReport, accRestrictedReport",
+      "scenarios": [
+        "a process report links its file at /qqq/v1/download/... and the file has every row",
+        "a report without a process streams from /qqq/v1/reports/{name}?format=csv with every row"
+      ],
+      "negative": [
+        "an unregistered server file or storage reference is refused (403)",
+        "a restricted report is 403, an unknown one 404, a missing format 400"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

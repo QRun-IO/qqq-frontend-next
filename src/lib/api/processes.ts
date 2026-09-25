@@ -28,7 +28,7 @@
 import { AxiosError } from 'axios'
 
 import type { ProcessMetaDataAdjustment, QRecord } from '@/types'
-import apiClient from './client'
+import apiClient, { apiUrl } from './client'
 
 /** Files to upload with a process request, keyed by the form field name (e.g. `theFile`). */
 export type ProcessFiles = Record<string, File | File[]>
@@ -470,5 +470,5 @@ export function processDownloadUrl(values: Record<string, unknown>): string | nu
   } else {
     return null
   }
-  return `${legacyBaseURL() ?? ''}/download/${encodeURIComponent(fileName)}?${params.toString()}`
+  return apiUrl(`/download/${encodeURIComponent(fileName)}?${params.toString()}`)
 }

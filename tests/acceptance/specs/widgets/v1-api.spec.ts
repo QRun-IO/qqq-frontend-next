@@ -1,0 +1,54 @@
+/*
+ * Copyright 2026 QRun.IO, Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+ */
+
+import { expect, open, test } from '../../support/fixtures'
+import { downloadText, parseCsv, sqlRows } from './widget-support'
+
+test('[RPT-019] report files download from the v1 download and report routes, which enforce access', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const people = await sqlRows(backend, 'select id, first_name, last_name, email from person order by id')
+
+  // Through the report process: the finished file is a v1 download link.
+  await open(page, '/app/accPersonReport')
+  await page.getByLabel('Output format').selectOption('CSV')
+  await page.getByRole('button', { name: 'Run Report' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Report complete' })).toBeVisible()
+  const link = page.getByRole('link', { name: /^Download / })
+  await expect(link).toHaveAttribute('href', /^\/qqq\/v1\/download\/[^?]+\.csv\?filePath=/)
+  const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
+  expect(parseCsv(await downloadText(download)).slice(1)).toEqual(people.map((person) => [person.id, person.first_name, person.last_name, person.email]))
+
+  // Without a process: the v1 streaming report route.
+  const pets = await sqlRows(backend, 'select id, name from pet order by id')
+  await open(page, '/app/accStreamedReport')
+  await page.getByLabel('Output format').selectOption('CSV')
+  await page.getByRole('button', { name: 'Run Report' }).click()
+  const streamed = page.getByRole('link', { name: /^Download / })
+  await expect(streamed).toHaveAttribute('href', '/qqq/v1/reports/accStreamedReport?format=csv')
+  const [file] = await Promise.all([page.waitForEvent('download'), streamed.click()])
+  expect(parseCsv(await downloadText(file)).slice(1)).toEqual(pets.map((pet) => [pet.id, pet.name]))
+
+  // The v1 routes refuse what nobody may have: a file no process registered for the
+  // session, an unknown report, and a run without a format.
+  const hosts = await backend.api.get('/qqq/v1/download/hosts.txt?filePath=%2Fetc%2Fhosts')
+  expect(hosts.status()).toBe(403)
+  expect(await hosts.text()).not.toContain('localhost')
+  expect((await backend.api.get('/qqq/v1/download/x.csv?storageTableName=person&storageReference=x.csv')).status()).toBe(403)
+  expect((await backend.api.get('/qqq/v1/reports/noSuchReport?format=csv')).status()).toBe(404)
+  expect((await backend.api.get('/qqq/v1/reports/accStreamedReport')).status()).toBe(400)
+})
+
+test.describe('persona without pet permissions', () => {
+  test.use({ persona: 'noPets' })
+
+  test('[RPT-019] the v1 report route refuses a report the persona may not run', async ({ backend, diagnostics }) => {
+    void diagnostics
+    const refused = await backend.api.get('/qqq/v1/reports/accRestrictedReport?format=csv')
+    expect(refused.status()).toBe(403)
+    expect(await refused.text()).not.toContain('Id')
+  })
+})

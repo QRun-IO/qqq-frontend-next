@@ -239,6 +239,21 @@ describe('Tables API', () => {
     })
   })
 
+  describe('exportRecords', () => {
+    it('posts the v1 export body and reads the file as a blob', async () => {
+      const { default: apiClient } = await import('./client')
+      const file = new Blob(['id\n1'])
+      vi.mocked(apiClient.post).mockResolvedValue(file)
+      const { exportRecords } = await import('./tables')
+      const filter = { criteria: [] }
+      expect(await exportRecords('my table', 'My Export.csv', ['id', 'owner.name'], filter, { type: 'tenant', id: 2 })).toBe(file)
+      const [url, body, config] = vi.mocked(apiClient.post).mock.calls[0]
+      expect(url).toBe('/table/my%20table/export')
+      expect(body).toEqual({ filename: 'My Export.csv', format: 'csv', fieldNames: ['id', 'owner.name'], filter, tableVariant: { type: 'tenant', id: '2' } })
+      expect(config).toMatchObject({ responseType: 'blob' })
+    })
+  })
+
   describe('globalSearch', () => {
     it('posts to /search endpoint', async () => {
       const { default: apiClient } = await import('./client')

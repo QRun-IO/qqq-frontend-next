@@ -105,7 +105,7 @@ describe('ProcessStepScreen', () => {
     expect(screen.getByText('Bold')).toBeInTheDocument()
     expect(form.querySelector('script')).toBeNull()
     expect(await screen.findByRole('cell', { name: 'Seven' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'f.txt' })).toHaveAttribute('href', '/download/f.txt?filePath=%2Ftmp%2Ff.txt')
+    expect(screen.getByRole('link', { name: 'f.txt' })).toHaveAttribute('href', '/qqq/v1/download/f.txt?filePath=%2Ftmp%2Ff.txt')
     expect(screen.getAllByRole('button', { name: /^(Next|Submit)$/ })).toHaveLength(1)
   })
 
