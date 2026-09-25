@@ -70,6 +70,10 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under
   `interruptedFetches` in the attached `diagnostics.json`).
+- **v1 only.** The `diagnostics` fixture also fails a test whose page calls an unversioned API
+  route of a QQQ server (`/data`, `/processes`, `/widget`, `/possibleValues`, `/download`,
+  `/reports`, `/metaData`, `/manageSession`, `/logout` outside `/qqq/v1`; QRun-IO/qqq#699).
+  `allow()` does not waive it. Node-side `backend.api` calls may still exercise legacy routes.
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;
