@@ -90,19 +90,15 @@ export interface QJobError {
  * Describes runtime adjustments to a process's frontend metadata applied
  * after a step completes.
  *
- * The backend can dynamically add or remove wizard steps and modify field
- * definitions based on the data produced in earlier steps.
+ * The backend (`ProcessMetaDataAdjustment` in qqq-backend-core) can replace the
+ * list of frontend steps and replace field definitions, based on the data
+ * produced in earlier steps.
  */
 export interface ProcessMetaDataAdjustment {
-  /** New step definitions to inject into the process wizard at runtime. */
-  addedSteps?: QFrontendStepMetaData[]
-  /** Names of steps to remove from the process wizard at runtime. */
-  removedSteps?: string[]
-  /**
-   * Partial field metadata overrides keyed by field name.
-   * Only the provided properties are merged; others remain unchanged.
-   */
-  modifiedFields?: Record<string, Partial<QFieldMetaData>>
+  /** The complete, ordered list of frontend steps the process will now show. */
+  updatedFrontendStepList?: QFrontendStepMetaData[]
+  /** Replacement field definitions keyed by field name, applied to every step that uses the field. */
+  updatedFields?: Record<string, QFieldMetaData>
 }
 
 /**

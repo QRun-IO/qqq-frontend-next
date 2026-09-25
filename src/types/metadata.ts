@@ -267,6 +267,8 @@ export interface QFrontendStepMetaData {
   recordListFields?: QFieldMetaData[]
   /** Contextual help content associated with this step. */
   helpContents?: QHelpContent[]
+  /** Step (frontend or backend) the process restarts at when the user goes Back from this screen. */
+  backStepName?: string
 }
 
 /**
@@ -499,6 +501,8 @@ export interface QHelpContent {
   links?: Array<{ label: string; url: string }>
   /** Screens this entry applies to (for example `READ_SCREENS`, `EDIT_SCREEN`); none means every screen. */
   roles?: string[]
+  /** Content format: `TEXT`, `HTML` or `MARKDOWN`. */
+  format?: string
 }
 
 /**

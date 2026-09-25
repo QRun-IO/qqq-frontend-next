@@ -142,12 +142,12 @@ describe('SlugPage process initialization', () => {
     let releaseMetadata!: () => void
     const metadataReady = new Promise<void>((resolve) => { releaseMetadata = resolve })
     const initialize = vi.spyOn(processesApi, 'processInit').mockResolvedValue({
-      processUUID: 'selected-run', nextStep: 'setup', values: {},
+      type: 'COMPLETE', processUUID: 'selected-run', nextStep: 'setup', values: {},
     })
     server.use(
-      http.get('/qqq/v1/metaData/process/greetInteractive', async () => {
+      http.get('/metaData/process/greetInteractive', async () => {
         await metadataReady
-        return HttpResponse.json(greeting)
+        return HttpResponse.json({ process: greeting })
       }),
     )
     renderPage()
@@ -156,16 +156,16 @@ describe('SlugPage process initialization', () => {
     await act(async () => { releaseMetadata() })
     await screen.findByRole('textbox', { name: 'Greeting Prefix' })
     expect(initialize).toHaveBeenCalledWith(greeting.name, {
-      recordsParam: expectedSelector, [field]: value,
+      recordsParam: expectedSelector, [field]: value, tableName: 'person',
     })
   })
 
   it('does not initialize when full process metadata is denied', async () => {
     let initialized = false
     server.use(
-      http.get('/qqq/v1/metaData/process/greetInteractive', () =>
+      http.get('/metaData/process/greetInteractive', () =>
         HttpResponse.json({ error: 'Permission denied' }, { status: 403 })),
-      http.post('/qqq/v1/processes/greetInteractive/init', () => {
+      http.post('/processes/greetInteractive/init', () => {
         initialized = true
         return HttpResponse.json({ processUUID: 'unexpected', values: {} })
       }),

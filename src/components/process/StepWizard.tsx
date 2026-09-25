@@ -32,6 +32,7 @@ import { Check } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QFrontendStepMetaData } from '@/types'
+import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
 
 /**
@@ -86,6 +87,104 @@ function getStepState(
   return 'pending'
 }
 
+/** Props for {@link StepItem}. */
+interface StepItemProps {
+  step: QFrontendStepMetaData
+  index: number
+  state: StepState
+  isLast: boolean
+  onStepClick?: (stepName: string) => void
+}
+
+/**
+ * One step of the wizard: its indicator circle, its label (full text in a
+ * tooltip that keyboard focus keeps open through the focus scroll) and the
+ * connector to the next step.
+ *
+ * @param props - {@link StepItemProps}
+ * @returns The step's list item.
+ */
+function StepItem({ step, index, state, isLast, onStepClick }: StepItemProps) {
+  const tooltip = useFocusSafeTooltip()
+  const isClickable = state === 'completed' && Boolean(onStepClick)
+
+  const circle = (
+    <div
+      aria-current={state === 'active' ? 'step' : undefined}
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
+        state === 'completed' && 'bg-primary text-primary-foreground',
+        state === 'active' && 'border-2 border-primary bg-card text-primary',
+        state === 'pending' && 'border-2 border-border bg-card text-muted-foreground',
+        isClickable && 'hover:opacity-80'
+      )}
+    >
+      {state === 'completed' ? <Check className="h-4 w-4" aria-hidden="true" /> : <span>{index + 1}</span>}
+    </div>
+  )
+  const labelClass = cn(
+    'mt-1 max-w-[6rem] truncate text-xs font-medium',
+    (state === 'completed' || state === 'active') && 'text-primary',
+    state === 'pending' && 'text-muted-foreground'
+  )
+  const tooltipContent = (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        sideOffset={4}
+        className={cn(
+          'z-50 overflow-hidden rounded-md border border-border bg-popover px-3 py-1.5',
+          'text-xs text-popover-foreground shadow-md',
+          'animate-in fade-in-0 zoom-in-95',
+          'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
+        )}
+      >
+        {step.label}
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  )
+
+  return (
+    <li className={cn('flex items-center', !isLast && 'flex-1')} data-qqq-id={`step-wizard-step-${step.name}`}>
+      {/* Step indicator — button when clickable (D-P-2), div otherwise; the tooltip trigger is the focusable element */}
+      <TooltipPrimitive.Root open={tooltip.open} onOpenChange={tooltip.onOpenChange}>
+        {isClickable ? (
+          <TooltipPrimitive.Trigger asChild onFocus={tooltip.onFocus} onBlur={tooltip.onBlur} onKeyDown={tooltip.onKeyDown}>
+            <button
+              type="button"
+              onClick={() => onStepClick?.(step.name)}
+              aria-label={`Go back to step: ${step.label}`}
+              className="flex flex-col items-center rounded focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              data-qqq-id={`step-wizard-back-${step.name}`}
+            >
+              {circle}
+              <span className={labelClass}>{step.label}</span>
+            </button>
+          </TooltipPrimitive.Trigger>
+        ) : (
+          <div className="flex flex-col items-center">
+            {circle}
+            {/* D-P-6: the truncated label is focusable so its full text is reachable by keyboard */}
+            <TooltipPrimitive.Trigger asChild onFocus={tooltip.onFocus} onBlur={tooltip.onBlur} onKeyDown={tooltip.onKeyDown}>
+              <span tabIndex={0} className={cn(labelClass, 'rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+                {step.label}
+              </span>
+            </TooltipPrimitive.Trigger>
+          </div>
+        )}
+        {tooltipContent}
+      </TooltipPrimitive.Root>
+
+      {/* Connector line between steps */}
+      {!isLast && (
+        <div
+          className={cn('mx-2 h-0.5 flex-1 transition-colors duration-200', state === 'completed' ? 'bg-primary' : 'bg-border')}
+          aria-hidden="true"
+        />
+      )}
+    </li>
+  )
+}
+
 /**
  * Renders a horizontal step-progress indicator for a multi-step process.
  *
@@ -126,109 +225,16 @@ export function StepWizard({
         {/* Horizontal scroll wrapper for narrow screens with many steps (Fix: HIGH-11) */}
         <div className="overflow-x-auto">
           <ol className="flex min-w-max items-center">
-          {steps.map((step, idx) => {
-            const stepState = getStepState(step.name, currentStepName, steps, isComplete)
-            const isLast = idx === steps.length - 1
-            const isClickable = stepState === 'completed' && !!onStepClick
-
-            /** Inner circle + label, shared between the button and div renderers. */
-            const indicatorContent = (
-              <>
-                <div
-                  aria-current={stepState === 'active' ? 'step' : undefined}
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
-                    stepState === 'completed' &&
-                      'bg-primary text-primary-foreground',
-                    stepState === 'active' &&
-                      'border-2 border-primary bg-card text-primary',
-                    stepState === 'pending' &&
-                      'border-2 border-border bg-card text-muted-foreground',
-                    isClickable && 'hover:opacity-80'
-                  )}
-                >
-                  {stepState === 'completed' ? (
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <span>{idx + 1}</span>
-                  )}
-                </div>
-
-                {/* D-P-6: Tooltip wraps truncated label for touch-friendly full text */}
-                <TooltipPrimitive.Root>
-                  <TooltipPrimitive.Trigger asChild>
-                    <span
-                      className={cn(
-                        'mt-1 max-w-[6rem] truncate text-xs font-medium',
-                        stepState === 'completed' && 'text-primary',
-                        stepState === 'active' && 'text-primary',
-                        stepState === 'pending' && 'text-muted-foreground'
-                      )}
-                    >
-                      {step.label}
-                    </span>
-                  </TooltipPrimitive.Trigger>
-                  <TooltipPrimitive.Portal>
-                    <TooltipPrimitive.Content
-                      sideOffset={4}
-                      className={cn(
-                        'z-50 overflow-hidden rounded-md border border-border bg-popover px-3 py-1.5',
-                        'text-xs text-popover-foreground shadow-md',
-                        'animate-in fade-in-0 zoom-in-95',
-                        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
-                      )}
-                    >
-                      {step.label}
-                    </TooltipPrimitive.Content>
-                  </TooltipPrimitive.Portal>
-                </TooltipPrimitive.Root>
-              </>
-            )
-
-            return (
-              <li
+            {steps.map((step, index) => (
+              <StepItem
                 key={step.name}
-                className={cn(
-                  'flex items-center',
-                  !isLast && 'flex-1'
-                )}
-                data-qqq-id={`step-wizard-step-${step.name}`}
-              >
-                {/* Step indicator — button when clickable (D-P-2), div otherwise */}
-                {isClickable ? (
-                  <button
-                    type="button"
-                    onClick={() => onStepClick(step.name)}
-                    aria-label={`Go back to step: ${step.label}`}
-                    className={cn(
-                      'flex flex-col items-center',
-                      'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded'
-                    )}
-                    data-qqq-id={`step-wizard-back-${step.name}`}
-                  >
-                    {indicatorContent}
-                  </button>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    {indicatorContent}
-                  </div>
-                )}
-
-                {/* Connector line between steps */}
-                {!isLast && (
-                  <div
-                    className={cn(
-                      'mx-2 h-0.5 flex-1 transition-colors duration-200',
-                      stepState === 'completed'
-                        ? 'bg-primary'
-                        : 'bg-border'
-                    )}
-                    aria-hidden="true"
-                  />
-                )}
-              </li>
-            )
-          })}
+                step={step}
+                index={index}
+                state={getStepState(step.name, currentStepName, steps, isComplete)}
+                isLast={index === steps.length - 1}
+                onStepClick={onStepClick}
+              />
+            ))}
           </ol>
         </div>
       </nav>

@@ -184,14 +184,25 @@ export default function SlugPage() {
   if (isProcess && process) {
     const initialRequest: ProcessInitRequest = {}
     const selection = searchParams.get('recordsParam')
-    if (selection === 'recordIds') {
+    if (selection === 'recordIds' || (!selection && searchParams.get('recordIds'))) {
       initialRequest.recordsParam = 'recordIds'
       initialRequest.recordIds = searchParams.get('recordIds') ?? ''
-    } else if (selection === 'filterJSON' || selection === 'queryFilter') {
+    } else if (selection === 'filterJSON' || selection === 'queryFilter' || (!selection && searchParams.get('filterJSON'))) {
       initialRequest.recordsParam = 'filterJSON'
       initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
     }
-    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} />
+    ////////////////////////////////////////////////////////////////////////
+    // links may preset process inputs, as in the Material dashboard:     //
+    // ?defaultProcessValues={"name":"value"}                             //
+    ////////////////////////////////////////////////////////////////////////
+    let initialValues: Record<string, unknown> | undefined
+    try {
+      const parsed: unknown = JSON.parse(searchParams.get('defaultProcessValues') ?? 'null')
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) initialValues = parsed as Record<string, unknown>
+    } catch {
+      initialValues = undefined
+    }
+    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} />
   }
 
   // Process loading state (process found but metadata not yet available)
