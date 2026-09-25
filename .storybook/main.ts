@@ -21,6 +21,20 @@ const config: StorybookConfig = {
         ? [...alias, { find: '@', replacement: src }]
         : { ...alias, '@': src },
     }
+    // Rollup drops the Next.js "use client" directives (meaningless in Storybook) and warns
+    // once per client module; keep the build log to the warnings that matter.
+    const onwarn = config.build?.rollupOptions?.onwarn
+    config.build = {
+      ...config.build,
+      rollupOptions: {
+        ...config.build?.rollupOptions,
+        onwarn(warning, warn) {
+          if (warning.code === 'MODULE_LEVEL_DIRECTIVE' || warning.code === 'SOURCEMAP_ERROR') return
+          if (onwarn) onwarn(warning, warn)
+          else warn(warning)
+        },
+      },
+    }
     return config
   },
 }
