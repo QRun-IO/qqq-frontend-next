@@ -47,6 +47,11 @@ interface AuditHistoryDialogProps {
   primaryKey: string | number
   /** The record label for the heading. */
   recordLabel: string
+  /**
+   * Control that gets focus back when the dialog closes (its trigger). Safari and WebKit do not
+   * focus a button on click, so Radix alone would return focus to the page body.
+   */
+  returnFocusRef?: React.RefObject<HTMLElement | null>
 }
 
 /**
@@ -69,7 +74,7 @@ function countSentence(count: number): string {
  * @param props - See {@link AuditHistoryDialogProps}.
  * @returns The dialog.
  */
-export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, primaryKey, recordLabel }: AuditHistoryDialogProps) {
+export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, primaryKey, recordLabel, returnFocusRef }: AuditHistoryDialogProps) {
   const { auditRecords, isLoading, isError, error } = useAuditRecords({ source, tableName: tableMetaData.name, primaryKey, enabled: open })
 
   let status: string
@@ -84,6 +89,12 @@ export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, 
         <DialogPrimitive.Content
           data-qqq-id="audit-history-dialog"
           aria-describedby="audit-history-status"
+          onCloseAutoFocus={(event) => {
+            const target = returnFocusRef?.current
+            if (!target) return
+            event.preventDefault()
+            target.focus()
+          }}
           className={cn(
             'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
             'flex max-h-[85vh] w-[calc(100%-2rem)] max-w-2xl flex-col',
