@@ -45,9 +45,12 @@ export async function loadMetaData(): Promise<QInstance> {
   if (!parsed.success) {
     console.warn('[API] QInstance metadata response failed schema validation:', parsed.error.flatten())
   }
-  // V1 supplies light widget metadata. Resolve permission/presentation fields
+  // V1 supplies light widget metadata and no report metadata. Resolve widget
+  // permission/presentation fields, and the reports the app tree links to,
   // through the registered full metadata route instead of assuming access.
-  if (Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')) {
+  const needsWidgets = Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')
+  const needsReports = !result.reports && hasReportNode(result.appTree ?? [])
+  if (needsWidgets || needsReports) {
     const full = await apiClient.get<QInstance>('/metaData', {
       baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
       params: {
@@ -55,12 +58,29 @@ export async function loadMetaData(): Promise<QInstance> {
         frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
       },
     })
-    if (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets)) {
+    if (needsWidgets && (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets))) {
       throw new Error('Invalid widget metadata response')
     }
-    return { ...result, widgets: full.widgets }
+    if (needsReports && (!full || typeof full !== 'object' || Array.isArray(full.reports))) {
+      throw new Error('Invalid report metadata response')
+    }
+    return {
+      ...result,
+      ...(needsWidgets ? { widgets: full.widgets } : {}),
+      ...(needsReports ? { reports: full.reports ?? {} } : {}),
+    }
   }
   return result
+}
+
+/**
+ * Whether an app tree links to any report.
+ *
+ * @param nodes - App-tree nodes.
+ * @returns `true` when a REPORT node appears at any depth.
+ */
+function hasReportNode(nodes: QInstance['appTree']): boolean {
+  return nodes.some((node) => node.type === 'REPORT' || hasReportNode(node.children ?? []))
 }
 
 /**

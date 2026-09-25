@@ -28,6 +28,7 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 
 import { DynamicFormField } from './DynamicFormField'
+import { SectionIcon } from '@/components/layout/MetadataIcon'
 
 /**
  * Props for the {@link DynamicForm} component.
@@ -189,7 +190,8 @@ export function DynamicForm({
               >
                 {section.label && (
                   <div className="border-b border-border pb-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">
+                    <h4 className="flex items-center text-sm font-medium text-muted-foreground">
+                      <SectionIcon section={section} />
                       {section.label}
                     </h4>
                   </div>

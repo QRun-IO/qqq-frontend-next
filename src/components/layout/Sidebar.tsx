@@ -22,94 +22,77 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
   X,
-  Users,
-  User,
-  Building2,
-  ShoppingCart,
-  Upload,
-  Mail,
-  Package,
-  Truck,
-  BarChart3,
-  FileText,
-  ImageIcon,
-  Warehouse,
-  Info,
-  MapPin,
   Settings,
-  LayoutDashboard,
-  FolderOpen,
-  Table,
-  Workflow,
-  Layers,
   LogOut,
-  type LucideIcon,
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { UserPreferencesDialog } from './UserPreferencesDialog'
+import BannerComponent from './Banner'
+import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
+
+/** Fallback icon kind for each app-tree node type. */
+const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
 
 /**
- * Maps Material Icons name strings (as they appear in QQQ metadata) to the
- * equivalent Lucide icon components used in the sidebar.
+ * Renders the metadata icon of a sidebar route.
+ *
+ * @param props - Component properties.
+ * @param props.route - Route whose icon to render.
+ * @returns The route's icon element.
  */
-const ICON_MAP: Record<string, LucideIcon> = {
-  people_alt: Users,
-  people: Users,
-  person: User,
-  business: Building2,
-  shopping_cart: ShoppingCart,
-  upload_file: Upload,
-  email: Mail,
-  inventory: Package,
-  inventory_2: Package,
-  local_shipping: Truck,
-  bar_chart: BarChart3,
-  notes: FileText,
-  image: ImageIcon,
-  warehouse: Warehouse,
-  info: Info,
-  location_on: MapPin,
-  settings: Settings,
-  dashboard: LayoutDashboard,
-  folder: FolderOpen,
-  table_chart: Table,
-  account_tree: Workflow,
-  layers: Layers,
+function NavIcon({ route }: { route: SidebarRoute }) {
+  return <MetadataIcon icon={route.icon} kind={route.nodeType ? ICON_KIND[route.nodeType] : 'app'} />
 }
 
 /**
- * Renders a Lucide icon for a sidebar route sourced from QQQ metadata.
+ * Whether `pathname` is `path` or one of its sub-pages.
  *
- * The `iconName` is a Material Icons name string (e.g. `"people_alt"`,
- * `"inventory_2"`) as stored in QQQ app-tree metadata. `ICON_MAP` translates
- * the most common Material Icons names to their Lucide equivalents. Any name
- * that is absent from `ICON_MAP` — including `undefined` — falls back to the
- * `FolderOpen` icon so the sidebar always has visual structure.
- *
- * @param props - Component properties.
- * @param props.iconName - Material Icons name sourced from QQQ metadata;
- *   `ICON_MAP` translates common names to Lucide equivalents; falls back to
- *   FolderOpen for unmapped or absent names.
- * @param props.className - Tailwind class applied to the icon element
- *   (e.g. `"h-4 w-4 flex-shrink-0"`).
- * @returns An `aria-hidden` Lucide icon element sized by the `className` prop.
+ * @param pathname - Current browser path.
+ * @param path - Route path.
+ * @returns `true` when the route is active.
  */
-function NavIcon({ iconName, className }: { iconName?: string; className?: string }) {
-  if (!iconName) {
-    return <FolderOpen className={className} aria-hidden="true" />
+function matchesPath(pathname: string, path: string): boolean {
+  const current = pathname.replace(/\/+$/, '') || '/'
+  return current === path || current.startsWith(path + '/')
+}
+
+/**
+ * Whether a route or any descendant matches `pathname`.
+ *
+ * @param route - Sidebar route.
+ * @param pathname - Current browser path.
+ * @returns `true` when the route subtree contains the active page.
+ */
+function containsActive(route: SidebarRoute, pathname: string): boolean {
+  return matchesPath(pathname, route.path) || (route.children ?? []).some((child) => containsActive(child, pathname))
+}
+
+/**
+ * Collects the paths of every app group that is, or contains, the active page, so
+ * the current app and all its enclosing apps are expanded.
+ *
+ * @param routes - Sidebar routes.
+ * @param pathname - Current browser path.
+ * @param into - Accumulator.
+ * @returns The accumulator.
+ */
+function activeGroupPaths(routes: SidebarRoute[], pathname: string, into: Record<string, boolean> = {}): Record<string, boolean> {
+  for (const route of routes) {
+    if (route.children?.length && containsActive(route, pathname)) {
+      into[route.path] = true
+      activeGroupPaths(route.children, pathname, into)
+    }
   }
-  const Icon = ICON_MAP[iconName] ?? FolderOpen
-  return <Icon className={className} aria-hidden="true" />
+  return into
 }
 
 /**
@@ -118,7 +101,7 @@ function NavIcon({ iconName, className }: { iconName?: string; className?: strin
 export interface SidebarProps {
   /** Hierarchical navigation routes derived from the QQQ app-tree metadata. */
   routes: SidebarRoute[]
-  /** Application branding metadata (logo, app name). */
+  /** Application branding metadata (logo, icon, app name, banners). */
   branding?: QBrandingMetaData
   /** Called when the mouse enters the sidebar (desktop hover expansion). */
   onMouseEnter?: () => void
@@ -137,12 +120,52 @@ export interface SidebarProps {
 }
 
 /**
+ * Branding block at the top of the sidebar, linking to the dashboard.
+ *
+ * Shows the branding logo when declared (as Material Dashboard does); otherwise
+ * the small icon (or a "Q" mark) beside the application name.
+ *
+ * @param props - Component properties.
+ * @param props.branding - Branding metadata.
+ * @returns The branding link element.
+ */
+function SidebarBranding({ branding }: { branding?: QBrandingMetaData }) {
+  const appName = branding?.appName || 'QQQ Admin'
+  const linkClass = 'flex min-w-0 flex-1 items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  if (branding?.logo) {
+    return (
+      <Link href="/app" className={linkClass} data-qqq-id="sidebar-logo-link">
+        {/* eslint-disable-next-line @next/next/no-img-element -- branding logos are arbitrary backend assets */}
+        <img src={branding.logo} alt={appName} title={appName} className="max-h-12 w-full object-contain object-left" data-qqq-id="sidebar-logo" />
+      </Link>
+    )
+  }
+  return (
+    <Link href="/app" className={linkClass} data-qqq-id="sidebar-logo-link">
+      {branding?.icon ? (
+        // eslint-disable-next-line @next/next/no-img-element -- branding icons are arbitrary backend assets
+        <img src={branding.icon} alt="" className="h-12 w-12 flex-shrink-0 object-contain" data-qqq-id="sidebar-icon" />
+      ) : (
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-2xl font-bold text-primary-foreground" aria-hidden="true">
+          Q
+        </div>
+      )}
+      <div className="ml-4 flex items-center border-l border-border/60 pl-4" style={{ height: '60%' }}>
+        <span className="text-sm font-semibold uppercase leading-tight tracking-wider text-muted-foreground" data-qqq-id="sidebar-app-name">
+          {appName}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+/**
  * Hierarchical sidebar navigation panel.
  *
  * On desktop (`md+`) the sidebar is rendered as a static column. When `open`
- * is supplied it switches to a mobile drawer overlay with a backdrop. The
- * component auto-expands the collapse group that contains the active route,
- * and closes the mobile drawer on route changes.
+ * is supplied it switches to a mobile drawer overlay with a backdrop. App
+ * groups nest to any depth; every group containing the active route is
+ * expanded, and the mobile drawer closes on route changes.
  *
  * @param props - Component properties.
  * @returns On desktop: a `hidden md:flex` wrapper containing the `<aside>`
@@ -164,19 +187,9 @@ export default function Sidebar({
   const pathname = usePathname()
   const [openCollapses, setOpenCollapses] = React.useState<Record<string, boolean>>({})
 
-  // Auto-expand the collapse group containing the current route
+  // Expand every group that contains the current route
   useEffect(() => {
-    const expanded: Record<string, boolean> = {}
-    for (const route of routes) {
-      if (route.type === 'collapse' && route.children?.length) {
-        const isChildActive = route.children.some(
-          (child) => pathname === child.path || pathname.startsWith(child.path + '/')
-        )
-        if (isChildActive) {
-          expanded[route.path] = true
-        }
-      }
-    }
+    const expanded = activeGroupPaths(routes, pathname)
     if (Object.keys(expanded).length > 0) {
       setOpenCollapses((prev) => ({ ...prev, ...expanded }))
     }
@@ -214,35 +227,8 @@ export default function Sidebar({
       aria-label="Main navigation"
     >
       {/* Logo / App Branding — height matches header so border lines up */}
-      <div className="flex items-center border-b border-border px-4" style={{ height: 'var(--qqq-header-height)' }}>
-        {branding?.icon ? (
-          <Image
-            src={branding.icon}
-            alt={branding.appName || 'QQQ'}
-            className="h-14 w-auto flex-shrink-0"
-            width={112}
-            height={56}
-            unoptimized
-          />
-        ) : (
-          <div
-            className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-2xl font-bold text-primary-foreground"
-            aria-hidden="true"
-          >
-            Q
-          </div>
-        )}
-        {/* Vertical divider + app name */}
-        <div className="ml-4 flex items-center border-l border-border/60 pl-4" style={{ height: '60%' }}>
-          <span className="text-sm font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
-            {(branding?.appName || 'QQQ Admin').split(' ').map((word, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <br />}
-                {word}
-              </React.Fragment>
-            ))}
-          </span>
-        </div>
+      <div className="flex items-center gap-2 border-b border-border px-4" style={{ height: 'var(--qqq-header-height)' }}>
+        <SidebarBranding branding={branding} />
         {/* Close button for mobile drawer */}
         {isMobileDrawer && (
           <button
@@ -255,6 +241,7 @@ export default function Sidebar({
           </button>
         )}
       </div>
+      <BannerComponent banners={branding?.banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" className="mx-3 mt-3 rounded-lg" />
 
       {/* Navigation */}
       <nav
@@ -273,26 +260,7 @@ export default function Sidebar({
             ))}
           </div>
         ) : (
-          <ul className="space-y-0.5" role="list">
-            {routes.map((route) =>
-              route.type === 'collapse' && route.children?.length ? (
-                <SidebarCollapseItem
-                  key={route.path}
-                  route={route}
-                  isOpen={openCollapses[route.path] ?? false}
-                  onToggle={() => toggleCollapse(route.path)}
-                  isActive={pathname.startsWith(route.path)}
-                  pathname={pathname}
-                />
-              ) : (
-                <SidebarLinkItem
-                  key={route.path}
-                  route={route}
-                  isActive={route.path === '/app' ? pathname === '/app' : pathname === route.path || pathname.startsWith(route.path + '/')}
-                />
-              )
-            )}
-          </ul>
+          <SidebarList routes={routes} pathname={pathname} openCollapses={openCollapses} onToggle={toggleCollapse} />
         )}
       </nav>
 
@@ -332,9 +300,55 @@ export default function Sidebar({
 
   // Desktop: render as a static sidebar
   return (
-    <div className="hidden md:flex h-screen flex-shrink-0" data-qqq-id="sidebar-desktop">
+    <div className="hidden md:flex h-full flex-shrink-0" data-qqq-id="sidebar-desktop">
       {asideEl}
     </div>
+  )
+}
+
+/** Props shared by the recursive sidebar list components. */
+interface SidebarListProps {
+  /** Routes at this level. */
+  routes: SidebarRoute[]
+  /** Current browser path. */
+  pathname: string
+  /** Open state of app groups, keyed by path. */
+  openCollapses: Record<string, boolean>
+  /** Toggles an app group. */
+  onToggle: (path: string) => void
+  /** Nesting depth (0 = top level). */
+  depth?: number
+}
+
+/**
+ * Renders one level of the sidebar tree; app groups recurse into their children.
+ *
+ * @param props - Component properties.
+ * @returns A `<ul>` of sidebar entries.
+ */
+function SidebarList({ routes, pathname, openCollapses, onToggle, depth = 0 }: SidebarListProps) {
+  return (
+    <ul className={cn('space-y-0.5', depth > 0 && 'mt-0.5 ml-3 border-l border-border/60 pl-2')} role="list">
+      {routes.map((route) =>
+        route.type === 'collapse' && route.children?.length ? (
+          <SidebarCollapseItem
+            key={route.path}
+            route={route}
+            isOpen={openCollapses[route.path] ?? false}
+            pathname={pathname}
+            openCollapses={openCollapses}
+            onToggle={onToggle}
+            depth={depth}
+          />
+        ) : (
+          <SidebarLinkItem
+            key={route.path}
+            route={route}
+            isActive={route.path === '/app' ? pathname.replace(/\/+$/, '') === '/app' : matchesPath(pathname, route.path)}
+          />
+        )
+      )}
+    </ul>
   )
 }
 
@@ -342,41 +356,34 @@ export default function Sidebar({
  * Props for the SidebarCollapseItem component.
  */
 interface SidebarCollapseItemProps {
-  /** The parent route whose children are rendered in the collapsible list. */
+  /** The app route whose children are rendered in the collapsible list. */
   route: SidebarRoute
   /** Whether the collapsible group is currently expanded. */
   isOpen: boolean
-  /** Callback to toggle the open/closed state of this group. */
-  onToggle: () => void
-  /** Whether any path under this route is currently active. */
-  isActive: boolean
   /** Current Next.js pathname for computing active state of child routes. */
   pathname: string
+  /** Open state of nested app groups, keyed by path. */
+  openCollapses: Record<string, boolean>
+  /** Toggles an app group. */
+  onToggle: (path: string) => void
+  /** Nesting depth of this group. */
+  depth: number
 }
 
 /**
- * Renders a collapsible sidebar group with a linked app-name header and an
- * expand/collapse chevron button.
+ * Renders a collapsible app group: a link to the app home plus an
+ * expand/collapse chevron, followed by its (possibly nested) children.
  *
- * The header links to the app dashboard; the chevron toggles visibility of
- * the child routes. The active style is applied when any descendant path
- * matches the current route; an exact-match style is applied when on the
- * app dashboard itself.
+ * The active style is applied when any descendant path matches the current
+ * route; an exact-match style is applied when on the app home itself.
  *
  * @param props - Component properties.
- * @returns A `<li>` containing a split-button row (app-name `<Link>` + chevron
- *   `<button>`) followed by a nested `<ul>` of {@link SidebarLinkItem}s when
- *   `isOpen` is `true` and `route.children` is non-empty.
+ * @returns A `<li>` containing the app link, the chevron `<button>` and, when
+ *   open, the nested {@link SidebarList}.
  */
-function SidebarCollapseItem({
-  route,
-  isOpen,
-  onToggle,
-  isActive,
-  pathname,
-}: SidebarCollapseItemProps) {
-  // Exact match = on the app dashboard itself; gets full highlight like leaf items
-  const isExactActive = pathname === route.path || pathname === route.path + '/'
+function SidebarCollapseItem({ route, isOpen, pathname, openCollapses, onToggle, depth }: SidebarCollapseItemProps) {
+  const isExactActive = pathname.replace(/\/+$/, '') === route.path
+  const isActive = containsActive(route, pathname)
 
   return (
     <li role="listitem">
@@ -387,22 +394,23 @@ function SidebarCollapseItem({
             ? 'text-primary'
             : 'text-foreground/70 hover:bg-accent hover:text-foreground'
       }`}>
-        {/* App name — links to app dashboard */}
+        {/* App name — links to app home */}
         <Link
           href={route.path}
-          className="flex flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg"
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg"
           aria-current={isExactActive ? 'page' : undefined}
-          data-qqq-id={`sidebar-collapse-${route.name}`}
+          data-qqq-id={`sidebar-collapse-${route.key}`}
         >
-          <NavIcon iconName={route.icon} className="h-4 w-4 flex-shrink-0" />
+          <NavIcon route={route} />
           <span className="flex-1 truncate text-left">{route.name}</span>
         </Link>
         {/* Chevron — toggles expand/collapse */}
         <button
-          onClick={onToggle}
+          onClick={() => onToggle(route.path)}
           className="flex items-center justify-center px-2 py-2 rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={isOpen}
           aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${route.name}`}
+          data-qqq-id={`sidebar-toggle-${route.key}`}
         >
           {isOpen ? (
             <ChevronDown className={`h-4 w-4 flex-shrink-0 ${isExactActive ? 'opacity-70' : 'opacity-50'}`} aria-hidden="true" />
@@ -413,15 +421,7 @@ function SidebarCollapseItem({
       </div>
 
       {isOpen && route.children && (
-        <ul className="mt-0.5 space-y-0.5 pl-3" role="list">
-          {route.children.map((child) => (
-            <SidebarLinkItem
-              key={child.path}
-              route={child}
-              isActive={pathname === child.path || pathname.startsWith(child.path + '/')}
-            />
-          ))}
-        </ul>
+        <SidebarList routes={route.children} pathname={pathname} openCollapses={openCollapses} onToggle={onToggle} depth={depth + 1} />
       )}
     </li>
   )
@@ -441,7 +441,7 @@ interface SidebarLinkItemProps {
  * Renders a single navigable sidebar list item.
  *
  * Applies a primary background highlight when the route is active, and shows
- * the route's icon (mapped from the QQQ metadata icon name) alongside the label.
+ * the route's metadata icon alongside the label.
  *
  * @param props - Component properties.
  * @returns A `<li>` containing a full-width `<Link>` with a primary background
@@ -458,9 +458,9 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
             : 'text-foreground/70 hover:bg-accent hover:text-foreground'
         }`}
         aria-current={isActive ? 'page' : undefined}
-        data-qqq-id={`sidebar-item-${route.name}`}
+        data-qqq-id={`sidebar-item-${route.key}`}
       >
-        <NavIcon iconName={route.icon} className="h-4 w-4 flex-shrink-0" />
+        <NavIcon route={route} />
         <span className="truncate">{route.name}</span>
       </Link>
     </li>

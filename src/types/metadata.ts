@@ -81,19 +81,21 @@ export interface QAuthenticationMetaData {
  * Applied globally via the theme provider and injected `<style>` tag.
  */
 export interface QBrandingMetaData {
-  /** Human-readable company name shown in the UI. */
-  companyName: string
-  /** URL linking to the company website (used on logo clicks). */
-  companyUrl: string
+  /** Human-readable company name; optional in QQQ branding. */
+  companyName?: string
+  /** URL of the company website; optional in QQQ branding. */
+  companyUrl?: string
   /** Display name for this specific application. */
-  appName: string
-  /** URL or path to the company logo image. */
+  appName?: string
+  /** URL or path to the application logo image (shown at the top of the sidebar). */
   logo?: string
-  /** URL or path to the favicon / app icon. */
+  /** URL or path to the favicon / small app icon. */
   icon?: string
   /** Hex or CSS color string used as the primary accent color. */
   accentColor?: string
-  /** Map of banner key → banner definition for global notification banners. */
+  /** Light variant of the accent color. */
+  accentColorLight?: string
+  /** Banners keyed by display slot (for example `QFMD_TOP_OF_SITE`). */
   banners?: Record<string, Banner>
   /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
   customCss?: string
@@ -130,6 +132,8 @@ export interface QTableMetaData {
   label: string
   /** When true, this table is excluded from navigation and search. */
   isHidden: boolean
+  /** Structured icon definition from table metadata. */
+  icon?: QIcon
   /** The field name whose value uniquely identifies each record. */
   primaryKeyField: string
   /** Map of field name → field metadata for every column in this table. */
@@ -224,6 +228,8 @@ export interface QProcessMetaData {
   isHidden: boolean
   /** Material Icon or custom icon name used in navigation. */
   iconName: string
+  /** Structured icon definition from process metadata. */
+  icon?: QIcon
   /** Whether the current user is permitted to run this process. */
   hasPermission: boolean
   /** The step execution model — currently only LINEAR is supported. */
@@ -285,14 +291,18 @@ export interface QAppMetaData {
   name: string
   /** Human-readable label shown in the sidebar and app home page heading. */
   label: string
-  /** Ordered list of child nodes (tables, processes, sub-apps) in this app. */
-  children: QAppTreeNode[]
-  /** Material Icon or custom icon name used in navigation. */
-  iconName: string
-  /** Names of widgets displayed on this app's home dashboard page. */
-  widgets: string[]
-  /** Ordered sections that group tables, processes, and reports on the app home. */
-  sections: QAppSection[]
+  /** Ordered list of child nodes (tables, processes, sub-apps); omitted when empty. */
+  children?: QAppTreeNode[]
+  /** Child nodes keyed by name (labels and icons for section entries). */
+  childMap?: Record<string, QAppTreeNode>
+  /** Legacy Material Icon name used in navigation. */
+  iconName?: string
+  /** Structured icon definition (overrides `iconName` when present). */
+  icon?: QIcon
+  /** Names of widgets displayed on this app's home dashboard page; omitted when empty. */
+  widgets?: string[]
+  /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
+  sections?: QAppSection[]
 }
 
 /**
@@ -328,12 +338,12 @@ export interface QAppSection {
   label: string
   /** Optional icon shown beside the section heading. */
   icon?: QIcon
-  /** Names of tables included in this section. */
-  tables: string[]
-  /** Names of processes included in this section. */
-  processes: string[]
-  /** Names of reports included in this section. */
-  reports: string[]
+  /** Names of tables included in this section; omitted when empty. */
+  tables?: string[]
+  /** Names of processes included in this section; omitted when empty. */
+  processes?: string[]
+  /** Names of reports included in this section; omitted when empty. */
+  reports?: string[]
 }
 
 /**
@@ -400,6 +410,8 @@ export interface QTableSection {
   tier?: string
   /** Material Icon or custom icon name shown beside the section heading. */
   iconName?: string
+  /** Structured icon definition (overrides `iconName` when present). */
+  icon?: QIcon
   /** Ordered list of field names to display in this section. */
   fieldNames: string[]
   /** When set, renders a named widget in place of raw field values. */
@@ -485,8 +497,8 @@ export interface QHelpContent {
  * Supports both Material Icons (by name) and custom SVG paths.
  */
 export interface QIcon {
-  /** Material Icon name or custom icon identifier. */
-  name: string
+  /** Material Icon name or custom icon identifier; omitted when only `path` is set. */
+  name?: string
   /** Optional SVG path or image URL for custom icons. */
   path?: string
   /** Optional CSS color value applied to the icon. */
@@ -513,14 +525,18 @@ export interface QTableVariant {
  * Banners are defined in branding metadata and rendered by the dashboard layout.
  */
 export interface Banner {
-  /** The message text to display inside the banner. */
-  text: string
-  /** Visual severity level that controls the banner's color scheme. */
-  severity: 'info' | 'warning' | 'error'
-  /** Optional explicit CSS color override (takes precedence over `severity`). */
-  color?: string
-  /** When true, a close button is shown allowing the user to hide the banner. */
-  dismissible: boolean
+  /** Severity that selects the default colors and icon. */
+  severity?: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS'
+  /** Text color override, as a CSS color value. */
+  textColor?: string
+  /** Background color override, as a CSS color value. */
+  backgroundColor?: string
+  /** Plain-text message. */
+  messageText?: string
+  /** HTML message, used instead of the plain-text message when set (sanitized before rendering). */
+  messageHTML?: string
+  /** Additional CSS style properties for the banner, keyed by camelCase property name. */
+  additionalStyles?: Record<string, string | number>
 }
 
 /**

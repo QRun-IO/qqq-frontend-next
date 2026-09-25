@@ -14,65 +14,114 @@
  * limitations under the License.
  */
 
-// Tests for Breadcrumbs component
+// Tests for Breadcrumbs component and its trail/title builders
 
 import React from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-// Mock next/navigation
+let currentPathname = '/app/person'
 vi.mock('next/navigation', () => ({
-  usePathname: vi.fn(() => '/myApp/myTable'),
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-  }),
+  usePathname: () => currentPathname,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
-import Breadcrumbs from './Breadcrumbs'
+import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle } from './Breadcrumbs'
+import type { ParentAppInfo } from '@/lib/hooks/use-routes'
+
+const pathToLabelMap: Record<string, string> = {
+  '/app': 'Dashboard',
+  '/app/peopleApp': 'People App',
+  '/app/greetingsApp': 'Greetings App',
+  '/app/person': 'Person',
+  '/app/person/create': 'Create Person',
+}
+const ancestorAppMap: Record<string, ParentAppInfo[]> = {
+  '/app/peopleApp': [],
+  '/app/greetingsApp': [{ label: 'People App', path: '/app/peopleApp' }],
+  '/app/person': [
+    { label: 'People App', path: '/app/peopleApp' },
+    { label: 'Greetings App', path: '/app/greetingsApp' },
+  ],
+}
+
+describe('buildBreadcrumbs', () => {
+  it('prefixes a flat node path with every enclosing app, outermost first', () => {
+    expect(buildBreadcrumbs('/app/person', pathToLabelMap, ancestorAppMap)).toEqual([
+      { path: '/app/peopleApp', label: 'People App' },
+      { path: '/app/greetingsApp', label: 'Greetings App' },
+      { path: '/app/person', label: 'Person' },
+    ])
+  })
+
+  it('labels record and action segments below a table', () => {
+    const crumbs = buildBreadcrumbs('/app/person/7/edit/', pathToLabelMap, ancestorAppMap)
+    expect(crumbs.map((crumb) => crumb.label)).toEqual(['People App', 'Greetings App', 'Person', '7', 'Edit'])
+    expect(crumbs[3].path).toBe('/app/person/7')
+  })
+
+  it('uses the registered create label', () => {
+    expect(buildBreadcrumbs('/app/person/create', pathToLabelMap, ancestorAppMap).at(-1)).toEqual({
+      path: '/app/person/create',
+      label: 'Create Person',
+    })
+  })
+
+  it('collapses a saved view to a single crumb', () => {
+    expect(buildBreadcrumbs('/app/person/savedView/3', pathToLabelMap, ancestorAppMap).slice(-2)).toEqual([
+      { path: '/app/person', label: 'Person' },
+      { path: '/app/person/savedView/3', label: 'Saved View' },
+    ])
+  })
+
+  it('returns no crumbs for the dashboard root and for paths outside /app', () => {
+    expect(buildBreadcrumbs('/app', pathToLabelMap, ancestorAppMap)).toEqual([])
+    expect(buildBreadcrumbs('/login', pathToLabelMap, ancestorAppMap)).toEqual([])
+  })
+
+  it('falls back to the decoded segment for unknown names', () => {
+    expect(buildBreadcrumbs('/app/no%20such', {}, {})).toEqual([{ path: '/app/no%20such', label: 'no such' }])
+  })
+})
+
+describe('buildDocumentTitle', () => {
+  const crumbs = buildBreadcrumbs('/app/person/1', pathToLabelMap, ancestorAppMap)
+
+  it('orders the page title, then enclosing crumbs nearest first, then the app name', () => {
+    expect(buildDocumentTitle(crumbs, 'Avery Sample', 'QQQ Sample')).toBe('Avery Sample | Person | Greetings App | People App | QQQ Sample')
+  })
+
+  it('uses the last crumb when the page sets no title', () => {
+    expect(buildDocumentTitle(crumbs.slice(0, 3), '', 'QQQ Sample')).toBe('Person | Greetings App | People App | QQQ Sample')
+  })
+
+  it('is just the page and app name on the dashboard', () => {
+    expect(buildDocumentTitle([], 'Dashboard', 'QQQ Sample')).toBe('Dashboard | QQQ Sample')
+  })
+})
 
 describe('Breadcrumbs', () => {
-  const pathToLabelMap: Record<string, string> = {
-    '/myApp': 'My Application',
-    '/myApp/myTable': 'My Table',
-  }
-
-  it('should render breadcrumb navigation', () => {
-    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument()
+  beforeEach(() => {
+    currentPathname = '/app/person'
   })
 
-  it('should render intermediate paths as links', () => {
-    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    // The first breadcrumb segment should be a link (not the current page)
-    const link = screen.getByRole('link', { name: 'My Application' })
-    expect(link).toBeInTheDocument()
+  it('renders the app hierarchy as links and the current page as text', () => {
+    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+    const nav = screen.getByRole('navigation', { name: /breadcrumb/i })
+    expect(nav).toHaveAttribute('data-qqq-id', 'breadcrumbs')
+    expect(screen.getByRole('link', { name: 'People App' })).toHaveAttribute('href', '/app/peopleApp')
+    expect(screen.getByRole('link', { name: 'Greetings App' })).toHaveAttribute('href', '/app/greetingsApp')
+    expect(screen.getByText('Person')).toHaveAttribute('aria-current', 'page')
   })
 
-  it('should mark current page with aria-current="page"', () => {
-    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    const currentElement = screen.getByText('My Table')
-    expect(currentElement).toHaveAttribute('aria-current', 'page')
+  it('renders nothing until metadata supplies labels (no flash of raw URL segments)', () => {
+    const { container } = render(<Breadcrumbs pathToLabelMap={{}} ancestorAppMap={{}} />)
+    expect(container).toBeEmptyDOMElement()
   })
 
-  it('should link intermediate paths to correct href', () => {
-    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    const link = screen.getByRole('link', { name: 'My Application' })
-    expect(link).toBeInTheDocument()
-    expect(link).toHaveAttribute('href', '/myApp')
-  })
-
-  it('should have data-qqq-id="breadcrumbs"', () => {
-    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
-    expect(document.querySelector('[data-qqq-id="breadcrumbs"]')).toBeInTheDocument()
-  })
-
-  it('should use raw segment name when label not found in map', async () => {
-    const { usePathname } = await import('next/navigation')
-    vi.mocked(usePathname).mockReturnValue('/unknownApp/unknownTable')
-
-    render(<Breadcrumbs pathToLabelMap={{}} />)
-    // Falls back to segment name
-    expect(screen.getByText('unknownTable')).toHaveAttribute('aria-current', 'page')
+  it('renders nothing on the dashboard root', () => {
+    currentPathname = '/app'
+    const { container } = render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+    expect(container).toBeEmptyDOMElement()
   })
 })

@@ -33,7 +33,7 @@
  * - Build info placeholder
  */
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Copy, Check, Activity } from 'lucide-react'
 
@@ -159,7 +159,11 @@ function KeyValueTable({ rows }: { rows: Array<[string, React.ReactNode]> }) {
  * @returns The developer page content wrapped in a container.
  */
 export default function DeveloperPage() {
-  const { userId } = useQContext()
+  const { userId, setPageHeader } = useQContext()
+
+  useEffect(() => {
+    setPageHeader('Developer')
+  }, [setPageHeader])
   const { authMetadata } = useAuth()
 
   const { data: metaData } = useQuery({
@@ -197,6 +201,12 @@ export default function DeveloperPage() {
     }
   }, [])
 
+  // Versions reported by the running bundle (Next.js publishes its version on window.next)
+  const [nextVersion, setNextVersion] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    setNextVersion((window as Window & { next?: { version?: string } }).next?.version)
+  }, [])
+
   // Counts derived from metadata
   const tableCount = Object.keys(metaData?.tables ?? {}).length
   const processCount = Object.keys(metaData?.processes ?? {}).length
@@ -223,8 +233,8 @@ export default function DeveloperPage() {
   )
 
   const buildRows: Array<[string, React.ReactNode]> = [
-    ['framework', 'Next.js 15'],
-    ['react', '19'],
+    ['framework', nextVersion ? `Next.js ${nextVersion}` : 'Next.js'],
+    ['react', React.version],
     ['appVersion', process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0'],
     ['apiBaseUrl', process.env.NEXT_PUBLIC_API_BASE_URL ?? '/qqq/v1'],
   ]

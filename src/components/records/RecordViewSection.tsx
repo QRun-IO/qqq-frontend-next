@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils/cn'
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
+import { SectionIcon } from '@/components/layout/MetadataIcon'
 
 interface RecordViewSectionProps {
   renderAssociation?: (name: string, label?: string) => React.ReactNode
@@ -101,6 +102,7 @@ export function RecordViewSection({
                 id={`section-heading-${section.name}`}
                 className="text-lg font-bold text-foreground"
               >
+                <SectionIcon section={section} />
                 {section.label}
               </h3>
             </div>
@@ -129,6 +131,7 @@ export function RecordViewSection({
               id={`section-heading-${section.name}`}
               className="text-lg font-bold text-foreground"
             >
+              <SectionIcon section={section} />
               {section.label}
             </h3>
           </div>
@@ -165,6 +168,7 @@ export function RecordViewSection({
                 : 'text-lg font-bold text-foreground'
             )}
           >
+            <SectionIcon section={section} />
             {section.label}
           </h3>
         </div>

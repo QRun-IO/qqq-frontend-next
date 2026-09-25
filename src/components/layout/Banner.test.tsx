@@ -14,88 +14,65 @@
  * limitations under the License.
  */
 
-// Tests for Banner component
+// Tests for Banner component (v1 branding banner shape, keyed by slot)
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
 
 import BannerComponent from './Banner'
 import type { Banner } from '@/types'
 
+const banners: Record<string, Banner> = {
+  QFMD_TOP_OF_SITE: { severity: 'INFO', messageText: 'Site notice' },
+  QFMD_TOP_OF_BODY: { severity: 'WARNING', messageHTML: 'Body <b>bold</b><img src=x onerror="alert(1)">' },
+  QFMD_SIDE_NAV_UNDER_LOGO: {
+    severity: 'SUCCESS',
+    textColor: '#ffffff',
+    backgroundColor: '#14532d',
+    additionalStyles: { fontWeight: '700' },
+    messageText: 'NAV',
+  },
+  SOMETHING_ELSE: { severity: 'ERROR', messageText: 'Unknown slot' },
+}
+
 describe('Banner', () => {
-  beforeEach(() => {
-    localStorage.clear()
-  })
-  const banners: Record<string, Banner> = {
-    QFMD_TOP_OF_SITE: {
-      text: 'This is a test environment',
-      severity: 'warning',
-      dismissible: true,
-    },
-  }
-
-  it('should render banner text', () => {
-    render(<BannerComponent banners={banners} />)
-    expect(screen.getByText('This is a test environment')).toBeInTheDocument()
+  it('renders the plain-text message of the requested slot in a labelled region', () => {
+    render(<BannerComponent banners={banners} slot="QFMD_TOP_OF_SITE" />)
+    const region = screen.getByRole('region', { name: 'Site banner' })
+    expect(region).toHaveTextContent('Site notice')
+    expect(region).toHaveAttribute('data-qqq-id', 'banner-QFMD_TOP_OF_SITE')
+    expect(region).toHaveAttribute('data-severity', 'info')
+    expect(screen.queryByText('Unknown slot')).not.toBeInTheDocument()
   })
 
-  it('should have role="alert"', () => {
-    render(<BannerComponent banners={banners} />)
-    expect(screen.getByRole('alert')).toBeInTheDocument()
+  it('renders sanitized HTML in preference to text', () => {
+    render(<BannerComponent banners={banners} slot="QFMD_TOP_OF_BODY" />)
+    const region = screen.getByRole('region', { name: 'Page banner' })
+    expect(region.querySelector('b')).toHaveTextContent('bold')
+    expect(region.querySelector('img')?.getAttribute('onerror')).toBeFalsy()
+    expect(region).toHaveAttribute('data-severity', 'warning')
   })
 
-  it('should show dismiss button for dismissible banners', () => {
-    render(<BannerComponent banners={banners} />)
-    expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument()
+  it('applies text color, background color and additional styles from metadata', () => {
+    render(<BannerComponent banners={banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" />)
+    const region = screen.getByRole('region', { name: 'Navigation banner' })
+    expect(region.style.color).toBe('rgb(255, 255, 255)')
+    expect(region.style.background).toContain('rgb(20, 83, 45)')
+    expect(region.style.fontWeight).toBe('700')
   })
 
-  it('should hide banner after dismiss', async () => {
-    const user = userEvent.setup()
-    render(<BannerComponent banners={banners} />)
-
-    await user.click(screen.getByRole('button', { name: /dismiss/i }))
-    expect(screen.queryByText('This is a test environment')).not.toBeInTheDocument()
-  })
-
-  it('should not show dismiss button for non-dismissible banners', () => {
-    const nonDismissibleBanners: Record<string, Banner> = {
-      QFMD_TOP_OF_SITE: {
-        text: 'Persistent banner',
-        severity: 'info',
-        dismissible: false,
-      },
-    }
-    render(<BannerComponent banners={nonDismissibleBanners} />)
-    expect(screen.queryByRole('button', { name: /dismiss/i })).not.toBeInTheDocument()
-  })
-
-  it('should call onDismiss callback when dismissed', async () => {
-    const user = userEvent.setup()
-    const onDismiss = vi.fn()
-    render(<BannerComponent banners={banners} onDismiss={onDismiss} />)
-
-    await user.click(screen.getByRole('button', { name: /dismiss/i }))
-    expect(onDismiss).toHaveBeenCalledWith('QFMD_TOP_OF_SITE')
-  })
-
-  it('should render nothing for empty banners', () => {
-    const { container } = render(<BannerComponent banners={{}} />)
+  it('renders nothing for an empty slot, missing banners, or a banner without a message', () => {
+    const { container, rerender } = render(<BannerComponent banners={{}} slot="QFMD_TOP_OF_SITE" />)
+    expect(container.firstChild).toBeNull()
+    rerender(<BannerComponent slot="QFMD_TOP_OF_SITE" />)
+    expect(container.firstChild).toBeNull()
+    rerender(<BannerComponent banners={{ QFMD_TOP_OF_SITE: { severity: 'INFO' } }} slot="QFMD_TOP_OF_SITE" />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('should have data-qqq-id on banner element', () => {
-    render(<BannerComponent banners={banners} />)
-    expect(screen.getByRole('alert').closest('[data-qqq-id]')).toBeTruthy()
-  })
-
-  it('should render multiple banners', () => {
-    const multiBanners: Record<string, Banner> = {
-      banner1: { text: 'First banner', severity: 'info', dismissible: false },
-      banner2: { text: 'Second banner', severity: 'warning', dismissible: true },
-    }
-    render(<BannerComponent banners={multiBanners} />)
-    expect(screen.getAllByRole('alert')).toHaveLength(2)
+  it('defaults to info severity', () => {
+    render(<BannerComponent banners={{ QFMD_TOP_OF_SITE: { messageText: 'Plain' } }} slot="QFMD_TOP_OF_SITE" />)
+    expect(screen.getByRole('region', { name: 'Site banner' })).toHaveAttribute('data-severity', 'info')
   })
 })

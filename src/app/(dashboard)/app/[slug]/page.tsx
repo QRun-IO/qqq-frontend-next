@@ -44,6 +44,7 @@ import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
 import { ReportRun } from '@/components/reports'
+import { NotFoundState } from '@/components/layout/NotFoundState'
 
 /**
  * Resolves a URL slug to its QQQ resource type and name.
@@ -87,7 +88,7 @@ export function resolveSlugTarget(
  * 2. If the slug matches a **table** → renders `<RecordQuery>` (data grid + filters).
  * 3. If the slug matches a **process** → renders `<ProcessRun>` (step wizard).
  * 4. If the slug matches a **report** → renders `<ReportRun>` (format selector + download).
- * 5. Otherwise → renders an unknown-resource message.
+ * 5. Otherwise → renders a not-found state (the backend omits objects the user may not access).
  *
  * The page header in QContext is updated whenever the resolution changes.
  *
@@ -97,7 +98,7 @@ export function resolveSlugTarget(
  *   - `<ProcessRun>` (step wizard) when the slug matches a process
  *   - `<ReportRun>` (format selector + download) when the slug matches a report
  *   - A full-screen spinner while metadata is loading or the resource is resolving
- *   - An unknown-resource message panel when the slug does not match any resource
+ *   - A not-found state when the slug matches nothing the user can access
  */
 export default function SlugPage() {
   const params = useRouteParams<{ slug: string }>()
@@ -132,10 +133,10 @@ export default function SlugPage() {
       setPageHeader(process?.label ?? slug)
     } else if (isReport) {
       setPageHeader(report?.label ?? slug)
-    } else {
-      setPageHeader(slug)
+    } else if (metaData) {
+      setPageHeader('Not Found')
     }
-  }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, setPageHeader, setTableMetaData])
+  }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, metaData, setPageHeader, setTableMetaData])
 
   if (metadataError || (isTable && !isApp && tableError) || (isProcess && !isApp && !isTable && processError)) {
     return (
@@ -158,6 +159,7 @@ export default function SlugPage() {
     return (
       <AppHome
         appMetaData={app}
+        instance={metaData}
         widgetRegistry={metaData.widgets ?? {}}
       />
     )
@@ -215,15 +217,6 @@ export default function SlugPage() {
     )
   }
 
-  // Unknown slug
-  return (
-    <div className="space-y-4" data-qqq-id={`unknown-slug-${slug}`}>
-      <h2 className="text-2xl font-semibold text-foreground">{slug}</h2>
-      <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
-        <p className="text-muted-foreground">
-          Unknown resource: <code className="font-mono">{slug}</code>
-        </p>
-      </div>
-    </div>
-  )
+  // Unknown, hidden-and-denied, or unpermitted slug: the backend exposes nothing by this name
+  return <NotFoundState name={slug} />
 }

@@ -15,36 +15,87 @@
  */
 
 /**
- * @file RecordViewByUniqueKey page — placeholder for viewing a record by unique key (Package 3).
+ * @file Record-by-key page — `/app/{table}/key?{field}={value}...` opens the one record matching the given field values.
  */
 
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+
 import { useRouteParams } from '@/lib/hooks/use-route-params'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useQContext } from '@/lib/context/q-context'
+import { queryRecords } from '@/lib/api/tables'
+import { queryKeys } from '@/lib/query-client'
 
 /**
- * Placeholder page for viewing a record by its unique key.
+ * Looks up a record by field values from the query string, as Material
+ * Dashboard's `RecordViewByUniqueKey` does (typically a unique key, e.g.
+ * `/app/person/key?email=avery@example.invalid`).
  *
- * Full implementation is deferred to Package 3. Currently renders a stub card.
+ * Each parameter becomes an `EQUALS` criterion. Exactly one match replaces the
+ * URL with the record's view page; no match, several matches, an unknown field
+ * or no parameters show an error.
  *
- * @returns A placeholder panel indicating the feature is not yet implemented.
+ * @returns A loading state, or an alert explaining why no single record matched.
  */
 export default function RecordViewByKeyPage() {
-  const params = useRouteParams<{ slug: string }>()
+  const { slug } = useRouteParams<{ slug: string }>()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const { setPageHeader } = useQContext()
-  const slug = params.slug
+  const { data: table, isError: tableError } = useTableMetaData(slug)
+
+  const criteria = useMemo(() => [...searchParams.entries()], [searchParams])
+  const unknownField = table ? criteria.find(([fieldName]) => !table.fields?.[fieldName])?.[0] : undefined
+
+  const lookup = useQuery({
+    queryKey: [...queryKeys.tableRecords(slug), 'byKey', searchParams.toString()],
+    queryFn: () => queryRecords(slug, {
+      filter: {
+        criteria: criteria.map(([fieldName, value]) => ({ fieldName, operator: 'EQUALS' as const, values: [value] })),
+        booleanOperator: 'AND',
+        limit: 2,
+      },
+    }),
+    enabled: Boolean(table) && criteria.length > 0 && !unknownField,
+  })
 
   useEffect(() => {
-    setPageHeader(`View ${slug} by Key`)
-  }, [slug, setPageHeader])
+    setPageHeader(`View ${table?.label ?? slug} by Key`)
+  }, [slug, table?.label, setPageHeader])
+
+  const records = lookup.data?.records
+  const match = records?.length === 1 ? records[0] : undefined
+  const primaryKey = match && table ? match.values[table.primaryKeyField] : undefined
+
+  useEffect(() => {
+    if (primaryKey !== undefined && primaryKey !== null) {
+      router.replace(`/app/${encodeURIComponent(slug)}/${encodeURIComponent(String(primaryKey))}`)
+    }
+  }, [primaryKey, router, slug])
+
+  let error: string | undefined
+  if (tableError) error = `Could not load the ${slug} table.`
+  else if (table && criteria.length === 0) error = `Add field values to the address to look up a ${table.label} record, for example ?${table.primaryKeyField}=1.`
+  else if (table && unknownField) error = `Query-string parameter [${unknownField}] is not a defined field on the ${table.label} table.`
+  else if (lookup.isError) error = lookup.error instanceof Error ? lookup.error.message : 'Unexpected error running query'
+  else if (table && records?.length === 0) error = `No ${table.label} record was found matching the given values.`
+  else if (table && records && records.length > 1) error = `More than one ${table.label} record was found matching the given values.`
+
+  if (error) {
+    return (
+      <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive" data-qqq-id={`record-view-key-error-${slug}`}>
+        {error}
+      </div>
+    )
+  }
 
   return (
-    <div data-qqq-id={`record-view-key-${slug}`}>
-      <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
-        <p className="text-muted-foreground">Record view by key -- implemented in Package 3</p>
-      </div>
+    <div role="status" aria-label="Looking up record" className="flex items-center justify-center py-12" data-qqq-id={`record-view-key-${slug}`}>
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   )
 }

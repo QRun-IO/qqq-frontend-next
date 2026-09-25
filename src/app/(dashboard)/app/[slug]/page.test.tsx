@@ -175,3 +175,19 @@ describe('SlugPage process initialization', () => {
     expect(initialized).toBe(false)
   })
 })
+
+describe('SlugPage unknown names', () => {
+  beforeEach(() => {
+    location.search = ''
+    server.use(http.get('/qqq/v1/metaData', () => HttpResponse.json(registry)))
+  })
+
+  it('shows the not-found state with a link to the dashboard (regression: bare "Unknown resource")', async () => {
+    params.slug = 'noSuchThing'
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.getByText('noSuchThing')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to the dashboard' })).toHaveAttribute('href', '/app')
+    expect(screen.queryByText(/Unknown resource/)).not.toBeInTheDocument()
+  })
+})

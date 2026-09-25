@@ -15,22 +15,20 @@
  */
 
 /**
- * @file SearchDialog — "/" key search dialog showing recently-viewed records and live API results.
+ * @file SearchDialog — "/" key "jump to" dialog over pages and recently viewed records.
  */
 
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { Search, Clock, ArrowRight, X } from 'lucide-react'
+import { Search, ArrowRight, X } from 'lucide-react'
 
-import { cn } from '@/lib/utils/cn'
-import { globalSearch } from '@/lib/api/tables'
-import type { GlobalSearchResult } from '@/lib/api/tables'
+import type { NavTarget } from '@/lib/hooks/use-routes'
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
-import { queryKeys } from '@/lib/query-client'
+import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
+import { NavigationSearchResults } from '@/components/layout/NavigationSearchResults'
 
 /**
  * Props for the SearchDialog component.
@@ -40,70 +38,22 @@ interface SearchDialogProps {
   open: boolean
   /** Called when the dialog should close (backdrop click, Escape, or item navigation). */
   onClose: () => void
+  /** Navigable targets from the app tree. */
+  navTargets: NavTarget[]
 }
 
 /**
- * Derives two-character initials from a record label (first letter of first
- * two words). Used to render the avatar circle in recent-records and search
- * result rows within the dialog.
+ * Modal search dialog triggered by the `/` keyboard shortcut.
  *
- * @param label - The record display label (e.g. `"Jane Smith"`, `"Invoice #42"`).
- * @returns A one- or two-character uppercase initials string, or `"?"` for
- *   empty or whitespace-only input.
- */
-function getInitials(label: string): string {
-  const words = label.trim().split(/\s+/)
-  if (words.length === 0) return '?'
-  if (words.length === 1) return words[0].charAt(0).toUpperCase()
-  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase()
-}
-
-/**
- * Highlights the portions of `text` that match `query` by wrapping them in `<mark>` tags.
- *
- * Uses a capture-group split so that odd-indexed parts are the matched segments,
- * avoiding stateful `lastIndex` issues with `/gi` regexes.
+ * Lists recently viewed records until the user types, then matching pages
+ * (apps, tables, processes, reports by label) and matching recent records.
+ * ArrowUp/Down move the selection, Enter opens it (or the search page when
+ * nothing is selected), Escape closes.
  *
  * @param props - Component properties.
- * @returns A React fragment containing plain spans and styled `<mark>` elements.
+ * @returns The dialog overlay, or `null` when closed.
  */
-function HighlightedText({ text, query }: { text: string; query: string }) {
-  if (!query || query.length < 2) return <>{text}</>
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // MED-14: split with a capture group — odd-indexed parts are the matched segments.
-  // Using i % 2 instead of regex.test() avoids stateful lastIndex issues with /gi.
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 !== 0 ? (
-          <mark key={i} className="bg-primary/20 text-foreground rounded-sm px-0.5">{part}</mark>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </>
-  )
-}
-
-/**
- * Full-screen search dialog triggered by the `/` keyboard shortcut.
- *
- * When the dialog opens it loads recent records and focuses the input. As the
- * user types, the search term is debounced 300 ms before a TanStack Query
- * fetch runs. Results are grouped by table. Keyboard navigation (ArrowUp/Down,
- * Enter, Escape) is fully supported. Pressing Enter with no selection and a
- * non-empty query navigates to the global search results page.
- *
- * @param props - Component properties.
- * @returns A fixed full-screen backdrop with the search dialog centered at
- *   10 vh / 15 vh from the top. Returns `null` when `open` is `false`. The
- *   dialog shows: recent records (when query < 2 chars), a live results list
- *   grouped by table (when query ≥ 2 chars), an empty state, or a spinner.
- *   Full keyboard navigation: ArrowUp/Down to navigate, Enter to select or
- *   navigate to the global search results page, Escape to close.
- */
-export function SearchDialog({ open, onClose }: SearchDialogProps) {
+export function SearchDialog({ open, onClose, navTargets }: SearchDialogProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -111,61 +61,24 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
 
-  // Debounced search term for API calls
-  const [debouncedTerm, setDebouncedTerm] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTerm(searchTerm), 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
-
-  // TanStack Query for search results
-  const { data: searchResults = [], isLoading: isSearching } = useQuery<GlobalSearchResult[]>({
-    queryKey: queryKeys.globalSearch(debouncedTerm),
-    queryFn: () => globalSearch(debouncedTerm),
-    enabled: open && debouncedTerm.length >= 2,
-    staleTime: 1000 * 30,
-  })
-
-  // Load recent records when dialog opens; clear state when closed
+  // Load recent records when the dialog opens; reset state
   useEffect(() => {
     if (open) {
       setRecentRecords(getRecentRecords().slice(0, 10))
       setSearchTerm('')
-      setDebouncedTerm('')
       setSelectedIndex(-1)
-      // Focus after animation frame
       requestAnimationFrame(() => inputRef.current?.focus())
     }
   }, [open])
 
-  // Reset selected index when results change
+  const items = useMemo(
+    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm),
+    [navTargets, recentRecords, searchTerm]
+  )
+
   useEffect(() => {
     setSelectedIndex(-1)
-  }, [searchResults, recentRecords, searchTerm])
-
-  // Build navigable items
-  const navigableItems = useMemo(() => {
-    const items: Array<{ path: string; label: string; tableLabel?: string }> = []
-    if (searchTerm.length >= 2 && searchResults.length > 0) {
-      for (const result of searchResults) {
-        items.push({
-          path: `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`,
-          label: result.recordLabel,
-          tableLabel: result.tableLabel || result.tableName,
-        })
-      }
-    } else if (searchTerm.length < 2 && recentRecords.length > 0) {
-      for (const record of recentRecords) {
-        items.push({
-          path: record.path,
-          label: record.recordLabel,
-          tableLabel: record.tableLabel,
-        })
-      }
-    }
-    return items
-  }, [searchTerm, searchResults, recentRecords])
+  }, [items])
 
   /**
    * Closes the dialog and navigates to the given path.
@@ -181,11 +94,7 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
   )
 
   /**
-   * Handles keyboard navigation within the search result list.
-   *
-   * ArrowDown/Up move the selection index through navigable items, Enter
-   * opens the selected record or falls back to the full-search page, and
-   * Escape closes the dialog.
+   * Handles keyboard navigation within the result list.
    *
    * @param e - The synthetic keyboard event from the search input.
    */
@@ -194,9 +103,7 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
-          setSelectedIndex((prev) =>
-            prev < navigableItems.length - 1 ? prev + 1 : prev
-          )
+          setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : prev))
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -204,8 +111,8 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
           break
         case 'Enter':
           e.preventDefault()
-          if (selectedIndex >= 0 && selectedIndex < navigableItems.length) {
-            handleNavigate(navigableItems[selectedIndex].path)
+          if (selectedIndex >= 0 && selectedIndex < items.length) {
+            handleNavigate(items[selectedIndex].path)
           } else if (searchTerm.trim()) {
             handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)
           }
@@ -216,25 +123,12 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
           break
       }
     },
-    [selectedIndex, navigableItems, searchTerm, handleNavigate, onClose]
+    [selectedIndex, items, searchTerm, handleNavigate, onClose]
   )
 
-  // Group search results by table
-  const groupedResults: Record<string, GlobalSearchResult[]> = {}
-  if (searchTerm.length >= 2) {
-    for (const result of searchResults) {
-      const key = result.tableLabel || result.tableName
-      if (!groupedResults[key]) groupedResults[key] = []
-      groupedResults[key].push(result)
-    }
-  }
-
-  let runningIndex = 0
-  const showRecent = searchTerm.length < 2 && recentRecords.length > 0
-  const showResults = searchTerm.length >= 2
-  const showEmpty = searchTerm.length >= 2 && !isSearching && searchResults.length === 0
-
   if (!open) return null
+
+  const hasTerm = searchTerm.trim().length > 0
 
   return (
     <div
@@ -251,7 +145,7 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
         className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card shadow-lg overflow-hidden"
         data-qqq-id="search-dialog"
         role="dialog"
-        aria-label="Search records"
+        aria-label="Search"
         aria-modal="true"
       >
         {/* Search input */}
@@ -263,11 +157,12 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search records..."
+            placeholder="Jump to a page or recent record..."
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
             autoFocus
-            aria-label="Search records"
+            aria-label="Search pages and recent records"
             aria-expanded={true}
+            aria-controls="search-dialog-results"
             aria-haspopup="listbox"
             aria-autocomplete="list"
             role="combobox"
@@ -280,7 +175,7 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
               className="rounded p-0.5 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
           <kbd className="hidden sm:inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
@@ -289,111 +184,20 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
         </div>
 
         {/* Results */}
-        <div className="max-h-80 overflow-y-auto" role="listbox" aria-label="Search results">
-          {/* Recent records */}
-          {showRecent && (
-            <div>
-              <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground">
-                <Clock className="h-3 w-3" aria-hidden="true" />
-                Recently Viewed
-              </div>
-              {recentRecords.map((record, index) => (
-                <button
-                  key={record.path}
-                  onClick={() => handleNavigate(record.path)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={cn(
-                    'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                    selectedIndex === index ? 'bg-accent' : 'hover:bg-accent/50'
-                  )}
-                  role="option"
-                  aria-selected={selectedIndex === index}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                    {getInitials(record.recordLabel)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {record.recordLabel}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {record.tableLabel}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Searching spinner */}
-          {showResults && isSearching && (
-            <div className="flex items-center justify-center px-4 py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
-            </div>
-          )}
-
-          {/* Grouped search results */}
-          {showResults && !isSearching && !showEmpty && (
-            Object.entries(groupedResults).map(([tableLabel, results]) => {
-              const groupItems = results.map((result, resultIdx) => {
-                const itemIndex = runningIndex
-                runningIndex++
-                return (
-                  <button
-                    key={`${result.tableName}-${result.recordId}-${resultIdx}`}
-                    onClick={() =>
-                      handleNavigate(
-                        `/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`
-                      )
-                    }
-                    onMouseEnter={() => setSelectedIndex(itemIndex)}
-                    className={cn(
-                      'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                      selectedIndex === itemIndex ? 'bg-accent' : 'hover:bg-accent/50'
-                    )}
-                    role="option"
-                    aria-selected={selectedIndex === itemIndex}
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                      {getInitials(result.recordLabel)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-foreground">
-                        <HighlightedText text={result.recordLabel} query={searchTerm} />
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {result.tableLabel || result.tableName}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })
-              return (
-                <div key={tableLabel}>
-                  <div className="px-4 py-2 text-xs font-medium text-muted-foreground">
-                    {tableLabel}
-                  </div>
-                  {groupItems}
-                </div>
-              )
-            })
-          )}
-
-          {/* Empty state */}
-          {showEmpty && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No results found for &ldquo;{searchTerm}&rdquo;
-            </div>
-          )}
-
-          {/* No recent records and no search */}
-          {!showRecent && !showResults && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Start typing to search records...
-            </div>
-          )}
-        </div>
+        {hasTerm || items.length > 0 ? (
+          <NavigationSearchResults
+            id="search-dialog-results"
+            items={items}
+            term={searchTerm}
+            selectedIndex={selectedIndex}
+            onSelect={handleNavigate}
+            onHover={setSelectedIndex}
+          />
+        ) : (
+          <div id="search-dialog-results" className="px-4 py-8 text-center text-sm text-muted-foreground">
+            Type to find an app, table, process or recent record...
+          </div>
+        )}
 
         {/* Footer */}
         <div className="border-t border-border px-4 py-2">
@@ -403,17 +207,17 @@ export function SearchDialog({ open, onClose }: SearchDialogProps) {
                 <kbd className="rounded border border-border px-1 py-0.5 font-mono">↑↓</kbd>{' '}navigate
               </span>
               <span>
-                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd>{' '}
-                {searchTerm.trim() ? 'open' : 'select'}
+                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd>{' '}open
               </span>
             </div>
-            {searchTerm.trim() && (
+            {hasTerm && (
               <button
+                type="button"
                 onClick={() => handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent hover:text-foreground transition-colors"
               >
                 <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                View all results
+                Show all matches
               </button>
             )}
           </div>

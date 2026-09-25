@@ -15,261 +15,145 @@
  */
 
 /**
- * @file Search results page — displays global search results grouped by table, reads query from URL params.
+ * @file Search page — every page (app, table, process, report) and recently viewed record matching `?q=`.
  */
 
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
 
-import { globalSearch, type GlobalSearchResult } from '@/lib/api/tables'
+import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
+import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
+import { getRecentRecords } from '@/lib/utils/recent-records'
+import type { RecentRecord } from '@/lib/utils/recent-records'
+import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
+import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+
+/** Fallback icon kind for each app-tree node type. */
+const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
 
 /**
- * Groups an array of global search results by their `tableLabel` (falling back to `tableName`).
+ * Renders the search page at `/app/search`.
  *
- * @param results - The flat list of search results returned from the API.
- * @returns A `Map` keyed by table label, where each value contains the table name and matching records.
- */
-function groupByTable(
-  results: GlobalSearchResult[]
-): Map<string, { tableName: string; records: GlobalSearchResult[] }> {
-  const groups = new Map<string, { tableName: string; records: GlobalSearchResult[] }>()
-  for (const result of results) {
-    const groupKey = result.tableLabel ?? result.tableName
-    const existing = groups.get(groupKey)
-    if (existing) {
-      existing.records.push(result)
-    } else {
-      groups.set(groupKey, {
-        tableName: result.tableName,
-        records: [result],
-      })
-    }
-  }
-  return groups
-}
-
-/**
- * Renders the global search results page at `/app/search`.
+ * Matching is local (labels of navigable app-tree nodes and recently viewed
+ * records); QQQ has no global record-search endpoint. The `q` parameter is kept
+ * in the URL so results are shareable and survive refresh.
  *
- * Reads the `q` query parameter from the URL, debounces user input, updates the
- * URL on change, and fetches results via TanStack Query. Results are grouped by
- * table label and rendered as linked rows.
- *
- * @returns A composed page that assembles:
- *   - A `<Search>`-prefixed text input (pre-filled from `?q=` URL param, debounced 300 ms)
- *   - Loading skeleton cards (two groups with 3 and 2 rows) while the query is in-flight
- *   - An empty-state panel when the search returns zero results
- *   - A prompt panel when no search term has been entered yet
- *   - Result groups rendered as bordered cards, one card per table label, each with linked record rows
+ * @returns The search input and matching pages and records.
  */
 export default function SearchResultsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { setPageHeader } = useQContext()
+  const term = searchParams.get('q') ?? ''
+  const [inputValue, setInputValue] = useState(term)
+  const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
 
-  const queryParam = searchParams.get('q') ?? ''
-  const [inputValue, setInputValue] = useState(queryParam)
-  const [debouncedTerm, setDebouncedTerm] = useState(queryParam)
+  const { data: metaData } = useQuery({
+    queryKey: queryKeys.metadataAll(),
+    queryFn: loadMetaData,
+    staleTime: 1000 * 60 * 30,
+  })
+  const { navTargets } = useAppTreeRoutes(metaData)
 
-  // Keep input value in sync when URL param changes externally
   useEffect(() => {
-    setInputValue(queryParam)
-    setDebouncedTerm(queryParam)
-  }, [queryParam])
+    setInputValue(term)
+  }, [term])
 
-  // Debounce the input value by 300ms
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedTerm(inputValue)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [inputValue])
+    setRecentRecords(getRecentRecords())
+  }, [])
 
-  // Update URL when debounced term changes (without full navigation)
   useEffect(() => {
-    if (debouncedTerm !== queryParam) {
-      const params = new URLSearchParams(searchParams.toString())
-      if (debouncedTerm) {
-        params.set('q', debouncedTerm)
-      } else {
-        params.delete('q')
-      }
-      router.replace(`/app/search?${params.toString()}`, { scroll: false })
-    }
-  }, [debouncedTerm, queryParam, searchParams, router])
-
-  // Set page header
-  useEffect(() => {
-    setPageHeader('Search Results')
+    setPageHeader('Search')
   }, [setPageHeader])
 
-  const { data: results, isLoading } = useQuery({
-    queryKey: queryKeys.globalSearch(debouncedTerm),
-    queryFn: () => globalSearch(debouncedTerm),
-    enabled: debouncedTerm.length > 0,
-  })
-
-  const grouped = useMemo<
-    Map<string, { tableName: string; records: GlobalSearchResult[] }>
-  >(() => {
-    if (!results || results.length === 0) return new Map()
-    return groupByTable(results)
-  }, [results])
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(e.target.value)
-    },
-    []
+  const items = useMemo(
+    () => (term.trim() ? buildNavigationSearchItems(navTargets, recentRecords, term, 50) : []),
+    [navTargets, recentRecords, term]
   )
+  const pages = items.filter((item) => item.kind === 'page')
+  const records = items.filter((item) => item.kind === 'record')
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        setDebouncedTerm(inputValue)
-      }
-    },
-    [inputValue]
-  )
-
-  const hasResults = results && results.length > 0
-  const hasSearched = debouncedTerm.length > 0
-  const showEmpty = hasSearched && !isLoading && !hasResults
+  /**
+   * Writes the input value to the `q` URL parameter.
+   *
+   * @param event - Form submit event.
+   */
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    const next = inputValue.trim()
+    router.replace(next ? `/app/search?q=${encodeURIComponent(next)}` : '/app/search')
+  }
 
   return (
     <div className="space-y-6" data-qqq-id="search-results-page">
-      {/* Page heading */}
-      {debouncedTerm ? (
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Search Results for &ldquo;{debouncedTerm}&rdquo;
-        </h1>
-      ) : (
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Search
-        </h1>
-      )}
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        {term ? <>Search results for &ldquo;{term}&rdquo;</> : 'Search'}
+      </h1>
 
-      {/* Search input */}
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
+      <form role="search" onSubmit={handleSubmit} className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <input
           type="search"
           value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Search across all tables..."
-          aria-label="Search across all tables"
-          className="rounded-xl border border-input bg-card pl-10 pr-4 py-3 text-sm w-full focus:outline-none focus:ring-2 focus:ring-ring"
+          onChange={(event) => setInputValue(event.target.value)}
+          placeholder="Find an app, table, process or recent record..."
+          aria-label="Search pages and recent records"
+          className="w-full rounded-xl border border-input bg-card py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="search-input"
         />
-      </div>
+      </form>
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="space-y-6" aria-busy="true" aria-live="polite">
-          {/* Skeleton group 1 */}
-          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-border">
-              <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="divide-y divide-border">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="px-6 py-3">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Skeleton group 2 */}
-          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="px-6 py-3 border-b border-border">
-              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="divide-y divide-border">
-              {[1, 2].map((i) => (
-                <div key={i} className="px-6 py-3">
-                  <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {!term && (
+        <p className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground" data-qqq-id="search-prompt-state">
+          Enter text above to find apps, tables, processes and recently viewed records.
+        </p>
       )}
 
-      {/* Empty state */}
-      {showEmpty && (
-        <div
-          className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 shadow-sm"
-          data-qqq-id="search-empty-state"
-        >
-          <Search className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
-          <p className="mt-4 text-sm text-muted-foreground">
-            No results found for &ldquo;{debouncedTerm}&rdquo;
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Try adjusting your search terms or check for typos.
-          </p>
-        </div>
+      {term && items.length === 0 && (
+        <p className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground" data-qqq-id="search-empty-state">
+          No pages or recent records match &ldquo;{term}&rdquo;.
+        </p>
       )}
 
-      {/* No query state */}
-      {!hasSearched && !isLoading && (
-        <div
-          className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 shadow-sm"
-          data-qqq-id="search-prompt-state"
-        >
-          <Search className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
-          <p className="mt-4 text-sm text-muted-foreground">
-            Enter a search term above to find records across all tables.
-          </p>
-        </div>
+      {pages.length > 0 && (
+        <section aria-label="Pages" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" data-qqq-id="search-group-pages">
+          <h2 className="border-b border-border px-6 py-3 text-sm font-semibold text-foreground">Pages</h2>
+          <ul className="divide-y divide-border">
+            {pages.map((item) => (
+              <li key={item.path}>
+                <Link href={item.path} className="flex items-center gap-3 px-6 py-3 text-sm transition-colors hover:bg-accent" data-qqq-id={`search-page-${item.path.replace(/\//g, '-')}`}>
+                  <MetadataIcon icon={item.icon} kind={item.nodeType ? ICON_KIND[item.nodeType] : 'app'} className="text-muted-foreground" />
+                  <span className="font-medium text-foreground">{item.label}</span>
+                  {item.context && <span className="text-xs text-muted-foreground">{item.context}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
-      {/* Results grouped by table */}
-      {!isLoading && hasResults && (
-        <div className="space-y-6">
-          {Array.from(grouped.entries()).map(([tableLabel, group]) => (
-            <div
-              key={tableLabel}
-              className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
-              data-qqq-id={`search-group-${group.tableName}`}
-            >
-              {/* Group header */}
-              <div className="flex items-center gap-2 px-6 py-3 border-b border-border">
-                <span className="text-sm font-semibold text-foreground">
-                  {tableLabel}
-                </span>
-                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  {group.records.length} {group.records.length === 1 ? 'result' : 'results'}
-                </span>
-              </div>
-
-              {/* Result rows */}
-              <div className="divide-y divide-border">
-                {group.records.map((result) => (
-                  <Link
-                    key={`${result.tableName}-${result.recordId}`}
-                    href={`/app/${encodeURIComponent(result.tableName)}/${encodeURIComponent(result.recordId)}`}
-                    className="block px-6 py-3 hover:bg-accent cursor-pointer transition-colors text-sm text-foreground"
-                    data-qqq-id={`search-result-${result.tableName}-${result.recordId}`}
-                  >
-                    {result.recordLabel}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      {records.length > 0 && (
+        <section aria-label="Recently viewed" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" data-qqq-id="search-group-records">
+          <h2 className="border-b border-border px-6 py-3 text-sm font-semibold text-foreground">Recently viewed</h2>
+          <ul className="divide-y divide-border">
+            {records.map((item) => (
+              <li key={item.path}>
+                <Link href={item.path} className="flex items-center gap-3 px-6 py-3 text-sm transition-colors hover:bg-accent">
+                  <span className="font-medium text-foreground">{item.label}</span>
+                  <span className="text-xs text-muted-foreground">{item.context}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )

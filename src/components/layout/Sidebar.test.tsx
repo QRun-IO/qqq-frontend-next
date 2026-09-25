@@ -37,19 +37,52 @@ import type { QBrandingMetaData } from '@/types'
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
 const leafRoutes: SidebarRoute[] = [
-  { name: 'People', path: '/app/person', icon: 'person', type: 'item' },
-  { name: 'Companies', path: '/app/company', icon: 'business', type: 'item' },
+  { name: 'People', key: 'person', path: '/app/person', icon: { name: 'person' }, nodeType: 'TABLE', type: 'item' },
+  { name: 'Companies', key: 'company', path: '/app/company', icon: { name: 'business' }, nodeType: 'TABLE', type: 'item' },
 ]
 
 const collapseRoutes: SidebarRoute[] = [
   {
     name: 'Sales App',
+    key: 'salesApp',
     path: '/app/salesApp',
-    icon: 'folder',
+    icon: { name: 'folder' },
+    nodeType: 'APP',
     type: 'collapse',
     children: [
-      { name: 'Orders', path: '/app/order', icon: 'notes', type: 'item' },
-      { name: 'Products', path: '/app/product', icon: 'inventory', type: 'item' },
+      { name: 'Orders', key: 'order', path: '/app/order', icon: { name: 'notes' }, nodeType: 'TABLE', type: 'item' },
+      { name: 'Products', key: 'product', path: '/app/product', icon: { name: 'inventory' }, nodeType: 'TABLE', type: 'item' },
+    ],
+  },
+]
+
+const nestedRoutes: SidebarRoute[] = [
+  {
+    name: 'Level One',
+    key: 'levelOne',
+    path: '/app/levelOne',
+    icon: { path: '/level-one.png' },
+    nodeType: 'APP',
+    type: 'collapse',
+    children: [
+      {
+        name: 'Level Two',
+        key: 'levelTwo',
+        path: '/app/levelTwo',
+        icon: { name: 'folder', color: '#b91c1c' },
+        nodeType: 'APP',
+        type: 'collapse',
+        children: [
+          {
+            name: 'Level Three',
+            key: 'levelThree',
+            path: '/app/levelThree',
+            nodeType: 'APP',
+            type: 'collapse',
+            children: [{ name: 'Deep Item', key: 'deepItem', path: '/app/deepItem', icon: { name: 'no_such_icon' }, nodeType: 'TABLE', type: 'item' }],
+          },
+        ],
+      },
     ],
   },
 ]
@@ -113,7 +146,7 @@ describe('Sidebar', () => {
   })
 
   it('renders minimal metadata gracefully (single route, no icon)', () => {
-    const minimal: SidebarRoute[] = [{ name: 'Home', path: '/app', type: 'item' }]
+    const minimal: SidebarRoute[] = [{ name: 'Home', key: 'home', path: '/app', type: 'item' }]
     renderSidebar(minimal)
     expect(screen.getByText('Home')).toBeInTheDocument()
   })
@@ -232,8 +265,58 @@ describe('Sidebar', () => {
 
   it('each leaf item link has a scoped data-qqq-id', () => {
     renderSidebar(leafRoutes)
-    expect(document.querySelector('[data-qqq-id="sidebar-item-People"]')).toBeInTheDocument()
-    expect(document.querySelector('[data-qqq-id="sidebar-item-Companies"]')).toBeInTheDocument()
+    expect(document.querySelector('[data-qqq-id="sidebar-item-person"]')).toBeInTheDocument()
+    expect(document.querySelector('[data-qqq-id="sidebar-item-company"]')).toBeInTheDocument()
+  })
+
+  // ─── Nesting, icons and branding (#538, #539) ─────────────────────────────
+
+  it('renders app groups nested deeper than two levels and expands every ancestor of the active page', () => {
+    renderSidebar(nestedRoutes, { pathname: '/app/deepItem/3' })
+    expect(screen.getByRole('link', { name: 'Level Two' })).toHaveAttribute('href', '/app/levelTwo')
+    expect(screen.getByRole('link', { name: 'Level Three' })).toHaveAttribute('href', '/app/levelThree')
+    expect(screen.getByRole('link', { name: 'Deep Item' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Collapse Level One' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Collapse Level Three' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('expands an app group on its own home page', () => {
+    renderSidebar(collapseRoutes, { pathname: '/app/salesApp/' })
+    expect(screen.getByRole('link', { name: 'Sales App' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Orders' })).toBeInTheDocument()
+  })
+
+  it('renders declared icons: named glyph, colored glyph, image path, and a fallback for unknown names', () => {
+    renderSidebar(nestedRoutes, { pathname: '/app/deepItem' })
+    const one = document.querySelector('[data-qqq-id="sidebar-collapse-levelOne"] img[data-qqq-icon="path"]')
+    expect(one).toHaveAttribute('src', '/level-one.png')
+    const two = document.querySelector('[data-qqq-id="sidebar-collapse-levelTwo"] svg[data-qqq-icon="folder"]')
+    expect(two).toHaveClass('lucide-folder')
+    expect((two as SVGElement).style.color).toBe('rgb(185, 28, 28)')
+    const deep = document.querySelector('[data-qqq-id="sidebar-item-deepItem"] svg')
+    expect(deep).toHaveAttribute('data-qqq-icon', 'no_such_icon')
+    expect(deep).toHaveAttribute('data-qqq-icon-fallback', 'true')
+    renderSidebar(leafRoutes)
+    expect(document.querySelector('[data-qqq-id="sidebar-item-person"] svg[data-qqq-icon="person"]')).toHaveClass('lucide-user')
+  })
+
+  it('shows the branding logo instead of the icon and name when a logo is declared', () => {
+    renderSidebar(leafRoutes, { branding: { appName: 'QQQ Sample', logo: '/samples-logo.png', icon: '/kr-icon.png' } })
+    const logo = screen.getByRole('img', { name: 'QQQ Sample' })
+    expect(logo).toHaveAttribute('src', '/samples-logo.png')
+    expect(logo.closest('a')).toHaveAttribute('href', '/app')
+    expect(document.querySelector('[data-qqq-id="sidebar-icon"]')).not.toBeInTheDocument()
+  })
+
+  it('shows the icon and app name when no logo is declared', () => {
+    renderSidebar(leafRoutes, { branding: { appName: 'Plain App', icon: '/icon.png' } })
+    expect(document.querySelector('[data-qqq-id="sidebar-icon"]')).toHaveAttribute('src', '/icon.png')
+    expect(screen.getByText('Plain App')).toBeInTheDocument()
+  })
+
+  it('renders the side-nav banner under the logo', () => {
+    renderSidebar(leafRoutes, { branding: { appName: 'A', banners: { QFMD_SIDE_NAV_UNDER_LOGO: { severity: 'INFO', messageText: 'Under logo' } } } })
+    expect(screen.getByRole('region', { name: 'Navigation banner' })).toHaveTextContent('Under logo')
   })
 
   // ─── Navigation role ──────────────────────────────────────────────────────
