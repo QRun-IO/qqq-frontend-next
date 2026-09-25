@@ -29,6 +29,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportField;
 import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportView;
 import com.kingsrook.qqq.backend.core.model.metadata.reporting.ReportType;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
@@ -155,6 +156,7 @@ final class NavigationFixtures
       instance.addTable(new QTableMetaData()
          .withName(TABLE_QUIET)
          .withLabel("Nav Quiet Item")
+         .withoutCapability(Capability.TABLE_INSERT).withoutCapability(Capability.TABLE_UPDATE).withoutCapability(Capability.TABLE_DELETE)
          .withIcon(new QIcon("inventory"))
          .withBackendName(SampleMetaDataProvider.RDBMS_BACKEND_NAME)
          .withBackendDetails(new RDBMSTableBackendDetails().withTableName("nav_deep_item"))
