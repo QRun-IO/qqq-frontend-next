@@ -62,12 +62,14 @@ Copy `.env.example` to `.env.local` and adjust as needed.
 | `pnpm start` | Serve the production build |
 | `pnpm test` | Run Vitest unit tests (single pass) |
 | `pnpm test:watch` | Run Vitest in watch mode |
-| `pnpm test:coverage` | Run Vitest with V8 coverage report |
-| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm test:coverage` | Run Vitest with V8 coverage; fails below the `src/lib` thresholds in `vitest.config.ts` |
+| `pnpm test:e2e` | Run the mocked Playwright e2e suite (`tests/e2e`, no backend); `QQQ_E2E_SERVER=production` serves the `pnpm build` output, `QQQ_E2E_PORT` picks the port |
+| `pnpm perf:budget` | Check the static export (`out/`) against the bundle budget in `perf-budget.json` ([`docs/acceptance/performance.md`](docs/acceptance/performance.md)) |
 | `pnpm typecheck` | Run `tsc --noEmit` (type check without emitting files) |
 | `pnpm lint` | Run ESLint + Apache license header check |
 | `pnpm format` | Run Prettier over all source files |
 | `pnpm storybook` | Start Storybook component explorer on port 6006 |
+| `pnpm build-storybook` | Build the static Storybook (`storybook-static/`) |
 
 ## Directory Structure
 
