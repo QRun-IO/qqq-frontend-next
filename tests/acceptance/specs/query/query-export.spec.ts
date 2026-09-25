@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { addCondition, expectColumn, grid, openFilter, sqlColumn } from './query-helpers'
+import { addCondition, closeFilterSheet, expectColumn, grid, openFilter, showTable, sqlColumn } from './query-helpers'
 
 /** Minimal RFC 4180 CSV parser (quoted fields, doubled quotes). */
 function parseCsv(text: string): string[][] {
@@ -44,9 +44,10 @@ async function headers(page: Page, tableLabel: string) {
   return grid(page, tableLabel).locator('thead th button[data-qqq-id^="grid-header-"]').allTextContents()
 }
 
-test('[QRY-040] CSV export has the visible columns in order and exactly the filtered, sorted rows', async ({ page, backend, diagnostics }) => {
+test('[QRY-040] CSV export has the visible columns in order and exactly the filtered, sorted rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
   // hide Notes, show a joined column, filter and sort
   await page.getByRole('button', { name: 'Configure columns' }).click()
@@ -58,6 +59,7 @@ test('[QRY-040] CSV export has the visible columns in order and exactly the filt
   await openFilter(page)
   const row = await addCondition(page, 'Quantity', 'greater than')
   await row.getByLabel('Filter value for Quantity').fill('5')
+  await closeFilterSheet(page)
   await grid(page, 'Query Item').getByRole('button', { name: 'Sort by Name', exact: true }).click()
   const ids = await sqlColumn(backend, 'select id from qry_item where quantity > 5 order by name asc')
   await expectColumn(page, 'id', ids)
@@ -76,9 +78,10 @@ test('[QRY-040] CSV export has the visible columns in order and exactly the filt
   expect(column('Person: First Name')).toEqual(await sqlColumn(backend, 'select p.first_name from qry_item i join person p on p.id = i.owner_id where i.quantity > 5 order by i.name asc'))
 })
 
-test('[QRY-041] XLSX and JSON exports carry the same rows', async ({ page, backend, diagnostics }) => {
+test('[QRY-041] XLSX and JSON exports carry the same rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, `/app/qryItem?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'isActive', operator: 'EQUALS', values: [true] }] }))}`)
+  await showTable(page)
   const ids = await sqlColumn(backend, 'select id from qry_item where is_active = true order by id desc')
   await expectColumn(page, 'id', ids)
   const xlsx = await download(page, 'XLSX')
@@ -99,7 +102,7 @@ test('[QRY-041] XLSX and JSON exports carry the same rows', async ({ page, backe
   expect(Object.keys(records[0])).toContain('ownerName')
 })
 
-test('[QRY-042] nothing to export disables the formats', async ({ page, diagnostics }) => {
+test('[QRY-042] nothing to export disables the formats @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, `/app/qryItem?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['no such item'] }] }))}`)
   await expect(page.getByText('No records found', { exact: true })).toBeVisible()
@@ -112,7 +115,7 @@ test('[QRY-042] nothing to export disables the formats', async ({ page, diagnost
 test.describe('without pet permissions', () => {
   test.use({ persona: 'noPets' })
 
-  test('[QRY-043] the backend refuses exports of unreadable tables', async ({ backend, diagnostics }) => {
+  test('[QRY-043] the backend refuses exports of unreadable tables @mobile', async ({ backend, diagnostics }) => {
     void diagnostics
     const denied = await backend.api.post('/data/pet/export/pets.csv', { form: { fields: 'id,name', filter: '{}' } })
     expect(denied.status()).toBe(403)
