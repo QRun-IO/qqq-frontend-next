@@ -79,6 +79,8 @@ export function AssociatedRecords({
   const headingId = useId()
   const associationId = encodeURIComponent(association.name)
 
+  if (metadata?.isDenied) return null
+
   if (!joinTableMetaData || metadata?.isError) {
     return <section data-qqq-id={`associated-records-${associationId}`} aria-labelledby={headingId}>
       <h3 id={headingId}>{label}</h3>

@@ -40,6 +40,7 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useAuth } from '@/lib/auth/use-auth'
+import { canInsertRecords, canRunProcess } from '@/lib/auth/permissions'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { getRecentRecords } from '@/lib/utils/recent-records'
@@ -121,16 +122,16 @@ export default function DashboardPage() {
   const widgetNames = new Set(appTargets.flatMap((target) => (metaData?.apps?.[target.key]?.widgets ?? [])
     .filter((widgetName) => metaData?.widgets?.[widgetName]?.hasPermission)))
 
-  // Tables in navigation the user may insert into
+  // Tables in navigation the user may insert into (permission and TABLE_INSERT capability)
   const creatableTables = tableTargets
-    .filter((target) => {
-      const table = metaData?.tables?.[target.key]
-      return Boolean(table?.insertPermission && table.capabilities?.includes('TABLE_INSERT'))
-    })
+    .filter((target) => canInsertRecords(metaData?.tables?.[target.key]))
     .slice(0, 6)
 
-  // Processes in navigation (the backend omits processes the user may not run)
-  const runnableProcesses = processTargets.slice(0, 4)
+  // Processes in navigation the user may run: DenyBehavior.DISABLED processes are
+  // listed with hasPermission false and must not be offered (QRun-IO/qqq#671)
+  const runnableProcesses = processTargets
+    .filter((target) => canRunProcess(metaData?.processes?.[target.key]))
+    .slice(0, 4)
 
   // Time-based greeting
   const hour = new Date().getHours()

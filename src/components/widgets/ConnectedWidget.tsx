@@ -29,6 +29,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import type { QWidgetMetaData } from '@/types'
 import { fetchPossibleValues } from '@/lib/api/possible-values'
 import { useWidget } from '@/lib/hooks/use-widget'
+import { canViewWidget } from '@/lib/auth/permissions'
 import { WidgetBlock } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
 
@@ -102,7 +103,8 @@ export function ConnectedWidget({ widgetMetaData, params, className }: Connected
     return base
   }, [params, dropdownValues])
 
-  const { data, isLoading, isError, error, refetch } = useWidget(widgetMetaData.name, mergedParams)
+  const permitted = canViewWidget(widgetMetaData)
+  const { data, isLoading, isError, error, refetch } = useWidget(widgetMetaData.name, mergedParams, { enabled: permitted })
 
   /**
    * Updates the stored dropdown selection for a single named dropdown.
@@ -114,9 +116,15 @@ export function ConnectedWidget({ widgetMetaData, params, className }: Connected
     setDropdownValues((prev) => ({ ...prev, [name]: value }))
   }, [])
 
-  // Widgets with no permission should not render
-  if (!widgetMetaData.hasPermission) {
-    return null
+  // Denied widgets (DenyBehavior.DISABLED) keep their place but load no data (Material parity)
+  if (!permitted) {
+    return (
+      <WidgetBlock widgetMetaData={widgetMetaData} isLoading={false} isError={false} error={null} className={className}>
+        <p className="py-6 text-center text-sm text-muted-foreground" role="status" data-qqq-id={`widget-permission-denied-${widgetMetaData.name}`}>
+          You do not have permission to view this data.
+        </p>
+      </WidgetBlock>
+    )
   }
 
   return (

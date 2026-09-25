@@ -28,6 +28,7 @@ import type { QAppMetaData, QAppSection, QAppTreeNode, QIcon, QInstance, QWidget
 import { countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
+import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permissions'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { WidgetGrid } from './WidgetGrid'
 import type { WidgetGridItem } from './WidgetGrid'
@@ -51,6 +52,8 @@ interface HomeEntry {
   label: string
   /** Icon declared for the entry (falls back to the app icon, as Material Dashboard does). */
   icon?: QIcon
+  /** Listed but denied to the user (DenyBehavior.DISABLED): shown as a disabled card, not a link. */
+  disabled?: boolean
 }
 
 /**
@@ -95,7 +98,8 @@ function iconOf(node: { icon?: QIcon; iconName?: string } | undefined): QIcon | 
 /**
  * Resolves the section entries of one kind to visible, permitted links.
  *
- * Entries missing from the instance metadata (not permitted) or marked hidden are dropped.
+ * Entries missing from the instance metadata (not permitted) or marked hidden are dropped;
+ * entries listed with their permission flag false (DenyBehavior.DISABLED) are marked disabled.
  *
  * @param names - Entry names listed by the section.
  * @param type - App-tree node type of the entries.
@@ -112,7 +116,10 @@ function resolveEntries(names: string[] | undefined, type: QAppTreeNode['type'],
     if (!object && !(type === 'REPORT' && !instance.reports && child)) return []
     if (isHiddenNode({ name, label: '', type }, instance)) return []
     const objectIcon = object && 'icon' in object ? iconOf(object) : undefined
-    return [{ name, label: child?.label ?? object?.label ?? name, icon: iconOf(child) ?? objectIcon ?? appIcon }]
+    const disabled = type === 'TABLE' ? !canReadRecords(instance.tables?.[name])
+      : type === 'PROCESS' ? !canAccessProcess(instance.processes?.[name])
+        : Boolean(object) && !canRunReport(instance.reports?.[name])
+    return [{ name, label: child?.label ?? object?.label ?? name, icon: iconOf(child) ?? objectIcon ?? appIcon, disabled }]
   })
 }
 
@@ -169,13 +176,25 @@ function EntryGroup({ title, showTitle = true, idPrefix, kind, entries, instance
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label={title}>
         {entries.map((entry) => (
           <li key={entry.name}>
-            <Link href={`/app/${entry.name}`} className={CARD_CLASS} data-qqq-id={`${idPrefix}-${entry.name}`}>
-              <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary" />
-              <span className="flex min-w-0 flex-col">
+            {entry.disabled ? (
+              <span
+                aria-disabled="true"
+                title="You do not have permission to open this"
+                className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-dashed border-border bg-muted/40 p-4 text-sm font-medium text-muted-foreground"
+                data-qqq-id={`${idPrefix}-${entry.name}`}
+              >
+                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5" />
                 <span className="truncate">{entry.label}</span>
-                {kind === 'table' && instance && <TableCount tableName={entry.name} instance={instance} />}
               </span>
-            </Link>
+            ) : (
+              <Link href={`/app/${entry.name}`} className={CARD_CLASS} data-qqq-id={`${idPrefix}-${entry.name}`}>
+                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{entry.label}</span>
+                  {kind === 'table' && instance && <TableCount tableName={entry.name} instance={instance} />}
+                </span>
+              </Link>
+            )}
           </li>
         ))}
       </ul>
@@ -199,9 +218,11 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
   const { name, label, widgets: widgetNames = [], children = [] } = appMetaData
 
   // Build the widget grid items from declared widget names
+  // Widgets hidden from the user are absent from the registry; denied (DISABLED) ones render
+  // their permission state without loading data (ConnectedWidget).
   const widgetItems: WidgetGridItem[] = widgetNames.flatMap((wName) => {
     const meta = widgetRegistry[wName]
-    if (!meta || !meta.hasPermission) return []
+    if (!meta) return []
     return [{
       key: wName,
       span: resolveWidgetSpan(meta),

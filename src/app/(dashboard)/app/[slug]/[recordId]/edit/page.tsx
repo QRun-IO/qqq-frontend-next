@@ -40,6 +40,7 @@ import { useRecord } from '@/lib/hooks/use-record'
 import { recordLoadFailure } from '@/lib/utils/error-utils'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
 
 /**
  * Renders the record-edit form for the record identified by `slug` and `recordId`.
@@ -73,7 +74,7 @@ export default function EntityEditPage() {
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData?.editPermission),
+    enabled: canEditRecords(tableMetaData),
     includeAssociations: false,
   })
 
@@ -96,14 +97,17 @@ export default function EntityEditPage() {
     )
   }
 
-  if (!tableMetaData.editPermission) {
+  if (!canEditRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to edit {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_UPDATE')
+            ? `${tableMetaData.label} records cannot be edited.`
+            : `You do not have permission to edit ${tableMetaData.label} records.`}
         </p>
       </div>
     )

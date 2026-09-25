@@ -26,6 +26,7 @@ import { useRouter } from 'next/navigation'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
+import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 
 import { RecordActions } from './RecordActions'
 import { FieldLabel } from './FieldLabel'
@@ -127,9 +128,9 @@ export function RecordViewHeader({
       setTimeout(() => setIdCopied(false), 2000)
     })
   }
-  const canEdit = tableMetaData.editPermission
-  const canInsert = tableMetaData.insertPermission
-  const canDelete = tableMetaData.deletePermission
+  const canEdit = canEditRecords(tableMetaData)
+  const canInsert = canInsertRecords(tableMetaData)
+  const canDelete = canDeleteRecords(tableMetaData)
 
   const availableProcesses = (processes ?? []).filter(
     (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1

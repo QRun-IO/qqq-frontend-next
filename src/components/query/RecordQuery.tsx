@@ -34,6 +34,7 @@ import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+import { canInsertRecords } from '@/lib/auth/permissions'
 
 import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
@@ -138,7 +139,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes }: 
     tableMetaData.usesVariants
   )
 
-  const canCreate = tableMetaData.insertPermission
+  const canCreate = canInsertRecords(tableMetaData)
 
   /**
    * Navigates to the create-record route for the current table.

@@ -86,6 +86,27 @@ describe('RecordViewPage independent association loading', () => {
     expect(metadata).toEqual(before)
   })
 
+  it('neither requests nor shows an association whose table is hidden from the user (QRun-IO/qqq#671)', async () => {
+    const { registry } = fixture()
+    const { pet: _hidden, ...visibleTables } = registry.tables
+    void _hidden
+    const requests: string[] = []
+    server.use(
+      http.get('/qqq/v1/metaData', () => HttpResponse.json({ ...registry, tables: visibleTables })),
+      http.get('/qqq/v1/metaData/table/pet', () => { requests.push('pet metadata'); return HttpResponse.json({ error: 'not found' }, { status: 404 }) }),
+      http.get('/data/person/1', ({ request }) => {
+        requests.push(`includeAssociations=${new URL(request.url).searchParams.get('includeAssociations')}`)
+        return HttpResponse.json(baseRecord)
+      }),
+    )
+    renderPage()
+    expect(await screen.findByText('Avery Sample')).toBeVisible()
+    await waitFor(() => expect(requests).toContain('includeAssociations=false'))
+    expect(requests).toEqual(['includeAssociations=false'])
+    expect(screen.queryByRole('button', { name: '+ Add Pet' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Related records could not be loaded.')).not.toBeInTheDocument()
+  })
+
   it('does not rename association keys or present an unmatched association as empty', async () => {
     fixture(true)
     server.use(http.get('/data/person/1', ({ request }) => HttpResponse.json({

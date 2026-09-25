@@ -38,6 +38,7 @@ const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
  * @param params - Optional key-value pairs forwarded as URL query parameters to the widget
  *   endpoint (e.g. `{ tableName: 'Orders', recordId: 42 }`). Included in the TanStack Query
  *   cache key so different param combinations are cached independently.
+ * @param options - `enabled: false` skips loading (e.g. the user lacks permission).
  * @returns TanStack Query result for `WidgetData`:
  *   `{ data, isLoading, isError, isFetching, error, refetch }` — `data` is `undefined`
  *   while loading or on error; `isLoading` is true only during the initial fetch;
@@ -45,12 +46,13 @@ const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
  */
 export function useWidget(
   widgetName: string,
-  params?: Record<string, string | number | boolean>
+  params?: Record<string, string | number | boolean>,
+  options?: { enabled?: boolean }
 ) {
   return useQuery<WidgetData, Error>({
     queryKey: queryKeys.widgetData(widgetName, params),
     queryFn: () => fetchWidgetData(widgetName, params),
     staleTime: WIDGET_STALE_TIME,
-    enabled: Boolean(widgetName),
+    enabled: Boolean(widgetName) && (options?.enabled ?? true),
   })
 }

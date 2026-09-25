@@ -42,6 +42,7 @@ import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { AssociationTableState } from '@/lib/utils/association-utils'
+import { canReadRecords } from '@/lib/auth/permissions'
 import { RecordView } from '@/components/records/RecordView'
 
 /**
@@ -75,27 +76,32 @@ export default function RecordViewPage() {
   const { record, isLoading, isError, error, refetch } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData),
+    enabled: canReadRecords(tableMetaData),
     includeAssociations: false,
   })
 
   const targetNames = [...new Set(tableMetaData?.associations?.map((association) => association.associatedTableName) ?? [])]
-  const targetQueries = useQueries({ queries: targetNames.map((name) => ({
+  // Associated tables hidden from the user (absent from their metadata) are neither requested nor shown;
+  // disabled ones (listed, readPermission false) keep their panel so permitted actions such as Add remain.
+  const deniedTargets = new Set(targetNames.filter((name) => metaData?.tables && !metaData.tables[name]))
+  const readableTargets = targetNames.filter((name) => !deniedTargets.has(name))
+  const targetQueries = useQueries({ queries: readableTargets.map((name) => ({
     queryKey: queryKeys.tableMetadata(name),
     queryFn: () => loadTableMetaData(name),
     staleTime: 1000 * 60 * 30,
   })) })
-  const associationTables: Record<string, AssociationTableState> = Object.fromEntries(targetNames.map((name, index) => [name, {
-    table: targetQueries[index].data,
-    isLoading: targetQueries[index].isLoading,
-    isError: targetQueries[index].isError,
-  }]))
+  const associationTables: Record<string, AssociationTableState> = Object.fromEntries(targetNames.map((name) => {
+    if (deniedTargets.has(name)) return [name, { isLoading: false, isError: false, isDenied: true }]
+    const target = targetQueries[readableTargets.indexOf(name)]
+    return [name, { table: target.data, isLoading: target.isLoading, isError: target.isError }]
+  }))
 
-  // The legacy endpoint expands every association; a denial must not hide the base record.
+  // The legacy endpoint expands every association (all or nothing), so it is not requested
+  // when an associated table is hidden from the user; a denial must not hide the base record.
   const associations = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length),
+    enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length) && Boolean(metaData) && deniedTargets.size === 0,
     includeAssociations: true,
   })
   const displayRecord = record && associations.record && !associations.isError
@@ -134,6 +140,14 @@ export default function RecordViewPage() {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!canReadRecords(tableMetaData)) {
+    return (
+      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center" role="alert" data-qqq-id="permission-denied">
+        <p className="text-sm text-yellow-700">You do not have permission to view {tableMetaData.label} records.</p>
       </div>
     )
   }

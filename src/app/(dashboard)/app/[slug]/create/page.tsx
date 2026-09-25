@@ -37,6 +37,7 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
 
 /**
  * Renders the record-creation form for the table identified by `slug`.
@@ -83,14 +84,17 @@ export default function EntityCreatePage() {
     )
   }
 
-  if (!tableMetaData.insertPermission) {
+  if (!canInsertRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to create {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_INSERT')
+            ? `${tableMetaData.label} records cannot be created.`
+            : `You do not have permission to create ${tableMetaData.label} records.`}
         </p>
       </div>
     )

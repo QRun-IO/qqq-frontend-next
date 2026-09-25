@@ -27,6 +27,7 @@ import { X, Trash2, Download } from 'lucide-react'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
 import { ProcessLauncherMenu } from './ProcessLauncherMenu'
+import { canDeleteRecords } from '@/lib/auth/permissions'
 
 interface BulkActionBarProps {
   tableMetaData: QTableMetaData
@@ -63,7 +64,7 @@ export function BulkActionBar({
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null
 
-  const canDelete = tableMetaData.deletePermission
+  const canDelete = canDeleteRecords(tableMetaData)
   const hasProcesses = processes && processes.length > 0
 
   return (

@@ -33,6 +33,7 @@ import type { QTableMetaData } from '@/types'
 import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
 import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
+import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
 import { EntityForm, type EntityFormProps } from '@/components/forms/EntityForm'
 import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
 
@@ -79,12 +80,12 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData?.insertPermission && tableMetaData?.readPermission),
+    enabled: canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
     includeAssociations: false,
   })
 
   const expanded = useRecord({ tableName: slug, primaryKey: recordId, includeAssociations: true,
-    enabled: mode === 'full' && !tree && Boolean(tableMetaData?.insertPermission && tableMetaData?.readPermission),
+    enabled: mode === 'full' && !tree && canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
   })
   const sourceTables = useMemo(() => {
     if (!expanded.record) return { names: [] as string[] }
@@ -134,17 +135,20 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   }
 
   if (!tableMetaData.readPermission) {
-    return <div role="alert" className="py-12 text-center text-destructive">You do not have permission to read the source {tableMetaData.label} record.</div>
+    return <div role="alert" data-qqq-id="permission-denied" className="py-12 text-center text-destructive">You do not have permission to read the source {tableMetaData.label} record.</div>
   }
 
-  if (!tableMetaData.insertPermission) {
+  if (!canInsertRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to create {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_INSERT')
+            ? `${tableMetaData.label} records cannot be created.`
+            : `You do not have permission to create ${tableMetaData.label} records.`}
         </p>
       </div>
     )
