@@ -100,7 +100,9 @@
   },
   "pnpm": {
     "overrides": {
-      "serialize-javascript": ">=7.0.3"
+      "serialize-javascript": ">=7.0.3",
+      "@humanfs/node": ">=0.16.8",
+      "@babel/core": ">=7.29.6 <8"
     }
   }
 }
