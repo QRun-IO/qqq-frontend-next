@@ -21,10 +21,10 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Code, ChevronDown, ChevronUp } from 'lucide-react'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -39,7 +39,7 @@ import { queryKeys } from '@/lib/query-client'
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */
 export default function TableDeveloperViewPage() {
-  const params = useParams<{ slug: string }>()
+  const params = useRouteParams<{ slug: string }>()
   const { setPageHeader } = useQContext()
   const slug = params.slug
 

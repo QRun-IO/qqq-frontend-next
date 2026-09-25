@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:export": "QQQ_NEXT_OUTPUT=export NEXT_PUBLIC_MOCK_API=false next build",
+    "build:jar": "pnpm build:export && mvn -B -q package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",
     "lint:jsdoc": "eslint src --ext .ts,.tsx",
@@ -17,6 +19,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:acceptance": "node scripts/acceptance.mjs",
     "tsc": "tsc",
     "typecheck": "tsc --noEmit",
     "prepare": "git config core.hooksPath .githooks || true",

@@ -30,9 +30,10 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import type { QInstance } from '@/types'
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { useProcessMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
@@ -99,7 +100,7 @@ export function resolveSlugTarget(
  *   - An unknown-resource message panel when the slug does not match any resource
  */
 export default function SlugPage() {
-  const params = useParams<{ slug: string }>()
+  const params = useRouteParams<{ slug: string }>()
   const searchParams = useSearchParams()
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug

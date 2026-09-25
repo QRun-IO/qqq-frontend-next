@@ -21,9 +21,9 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -53,7 +53,7 @@ import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
  *     wrapped in a centered `max-w-4xl` container; submitting creates a new record
  */
 export default function EntityCopyPage() {
-  const params = useParams<{ slug: string; recordId: string }>()
+  const params = useRouteParams<{ slug: string; recordId: string }>()
   return <CopyPageContent key={JSON.stringify(params)} slug={params.slug} recordId={params.recordId} />
 }
 

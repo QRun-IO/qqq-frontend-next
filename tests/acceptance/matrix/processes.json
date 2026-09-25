@@ -1,0 +1,8 @@
+{
+  "area": "processes",
+  "prefixes": [
+    "PRC"
+  ],
+  "description": "Processes: steps, components, lifecycle, bulk load/edit/delete",
+  "rows": []
+}

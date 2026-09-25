@@ -29,9 +29,9 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -52,7 +52,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
  *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-4xl` container
  */
 export default function EntityCreatePage() {
-  const params = useParams<{ slug: string }>()
+  const params = useRouteParams<{ slug: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
 

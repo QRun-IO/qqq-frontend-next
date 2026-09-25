@@ -1,0 +1,8 @@
+{
+  "area": "records",
+  "prefixes": [
+    "REC"
+  ],
+  "description": "Records, fields, editors, adornments, validation and persistence",
+  "rows": []
+}

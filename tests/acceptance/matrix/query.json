@@ -1,0 +1,9 @@
+{
+  "area": "query",
+  "prefixes": [
+    "QRY",
+    "REL"
+  ],
+  "description": "Querying, relationships, saved views, export and bulk selection",
+  "rows": []
+}

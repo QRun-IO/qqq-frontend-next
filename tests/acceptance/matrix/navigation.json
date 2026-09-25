@@ -1,0 +1,23 @@
+{
+  "area": "navigation",
+  "prefixes": [
+    "NAV"
+  ],
+  "description": "Navigation, application structure, branding and icons",
+  "rows": [
+    {
+      "id": "NAV-001",
+      "feature": "Direct link to a table list renders seeded rows",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml"
+      ],
+      "fixture": "prime-test-database.sql",
+      "scenarios": [
+        "success"
+      ],
+      "issues": [],
+      "required": true,
+      "negative": []
+    }
+  ]
+}

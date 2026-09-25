@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2026 QRun.IO, Inc.
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+  -->
+<!--
+  Packages the static export (QQQ_NEXT_OUTPUT=export pnpm build, written to out/) as a
+  resource-only jar with the files under next-dashboard/. QQQ's QApplicationJavalinServer
+  serves that folder at "/" when the jar is on the classpath. Build with: pnpm build:jar
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+
+   <groupId>com.kingsrook.qqq</groupId>
+   <artifactId>qqq-frontend-next</artifactId>
+   <version>${revision}</version>
+   <packaging>jar</packaging>
+
+   <name>QQQ Frontend Next</name>
+   <description>Metadata-driven Next.js admin dashboard for QQQ, packaged for the QQQ Javalin server</description>
+   <url>https://github.com/QRun-IO/qqq-frontend-next</url>
+
+   <licenses>
+      <license>
+         <name>Apache License, Version 2.0</name>
+         <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+         <distribution>repo</distribution>
+      </license>
+   </licenses>
+
+   <scm>
+      <connection>scm:git:git://github.com/QRun-IO/qqq-frontend-next.git</connection>
+      <developerConnection>scm:git:ssh://github.com:QRun-IO/qqq-frontend-next.git</developerConnection>
+      <url>https://github.com/QRun-IO/qqq-frontend-next</url>
+   </scm>
+
+   <developers>
+      <developer>
+         <name>QRun.IO Development Team</name>
+         <organization>QRun.IO, Inc.</organization>
+         <organizationUrl>https://qrun.io</organizationUrl>
+      </developer>
+   </developers>
+
+   <properties>
+      <revision>0.2.0-SNAPSHOT</revision>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+      <project.build.outputTimestamp>2026-09-24T00:00:00Z</project.build.outputTimestamp>
+   </properties>
+
+   <build>
+      <resources>
+         <resource>
+            <directory>out</directory>
+            <targetPath>next-dashboard</targetPath>
+            <excludes>
+               <!-- development-only browser mock worker -->
+               <exclude>mockServiceWorker.js</exclude>
+            </excludes>
+         </resource>
+         <resource>
+            <directory>.</directory>
+            <targetPath>META-INF</targetPath>
+            <includes>
+               <include>LICENSE</include>
+            </includes>
+         </resource>
+      </resources>
+
+      <plugins>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+               <execution>
+                  <id>require-static-export</id>
+                  <phase>validate</phase>
+                  <goals>
+                     <goal>enforce</goal>
+                  </goals>
+                  <configuration>
+                     <rules>
+                        <requireFilesExist>
+                           <files>
+                              <file>${project.basedir}/out/index.html</file>
+                              <file>${project.basedir}/out/app/_/_/index.html</file>
+                           </files>
+                           <message>Run "QQQ_NEXT_OUTPUT=export pnpm build" (or pnpm build:jar) before packaging.</message>
+                        </requireFilesExist>
+                     </rules>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.4.2</version>
+            <executions>
+               <!-- Maven Central requires sources and javadoc jars; this artifact has no Java code. -->
+               <execution>
+                  <id>empty-sources</id>
+                  <phase>package</phase>
+                  <goals>
+                     <goal>jar</goal>
+                  </goals>
+                  <configuration>
+                     <classifier>sources</classifier>
+                     <classesDirectory>${project.basedir}/docs/maven-artifact</classesDirectory>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>empty-javadoc</id>
+                  <phase>package</phase>
+                  <goals>
+                     <goal>jar</goal>
+                  </goals>
+                  <configuration>
+                     <classifier>javadoc</classifier>
+                     <classesDirectory>${project.basedir}/docs/maven-artifact</classesDirectory>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+      </plugins>
+   </build>
+
+   <profiles>
+      <profile>
+         <!-- Release profile for Maven Central: sign and publish (used by qqq-orb mvn_jar_deploy) -->
+         <id>release</id>
+         <build>
+            <plugins>
+               <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-gpg-plugin</artifactId>
+                  <version>3.2.4</version>
+                  <configuration>
+                     <keyname>${gpg.keyname}</keyname>
+                     <gpgArguments>
+                        <arg>--pinentry-mode</arg>
+                        <arg>loopback</arg>
+                     </gpgArguments>
+                  </configuration>
+                  <executions>
+                     <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                           <goal>sign</goal>
+                        </goals>
+                     </execution>
+                  </executions>
+               </plugin>
+               <plugin>
+                  <groupId>org.sonatype.central</groupId>
+                  <artifactId>central-publishing-maven-plugin</artifactId>
+                  <version>0.8.0</version>
+                  <extensions>true</extensions>
+                  <configuration>
+                     <publishingServerId>central</publishingServerId>
+                     <autoPublish>true</autoPublish>
+                     <waitUntil>uploaded</waitUntil>
+                  </configuration>
+               </plugin>
+            </plugins>
+         </build>
+      </profile>
+   </profiles>
+</project>

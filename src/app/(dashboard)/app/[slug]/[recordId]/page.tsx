@@ -30,9 +30,9 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { addRecentRecord } from '@/lib/utils/recent-records'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
@@ -59,7 +59,7 @@ import { RecordView } from '@/components/records/RecordView'
  *     (needed to render association sub-tables)
  */
 export default function RecordViewPage() {
-  const params = useParams<{ slug: string; recordId: string }>()
+  const params = useRouteParams<{ slug: string; recordId: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()
   const { slug, recordId } = params
 

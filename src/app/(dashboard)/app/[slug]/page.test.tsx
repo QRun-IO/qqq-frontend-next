@@ -32,6 +32,7 @@ const { recordQuery, params, location } = vi.hoisted(() => ({
 }))
 vi.mock('next/navigation', () => ({
   useParams: () => params,
+  usePathname: () => '/app/' + params.slug,
   useSearchParams: () => new URLSearchParams(location.search),
   useRouter: () => ({ push: vi.fn() }),
 }))

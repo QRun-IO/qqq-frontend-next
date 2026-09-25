@@ -21,7 +21,7 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 
 /**
@@ -32,7 +32,7 @@ import { useQContext } from '@/lib/context/q-context'
  * @returns A placeholder panel indicating the feature is not yet implemented.
  */
 export default function SavedViewPage() {
-  const params = useParams<{ slug: string; viewId: string }>()
+  const params = useRouteParams<{ slug: string; viewId: string }>()
   const { setPageHeader } = useQContext()
   const { slug, viewId } = params
 

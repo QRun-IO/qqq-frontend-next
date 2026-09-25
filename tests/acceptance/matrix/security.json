@@ -1,0 +1,9 @@
+{
+  "area": "security",
+  "prefixes": [
+    "SEC",
+    "INT"
+  ],
+  "description": "Permissions, sessions, authentication and interaction quality",
+  "rows": []
+}

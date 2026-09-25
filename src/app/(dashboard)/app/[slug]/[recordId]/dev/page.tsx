@@ -21,10 +21,10 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Code, ChevronDown, ChevronUp } from 'lucide-react'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { getRecord } from '@/lib/api/tables'
 import { loadTableMetaData } from '@/lib/api/metadata'
@@ -41,7 +41,7 @@ import { queryKeys } from '@/lib/query-client'
  *   - A loading spinner while either query is in-flight, and an error panel if the record fetch fails
  */
 export default function RecordDeveloperViewPage() {
-  const params = useParams<{ slug: string; recordId: string }>()
+  const params = useRouteParams<{ slug: string; recordId: string }>()
   const { setPageHeader } = useQContext()
   const { slug, recordId } = params
 

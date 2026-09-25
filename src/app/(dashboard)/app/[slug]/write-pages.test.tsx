@@ -30,6 +30,7 @@ import EntityCopyPage from './[recordId]/copy/page'
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'person', recordId: '1' }),
+  usePathname: () => '/app/person/1',
   useRouter: () => ({ push, replace: vi.fn(), back: vi.fn() }),
 }))
 

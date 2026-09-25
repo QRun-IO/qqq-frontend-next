@@ -1,16 +1,32 @@
 import type { NextConfig } from 'next'
 
+/**
+ * Two build outputs:
+ * - `QQQ_NEXT_OUTPUT=export`: static files for the QQQ Javalin server to host from its
+ *   classpath (the default dashboard). Same origin as the API, so no rewrites.
+ * - otherwise `standalone`: a Node server; `QQQ_BACKEND_URL` bakes same-origin API rewrites
+ *   into the build (the quickstart container image).
+ */
+const exportBuild = process.env.QQQ_NEXT_OUTPUT === 'export'
+
+/** Backend route prefixes the frontend calls; forwarded by the standalone server. */
+const BACKEND_PREFIXES = ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports']
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
-  async rewrites() {
-    const backend = process.env.QQQ_BACKEND_URL
-    if (!backend) return []
-    return ['qqq', 'data', 'widget', 'metaData', 'download', 'processes'].map((prefix) => ({
-      source: `/${prefix}/:path*`,
-      destination: `${backend}/${prefix}/:path*`,
-    }))
-  },
+  ...(exportBuild
+    ? { output: 'export', trailingSlash: true, images: { unoptimized: true } }
+    : {
+        output: 'standalone',
+        async rewrites() {
+          const backend = process.env.QQQ_BACKEND_URL
+          if (!backend) return []
+          return BACKEND_PREFIXES.map((prefix) => ({
+            source: `/${prefix}/:path*`,
+            destination: `${backend}/${prefix}/:path*`,
+          }))
+        },
+      }),
   typescript: {
     tsconfigPath: './tsconfig.json',
   },

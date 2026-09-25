@@ -18,19 +18,24 @@
  * @file Root page — redirects the application root to the dashboard.
  */
 
-// Root page — redirects to dashboard or login
+'use client'
 
-import { redirect } from 'next/navigation'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 /**
  * Root page that immediately redirects to `/app`.
  *
+ * Client-side so the same page works in the static export hosted by the QQQ server.
  * The `(dashboard)` layout handles authentication and will redirect to `/login`
  * if the user is not authenticated.
  *
- * @returns Never — always issues a server-side redirect to `/app`.
+ * @returns Nothing; navigation replaces this page.
  */
 export default function RootPage() {
-  // Redirect to the dashboard — the (dashboard) layout handles auth
-  redirect('/app')
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/app')
+  }, [router])
+  return null
 }
