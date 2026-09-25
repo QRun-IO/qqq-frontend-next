@@ -79,6 +79,15 @@ describe('ExportButton', () => {
     expect(screen.getByRole('button', { name: /exports are not allowed/ })).toBeDisabled()
   })
 
+  it('closes on Escape and returns focus to its button (#708)', async () => {
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_QUERY', 'TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export records' }))
+    expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menuitem', { name: /Export CSV/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export records' })).toHaveFocus()
+  })
+
   it('reports backend export errors', async () => {
     mockExport.mockRejectedValue(new Error('Permission denied'))
     render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={1} />)

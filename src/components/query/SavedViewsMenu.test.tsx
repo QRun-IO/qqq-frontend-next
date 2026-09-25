@@ -45,6 +45,15 @@ describe('SavedViewsMenu', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('closes on Escape and returns focus to its button (#708)', async () => {
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Saved views' }))
+    expect(screen.getByRole('menu', { name: 'Saved views' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menu', { name: 'Saved views' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Saved views' })).toHaveFocus()
+  })
+
   it('lists your views apart from views shared with you and opens one', async () => {
     const onSelect = vi.fn()
     render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={onSelect} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
