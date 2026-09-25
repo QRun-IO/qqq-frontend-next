@@ -37,8 +37,11 @@ test.describe('Refresh and session', () => {
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
     await mixed.getByLabel('Lab Name').fill('Expired')
     await backend.setPersona('expired')
+    // Mock sign-in succeeds at once and returns to the process, so watch for the visit to
+    // the sign-in page (with the process as returnTo) instead of polling the current URL.
+    const signIn = page.waitForURL(/\/login\/?\?returnTo=%2Fapp%2FprcComponents/, { waitUntil: 'commit' })
     await advance(page, 'Next')
-    await expect(page).toHaveURL(/\/login/)
+    await signIn
     expect(await backend.sql('select count(*) as n from prc_lab_run')).toEqual([{ n: '0' }])
   })
 

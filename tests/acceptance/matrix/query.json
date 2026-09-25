@@ -886,7 +886,7 @@
       "source": [
         "qqq/PermissionsHelper"
       ],
-      "fixture": "noPets persona",
+      "fixture": "noPets persona; qryShelter whose associated qryShelterPet is denied with DenyBehavior.DISABLED",
       "scenarios": [
         "Panel says related records are unavailable"
       ],

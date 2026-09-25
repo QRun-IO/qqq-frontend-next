@@ -37,6 +37,9 @@ import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinOn;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinType;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
+import com.kingsrook.qqq.backend.core.model.metadata.permissions.DenyBehavior;
+import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
+import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Association;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
@@ -187,6 +190,27 @@ final class QueryFixtures
          .withIsForRecordViewAndEditScreen(true).withFields(List.of(qInstance.getTable("qryMember").getField("name"))).getWidgetMetaData());
       household.withSection(new QFieldSection().withName("companions").withLabel("Companions").withTier(Tier.T2).withWidgetName("qryCompanionPanel"));
       household.withSection(new QFieldSection().withName("reviewSchedule").withLabel("Review Schedule").withTier(Tier.T2).withWidgetName("qryReviewEditor"));
+
+      ////////////////////////////////////////////////////////////////////////////////////
+      // a readable parent whose associated table is denied to noPets with DISABLED: the //
+      // child stays listed in metadata (readPermission false), so its panel is kept.    //
+      // (Tables denied with HIDDEN, like the sample pet table, are absent instead.)     //
+      ////////////////////////////////////////////////////////////////////////////////////
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryShelter").withLabel("Shelter").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true))));
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryShelterPet").withLabel("Shelter Pet").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withPermissionRules(new QPermissionRules().withLevel(PermissionLevel.READ_INSERT_EDIT_DELETE_PERMISSIONS)
+            .withPermissionBaseName("pet").withDenyBehavior(DenyBehavior.DISABLED))
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true))
+         .withField(new QFieldMetaData("shelterId", QFieldType.INTEGER).withLabel("Shelter"))));
+      QJoinMetaData shelterPets = new QJoinMetaData().withName("qryShelterJoinShelterPet").withLeftTable("qryShelter").withRightTable("qryShelterPet")
+         .withType(JoinType.ONE_TO_MANY).withJoinOn(new JoinOn("id", "shelterId"));
+      qInstance.addJoin(shelterPets);
+      qInstance.getTable("qryShelter").withAssociation(new Association().withName("pets").withAssociatedTableName("qryShelterPet").withJoinName(shelterPets.getName()));
    }
 
 
@@ -244,6 +268,13 @@ final class QueryFixtures
                (1, 'Ari', 1, 'CH', DATE '2026-04-01'), (2, 'Bo', 1, 'MH', DATE '2026-03-01'),
                (3, 'Cy', 2, 'CH', DATE '2026-04-01'), (4, 'Di', 2, 'MH', DATE '2025-01-01')""",
             "ALTER TABLE qry_member ALTER COLUMN id RESTART WITH 100",
+
+            "DROP TABLE IF EXISTS qry_shelter_pet",
+            "DROP TABLE IF EXISTS qry_shelter",
+            "CREATE TABLE qry_shelter (id INT PRIMARY KEY, name VARCHAR(80) NOT NULL)",
+            "INSERT INTO qry_shelter VALUES (1, 'Harbor Shelter')",
+            "CREATE TABLE qry_shelter_pet (id INT PRIMARY KEY, name VARCHAR(80) NOT NULL, shelter_id INT)",
+            "INSERT INTO qry_shelter_pet VALUES (1, 'Charlie', 1), (2, 'Biscuit', 1)",
 
             ////////////////////////////////////////////////////////////////////////////
             // share the stock sample's "Alice People View" read-only with bob //

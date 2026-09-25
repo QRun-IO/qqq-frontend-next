@@ -216,9 +216,17 @@ public class AcceptanceSampleServer
       @Override
       public void customizeSession(QInstance qInstance, QSession session, Map<String, Object> context)
       {
-         String key     = PERSONAS.containsKey(session.getUuid()) ? session.getUuid() : REQUEST_SESSION_COOKIE.get();
-         String persona = key == null ? "admin" : PERSONAS.getOrDefault(key, "admin");
-         String user    = key == null ? "alice" : USERS.getOrDefault(key, "alice");
+         boolean signingIn = !PERSONAS.containsKey(session.getUuid());
+         String  key       = signingIn ? REQUEST_SESSION_COOKIE.get() : session.getUuid();
+         String  persona   = key == null ? "admin" : PERSONAS.getOrDefault(key, "admin");
+         String  user      = key == null ? "alice" : USERS.getOrDefault(key, "alice");
+         if(signingIn && "expired".equals(persona))
+         {
+            /////////////////////////////////////////////////////////////////////////
+            // signing in again replaces an expired session: the new one is valid //
+            /////////////////////////////////////////////////////////////////////////
+            persona = "admin";
+         }
          if("expired".equals(persona))
          {
             // Same path as a provider rejecting an expired token: 401 and the session cookie is cleared.

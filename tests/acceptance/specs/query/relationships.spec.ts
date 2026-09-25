@@ -128,18 +128,22 @@ test.describe('without pet permissions', () => {
   test.use({ persona: 'noPets' })
 
   test('[REL-006] denied child reads show an unavailable panel without data or actions', async ({ page, backend, diagnostics }) => {
-    // The pet table's metadata is withheld from this persona
-    diagnostics.allow('/qqq/v1/metaData/table/pet 404')
-    diagnostics.allow('Failed to load resource: the server responded with a status of 404')
-    // The record read with associations is refused (the view then loads without them)
-    diagnostics.allow('/data/person/1 403')
+    // Shelter Pet is denied to this persona with DenyBehavior.DISABLED: it stays listed in the
+    // metadata without read permission, so the shelter keeps its panel. (Tables denied with
+    // HIDDEN, like the sample pet table, are absent from the record instead: SEC-001.)
+    const reads: string[] = []
+    page.on('request', (request) => { if (/qryShelterPet|includeAssociations=true/.test(request.url())) reads.push(request.url()) })
+    diagnostics.allow('/qqq/v1/metaData/table/qryShelterPet 403')
     diagnostics.allow('Failed to load resource: the server responded with a status of 403')
-    await open(page, '/app/person/1?tab=related')
+    await open(page, '/app/qryShelter/1?tab=related')
+    await expect(page.getByRole('heading', { name: /Harbor Shelter/ }).first()).toBeVisible()
     await expect(panel(page, 'pets')).toContainText(/unavailable/)
     await expect(panel(page, 'pets')).not.toContainText('Charlie')
     await expect(panel(page, 'pets').getByRole('link', { name: 'View All' })).toHaveCount(0)
     await expect(panel(page, 'pets').locator('[data-qqq-id="button-create-association-pets"]')).toHaveCount(0)
-    const denied = await backend.api.post('/qqq/v1/table/pet/query', { data: { filter: {} } })
+    // no child rows are requested for the denied table
+    expect(reads.filter((url) => !/\/metaData\/table\/qryShelterPet/.test(url))).toEqual([])
+    const denied = await backend.api.post('/qqq/v1/table/qryShelterPet/query', { data: { filter: {} } })
     expect(denied.status()).toBe(403)
     expect(await denied.text()).not.toContain('Charlie')
   })

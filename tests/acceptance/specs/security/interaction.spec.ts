@@ -51,7 +51,11 @@ test.describe('keyboard operation', () => {
     await expect(page).toHaveURL(/\/app\/person\/?$/)
     await expect(listCell(page, 'Person', 'Blair')).toBeVisible()
 
-    await tabTo(page, listCell(page, 'Person', 'Avery'), 120)
+    // Arrow keys move between grid cells: start on the row above Blair in the current sort order
+    const firstNames = await page.getByRole('grid', { name: 'Person records' }).locator('tbody td[data-qqq-id="grid-cell-firstName"]').allTextContents()
+    const above = firstNames[firstNames.indexOf('Blair') - 1]
+    expect(above, `a row above Blair in ${firstNames.join(', ')}`).toBeTruthy()
+    await tabTo(page, listCell(page, 'Person', above!), 120)
     await page.keyboard.press('ArrowDown')
     await expect(listCell(page, 'Person', 'Blair')).toBeFocused()
     await page.keyboard.press('Enter')

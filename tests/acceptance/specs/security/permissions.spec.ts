@@ -126,7 +126,16 @@ test.describe('noProcesses persona (full table rights, no processes)', () => {
     await open(page, '/app/person')
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create new Person record' })).toBeVisible()
-    await expect(page.locator('[data-qqq-id="process-launcher-trigger"]')).toHaveCount(0)
+    // The Actions menu keeps only the table's bulk actions (they follow the table rights this
+    // persona keeps, like Create); it offers no standalone process.
+    await page.locator('[data-qqq-id="process-launcher-trigger"]').click()
+    const actionItems = page.locator('[data-qqq-id="process-launcher-menu"] [role="menuitem"]')
+    await expect(actionItems.first()).toBeVisible()
+    const offered = await actionItems.evaluateAll((items) => items.map((item) => item.getAttribute('data-qqq-id')))
+    expect(offered.length).toBeGreaterThan(0)
+    for (const id of offered) expect(id).toMatch(/^process-launcher-item-person\.bulk[A-Za-z]+$/)
+    await expect(page.getByRole('menuitem', { name: 'Clone People' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
     const nav = await navigation(page)
     await expect(nav.getByText('Clone People')).toHaveCount(0)
     await open(page, '/app/greetInteractive')
@@ -182,26 +191,47 @@ test.describe('record-level security (sharing demo)', () => {
     test.use({ user: 'bob' })
 
     test("[SEC-011] bob cannot list, open, change or delete alice's saved view and report", async ({ page, backend, diagnostics }) => {
-      diagnostics.allow('/data/savedView/1 404')
       diagnostics.allow('/data/savedReport/1 404')
       diagnostics.allow('status of 404')
-      await open(page, '/app/savedView')
-      await expect(page.getByRole('heading', { name: 'No records found' })).toBeVisible()
-      await expect(page.getByText('Alice People View')).toHaveCount(0)
-      await expect(listRows(page)).toHaveCount(0)
+      // Alice saves a view she shares with nobody (other areas share her stock view with bob).
+      await backend.setPersona('admin', 'alice')
+      const stored = await backend.api.post('/qqq/v1/processes/storeSavedView/init', {
+        multipart: { values: JSON.stringify({ tableName: 'person', label: 'Alice Private View', viewJson: '{}' }) },
+      })
+      expect((await stored.json()).type).not.toBe('ERROR')
+      const [privateView] = await backend.sql("select id, user_id from saved_view where label = 'Alice Private View'")
+      expect(privateView).toMatchObject({ user_id: 'sample:alice' })
+      expect(await backend.sql(`select id from shared_saved_view where saved_view_id = ${privateView.id}`)).toEqual([])
+      diagnostics.allow(`/data/savedView/${privateView.id} 404`)
+      const savedViews = 'select id, label, user_id from saved_view order by id'
+      const savedReports = 'select id, label, user_id from saved_report order by id'
+      const viewsBefore = await backend.sql(savedViews)
+      const reportsBefore = await backend.sql(savedReports)
+      expect(reportsBefore).toContainEqual({ id: '1', label: 'Pet Species Report', user_id: 'sample:alice' })
+      await backend.setPersona('admin', 'bob')
 
-      await open(page, '/app/savedView/1')
+      // bob's list holds exactly the views shared with him, never alice's private one
+      const sharedWithBob = (await backend.sql(
+        "select v.label from saved_view v join shared_saved_view s on s.saved_view_id = v.id where s.user_id = 'sample:bob' order by v.id"
+      )).map((row) => String(row.label))
+      await open(page, '/app/savedView')
+      if (sharedWithBob.length === 0) await expect(page.getByRole('heading', { name: 'No records found' })).toBeVisible()
+      else await expect(listCell(page, 'View', sharedWithBob[0])).toBeVisible()
+      await expect(listRows(page)).toHaveCount(sharedWithBob.length)
+      await expect(page.getByText('Alice Private View')).toHaveCount(0)
+
+      await open(page, `/app/savedView/${privateView.id}`)
       await expect(page.locator('[data-qqq-id="record-view-not-found-savedView"]')).toContainText('Record Not Found')
-      await expect(page.getByText('Alice People View')).toHaveCount(0)
+      await expect(page.getByText('Alice Private View')).toHaveCount(0)
       await open(page, '/app/savedReport/1')
       await expect(page.locator('[data-qqq-id="record-view-not-found-savedReport"]')).toContainText('Record Not Found')
 
-      expect((await backend.api.get('/data/savedView/1')).status()).toBe(404)
-      expect((await backend.api.put('/data/savedView/1', { multipart: { label: 'Taken by Bob' } })).ok()).toBe(false)
-      expect(await (await backend.api.delete('/data/savedView/1')).json()).toMatchObject({ deletedRecordCount: 0 })
+      expect((await backend.api.get(`/data/savedView/${privateView.id}`)).status()).toBe(404)
+      expect((await backend.api.put(`/data/savedView/${privateView.id}`, { multipart: { label: 'Taken by Bob' } })).ok()).toBe(false)
+      expect(await (await backend.api.delete(`/data/savedView/${privateView.id}`)).json()).toMatchObject({ deletedRecordCount: 0 })
       expect((await backend.api.get('/data/savedReport/1')).status()).toBe(404)
-      expect(await backend.sql('select id, label, user_id from saved_view')).toEqual([{ id: '1', label: 'Alice People View', user_id: 'sample:alice' }])
-      expect(await backend.sql('select id, label, user_id from saved_report')).toEqual([{ id: '1', label: 'Pet Species Report', user_id: 'sample:alice' }])
+      expect(await backend.sql(savedViews)).toEqual(viewsBefore)
+      expect(await backend.sql(savedReports)).toEqual(reportsBefore)
     })
   })
 })

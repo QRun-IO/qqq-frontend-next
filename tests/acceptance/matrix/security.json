@@ -137,7 +137,7 @@
       ],
       "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer, noProcesses)",
       "scenarios": [
-        "viewer/noProcesses have no process launcher and no process links",
+        "viewer has no Actions menu; noProcesses' Actions menu offers only the table's bulk actions (table rights) and no standalone process; no process links",
         "noProcesses keeps table rights (Create offered)"
       ],
       "negative": [
