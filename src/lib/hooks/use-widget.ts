@@ -45,8 +45,10 @@ export interface UseWidgetOptions {
  * @param widgetName - Backend-registered widget name as declared in the QInstance metadata.
  *   The query is disabled when this is an empty string.
  * @param params - Optional key-value pairs forwarded as URL query parameters to the widget
- *   endpoint (e.g. `{ tableName: 'Orders', id: 42 }`). Included in the cache key.
- * @param options - See {@link UseWidgetOptions}.
+ *   endpoint (e.g. `{ tableName: 'Orders', id: 42 }`). Included in the TanStack Query
+ *   cache key so different param combinations are cached independently.
+ * @param options - See {@link UseWidgetOptions}; `enabled: false` skips loading (e.g. the
+ *   user lacks permission).
  * @returns TanStack Query result for `WidgetData`.
  */
 export function useWidget(

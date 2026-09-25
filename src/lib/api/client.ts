@@ -24,6 +24,17 @@ import axios, { type AxiosInstance, type AxiosError, type AxiosRequestConfig } f
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'
 
 /**
+ * Whether a request URL is a session endpoint whose 401 means "sign-in denied"
+ * rather than "the current session expired".
+ *
+ * @param url - The request URL (relative to its base URL).
+ * @returns True for `/manageSession` and `/logout`.
+ */
+export function isSessionEndpoint(url: string | undefined): boolean {
+  return Boolean(url && /(^|\/)(manageSession|logout)(\?|$)/.test(url))
+}
+
+/**
  * Singleton HTTP client wrapping Axios for all QQQ API communication.
  *
  * Automatically attaches the `sessionUUID` cookie on every request via
@@ -54,12 +65,19 @@ class APIClient {
       },
     })
 
-    // Global 401 interceptor — triggers logout flow
+    // Global 401 interceptor — triggers the re-authentication flow. Session calls
+    // (manageSession, logout) report their own 401s to the auth provider instead.
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError) => {
-        if (error.response?.status === 401 && this.unauthorizedCallback) {
+        if (error.response?.status === 401 && this.unauthorizedCallback && !isSessionEndpoint(error.config?.url)) {
           this.unauthorizedCallback()
+        }
+        // Surface the backend's own explanation (e.g. "Permission denied.") instead of
+        // axios' generic "Request failed with status code 403".
+        const backendMessage = (error.response?.data as { error?: unknown } | undefined)?.error
+        if (typeof backendMessage === 'string' && backendMessage.trim()) {
+          error.message = backendMessage.trim()
         }
         return Promise.reject(error)
       }

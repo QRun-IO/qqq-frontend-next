@@ -30,6 +30,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { QWidgetMetaData, WidgetData } from '@/types'
+import { canViewWidget } from '@/lib/auth/permissions'
 import { useWidget } from '@/lib/hooks/use-widget'
 import type { BlockActionCallback, WidgetRecordContext } from './widget-types'
 import { WidgetBlock } from './WidgetBlock'
@@ -125,14 +126,14 @@ function exportRows(data: DropdownPayload | undefined): unknown[][] | null {
 /**
  * Renders a fully connected dashboard widget with data fetching and dropdown support.
  *
- * @param props - Component properties; `widgetMetaData.hasPermission === false` renders nothing
- *   and makes no request.
- * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree, or null when not permitted.
+ * @param props - Component properties; `widgetMetaData.hasPermission === false` (DenyBehavior.DISABLED)
+ *   renders the widget's frame with a permission message and makes no request.
+ * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree.
  */
 export function ConnectedWidget({
   widgetMetaData, params, className, recordContext, actionCallback, widgetRegistry, parentMetaData, bare,
 }: ConnectedWidgetProps) {
-  const permitted = widgetMetaData.hasPermission !== false
+  const permitted = canViewWidget(widgetMetaData)
 
   // Selections: persisted choices first (stores are keyed by the storing widget), then user changes.
   const [selections, setSelections] = useState<Record<string, string | null>>(() => storedDropdownParams(widgetMetaData, parentMetaData))
@@ -193,8 +194,15 @@ export function ConnectedWidget({
 
   const handleReload = useCallback(() => { void refetch() }, [refetch])
 
+  // Denied widgets (DenyBehavior.DISABLED) keep their place but load no data (Material parity)
   if (!permitted) {
-    return null
+    return (
+      <WidgetBlock widgetMetaData={widgetMetaData} isLoading={false} isError={false} error={null} className={className}>
+        <p className="py-6 text-center text-sm text-muted-foreground" role="status" data-qqq-id={`widget-permission-denied-${widgetMetaData.name}`}>
+          You do not have permission to view this data.
+        </p>
+      </WidgetBlock>
+    )
   }
 
   // Alerts that ask to be hidden, or have no message, render nothing at all (as in Material).

@@ -660,7 +660,15 @@ export function DataGrid({
                     style={{ width: `${cell.column.getSize()}px` }}
                     data-qqq-id={`grid-cell-${cell.column.id}`}
                     tabIndex={0}
-                    onKeyDown={handleCellKeyDown}
+                    onKeyDown={(e) => {
+                      // Enter on a focused cell opens the record, like a row click (keyboard parity)
+                      if (e.key === 'Enter' && e.target === e.currentTarget && cell.column.id !== '_select') {
+                        e.preventDefault()
+                        handleRowClick(row.original)
+                        return
+                      }
+                      handleCellKeyDown(e)
+                    }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>

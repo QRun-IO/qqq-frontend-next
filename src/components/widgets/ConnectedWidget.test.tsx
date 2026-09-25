@@ -133,9 +133,9 @@ describe('ConnectedWidget', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 
-  it('renders nothing and requests nothing without permission', () => {
-    const { container } = renderWidget({ name: 'accDenied', label: 'Denied', type: 'html', hasPermission: false })
-    expect(container).toBeEmptyDOMElement()
+  it('explains the denial and requests nothing without permission', () => {
+    renderWidget({ name: 'accDenied', label: 'Denied', type: 'html', hasPermission: false })
+    expect(screen.getByRole('status')).toHaveTextContent('You do not have permission to view this data.')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

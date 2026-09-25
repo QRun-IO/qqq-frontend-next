@@ -10,7 +10,7 @@ import type { NextConfig } from 'next'
 const exportBuild = process.env.QQQ_NEXT_OUTPUT === 'export'
 
 /** Backend route prefixes the frontend calls; forwarded by the standalone server. */
-const BACKEND_PREFIXES = ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports']
+const BACKEND_PREFIXES = ['qqq', 'data', 'widget', 'metaData', 'download', 'processes', 'possibleValues', 'reports', 'manageSession']
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

@@ -40,6 +40,7 @@ import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
+import { canInsertRecords } from '@/lib/auth/permissions'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { FilterBuilder } from './FilterBuilder'
@@ -230,7 +231,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
 
-  const canCreate = tableMetaData.insertPermission && hasCapability(tableMetaData, 'TABLE_INSERT')
+  const canCreate = canInsertRecords(tableMetaData)
   const distinct = rq.pagination.distinctCount !== null
   const matchingCount = rq.pagination.distinctCount ?? rq.pagination.totalCount
 

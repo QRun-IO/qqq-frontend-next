@@ -57,7 +57,12 @@ describe('queryKeys factory', () => {
   })
 
   it('tableRecord(name, id) includes id', () => {
-    expect(queryKeys.tableRecord('order', 42)).toEqual(['qqq', 'records', 'order', 42])
+    expect(queryKeys.tableRecord('order', 42)).toEqual(['qqq', 'records', 'order', '42'])
+  })
+
+  it('tableRecord uses one key for numeric and route (string) primary keys', () => {
+    // a save invalidates with the saved numeric key; the record view keys by the route string
+    expect(queryKeys.tableRecord('order', 42)).toEqual(queryKeys.tableRecord('order', '42'))
   })
 
   it('tableCount includes filter hash', () => {
@@ -90,7 +95,7 @@ describe('queryKeys factory', () => {
   })
 
   it('audits extends tableRecord', () => {
-    expect(queryKeys.audits('person', 1)).toEqual(['qqq', 'records', 'person', 1, 'audits'])
+    expect(queryKeys.audits('person', 1)).toEqual(['qqq', 'records', 'person', '1', 'audits'])
   })
 
   it('globalSearch includes search term', () => {

@@ -365,17 +365,46 @@ export function useRecordQuery({
   const variantKey = tableVariant ? `${tableVariant.type}:${tableVariant.id}` : null
 
   const recordsQuery = useQuery({
-    queryKey: [...queryKeys.tableRecords(tableName), 'query', JSON.stringify(effectiveFilter), JSON.stringify(joins ?? null), variantKey],
-    queryFn: () => queryRecords(tableName, { filter: effectiveFilter, joins, ...(tableVariant ? { tableVariant } : {}) }),
-    staleTime: 30 * 1000,
+    queryKey: [
+      ...queryKeys.tableRecords(tableName),
+      'query',
+      JSON.stringify(effectiveFilter),
+      JSON.stringify(joins ?? null),
+      variantKey,
+    ],
+    queryFn: () =>
+      queryRecords(tableName, {
+        filter: effectiveFilter,
+        joins,
+        ...(tableVariant ? { tableVariant } : {}),
+      }),
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
     enabled,
   })
 
   const countQuery = useQuery({
-    queryKey: [...queryKeys.tableRecords(tableName), 'count', JSON.stringify(countFilter), JSON.stringify(joins ?? null), variantKey, includeDistinct],
-    queryFn: () => countRecords(tableName, { filter: countFilter, joins, ...(tableVariant ? { tableVariant } : {}) }, includeDistinct),
-    staleTime: 30 * 1000,
+    queryKey: [
+      ...queryKeys.tableRecords(tableName),
+      'count',
+      JSON.stringify(countFilter),
+      JSON.stringify(joins ?? null),
+      variantKey,
+      includeDistinct,
+    ],
+    queryFn: () =>
+      countRecords(
+        tableName,
+        {
+          filter: countFilter,
+          joins,
+          ...(tableVariant ? { tableVariant } : {}),
+        },
+        includeDistinct
+      ),
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
     enabled: enabled && canCount,
   })

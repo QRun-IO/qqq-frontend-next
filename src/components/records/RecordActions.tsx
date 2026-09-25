@@ -27,6 +27,7 @@ import { Pencil, Copy, Trash2, MoreVertical, Play } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
@@ -57,9 +58,9 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
 
-  const canEdit = tableMetaData.editPermission
-  const canDelete = tableMetaData.deletePermission
-  const canInsert = tableMetaData.insertPermission
+  const canEdit = canEditRecords(tableMetaData)
+  const canDelete = canDeleteRecords(tableMetaData)
+  const canInsert = canInsertRecords(tableMetaData)
 
   // Filter to visible, permitted processes that accept single records
   const availableProcesses = (processes ?? []).filter(

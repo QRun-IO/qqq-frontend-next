@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
 import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
@@ -61,6 +61,46 @@ interface CommandMenuProps {
 export function CommandMenu({ open, onClose, navTargets }: CommandMenuProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
+  // Remember what had focus before the palette opened, and give it focus back on close
+  // (a modal dialog restores focus to its trigger).
+  useEffect(() => {
+    if (open) return
+    const returnTo = returnFocusRef.current
+    returnFocusRef.current = null
+    if (returnTo?.isConnected) returnTo.focus()
+    const remember = (event: FocusEvent) => {
+      if (event.target instanceof HTMLElement && !event.target.closest('[data-qqq-id="command-menu"]')) returnFocusRef.current = event.target
+    }
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      returnFocusRef.current = document.activeElement
+    }
+    document.addEventListener('focusin', remember)
+    return () => document.removeEventListener('focusin', remember)
+  }, [open])
+
+  /**
+   * Keeps Tab and Shift+Tab inside the palette while it is open (focus trap).
+   *
+   * @param event - The keydown event from within the dialog.
+   */
+  const trapFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !dialogRef.current) return
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('input, button, [href], [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => !element.hasAttribute('disabled'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   // Clear search when closed
   useEffect(() => {
@@ -104,6 +144,8 @@ export function CommandMenu({ open, onClose, navTargets }: CommandMenuProps) {
         role="dialog"
         aria-label="Command palette"
         aria-modal="true"
+        ref={dialogRef}
+        onKeyDown={trapFocus}
       >
         <Command shouldFilter={true} label="Command palette">
           {/* Search input */}

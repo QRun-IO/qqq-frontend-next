@@ -40,6 +40,7 @@ import { useProcessMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
+import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
@@ -119,8 +120,12 @@ export default function SlugPage() {
   const isReport = Boolean(metaData?.reports?.[slug])
 
   const app = metaData?.apps?.[slug]
-  const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp ? slug : undefined)
-  const { data: process, isError: processError } = useProcessMetaData(isProcess && !isApp && !isTable ? slug : undefined)
+  // Objects the user may not use (DenyBehavior.DISABLED) are listed in metadata with
+  // their permission flag false: show why, and do not load or start them.
+  const tableDenied = isTable && !isApp && !canReadRecords(metaData?.tables?.[slug])
+  const processDenied = isProcess && !isApp && !isTable && !canAccessProcess(metaData?.processes?.[slug])
+  const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp && !tableDenied ? slug : undefined)
+  const { data: process, isError: processError } = useProcessMetaData(isProcess && !isApp && !isTable && !processDenied ? slug : undefined)
   const report = metaData?.reports?.[slug]
 
   useEffect(() => {
@@ -137,6 +142,17 @@ export default function SlugPage() {
       setPageHeader('Not Found')
     }
   }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, metaData, setPageHeader, setTableMetaData])
+
+  if (tableDenied || processDenied) {
+    const label = (tableDenied ? metaData?.tables?.[slug]?.label : metaData?.processes?.[slug]?.label) ?? slug
+    return (
+      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center" role="alert" data-qqq-id="permission-denied">
+        <p className="text-sm text-yellow-700">
+          {tableDenied ? `You do not have permission to view ${label} records.` : `You do not have permission to run ${label}.`}
+        </p>
+      </div>
+    )
+  }
 
   if (metadataError || (isTable && !isApp && tableError) || (isProcess && !isApp && !isTable && processError)) {
     return (
