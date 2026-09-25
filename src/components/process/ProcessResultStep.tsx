@@ -178,7 +178,7 @@ export function ProcessResultStep({
             <Link
               href={`/app/${tableName}`}
               className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+                'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium pointer-coarse:min-h-11',
                 'text-foreground bg-card hover:bg-accent',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'transition-colors duration-150'
@@ -192,7 +192,7 @@ export function ProcessResultStep({
             <Link
               href={`/app/${tableName}`}
               className={cn(
-                'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
+                'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium pointer-coarse:min-h-11',
                 'text-primary-foreground bg-primary hover:bg-primary/90',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 'transition-colors duration-150'
@@ -209,7 +209,7 @@ export function ProcessResultStep({
           <Link
             href="/app"
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
+              'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium pointer-coarse:min-h-11',
               'text-foreground bg-card hover:bg-accent',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'transition-colors duration-150'
