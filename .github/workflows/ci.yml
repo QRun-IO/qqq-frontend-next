@@ -1,6 +1,7 @@
 name: CI
 
-# Fast PR checks (QRun-IO/qqq#709). The real-backend gate runs in acceptance.yml.
+# Fast PR checks (QRun-IO/qqq#709, bundle budget #710). The real-backend gate, including the
+# runtime performance budgets (specs/performance), runs in acceptance.yml.
 # Each job installs on its own so they run in parallel; none needs a backend.
 
 on:
@@ -81,3 +82,27 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
       - run: pnpm build-storybook --quiet
+
+  performance:
+    name: Bundle budget (static export)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Static export
+        run: pnpm build:export
+      - name: First-load JS per route, total JS and largest chunk against perf-budget.json
+        run: pnpm perf:budget
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: bundle-budget
+          path: test-results/performance/bundle.json
+          retention-days: 30

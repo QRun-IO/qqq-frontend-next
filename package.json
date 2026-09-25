@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:acceptance": "node scripts/acceptance.mjs",
+    "perf:budget": "node scripts/perf-budget.mjs",
     "tsc": "tsc",
     "typecheck": "tsc --noEmit",
     "prepare": "git config core.hooksPath .githooks || true",
