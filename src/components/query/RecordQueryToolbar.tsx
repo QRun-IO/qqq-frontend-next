@@ -15,7 +15,7 @@
  */
 
 /**
- * @file RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, process launcher.
+ * @file RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, Go To, process launcher.
  */
 
 'use client'
@@ -38,6 +38,8 @@ import {
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
 import type { TableVariant } from '@/lib/api/tables'
+
+import { GotoRecordButton } from '@/components/records/GotoRecordDialog'
 
 import { ColumnConfig } from './ColumnConfig'
 import { ExportButton } from './ExportButton'
@@ -493,7 +495,10 @@ export function RecordQueryToolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Actions: bulk processes and table processes */}
+      {/* Go To a record by its key (tables with Material gotoFieldNames) */}
+      <GotoRecordButton tableMetaData={tableMetaData} tableVariant={tableVariant} />
+
+      {/* Actions: bulk processes, table processes and processes added to every screen */}
       <ProcessLauncherMenu
         tableMetaData={tableMetaData}
         allProcesses={allProcesses}

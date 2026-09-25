@@ -45,6 +45,8 @@ import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
+import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
+
 import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
@@ -465,6 +467,11 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           filter={rq.filter.baseFilter}
           onClose={() => setStatsColumn(null)}
         />
+      )}
+
+      {/* A table that can be read by key but not queried: Material opens Go To, and it cannot be dismissed */}
+      {!rq.data.canQuery && hasCapability(tableMetaData, 'TABLE_GET') && (!tableMetaData.usesVariants || (tableVariant && !variantPickerOpen)) && (
+        <GotoRecordDialog open mayClose={false} tableMetaData={tableMetaData} tableVariant={tableVariant} onClose={() => undefined} />
       )}
 
       {tableMetaData.usesVariants && (

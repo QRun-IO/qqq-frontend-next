@@ -839,6 +839,33 @@
       "required": true
     },
     {
+      "id": "QRY-067",
+      "feature": "Go To opens a record by its primary key or a configured unique key (Material gotoFieldNames)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/GotoRecordDialog.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardTableMetaData.java"
+      ],
+      "fixture": "QueryFixtures.java qryBin (gotoFieldNames [[code], [aisle, shelf]]), qryLocker (GET without QUERY), qryItem (no Go To)",
+      "scenarios": [
+        "v1 table metadata carries supplementalMetaData.materialDashboard.gotoFieldNames (API)",
+        "Go To... on the query toolbar and the record view header offers the primary key, then each key, labelled by field labels",
+        "primary key, single-field and two-field keys each open the one matching record (EQUALS query, id from SQL)",
+        "no match shows \"Record not found.\"; a partial key matching two bins shows \"More than 1 record was found...\" (counts from SQL)",
+        "Enter in an input submits its option; Escape closes and returns focus to the Go To button",
+        "a table with GET but no QUERY capability opens Go To automatically and it cannot be dismissed"
+      ],
+      "negative": [
+        "a table without gotoFieldNames has no Go To button on its query or record screen",
+        "no navigation on no match or several matches"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
       "id": "QRY-068",
       "feature": "Default grid columns follow the table sections (section order, each field once), not the metadata field order (Material bySection order)",
       "source": [

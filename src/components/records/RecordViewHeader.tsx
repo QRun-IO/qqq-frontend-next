@@ -40,6 +40,7 @@ import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
 import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
+import { GotoRecordButton } from './GotoRecordDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -281,6 +282,17 @@ export function RecordViewHeader({
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+
+        {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
+        <GotoRecordButton
+          tableMetaData={tableMetaData}
+          className={cn(
+            'inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm font-medium',
+            'text-foreground bg-card hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'transition-colors duration-150'
+          )}
+        />
 
         {auditSource && (
           <button

@@ -162,7 +162,12 @@ export interface QTableMetaData {
   helpContent?: QHelpContent
   /** Table help content by slot name, as the backend declares it. */
   helpContents?: Record<string, QHelpContent[]>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`),
+   * as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy (non-v1) routes' key. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
   shareableTableMetaData?: Record<string, unknown>
