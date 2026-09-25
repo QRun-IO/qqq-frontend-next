@@ -269,6 +269,31 @@ export interface RecordQueryToolbarProps {
   onVariantChipClick?: () => void
 }
 
+/** Screen position and height limit of the fixed column-config panel. */
+export interface ColumnConfigPosition {
+  top: number
+  right: number
+  maxHeight: number
+}
+
+/** Gap between the column-config button and its panel, and the panel's margin from the viewport bottom. */
+const COLUMN_CONFIG_GAP = 4
+const COLUMN_CONFIG_MARGIN = 8
+
+/**
+ * Place the column-config panel under its button, limited to the viewport height below it.
+ * The panel is fixed, so anything past the viewport bottom could never be scrolled into view.
+ *
+ * @param button - Bounding rectangle of the column-config button.
+ * @param viewportWidth - `window.innerWidth`.
+ * @param viewportHeight - `window.innerHeight`.
+ * @returns The panel's fixed position and maximum height.
+ */
+export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, viewportWidth: number, viewportHeight: number): ColumnConfigPosition {
+  const top = button.bottom + COLUMN_CONFIG_GAP
+  return { top, right: viewportWidth - button.right, maxHeight: Math.max(0, viewportHeight - top - COLUMN_CONFIG_MARGIN) }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
@@ -326,13 +351,12 @@ export function RecordQueryToolbar({
 }: RecordQueryToolbarProps) {
   const columnConfigRef = React.useRef<HTMLDivElement>(null)
   const columnConfigBtnRef = React.useRef<HTMLButtonElement>(null)
-  const [columnConfigPos, setColumnConfigPos] = React.useState<{ top: number; right: number } | null>(null)
+  const [columnConfigPos, setColumnConfigPos] = React.useState<ColumnConfigPosition | null>(null)
 
   React.useEffect(() => {
     if (!columnConfigOpen) { setColumnConfigPos(null); return }
     if (columnConfigBtnRef.current) {
-      const rect = columnConfigBtnRef.current.getBoundingClientRect()
-      setColumnConfigPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+      setColumnConfigPos(columnConfigPosition(columnConfigBtnRef.current.getBoundingClientRect(), window.innerWidth, window.innerHeight))
     }
     /**
      * Closes the column-config panel when a click occurs outside the container.
@@ -521,6 +545,7 @@ export function RecordQueryToolbar({
             style={{ position: 'fixed', top: columnConfigPos.top, right: columnConfigPos.right, zIndex: 200 }}
           >
             <ColumnConfig
+              maxHeight={columnConfigPos.maxHeight}
               tableMetaData={tableMetaData}
               columnVisibility={columnVisibility}
               columnOrder={columnOrder}

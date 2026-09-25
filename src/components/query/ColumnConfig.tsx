@@ -44,6 +44,8 @@ interface ColumnConfigProps {
   onOrderChange: (order: string[]) => void
   /** Called when the panel is dismissed. */
   onClose: () => void
+  /** Height limit in pixels (the room left in the viewport); the column list scrolls within it. */
+  maxHeight?: number
 }
 
 /**
@@ -53,7 +55,7 @@ interface ColumnConfigProps {
  * @param props - Component properties.
  * @returns The rendered panel.
  */
-export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onVisibilityChange, onOrderChange, onClose }: ColumnConfigProps) {
+export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onVisibilityChange, onOrderChange, onClose, maxHeight }: ColumnConfigProps) {
   const allColumns = useMemo(() => getQueryColumns(tableMetaData), [tableMetaData])
   const [columns, setColumns] = useState<QueryColumn[]>(() => orderColumns(allColumns, columnOrder))
   const [lastAnnouncement, setLastAnnouncement] = useState<string>('')
@@ -106,8 +108,9 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onV
   }
 
   return (
-    <div className="flex w-80 flex-col rounded-xl border border-border bg-card shadow-sm" data-qqq-id="column-config" role="dialog" aria-label="Configure columns">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="flex w-80 flex-col rounded-xl border border-border bg-card shadow-sm" data-qqq-id="column-config" role="dialog" aria-label="Configure columns"
+      style={maxHeight === undefined ? undefined : { maxHeight }}>
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
         <h3 className="text-base font-semibold text-foreground">Configure Columns</h3>
         <button type="button" onClick={onClose}
           className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -116,7 +119,7 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onV
         </button>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
         <button type="button" onClick={() => setGroupVisibility(groups.length > 1 ? groups[0] : null, true)}
           className="text-xs text-primary underline hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring" data-qqq-id="column-config-show-all">
           Show all
@@ -130,7 +133,7 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onV
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{lastAnnouncement}</div>
 
-      <div className="max-h-96 overflow-y-auto">
+      <div className="max-h-96 min-h-0 overflow-y-auto" data-qqq-id="column-config-list">
         {groups.map((group) => (
           <div key={group} role="group" aria-label={group} data-qqq-id={`column-config-group-${group.replace(/\s+/g, '-').toLowerCase()}`}>
             {groups.length > 1 && (
