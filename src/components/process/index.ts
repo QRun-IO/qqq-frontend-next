@@ -15,27 +15,21 @@
  */
 
 /**
- * @file Process — public barrel re-exporting all process step components and their prop types.
+ * @file Process components — public exports: the process orchestrator, its
+ * screen, and the per-component renderers it composes.
  */
-// Process components -- re-export all public process components
 
 export { ProcessRun } from './ProcessRun'
 export type { ProcessRunProps } from './ProcessRun'
 
+export { ProcessStepScreen } from './ProcessStepScreen'
+export type { ProcessStepScreenProps } from './ProcessStepScreen'
+
+export { ProcessComponent } from './ProcessComponent'
+export type { ProcessComponentProps } from './ProcessComponent'
+
 export { StepWizard } from './StepWizard'
 export type { StepWizardProps } from './StepWizard'
-
-export { ProcessFormStep } from './ProcessFormStep'
-export type { ProcessFormStepProps } from './ProcessFormStep'
-
-export { ValidationReviewStep } from './ValidationReviewStep'
-export type { ValidationReviewStepProps, ValidationRow } from './ValidationReviewStep'
-
-export { RecordListStep } from './RecordListStep'
-export type { RecordListStepProps } from './RecordListStep'
-
-export { BulkLoadStep } from './BulkLoadStep'
-export type { BulkLoadStepProps } from './BulkLoadStep'
 
 export { ProcessResultStep } from './ProcessResultStep'
 export type { ProcessResultStepProps } from './ProcessResultStep'
@@ -46,20 +40,5 @@ export type { ProcessErrorStateProps } from './ProcessErrorState'
 export { ProcessCancelDialog } from './ProcessCancelDialog'
 export type { ProcessCancelDialogProps } from './ProcessCancelDialog'
 
-export { ProcessViewStep } from './ProcessViewStep'
-export type { ProcessViewStepProps } from './ProcessViewStep'
-
-export { ProcessDownloadStep } from './ProcessDownloadStep'
-export type { ProcessDownloadStepProps } from './ProcessDownloadStep'
-
-export { ProcessHtmlStep } from './ProcessHtmlStep'
-export type { ProcessHtmlStepProps } from './ProcessHtmlStep'
-
-export { ProcessSummaryResultsStep } from './ProcessSummaryResultsStep'
-export type { ProcessSummaryResultsStepProps } from './ProcessSummaryResultsStep'
-
-export { ProcessWidgetStep } from './ProcessWidgetStep'
-export type { ProcessWidgetStepProps } from './ProcessWidgetStep'
-
-export { ProcessBulkEditStep } from './ProcessBulkEditStep'
-export type { ProcessBulkEditStepProps } from './ProcessBulkEditStep'
+export { ProcessSummaryLines } from './ProcessSummaryLines'
+export type { ProcessSummaryLineData, ProcessSummaryLinesProps } from './ProcessSummaryLines'

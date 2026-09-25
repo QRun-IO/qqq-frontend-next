@@ -15,114 +15,79 @@
  */
 
 /**
- * @file ProcessErrorState — full-page error display for a failed process execution.
- *
- * Shows a destructive icon, a human-readable error detail block, and action
- * buttons to go back or retry the process.
+ * @file ProcessErrorState — the error screen of a process run: user-facing
+ * messages are shown directly; other errors sit behind a "Show detailed error
+ * message" toggle. Offers Retry (restart with the same input) and Close.
  */
+
 'use client'
 
-import React from 'react'
-import { XCircle, RefreshCw, ArrowLeft } from 'lucide-react'
+import React, { useId, useState } from 'react'
+import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 
-/**
- * Props for the {@link ProcessErrorState} component.
- */
+/** Props for {@link ProcessErrorState}. */
 export interface ProcessErrorStateProps {
-  /** The error message string to display; null renders no detail block. */
+  /** The error message. */
   error: string | null
-  /** The technical process name, used as the `data-qqq-id` suffix. */
+  /** `true` when the backend wrote the message for users. */
+  isUserFacing: boolean
   processName: string
-  /** Optional retry callback; when provided a Retry button is rendered. */
+  processLabel: string
   onRetry?: () => void
-  /** Called when the user clicks "Go Back" to exit the error view. */
-  onCancel: () => void
+  onClose: () => void
 }
 
+const buttonBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
+
 /**
- * Renders an accessible error state for a failed process.
- *
- * Rendered by `ProcessRun` when `state.status === 'error'`.  The root container
- * uses `role="alert"` so screen readers announce the error immediately.  When
- * `error` is null the detail block is omitted.  The Retry button only appears
- * when an `onRetry` handler is provided; `ProcessRun` supplies one that resets
- * `initCalledRef` and calls `initProcess` again.
- *
+ * Render the process error screen.
  * @param props - {@link ProcessErrorStateProps}
- * @returns A centered `<div role="alert">` with a destructive icon, heading,
- *   optional error detail block, and Go Back / Retry action buttons.
+ * @returns The error panel.
  */
-export function ProcessErrorState({
-  error,
-  processName,
-  onRetry,
-  onCancel,
-}: ProcessErrorStateProps) {
+export function ProcessErrorState({ error, isUserFacing, processName, processLabel, onRetry, onClose }: ProcessErrorStateProps) {
+  const [showDetail, setShowDetail] = useState(false)
+  const detailId = useId()
   return (
-    <div
-      className="space-y-6 text-center"
-      role="alert"
-      data-qqq-id={`process-error-${processName}`}
-    >
-      {/* Error icon */}
+    <div className="space-y-6 p-8 text-center" role="alert" data-qqq-id={`process-error-${processName}`}>
       <div className="flex justify-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-          <XCircle
-            className="h-10 w-10 text-destructive"
-            aria-hidden="true"
-          />
+          <XCircle className="h-10 w-10 text-destructive" aria-hidden="true" />
         </div>
       </div>
-
-      {/* Error heading */}
-      <div>
-        <h3 className="text-xl font-semibold text-foreground">
-          Process Error
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          An error occurred while running the process.
-        </p>
+      <div className="space-y-2">
+        <h3 className="text-xl font-semibold text-foreground">Error</h3>
+        <p className="text-sm text-muted-foreground">{`An error occurred while running the process: ${processLabel}`}</p>
+        {error && isUserFacing && (
+          <p className="text-sm font-bold text-foreground" data-qqq-id="process-error-message">{error}</p>
+        )}
+        {error && !isUserFacing && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowDetail((value) => !value)}
+              aria-expanded={showDetail}
+              aria-controls={detailId}
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-qqq-id="button-toggle-error-detail"
+            >
+              {showDetail ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+              {showDetail ? 'Hide detailed error message' : 'Show detailed error message'}
+            </button>
+            <p id={detailId} hidden={!showDetail} className="mx-auto mt-2 max-w-lg break-all font-mono text-xs text-destructive" data-qqq-id="process-error-detail">
+              {error}
+            </p>
+          </div>
+        )}
       </div>
-
-      {/* Error details */}
-      {error && (
-        <div className="mx-auto max-w-lg rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-left text-sm text-destructive">
-          <p className="font-medium">Error details:</p>
-          <p className="mt-1 font-mono text-xs break-all">{error}</p>
-        </div>
-      )}
-
-      {/* Actions */}
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          data-qqq-id="button-cancel"
-          className={cn(
-            'inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium',
-            'text-foreground bg-card hover:bg-accent',
-            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-            'transition-colors duration-150'
-          )}
-        >
+        <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Go Back
+          Close
         </button>
-
         {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            data-qqq-id="button-retry"
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-              'text-destructive-foreground bg-destructive hover:bg-destructive/90',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-              'transition-colors duration-150'
-            )}
-          >
+          <button type="button" onClick={onRetry} className={cn(buttonBase, 'bg-primary text-primary-foreground hover:bg-primary/90')} data-qqq-id="button-retry">
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
             Retry
           </button>

@@ -22,7 +22,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
-import { Controller } from 'react-hook-form'
+import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
@@ -157,6 +157,27 @@ export function PossibleValueSelect({
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  //////////////////////////////////////////////////////////////////////////
+  // A value this select did not choose itself (form defaults, process    //
+  // values after Back, defaultProcessValues) shows its label, not its id //
+  //////////////////////////////////////////////////////////////////////////
+  const currentValue = useWatch({ control, name })
+  const contextKey = JSON.stringify(context)
+  useEffect(() => {
+    if (currentValue === null || currentValue === undefined || currentValue === '') return
+    if (selectedOption && String(selectedOption.id) === String(currentValue)) return
+    let cancelled = false
+    const request = { ids: String(currentValue) }
+    const lookup = context.type === 'table' ? fetchTablePossibleValues(context.tableName, fieldName, request)
+      : context.type === 'process' ? fetchProcessPossibleValues(context.processName, fieldName, request)
+        : fetchPossibleValues(fieldName, request)
+    lookup.then((results) => {
+      const match = results.find((option) => String(option.id) === String(currentValue))
+      if (!cancelled && match) setSelectedOption(match)
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [currentValue, contextKey, fieldName, selectedOption]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -211,7 +232,8 @@ export function PossibleValueSelect({
             setSearchTerm('')
           }
 
-          const displayValue = selectedOption?.label ?? (field.value ? String(field.value) : '')
+          const selectedMatches = selectedOption && String(selectedOption.id) === String(field.value)
+          const displayValue = (selectedMatches ? selectedOption.label : null) ?? (field.value ? String(field.value) : '')
 
           return (
             <div ref={containerRef} className="relative">

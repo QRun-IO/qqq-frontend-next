@@ -88,6 +88,16 @@ beforeEach(() => {
   mockFetchStandalone.mockResolvedValue(OPTIONS)
 })
 
+describe('PossibleValueSelect — initial value label', () => {
+  it('looks up and shows the label of a value it did not select (e.g. after process Back)', async () => {
+    mockFetchProcess.mockResolvedValue([{ id: 2, label: 'Bob' }])
+    render(<Wrapper context={{ type: 'process', processName: 'prcWizard' }} defaultValue={2} />)
+    expect(await screen.findByText('Bob')).toBeInTheDocument()
+    expect(mockFetchProcess).toHaveBeenCalledWith('prcWizard', 'person', { ids: '2' })
+    expect(screen.getByRole('combobox', { name: 'Person' })).not.toHaveTextContent(/^2$/)
+  })
+})
+
 describe('PossibleValueSelect — rendering', () => {
   it('renders the label', () => {
     render(<Wrapper />)

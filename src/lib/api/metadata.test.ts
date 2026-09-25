@@ -93,14 +93,23 @@ describe('Metadata API', () => {
   })
 
   describe('loadProcessMetaData', () => {
-    it('gets process metadata by name', async () => {
+    it('gets process metadata by name from the registered route and unwraps it', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({ name: 'bulkImport', frontendSteps: [] })
+      const process = { name: 'bulkImport', minInputRecords: 1, frontendSteps: [] }
+      vi.mocked(apiClient.get).mockResolvedValue({ process })
 
       const { loadProcessMetaData } = await import('./metadata')
-      await loadProcessMetaData('bulkImport')
+      await expect(loadProcessMetaData('bulk Import')).resolves.toEqual(process)
 
-      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulkImport')
+      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulk%20Import', { baseURL: 'https://example.invalid/prefix' })
+    })
+
+    it('rejects a response without a process', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ error: 'nope' })
+
+      const { loadProcessMetaData } = await import('./metadata')
+      await expect(loadProcessMetaData('bulkImport')).rejects.toThrow('Invalid process metadata response')
     })
   })
 })

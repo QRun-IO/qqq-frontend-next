@@ -17,41 +17,31 @@
 /**
  * @file ProcessRun — top-level process orchestrator component.
  *
- * Manages the full QQQ process lifecycle: idle → initializing → active steps
- * → polling → complete / error.  Validates `minInputRecords` / `maxInputRecords`
- * before initialising, dispatches the correct step component based on
- * `resolveStepType`, and renders a StepWizard progress indicator when the
- * process has more than one step.
+ * Starts the run (after checking min/max input records it can count), shows the
+ * working panel with job progress, the current screen (every declared component
+ * in order), the error screen with Retry, or the completion screen, and returns
+ * the user to the process's table or app when they cancel or finish.
  */
 'use client'
 
-import React, { useEffect, useRef, useMemo, useState } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { Loader2 } from 'lucide-react'
 
-import type { QProcessMetaData, QFrontendStepMetaData, QFieldMetaData } from '@/types'
+import type { QAppTreeNode, QInstance, QProcessMetaData } from '@/types'
 import type { ProcessInitRequest } from '@/lib/api/processes'
+import { loadMetaData } from '@/lib/api/metadata'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
-import { toast } from '@/lib/hooks/use-toast'
+import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 
 import { StepWizard } from './StepWizard'
-import { ProcessFormStep } from './ProcessFormStep'
-import { ValidationReviewStep } from './ValidationReviewStep'
-import { RecordListStep } from './RecordListStep'
-import { BulkLoadStep } from './BulkLoadStep'
-import { ProcessResultStep } from './ProcessResultStep'
+import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
-import { ProcessViewStep } from './ProcessViewStep'
-import { ProcessDownloadStep } from './ProcessDownloadStep'
-import { ProcessHtmlStep } from './ProcessHtmlStep'
-import { ProcessSummaryResultsStep } from './ProcessSummaryResultsStep'
-import { ProcessSummaryChartStep } from './ProcessSummaryChartStep'
-import { ProcessWidgetStep } from './ProcessWidgetStep'
-import { ProcessBulkEditStep } from './ProcessBulkEditStep'
-import { ProcessScriptViewerStep } from './ProcessScriptViewerStep'
-import { ProcessUploadFormStep } from './ProcessUploadFormStep'
-import { ProcessGoogleDriveStep } from './ProcessGoogleDriveStep'
-import { ProcessUnknownStep } from './ProcessUnknownStep'
+import { ProcessResultStep } from './ProcessResultStep'
+import { ProcessStepScreen } from './ProcessStepScreen'
 
 /**
  * Props for the {@link ProcessRun} component.
@@ -61,621 +51,252 @@ export interface ProcessRunProps {
   processName: string
   /** Full process metadata including step definitions and input record constraints. */
   processMetaData: QProcessMetaData
-  /** Optional initial values passed to the process init call (e.g. selected record IDs). */
+  /** Default input values for the run (e.g. from `defaultProcessValues`). */
   initialValues?: Record<string, unknown>
   /** Record selection and other supported process initialization parameters. */
   initialRequest?: ProcessInitRequest
-  /**
-   * Called when the process reaches the COMPLETE state.
-   *
-   * @param resultValues - The final result values returned by the backend.
-   */
-  onComplete?: (resultValues: Record<string, unknown>) => void
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
 
 /**
- * Resolved step type used for rendering dispatch.
- * Each value maps to a distinct step component.
+ * Count the records a request selects, when the selection is an explicit id list.
+ * @param request - Init request.
+ * @returns The count, or `null` when a filter selects the records.
  */
-type ResolvedStepType =
-  | 'FORM'
-  | 'VALIDATION'
-  | 'RECORD_LIST'
-  | 'BULK_LOAD'
-  | 'VIEW'
-  | 'DOWNLOAD'
-  | 'RESULTS'
-  | 'RESULTS_CHART'
-  | 'WIDGET'
-  | 'HTML'
-  | 'BULK_EDIT'
-  | 'SCRIPT_VIEWER'
-  | 'UPLOAD_FORM'
-  | 'GOOGLE_DRIVE'
-  | 'UNKNOWN'
-
-/**
- * Determine what kind of step to render based on step components and fields.
- *
- * Priority order reflects specificity:
- * bulk load > validation > record list > specialized renderers > form fallback > unknown.
- *
- * String comparisons use `as string` casts to accommodate component types that are
- * not yet in the `QComponentType` union (e.g. `UPLOAD_FORM`, `SCRIPT_VIEWER`,
- * `PROCESS_SUMMARY_CHART`).
- *
- * @param step - The current step metadata to evaluate.
- * @returns The resolved step type string for rendering dispatch.
- */
-function resolveStepType(step: QFrontendStepMetaData): ResolvedStepType {
-  const componentTypes = step.components.map((c) => c.type as string)
-
-  if (
-    componentTypes.includes('BULK_LOAD_FILE_MAPPING_FORM') ||
-    componentTypes.includes('BULK_LOAD_VALUE_MAPPING_FORM') ||
-    componentTypes.includes('BULK_LOAD_PROFILE_FORM')
-  ) {
-    return 'BULK_LOAD'
-  }
-
-  if (componentTypes.includes('VALIDATION_REVIEW_SCREEN')) {
-    return 'VALIDATION'
-  }
-
-  if (componentTypes.includes('RECORD_LIST')) {
-    return 'RECORD_LIST'
-  }
-
-  if (componentTypes.includes('BULK_EDIT_FORM')) {
-    return 'BULK_EDIT'
-  }
-
-  if (componentTypes.includes('VIEW_FORM')) {
-    return 'VIEW'
-  }
-
-  if (componentTypes.includes('DOWNLOAD_FORM')) {
-    return 'DOWNLOAD'
-  }
-
-  if (componentTypes.includes('PROCESS_SUMMARY_RESULTS')) {
-    return 'RESULTS'
-  }
-
-  if (componentTypes.includes('PROCESS_SUMMARY_CHART')) {
-    return 'RESULTS_CHART'
-  }
-
-  if (componentTypes.includes('WIDGET')) {
-    return 'WIDGET'
-  }
-
-  if (componentTypes.includes('HTML')) {
-    return 'HTML'
-  }
-
-  if (componentTypes.includes('SCRIPT_VIEWER')) {
-    return 'SCRIPT_VIEWER'
-  }
-
-  // UPLOAD_FORM: a simpler file-upload step without bulk-load column mapping
-  if (componentTypes.includes('UPLOAD_FORM')) {
-    return 'UPLOAD_FORM'
-  }
-
-  // GOOGLE_DRIVE_SELECT_FOLDER: render a dedicated placeholder (Google Picker API not integrated)
-  if (componentTypes.includes('GOOGLE_DRIVE_SELECT_FOLDER')) {
-    return 'GOOGLE_DRIVE'
-  }
-
-  // Default to FORM for EDIT_FORM, HELP_TEXT + formFields, etc.
-  // Also fall through to FORM for empty steps so help text can be shown.
-  if (
-    componentTypes.includes('EDIT_FORM') ||
-    componentTypes.includes('HELP_TEXT') ||
-    (step.formFields?.length ?? 0) > 0 ||
-    componentTypes.length === 0
-  ) {
-    return 'FORM'
-  }
-
-  // Catch-all: unrecognized component type — render the unknown fallback
-  return 'UNKNOWN'
+function selectedRecordCount(request: ProcessInitRequest): number | null {
+  if (request.recordsParam === 'filterJSON') return null
+  if (request.recordsParam === 'recordIds') return (request.recordIds ?? '').split(',').filter((id) => id.trim() !== '').length
+  return 0
 }
 
 /**
- * Merge `modifiedFields` overrides into the step's field arrays.
- *
- * Iterates `formFields`, `viewFields`, and `recordListFields` on `step` and
- * spreads each matching entry from `modifiedFields` over the original field
- * metadata, producing a new step object with the updated fields.  Fields that
- * have no override entry are returned unchanged.
- *
- * @param step - The original step metadata from the process state.
- * @param modifiedFields - Partial field overrides keyed by field name.
- * @returns A new `QFrontendStepMetaData` with overrides applied, or the original
- *   step when `modifiedFields` is empty.
+ * Client-side check of the process's input record bounds (the backend enforces them too).
+ * @param process - Process metadata.
+ * @param request - Init request.
+ * @returns A message when the selection is out of bounds, else `null`.
  */
-function applyModifiedFields(
-  step: QFrontendStepMetaData,
-  modifiedFields: Record<string, Partial<QFieldMetaData>>
-): QFrontendStepMetaData {
-  if (Object.keys(modifiedFields).length === 0) return step
-
-  /**
-   * Merge overrides into a field array, leaving unmatched fields unchanged.
-   *
-   * @param fields - The original field array from the step.
-   * @returns A new array with override properties merged.
-   */
-  const patchFields = (
-    fields: QFieldMetaData[] | undefined
-  ): QFieldMetaData[] | undefined => {
-    if (!fields) return fields
-    return fields.map((field) => {
-      const override = modifiedFields[field.name]
-      return override ? { ...field, ...override } : field
-    })
+export function inputRecordBoundsMessage(process: QProcessMetaData, request: ProcessInitRequest): string | null {
+  const count = selectedRecordCount(request)
+  if (count === null || !process.tableName) return null
+  const min = process.minInputRecords ?? 0
+  const max = process.maxInputRecords
+  if (min > 0 && count < min) {
+    return `This process requires at least ${min} record${min === 1 ? '' : 's'} to be selected, but ${count === 0 ? 'none were' : `only ${count} ${count === 1 ? 'was' : 'were'}`} selected.`
   }
-
-  return {
-    ...step,
-    formFields: patchFields(step.formFields),
-    viewFields: patchFields(step.viewFields),
-    recordListFields: patchFields(step.recordListFields),
+  if (max !== undefined && max !== null && count > max) {
+    return `This process allows at most ${max} record${max === 1 ? '' : 's'} to be selected, but ${count} were selected.`
   }
+  return null
+}
+
+/**
+ * The app that lists a process, searching the navigation tree.
+ * @param nodes - App tree nodes.
+ * @param processName - Process to find.
+ * @returns The app name, or `null`.
+ */
+function appContaining(nodes: QAppTreeNode[] | undefined, processName: string): string | null {
+  for (const node of nodes ?? []) {
+    if (node.type !== 'APP') continue
+    if ((node.children ?? []).some((child) => child.type === 'PROCESS' && child.name === processName)) return node.name
+    const nested = appContaining(node.children, processName)
+    if (nested) return nested
+  }
+  return null
+}
+
+/**
+ * Where the user returns to after a run: the process's table, else the app listing it.
+ * @param process - Process metadata.
+ * @param instance - Instance metadata.
+ * @returns The route.
+ */
+export function processReturnPath(process: QProcessMetaData, instance: QInstance | undefined): string {
+  if (process.tableName) return `/app/${encodeURIComponent(process.tableName)}`
+  const app = appContaining(instance?.appTree, process.name)
+  return app ? `/app/${encodeURIComponent(app)}` : '/app'
 }
 
 /**
  * Renders the complete process execution UI for a given process.
  *
- * This is the master controller for the process lifecycle: it auto-inits on
- * mount (validating record count constraints), watches for status transitions,
- * memoizes `applyModifiedFields` overrides, and dispatches the active step to
- * the correct step component.  The root container uses `data-qqq-id` scoped to
- * the process name so integrators can target CSS overrides per process.
- *
- * Layout:
- * - idle / initializing → centered spinner with process label
- * - polling (no currentStep) → spinner with optional progress bar from `current`/`total`
- * - error → `ProcessErrorState` with Retry and Go Back buttons
- * - complete → `StepWizard` (all complete) + `ProcessResultStep`
- * - active step → `StepWizard` header + step label + optional polling overlay + step component
- *
  * @param props - {@link ProcessRunProps}
- * @returns A `<div>` containing the full process execution UI in the appropriate lifecycle state.
+ * @returns The process run container in its current phase.
  */
 export function ProcessRun({
   processName,
   processMetaData,
   initialValues,
   initialRequest,
-  onComplete,
   className,
 }: ProcessRunProps) {
-  const steps = processMetaData.frontendSteps ?? []
-  const initCalledRef = useRef(false)
+  const router = useRouter()
+  const { data: instance } = useQuery({ queryKey: queryKeys.metadataAll(), queryFn: loadMetaData, staleTime: 1000 * 60 * 30 })
+  const request = useMemo<ProcessInitRequest>(() => ({
+    ...(initialRequest ?? {}),
+    ...(processMetaData.tableName ? { tableName: processMetaData.tableName } : {}),
+    ...(initialValues ? { values: { ...(initialRequest?.values ?? {}), ...initialValues } } : {}),
+  }), [initialRequest, initialValues, processMetaData.tableName])
+  const boundsMessage = useMemo(() => inputRecordBoundsMessage(processMetaData, request), [processMetaData, request])
 
-  const {
-    state,
-    isLoading,
-    initProcess,
-    submitStep,
-    goBack,
-    cancel,
-  } = useProcess(processName, processMetaData)
+  const { state, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const startedRef = useRef(false)
 
-  // Ref for the active step heading — used to move focus when the step changes
-  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
-  // Tracks whether the component has already rendered its first step, so focus
-  // is not moved on the initial mount (only on subsequent step transitions)
-  const stepFocusedRef = useRef(false)
+  const { data: tableMetaData } = useTableMetaData(processMetaData.tableName || undefined)
+  const sourceTableName = typeof state.values.sourceTable === 'string' ? state.values.sourceTable : undefined
+  const { data: sourceTableMetaData } = useTableMetaData(sourceTableName)
+  const previewTableName = typeof state.values.formatPreviewRecordUsingTableLayout === 'string' ? state.values.formatPreviewRecordUsingTableLayout : undefined
+  const { data: previewTableMetaData } = useTableMetaData(previewTableName)
 
-  // D-P-3: show a timeout warning banner when polling runs longer than 60 seconds
-  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
-
-  // Auto-focus the step heading when the active step changes (a11y: WCAG 2.4.3)
   useEffect(() => {
-    if (!stepFocusedRef.current) {
-      stepFocusedRef.current = true
-      return
-    }
-    if (state.currentStep?.name) {
-      stepHeadingRef.current?.focus()
-    }
-  }, [state.currentStep?.name])
+    if (startedRef.current || boundsMessage) return
+    startedRef.current = true
+    start()
+  }, [boundsMessage, start])
 
-  // D-P-3: set / clear the 60-second timeout warning whenever polling starts or stops
+  //////////////////////////////////////////////////////////////////
+  // move focus to the new screen's heading (WCAG 2.4.3), not on  //
+  // the first screen                                             //
+  //////////////////////////////////////////////////////////////////
   useEffect(() => {
-    if (state.status !== 'polling') {
-      setShowTimeoutWarning(false)
-      return
-    }
-    setShowTimeoutWarning(false)
-    const timer = window.setTimeout(() => setShowTimeoutWarning(true), 60_000)
-    return () => window.clearTimeout(timer)
-  }, [state.status])
+    if (state.phase !== 'step' || state.screenInstance <= 1) return
+    document.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
+  }, [state.phase, state.screenInstance])
 
-  // Auto-init on mount with input record validation (Fix 3: CRIT-7)
-  useEffect(() => {
-    if (state.status === 'idle' && !initCalledRef.current) {
-      // Validate minInputRecords / maxInputRecords before init
-      const recordIds = initialRequest?.recordIds?.split(',').filter(Boolean) ?? initialValues?.recordIds
-      const recordCount = Array.isArray(recordIds) ? recordIds.length : 0
-      const hasFilter = initialRequest?.recordsParam === 'filterJSON'
-      const minInput = processMetaData.minInputRecords ?? 0
-      const maxInput = processMetaData.maxInputRecords ?? 0
+  const leave = () => router.push(processReturnPath(processMetaData, instance))
+  const cancelAndLeave = async () => {
+    await cancel()
+    leave()
+  }
 
-      if (!hasFilter && minInput > 0 && recordCount < minInput) {
-        toast.error(
-          `This process requires at least ${minInput} record${minInput !== 1 ? 's' : ''}, but ${recordCount === 0 ? 'none were' : `only ${recordCount} ${recordCount === 1 ? 'was' : 'were'}`} provided.`
-        )
-        return
-      }
-
-      if (!hasFilter && maxInput > 0 && recordCount > maxInput) {
-        toast.error(
-          `This process allows at most ${maxInput} record${maxInput !== 1 ? 's' : ''}, but ${recordCount} were provided.`
-        )
-        return
-      }
-
-      // Set ref AFTER validation passes so a failed validation allows retry
-      initCalledRef.current = true
-      initProcess({ ...initialRequest, ...(initialValues ? { values: initialValues } : {}) })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // intentionally only run on mount
-
-  // Notify parent on completion
-  useEffect(() => {
-    if (state.status === 'complete' && onComplete) {
-      onComplete(state.resultValues)
-    }
-  }, [state.status, state.resultValues, onComplete])
-
-  const currentIdx = steps.findIndex((s) => s.name === state.currentStep?.name)
-  const canGoBack = currentIdx > 0
-
-  // MED-20: apply modifiedFields from processMetaDataAdjustment before rendering.
-  // Must be above all early returns to respect the Rules of Hooks.
-  const effectiveStep = useMemo(
-    () =>
-      state.currentStep
-        ? applyModifiedFields(state.currentStep, state.modifiedFields)
-        : null,
-    [state.currentStep, state.modifiedFields]
+  const container = (children: React.ReactNode) => (
+    <div className={cn('mx-auto max-w-3xl', className)} data-qqq-id={`process-run-${processName}`} data-process-phase={boundsMessage ? 'error' : state.phase}>
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">{children}</div>
+      <ProcessCancelDialog open={confirmCancel} onOpenChange={setConfirmCancel} onConfirm={() => { void cancelAndLeave() }} />
+    </div>
   )
 
-  // --- Loading / initializing state ---
-
-  if (state.status === 'idle' || state.status === 'initializing') {
-    return (
-      <div
-        className={cn('flex items-center justify-center py-16', className)}
-        data-qqq-id={`process-run-${processName}`}
-      >
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-          <p className="text-sm">Starting {processMetaData.label}...</p>
-        </div>
-      </div>
+  if (boundsMessage) {
+    return container(
+      <ProcessErrorState error={boundsMessage} isUserFacing processName={processName} processLabel={processMetaData.label} onClose={leave} />
     )
   }
 
-  // --- Error state ---
+  const steps = state.steps
+  const showWizard = (processMetaData.stepFlow ?? 'LINEAR') === 'LINEAR' && steps.length > 1
 
-  if (state.status === 'error') {
-    return (
-      <div className={cn('mx-auto max-w-2xl', className)} data-qqq-id={`process-run-${processName}`}>
-        <ProcessErrorState
-          error={state.errorMessage}
-          processName={processName}
-          onRetry={() => {
-            initCalledRef.current = false
-            initProcess(initialValues ? { values: initialValues } : {})
-          }}
-          onCancel={cancel}
-        />
-      </div>
+  if (state.phase === 'error') {
+    return container(
+      <ProcessErrorState
+        error={state.error?.message ?? null}
+        isUserFacing={state.error?.isUserFacing ?? false}
+        processName={processName}
+        processLabel={processMetaData.label}
+        onRetry={start}
+        onClose={leave}
+      />
     )
   }
 
-  // --- Complete state ---
-
-  if (state.status === 'complete') {
-    return (
-      <div className={cn('mx-auto max-w-2xl', className)} data-qqq-id={`process-run-${processName}`}>
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          {/* Step wizard at top -- all steps shown as completed */}
-          {steps.length > 1 && (
-            <div className="border-b border-border px-6 pt-6 pb-4">
-              <StepWizard
-                steps={steps}
-                currentStepName={null}
-                isComplete
-              />
-            </div>
-          )}
-          <div className="p-8">
-            <ProcessResultStep
-              processMetaData={processMetaData}
-              resultValues={state.resultValues}
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // --- Active step ---
-
-  const currentStep = state.currentStep
-
-  if (!currentStep) {
-    // Polling -- waiting for step to become available (Fix 6: MED-21 + P4-40)
-    const rawCurrent = state.stepValues.current ?? state.resultValues.current
-    const rawTotal = state.stepValues.total ?? state.resultValues.total
-    const pollingCurrent = rawCurrent !== undefined ? Number(rawCurrent) : undefined
-    const pollingTotal = rawTotal !== undefined ? Number(rawTotal) : undefined
-    const pollingMessage = (state.stepValues.message ?? state.resultValues.message) as string | undefined
-    const hasProgress = pollingCurrent !== undefined && !isNaN(pollingCurrent) &&
-                        pollingTotal !== undefined && !isNaN(pollingTotal) && pollingTotal > 0
-
-    return (
-      <div
-        className={cn('flex flex-col items-center gap-4 py-16', className)}
-        data-qqq-id={`process-run-${processName}`}
-      >
-        <div className="flex flex-col items-center gap-4 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-          <p className="text-sm">{pollingMessage ?? 'Processing...'}</p>
-
-          {/* Progress bar when current/total data is available */}
-          {hasProgress && (
-            <div
-              className="w-64"
-              role="progressbar"
-              aria-valuenow={pollingCurrent}
-              aria-valuemin={0}
-              aria-valuemax={pollingTotal}
-              aria-label="Process progress"
-              data-qqq-id="process-progress-bar"
-            >
-              <div className="h-2 rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${Math.min(100, (pollingCurrent! / pollingTotal!) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-1 text-center text-sm text-muted-foreground">
-                {pollingCurrent} of {pollingTotal}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* D-P-3: timeout warning banner shown after 60 seconds of polling */}
-        {showTimeoutWarning && (
-          <div
-            role="status"
-            className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700"
-            data-qqq-id="process-timeout-warning"
-          >
-            <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-            <span>This is taking longer than expected.</span>
-            <button
-              type="button"
-              onClick={cancel}
-              className="ml-auto inline-flex items-center rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              data-qqq-id="button-cancel-polling"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // effectiveStep is computed above (before early returns) via the useMemo hook
-  // to satisfy the Rules of Hooks.  It is always non-null here since currentStep
-  // is non-null (guarded by the early return above).
-  const stepType = resolveStepType(effectiveStep!)
-
-  const sharedStepProps = {
-    step: effectiveStep!,
-    stepValues: state.stepValues,
-    isLoading,
-    onSubmit: submitStep,
-    onCancel: cancel,
-    onBack: canGoBack ? goBack : undefined,
-    canGoBack,
-    isLastStep: state.isLastStep,
-  }
-
-  return (
-    <div
-      className={cn('mx-auto max-w-3xl', className)}
-      data-qqq-id={`process-run-${processName}`}
-    >
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {/* Step wizard */}
-        {steps.length > 1 && (
+  if (state.phase === 'complete') {
+    return container(
+      <>
+        {showWizard && (
           <div className="border-b border-border px-6 pt-6 pb-4">
-            {/* D-P-2: pass onStepClick so completed steps are clickable back-buttons */}
-            <StepWizard
-              steps={steps}
-              currentStepName={currentStep.name}
-              onStepClick={canGoBack ? () => goBack() : undefined}
-            />
+            <StepWizard steps={steps} currentStepName={null} isComplete />
           </div>
         )}
-
-        {/* Step header */}
-        <div className="border-b border-border px-6 py-4">
-          <h3
-            ref={stepHeadingRef}
-            tabIndex={-1}
-            className="text-base font-semibold text-foreground outline-none"
-          >
-            {currentStep.label}
-          </h3>
-          {steps.length > 1 && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Step {currentIdx + 1} of {steps.length}
-            </p>
-          )}
+        <div className="p-8">
+          <ProcessResultStep processMetaData={processMetaData} resultValues={state.values} />
         </div>
-
-        {/* Polling overlay with progress (Fix 6: MED-21 + P4-40) */}
-        {state.status === 'polling' && (
-          <div className="border-b border-primary/20 bg-primary/5 px-6 py-3 space-y-2">
-            <div className="flex items-center gap-3">
-              <Loader2
-                className="h-4 w-4 animate-spin text-primary"
-                aria-hidden="true"
-              />
-              <span className="text-sm text-primary">
-                {(state.stepValues.message as string) ?? 'Processing, please wait...'}
-              </span>
-            </div>
-            {renderPollingProgress(state.stepValues)}
-            {/* D-P-3: timeout warning shown after 60 seconds of in-step polling */}
-            {showTimeoutWarning && (
-              <div
-                role="status"
-                className="flex items-center gap-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700"
-                data-qqq-id="process-timeout-warning"
-              >
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-                <span>This is taking longer than expected.</span>
-                <button
-                  type="button"
-                  onClick={cancel}
-                  className="ml-auto inline-flex items-center rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  data-qqq-id="button-cancel-polling"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step content */}
-        <div className="p-6">
-          {stepType === 'FORM' && (
-            <ProcessFormStep
-              {...sharedStepProps}
-              processName={processName}
-            />
-          )}
-
-          {stepType === 'VALIDATION' && (
-            <ValidationReviewStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'RECORD_LIST' && (
-            <RecordListStep key={`${state.processUUID}:${currentStep.name}`} {...sharedStepProps}
-              processName={processName} processUUID={state.processUUID ?? undefined} />
-          )}
-
-          {stepType === 'BULK_LOAD' && (
-            <BulkLoadStep {...sharedStepProps} processName={processName} />
-          )}
-
-          {stepType === 'VIEW' && (
-            <ProcessViewStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'DOWNLOAD' && (
-            <ProcessDownloadStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'RESULTS' && (
-            <ProcessSummaryResultsStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'WIDGET' && (
-            <ProcessWidgetStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'HTML' && (
-            <ProcessHtmlStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'BULK_EDIT' && (
-            <ProcessBulkEditStep
-              {...sharedStepProps}
-              processName={processName}
-            />
-          )}
-
-          {stepType === 'RESULTS_CHART' && (
-            <ProcessSummaryChartStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'SCRIPT_VIEWER' && (
-            <ProcessScriptViewerStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'UPLOAD_FORM' && (
-            <ProcessUploadFormStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'GOOGLE_DRIVE' && (
-            <ProcessGoogleDriveStep {...sharedStepProps} />
-          )}
-
-          {stepType === 'UNKNOWN' && (
-            <ProcessUnknownStep {...sharedStepProps} />
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * Render a progress bar inside the polling overlay when current/total are available.
- *
- * @param stepValues - The current step values checked for `current` and `total` keys.
- * @returns A progress bar element when data is available, or null otherwise.
- */
-function renderPollingProgress(stepValues: Record<string, unknown>): React.ReactNode {
-  const rawCurrent = stepValues.current
-  const rawTotal = stepValues.total
-  const current = rawCurrent !== undefined ? Number(rawCurrent) : undefined
-  const total = rawTotal !== undefined ? Number(rawTotal) : undefined
-
-  if (current === undefined || isNaN(current) || total === undefined || isNaN(total) || total <= 0) {
-    return null
+      </>
+    )
   }
 
-  const pct = Math.min(100, (current / total) * 100)
+  if (state.phase === 'cancelled') {
+    return container(<p role="status" className="p-8 text-center text-sm text-muted-foreground">Process cancelled.</p>)
+  }
 
-  return (
-    <div
-      className="mt-2"
-      role="progressbar"
-      aria-valuenow={current}
-      aria-valuemin={0}
-      aria-valuemax={total}
-      aria-label="Process progress"
-      data-qqq-id="process-polling-progress"
-    >
-      <div className="h-2 rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className="mt-1 text-xs text-primary">
-        {current} of {total}
-      </p>
+  const progress = state.progress
+  const hasCounts = progress?.current !== undefined && progress?.total !== undefined && progress.total > 0
+  const working = (
+    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" role="status" aria-live="polite" data-qqq-id="process-working">
+      <h3 className="text-lg font-semibold text-foreground">Working</h3>
+      <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+      <p className="text-sm text-foreground" data-qqq-id="process-working-message">{progress?.message ?? 'Working...'}</p>
+      {hasCounts && (
+        <div className="w-72">
+          <p className="text-sm text-foreground" data-qqq-id="process-working-counts">{`${progress!.current!.toLocaleString('en-US')} of ${progress!.total!.toLocaleString('en-US')}`}</p>
+          <div
+            role="progressbar"
+            aria-label="Process progress"
+            aria-valuemin={0}
+            aria-valuemax={progress!.total}
+            aria-valuenow={progress!.current}
+            className="mt-1 h-2 rounded-full bg-muted"
+            data-qqq-id="process-progress-bar"
+          >
+            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${Math.min(100, (100 * progress!.current!) / progress!.total!)}%` }} />
+          </div>
+        </div>
+      )}
+      {progress?.updatedAt && state.jobUUID && (
+        <p className="text-xs italic text-muted-foreground" data-qqq-id="process-working-updated">{`Updated at ${progress.updatedAt.toLocaleTimeString()}`}</p>
+      )}
+      {state.processUUID && state.jobUUID && (
+        <button
+          type="button"
+          onClick={() => setConfirmCancel(true)}
+          className="mt-2 inline-flex items-center rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          data-qqq-id="button-cancel-working"
+        >
+          Cancel
+        </button>
+      )}
     </div>
+  )
+
+  if (state.phase !== 'step' || !state.currentStep) {
+    return container(
+      <>
+        {showWizard && state.currentStep && (
+          <div className="border-b border-border px-6 pt-6 pb-4">
+            <StepWizard steps={steps} currentStepName={state.currentStep.name} />
+          </div>
+        )}
+        {working}
+      </>
+    )
+  }
+
+  return container(
+    <>
+      {showWizard && (
+        <div className="border-b border-border px-6 pt-6 pb-4">
+          <StepWizard steps={steps} currentStepName={state.currentStep.name} />
+        </div>
+      )}
+      <ProcessStepScreen
+        key={state.screenInstance}
+        processName={processName}
+        processMetaData={processMetaData}
+        processUUID={state.processUUID}
+        step={state.currentStep}
+        steps={steps}
+        values={state.values}
+        backStep={state.backStep}
+        isWorking={false}
+        tableMetaData={tableMetaData}
+        sourceTableMetaData={sourceTableMetaData}
+        previewTableMetaData={previewTableMetaData}
+        instance={instance}
+        onSubmit={submit}
+        onBack={back}
+        onCancel={() => setConfirmCancel(true)}
+        onReturn={leave}
+      />
+    </>
   )
 }

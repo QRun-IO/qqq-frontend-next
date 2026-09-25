@@ -347,6 +347,26 @@ export async function setupApiMocks(page: Page): Promise<void> {
     })
   })
 
+  // Registered-route process metadata and lifecycle (the Next process runtime uses
+  // /metaData/process and /processes/... beside /qqq/v1, like the Material dashboard)
+  await page.route(/\/metaData\/process\/[^/?]+/, (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.startsWith('/qqq/v1/')) return route.fallback()
+    const processName = decodeURIComponent(url.pathname.split('/').pop() ?? '')
+    const process = (METADATA.processes as Record<string, unknown>)[processName]
+    route.fulfill(process
+      ? { contentType: 'application/json', body: JSON.stringify({ process }) }
+      : { status: 404, contentType: 'application/json', body: JSON.stringify({ error: `Process '${processName}' not found` }) })
+  })
+  await page.route(/^[^?]*\/processes\/[^/]+\/init/, (route) => {
+    if (new URL(route.request().url()).pathname.startsWith('/qqq/v1/')) return route.fallback()
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ processUUID: 'mock-uuid', nextStep: 'input', values: {} }) })
+  })
+  await page.route(/^[^?]*\/processes\/[^/]+\/[^/]+\/step\//, (route) => {
+    if (new URL(route.request().url()).pathname.startsWith('/qqq/v1/')) return route.fallback()
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ processUUID: 'mock-uuid', nextStep: 'result', values: { processResults: [] } }) })
+  })
+
   // Per-table metadata (must be before generic /metaData** handler)
   await page.route('**/qqq/v1/metaData/table/**', (route) => {
     const url = route.request().url()
