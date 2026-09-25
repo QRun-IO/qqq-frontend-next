@@ -90,6 +90,25 @@ export async function recordAction(page: Page, action: 'Edit' | 'Copy' | 'Delete
   await page.getByRole('menuitem', { name: action, exact: true }).click()
 }
 
+/**
+ * A `#/createChild=` link exactly as the backend builds it (AbstractHTMLWidgetRenderer.linkTableCreateChild:
+ * URL-encoded JSON with `+` as `%20`, and the locked fields as `{"field": 1}`).
+ */
+export function createChildHash(childTable: string, defaultValues: Record<string, unknown>, disabledFields: string[]): string {
+  const encode = (value: unknown) => encodeURIComponent(JSON.stringify(value))
+  return `#/createChild=${childTable}/defaultValues=${encode(defaultValues)}/disabledFields=${encode(Object.fromEntries(disabledFields.map((name) => [name, 1])))}`
+}
+
+/** One multipart form field of a captured request (process init or record write). */
+export function multipartField(request: Request, name: string): string | undefined {
+  return new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`).exec(request.postData() ?? '')?.[1]
+}
+
+/** Waits for the next POST to a backend path (for example a process init) and returns the request. */
+export function nextPost(page: Page, pathname: string): Promise<Request> {
+  return page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === pathname)
+}
+
 /** The record's primary key from a record view URL such as /app/person/7. */
 export function recordIdFromUrl(page: Page, table: string): string {
   const match = new RegExp(`/app/${table}/(\\d+)/?$`).exec(new URL(page.url()).pathname)

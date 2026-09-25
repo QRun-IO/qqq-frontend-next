@@ -957,6 +957,77 @@
         "QRun-IO/qqq#673"
       ],
       "required": true
+    },
+    {
+      "id": "REC-049",
+      "feature": "Record view keyboard shortcuts n, e, c, d, a (Material) and their help text",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (keyboard shortcuts)",
+        "src/lib/hooks/use-page-shortcuts.ts",
+        "src/components/records/RecordViewHeader.tsx",
+        "src/components/feedback/KeyboardShortcutsDialog.tsx"
+      ],
+      "fixture": "sample person",
+      "scenarios": [
+        "e, c and n open edit, copy and create with the right values",
+        "a opens the audit history; d opens the delete confirmation, Escape keeps the row (SQL), confirming deletes it (SQL)",
+        "? lists Create a New Record, Edit/Copy/Delete/Audit the current Record with their keys"
+      ],
+      "negative": [
+        "no shortcut fires while the audit or keyboard help dialog is open",
+        "keys typed in the Jump to input are text",
+        "viewer persona: n, e, c, d do nothing (a still works); the backend refuses insert and delete (403, SQL unchanged)"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-050",
+      "feature": "Record view hash links: #audit, #/launchProcess={process} and #{section} anchors",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (hash handling)",
+        "qqq-backend-core AbstractHTMLWidgetRenderer.linkTableBulkLoadChildren (#/launchProcess=)",
+        "src/lib/utils/material-links.ts (recordHashAction)",
+        "src/lib/hooks/use-location-hash.ts",
+        "src/components/records/RecordViewHeader.tsx, src/components/records/RecordView.tsx"
+      ],
+      "fixture": "sample person, person.bulkEdit",
+      "scenarios": [
+        "#audit opens the audit dialog; closing it clears the hash and a reload does not reopen it",
+        "#/launchProcess=person.bulkEdit replaces the URL with the run for the record (init recordIds=2); Cancel returns to the record",
+        "#employmentInfo selects the Employment Info tab and scrolls it into view; a later hash change selects Dates"
+      ],
+      "negative": [],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-051",
+      "feature": "Create presets from links: #/createChild= opens a child create dialog over the record; /create#/defaultValues=/disabledFields= prefills and locks",
+      "source": [
+        "qqq-backend-core AbstractHTMLWidgetRenderer.linkTableCreateChild, linkTableCreateWithDefaultValues",
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (createChild), src/qqq/components/forms/EntityForm.tsx (defaultValues, disabledFields)",
+        "src/components/records/CreateChildFromLinkDialog.tsx",
+        "src/app/(dashboard)/app/[slug]/create/page.tsx",
+        "src/components/forms/DynamicForm.tsx, src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "sample person -> pet (personId), petSpecies",
+      "scenarios": [
+        "the backend-format #/createChild=pet link on person 3 opens Add Pet with Person preset and disabled; Create closes the dialog, clears the hash, submits personId=3 and SQL shows the pet linked to person 3",
+        "/app/pet/create#/defaultValues={name, personId}/disabledFields={personId} prefills both, locks Person and saves them (SQL)",
+        "/app/pet/create#defaultValues={speciesId} (no slash) prefills Species without locking"
+      ],
+      "negative": [
+        "locked fields are disabled; unlocked preset fields stay editable"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
     }
   ]
 }

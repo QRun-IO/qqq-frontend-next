@@ -793,6 +793,29 @@
       "required": true
     },
     {
+      "id": "QRY-065",
+      "feature": "Query screen keyboard shortcuts n (new record), r (refresh the query), f (open the filter builder)",
+      "source": [
+        "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx (keyboard shortcuts)",
+        "src/lib/hooks/use-page-shortcuts.ts",
+        "src/components/query/RecordQuery.tsx"
+      ],
+      "fixture": "sample person",
+      "scenarios": [
+        "r sends a new query request and shows a value changed through the API (SQL confirms the change)",
+        "f opens the Advanced Filters panel and a second f keeps it open",
+        "n opens the create form"
+      ],
+      "negative": [
+        "keys typed in quick search are text (no filter panel, no navigation)",
+        "viewer persona: n does nothing (f still works); the backend refuses the insert (403, SQL unchanged)"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
       "id": "QRY-066",
       "feature": "Processes launched from a variant table run with the chosen variant (tableVariant on init and every step) and return to the query",
       "source": [
