@@ -45,7 +45,12 @@ const sections = areas.map((area) => {
       : results.length === 0 ? 'not run'
         : ok ? `pass (${projects.join(', ')})`
           : `FAIL: ${results.filter((r) => r.outcome !== 'passed').map((r) => `${r.project} ${r.outcome}`).join(', ')}`
-    const issues = (row.issues ?? []).map((number) => `[#${number}](https://github.com/QRun-IO/qqq/issues/${number})`).join(' ')
+    const issues = (row.issues ?? []).map((issue) => {
+      const match = String(issue).match(/^(?:([\w.-]+\/[\w.-]+))?#?(\d+)$/)
+      if (!match) return escape(issue)
+      const repo = match[1] ?? 'QRun-IO/qqq'
+      return `[${repo === 'QRun-IO/qqq' ? '' : repo}#${match[2]}](https://github.com/${repo}/issues/${match[2]})`
+    }).join(' ')
     lines.push(`| ${row.id} | ${escape(row.feature)} | ${escape((row.scenarios ?? []).join('; '))} | ${escape((row.negative ?? []).join('; '))} | ${escape(row.fixture)} | ${result} | ${issues} |`)
   }
   return lines.join('\n')
