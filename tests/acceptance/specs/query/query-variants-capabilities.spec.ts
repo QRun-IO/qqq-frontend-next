@@ -109,3 +109,50 @@ test('[QRY-063] the enum-backed Pet Species table is read-only', async ({ page, 
   const insert = await backend.api.post('/data/petSpecies', { multipart: { possibleValueLabel: 'Bird' } })
   expect(insert.ok()).toBe(false)
 })
+
+test('[QRY-066] a process launched from a variant table runs with the chosen variant on init and every step', async ({ page, diagnostics }) => {
+  void diagnostics
+  await open(page, '/app/qryStock')
+  const picker = page.locator('[data-qqq-id="variant-picker-dialog"]')
+  await picker.getByRole('option', { name: 'South Store' }).click()
+  await picker.getByRole('button', { name: 'Select' }).click()
+  await expectColumn(page, 'sku', ['S-KIWI'])
+
+  const processRequests: { path: string; body: string }[] = []
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'POST' && path.startsWith('/processes/qryStock.bulkDelete/')) processRequests.push({ path, body: request.postData() ?? '' })
+  })
+  const variantOf = (body: string) => body.match(/name="tableVariant"\r\n\r\n([^\r]*)/)?.[1]
+
+  await page.getByRole('button', { name: 'Selection', exact: true }).click()
+  await page.getByRole('menuitem', { name: /^Full query result/ }).click()
+  // the review preview reads the run's records, which also needs the variant
+  const previewRecords = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith('/processes/qryStock.bulkDelete/')
+    && new URL(response.url()).pathname.endsWith('/records'))
+  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name: 'Bulk Delete' }).click()
+  // the backend counted the South store's one record, which it can only do with the variant
+  await expect(page.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 1 Stock record.')
+  const records = await previewRecords
+  expect(records.status()).toBe(200)
+  expect(new URL(records.url()).searchParams.get('tableVariant')).toBe(JSON.stringify({ type: 'qryStore', id: 2 }))
+  await page.getByRole('radio', { name: /^Skip Validation/ }).check()
+  await page.getByRole('button', { name: 'Submit' }).click()
+  await expect(page.getByRole('button', { name: 'Return' })).toBeVisible()
+
+  const initAndSteps = processRequests.filter((request) => request.path.endsWith('/init') || request.path.includes('/step/'))
+  expect(initAndSteps.length).toBeGreaterThanOrEqual(2)
+  for (const request of initAndSteps) {
+    expect(JSON.parse(variantOf(request.body) ?? 'null'), request.path).toEqual({ type: 'qryStore', id: 2 })
+  }
+
+  // Return lands back on the variant query, which now has no South rows; North is untouched
+  await page.getByRole('button', { name: 'Return' }).click()
+  await expect(page).toHaveURL(/\/app\/qryStock\/?(\?.*)?$/)
+  await expect(page.getByText('No records found', { exact: true })).toBeVisible()
+  await page.locator('[data-qqq-id="button-variant-picker"]').click()
+  await picker.getByRole('option', { name: 'North Store' }).click()
+  await picker.getByRole('button', { name: 'Select' }).click()
+  await expectColumn(page, 'sku', ['N-PEAR', 'N-APPLE'])
+})

@@ -435,8 +435,9 @@ final class WidgetsFixtures
    {
       add(qInstance, widget("accBlocks", WidgetType.COMPOSITE, "Owned Blocks").withGridColumns(12));
       add(qInstance, widget("accBlocksUnknown", WidgetType.COMPOSITE, "Owned Unknown Block").withGridColumns(6));
+      add(qInstance, widget("accLeafBlock", WidgetType.COMPOSITE, "Owned Leaf Block").withGridColumns(6));
       qInstance.addApp(new QAppMetaData().withName(BLOCKS_APP).withLabel("Widget Blocks").withIcon(new QIcon("view_quilt"))
-         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accHealthy")));
+         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accLeafBlock", "accHealthy")));
    }
 
 
@@ -994,6 +995,8 @@ final class WidgetsFixtures
                   return ("OWNED_UNKNOWN");
                }
             }.withValues(new BigNumberValues().withNumber("9")));
+            // a renderer may return one block as the whole widget (Material's `block` payload), not a composite
+            case "accLeafBlock" -> new TextBlockData().withBlockId("ownedLeaf").withValues(new TextValues().withText("Owned leaf block text"));
             case "accDenied" -> new RawHTML("Restricted", "Restricted widget content; renders=" + count);
             case "accHostFieldValues" -> hostFieldValues(input, params);
             case "accHostHtml" -> new RawHTML("Owned Record Html", "Host record " + params.getOrDefault("id", "(none)") + " in " + params.getOrDefault("tableName", "(none)"));

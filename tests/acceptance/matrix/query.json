@@ -793,6 +793,29 @@
       "required": true
     },
     {
+      "id": "QRY-066",
+      "feature": "Processes launched from a variant table run with the chosen variant (tableVariant on init and every step) and return to the query",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx:1852-1856,2026-2030 (tableVariant from qqq.tableVariant.<table>)",
+        "src/components/process/ProcessRun.tsx",
+        "src/lib/api/processes.ts processInit/processStep",
+        "src/lib/utils/table-variant.ts"
+      ],
+      "fixture": "QueryFixtures.java qryStock (memory backend keyed by qryStore variants)",
+      "scenarios": [
+        "Bulk Delete of the South store's full query result counts its one record",
+        "Every init and step request carries tableVariant {type: qryStore, id: 2}",
+        "Return comes back to the variant query, which is empty for South while North keeps its two rows"
+      ],
+      "negative": [
+        "Without the variant the backend could not read the variant table's records"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
       "id": "REL-001",
       "feature": "Possible-value cells show the related record label and link to it",
       "source": [

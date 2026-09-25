@@ -52,6 +52,8 @@ export interface ProcessStepContextValue {
   previewTableMetaData?: QTableMetaData
   /** Instance metadata (widgets, table labels), when loaded. */
   instance?: QInstance
+  /** JSON of the table variant the run uses (sent with record requests). */
+  tableVariant?: string
   step: QFrontendStepMetaData
   /** Current process values from the backend. */
   values: Record<string, unknown>

@@ -309,6 +309,8 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  supplementalAppMetaData?: Record<string, unknown>
 }
 
 /**

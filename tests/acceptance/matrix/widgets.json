@@ -1029,6 +1029,27 @@
       "required": true
     },
     {
+      "id": "WID-064",
+      "feature": "a widget whose payload is a single leaf block (Material block widget) renders that block",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:831-844",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
+        "src/components/widgets/blocks/QqqComposite.tsx"
+      ],
+      "fixture": "WidgetsFixtures.java accLeafBlock (COMPOSITE widget whose renderer returns a TextBlockData)",
+      "scenarios": [
+        "The backend payload is the TEXT block itself (blockTypeName TEXT, no blocks list)",
+        "The widget shows the block's text as a TEXT block"
+      ],
+      "negative": [
+        "No empty COMPOSITE container is rendered in its place"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
       "id": "RPT-001",
       "feature": "TABLE report runs through its process and downloads CSV matching the database",
       "source": [

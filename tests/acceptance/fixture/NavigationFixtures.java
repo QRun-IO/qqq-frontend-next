@@ -32,6 +32,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.reporting.ReportType;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardAppMetaData;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardBannerSlots;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 
@@ -58,6 +59,8 @@ final class NavigationFixtures
    static final String TABLE_DEEP      = "navDeepItem";
    static final String TABLE_HIDDEN    = "navHiddenNote";
    static final String REPORT_DEEP     = "navDeepItemReport";
+   static final String APP_QUIET       = "navQuietHome";
+   static final String TABLE_QUIET     = "navQuietItem";
 
    static final String ACCENT_COLOR = "#1d4ed8";
 
@@ -144,6 +147,28 @@ final class NavigationFixtures
          .withName(APP_EMPTY)
          .withLabel("Nav Empty App")
          .withIcon(new QIcon("inbox")));
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////
+      // Material app settings: a home screen without its label and without table counts (#714). //
+      // navQuietItem reads the nav_deep_item rows under its own name.                              //
+      ////////////////////////////////////////////////////////////////////////////////////////////////
+      instance.addTable(new QTableMetaData()
+         .withName(TABLE_QUIET)
+         .withLabel("Nav Quiet Item")
+         .withIcon(new QIcon("inventory"))
+         .withBackendName(SampleMetaDataProvider.RDBMS_BACKEND_NAME)
+         .withBackendDetails(new RDBMSTableBackendDetails().withTableName("nav_deep_item"))
+         .withPrimaryKeyField("id")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withLabel("Id").withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING).withLabel("Name")));
+      instance.addApp(new QAppMetaData()
+         .withName(APP_QUIET)
+         .withLabel("Nav Quiet Home")
+         .withIcon(new QIcon("do_not_disturb"))
+         .withChild(instance.getTable(TABLE_QUIET))
+         .withSupplementalMetaData(new MaterialDashboardAppMetaData()
+            .withShowAppLabelOnHomeScreen(false)
+            .withIncludeTableCountsOnHomeScreen(false)));
 
       QBrandingMetaData branding = instance.getBranding();
       branding.withAccentColor(ACCENT_COLOR);

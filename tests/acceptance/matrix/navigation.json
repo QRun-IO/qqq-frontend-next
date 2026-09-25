@@ -532,6 +532,29 @@
         "#652"
       ],
       "required": true
+    },
+    {
+      "id": "NAV-032",
+      "feature": "Material app settings (MaterialDashboardAppMetaData): showAppLabelOnHomeScreen and includeTableCountsOnHomeScreen turned off hide the home-screen title and the table counts",
+      "source": [
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardAppMetaData.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/apps/Home.tsx:81-88,176-187,307-314",
+        "qqq-middleware-javalin v1 AppMetaData.getSupplementalAppMetaData",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "NavigationFixtures.java navQuietHome app (navQuietItem table) with MaterialDashboardAppMetaData(false, false)",
+      "scenarios": [
+        "v1 metaData carries supplementalAppMetaData.materialDashboard for the app",
+        "The app home has no visible title (a screen-reader-only h1 remains) and the table entry shows no count",
+        "No count request is made for the table"
+      ],
+      "negative": [
+        "Apps without the settings keep their title and counts (Material defaults)"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
     }
   ]
 }

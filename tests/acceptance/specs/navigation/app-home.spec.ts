@@ -195,4 +195,31 @@ test.describe('app home', () => {
     const order = await widgets.locator('[data-qqq-id^="widget-grid-item-"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-qqq-id')))
     expect(order).toEqual(declared.map((name) => `widget-grid-item-${name}`))
   })
+
+  test('[NAV-032] Material app settings hide the home-screen label and the table counts', async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    // the backend delivers MaterialDashboardAppMetaData with the app (v1 supplementalAppMetaData)
+    const meta = await v1MetaData(backend)
+    expect((meta.apps.navQuietHome as { supplementalAppMetaData?: unknown }).supplementalAppMetaData)
+      .toMatchObject({ materialDashboard: { showAppLabelOnHomeScreen: false, includeTableCountsOnHomeScreen: false } })
+    const counts: string[] = []
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname.includes('/table/navQuietItem/count')) counts.push(request.url())
+    })
+    await open(page, '/app/navQuietHome')
+    await waitForShell(page)
+    const home = page.locator('[data-qqq-id="app-home-navQuietHome"]')
+    // no visible app title; the page keeps its name for assistive technology
+    await expect(home.getByRole('heading', { level: 1, name: 'Nav Quiet Home' })).toHaveClass(/sr-only/)
+    const entry = home.locator('[data-qqq-id="app-section-table-navQuietItem"]')
+    await expect(entry).toHaveText('Nav Quiet Item')
+    await expect(home.locator('[data-qqq-id="app-section-table-count-navQuietItem"]')).toHaveCount(0)
+    expect(counts).toEqual([])
+
+    // an app without the settings keeps both (Material defaults)
+    await open(page, '/app/miscellaneous')
+    await waitForShell(page)
+    await expect(page.getByRole('heading', { level: 1, name: 'Miscellaneous' })).toBeVisible()
+    await expect(page.locator('[data-qqq-id^="app-section-table-count-"]').first()).toBeVisible()
+  })
 })
