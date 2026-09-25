@@ -15,7 +15,7 @@
  */
 
 /**
- * @file Dashboard home page — shows system stats, recently viewed records, quick actions, widgets, and app navigation.
+ * @file Dashboard home page — navigation overview: counts, recently viewed records, quick actions and applications.
  */
 
 'use client'
@@ -24,8 +24,6 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import {
-  LayoutDashboard,
-  Table2,
   Workflow,
   Clock,
   ArrowRight,
@@ -43,27 +41,54 @@ import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useAuth } from '@/lib/auth/use-auth'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
+import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
-import type { QWidgetMetaData } from '@/types'
-import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
+import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+
+/** Fallback icon kind for each app-tree node type. */
+const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
+
+/**
+ * Flattens an app route's descendants into leaf (non-app) routes.
+ *
+ * @param route - App route.
+ * @returns Every table, process and report under the app, in tree order.
+ */
+function leafRoutes(route: SidebarRoute): SidebarRoute[] {
+  return (route.children ?? []).flatMap((child) => (child.nodeType === 'APP' ? leafRoutes(child) : [child]))
+}
+
+/**
+ * Formats a Unix millisecond timestamp as a human-readable relative time string.
+ *
+ * @param timestamp - Milliseconds since epoch (e.g. from `Date.now()`).
+ * @returns A string such as "Just now", "5m ago", "3h ago", or "2d ago".
+ */
+function timeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
 
 /**
  * Top-level dashboard home page rendered at `/app`.
  *
- * Displays system statistics derived from application metadata, a recently-viewed
- * records list sourced from localStorage, quick-action links for creatable tables
- * and runnable processes, home-level widgets from any app definition, and an
- * applications overview grid.
+ * Everything shown is derived from the navigable app tree, so hidden and
+ * unpermitted objects never appear and all text uses metadata labels.
+ * App dashboards (widgets) live on each app's own home page.
  *
  * @returns A composed page that assembles:
  *   - A time-based greeting header with the authenticated user's first name
- *   - A 4-column stats grid (table count, process count, app count, widget count)
+ *   - Counts of navigable tables, processes and apps, and of widgets on those apps
  *   - A recently-viewed records list (up to 8, sourced from localStorage)
- *   - A quick-actions panel (create links for up to 6 insertable tables; run links for up to 4 processes)
- *   - A home-widgets row (up to 6 `<ConnectedWidget>` instances from app metadata)
- *   - An applications overview grid linking to each app's first child route
- *   - A system-info footer showing live table/process counts and the current user's email
+ *   - Quick actions: create links for up to 6 insertable tables; run links for up to 4 processes
+ *   - An applications overview linking to each top-level app's home
  */
 export default function DashboardPage() {
   const { setPageHeader } = useQContext()
@@ -76,8 +101,8 @@ export default function DashboardPage() {
     staleTime: 1000 * 60 * 30,
   })
 
-  const { sidebarRoutes } = useAppTreeRoutes(metaData)
-  const appRoutes = sidebarRoutes.filter((r) => r.path !== '/app')
+  const { sidebarRoutes, navTargets } = useAppTreeRoutes(metaData)
+  const appRoutes = sidebarRoutes.filter((route) => route.nodeType === 'APP')
 
   const appName = metaData?.branding?.appName || 'QQQ Admin'
 
@@ -90,61 +115,34 @@ export default function DashboardPage() {
     setRecentRecords(getRecentRecords().slice(0, 8))
   }, [])
 
-  // Compute system stats from metadata
-  const tableCount = metaData ? Object.keys(metaData.tables).length : 0
-  const processCount = metaData ? Object.keys(metaData.processes).length : 0
-  const appCount = metaData ? Object.keys(metaData.apps).length : 0
-  const widgetCount = metaData ? Object.keys(metaData.widgets).length : 0
+  const tableTargets = navTargets.filter((target) => target.nodeType === 'TABLE')
+  const processTargets = navTargets.filter((target) => target.nodeType === 'PROCESS')
+  const appTargets = navTargets.filter((target) => target.nodeType === 'APP')
+  const widgetNames = new Set(appTargets.flatMap((target) => (metaData?.apps?.[target.key]?.widgets ?? [])
+    .filter((widgetName) => metaData?.widgets?.[widgetName]?.hasPermission)))
 
-  // Gather tables that support create for quick actions
-  const creatableTables = metaData
-    ? Object.values(metaData.tables)
-        .filter((t) => !t.isHidden && t.insertPermission && t.capabilities?.includes('TABLE_INSERT'))
-        .slice(0, 6)
-    : []
+  // Tables in navigation the user may insert into
+  const creatableTables = tableTargets
+    .filter((target) => {
+      const table = metaData?.tables?.[target.key]
+      return Boolean(table?.insertPermission && table.capabilities?.includes('TABLE_INSERT'))
+    })
+    .slice(0, 6)
 
-  // Gather runnable processes for quick actions
-  const runnableProcesses = metaData
-    ? Object.values(metaData.processes)
-        .filter((p) => !p.isHidden)
-        .slice(0, 4)
-    : []
-
-  // Gather home-level widgets (widgets that are on any app's home)
-  const homeWidgets: QWidgetMetaData[] = []
-  if (metaData) {
-    const seen = new Set<string>()
-    for (const app of Object.values(metaData.apps)) {
-      for (const wName of app.widgets) {
-        if (!seen.has(wName) && metaData.widgets[wName]?.hasPermission) {
-          seen.add(wName)
-          homeWidgets.push(metaData.widgets[wName])
-        }
-      }
-    }
-  }
+  // Processes in navigation (the backend omits processes the user may not run)
+  const runnableProcesses = processTargets.slice(0, 4)
 
   // Time-based greeting
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const firstName = user?.name?.split(' ')[0] || ''
 
-  /**
-   * Formats a Unix millisecond timestamp as a human-readable relative time string.
-   *
-   * @param timestamp - Milliseconds since epoch (e.g. from `Date.now()`).
-   * @returns A string such as "Just now", "5m ago", "3h ago", or "2d ago".
-   */
-  function timeAgo(timestamp: number): string {
-    const diff = Date.now() - timestamp
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return 'Just now'
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    return `${days}d ago`
-  }
+  const stats: Array<{ label: string; value: number; hint: string; icon: React.ReactNode; id: string }> = [
+    { id: 'tables', label: 'Tables', value: tableTargets.length, hint: 'Data tables available', icon: <Database className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
+    { id: 'processes', label: 'Processes', value: processTargets.length, hint: 'Automated workflows', icon: <Workflow className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
+    { id: 'apps', label: 'Applications', value: appTargets.length, hint: 'App modules', icon: <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
+    { id: 'widgets', label: 'Widgets', value: widgetNames.size, hint: 'Dashboard components', icon: <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
+  ]
 
   return (
     <div className="space-y-8" data-qqq-id="dashboard-home">
@@ -160,48 +158,26 @@ export default function DashboardPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Tables</span>
-            <Database className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        {stats.map((stat) => (
+          <div key={stat.id} className="rounded-xl border border-border bg-card p-5 shadow-sm" data-qqq-id={`dashboard-stat-${stat.id}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
+              {stat.icon}
+            </div>
+            <p className="mt-2 text-3xl font-bold text-foreground" data-qqq-id={`dashboard-stat-${stat.id}-value`}>{stat.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
           </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">{tableCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Data tables available</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Processes</span>
-            <Workflow className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">{processCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Automated workflows</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Applications</span>
-            <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">{appCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">App modules</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Widgets</span>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">{widgetCount}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Dashboard components</p>
-        </div>
+        ))}
       </div>
 
       {/* Two-column layout: Recent Records + Quick Actions */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Recent Records — takes 2 columns */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card shadow-sm">
+        <section aria-labelledby="dashboard-recent-heading" className="lg:col-span-2 rounded-xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-lg font-bold text-foreground">Recently Viewed</h2>
+              <h2 id="dashboard-recent-heading" className="text-lg font-bold text-foreground">Recently Viewed</h2>
             </div>
           </div>
           <div className="divide-y divide-border">
@@ -214,7 +190,7 @@ export default function DashboardPage() {
                   data-qqq-id={`dashboard-recent-${record.recordId}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground" aria-hidden="true">
                       {record.recordLabel.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -237,38 +213,38 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Quick Actions — takes 1 column */}
-        <div className="rounded-xl border border-border bg-card shadow-sm">
+        <section aria-labelledby="dashboard-actions-heading" className="rounded-xl border border-border bg-card shadow-sm">
           <div className="border-b border-border px-6 py-4">
-            <h2 className="text-lg font-bold text-foreground">Quick Actions</h2>
+            <h2 id="dashboard-actions-heading" className="text-lg font-bold text-foreground">Quick Actions</h2>
           </div>
           <div className="p-4 space-y-2">
-            {creatableTables.map((table) => (
+            {creatableTables.map((target) => (
               <Link
-                key={table.name}
-                href={`/app/${table.name}/create`}
+                key={target.key}
+                href={`${target.path}/create`}
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-                data-qqq-id={`dashboard-create-${table.name}`}
+                data-qqq-id={`dashboard-create-${target.key}`}
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 </div>
-                Create {table.label}
+                Create {target.label}
               </Link>
             ))}
-            {runnableProcesses.map((process) => (
+            {runnableProcesses.map((target) => (
               <Link
-                key={process.name}
-                href={`/app/${process.name}`}
+                key={target.key}
+                href={target.path}
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-                data-qqq-id={`dashboard-process-${process.name}`}
+                data-qqq-id={`dashboard-process-${target.key}`}
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-chart-2/10 text-chart-2">
-                  <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
+                  <MetadataIcon icon={target.icon} kind="process" className="h-3.5 w-3.5" />
                 </div>
-                {process.label}
+                {target.label}
               </Link>
             ))}
             {creatableTables.length === 0 && runnableProcesses.length === 0 && (
@@ -277,91 +253,80 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
-
-      {/* Home Widgets — rendered from metadata */}
-      {homeWidgets.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-foreground">Widgets</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {homeWidgets.slice(0, 6).map((widget) => (
-              <ConnectedWidget key={widget.name} widgetMetaData={widget} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Applications overview */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">Applications</h2>
-        </div>
+      <section aria-labelledby="dashboard-apps-heading" className="space-y-4">
+        <h2 id="dashboard-apps-heading" className="text-lg font-bold text-foreground">Applications</h2>
         {appRoutes.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {appRoutes.map((route) => (
-              <Link
-                key={route.path}
-                href={route.children?.[0]?.path ?? route.path}
-                className="group rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                data-qqq-id={`dashboard-app-${route.name}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+            {appRoutes.map((route) => {
+              const leaves = leafRoutes(route)
+              return (
+                <Link
+                  key={route.path}
+                  href={route.path}
+                  className="group rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-qqq-id={`dashboard-app-${route.key}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <MetadataIcon icon={route.icon} kind="app" className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                          {route.name}
+                        </h3>
+                        {leaves.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {leaves.length} {leaves.length === 1 ? 'item' : 'items'}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {route.name}
-                      </h3>
-                      {route.children && route.children.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {route.children.length} {route.children.length === 1 ? 'item' : 'items'}
-                        </p>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                  </div>
+                  {leaves.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {leaves.slice(0, 5).map((leaf) => (
+                        <span
+                          key={leaf.path}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                        >
+                          <MetadataIcon icon={leaf.icon} kind={leaf.nodeType ? ICON_KIND[leaf.nodeType] : 'table'} className="h-3 w-3" />
+                          {leaf.name}
+                        </span>
+                      ))}
+                      {leaves.length > 5 && (
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          +{leaves.length - 5} more
+                        </span>
                       )}
                     </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
-                </div>
-                {/* Show child items preview */}
-                {route.children && route.children.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {route.children.slice(0, 5).map((child) => (
-                      <span
-                        key={child.path}
-                        className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-                      >
-                        <Table2 className="h-3 w-3" aria-hidden="true" />
-                        {child.name}
-                      </span>
-                    ))}
-                    {route.children.length > 5 && (
-                      <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        +{route.children.length - 5} more
-                      </span>
-                    )}
-                  </div>
-                )}
-              </Link>
-            ))}
+                  )}
+                </Link>
+              )
+            })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 py-16 text-center">
-            <p className="text-muted-foreground">No applications available</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 py-16 text-center" data-qqq-id="dashboard-no-apps">
+            {/* Material Dashboard's NoApps message */}
+            <p className="text-muted-foreground">You do not have permission to access any apps.</p>
           </div>
         )}
-      </div>
+      </section>
 
       {/* System info footer */}
-      <div className="flex items-center gap-6 rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-6 rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileText className="h-4 w-4" aria-hidden="true" />
-          <span>{tableCount} tables</span>
+          <span>{tableTargets.length} tables</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Workflow className="h-4 w-4" aria-hidden="true" />
-          <span>{processCount} processes</span>
+          <span>{processTargets.length} processes</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" aria-hidden="true" />

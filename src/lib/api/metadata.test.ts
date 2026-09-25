@@ -60,6 +60,20 @@ describe('Metadata API', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(1)
   })
 
+  it('resolves reports the app tree links to from the full metadata (v1 omits reports)', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const appTree = [{ name: 'app', label: 'App', type: 'APP', children: [{ name: 'rpt', label: 'Rpt', type: 'REPORT' }] }]
+    const light = { apps: {}, tables: {}, processes: {}, appTree, widgets: {} }
+    const reports = { rpt: { name: 'rpt', label: 'Rpt', isHidden: false, hasPermission: true } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ reports })
+    expect(await loadMetaData()).toEqual({ ...light, reports })
+    // An app tree without report nodes needs no second request
+    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, appTree: [] })
+    await loadMetaData()
+    expect(apiClient.get).toHaveBeenCalledTimes(1)
+  })
+
   it('does not infer permission when full widget metadata fails', async () => {
     const { default: apiClient } = await import('./client')
     const { loadMetaData } = await import('./metadata')

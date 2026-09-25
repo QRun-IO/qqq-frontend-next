@@ -25,7 +25,7 @@ import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
-import type { ParentAppInfo } from '@/lib/hooks/use-routes'
+import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
 
 /**
  * Props for the Header component.
@@ -41,8 +41,10 @@ export interface HeaderProps {
   onHelpOpen?: () => void
   /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
-  /** Maps flat child paths to their parent app, passed through to Breadcrumbs for injection. */
-  parentAppMap?: Record<string, ParentAppInfo>
+  /** Maps node paths to their enclosing apps, passed through to Breadcrumbs. */
+  ancestorAppMap?: Record<string, ParentAppInfo[]>
+  /** Navigable app-tree nodes for the header search. */
+  navTargets?: NavTarget[]
 }
 
 /**
@@ -61,7 +63,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, parentAppMap = {} }: HeaderProps) {
+export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [] }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (
@@ -81,7 +83,7 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
-        <Breadcrumbs pathToLabelMap={pathToLabelMap} parentAppMap={parentAppMap} />
+        <Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />
       </div>
 
       {/* Right section: search + help + notifications */}
@@ -97,7 +99,7 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
         </button>
 
         {/* Global search — hidden on mobile */}
-        <GlobalSearch className="hidden md:block" />
+        <GlobalSearch navTargets={navTargets} className="hidden md:block" />
 
         {/* Keyboard shortcuts hint */}
         <button

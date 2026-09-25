@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-// Tests for GlobalSearch component
+// Tests for GlobalSearch: local "jump to" search over navigation targets and recent records
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { http, HttpResponse } from 'msw'
-import { server } from '@/mocks/node'
-import type { GlobalSearchResult } from '@/lib/api/tables'
 
-// Override next/navigation for this test file — we need per-test control of push
 const pushMock = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -35,288 +30,131 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { GlobalSearch } from './GlobalSearch'
+import type { NavTarget } from '@/lib/hooks/use-routes'
+import { addRecentRecord, clearRecentRecords } from '@/lib/utils/recent-records'
 
-const BASE = '/qqq/v1'
-
-// ─── Provider helper ──────────────────────────────────────────────────────────
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-}
-
-function createWrapper() {
-  const queryClient = makeQueryClient()
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client: queryClient }, children)
-  }
-}
-
-function renderSearch(props = {}) {
-  return render(<GlobalSearch {...props} />, { wrapper: createWrapper() })
-}
-
-// ─── Test data ────────────────────────────────────────────────────────────────
-
-const mockResults: GlobalSearchResult[] = [
-  { tableName: 'person', tableLabel: 'People', recordId: '1', recordLabel: 'Alice Smith' },
-  { tableName: 'person', tableLabel: 'People', recordId: '2', recordLabel: 'Alice Jones' },
+const peopleApp = { label: 'People App', path: '/app/peopleApp' }
+const greetingsApp = { label: 'Greetings App', path: '/app/greetingsApp' }
+const navTargets: NavTarget[] = [
+  { key: 'peopleApp', label: 'People App', path: '/app/peopleApp', nodeType: 'APP', icon: { name: 'person' }, ancestors: [] },
+  { key: 'greetingsApp', label: 'Greetings App', path: '/app/greetingsApp', nodeType: 'APP', ancestors: [peopleApp] },
+  { key: 'person', label: 'Person', path: '/app/person', nodeType: 'TABLE', icon: { name: 'person' }, ancestors: [peopleApp, greetingsApp] },
+  { key: 'pet', label: 'Pet', path: '/app/pet', nodeType: 'TABLE', icon: { name: 'pets' }, ancestors: [peopleApp, greetingsApp] },
+  { key: 'greetInteractive', label: 'Greet Interactive', path: '/app/greetInteractive', nodeType: 'PROCESS', ancestors: [peopleApp, greetingsApp] },
 ]
 
-// ─── Helper: type + advance debounce ─────────────────────────────────────────
-// The component debounces search by 300 ms. We use fake timers to advance past
-// the debounce without waiting in real time.
-
-async function typeAndDebounce(
-  user: ReturnType<typeof userEvent.setup>,
-  element: Element,
-  text: string
-) {
-  await user.type(element, text)
-  // Advance the 300 ms debounce timer
-  await act(() => {
-    vi.advanceTimersByTime(350)
-  })
+function renderSearch() {
+  return render(<GlobalSearch navTargets={navTargets} />)
 }
 
+const input = () => screen.getByRole('combobox', { name: 'Search pages and recent records' })
+
 describe('GlobalSearch', () => {
+  const fetchSpy = vi.fn()
+
   beforeEach(() => {
     pushMock.mockReset()
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+    clearRecentRecords()
+    fetchSpy.mockReset()
+    vi.stubGlobal('fetch', fetchSpy)
   })
 
   afterEach(() => {
-    vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
-  // ─── Initial render ───────────────────────────────────────────────────────
-
-  it('renders the search input', () => {
+  it('renders an empty combobox with no dropdown', () => {
     renderSearch()
-    expect(screen.getByRole('combobox', { name: /search records/i })).toBeInTheDocument()
-  })
-
-  it('input starts empty', () => {
-    renderSearch()
-    expect(screen.getByRole('combobox', { name: /search records/i })).toHaveValue('')
-  })
-
-  it('accepts typed text', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await user.type(input, 'hello')
-    expect(input).toHaveValue('hello')
-  })
-
-  // ─── Dropdown appearance ──────────────────────────────────────────────────
-
-  it('does not show dropdown on first render', () => {
-    renderSearch()
+    expect(input()).toHaveValue('')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('shows a dropdown after typing 2+ characters', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
+  it('matches navigation targets by label and shows their app context', async () => {
+    const user = userEvent.setup()
     renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => {
-      expect(screen.getByRole('listbox')).toBeInTheDocument()
-    })
+    await user.type(input(), 'pe')
+    const options = within(screen.getByRole('group', { name: 'Pages' })).getAllByRole('option')
+    expect(options.map((option) => option.querySelector('span span')?.textContent)).toEqual(['People App', 'Person', 'Pet', 'Greetings App', 'Greet Interactive'])
+    expect(options[1]).toHaveTextContent('People App / Greetings App')
+    expect(options[1].querySelector('svg')).toHaveAttribute('data-qqq-icon', 'person')
   })
 
-  it('shows search results after debounce', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
+  it('matches targets through their enclosing app label', async () => {
+    const user = userEvent.setup()
     renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: /alice smith/i })).toBeInTheDocument()
-    })
-    expect(screen.getByRole('option', { name: /alice jones/i })).toBeInTheDocument()
+    await user.type(input(), 'greetings')
+    const labels = screen.getAllByRole('option').map((option) => option.querySelector('span span')?.textContent)
+    expect(labels).toEqual(['Greetings App', 'Person', 'Pet', 'Greet Interactive'])
   })
 
-  // ─── Error state ──────────────────────────────────────────────────────────
-
-  it('shows "Search unavailable" message when query errors', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json({ error: 'internal' }, { status: 500 }))
-    )
-
+  it('navigates to the clicked target and clears the input', async () => {
+    const user = userEvent.setup()
     renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'fail')
-
-    await waitFor(() => {
-      expect(screen.getByText(/search unavailable/i)).toBeInTheDocument()
-    })
+    await user.type(input(), 'Greet Inter')
+    await user.click(screen.getByRole('option', { name: /^Greet/ }))
+    expect(pushMock).toHaveBeenCalledWith('/app/greetInteractive')
+    expect(input()).toHaveValue('')
   })
 
-  // ─── Navigation ───────────────────────────────────────────────────────────
-
-  it('calls router.push when a result item is clicked', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
+  it('supports arrow keys and Enter', async () => {
+    const user = userEvent.setup()
     renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => screen.getByRole('option', { name: /alice smith/i }))
-
-    await user.click(screen.getByRole('option', { name: /alice smith/i }))
-
-    expect(pushMock).toHaveBeenCalledWith(
-      expect.stringContaining('/app/person/1')
-    )
-  })
-
-  it('closes the dropdown after navigating to a result', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
-    renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => screen.getByRole('option', { name: /alice smith/i }))
-    await user.click(screen.getByRole('option', { name: /alice smith/i }))
-
-    await waitFor(() => {
-      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    })
-  })
-
-  // ─── Click-outside close ──────────────────────────────────────────────────
-
-  it('closes the dropdown when clicking outside the component', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
-    render(
-      <div>
-        <GlobalSearch />
-        <div data-testid="outside-area">Outside area</div>
-      </div>,
-      { wrapper: createWrapper() }
-    )
-
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => screen.getByRole('listbox'))
-
-    // Click somewhere outside the search component
-    await user.click(screen.getByTestId('outside-area'))
-
-    await waitFor(() => {
-      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    })
-  })
-
-  // ─── Focus restoration ────────────────────────────────────────────────────
-
-  it('closes the dropdown and input remains in DOM when clicking a non-focusable area', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
-    render(
-      <div>
-        <GlobalSearch />
-        <div data-testid="outside-area">Outside area</div>
-      </div>,
-      { wrapper: createWrapper() }
-    )
-
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-    await waitFor(() => screen.getByRole('listbox'))
-
-    // Click on a non-focusable element — dropdown should close
-    await user.click(screen.getByTestId('outside-area'))
-
-    await waitFor(() => {
-      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    })
-    // Input should still be in the document after close
-    expect(screen.getByRole('combobox', { name: /search records/i })).toBeInTheDocument()
-  })
-
-  // ─── Keyboard navigation ──────────────────────────────────────────────────
-
-  it('closes dropdown on Escape key', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json(mockResults))
-    )
-
-    renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'Al')
-
-    await waitFor(() => screen.getByRole('listbox'))
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() => {
-      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    })
-  })
-
-  it('navigates to search page when Enter is pressed with text but no selection', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-
-    server.use(
-      http.post(`${BASE}/search`, () => HttpResponse.json([]))
-    )
-
-    renderSearch()
-    const input = screen.getByRole('combobox', { name: /search records/i })
-    await typeAndDebounce(user, input, 'he')
-
-    // Dropdown is open (even if empty — the empty state shows)
-    await waitFor(() => screen.getByRole('listbox'))
-
+    await user.type(input(), 'pet')
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
     await user.keyboard('{Enter}')
-
-    expect(pushMock).toHaveBeenCalledWith(
-      expect.stringContaining('/app/search?q=he')
-    )
+    expect(pushMock).toHaveBeenCalledWith('/app/pet')
   })
 
-  // ─── data-qqq-id ─────────────────────────────────────────────────────────
-
-  it('container has data-qqq-id="header-search"', () => {
+  it('opens the search page on Enter with nothing selected', async () => {
+    const user = userEvent.setup()
     renderSearch()
-    expect(document.querySelector('[data-qqq-id="header-search"]')).toBeInTheDocument()
+    await user.type(input(), 'zzz{Enter}')
+    expect(pushMock).toHaveBeenCalledWith('/app/search?q=zzz')
+  })
+
+  it('keeps the keyboard selection when results appear under a resting pointer', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'pe')
+    // Results rendering under the pointer fire mouseenter without pointer movement
+    fireEvent.mouseEnter(screen.getAllByRole('option')[0])
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'false')
+    fireEvent.mouseMove(screen.getAllByRole('option')[1])
+    expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('shows an empty message when nothing matches', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'zzz')
+    expect(screen.getByRole('listbox')).toHaveTextContent('No pages or recent records match “zzz”')
+  })
+
+  it('lists recently viewed records before typing and filters them by label', async () => {
+    addRecentRecord({ tableName: 'person', tableLabel: 'Person', recordId: '1', recordLabel: 'Avery Sample', path: '/app/person/1' })
+    const user = userEvent.setup()
+    renderSearch()
+    await user.click(input())
+    expect(within(screen.getByRole('group', { name: 'Recently viewed' })).getByRole('option', { name: /Avery Sample/ })).toBeInTheDocument()
+    await user.type(input(), 'avery')
+    await user.click(screen.getByRole('option', { name: /Avery Sample/ }))
+    expect(pushMock).toHaveBeenCalledWith('/app/person/1')
+  })
+
+  it('closes on Escape', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'pe')
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('never calls the backend (QQQ has no global search endpoint)', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'person{Enter}')
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

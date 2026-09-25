@@ -15,7 +15,7 @@
  */
 
 /**
- * @file CommandMenu — Cmd+K / Ctrl+K command palette that fuzzy-searches all sidebar routes from QContext.
+ * @file CommandMenu — Cmd+K / Ctrl+K command palette that fuzzy-searches every navigable app, table, process and report.
  */
 
 'use client'
@@ -23,95 +23,17 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
 import { useRouter } from 'next/navigation'
-import { Search, Table2, Workflow, BarChart3, LayoutGrid, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 
-import { useQContext } from '@/lib/context/q-context'
+import type { NavTarget } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
+import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 
-/**
- * Represents a single navigable entry in the command palette list.
- */
-interface CommandMenuItem {
-  /** Unique identifier (the route path). */
-  id: string
-  /** Human-readable display label shown in the list. */
-  label: string
-  /** The URL path to navigate to when this item is selected. */
-  path: string
-  /** The type of resource, used to select an icon. */
-  type: 'app' | 'table' | 'process' | 'report'
-  /** Optional parent-app label shown as a breadcrumb hint on the right. */
-  breadcrumb?: string
-}
+/** Fallback icon kind for each app-tree node type. */
+const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
 
-/**
- * Converts the flat `pathToLabelMap` from QContext into a list of CommandMenuItems.
- *
- * Parametric paths (containing `:`) and utility sub-paths (`/create`, `/dev`,
- * `/key`, `/savedView`) are filtered out. Two-segment paths under `/app` are
- * classified as `'app'` type; three-segment paths are `'table'` type with the
- * parent-app label injected as a breadcrumb.
- *
- * @param pathToLabelMap - Map of URL path strings to display label strings.
- * @returns An array of command palette items ready for fuzzy search.
- */
-function buildMenuItems(pathToLabelMap: Record<string, string>): CommandMenuItem[] {
-  const items: CommandMenuItem[] = []
-
-  for (const [path, label] of Object.entries(pathToLabelMap)) {
-    // Skip parametric paths and dev/utility pages
-    if (path.includes(':') || path.includes('/create') || path.includes('/dev') || path.includes('/key') || path.includes('/savedView')) {
-      continue
-    }
-
-    const parts = path.split('/').filter(Boolean) // e.g. ['app', 'employees'] or ['app', 'crm', 'employees']
-
-    let type: CommandMenuItem['type'] = 'table'
-    let breadcrumb: string | undefined
-
-    if (parts.length === 2 && parts[0] === 'app') {
-      // Could be app home or table
-      type = 'app'
-    } else if (parts.length === 3) {
-      type = 'table'
-      const parentPath = `/${parts[0]}/${parts[1]}`
-      breadcrumb = pathToLabelMap[parentPath]
-    }
-
-    items.push({
-      id: path,
-      label,
-      path,
-      type,
-      breadcrumb,
-    })
-  }
-
-  return items
-}
-
-/**
- * Renders a color-coded Lucide icon for a given command item type.
- *
- * Color mapping: `'app'` → blue LayoutGrid, `'table'` → green Table2,
- * `'process'` → purple Workflow, `'report'` → orange BarChart3.
- * Used in each command list row to give quick visual type differentiation.
- *
- * @param type - The resource type (`'app'`, `'table'`, `'process'`, or `'report'`).
- * @returns An `aria-hidden` Lucide icon element sized `h-4 w-4` and colored by type.
- */
-function TypeIcon({ type }: { type: CommandMenuItem['type'] }) {
-  switch (type) {
-    case 'app':
-      return <LayoutGrid className="h-4 w-4 text-blue-500" aria-hidden="true" />
-    case 'table':
-      return <Table2 className="h-4 w-4 text-green-500" aria-hidden="true" />
-    case 'process':
-      return <Workflow className="h-4 w-4 text-purple-500" aria-hidden="true" />
-    case 'report':
-      return <BarChart3 className="h-4 w-4 text-orange-500" aria-hidden="true" />
-  }
-}
+/** Human-readable type shown for each entry. */
+const TYPE_LABEL: Record<string, string> = { APP: 'App', TABLE: 'Table', PROCESS: 'Process', REPORT: 'Report' }
 
 /**
  * Props for the CommandMenu component.
@@ -121,28 +43,24 @@ interface CommandMenuProps {
   open: boolean
   /** Called when the palette should close (backdrop click, Escape, or item selected). */
   onClose: () => void
+  /** Navigable app-tree nodes (hidden objects already excluded). */
+  navTargets: NavTarget[]
 }
 
 /**
  * Renders the Cmd+K command palette overlay.
  *
- * Uses the `cmdk` Command primitive for fuzzy search and keyboard navigation.
- * All navigable routes are derived from `pathToLabelMap` in QContext. The
- * search term is cleared each time the palette closes. Selecting an item
- * navigates via the Next.js router and calls `onClose`.
+ * Uses the `cmdk` Command primitive for fuzzy search and keyboard navigation
+ * over every navigable app, table, process and report (by metadata label, with
+ * its type and enclosing apps as context). Selecting an item navigates and closes.
  *
  * @param props - Component properties.
- * @returns A fixed full-screen backdrop (blurred, 40 % black) with the
- *   command palette dialog centered at 10 vh / 15 vh from the top. Returns
- *   `null` when `open` is `false` so the DOM node is fully unmounted between
- *   invocations. Keyboard: ↑↓ navigate, ↵ open, Esc close.
+ * @returns A fixed full-screen backdrop with the command palette dialog, or
+ *   `null` when `open` is `false`. Keyboard: ↑↓ navigate, ↵ open, Esc close.
  */
-export function CommandMenu({ open, onClose }: CommandMenuProps) {
+export function CommandMenu({ open, onClose, navTargets }: CommandMenuProps) {
   const router = useRouter()
-  const { pathToLabelMap } = useQContext()
   const [search, setSearch] = useState('')
-
-  const items = buildMenuItems(pathToLabelMap)
 
   // Clear search when closed
   useEffect(() => {
@@ -194,7 +112,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder="Search pages, tables, processes..."
+              placeholder="Search apps, tables, processes..."
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
               data-qqq-id="command-menu-search"
@@ -221,7 +139,7 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
               No results found.
             </Command.Empty>
 
-            {items.length > 0 && (
+            {navTargets.length > 0 && (
               <Command.Group
                 heading={
                   <span className="px-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -229,29 +147,31 @@ export function CommandMenu({ open, onClose }: CommandMenuProps) {
                   </span>
                 }
               >
-                {items.map((item) => (
-                  <Command.Item
-                    key={item.id}
-                    value={`${item.label} ${item.breadcrumb ?? ''}`}
-                    onSelect={() => handleSelect(item.path)}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm',
-                      'text-foreground',
-                      'hover:bg-accent',
-                      'aria-selected:bg-primary/10 aria-selected:text-primary',
-                      'outline-none transition-colors'
-                    )}
-                    data-qqq-id={`command-item-${item.id.replace(/\//g, '-')}`}
-                  >
-                    <TypeIcon type={item.type} />
-                    <span className="flex-1 truncate font-medium">{item.label}</span>
-                    {item.breadcrumb && (
+                {navTargets.map((target) => {
+                  const context = target.ancestors.map((ancestor) => ancestor.label).join(' / ')
+                  return (
+                    <Command.Item
+                      key={target.path}
+                      value={`${target.label} ${context} ${target.path}`}
+                      onSelect={() => handleSelect(target.path)}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm',
+                        'text-foreground',
+                        'hover:bg-accent',
+                        'aria-selected:bg-primary/10 aria-selected:text-primary',
+                        'outline-none transition-colors'
+                      )}
+                      data-qqq-id={`command-item-${target.key}`}
+                      data-node-type={target.nodeType}
+                    >
+                      <MetadataIcon icon={target.icon} kind={ICON_KIND[target.nodeType]} />
+                      <span className="flex-1 truncate font-medium">{target.label}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {item.breadcrumb}
+                        {context ? `${TYPE_LABEL[target.nodeType]} · ${context}` : TYPE_LABEL[target.nodeType]}
                       </span>
-                    )}
-                  </Command.Item>
-                ))}
+                    </Command.Item>
+                  )
+                })}
               </Command.Group>
             )}
           </Command.List>

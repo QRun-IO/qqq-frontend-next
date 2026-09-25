@@ -15,159 +15,89 @@
  */
 
 /**
- * @file Banner — displays top-of-site environment/status banners driven by branding metadata.
+ * @file Banner — renders the branding banner declared for one display slot.
  */
 
 'use client'
 
-import React, { useState } from 'react'
-import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
+import React from 'react'
+import DOMPurify from 'dompurify'
+import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 
 import type { Banner } from '@/types'
+import { cn } from '@/lib/utils/cn'
 
 /**
- * Props for the BannerComponent.
+ * Banner slots QQQ applications declare (`MaterialDashboardBannerSlots`), with the
+ * accessible name of the landmark each renders in. Unknown slots are not rendered,
+ * as in Material Dashboard.
  */
-export interface BannerProps {
-  /** Map of banner keys to Banner metadata objects from the branding config. */
-  banners: Record<string, Banner>
-  /** Optional callback invoked with the banner key when a banner is dismissed. */
-  onDismiss?: (bannerKey: string) => void
-}
-
-/**
- * Maps each banner severity level to its CSS custom-property tokens, icon component,
- * and accessible ARIA label string.
- */
-const severityConfig = {
-  info: {
-    bg: 'var(--qqq-banner-info-bg)',
-    border: 'var(--qqq-banner-info-border)',
-    text: 'var(--qqq-banner-info-text)',
-    icon: Info,
-    ariaLabel: 'Information banner',
-  },
-  warning: {
-    bg: 'var(--qqq-banner-warning-bg)',
-    border: 'var(--qqq-banner-warning-border)',
-    text: 'var(--qqq-banner-warning-text)',
-    icon: AlertTriangle,
-    ariaLabel: 'Warning banner',
-  },
-  error: {
-    bg: 'var(--qqq-banner-error-bg)',
-    border: 'var(--qqq-banner-error-border)',
-    text: 'var(--qqq-banner-error-text)',
-    icon: AlertCircle,
-    ariaLabel: 'Error banner',
-  },
+export const BANNER_SLOTS = {
+  QFMD_TOP_OF_SITE: 'Site banner',
+  QFMD_TOP_OF_BODY: 'Page banner',
+  QFMD_SIDE_NAV_UNDER_LOGO: 'Navigation banner',
 } as const
 
-/** localStorage key used to persist dismissed banner IDs across page loads. */
-const STORAGE_KEY = 'qqq:dismissed-banners'
+/** A known banner slot name. */
+export type BannerSlotName = keyof typeof BANNER_SLOTS
 
-/**
- * Reads the array of dismissed banner keys stored in localStorage.
- *
- * Returns an empty array when localStorage is unavailable (e.g. SSR) or the
- * stored value cannot be parsed as a JSON array of strings.
- *
- * @returns An array of previously dismissed banner key strings.
- */
-function readStoredDismissed(): string[] {
-  try {
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as string[]) : []
-  } catch {
-    return []
-  }
+/** Default colors and icon per severity; `textColor`/`backgroundColor` override them. */
+const severityConfig = {
+  INFO: { bg: 'var(--qqq-banner-info-bg)', border: 'var(--qqq-banner-info-border)', text: 'var(--qqq-banner-info-text)', icon: Info },
+  WARNING: { bg: 'var(--qqq-banner-warning-bg)', border: 'var(--qqq-banner-warning-border)', text: 'var(--qqq-banner-warning-text)', icon: AlertTriangle },
+  ERROR: { bg: 'var(--qqq-banner-error-bg)', border: 'var(--qqq-banner-error-border)', text: 'var(--qqq-banner-error-text)', icon: AlertCircle },
+  SUCCESS: { bg: 'var(--qqq-banner-success-bg, #f0fdf4)', border: 'var(--qqq-banner-success-border, #bbf7d0)', text: 'var(--qqq-banner-success-text, #166534)', icon: CheckCircle2 },
+} as const
+
+/** Props for {@link BannerComponent}. */
+export interface BannerProps {
+  /** Branding banners keyed by slot. */
+  banners?: Record<string, Banner>
+  /** Slot to render. */
+  slot: BannerSlotName
+  /** Extra classes for placement. */
+  className?: string
 }
 
 /**
- * Renders one or more dismissible banners at the top of the page.
+ * Renders the banner configured for `slot`, or nothing when the slot is empty.
  *
- * Banners are keyed by an arbitrary string (e.g. `QFMD_TOP_OF_SITE`).
- * Severity determines icon and color tokens used; the `color` field on an
- * individual banner overrides the default background. Dismissed banners are
- * persisted in `localStorage` under `'qqq:dismissed-banners'` so they do
- * not reappear on page reload.
+ * `messageHTML` (sanitized with DOMPurify) takes precedence over `messageText`.
+ * Severity selects default colors and an icon; `textColor`, `backgroundColor` and
+ * `additionalStyles` from metadata override them.
  *
  * @param props - Component properties.
- * @returns A `role="region"` container with one `role="alert"` banner per
- *   visible key, each styled with CSS custom-property tokens and an optional
- *   dismiss `<button>`. Returns `null` when no banners exist or all have been
- *   dismissed.
+ * @returns A labelled `region` landmark containing the banner, or `null`.
  */
-export default function BannerComponent({ banners, onDismiss }: BannerProps) {
-  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(() => new Set(readStoredDismissed()))
+export default function BannerComponent({ banners, slot, className }: BannerProps) {
+  const banner = banners?.[slot]
+  if (!banner || (!banner.messageHTML && !banner.messageText)) return null
+  const html = banner.messageHTML ? DOMPurify.sanitize(banner.messageHTML) : ''
 
-  const bannerKeys = Object.keys(banners)
-
-  if (bannerKeys.length === 0) return null
-
-  const visibleBanners = bannerKeys.filter((key) => !dismissedKeys.has(key))
-
-  if (visibleBanners.length === 0) return null
-
-  /**
-   * Marks a banner as dismissed in local state, persists the updated list to
-   * localStorage, and propagates the event upward via `onDismiss`.
-   *
-   * @param key - The banner key to dismiss.
-   */
-  const handleDismiss = (key: string) => {
-    setDismissedKeys((prev) => {
-      const next = new Set([...prev, key])
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]))
-      } catch {
-        // localStorage may be unavailable (private browsing, storage quota)
-      }
-      return next
-    })
-    onDismiss?.(key)
+  const config = severityConfig[banner.severity ?? 'INFO'] ?? severityConfig.INFO
+  const Icon = config.icon
+  const style: React.CSSProperties = {
+    background: banner.backgroundColor ?? config.bg,
+    borderColor: config.border,
+    color: banner.textColor ?? config.text,
+    ...(banner.additionalStyles as React.CSSProperties | undefined),
   }
 
-  // Primary banner is QFMD_TOP_OF_SITE; render all visible banners
   return (
-    <div role="region" aria-label="Site banners" data-qqq-id="banner-region">
-      {visibleBanners.map((key) => {
-        const banner = banners[key]
-        const config = severityConfig[banner.severity] ?? severityConfig.info
-        const Icon = config.icon
-
-        return (
-          <div
-            key={key}
-            role="alert"
-            aria-live="polite"
-            aria-label={config.ariaLabel}
-            className="flex items-center justify-center gap-3 border-b px-6 py-2 text-sm font-medium"
-            style={{
-              background: banner.color ?? config.bg,
-              borderColor: config.border,
-              color: config.text,
-              minHeight: 'var(--qqq-banner-height)',
-            }}
-            data-qqq-id={`banner-${key}`}
-          >
-            <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-            <span className="flex-1 text-center">{banner.text}</span>
-            {banner.dismissible && (
-              <button
-                onClick={() => handleDismiss(key)}
-                className="flex-shrink-0 rounded p-1 opacity-70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-current"
-                aria-label={`Dismiss ${config.ariaLabel}`}
-                data-qqq-id={`button-dismiss-banner-${key}`}
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        )
-      })}
+    <div
+      role="region"
+      aria-label={BANNER_SLOTS[slot]}
+      className={cn('flex items-center justify-center gap-3 border px-4 py-2 text-sm font-medium', className)}
+      style={style}
+      data-qqq-id={`banner-${slot}`}
+      data-severity={(banner.severity ?? 'INFO').toLowerCase()}
+    >
+      <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+      {html ? (
+        <span className="text-center" data-qqq-id={`banner-${slot}-message`} dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <span className="text-center" data-qqq-id={`banner-${slot}-message`}>{banner.messageText}</span>
+      )}
     </div>
   )
 }

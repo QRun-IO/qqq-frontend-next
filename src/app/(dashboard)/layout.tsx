@@ -23,7 +23,7 @@
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/lib/auth/use-auth'
@@ -34,6 +34,7 @@ import { queryKeys } from '@/lib/query-client'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
+import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadcrumbs'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
@@ -56,8 +57,9 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
  */
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth()
-  const { setPathToLabelMap, setBranding, setAccentColor, setUserId } = useQContext()
+  const { setPathToLabelMap, setBranding, setAccentColor, setUserId, pageHeader } = useQContext()
 
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -84,7 +86,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // Generate sidebar routes and path map from app tree
-  const { sidebarRoutes, pathToLabelMap, parentAppMap } = useAppTreeRoutes(metaData)
+  const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
 
   // Sync pathToLabelMap to QContext
   useEffect(() => {
@@ -124,20 +126,29 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         )
       }
 
-      // Update favicon from branding
-      if (metaData.branding.icon) {
-        const faviconEl = document.querySelector("link[rel~='icon']")
-        if (faviconEl instanceof HTMLLinkElement) {
-          faviconEl.href = metaData.branding.icon
-        }
+      if (metaData.branding.accentColorLight && ACCENT_COLOR_RE.test(metaData.branding.accentColorLight)) {
+        document.documentElement.style.setProperty('--qqq-accent-color-light', metaData.branding.accentColorLight)
       }
 
-      // Update document title
-      if (metaData.branding.appName) {
-        document.title = metaData.branding.appName
+      // Favicon and touch icon from branding (as Material Dashboard does)
+      if (metaData.branding.icon) {
+        for (const selector of ["link[rel~='icon']", "link[rel~='apple-touch-icon']"]) {
+          const linkEl = document.querySelector(selector)
+          if (linkEl instanceof HTMLLinkElement) {
+            linkEl.href = metaData.branding.icon
+          }
+        }
       }
     }
   }, [metaData?.branding, setBranding, setAccentColor])
+
+  // Document title: current page, enclosing breadcrumbs, then the app name
+  useEffect(() => {
+    if (!metaData) return
+    const crumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
+    const pageTitle = typeof pageHeader === 'string' ? pageHeader : undefined
+    document.title = buildDocumentTitle(crumbs, pageTitle, metaData.branding?.appName || 'QQQ')
+  }, [metaData, pathname, pathToLabelMap, ancestorAppMap, pageHeader])
 
   // Inject customCss from branding metadata
   // MED-2: strip known CSS injection vectors before applying
@@ -272,78 +283,80 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Skip to main content — accessibility */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        data-qqq-id="skip-to-content"
-      >
-        Skip to main content
-      </a>
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* Top-of-site banner spans the whole window, above the sidebar */}
+      <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Skip to main content — accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          data-qqq-id="skip-to-content"
+        >
+          Skip to main content
+        </a>
 
-      {/* Desktop Sidebar */}
-      <Sidebar
-        routes={sidebarRoutes}
-        branding={metaData?.branding}
-        logout={logout}
-        userName={user?.name}
-        userEmail={user?.email}
-        data-qqq-id="sidebar-container"
-      />
-
-      {/* Mobile Sidebar Drawer */}
-      <Sidebar
-        routes={sidebarRoutes}
-        branding={metaData?.branding}
-        logout={logout}
-        userName={user?.name}
-        userEmail={user?.email}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        data-qqq-id="sidebar-mobile"
-      />
-
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Environment/status banners */}
-        {metaData?.branding?.banners &&
-          Object.keys(metaData.branding.banners).length > 0 && (
-            <BannerComponent banners={metaData.branding.banners} />
-          )}
-
-        {/* Header — breadcrumbs + search in one row */}
-        <Header
-          appName={metaData?.branding?.appName}
-          onMenuOpen={() => setSidebarOpen(true)}
-          onSearchOpen={() => setSearchOpen(true)}
-          onHelpOpen={() => setHelpOpen(true)}
-          pathToLabelMap={pathToLabelMap}
-          parentAppMap={parentAppMap}
+        {/* Desktop Sidebar */}
+        <Sidebar
+          routes={sidebarRoutes}
+          branding={metaData?.branding}
+          logout={logout}
+          userName={user?.name}
+          userEmail={user?.email}
+          data-qqq-id="sidebar-container"
         />
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
-          {metaLoading ? (
-            <div
-              className="flex items-center justify-center py-12"
-              role="status"
-              aria-label="Loading content"
-              aria-live="polite"
-            >
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          ) : (
-            children
-          )}
-        </main>
+        {/* Mobile Sidebar Drawer */}
+        <Sidebar
+          routes={sidebarRoutes}
+          branding={metaData?.branding}
+          logout={logout}
+          userName={user?.name}
+          userEmail={user?.email}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          data-qqq-id="sidebar-mobile"
+        />
+
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Header — breadcrumbs + search in one row */}
+          <Header
+            appName={metaData?.branding?.appName}
+            onMenuOpen={() => setSidebarOpen(true)}
+            onSearchOpen={() => setSearchOpen(true)}
+            onHelpOpen={() => setHelpOpen(true)}
+            pathToLabelMap={pathToLabelMap}
+            ancestorAppMap={ancestorAppMap}
+            navTargets={navTargets}
+          />
+
+          {/* Page content */}
+          <main className="flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
+            {metaLoading ? (
+              <div
+                className="flex items-center justify-center py-12"
+                role="status"
+                aria-label="Loading content"
+                aria-live="polite"
+              >
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : (
+              <>
+                <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_BODY" className="mb-4 rounded-lg" />
+                {children}
+              </>
+            )}
+          </main>
+        </div>
       </div>
 
       {/* Command Palette */}
-      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} />
 
       {/* Search Dialog */}
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} />
 
       {/* Keyboard Shortcuts Help Dialog */}
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />

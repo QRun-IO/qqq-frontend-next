@@ -21,184 +21,200 @@
 
 import { useMemo } from 'react'
 
-import type { QInstance, QAppTreeNode } from '@/types'
+import type { QInstance, QAppTreeNode, QIcon } from '@/types'
+import type { QAppNodeType } from '@/types/enums'
 
 /**
  * A single entry in the sidebar navigation tree.
  *
- * Nodes with `type: 'collapse'` are expandable groups (APP nodes).
- * Nodes with `type: 'item'` are leaf links (TABLE, PROCESS, or REPORT nodes).
+ * Nodes with `type: 'collapse'` are APP nodes (expandable when they have children).
+ * Nodes with `type: 'item'` are leaf links (TABLE, PROCESS, or REPORT nodes, or the Dashboard).
  */
 export interface SidebarRoute {
-  /** Display label shown in the sidebar. */
+  /** Display label shown in the sidebar (the metadata `label`). */
   name: string
+  /** Stable identifier: the backend node name, or `dashboard` for the landing page. */
+  key: string
   /** Absolute path used for Next.js routing. */
   path: string
-  /** Optional icon identifier for the sidebar icon. */
-  icon?: string
-  /** Whether this node is an expandable group or a direct link. */
+  /** Icon declared in metadata. */
+  icon?: QIcon
+  /** App-tree node type; absent for the Dashboard entry. */
+  nodeType?: QAppNodeType
+  /** Whether this node is an app group or a direct link. */
   type: 'collapse' | 'item'
-  /** Child routes nested under a 'collapse' node. */
+  /** Child routes nested under an APP node (child apps nest recursively). */
   children?: SidebarRoute[]
 }
 
-/** Maps a flat leaf path (e.g. /app/Products) to its parent app label + path */
+/** An enclosing APP node, used for breadcrumbs and navigation context. */
 export interface ParentAppInfo {
-  /** Human-readable label of the parent APP node. */
+  /** Human-readable label of the APP node. */
   label: string
-  /** URL path of the parent APP node. */
+  /** URL path of the APP node. */
   path: string
+}
+
+/** A navigable (non-hidden) app-tree node, in tree order. */
+export interface NavTarget {
+  /** Backend node name. */
+  key: string
+  /** Metadata label. */
+  label: string
+  /** URL path (`/app/{name}`). */
+  path: string
+  /** App-tree node type. */
+  nodeType: QAppNodeType
+  /** Icon declared in metadata. */
+  icon?: QIcon
+  /** Enclosing apps, outermost first. */
+  ancestors: ParentAppInfo[]
 }
 
 /**
  * All derived routing data computed from the QInstance app tree.
  *
- * Returned by {@link useAppTreeRoutes} and consumed by the sidebar and breadcrumb components.
+ * Returned by {@link useAppTreeRoutes} and consumed by the sidebar, breadcrumbs,
+ * command palette, header search and landing page.
  */
 export interface RouteMap {
-  /** Ordered list of sidebar navigation nodes (Dashboard + all APP nodes). */
+  /** Ordered sidebar nodes: the Dashboard entry, then every top-level APP node. */
   sidebarRoutes: SidebarRoute[]
   /** Maps every known route path to a human-readable label for breadcrumbs. */
   pathToLabelMap: Record<string, string>
-  /** Maps flat child paths to their parent app info for breadcrumbs */
-  parentAppMap: Record<string, ParentAppInfo>
+  /** Maps each node path (`/app/{name}`) to its enclosing apps, outermost first. */
+  ancestorAppMap: Record<string, ParentAppInfo[]>
+  /** Every navigable node (hidden tables, processes and reports excluded), in tree order. */
+  navTargets: NavTarget[]
   /** The first accessible app route, used as the post-login redirect target. */
   defaultRoute: string
 }
 
+/** Fixed pages under `/app` that are not app-tree nodes. */
+const STATIC_PAGE_LABELS: Record<string, string> = {
+  '/app': 'Dashboard',
+  '/app/developer': 'Developer',
+  '/app/search': 'Search',
+}
+
 /**
- * Generates sidebar navigation routes and path-to-label mapping from QInstance app tree.
+ * Returns the structured icon for an app-tree node, accepting the legacy `iconName`.
  *
- * Supports max depth 2 (top-level apps + one level of children).
- * Returns the first accessible app as the default route.
- * Permission filtering is done server-side; the backend only returns nodes
- * the current user may access.
+ * @param node - App-tree node from metadata.
+ * @returns The node's icon, or `undefined`.
+ */
+function nodeIcon(node: QAppTreeNode): QIcon | undefined {
+  if (node.icon?.name || node.icon?.path) return node.icon
+  return node.iconName ? { name: node.iconName } : undefined
+}
+
+/**
+ * Whether a leaf node refers to an object the metadata marks as hidden.
  *
- * @param metaData - The full QInstance metadata object, or `undefined` while metadata is loading.
- *   When `undefined` or when `appTree` is empty, the hook returns a safe empty `RouteMap`
- *   with `defaultRoute: '/no-apps'` so the sidebar and breadcrumbs render without crashing.
- * @returns `{ sidebarRoutes, pathToLabelMap, parentAppMap, defaultRoute }`:
- *   - `sidebarRoutes` — ordered `SidebarRoute[]` consumed by the sidebar component; always
- *     starts with the Dashboard entry; APP nodes have `type: 'collapse'` with optional children.
- *   - `pathToLabelMap` — flat `Record<string, string>` mapping every known route path to its
- *     human-readable label; use this in the breadcrumb component to look up display names
- *     without needing the full metadata tree.
- *   - `parentAppMap` — maps flat child paths (e.g. `/app/Products`) to their parent APP
- *     info (`{ label, path }`); used by breadcrumbs to render the intermediate APP segment.
- *   - `defaultRoute` — the first accessible app path (`/app/{name}`), used as the post-login
- *     redirect target; falls back to `'/no-apps'` when the app tree is empty.
+ * The backend omits objects the user may not access; hidden objects the user
+ * may access are still returned (with `isHidden: true`) and stay reachable by URL,
+ * but they are never shown in navigation.
+ *
+ * @param node - App-tree node.
+ * @param metaData - Instance metadata.
+ * @returns `true` when the node must not appear in navigation.
+ */
+export function isHiddenNode(node: QAppTreeNode, metaData: QInstance): boolean {
+  switch (node.type) {
+    case 'TABLE':
+      return metaData.tables?.[node.name]?.isHidden === true
+    case 'PROCESS':
+      return metaData.processes?.[node.name]?.isHidden === true
+    case 'REPORT':
+      return metaData.reports?.[node.name]?.isHidden === true
+    default:
+      return false
+  }
+}
+
+/**
+ * Builds the route map from instance metadata. Pure function behind {@link useAppTreeRoutes}.
+ *
+ * App nesting has no depth limit: child apps become nested collapse groups.
+ * URLs are flat (`/app/{name}`); hierarchy is kept in `ancestorAppMap`.
+ *
+ * @param metaData - Instance metadata, or `undefined` while loading.
+ * @returns The derived route map.
+ */
+export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
+  if (!metaData) {
+    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps' }
+  }
+
+  const pathToLabelMap: Record<string, string> = { ...STATIC_PAGE_LABELS }
+  const ancestorAppMap: Record<string, ParentAppInfo[]> = {}
+  const navTargets: NavTarget[] = []
+  let defaultRoute: string | undefined
+
+  /**
+   * Walks one level of the app tree and returns its sidebar routes.
+   *
+   * @param nodes - Nodes at this level.
+   * @param ancestors - Enclosing apps, outermost first.
+   * @returns Sidebar routes for the visible nodes at this level.
+   */
+  function visit(nodes: QAppTreeNode[], ancestors: ParentAppInfo[]): SidebarRoute[] {
+    const routes: SidebarRoute[] = []
+    for (const node of nodes) {
+      const path = `/app/${node.name}`
+      const icon = nodeIcon(node)
+      pathToLabelMap[path] = node.label
+      ancestorAppMap[path] = ancestors
+
+      if (node.type === 'TABLE') {
+        pathToLabelMap[`${path}/create`] = `Create ${node.label}`
+        pathToLabelMap[`${path}/dev`] = 'Developer'
+        pathToLabelMap[`${path}/key`] = 'View by Key'
+      }
+
+      if (node.type === 'APP') {
+        defaultRoute ??= path
+        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors })
+        const children = visit(node.children ?? [], [...ancestors, { label: node.label, path }])
+        routes.push({
+          name: node.label,
+          key: node.name,
+          path,
+          icon,
+          nodeType: node.type,
+          type: 'collapse',
+          children: children.length > 0 ? children : undefined,
+        })
+      } else if (!isHiddenNode(node, metaData!)) {
+        navTargets.push({ key: node.name, label: node.label, path, nodeType: node.type, icon, ancestors })
+        routes.push({ name: node.label, key: node.name, path, icon, nodeType: node.type, type: 'item' })
+      }
+    }
+    return routes
+  }
+
+  // A user with no permitted apps still gets the Dashboard entry (which explains the situation)
+  const appRoutes = visit(metaData.appTree ?? [], [])
+  const sidebarRoutes: SidebarRoute[] = [
+    { name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' },
+    ...appRoutes,
+  ]
+  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps' }
+}
+
+/**
+ * Generates sidebar navigation routes, labels, app ancestry and navigable targets
+ * from the QInstance app tree.
+ *
+ * Permission filtering is done server-side (the backend only returns nodes the
+ * user may access); hidden objects are removed from navigation here.
+ *
+ * @param metaData - The full QInstance metadata object, or `undefined` while metadata is loading
+ *   (the hook then returns an empty `RouteMap`). With no permitted apps, only the Dashboard
+ *   entry is returned and `defaultRoute` is `'/no-apps'`.
+ * @returns The memoized {@link RouteMap}.
  */
 export function useAppTreeRoutes(metaData: QInstance | undefined): RouteMap {
-  return useMemo(() => {
-    if (!metaData?.appTree?.length) {
-      return {
-        sidebarRoutes: [],
-        pathToLabelMap: {},
-        parentAppMap: {},
-        defaultRoute: '/no-apps',
-      }
-    }
-
-    const sidebarRoutes: SidebarRoute[] = [
-      {
-        name: 'Dashboard',
-        path: '/app',
-        icon: 'dashboard',
-        type: 'item',
-      },
-    ]
-    const pathToLabelMap: Record<string, string> = {
-      '/app': 'Dashboard',
-    }
-    const parentAppMap: Record<string, ParentAppInfo> = {}
-    let defaultRoute = '/app'
-    let foundFirstApp = false
-
-    // QQQ URL scheme is flat: /app/{name} for all node types.
-    // App hierarchy is only for sidebar visual grouping — not reflected in URLs.
-    // parentApp tracks the enclosing APP node so we can map leaves back to their parent.
-    // LOW-8: permission filtering is done server-side — the backend only includes
-    // nodes the current user may access, so no client-side hasPermission check needed.
-    /**
-     * Recursively walks the QAppTreeNode list, populating sidebarRoutes, pathToLabelMap,
-     * and parentAppMap.
-     *
-     * @param nodes - The current level of app tree nodes to process.
-     * @param depth - Current recursion depth; stops at 2.
-     * @param parentApp - The nearest enclosing APP node info, used for parentAppMap entries.
-     */
-    function buildRoutes(nodes: QAppTreeNode[], depth: number, parentApp?: { label: string; path: string }) {
-      if (depth > 2) return
-
-      for (const node of nodes) {
-        const path = `/app/${node.name}`
-
-        if (node.type === 'APP') {
-          pathToLabelMap[path] = node.label
-
-          if (!foundFirstApp) {
-            defaultRoute = path
-            foundFirstApp = true
-          }
-
-          const appInfo = { label: node.label, path }
-          const children: SidebarRoute[] = []
-          if (node.children && depth < 2) {
-            buildRoutes(node.children, depth + 1, appInfo)
-
-            // Build sidebar children using each child's resolved flat path
-            for (const child of node.children) {
-              const childPath = `/app/${child.name}`
-              children.push({
-                name: child.label,
-                path: childPath,
-                icon: child.iconName,
-                type: 'item',
-              })
-            }
-          }
-
-          sidebarRoutes.push({
-            name: node.label,
-            path,
-            icon: node.iconName,
-            type: 'collapse',
-            children: children.length > 0 ? children : undefined,
-          })
-        } else if (node.type === 'TABLE') {
-          // Register all table-related routes in the path map
-          const tableRoutes: Array<[string, string]> = [
-            [path, node.label],
-            [`${path}/create`, `Create ${node.label}`],
-            [`${path}/dev`, `${node.label} — Developer`],
-            [`${path}/key`, `${node.label} — View by Key`],
-            [`${path}/savedView/:viewId`, `${node.label} — Saved View`],
-          ]
-          for (const [routePath, label] of tableRoutes) {
-            pathToLabelMap[routePath] = label
-          }
-          // Map this flat path back to its parent app for breadcrumbs
-          if (parentApp) {
-            parentAppMap[path] = parentApp
-            // Also map sub-routes (create, edit, view) to the same parent
-            parentAppMap[`${path}/create`] = parentApp
-          }
-        } else if (node.type === 'PROCESS') {
-          pathToLabelMap[path] = node.label
-          if (parentApp) {
-            parentAppMap[path] = parentApp
-          }
-        } else if (node.type === 'REPORT') {
-          pathToLabelMap[path] = node.label
-          if (parentApp) {
-            parentAppMap[path] = parentApp
-          }
-        }
-      }
-    }
-
-    buildRoutes(metaData.appTree, 0)
-
-    return { sidebarRoutes, pathToLabelMap, parentAppMap, defaultRoute }
-  }, [metaData])
+  return useMemo(() => buildRouteMap(metaData), [metaData])
 }
+
