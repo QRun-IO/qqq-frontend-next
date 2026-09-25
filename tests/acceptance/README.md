@@ -21,8 +21,28 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
 - **standalone mode.** Tests the Node standalone build that the container image uses.
 - **Ports.** Set them with `QQQ_ACCEPTANCE_BACKEND_PORT` (default 18765) and
   `QQQ_ACCEPTANCE_FRONTEND_PORT` (default 13765). Use distinct ports for concurrent runs.
-- **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json`, the
-  HTML report, and a trace, video and screenshot for each failure.
+- **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
+  per-project counts in `byProject`), the HTML report, and a trace, video and screenshot for
+  each failure.
+- **Browsers.** `QQQ_ACCEPTANCE_BROWSERS` picks the Playwright projects (default `chromium`).
+  The documented matrix is `chromium,firefox,webkit,mobile`; results and the exact commands
+  are in `docs/acceptance/browser-matrix.md`.
+
+## Phone scope (`mobile` project)
+
+The `mobile` project (Pixel 7: 412 px, touch) runs only tests tagged **`@mobile`** in their
+title (`grep: /@mobile/` in `playwright.config.ts`). Below 768 px lists are card lists and
+record actions live in an action sheet, so specs that assert desktop layout (grid columns,
+resizing, grid keyboard navigation, desktop menus) are not phone scenarios and are not run
+there. Skipping them with `test.skip` is not allowed: skips fail the gate.
+
+- Tag a test `@mobile` when it proves phone behavior: navigation drawer, card list, record
+  view, forms, process runs, dialogs, sign-in/out. It must also pass on the desktop projects,
+  so use layout-neutral helpers (`listCell`, `listRows`, `navigation` in
+  `specs/security/support/ui.ts`, `recordList` in `specs/navigation/nav-helpers.ts`), or
+  pin a phone viewport with `test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })`.
+- Every phone-relevant row keeps at least one passing `@mobile` test; the gate fails a
+  configured project that ran no tests.
 
 ## Rules
 
@@ -45,7 +65,11 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
     server-side enforcement.
 - **Include the `diagnostics` fixture in every test.** It fails the test on page errors,
   console errors and failed or ≥400 application requests. Negative scenarios whitelist
-  their expected failures with `diagnostics.allow('/data/person/99 404')`.
+  their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
+  a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
+  WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
+  RSC payload reported within a second of a document navigation (listed under
+  `interruptedFetches` in the attached `diagnostics.json`).
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;
