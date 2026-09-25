@@ -18,7 +18,7 @@ import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_FRONTEND_PORT } from '../../../supp
 import type { Diagnostics, Persona, SampleUser } from '../../../support/fixtures'
 import { test as acceptanceTest } from '../../../support/fixtures'
 
-export type AuthMode = 'MOCK' | 'OAUTH2' | 'AUTH_0' | 'FULLY_ANONYMOUS' | 'TABLE_BASED'
+export type AuthMode = 'MOCK' | 'OAUTH2' | 'AUTH_0' | 'FULLY_ANONYMOUS' | 'TABLE_BASED' | 'UNSUPPORTED'
 
 export const SECURITY_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? ACCEPTANCE_BACKEND_PORT + 10)
 export const IDP_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_IDP_PORT ?? ACCEPTANCE_FRONTEND_PORT + 10)
@@ -171,6 +171,16 @@ export async function variantSql(query: string): Promise<Row[]> {
 /** Restores the running variant's seed data (fresh database per test). */
 export async function resetVariant(): Promise<void> {
   await control('reset', {})
+}
+
+/**
+ * TABLE_BASED variant: makes every stored session idle past the module's inactivity
+ * timeout, so the next request with it fails the module's real expiry check.
+ *
+ * @returns How many sessions were expired.
+ */
+export async function expireTableSessions(): Promise<number> {
+  return (await control('expire-table-sessions', {})).expired
 }
 
 export { expect } from '../../../support/fixtures'

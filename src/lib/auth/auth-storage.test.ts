@@ -38,6 +38,11 @@ describe('auth-storage', () => {
     expect(userFromSessionValues(undefined)).toBeNull()
   })
 
+  it('shows a TABLE_BASED username as the identity line (QRun-IO/qqq#700)', () => {
+    expect(userFromSessionValues({ user: { name: 'Tess Table', username: 'tess.table' } })).toEqual({ name: 'Tess Table', email: 'tess.table' })
+    expect(userFromSessionValues({ user: { name: 'Tess Table', email: 'tess@example.test', username: 'tess.table' } })).toEqual({ name: 'Tess Table', email: 'tess@example.test' })
+  })
+
   it('persists and validates the stored user', () => {
     storeUser({ name: 'Dana' })
     expect(getStoredUser()).toEqual({ name: 'Dana', email: undefined })

@@ -63,7 +63,7 @@ export interface QAuthenticationMetaData {
   /** Unique name for this authentication configuration. */
   name: string
   /** The authentication strategy this instance uses. */
-  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK'
+  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK' | 'TABLE_BASED'
   /** Provider-specific values (client ID, base URL, audience); absent for MOCK and FULLY_ANONYMOUS. */
   values?: {
     /** OAuth2 / Auth0 client ID registered with the identity provider. */
@@ -75,7 +75,18 @@ export interface QAuthenticationMetaData {
     /** Space-separated scopes to request from an OAUTH2 provider. */
     scopes?: string
   }
+  /**
+   * Branding that is safe to show before sign-in (QRun-IO/qqq#703): the login page's
+   * logo, app name and accent. Absent when the backend declares no branding or predates it.
+   */
+  branding?: QLoginBranding
 }
+
+/**
+ * The subset of {@link QBrandingMetaData} the backend exposes before a session exists.
+ * Banners and custom CSS are never included.
+ */
+export type QLoginBranding = Pick<QBrandingMetaData, 'companyName' | 'appName' | 'logo' | 'icon' | 'accentColor' | 'accentColorLight'>
 
 /**
  * Branding configuration that controls the visual identity of the application.

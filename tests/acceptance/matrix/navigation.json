@@ -598,6 +598,29 @@
         "#653"
       ],
       "required": true
+    },
+    {
+      "id": "NAV-033",
+      "feature": "Login branding before sign-in: logo, app name, accent color, favicon and title from GET /qqq/v1/metaData/authentication (no session), never the banners",
+      "source": [
+        "qqq-middleware-javalin specs/v1/responses/AuthenticationMetaDataResponseV1.java, components/PublicBranding.java",
+        "src/app/(auth)/login/page.tsx",
+        "src/lib/theme/apply-branding.ts"
+      ],
+      "fixture": "sample branding (appName, logo /samples-logo.png, icon /kr-icon.png) + NavigationFixtures accentColor #1d4ed8 and three banners",
+      "scenarios": [
+        "unauthenticated authentication metadata carries exactly appName, logo, icon and accentColor",
+        "after logout and a fresh load the login card shows the loaded logo and QQQ Sample",
+        "primary color variables and the Sign in button use the accent; favicon /kr-icon.png; title Sign in | QQQ Sample"
+      ],
+      "negative": [
+        "no banner text in the unauthenticated response or on the login page"
+      ],
+      "issues": [
+        "QRun-IO/qqq#703",
+        "#539"
+      ],
+      "required": true
     }
   ]
 }

@@ -6,13 +6,13 @@
  */
 
 // The remaining authentication types on the sample, each on its own backend variant:
-// AUTH_0 against an owned Auth0-compatible provider, FULLY_ANONYMOUS, and TABLE_BASED
-// (unsupported by the admin dashboards, which must say so).
+// AUTH_0 against an owned Auth0-compatible provider and FULLY_ANONYMOUS. TABLE_BASED and
+// an unknown type are covered in table-based.spec.ts.
 import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
+import { listCell, navigation, openUserMenu } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -127,24 +127,4 @@ anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logo
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-})
-
-const tableBasedTest = acceptanceTest.extend<{ tableBased: void }>({
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  tableBased: async ({}, use) => {
-    await startVariant('TABLE_BASED')
-    await use()
-  },
-})
-
-tableBasedTest('[SEC-032] an unsupported authentication type is reported and nothing else is attempted', async ({ page, tableBased, diagnostics }) => {
-  void tableBased
-  void diagnostics
-  const reads = recordRequests(page)
-  const sessionCalls: string[] = []
-  page.on('request', (request) => { if (/manageSession/.test(request.url())) sessionCalls.push(request.url()) })
-  await open(page, '/app/person')
-  await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in failed: Unsupported authentication type: TABLE_BASED')
-  expect(reads).toEqual([])
-  expect(sessionCalls).toEqual([])
 })

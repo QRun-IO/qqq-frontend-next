@@ -149,4 +149,26 @@ describe('Auth API', () => {
     expect(readSessionUUIDCookie()).toBe('abc-123')
     document.cookie = 'sessionUUID=; Max-Age=0'
   })
+
+  describe('TABLE_BASED password sign-in (QRun-IO/qqq#700)', () => {
+    it('encodes UTF-8 credentials and keeps colons in the password', async () => {
+      const { encodeBasicCredentials } = await import('./auth')
+      expect(encodeBasicCredentials('tess', 'pa:ss')).toBe(btoa('tess:pa:ss'))
+      // "é" is two UTF-8 bytes (0xC3 0xA9), not one Latin-1 byte
+      expect(atob(encodeBasicCredentials('josé', 'x'))).toBe('jos\u00c3\u00a9:x')
+    })
+
+    it('refuses a username with a colon', async () => {
+      const { encodeBasicCredentials } = await import('./auth')
+      expect(() => encodeBasicCredentials('a:b', 'x')).toThrow('A username cannot contain a colon.')
+    })
+
+    it('posts to v1 manageSession with an Authorization: Basic header and no credentials in the body', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({ uuid: 's-1', values: { user: { name: 'Tess Table' } } })
+      const { createPasswordSession } = await import('./auth')
+      await expect(createPasswordSession('tess', 'secret')).resolves.toEqual({ uuid: 's-1', values: { user: { name: 'Tess Table' } } })
+      expect(apiClient.post).toHaveBeenCalledWith('/manageSession', {}, { headers: { Authorization: `Basic ${btoa('tess:secret')}` } })
+    })
+  })
 })

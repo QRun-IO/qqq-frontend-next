@@ -45,7 +45,8 @@ The phone-relevant rows and their `@mobile` tests:
 | Process run | PRC-001, PRC-004, PRC-009 |
 | Dialogs and focus (action sheet, delete dialog) | INT-003 (QRun-IO/qqq#694) |
 | Search dialog with record search ("Open search" button) | NAV-030 (QRun-IO/qqq#701) |
-| Sign-in, logout, session expiry | SEC-020, SEC-021, SEC-022 (both) |
+| Sign-in, logout, session expiry | SEC-020, SEC-021, SEC-022 (both); TABLE_BASED password sign-in, failure, expiry and logout SEC-034 to SEC-037 (QRun-IO/qqq#700) |
+| Login page branding before sign-in | NAV-033 (QRun-IO/qqq#703) |
 | Accessibility scan at phone width | INT-005 |
 
 The gate also fails any configured project that ran no tests.
