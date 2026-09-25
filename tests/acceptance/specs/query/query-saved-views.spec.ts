@@ -70,7 +70,9 @@ test('[QRY-051] saving a new view stores the filter, sort, columns and page size
   await expect(dialog).toHaveCount(0)
   const stored = await savedViewRow(backend, 'Sample People')
   expect(stored).toMatchObject({ table_name: 'person', user_id: 'sample:alice' })
-  await expect(page).toHaveURL(new RegExp(`/app/person/savedView/${stored!.id}/?`))
+  // wait for the view route and its URL state sync (a later page.goto would abort that
+  // navigation's RSC fetch, which Firefox logs as a console error)
+  await expect(page).toHaveURL(new RegExp(`/app/person/savedView/${stored!.id}/?\\?pageSize=10&filter=`))
   expect(stored!.view.queryFilter.criteria).toEqual([{ fieldName: 'lastName', operator: 'CONTAINS', values: ['Sam'] }])
   expect(stored!.view.queryFilter.orderBys).toEqual([{ fieldName: 'firstName', isAscending: true }])
   expect(stored!.view.rowsPerPage).toBe(10)
