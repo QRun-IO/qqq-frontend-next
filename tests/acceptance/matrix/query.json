@@ -1,0 +1,951 @@
+{
+  "area": "query",
+  "prefixes": [
+    "QRY",
+    "REL"
+  ],
+  "description": "Querying, relationships, saved views, export and bulk selection",
+  "rows": [
+    {
+      "id": "QRY-001",
+      "feature": "Record list renders metadata labels and all records in the default primary-key-descending order",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx",
+        "qqq/qqq-middleware-javalin .../TableQueryExecutor.java"
+      ],
+      "fixture": "QueryFixtures.java qryItem (8 rows, every field type)",
+      "scenarios": [
+        "Headers use field labels",
+        "Rows equal SQL select ordered by id desc",
+        "Possible-value cells show labels, booleans Yes/No, money/decimals formatted"
+      ],
+      "negative": [
+        "Null boolean renders empty, not No",
+        "Hidden and heavy (TEXT) fields are not columns"
+      ],
+      "issues": [
+        686,
+        691
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-002",
+      "feature": "Pagination with Material page sizes and URL state",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (pageSizes)",
+        "qqq/QueryInput skip/limit"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier (11 rows)",
+      "scenarios": [
+        "Page 2 shows the remaining rows",
+        "Page sizes 10/25/50/100/250",
+        "Page and size survive reload via URL"
+      ],
+      "negative": [
+        "Next is disabled on the last page"
+      ],
+      "issues": [
+        686
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-003",
+      "feature": "Column header sort cycles ascending, descending and default; sort kept in the URL",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (sortModel)",
+        "qqq/QFilterOrderBy"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Ascending and descending match SQL order by",
+        "Sort persists across reload"
+      ],
+      "negative": [
+        "Third click returns to the PK-descending default"
+      ],
+      "issues": [
+        686
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-004",
+      "feature": "Column visibility and order persist per table",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/CustomColumnsPanel.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Hide/show and reorder columns",
+        "Order and visibility survive reload",
+        "Show/hide all per table group"
+      ],
+      "negative": [
+        "Another table keeps its own columns"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "QRY-005",
+      "feature": "Column widths, density and card view",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (density, column widths)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Resized width persists",
+        "Density changes row height",
+        "Card view shows the same records"
+      ],
+      "negative": [
+        "Keyboard resize separator exposes its value"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "QRY-006",
+      "feature": "Opening a record and returning keeps the query; refresh shows backend changes",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Filter, sort and page are restored after Back",
+        "Refresh shows a row changed through the API"
+      ],
+      "negative": [
+        "No stale cached rows after refresh"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "QRY-007",
+      "feature": "A failed query reports the backend error with a retry",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (warnings)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Backend error text shown",
+        "Retry reloads after the failure clears"
+      ],
+      "negative": [
+        "No rows from the failed request are shown"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "QRY-010",
+      "feature": "Text operators match Material labels and backend semantics",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaRow.tsx",
+        "qqq/QCriteriaOperator"
+      ],
+      "fixture": "QueryFixtures.java qryItem.name/code",
+      "scenarios": [
+        "equals, does not equal, contains, starts/ends with, is any of, is like, is empty/not empty; results equal SQL"
+      ],
+      "negative": [
+        "does not equal includes empty values (NOT_EQUALS_OR_IS_NULL)",
+        "Incomplete criteria are not sent"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-011",
+      "feature": "Number operators including ranges and lists",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaRow.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem.quantity/price",
+      "scenarios": [
+        "equals, greater/less (or equal), is between, is any of; results equal SQL",
+        "Values sent as numbers"
+      ],
+      "negative": [
+        "not between and none of exclude the bounds/list"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-012",
+      "feature": "Date operators and relative date expressions",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaRowValues.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/query/AdvancedDateTimeFilterValues.tsx",
+        "qqq/expressions/NowWithOffset, ThisOrLastPeriod"
+      ],
+      "fixture": "QueryFixtures.java qryItem.receivedDate (relative to today)",
+      "scenarios": [
+        "is/after/before/between with dates",
+        "today, N days ago, start of this/last month send backend expression JSON and match SQL"
+      ],
+      "negative": [
+        "Clearing an expression restores a plain value input"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-013",
+      "feature": "Date-time operators convert local input to UTC and support relative values",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaRowValues.tsx",
+        "qqq/expressions/Now"
+      ],
+      "fixture": "QueryFixtures.java qryItem.checkedAt",
+      "scenarios": [
+        "Local input sent as UTC instant",
+        "now and N hours ago expressions match SQL"
+      ],
+      "negative": [
+        "Grid shows formatted date-times, not raw ISO"
+      ],
+      "issues": [
+        684,
+        679
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-014",
+      "feature": "Boolean, blob and long-text operators",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaRow.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem.isActive/photo/notes",
+      "scenarios": [
+        "equals yes / equals no / is empty for booleans",
+        "blob is empty / not empty",
+        "long text contains"
+      ],
+      "negative": [
+        "Blob offers no value operators"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-015",
+      "feature": "Possible-value selectors for table and enum sources show labels and send ids",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/FilterCriteriaPaster.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/DynamicSelect.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem.ownerId (person), speciesId (petSpecies enum)",
+      "scenarios": [
+        "is / is any of / is none of with label chips",
+        "Link-loaded ids render labels",
+        "Results equal SQL"
+      ],
+      "negative": [
+        "Search with no match shows no options"
+      ],
+      "issues": [
+        684,
+        667
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-016",
+      "feature": "AND/OR and nested groups combine as declared",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/CustomFilterPanel.tsx",
+        "qqq/QQueryFilter subFilters"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "AND group, OR group and nested subfilter match SQL"
+      ],
+      "negative": [
+        "Removing the last criterion clears the filter"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-017",
+      "feature": "Filters live in the URL: reload, back/forward and Material-style JSON links",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (filter param)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Reload keeps the filter",
+        "Back/forward switches filters",
+        "Plain JSON filter link opens filtered"
+      ],
+      "negative": [
+        "Malformed filter param falls back to no filter"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-018",
+      "feature": "Backend-only operators from links render and filter correctly",
+      "source": [
+        "qqq/QCriteriaOperator (LIKE, NOT_LIKE, IS_NULL_OR_IN, TRUE, FALSE)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Each operator from a link renders its label and returns the SQL rows"
+      ],
+      "negative": [
+        "FALSE matches no records; builder does not crash"
+      ],
+      "issues": [
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-019",
+      "feature": "Quick search combines with the advanced filter",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (quick filter)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Search term ANDs with Is Active = yes"
+      ],
+      "negative": [
+        "Clearing search restores the filtered rows"
+      ],
+      "issues": [
+        686
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-020",
+      "feature": "One-side exposed join: labelled columns, filters and sorts match SQL",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (joins)",
+        "qqq/ExposedJoin, QueryJoin"
+      ],
+      "fixture": "QueryFixtures.java qryItem -> person (MANY_TO_ONE)",
+      "scenarios": [
+        "Join column 'Owner: First Name' hidden by default, shown on demand",
+        "Join filter and sort match SQL LEFT JOIN"
+      ],
+      "negative": [
+        "Joins only sent when used; rows without a match are kept"
+      ],
+      "issues": [
+        686,
+        684
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-021",
+      "feature": "Many-side exposed join repeats rows and reports the distinct count",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (distinct)",
+        "qqq/QueryInput includeDistinctCount"
+      ],
+      "fixture": "QueryFixtures.java qryItem -> qryItemNote (ONE_TO_MANY)",
+      "scenarios": [
+        "Repeated rows per note",
+        "Count shows (N distinct)"
+      ],
+      "negative": [
+        "Row selection dedupes repeated ids"
+      ],
+      "issues": [
+        686
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-022",
+      "feature": "Column statistics aggregate the filtered rows",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/ColumnStats.tsx",
+        "qqq/columnstats/ColumnStatsStep.java"
+      ],
+      "fixture": "QueryFixtures.java qryItem (QUERY_STATS)",
+      "scenarios": [
+        "Value distribution and count/distinct/sum/avg/min/max equal SQL under the filter"
+      ],
+      "negative": [
+        "Sort by value/count"
+      ],
+      "issues": [
+        691
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-023",
+      "feature": "Tables without QUERY_STATS offer no column statistics",
+      "source": [
+        "qqq/Capability.QUERY_STATS"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person",
+      "scenarios": [
+        "No statistics button on headers"
+      ],
+      "negative": [
+        "Process not launched"
+      ],
+      "issues": [
+        691
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-030",
+      "feature": "Selection menu: this page, full query result, first N, clear",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (selection menu)"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier",
+      "scenarios": [
+        "Banners and counts for page, all and subset"
+      ],
+      "negative": [
+        "Subset dialog rejects invalid N"
+      ],
+      "issues": [
+        689
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-031",
+      "feature": "Bulk Edit launches with the checked record ids",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/QueryScreenActionMenu.tsx"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier",
+      "scenarios": [
+        "recordIds param equals checked rows"
+      ],
+      "negative": [
+        "No selection shows 'No records were selected to Bulk Edit.'"
+      ],
+      "issues": [
+        689
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-032",
+      "feature": "Bulk Delete of the full query result sends the whole filter",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (filterJSON)"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier (page 2)",
+      "scenarios": [
+        "filterJSON has no skip/limit; backend recordCount equals SQL count"
+      ],
+      "negative": [
+        "Current page paging is not sent"
+      ],
+      "issues": [
+        689
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-033",
+      "feature": "First-N selection under a filter launches with that limit",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx (subset)"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "filterJSON limit N with the filter and sort"
+      ],
+      "negative": [
+        "N larger than the result is capped"
+      ],
+      "issues": [
+        689
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-034",
+      "feature": "Actions menu offers bulk load, bulk processes and table processes",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/QueryScreenActionMenu.tsx"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person",
+      "scenarios": [
+        "Bulk Load/Edit/Edit With File/Delete then table processes",
+        "Launch carries the selection"
+      ],
+      "negative": [
+        "Process min/max record checks block launch with a message"
+      ],
+      "issues": [
+        689,
+        662
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-035",
+      "feature": "Viewers get no create, bulk or process actions and the backend refuses them",
+      "source": [
+        "qqq/PermissionsHelper"
+      ],
+      "fixture": "viewer persona on sample (person, pet, petNote, carrier, petSpecies)",
+      "scenarios": [
+        "No Create, bulk or write process entries"
+      ],
+      "negative": [
+        "Direct insert/delete API calls return 403"
+      ],
+      "issues": [
+        689,
+        671
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-040",
+      "feature": "CSV export has visible columns in order and exactly the filtered, sorted rows",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/ExportMenuItem.tsx",
+        "qqq/middleware legacy dataExport"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "File name, headers and rows equal SQL",
+        "Join columns exported"
+      ],
+      "negative": [
+        "Hidden columns excluded"
+      ],
+      "issues": [
+        688
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-041",
+      "feature": "XLSX and JSON exports carry the same rows",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/ExportMenuItem.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "XLSX sheet and JSON array equal SQL rows"
+      ],
+      "negative": [
+        "JSON keys limited to exported fields"
+      ],
+      "issues": [
+        688
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-042",
+      "feature": "Nothing to export disables the formats",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/ExportMenuItem.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "Empty filter result disables CSV/XLSX/JSON"
+      ],
+      "negative": [
+        "No export request sent"
+      ],
+      "issues": [
+        688
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-043",
+      "feature": "Backend refuses exports of unreadable tables",
+      "source": [
+        "qqq/middleware dataExport"
+      ],
+      "fixture": "noPets persona",
+      "scenarios": [
+        "Export of a readable table succeeds"
+      ],
+      "negative": [
+        "Export of pet returns 403 without data"
+      ],
+      "issues": [
+        688
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-050",
+      "feature": "Your saved views are listed and open on their own route",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/SavedViews.tsx",
+        "qqq/savedviews/QuerySavedViewProcess"
+      ],
+      "fixture": "sample sharing demo (Alice People View)",
+      "scenarios": [
+        "'Your Saved Views' lists backend views",
+        "/savedView/{id} applies filter/columns"
+      ],
+      "negative": [
+        "Empty group message"
+      ],
+      "issues": [
+        687
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-051",
+      "feature": "Saving a new view stores filter, sort, columns and page size",
+      "source": [
+        "qqq/savedviews/StoreSavedViewProcess"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person",
+      "scenarios": [
+        "saved_view row viewJson matches Material RecordQueryView"
+      ],
+      "negative": [
+        "Unsaved-changes indicator clears after save"
+      ],
+      "issues": [
+        687
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-052",
+      "feature": "Update, rename and delete your view",
+      "source": [
+        "qqq/savedviews/StoreSavedViewProcess, DeleteSavedViewProcess"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person",
+      "scenarios": [
+        "Update keeps unrelated view JSON",
+        "Rename and delete change the saved_view row"
+      ],
+      "negative": [
+        "Reset All Changes restores the stored view"
+      ],
+      "issues": [
+        687
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-053",
+      "feature": "Duplicate names and unknown views are reported without changes",
+      "source": [
+        "qqq/savedviews/StoreSavedViewProcess"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person",
+      "scenarios": [
+        "Duplicate name error shown in the dialog"
+      ],
+      "negative": [
+        "Unknown view id shows an error; saved_view unchanged"
+      ],
+      "issues": [
+        687
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-054",
+      "feature": "A view shared with you opens read-only and the backend refuses changes",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/SavedViews.tsx",
+        "qqq/sharing"
+      ],
+      "fixture": "QueryFixtures.java (Alice People View shared with sample:bob READ_ONLY)",
+      "scenarios": [
+        "Listed under 'Views Shared with you' for bob",
+        "Opens with its filter"
+      ],
+      "negative": [
+        "Owner-only actions disabled; storeSavedView by bob refused"
+      ],
+      "issues": [
+        687
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-060",
+      "feature": "Variant table asks for a variant, queries with it and remembers it",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/TableVariantDialog.tsx",
+        "qqq/BackendVariantsConfig"
+      ],
+      "fixture": "QueryFixtures.java qryStock on qryVariantMemory (qryStore)",
+      "scenarios": [
+        "Picker lists /variants",
+        "Rows equal the chosen store",
+        "Choice remembered and changeable; export uses it"
+      ],
+      "negative": [
+        "Filter narrows options"
+      ],
+      "issues": [
+        690
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-061",
+      "feature": "Dismissing the variant prompt queries nothing; backend requires a variant",
+      "source": [
+        "qqq/BackendVariantsUtil"
+      ],
+      "fixture": "QueryFixtures.java qryStock",
+      "scenarios": [
+        "Prompt shown with a choose button"
+      ],
+      "negative": [
+        "No query sent; API query without a variant fails"
+      ],
+      "issues": [
+        690
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-062",
+      "feature": "A table without count, export or write capabilities offers none of them",
+      "source": [
+        "qqq/Capability"
+      ],
+      "fixture": "QueryFixtures.java qryLedger (no TABLE_INSERT/UPDATE/DELETE/EXPORT/COUNT)",
+      "scenarios": [
+        "Rows listed without a total",
+        "Export disabled with explanation",
+        "No create or bulk actions"
+      ],
+      "negative": [
+        "Backend insert refused"
+      ],
+      "issues": [
+        671,
+        688
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-063",
+      "feature": "Enum-backed Pet Species table is read-only",
+      "source": [
+        "qqq/EnumerationBackendModule"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) petSpecies",
+      "scenarios": [
+        "Metadata omits write capabilities; no Create or bulk writes"
+      ],
+      "negative": [
+        "Insert returns 403, not 500"
+      ],
+      "issues": [
+        692
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-064",
+      "feature": "Backend refuses count and export for a table without those capabilities",
+      "source": [
+        "qqq/middleware TableCountExecutor, dataCount, dataExport"
+      ],
+      "fixture": "QueryFixtures.java qryLedger",
+      "scenarios": [
+        "Query still succeeds"
+      ],
+      "negative": [
+        "v1 count, legacy count and export return 403"
+      ],
+      "issues": [
+        693
+      ],
+      "required": true
+    },
+    {
+      "id": "REL-001",
+      "feature": "Possible-value cells show the related record label and link to it",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/DataGridUtils.tsx (LINK adornment)"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) pet.personId",
+      "scenarios": [
+        "Owner cell shows the person label",
+        "Link opens /app/person/{id}"
+      ],
+      "negative": [
+        "Enum values are not links"
+      ],
+      "issues": [
+        691
+      ],
+      "required": true
+    },
+    {
+      "id": "REL-002",
+      "feature": "Parent lists exactly its own children; View All opens the filtered child list",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx (associations)"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person -> pets",
+      "scenarios": [
+        "Panel rows equal SQL children",
+        "View All filters /app/pet and Back returns"
+      ],
+      "negative": [
+        "Parent without children shows an empty panel"
+      ],
+      "issues": [
+        686
+      ],
+      "required": true
+    },
+    {
+      "id": "REL-003",
+      "feature": "Adding a child from its parent links it and shows it immediately",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person -> pets",
+      "scenarios": [
+        "New pet stored with person_id of the parent",
+        "Panel refreshes"
+      ],
+      "negative": [
+        "Join field not editable; no other rows changed"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REL-004",
+      "feature": "Three-level associations: each pet shows only its own notes",
+      "source": [
+        "qqq/Association"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person -> pet -> petNote",
+      "scenarios": [
+        "Notes equal SQL per pet"
+      ],
+      "negative": [
+        "Other pets' notes absent"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REL-005",
+      "feature": "Editing and deleting a child leaves no stale parent, list or unexpected rows",
+      "source": [
+        "qqq/DeleteAction (associated children)"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) pet, petNote",
+      "scenarios": [
+        "Renamed pet shown in parent panel and list",
+        "Deleting a pet removes its notes"
+      ],
+      "negative": [
+        "Other rows unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REL-006",
+      "feature": "Denied child reads show an unavailable panel without data or actions",
+      "source": [
+        "qqq/PermissionsHelper"
+      ],
+      "fixture": "noPets persona; qryShelter whose associated qryShelterPet is denied with DenyBehavior.DISABLED",
+      "scenarios": [
+        "Panel says related records are unavailable"
+      ],
+      "negative": [
+        "No data, View All or Create; API query 403"
+      ],
+      "issues": [
+        671
+      ],
+      "required": true
+    },
+    {
+      "id": "REL-007",
+      "feature": "Aliased and composite associations bind to their widgets and list the right members",
+      "source": [
+        "qqq/Association, JoinOn"
+      ],
+      "fixture": "QueryFixtures.java qryHousehold/qryMember (members, care group / primary, scheduled reviews)",
+      "scenarios": [
+        "childRecordList and rowBuilder show SQL-matching members",
+        "Composite join on code + review date"
+      ],
+      "negative": [
+        "Household without members shows empty"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REL-008",
+      "feature": "Adding through a composite association stores every join value",
+      "source": [
+        "qqq/Association"
+      ],
+      "fixture": "QueryFixtures.java qryHousehold/qryMember",
+      "scenarios": [
+        "New member stored with household_code and review_date from the parent"
+      ],
+      "negative": [
+        "Aliased association unaffected; other rows unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REL-009",
+      "feature": "Deleting a parent removes associated children and leaves other parents intact",
+      "source": [
+        "qqq/DeleteAction"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) person -> pets",
+      "scenarios": [
+        "Person and its pets removed"
+      ],
+      "negative": [
+        "Other pets and notes unchanged; list reflects SQL"
+      ],
+      "issues": [],
+      "required": true
+    }
+  ]
+}

@@ -66,6 +66,8 @@ export interface QAuditFieldChange {
   oldValue: unknown
   /** The field's value after the change was applied. */
   newValue: unknown
+  /** The backend's sentence for this change, e.g. `Changed Title from "A" to "B"`. */
+  message?: string
 }
 
 /** An audit log entry for a record */

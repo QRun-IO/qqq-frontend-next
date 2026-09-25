@@ -82,6 +82,8 @@ export type Capability =
   | 'TABLE_INSERT'
   | 'TABLE_UPDATE'
   | 'TABLE_DELETE'
+  | 'TABLE_EXPORT'
+  | 'QUERY_STATS'
 
 /**
  * Comparison operators available when constructing `QFilterCriteria`.
@@ -117,6 +119,9 @@ export type QCriteriaOperator =
   | 'NOT_EQUALS_OR_IS_NULL'
   | 'IN'
   | 'NOT_IN'
+  | 'IS_NULL_OR_IN'
+  | 'LIKE'
+  | 'NOT_LIKE'
   | 'STARTS_WITH'
   | 'ENDS_WITH'
   | 'CONTAINS'
@@ -131,6 +136,8 @@ export type QCriteriaOperator =
   | 'IS_NOT_BLANK'
   | 'BETWEEN'
   | 'NOT_BETWEEN'
+  | 'TRUE'
+  | 'FALSE'
 
 /**
  * The set of UI component types that can appear inside a `QFrontendStepMetaData`.
@@ -176,7 +183,7 @@ export type QComponentType =
  *
  * - `LINK` — renders the value as a hyperlink
  * - `CHIP` — renders the value inside a color-coded badge chip
- * - `SIZE` — renders a byte count as a human-readable file size
+ * - `SIZE` — suggests a column width (`values.width`: xsmall … xlarge)
  * - `ERROR` — overlays the value with an error indicator
  * - `RENDER_HTML` — renders the raw value as HTML (must be sanitized)
  * - `REVEAL` — hides the value behind a "reveal" toggle (e.g. masked secrets)
@@ -184,6 +191,7 @@ export type QComponentType =
  * - `FILE_DOWNLOAD` — renders a download link for binary/blob field values
  * - `FILE_UPLOAD` — renders a file picker for uploading content to the field
  * - `TOOLTIP` — adds a hover tooltip with additional context
+ * - `WIDGET` — renders the field value as the data of a named widget
  */
 export type AdornmentType =
   | 'LINK'
@@ -196,3 +204,4 @@ export type AdornmentType =
   | 'FILE_DOWNLOAD'
   | 'FILE_UPLOAD'
   | 'TOOLTIP'
+  | 'WIDGET'

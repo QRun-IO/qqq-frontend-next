@@ -294,24 +294,24 @@ describe('QInstanceMinimalSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('fails when branding is missing', () => {
+  it('accepts instances without branding (branding is optional in QQQ)', () => {
     const { branding: _branding, ...rest } = validInstance
     const result = QInstanceMinimalSchema.safeParse(rest)
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 
-  it('fails when branding is missing required companyName', () => {
+  it('accepts the sample branding shape (appName, logo, icon; no company fields)', () => {
     const result = QInstanceMinimalSchema.safeParse({
       ...validInstance,
-      branding: { companyUrl: 'https://acme.example.com', appName: 'Acme Admin' },
+      branding: { appName: 'QQQ Sample', logo: '/samples-logo.png', icon: '/kr-icon.png' },
     })
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 
-  it('fails when branding is missing required appName', () => {
+  it('fails when a branding name is not a string', () => {
     const result = QInstanceMinimalSchema.safeParse({
       ...validInstance,
-      branding: { companyName: 'Acme Corp', companyUrl: 'https://acme.example.com' },
+      branding: { appName: 42 },
     })
     expect(result.success).toBe(false)
   })

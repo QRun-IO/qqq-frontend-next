@@ -29,14 +29,15 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
 
 /**
  * Renders the record-creation form for the table identified by `slug`.
@@ -52,7 +53,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
  *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-4xl` container
  */
 export default function EntityCreatePage() {
-  const params = useParams<{ slug: string }>()
+  const params = useRouteParams<{ slug: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
 
@@ -83,14 +84,17 @@ export default function EntityCreatePage() {
     )
   }
 
-  if (!tableMetaData.insertPermission) {
+  if (!canInsertRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to create {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_INSERT')
+            ? `${tableMetaData.label} records cannot be created.`
+            : `You do not have permission to create ${tableMetaData.label} records.`}
         </p>
       </div>
     )
@@ -98,7 +102,7 @@ export default function EntityCreatePage() {
 
   return (
     <div className="mx-auto max-w-4xl" data-qqq-id={`entity-create-${slug}`}>
-      <EntityForm tableMetaData={tableMetaData} />
+      <EntityForm tableMetaData={tableMetaData} widgets={metaData?.widgets} />
     </div>
   )
 }

@@ -3,6 +3,31 @@ version: 2.1
 orbs:
   qqq-orb: kingsrook/qqq-orb@0.6
 
+# ─── Jobs ────────────────────────────────────────────────────────────────────
+# The dashboard jar (static export under next-dashboard/) is published to Maven
+# Central on release tags, with the same orb commands and credentials as the
+# Material Dashboard. QApplicationJavalinServer serves it at / when it is present.
+
+jobs:
+  publish_dashboard_jar:
+    executor: qqq-orb/java
+    steps:
+      - checkout
+      - qqq-orb/install_java:
+          install_node: true
+          node_version: "22"
+      - run:
+          name: Build the static export
+          command: |
+            corepack enable
+            pnpm install --frozen-lockfile
+            pnpm typecheck
+            pnpm lint
+            pnpm test
+            pnpm build:export
+      - qqq-orb/mvn_manage_version
+      - qqq-orb/mvn_jar_deploy
+
 # ─── Workflows ───────────────────────────────────────────────────────────────
 # Branch strategy mirrors the QRun-IO orb convention:
 #   test_only              → all feature / non-protected branches
@@ -44,6 +69,13 @@ workflows:
               only: [ main ]
             tags:
               only: [ /v.*/ ]
+      - publish_dashboard_jar:
+          context: [qqq-maven-registry-credentials]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+(-RC\.[0-9]+)?$/
 
   publish_hotfix_release:
     jobs:

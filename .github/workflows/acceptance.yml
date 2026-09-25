@@ -1,0 +1,81 @@
+name: Real-backend acceptance
+
+# Full QRun-IO/qqq#649 acceptance: the QRun-owned sample application built from QQQ source,
+# serving this repository's production static export, driven by Playwright in each browser.
+# The matrix gate fails on any required row without a first-attempt pass.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      qqq_ref:
+        description: QRun-IO/qqq branch or tag to build the sample backend from
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The released QQQ version this dashboard is accepted against; override per run.
+  QQQ_REF: ${{ inputs.qqq_ref || vars.QQQ_ACCEPTANCE_REF || 'develop' }}
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  acceptance:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The phone project runs only @mobile tests, so it shares the chromium job's gate.
+        browser: ['chromium,mobile', firefox, webkit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: QRun-IO/qqq
+          ref: ${{ env.QQQ_REF }}
+          path: qqq-backend
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Build QQQ from source
+        run: mvn -B -q -f qqq-backend/pom.xml install -DskipTests -Dspotbugs.skip=true -Dpmd.skip=true -Dcheckstyle.skip=true -Djacoco.skip=true
+      - name: Build and install the dashboard jar (static export)
+        run: |
+          pnpm build:jar
+          mvn -B -q install
+          echo "NEXT_JAR_VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_ENV"
+      - name: Build the sample application jar
+        run: |
+          # Run from the QQQ checkout: its checkstyle/pmd configuration paths are relative to it.
+          (cd qqq-backend && mvn -B -q -f qqq-sample-project/pom.xml package -DskipTests -Djacoco.skip=true \
+            -Dqqq.frontend.next.version="$NEXT_JAR_VERSION")
+          echo "QQQ_SAMPLE_JAR=$(ls "$PWD"/qqq-backend/qqq-sample-project/target/*-jar-with-dependencies.jar)" >> "$GITHUB_ENV"
+      - name: Acceptance (${{ matrix.browser }})
+        env:
+          QQQ_ACCEPTANCE_BROWSERS: ${{ matrix.browser }}
+        run: node scripts/acceptance.mjs --skip-build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: acceptance-${{ matrix.browser == 'chromium,mobile' && 'chromium-mobile' || matrix.browser }}
+          path: test-results/acceptance/
+          retention-days: 30

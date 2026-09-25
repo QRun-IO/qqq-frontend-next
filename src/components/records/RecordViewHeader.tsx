@@ -20,17 +20,20 @@
 
 'use client'
 
-import React, { useState } from 'react'
-import Link from 'next/link'
-import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
+import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
+import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 
 import { RecordActions } from './RecordActions'
-import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
+import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { AuditHistoryDialog } from './AuditHistoryDialog'
+import { ShareButton } from '@/components/sharing/ShareDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -75,6 +78,10 @@ interface RecordViewHeaderProps {
   allTables?: Record<string, QTableMetaData>
   /** Navigation context used to build outgoing record links with a back reference. */
   navigateFrom: { path: string; label: string }
+  /** How the current user can read audits; `null` hides the Audit action. */
+  auditSource?: AuditSource
+  /** Widget metadata, for WIDGET-adorned T1 fields. */
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
 }
 
 /**
@@ -101,11 +108,31 @@ export function RecordViewHeader({
   processes,
   allTables,
   navigateFrom,
+  auditSource = null,
+  widgetMetaDataMap,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
+  const mobileActionsTrigger = useRef<HTMLButtonElement>(null)
+  const mobileActionsClose = useRef<HTMLButtonElement>(null)
+
+  /**
+   * Closes the phone action sheet and returns focus to its trigger. The sheet's items unmount
+   * when it closes, so a dialog opened from one would otherwise restore focus to the body
+   * (QRun-IO/qqq#694); focusing the stable trigger first makes it the dialog's return target.
+   */
+  const closeMobileActions = () => {
+    mobileActionsTrigger.current?.focus()
+    setMobileActionsOpen(false)
+  }
+
+  // Move focus into the action sheet when it opens, so keyboard and screen-reader users land in it.
+  useEffect(() => {
+    if (mobileActionsOpen) mobileActionsClose.current?.focus()
+  }, [mobileActionsOpen])
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
 
@@ -119,9 +146,9 @@ export function RecordViewHeader({
       setTimeout(() => setIdCopied(false), 2000)
     })
   }
-  const canEdit = tableMetaData.editPermission
-  const canInsert = tableMetaData.insertPermission
-  const canDelete = tableMetaData.deletePermission
+  const canEdit = canEditRecords(tableMetaData)
+  const canInsert = canInsertRecords(tableMetaData)
+  const canDelete = canDeleteRecords(tableMetaData)
 
   const availableProcesses = (processes ?? []).filter(
     (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
@@ -170,43 +197,16 @@ export function RecordViewHeader({
             className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4"
             data-qqq-id="record-primary-sections"
           >
-            {t1Fields.map((field) => {
-              const displayVal = record.displayValues?.[field.name]
-              const rawVal = record.values[field.name]
-              const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
-              const pvsName = field.possibleValueSourceName
-              const refMeta = pvsName ? allTables?.[pvsName] : undefined
-              const isLink = Boolean(refMeta) && rawVal != null
-              const fromParams = navigateFrom
-                ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
-                : ''
-              return (
-                <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
-                  <dt className="text-xs text-muted-foreground">
-                    <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
-                  </dt>
-                  <dd className="text-sm">
-                    {val == null ? '\u2014' : isLink && refMeta ? (
-                      <RecordHoverCard
-                        tableName={pvsName!}
-                        primaryKey={rawVal as string | number}
-                        tableMetaData={refMeta}
-                        navigateFrom={navigateFrom}
-                      >
-                        <Link
-                          href={`/app/${pvsName}/${rawVal}${fromParams}`}
-                          className="text-primary hover:text-primary/80 hover:underline"
-                        >
-                          {val}
-                        </Link>
-                      </RecordHoverCard>
-                    ) : (
-                      <span className="text-foreground">{val}</span>
-                    )}
-                  </dd>
-                </div>
-              )
-            })}
+            {t1Fields.map((field) => (
+              <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
+                <dt className="text-xs text-muted-foreground">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                </dt>
+                <dd className="text-sm">
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                </dd>
+              </div>
+            ))}
             {/* One-to-one join fields */}
 
           </dl>
@@ -250,19 +250,42 @@ export function RecordViewHeader({
           </button>
         </div>
 
+        {auditSource && (
+          <button
+            type="button"
+            onClick={() => setAuditOpen(true)}
+            data-qqq-id="button-audit"
+            aria-label={`Audit history for ${record.recordLabel || tableMetaData.label}`}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
+              'text-foreground bg-card hover:bg-accent',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'transition-colors duration-150'
+            )}
+          >
+            <History className="h-4 w-4" aria-hidden="true" />
+            Audit
+          </button>
+        )}
+
         {!hideActions && (
           <>
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
-            <div className="hidden md:flex">
+            <div className="hidden md:flex md:items-center md:gap-2">
+              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
               <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
             </div>
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
-            <div className="flex md:hidden">
+            <div className="flex items-center gap-2 md:hidden">
+              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
               <button
                 type="button"
+                ref={mobileActionsTrigger}
                 onClick={() => setMobileActionsOpen(true)}
                 aria-label="Record actions"
+                aria-haspopup="dialog"
+                aria-expanded={mobileActionsOpen}
                 data-qqq-id="button-mobile-actions"
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium',
@@ -285,7 +308,7 @@ export function RecordViewHeader({
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setMobileActionsOpen(false)}
+            onClick={closeMobileActions}
             aria-hidden="true"
           />
           {/* Bottom sheet panel */}
@@ -294,13 +317,20 @@ export function RecordViewHeader({
             role="dialog"
             aria-modal="true"
             aria-label="Record actions"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.stopPropagation()
+                closeMobileActions()
+              }
+            }}
           >
             {/* Drag handle */}
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <span className="text-base font-semibold text-foreground">Actions</span>
               <button
+                ref={mobileActionsClose}
                 type="button"
-                onClick={() => setMobileActionsOpen(false)}
+                onClick={closeMobileActions}
                 aria-label="Close actions menu"
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full',
@@ -340,7 +370,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(`/app/${tableMetaData.name}/${primaryKey}/copy`)
+                    router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
@@ -385,7 +415,7 @@ export function RecordViewHeader({
                 <button
                   type="button"
                   onClick={() => {
-                    setMobileActionsOpen(false)
+                    closeMobileActions()
                     setShowMobileDeleteDialog(true)
                   }}
                   className={cn(
@@ -413,6 +443,17 @@ export function RecordViewHeader({
        * provides a built-in focus trap, Escape-key dismissal, and focus restoration on close.
        * No additional focus-trap logic is needed — Radix handles it automatically.
        */}
+      {auditSource && (
+        <AuditHistoryDialog
+          open={auditOpen}
+          onOpenChange={setAuditOpen}
+          source={auditSource}
+          tableMetaData={tableMetaData}
+          primaryKey={primaryKey}
+          recordLabel={record.recordLabel || String(primaryKey)}
+        />
+      )}
+
       {showMobileDeleteDialog && (
         <DeleteConfirmDialog
           tableMetaData={tableMetaData}

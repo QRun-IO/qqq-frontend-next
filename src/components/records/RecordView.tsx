@@ -24,7 +24,8 @@ import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
-import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation } from '@/types'
+import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
+import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -33,7 +34,6 @@ import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { RecordViewSection } from './RecordViewSection'
 import { FieldValue } from './FieldValue'
 import { FieldLabel } from './FieldLabel'
-import { RecordInfoFooter } from './RecordInfoFooter'
 import { RecordViewHeader } from './RecordViewHeader'
 import { RecordViewTabs } from './RecordViewTabs'
 import { associationWidgetBinding, type AssociationTableState } from '@/lib/utils/association-utils'
@@ -41,7 +41,7 @@ import { AssociatedRecords } from './AssociatedRecords'
 import { RecordViewAssociated } from './RecordViewAssociated'
 
 /**
- * Returns true if a section has at least one visible (non-hidden, non-heavy) field or a widget.
+ * Returns true if a section has at least one visible field or a widget.
  *
  * @param section - The section descriptor containing field names and an optional widget name.
  * @param table - The parent table metadata used to look up field visibility flags.
@@ -51,8 +51,18 @@ function sectionHasContent(section: { fieldNames: string[]; widgetName?: string 
   if (section.widgetName) return true
   return section.fieldNames.some((fn) => {
     const f = table.fields[fn]
-    return f && !f.isHidden && !f.isHeavy
+    return f && !f.isHidden
   })
+}
+
+/**
+ * Whether a section is hidden (`isHidden`, or v1 metadata's `hidden`).
+ *
+ * @param section - Section metadata.
+ * @returns `true` when the section must not render.
+ */
+function isSectionHidden(section: QTableSection): boolean {
+  return Boolean(section.isHidden || section.hidden)
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +135,8 @@ interface RecordViewProps {
   processes?: QProcessMetaData[]
   /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
   allTables?: Record<string, QTableMetaData>
+  /** How the current user can read this record's audits (`null` hides the Audit action). */
+  auditSource?: AuditSource
   /** Additional CSS classes applied to the outermost container. */
   className?: string
 }
@@ -157,6 +169,7 @@ export function RecordView({
   associationTables,
   processes,
   allTables,
+  auditSource = null,
   className,
 }: RecordViewProps) {
   const router = useRouter()
@@ -301,15 +314,11 @@ export function RecordView({
 
   // Separate sections into tiers, excluding sections with no renderable content
   const visibleSections = tableMetaData.sections.filter(
-    (s) => !s.isHidden && sectionHasContent(s, tableMetaData)
+    (s) => !isSectionHidden(s) && sectionHasContent(s, tableMetaData)
   )
   const primarySections = visibleSections.filter((s) => !s.tier || s.tier === 'T1' || s.tier === 'basic')
   const secondarySections = visibleSections.filter((s) => s.tier === 'T2' || s.tier === 'advanced')
-  // T3 sections: separate "record info" (audit/timestamp) sections from content sections (notes, etc.)
-  // Record info sections are always rendered at the bottom, outside the tab system.
-  const allTertiary = visibleSections.filter((s) => s.tier === 'T3')
-  const recordInfoSections = allTertiary.filter((s) => s.name === 'audit')
-  const tertiarySections = allTertiary.filter((s) => s.name !== 'audit')
+  const tertiarySections = visibleSections.filter((s) => s.tier === 'T3')
 
   const boundNames = new Set(visibleSections.flatMap((section) => {
     const binding = associationWidgetBinding(widgetMetaDataMap?.[section.widgetName ?? ''])
@@ -350,10 +359,9 @@ export function RecordView({
       primarySections={primarySections}
       secondarySections={secondarySections}
       tertiarySections={tertiarySections}
-      recordInfoSections={recordInfoSections}
-      visibleSections={visibleSections}
       associations={associations}
       onRefetch={onRefetch}
+      auditSource={auditSource}
     />
   )
 }
@@ -391,10 +399,9 @@ function RecordViewContent({
   primarySections,
   secondarySections,
   tertiarySections,
-  recordInfoSections,
-  visibleSections,
   associations,
   onRefetch,
+  auditSource,
 }: {
   tableMetaData: QTableMetaData
   record: QRecord
@@ -409,10 +416,9 @@ function RecordViewContent({
   primarySections: typeof tableMetaData.sections
   secondarySections: typeof tableMetaData.sections
   tertiarySections: typeof tableMetaData.sections
-  recordInfoSections: typeof tableMetaData.sections
-  visibleSections: typeof tableMetaData.sections
   associations: QAssociation[]
   onRefetch?: () => void
+  auditSource: AuditSource
 }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -498,7 +504,7 @@ function RecordViewContent({
     (section.fieldNames ?? [])
       .map((fn) => tableMetaData.fields[fn])
       .filter((f) => {
-        if (!f || f.isHidden || f.isHeavy) return false
+        if (!f || f.isHidden) return false
         // Skip the primary key — already implied
         if (f.name === tableMetaData.primaryKeyField) return false
         // Skip fields whose display value is contained in the record label
@@ -561,6 +567,8 @@ function RecordViewContent({
           processes={processes}
           allTables={allTables}
           navigateFrom={navigateFrom}
+          auditSource={auditSource}
+          widgetMetaDataMap={widgetMetaDataMap}
         />
 
         {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (
@@ -677,14 +685,14 @@ function RecordViewContent({
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
               {Object.values(tableMetaData.fields)
-                .filter((f) => !f.isHidden && !f.isHeavy)
+                .filter((f) => !f.isHidden)
                 .map((field) => (
                   <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
                     <dt className="text-sm font-semibold text-foreground">
                       <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                     </dt>
                     <dd>
-                      <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
+                      <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                     </dd>
                   </div>
                 ))}
@@ -692,26 +700,6 @@ function RecordViewContent({
           </div>
         )}
 
-        {/* D-V-6: Audit trail footer — shown when backend provides createDate or modifyDate values */}
-        {(record.values['modifyDate'] != null || record.values['createDate'] != null) && (
-          <div className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground">
-            {record.values['createDate'] != null && (
-              <span>Created: {String(record.values['createDate'])}</span>
-            )}
-            {record.values['modifyDate'] != null && (
-              <span className="ml-4">Last modified: {String(record.values['modifyDate'])}</span>
-            )}
-          </div>
-        )}
-
-        {/* Record info footer — timestamps + audit history, always last */}
-        {recordInfoSections.length > 0 && (
-          <RecordInfoFooter
-            tableMetaData={tableMetaData}
-            record={record}
-            recordInfoSections={recordInfoSections}
-          />
-        )}
       </div>
     </RecordViewContext.Provider>
   )

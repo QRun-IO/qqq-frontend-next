@@ -1,0 +1,1341 @@
+{
+  "area": "widgets",
+  "prefixes": [
+    "WID",
+    "RPT"
+  ],
+  "description": "Dashboards, widgets, reports, saved and scheduled reports, and sharing",
+  "rows": [
+    {
+      "id": "WID-001",
+      "feature": "alert widget: severity from alertType, sanitized HTML and bullet list",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:537-560"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accAlert",
+      "scenarios": [
+        "WARNING alert renders strong HTML and each bullet as sanitized HTML"
+      ],
+      "negative": [
+        "hideWidget and empty alerts render nothing (WID-063)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-002",
+      "feature": "barChart widget: one bar per label in backend colors",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleBarChartWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleBarChartWidget",
+      "scenarios": [
+        "bars carry per-point backgroundColors",
+        "accessible data table has exact values"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-003",
+      "feature": "chart output from an untyped widget renders as a bar chart",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/dashboard/widgets/PersonsByCreateDateBarChart.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java"
+      ],
+      "fixture": "sample greetingsApp/PersonsByCreateDateBarChart",
+      "scenarios": [
+        "metadata type absent, payload type chart, values rendered"
+      ],
+      "negative": [
+        "zero-value month has no drawn bar"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-004",
+      "feature": "divider widget renders a rule without card chrome",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:688-692"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accDivider",
+      "scenarios": [
+        "hr rendered, no label or card"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-005",
+      "feature": "fieldValueList widget: labels, display values, prefix icons, indentation",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FieldValueListWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accFieldValueList",
+      "scenarios": [
+        "display value wins, zero shown, icon color, indent"
+      ],
+      "negative": [
+        "empty field list shows empty state (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-006",
+      "feature": "generic widget renders its common payload fields (sublabel, footer)",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accGeneric",
+      "scenarios": [
+        "sublabel and sanitized footer HTML shown"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-007",
+      "feature": "horizontalBarChart widget: horizontal bars with negative values left of zero",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/barchart/HorizontalBarChart.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accHorizontalBarChart",
+      "scenarios": [
+        "negative bar extends left of the zero line",
+        "height from payload"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-008",
+      "feature": "html widget (no-code) renders sanitized user HTML",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleHTMLWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleHTMLWidget",
+      "scenarios": [
+        "velocity output with i/b/u and centered wrapper"
+      ],
+      "negative": [
+        "empty html renders an empty body (WID-052)"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "WID-009",
+      "feature": "lineChart widget: line with a point per label and description",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleLineChartWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleLineChartWidget",
+      "scenarios": [
+        "points carry exact values"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-010",
+      "feature": "smallLineChart widget: compact line with title and HTML description",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleSmallLineChartWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleSmallLineChartWidget",
+      "scenarios": [
+        "title, strong description text, 5 points"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-011",
+      "feature": "location widget: image, title, description, address and footer",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/LocationData.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accLocation",
+      "scenarios": [
+        "owned image loads from the owned service"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-012",
+      "feature": "multiStatistics widget: groups with icon, header, subheader and statistics",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleMultiStatisticsWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleMultiStatisticsWidget",
+      "scenarios": [
+        "every group and value matches the payload"
+      ],
+      "negative": [
+        "empty group list shows empty state (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-013",
+      "feature": "multiTable widget renders each table with its label and rows",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:569-583"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accMultiTable",
+      "scenarios": [
+        "two labelled tables with their rows"
+      ],
+      "negative": [
+        "empty table list shows empty state (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-014",
+      "feature": "pieChart widget: colored slices, legend values and subheader",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SamplePieChartWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SamplePieChartWidget",
+      "scenarios": [
+        "slice fills, legend label: value, main number, up/good change"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-015",
+      "feature": "quickSightChart widget embeds the provider URL (real renderer, owned local provider endpoint)",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/QuickSightChartRenderer.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleMetaDataProvider.java defineWidgets"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java repointSampleQuickSight (greetingsApp/QuickSightChartRenderer against the owned loopback endpoint)",
+      "scenarios": [
+        "iframe src is the owned embed URL and its content renders"
+      ],
+      "negative": [
+        "metadata never exposes the secret key"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-016",
+      "feature": "statistics widget: count, context, colored percentage change and links",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleStatisticsWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleStatisticsWidget; tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accStatisticsGood",
+      "scenarios": [
+        "decrease with increaseIsGood is bad",
+        "increase with increaseIsGood=false is bad; count links to countURL"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "WID-017",
+      "feature": "stackedBarChart widget stacks datasets with colors and legend",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleStackedBarChartWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleStackedBarChartWidget; tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accStackedBars",
+      "scenarios": [
+        "bars of one label share x",
+        "dataset colors"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-018",
+      "feature": "stepper widget: completed, current (with link) and upcoming steps",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleStepperWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleStepperWidget",
+      "scenarios": [
+        "states and current link"
+      ],
+      "negative": [
+        "empty steps show empty state (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-019",
+      "feature": "table widget: headers, rows, alignment and fixed totals row",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleTableWidgetMetaDataProducer.java"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleTableWidget",
+      "scenarios": [
+        "rows and sticky last row match payload"
+      ],
+      "negative": [
+        "no rows shows noRowsFoundHTML or default (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-020",
+      "feature": "usaMap widget plots each marker with name and coordinates",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/USMapWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accUsaMap",
+      "scenarios": [
+        "3 markers placed west to east by longitude",
+        "marker list"
+      ],
+      "negative": [
+        "empty marker list shows empty state (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-021",
+      "feature": "process widget runs the sample interactive process inline",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/ProcessWidgetRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:602-617"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetProcess/accProcess (greetInteractive)",
+      "scenarios": [
+        "form fields render, submit, result greeting shows"
+      ],
+      "negative": [
+        "viewer persona: process denied contained (WID-061)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-022",
+      "feature": "parentWidget renders its children in a 12-column grid",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/ParentWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetParents/accParentGrid",
+      "scenarios": [
+        "children render with their own data"
+      ],
+      "negative": [
+        "tabs (WID-055), denied/missing children (WID-056)"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-023",
+      "feature": "composite widget renders QQQ blocks (big numbers, up/down, links, tooltips)",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/widgetsdashboard/SampleBigNumberBlocksWidgetMetaDataProducer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/CompositeWidget.tsx"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleBigNumberBlocksWidget",
+      "scenarios": [
+        "every block value, direction, link and tooltip"
+      ],
+      "negative": [
+        "no blocks renders an empty composite (WID-052)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-024",
+      "feature": "childRecordList widget without association binding lists joined child records",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/ChildRecordListRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/RecordGridWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accWidgetHostJoinChild (maxRows 2)",
+      "scenarios": [
+        "rows link to child records, Showing 2 of 3, View All filter link"
+      ],
+      "negative": [
+        "host with no children shows empty state"
+      ],
+      "issues": [
+        "#550",
+        "#663"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-025",
+      "feature": "customComponent widget loads its bundle and renders the named component",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/CustomComponentWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accCustomComponent (owned bundle)",
+      "scenarios": [
+        "component receives widget metadata and data"
+      ],
+      "negative": [
+        "missing bundle shows contained error (WID-062)"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-026",
+      "feature": "cronUI widget shows the record's schedule expression, description and time zone",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/CronUIWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron",
+      "scenarios": [
+        "expression, backend description and time zone"
+      ],
+      "negative": [
+        "record without expression shows No schedule set"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-027",
+      "feature": "dynamicForm widget shows labeled values from the payload",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/DynamicFormWidget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostDynamicForm",
+      "scenarios": [
+        "labels and values incl. 0"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-028",
+      "feature": "dataBagViewer widget lists versions and shows the selected version contents",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/DataBagViewer.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java dataBag/1 section accDataBagViewer (owned dataBag tables)",
+      "scenarios": [
+        "newest version current and shown",
+        "selecting older version shows its JSON"
+      ],
+      "negative": [
+        "bag without versions shows empty message"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-029",
+      "feature": "pivotTableSetup widget shows the saved report's pivot definition",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/SavedReportsMetaDataProvider.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx"
+      ],
+      "fixture": "prime-sharing savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java owned pivot saved report",
+      "scenarios": [
+        "rows/values labels from the source table"
+      ],
+      "negative": [
+        "report without pivot shows message"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-030",
+      "feature": "filterAndColumnsSetup widget shows the saved report's filter, sort and columns",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx"
+      ],
+      "fixture": "prime-sharing savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java owned filtered saved report",
+      "scenarios": [
+        "criteria with field labels and operator phrases, columns by label"
+      ],
+      "negative": [
+        "report without filter shows No filters"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-031",
+      "feature": "rowBuilder widget without association binding shows its rows read-only",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/RowBuilderWidgetRenderer.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostRows",
+      "scenarios": [
+        "column labels from widget fields, row values incl. 0"
+      ],
+      "negative": [],
+      "issues": [
+        "#550",
+        "#663"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-032",
+      "feature": "scriptViewer widget lists script revisions and shows the selected revision's files",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/scripts/ScriptsMetaDataProvider.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/ScriptViewer.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java script/1 (owned memory script with 2 revisions)",
+      "scenarios": [
+        "current revision marked and its file contents shown",
+        "selecting older revision"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-033",
+      "feature": "quickSightChart against a real AWS QuickSight account and dashboard",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/QuickSightChartRenderer.java"
+      ],
+      "fixture": "requires AWS credentials and a QuickSight dashboard (external service)",
+      "scenarios": [
+        "real embed URL"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": false,
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): real AWS QuickSight dashboard; the widget and renderer are covered against an owned loopback provider by WID-015; real-service testing is follow-up work."
+    },
+    {
+      "id": "WID-040",
+      "feature": "dashboard renders app widgets in declared order sized by gridColumns (twelfths)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:920-947"
+      ],
+      "fixture": "sample SampleWidgetsDashboard",
+      "scenarios": [
+        "order matches metadata; 12 spans the grid; 4 is a third"
+      ],
+      "negative": [],
+      "issues": [
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-041",
+      "feature": "widget chrome: card vs plain (isCard=false), sublabel, metadata and payload footer HTML",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accPlain, widgetGallery/accGeneric",
+      "scenarios": [
+        "plain widget has no card border; footers render"
+      ],
+      "negative": [],
+      "issues": [
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-042",
+      "feature": "header icons (topLeftInsideCard/topRightInsideCard) with metadata colors",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:498-515"
+      ],
+      "fixture": "sample SampleWidgetsDashboard",
+      "scenarios": [
+        "icon names, colors and placement"
+      ],
+      "negative": [],
+      "issues": [
+        "#538",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-043",
+      "feature": "widget label tooltip from metadata on hover and keyboard focus",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:538-541"
+      ],
+      "fixture": "sample SampleWidgetsDashboard/SampleBarChartWidget",
+      "scenarios": [
+        "hover and focus show, Escape hides"
+      ],
+      "negative": [],
+      "issues": [
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-044",
+      "feature": "widget help content (HTML) on the label",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:530-537"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accHelp",
+      "scenarios": [
+        "help icon shows sanitized HTML help"
+      ],
+      "negative": [],
+      "issues": [
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-045",
+      "feature": "reload button re-renders the widget from the backend",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:376-380"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accReload",
+      "scenarios": [
+        "render count increments per reload"
+      ],
+      "negative": [
+        "no reload button without showReloadButton"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-046",
+      "feature": "export button downloads the widget's csvData as CSV",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:452-464",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetUtils.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accExport, accExportEmpty, accControls",
+      "scenarios": [
+        "file bytes match Material quoting rules"
+      ],
+      "negative": [
+        "no csvData: no-data message and no download"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-047",
+      "feature": "PVS dropdown from the widget payload: selection is sent as a parameter and re-renders",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/AbstractWidgetRenderer.java setupDropdowns"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accDropdownHtml",
+      "scenarios": [
+        "options from payload, choice reaches renderer, clearing removes it"
+      ],
+      "negative": [
+        "non-stored selection is not persisted"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-048",
+      "feature": "DATE_PICKER dropdown sends the chosen date",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/dashboard/WidgetDropdownType.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accControls",
+      "scenarios": [
+        "date reaches the child renderer"
+      ],
+      "negative": [],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-049",
+      "feature": "required dropdowns: the parent waits with the backend message until selections are made",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/AbstractWidgetRenderer.java:176-188"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accControls",
+      "scenarios": [
+        "message then children render with selections"
+      ],
+      "negative": [],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-050",
+      "feature": "storeDropdownSelections persists selections across reload; stale stored options are dropped",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:163-201,414-424"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetControls/accControls",
+      "scenarios": [
+        "localStorage qqq.widgets.dropdownData.<widget>.<param>; reload keeps selections"
+      ],
+      "negative": [
+        "removed option in storage is not selected"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-051",
+      "feature": "failing widget renderer shows a contained error with the backend message and retry",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/Widget.tsx:629-634"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetStates/accError + accHealthy",
+      "scenarios": [
+        "error message, retry re-requests, neighbor content"
+      ],
+      "negative": [
+        "no error toast, no console error"
+      ],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-052",
+      "feature": "empty payloads show descriptive empty states for every display type",
+      "source": [
+        "qqq-sample-project/src/test/java/com/kingsrook/sampleapp/selenium/SampleWidgetStatesBrowserIT.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetStates/accEmpty*",
+      "scenarios": [
+        "table, multiStatistics, charts, stepper, statistics 0, composite, multiTable, field values, map, html"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-053",
+      "feature": "malformed payloads are contained to their own widget",
+      "source": [
+        "qqq-sample-project/src/test/java/com/kingsrook/sampleapp/selenium/SampleWidgetStatesBrowserIT.java testDeferredMalformedWidgetLimitations"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetStates/accMalformed*",
+      "scenarios": [
+        "chart, table, composite, stepper, multiStatistics show a format notice"
+      ],
+      "negative": [
+        "no crash, no console error, neighbors render"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-054",
+      "feature": "widget permissions: a denied widget is absent from metadata, not rendered and not requested; the API denies it",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/permissions/PermissionsHelper.java hasWidgetPermission"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetPermissions/accDenied (pet.accDenied.hasAccess) with the noPets persona",
+      "scenarios": [
+        "admin sees it"
+      ],
+      "negative": [
+        "noPets: no card, no request, GET /widget 403, renderer not called"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "WID-055",
+      "feature": "parent widget TABS layout switches tabs and remembers the selected tab",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:110-127,951-968"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetParents/accParentTabs",
+      "scenarios": [
+        "tab click, arrow keys, stored tab restored after reload"
+      ],
+      "negative": [],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-056",
+      "feature": "parent widget skips denied and unknown children without requests",
+      "source": [
+        "qqq-sample-project/src/test/java/com/kingsrook/sampleapp/selenium/SampleWidgetControlsBrowserIT.java testParentDeniedAndMissingChildren"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetParents/accParentDenied, accParentMissing",
+      "scenarios": [
+        "allowed children render"
+      ],
+      "negative": [
+        "noPets: denied child absent and not requested; unknown child skipped"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-057",
+      "feature": "composite renders every block type with its values and styles",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/blocks/"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks",
+      "scenarios": [
+        "TEXT, BIG_NUMBER, UP_OR_DOWN_NUMBER, NUMBER_ICON_BADGE, ICON, TABLE_SUB_ROW_DETAIL_ROW, PROGRESS_BAR, DIVIDER, IMAGE, AUDIO, INPUT_FIELD, BUTTON"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-058",
+      "feature": "composite layouts and slot links/tooltips",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/CompositeWidgetData.java Layout"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks",
+      "scenarios": [
+        "FLEX_COLUMN, FLEX_ROW, BADGES_WRAPPER, TABLE_SUB_ROW_DETAILS, FLEX_ROW_SPACE_BETWEEN, FLEX_ROW_CENTER, FLEX_ROW_WRAPPED",
+        "link to /app/person with tooltip"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-059",
+      "feature": "unsupported block type shows a contained warning",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx default case"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocksUnknown",
+      "scenarios": [
+        "Unsupported block type: OWNED_UNKNOWN; neighbor healthy"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-060",
+      "feature": "record-view section widgets receive the record context (id, tableName)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx getQueryParams"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost sections accHostHtml, accHostFieldValues",
+      "scenarios": [
+        "record 1 and 2 show their own values"
+      ],
+      "negative": [
+        "renderer enforces the user's table read"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "WID-061",
+      "feature": "process widget for a persona without process permission is contained",
+      "source": [
+        "qqq-sample-project/src/test/java/com/kingsrook/sampleapp/selenium/SampleDisplayWidgetsBrowserIT.java testProcessWidgetRoundTripAndDenial"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetProcess/accProcess with the noProcesses persona",
+      "scenarios": [
+        "error shown in the widget; neighbor healthy"
+      ],
+      "negative": [
+        "process metadata 403, no process run"
+      ],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-062",
+      "feature": "custom component whose bundle cannot load shows a contained error",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/utils/qqq/useDynamicComponents.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accCustomComponentMissing",
+      "scenarios": [
+        "Error loading MissingOwnedComponent"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-063",
+      "feature": "alerts with hideWidget or without HTML render nothing",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:537"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetGallery/accAlertHidden, widgetStates/accEmptyAlert",
+      "scenarios": [
+        "no card rendered"
+      ],
+      "negative": [],
+      "issues": [
+        "#550",
+        "#666"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-001",
+      "feature": "TABLE report runs through its process and downloads CSV matching the database",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/reports/BasicRunReportProcess.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ReportRun.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonReport",
+      "scenarios": [
+        "CSV header labels and every person row from SQL"
+      ],
+      "negative": [],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-002",
+      "feature": "TABLE report downloads XLSX with the same rows",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/actions/reporting/ReportFormat.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonReport",
+      "scenarios": [
+        "sheet rows match SQL"
+      ],
+      "negative": [],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-003",
+      "feature": "TABLE report downloads JSON with the same rows",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/actions/reporting/ReportFormat.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonReport",
+      "scenarios": [
+        "JSON objects match SQL"
+      ],
+      "negative": [],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-004",
+      "feature": "SUMMARY report groups rows with counts and a totals row",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/reporting/GenerateReportAction.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPetSummaryReport",
+      "scenarios": [
+        "pets per owner match SQL group by; Totals row"
+      ],
+      "negative": [],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-005",
+      "feature": "PIVOT report produces a native pivot table in XLSX",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/reporting/GenerateReportAction.java:249-262"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPetPivotReport",
+      "scenarios": [
+        "xlsx contains the pivot table and cache over the rows sheet"
+      ],
+      "negative": [
+        "CSV omits the pivot view (no native pivots)"
+      ],
+      "issues": [
+        "#664",
+        "#484"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-006",
+      "feature": "report input fields: required validation and the value filters the rows",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/reports/PrepareReportStep.java"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonInputReport",
+      "scenarios": [
+        "minimumId filters rows >= value"
+      ],
+      "negative": [
+        "empty required input blocks submit"
+      ],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-007",
+      "feature": "report permissions: restricted report denied in UI and by the server",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/permissions/PermissionsHelper.java checkReportPermission"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accRestrictedReport with the noPets persona",
+      "scenarios": [
+        "admin can run it"
+      ],
+      "negative": [
+        "noPets: no-permission message, legacy route 403"
+      ],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-008",
+      "feature": "reports appear in app navigation and open their run page",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/layout/QAppMetaData.java",
+        "qqq-frontend-material-dashboard/src/App.tsx:464-472"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports app",
+      "scenarios": [
+        "sidebar REPORT nodes navigate to the report page"
+      ],
+      "negative": [],
+      "issues": [
+        "#664",
+        "#651"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-009",
+      "feature": "saved report view shows its filter/columns and pivot setup",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/SavedReportsMetaDataProvider.java"
+      ],
+      "fixture": "prime-sharing savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java owned saved reports",
+      "scenarios": [
+        "filter criteria, columns, pivot rows/values labels"
+      ],
+      "negative": [],
+      "issues": [
+        "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-010",
+      "feature": "saved report renders through renderSavedReport and downloads the saved columns and rows",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/savedreports/RenderSavedReportMetaDataProducer.java"
+      ],
+      "fixture": "prime-sharing savedReport 1 (Pet Species Report)",
+      "scenarios": [
+        "format chosen, CSV contains the saved columns and every species"
+      ],
+      "negative": [],
+      "issues": [
+        "#645",
+        "#661"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-011",
+      "feature": "streaming report route for reports without a process",
+      "source": [
+        "qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java report()"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accStreamedReport",
+      "scenarios": [
+        "CSV streamed from /reports/{name}?format=csv matches SQL"
+      ],
+      "negative": [],
+      "issues": [
+        "#664"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-012",
+      "feature": "scheduled report: create a schedule for a saved report and view its cron schedule",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ScheduledReportTableCustomizer.java",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java"
+      ],
+      "fixture": "scheduledReport (memory) for savedReport 1",
+      "scenarios": [
+        "schedule persisted with cron description; record view shows the schedule widget"
+      ],
+      "negative": [
+        "invalid cron expression rejected with message"
+      ],
+      "issues": [
+        "#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-013",
+      "feature": "sharing: the owner shares a saved report with a user (Read-Only)",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/sharing/InsertSharedRecordProcess.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/sharing/ShareModal.tsx"
+      ],
+      "fixture": "prime-sharing savedReport 1 owned by alice",
+      "scenarios": [
+        "dialog lists Bob; shared_saved_report row READ_ONLY"
+      ],
+      "negative": [],
+      "issues": [
+        "#665",
+        "#444"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-014",
+      "feature": "sharing: change a share's scope to Read and Edit",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/sharing/EditSharedRecordProcess.java"
+      ],
+      "fixture": "prime-sharing savedReport 1",
+      "scenarios": [
+        "row scope READ_WRITE"
+      ],
+      "negative": [],
+      "issues": [
+        "#665"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-015",
+      "feature": "sharing: remove a share",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/sharing/DeleteSharedRecordProcess.java"
+      ],
+      "fixture": "prime-sharing savedReport 1",
+      "scenarios": [
+        "row deleted, list empty"
+      ],
+      "negative": [],
+      "issues": [
+        "#665"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-016",
+      "feature": "sharing record security: another user cannot see an unshared report until it is shared",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleSharingMetaDataProvider.java record security locks"
+      ],
+      "fixture": "prime-sharing savedReport 1 (alice), user bob",
+      "scenarios": [
+        "bob sees it after sharing (UI list + API)"
+      ],
+      "negative": [
+        "before sharing: not in bob's list, GET 404"
+      ],
+      "issues": [
+        "#665"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-017",
+      "feature": "sharing: only the owner may share",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/processes/implementations/sharing/SharedRecordProcessUtils.java assertRecordOwnership"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java savedReport owned by casey shared with alice",
+      "scenarios": [
+        "Share disabled with reason for the non-owner"
+      ],
+      "negative": [
+        "server rejects a non-owner share; no row"
+      ],
+      "issues": [
+        "#665",
+        "#371"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-018",
+      "feature": "sharing a saved view through the share dialog",
+      "source": [
+        "qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleSharingMetaDataProvider.java savedView shareable"
+      ],
+      "fixture": "prime-sharing savedView 1 owned by alice",
+      "scenarios": [
+        "shared_saved_view row for Casey"
+      ],
+      "negative": [],
+      "issues": [
+        "#665"
+      ],
+      "required": true
+    }
+  ]
+}

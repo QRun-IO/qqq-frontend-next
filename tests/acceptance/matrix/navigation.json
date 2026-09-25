@@ -1,0 +1,537 @@
+{
+  "area": "navigation",
+  "prefixes": [
+    "NAV"
+  ],
+  "description": "Navigation, application structure, branding and icons",
+  "rows": [
+    {
+      "id": "NAV-001",
+      "feature": "Direct link to a table list renders seeded rows",
+      "source": [
+        "qqq-sample-project/src/main/resources/metadata/personTable.yaml"
+      ],
+      "fixture": "prime-test-database.sql",
+      "scenarios": [
+        "success"
+      ],
+      "issues": [],
+      "required": true,
+      "negative": []
+    },
+    {
+      "id": "NAV-002",
+      "feature": "Sidebar lists every permitted top-level app once, by label, in backend order, with nested apps only under their parent",
+      "source": [
+        "qqq-backend-core/.../actions/metadata/MetaDataAction.java (appTree, permission filtering)",
+        "qqq-sample-project/.../SampleMetaDataProvider.java defineApps",
+        "material-dashboard src/App.tsx addAppToSideNavList",
+        "src/lib/hooks/use-routes.ts, src/components/layout/Sidebar.tsx"
+      ],
+      "fixture": "stock sample apps + NavigationFixtures (Nav Level One, Nav Empty App); persona noPets",
+      "scenarios": [
+        "admin sees Miscellaneous, Nav Empty App, Nav Level One, People App, Sample Widgets Dashboard, Sharing Demo in backend order",
+        "Greetings App appears only under People App (regression: it was duplicated at top level)",
+        "group children use metadata labels"
+      ],
+      "negative": [
+        "noPets persona: Pet and Pet Note are absent from the sidebar; backend returns 404 for their metadata and 403 for a query"
+      ],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-003",
+      "feature": "Apps nested deeper than two levels render as nested sidebar groups; deep links expand every enclosing group",
+      "source": [
+        "qqq-backend-core/.../model/metadata/frontend/AppTreeNode.java",
+        "material-dashboard src/App.tsx (depth handling)",
+        "src/lib/hooks/use-routes.ts buildRouteMap"
+      ],
+      "fixture": "NavigationFixtures: navLevelOne > navLevelTwo > navLevelThree > navDeepItem",
+      "scenarios": [
+        "expand three nested groups and open Nav Deep Item; grid rows match nav_deep_item",
+        "deep link to /app/navDeepItem expands all three groups and marks the item current"
+      ],
+      "negative": [],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-004",
+      "feature": "Sidebar click navigation to app homes, tables and processes with active-entry highlighting and collapse/expand",
+      "source": [
+        "src/components/layout/Sidebar.tsx"
+      ],
+      "fixture": "stock sample (Miscellaneous app)",
+      "scenarios": [
+        "Dashboard is current on /app",
+        "click app, table, process; URL, content and aria-current follow",
+        "collapse hides children, expand shows them"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-005",
+      "feature": "Declared icons (QIcon name, color, path) render on navigation surfaces",
+      "source": [
+        "qqq-backend-core/.../model/metadata/layout/QIcon.java",
+        "qqq-middleware-javalin/.../specs/v1/responses/components/Icon.java",
+        "material-dashboard src/qqq/pages/apps/Home.tsx, SideNav",
+        "src/components/layout/MetadataIcon.tsx, src/lib/utils/material-icons.ts"
+      ],
+      "fixture": "sample icons (stars, person, widgets, share, pets, local_shipping, badge) + NavigationFixtures (path icon, colored icon, inventory_2, inbox, layers)",
+      "scenarios": [
+        "sidebar glyph per declared Material name, color applied, image path loads",
+        "app home entries and section headings show declared icons",
+        "command palette entries show declared icons"
+      ],
+      "negative": [
+        "no declared icon renders the type fallback glyph"
+      ],
+      "issues": [
+        "#538"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-006",
+      "feature": "Hidden tables and processes never appear in navigation; direct links to hidden objects the user may not access show not-found and the backend denies them",
+      "source": [
+        "qqq-backend-core/.../actions/permissions/PermissionsHelper.java getAllAvailablePermissions (hidden excluded)",
+        "qqq-sample-project SampleMetaDataProvider (city, greet, simpleSleep isHidden)",
+        "src/lib/hooks/use-routes.ts isHiddenNode"
+      ],
+      "fixture": "sample city (hidden table), greet and simpleSleep (hidden processes); NavigationFixtures navHiddenNote (hidden, NOT_PROTECTED)",
+      "scenarios": [
+        "sidebar, app home, landing page and command palette omit City, Greet People, Simple Sleep and Nav Hidden Note"
+      ],
+      "negative": [
+        "/app/city and /app/greet show the not-found state; backend returns 404 and 403"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-007",
+      "feature": "A hidden table the user may access opens by direct link (hidden is not denied)",
+      "source": [
+        "qqq-backend-core/.../actions/metadata/MetaDataAction.java (hidden but permitted objects are returned with isHidden)",
+        "src/app/(dashboard)/app/[slug]/page.tsx resolveSlugTarget"
+      ],
+      "fixture": "NavigationFixtures navHiddenNote (isHidden, PermissionLevel.NOT_PROTECTED)",
+      "scenarios": [
+        "/app/navHiddenNote lists nav_hidden_note rows; breadcrumbs show its enclosing apps"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-008",
+      "feature": "App home sections list processes (Actions), reports (Reports) and tables (Data) by label with icons, and each entry navigates",
+      "source": [
+        "qqq-backend-core/.../model/metadata/layout/QAppSection.java",
+        "material-dashboard src/qqq/pages/apps/Home.tsx",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "sample greetingsApp and miscellaneous sections",
+      "scenarios": [
+        "Miscellaneous: Actions Sleep Interactive, Simple Throw; Data Carrier, Field Lab, Pet Species (labels, not names)",
+        "section heading shows its label and declared icon",
+        "clicking an entry opens the table or process"
+      ],
+      "negative": [
+        "hidden or unpermitted section entries are omitted (navHiddenNote, noPets persona)"
+      ],
+      "issues": [
+        "#651"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-009",
+      "feature": "App home table entries show the backend record count",
+      "source": [
+        "material-dashboard src/qqq/pages/apps/Home.tsx (includeTableCountsOnHomeScreen)",
+        "qqq-middleware-javalin TableCountSpecV1"
+      ],
+      "fixture": "sample carrier, fieldLab, petSpecies, person, pet, petNote rows",
+      "scenarios": [
+        "each Data entry reads 'N total records' equal to the SQL count"
+      ],
+      "negative": [],
+      "issues": [
+        "#651"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-010",
+      "feature": "App homes of apps with child apps, only processes, or nothing render without errors",
+      "source": [
+        "material-dashboard src/qqq/pages/apps/Home.tsx (child apps)",
+        "qqq-middleware-javalin AppMetaData (widgets/sections omitted when empty)",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "sample peopleApp; NavigationFixtures navLevelOne, navEmptyApp; persona viewer",
+      "scenarios": [
+        "People App shows Clone People and the Greetings App child app (regression: crashed on missing widgets)",
+        "Nav Level One lists its child app and navigates to it",
+        "Nav Empty App shows the empty state"
+      ],
+      "negative": [
+        "viewer persona: People App shows only the Greetings App child app (no denied process)"
+      ],
+      "issues": [
+        "#651"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-011",
+      "feature": "A dashboard app (widgets only) opens from navigation and shows one labelled container per permitted declared widget",
+      "source": [
+        "qqq-sample-project SampleWidgetsDashboard app",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "sample SampleWidgetsDashboard (11 widgets)",
+      "scenarios": [
+        "sidebar click opens the dashboard; one widget region per declared widget label, in order"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-012",
+      "feature": "Branding: sidebar logo (Material parity), app name, favicon from the icon, accent color, and partial branding accepted without warnings",
+      "source": [
+        "qqq-backend-core/.../model/metadata/branding/QBrandingMetaData.java",
+        "qqq-middleware-javalin/.../components/Branding.java",
+        "material-dashboard SideNav.tsx logo, App.tsx favicon",
+        "src/components/layout/Sidebar.tsx, src/app/(dashboard)/layout.tsx, src/lib/api/schemas.ts"
+      ],
+      "fixture": "sample branding (appName, logo /samples-logo.png, icon /kr-icon.png) + NavigationFixtures accentColor #1d4ed8",
+      "scenarios": [
+        "sidebar shows /samples-logo.png with alt QQQ Sample, loaded, linking to the dashboard",
+        "favicon link points to /kr-icon.png",
+        "primary color variables equal the branding accent color",
+        "no 'schema validation' console warning for branding without companyName/companyUrl"
+      ],
+      "negative": [],
+      "issues": [
+        "#539"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-013",
+      "feature": "Branding banners render in their slots (top of site, top of body, side nav under logo) with text or sanitized HTML, severity and colors",
+      "source": [
+        "qqq-backend-core/.../model/metadata/branding/Banner.java",
+        "qqq-frontend-material-dashboard MaterialDashboardBannerSlots.java, src/qqq/components/misc/Banners.tsx",
+        "src/components/layout/Banner.tsx"
+      ],
+      "fixture": "NavigationFixtures banners: QFMD_TOP_OF_SITE (INFO text), QFMD_TOP_OF_BODY (WARNING HTML), QFMD_SIDE_NAV_UNDER_LOGO (SUCCESS, colors, additional styles)",
+      "scenarios": [
+        "each slot shows its message in the right place with severity and colors from metadata"
+      ],
+      "negative": [
+        "unknown slots are not rendered"
+      ],
+      "issues": [
+        "#539"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-014",
+      "feature": "Breadcrumbs show the full app hierarchy for tables, processes, records, create and edit pages, and each crumb navigates",
+      "source": [
+        "material-dashboard src/qqq/components/horseshoe/Breadcrumbs.tsx",
+        "src/components/layout/Breadcrumbs.tsx buildBreadcrumbs"
+      ],
+      "fixture": "sample person/greetInteractive; NavigationFixtures navDeepItem",
+      "scenarios": [
+        "/app/person: People App / Greetings App / Person",
+        "/app/navDeepItem/2/edit: Nav Level One / Nav Level Two / Nav Level Three / Nav Deep Item / 2 / Edit",
+        "process and create pages",
+        "clicking a crumb opens that app home"
+      ],
+      "negative": [
+        "no breadcrumbs on the dashboard root"
+      ],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-015",
+      "feature": "Document title names the page, its enclosing apps and the application (Material parity)",
+      "source": [
+        "material-dashboard Breadcrumbs.tsx (document.title)",
+        "src/components/layout/Breadcrumbs.tsx buildDocumentTitle"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "Dashboard | QQQ Sample; Person | Greetings App | People App | QQQ Sample; record label title on the record page"
+      ],
+      "negative": [
+        "unknown route title is Not Found | QQQ Sample"
+      ],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-016",
+      "feature": "The site root redirects to the dashboard",
+      "source": [
+        "src/app/page.tsx",
+        "material-dashboard App.tsx (root route to default)"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "/ replaces itself with /app (back does not return to /)"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-017",
+      "feature": "Dashboard landing page: counts, quick actions and application cards derived from navigable, permitted metadata by label",
+      "source": [
+        "src/app/(dashboard)/app/page.tsx"
+      ],
+      "fixture": "stock sample + NavigationFixtures; persona viewer",
+      "scenarios": [
+        "counts equal the navigable tables, processes, apps and their widgets from backend metadata",
+        "quick actions create only navigable insertable tables and run only navigable processes, by label (regression: listed internal and table-bulk processes, crashed on apps without widgets)",
+        "application cards open app homes"
+      ],
+      "negative": [
+        "viewer persona: no create or process quick actions"
+      ],
+      "issues": [
+        "#651"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-018",
+      "feature": "Direct (hard-loaded) links open every route shape with the shell, sidebar state and breadcrumbs",
+      "source": [
+        "qqq-middleware-javalin/.../routeproviders/NextDashboardRouteProvider.java",
+        "src/lib/hooks/use-route-params.ts"
+      ],
+      "fixture": "stock sample + NavigationFixtures",
+      "scenarios": [
+        "app home, nested app home, table, process, record view, record edit, create, saved view"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-019",
+      "feature": "Browser refresh keeps the route, its query string and the rendered content",
+      "source": [
+        "src/app/(dashboard)/layout.tsx"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "refresh on a table with a query string, a record view, and an app home"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-020",
+      "feature": "Browser back and forward traverse navigation history with the right content",
+      "source": [
+        "src/components/layout/Sidebar.tsx, src/components/layout/Breadcrumbs.tsx"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "dashboard > app home > table > record, then back three times and forward twice"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-021",
+      "feature": "An unknown /app/{name} shows an in-shell not-found state with a link to the dashboard",
+      "source": [
+        "src/app/(dashboard)/app/[slug]/page.tsx",
+        "src/components/layout/NotFoundState.tsx"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "/app/noSuchThing shows 'Page not found' naming the segment; the link opens the dashboard; no failed requests"
+      ],
+      "negative": [],
+      "issues": [
+        "#654"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-022",
+      "feature": "Unknown deeper or top-level paths return the 404 page with a working home link",
+      "source": [
+        "qqq-middleware-javalin NextDashboardRouteProvider (404.html)",
+        "src/app/not-found.tsx"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "/app/person/1/no/such and /no-such-page respond 404 and render the 404 page; Go Home reaches the dashboard"
+      ],
+      "negative": [
+        "only the document 404 is reported"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-023",
+      "feature": "Record lookup by key: /app/{table}/key?{field}={value} opens the single matching record",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordViewByUniqueKey.tsx",
+        "src/app/(dashboard)/app/[slug]/key/page.tsx"
+      ],
+      "fixture": "NavigationFixtures navDeepItem (unique key code); sample person emails",
+      "scenarios": [
+        "?code=NAV-B2 opens record 2 (Tide Chart); ?email=... opens that person"
+      ],
+      "negative": [
+        "no match, several matches (?shelf=North), unknown field, no parameters: error message, no navigation"
+      ],
+      "issues": [
+        "#654"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-024",
+      "feature": "Command palette (Ctrl+K and '.') lists navigable apps, tables and processes by label with type and app context, filters, and navigates by keyboard",
+      "source": [
+        "src/components/feedback/CommandMenu.tsx"
+      ],
+      "fixture": "stock sample + NavigationFixtures",
+      "scenarios": [
+        "filter 'pet' shows Pet, Pet Note, Pet Species with type and app; Enter opens the first",
+        "'.' opens the palette; Escape closes it"
+      ],
+      "negative": [
+        "hidden objects are not listed"
+      ],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-025",
+      "feature": "Header search, '/' search dialog and search page jump to navigation targets and recently viewed records without a backend search endpoint",
+      "source": [
+        "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/app/(dashboard)/app/search/page.tsx",
+        "qqq-middleware-javalin (no /search route)"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "typing a label lists matching pages with app context; choosing one navigates",
+        "a viewed record is offered as a recent record",
+        "Enter without a selection opens /app/search?q= with the matches, surviving refresh"
+      ],
+      "negative": [
+        "no POST /qqq/v1/search request is made (regression: every keystroke produced a 404)"
+      ],
+      "issues": [
+        "#653"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-026",
+      "feature": "Mobile navigation drawer opens from the header, navigates and closes",
+      "source": [
+        "src/components/layout/Header.tsx, src/components/layout/Sidebar.tsx (drawer mode)"
+      ],
+      "fixture": "stock sample, 390x844 viewport",
+      "scenarios": [
+        "hamburger opens the drawer; choosing a table navigates and closes it; close button closes it"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "NAV-027",
+      "feature": "Developer page reports the backend metadata counts and the running framework versions",
+      "source": [
+        "src/app/(dashboard)/app/developer/page.tsx"
+      ],
+      "fixture": "stock sample",
+      "scenarios": [
+        "metadata counts equal the backend's; framework shows the bundled Next.js version (regression: hardcoded 'Next.js 15')"
+      ],
+      "negative": [],
+      "issues": [
+        "#654"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-028",
+      "feature": "Reports in the app tree are listed under their app (sidebar and app home Reports group) and open the report page",
+      "source": [
+        "qqq-backend-core/.../model/metadata/reporting/QReportMetaData.java",
+        "material-dashboard src/App.tsx (REPORT routes), src/qqq/pages/apps/Home.tsx (Reports)",
+        "src/lib/api/metadata.ts (v1 omits reports; merged from the full metadata)",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "NavigationFixtures navDeepItemReport (child of Nav Level Three, icon assessment)",
+      "scenarios": [
+        "sidebar entry with its icon opens /app/navDeepItemReport with the report heading, title and breadcrumbs",
+        "app home Reports group lists and opens it"
+      ],
+      "negative": [],
+      "issues": [
+        "#654"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-029",
+      "feature": "A user who may access no apps sees the Dashboard entry and the no-apps message (Material NoApps parity)",
+      "source": [
+        "material-dashboard src/qqq/pages/apps/NoApps.tsx",
+        "src/lib/hooks/use-routes.ts",
+        "src/app/(dashboard)/app/page.tsx"
+      ],
+      "fixture": "harness persona noApps (every permission except App HAS_ACCESS) - requested: not yet in AcceptanceSampleServer",
+      "scenarios": [
+        "sidebar shows only Dashboard; landing shows You do not have permission to access any apps."
+      ],
+      "negative": [
+        "app home links show the not-found state"
+      ],
+      "issues": [
+        "#652"
+      ],
+      "required": true
+    }
+  ]
+}

@@ -18,8 +18,25 @@
  * @file Widgets API — Endpoint for fetching runtime data for dashboard and embedded widgets.
  */
 
+import { AxiosError } from 'axios'
+
 import type { WidgetData } from '@/types'
 import apiClient from './client'
+
+/**
+ * Error raised for a failed widget request, carrying the HTTP status and the
+ * backend's `error` message when one was returned.
+ */
+export class WidgetRequestError extends Error {
+  /** HTTP status of the failed response, when there was one. */
+  readonly status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'WidgetRequestError'
+    this.status = status
+  }
+}
 
 /**
  * Fetches runtime data for a named widget from `GET /widget/{widgetName}`.
@@ -32,15 +49,26 @@ import apiClient from './client'
  * @param widgetName - Backend-registered name of the widget (e.g. `"salesSummary"`).
  * @param params - Optional key-value pairs forwarded as query parameters to the widget endpoint.
  * @returns The widget's runtime data payload.
+ * @throws WidgetRequestError with the backend message (e.g. a renderer failure) and status.
  */
 export async function fetchWidgetData(
   widgetName: string,
   params?: Record<string, string | number | boolean>
 ): Promise<WidgetData> {
-  const data = await apiClient.get<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {
-    params,
-    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
-  })
+  let data: WidgetData
+  try {
+    data = await apiClient.get<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {
+      params,
+      baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
+    })
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      const body = error.response?.data as { error?: unknown } | undefined
+      const message = typeof body?.error === 'string' && body.error ? body.error : error.message
+      throw new WidgetRequestError(message, error.response?.status)
+    }
+    throw error
+  }
   if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.type !== 'string') {
     throw new Error('Invalid widget data response')
   }

@@ -22,7 +22,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
-import { Controller } from 'react-hook-form'
+import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
@@ -60,6 +60,10 @@ interface PossibleValueSelectProps {
   placeholder?: string
   /** `data-qqq-id` attribute forwarded to the combobox trigger for CSS customization. */
   'data-qqq-id'?: string
+  /** Possible-value source name, used for standalone (`/possibleValues/{source}`) lookups. */
+  possibleValueSourceName?: string
+  /** Label of the value the field already holds (e.g. the record's display value). */
+  initialLabel?: string
 }
 
 /**
@@ -84,6 +88,8 @@ export function PossibleValueSelect({
   name,
   control,
   fieldName,
+  possibleValueSourceName,
+  initialLabel,
   context,
   error,
   disabled = false,
@@ -97,6 +103,8 @@ export function PossibleValueSelect({
   const [isLoading, setIsLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [selectedOption, setSelectedOption] = useState<QPossibleValue | null>(null)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const triggerRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -122,7 +130,7 @@ export function PossibleValueSelect({
         } else if (context.type === 'process') {
           results = await fetchProcessPossibleValues(context.processName, fieldName, request)
         } else {
-          results = await fetchPossibleValues(fieldName, request)
+          results = await fetchPossibleValues(possibleValueSourceName ?? fieldName, request)
         }
         if (sequence === requestSequence.current) setOptions(results)
       } catch {
@@ -134,7 +142,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName]
+    [context, fieldName, possibleValueSourceName]
   )
 
   /**
@@ -156,6 +164,26 @@ export function PossibleValueSelect({
       fetchOptions(searchTerm)
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A value set without its label (e.g. a create-form default) is looked up by id.
+  const watchedValue = useWatch({ control, name })
+  const contextKey = JSON.stringify(context)
+  useEffect(() => {
+    const held = watchedValue === null || watchedValue === undefined || watchedValue === '' ? '' : String(watchedValue)
+    if (!held || initialLabel || (selectedOption && String(selectedOption.id) === held)) return
+    let cancelled = false
+    const request = { ids: held }
+    const lookup = context.type === 'table'
+      ? fetchTablePossibleValues(context.tableName, fieldName, request)
+      : context.type === 'process'
+        ? fetchProcessPossibleValues(context.processName, fieldName, request)
+        : fetchPossibleValues(possibleValueSourceName ?? fieldName, request)
+    lookup.then((results) => {
+      const match = results.find((option) => String(option.id) === held)
+      if (!cancelled && match) setSelectedOption(match)
+    }).catch(() => { /* the raw value stays visible */ })
+    return () => { cancelled = true }
+  }, [watchedValue, initialLabel, selectedOption, contextKey, fieldName, possibleValueSourceName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close on outside click
   useEffect(() => {
@@ -202,6 +230,41 @@ export function PossibleValueSelect({
             setSelectedOption(option)
             setIsOpen(false)
             setSearchTerm('')
+            setActiveIndex(-1)
+            triggerRef.current?.focus()
+          }
+
+          const open = () => {
+            if (disabled) return
+            setIsOpen(true)
+            setTimeout(() => inputRef.current?.focus(), 50)
+          }
+
+          const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            if (disabled) return
+            if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+              event.preventDefault()
+              open()
+            }
+          }
+
+          const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault()
+              setActiveIndex((index) => Math.min(index + 1, options.length - 1))
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault()
+              setActiveIndex((index) => Math.max(index - 1, 0))
+            } else if (event.key === 'Enter') {
+              event.preventDefault()
+              const option = options[activeIndex] ?? (options.length === 1 ? options[0] : undefined)
+              if (option) handleSelect(option)
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              setIsOpen(false)
+              setActiveIndex(-1)
+              triggerRef.current?.focus()
+            }
           }
 
           const handleClear = (e: React.MouseEvent) => {
@@ -211,12 +274,21 @@ export function PossibleValueSelect({
             setSearchTerm('')
           }
 
-          const displayValue = selectedOption?.label ?? (field.value ? String(field.value) : '')
+          // The held value's label: the chosen option, else the record's display value
+          // for an unchanged value, else the raw id as a last resort.
+          const heldValue = field.value === null || field.value === undefined || field.value === '' ? '' : String(field.value)
+          const displayValue = selectedOption && String(selectedOption.id) === heldValue
+            ? selectedOption.label
+            : heldValue ? (initialLabel ?? heldValue) : ''
 
           return (
             <div ref={containerRef} className="relative">
               <div
+                ref={triggerRef}
                 id={id}
+                tabIndex={disabled ? -1 : 0}
+                onKeyDown={handleTriggerKeyDown}
+                aria-disabled={disabled || undefined}
                 role="combobox"
                 aria-labelledby={`${id}-label`}
                 aria-expanded={isOpen}
@@ -228,10 +300,8 @@ export function PossibleValueSelect({
                 data-qqq-id={dataQqqId}
                 onClick={() => {
                   if (!disabled) {
-                    setIsOpen((o) => !o)
-                    if (!isOpen) {
-                      setTimeout(() => inputRef.current?.focus(), 50)
-                    }
+                    if (isOpen) setIsOpen(false)
+                    else open()
                   }
                 }}
                 className={cn(
@@ -287,9 +357,12 @@ export function PossibleValueSelect({
                       ref={inputRef}
                       type="text"
                       value={searchTerm}
-                      onChange={handleSearchChange}
+                      onChange={(event) => { setActiveIndex(-1); handleSearchChange(event) }}
+                      onKeyDown={handleSearchKeyDown}
                       placeholder="Search..."
                       aria-label={`Search ${label} options`}
+                      aria-controls={`${id}-listbox`}
+                      aria-activedescendant={activeIndex >= 0 && options[activeIndex] ? `${id}-option-${activeIndex}` : undefined}
                       className={cn(
                         'w-full rounded border border-input px-2 py-1 text-sm',
                         'bg-muted text-foreground',
@@ -318,18 +391,20 @@ export function PossibleValueSelect({
                         No options found
                       </li>
                     ) : (
-                      options.map((option) => {
+                      options.map((option, index) => {
                         const isSelected = String(field.value) === String(option.id)
                         return (
                           <li
                             key={String(option.id)}
+                            id={`${id}-option-${index}`}
                             role="option"
                             aria-selected={isSelected}
                             onClick={() => handleSelect(option)}
                             className={cn(
                               'flex cursor-pointer items-center justify-between px-3 py-2 text-sm',
                               'hover:bg-accent',
-                              isSelected && 'bg-accent text-primary'
+                              isSelected && 'bg-accent text-primary',
+                              index === activeIndex && 'ring-2 ring-inset ring-ring'
                             )}
                           >
                             <span>{option.label}</span>

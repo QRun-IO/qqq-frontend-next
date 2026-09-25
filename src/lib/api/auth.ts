@@ -98,49 +98,67 @@ export function clearAuthMetadataCache(): void {
 export interface SessionResponse {
   /** Server-assigned session UUID, mirrored to the `sessionUUID` cookie. */
   uuid: string
-  /** Arbitrary key-value pairs associated with the session (user name, roles, etc.). */
-  values: Record<string, unknown>
+  /** Session values for the frontend (e.g. `user: { name, email }`), when the backend sets any. */
+  values?: Record<string, unknown>
 }
 
 /**
- * Establishes or refreshes a QQQ server session by posting the caller's
- * authorization code (or access token) to `POST /manageSession` as
- * multipart/form-data.
+ * Base URL of the unversioned (legacy) middleware routes, e.g. `/manageSession`.
  *
- * In the PKCE flow the `accessToken` field carries the authorization code
- * returned by the IdP. The `codeVerifier` (when supplied) allows the backend
- * to complete the PKCE token exchange with the IdP on behalf of the client.
- *
- * On success the server sets a `sessionUUID` cookie that is included
- * automatically in all subsequent requests via `withCredentials: true`.
- *
- * @param accessToken  - Either an OIDC authorization code (backend completes
- *   the code exchange with the IdP) or a pre-obtained access token (client
- *   obtained it directly from the IdP). The distinction matters for whether
- *   `codeVerifier` must also be supplied.
- * @param codeVerifier - Required only for the PKCE flow when `accessToken`
- *   is an authorization code and the backend must complete the
- *   authorization-code → token exchange on behalf of the client. Omit for
- *   implicit flows, client-credentials flows, or any flow where the client
- *   already holds a fully-resolved access token.
- * @returns Session metadata including the server-assigned UUID.
+ * @returns The API base URL without its `/qqq/v1` suffix.
  */
-export async function manageSession(
-  accessToken: string,
-  codeVerifier?: string
-): Promise<SessionResponse> {
-  const formData = new FormData()
-  formData.append('accessToken', accessToken)
+function legacyBaseURL(): string | undefined {
+  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
+}
 
-  // Include the PKCE verifier when provided so the backend can complete the
-  // authorization-code exchange with the identity provider.
-  if (codeVerifier) {
-    formData.append('codeVerifier', codeVerifier)
-  }
+/**
+ * Creates a QQQ session from an access token via `POST /qqq/v1/manageSession`.
+ *
+ * The v1 endpoint reads a JSON body. For MOCK and FULLY_ANONYMOUS the token is a
+ * placeholder; for AUTH_0 it is the provider access token (a JWT the backend verifies).
+ * The backend sets the `sessionUUID` cookie; a 401 means the provider denied the login.
+ *
+ * @param accessToken - The provider access token, or a placeholder for anonymous types.
+ * @returns The session UUID and its frontend values.
+ */
+export async function manageSession(accessToken: string): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', { accessToken })
+}
 
-  return apiClient.post<SessionResponse>('/manageSession', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+/**
+ * Completes an OAuth2 authorization-code + PKCE login: the backend exchanges the
+ * code with the identity provider (using its client secret) and creates a session.
+ *
+ * Uses the unversioned `POST /manageSession`, which passes these values to the
+ * OAuth2 module; v1 accepts only `accessToken` (QRun-IO/qqq#406).
+ *
+ * @param params - The authorization code, the PKCE verifier and the redirect URI used.
+ * @returns The session UUID and its frontend values.
+ */
+export async function createOAuth2Session(params: { code: string; codeVerifier: string; redirectUri: string }): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', params, { baseURL: legacyBaseURL() })
+}
+
+/**
+ * Resumes an existing OAuth2/Auth0 session from its `sessionUUID` cookie value.
+ *
+ * @param sessionUUID - The session UUID the backend issued at sign-in.
+ * @returns The session UUID and its frontend values; rejects with 401 when it is no longer valid.
+ */
+export async function resumeSession(sessionUUID: string): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', { sessionUUID, uuid: sessionUUID }, { baseURL: legacyBaseURL() })
+}
+
+/**
+ * Reads the `sessionUUID` cookie set by the backend at sign-in.
+ *
+ * @returns The cookie value, or null.
+ */
+export function readSessionUUIDCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('sessionUUID='))
+  const value = match ? decodeURIComponent(match.slice('sessionUUID='.length)) : ''
+  return value || null
 }
 
 /**

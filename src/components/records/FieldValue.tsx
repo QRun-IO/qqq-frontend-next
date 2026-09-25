@@ -15,309 +15,198 @@
  */
 
 /**
- * @file FieldValue — read-only renderer for a single QQQ field value, supporting all adornment types.
+ * @file FieldValue — renders a single field value from metadata: adornments first
+ * (LINK, REVEAL, RENDER_HTML, CHIP, CODE_EDITOR, ERROR, FILE_DOWNLOAD, WIDGET,
+ * TOOLTIP), then type-specific formatting.
  */
 
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Download, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import DOMPurify from 'dompurify'
 
-import type { QFieldMetaData, QTableMetaData, QRecord, FieldAdornment } from '@/types'
+import type { QFieldMetaData, QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
+import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
-import { isHttpUrl, isRelativeUrl, isEmail } from '@/lib/utils/string-utils'
+import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
+import { formatDateTime } from '@/lib/utils/datetime-utils'
+import {
+  attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
+} from '@/lib/utils/adornment-utils'
+import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
  * Props for the {@link FieldValue} component.
  */
 interface FieldValueProps {
-  /** Metadata describing the field's type, adornments, and source. */
+  /** Field metadata that drives the rendering strategy (type and adornments). */
   field: QFieldMetaData
-  /** The record whose values and display values are rendered. */
+  /** The record containing the raw value and optional pre-formatted display value. */
   record: QRecord
-  /** Full table metadata map — enables record link hover previews */
+  /** Full table metadata map, used for record links and their hover previews. */
   allTables?: Record<string, QTableMetaData>
-  /** Source page info for back navigation — appended as ?from=&fromLabel= to record links */
+  /** Navigation context appended to outgoing record links so the target can link back. */
   navigateFrom?: { path: string; label: string }
-  /** Additional CSS classes applied to the outermost rendered element. */
+  /** Widget metadata, for WIDGET-adorned fields. */
+  widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Full metadata of the record's table (primary key and label for file names). */
+  tableMetaData?: QTableMetaData
+  /** Additional CSS classes applied to the root element. */
   className?: string
 }
 
 /**
- * Renders a single QQQ field value in read-only display mode.
+ * Renders a single QQQ field value, driven entirely by field metadata.
  *
- * Adornment priority (first match wins): LINK, FILE_DOWNLOAD, SIZE, CHIP,
- * RENDER_HTML, CODE_EDITOR, TOOLTIP, ERROR, record-reference link.
- * After adornments, rendering falls back to `field.type`-based formatting
- * (BOOLEAN badge, PASSWORD reveal, BLOB download, TEXT pre-wrap).
- * Auto-links bare http(s) URLs and e-mail addresses in the default case.
+ * Adornments are applied in the order the QQQ dashboards use (one per value), and
+ * a TOOLTIP adornment wraps whatever is rendered. Without an adornment, the value
+ * is formatted by type: DATE_TIME in the viewer's time zone (unless the backend
+ * supplied a zoned display value), BOOLEAN as Yes/No, TEXT with line breaks, HTML
+ * sanitized, and everything else as the backend display value. Empty values render
+ * an em dash.
  *
  * @param props - See {@link FieldValueProps}.
- * @returns A React element with adornment-driven styling; empty values render
- *   an em-dash; HTML values are DOMPurify-sanitized; HTTP URLs and email
- *   addresses are auto-linked when no adornment applies.
+ * @returns The rendered value.
  */
-export function FieldValue({ field, record, allTables, navigateFrom, className }: FieldValueProps) {
+export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
+  const content = <FieldValueContent field={field} record={record} allTables={allTables}
+    navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} />
+  const tooltip = tooltipText(field, record)
+  const tooltipState = useFocusSafeTooltip()
+  if (!tooltip) return content
+  return (
+    <TooltipPrimitive.Provider delayDuration={300}>
+      <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
+        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
+          <span tabIndex={0} className="cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4"
+            data-qqq-id={`field-value-tooltip-trigger-${field.name}`}>
+            {content}
+          </span>
+        </TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Content side="top" sideOffset={4} data-qqq-id={`field-value-tooltip-${field.name}`}
+            className="z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground shadow-md">
+            {tooltip}
+            <TooltipPrimitive.Arrow className="fill-border" />
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
+      </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
+  )
+}
+
+/**
+ * The value itself, without the TOOLTIP wrapper.
+ *
+ * @param props - See {@link FieldValueProps}.
+ * @returns The rendered value.
+ */
+function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
   const rawValue = record.values[field.name]
   const displayValue = record.displayValues?.[field.name]
-
-  // Use displayValue when available (formatted by backend)
   const value = displayValue ?? rawValue
+  const dataQqqId = `field-value-${field.name}`
 
-  // MED-4: memoize DOMPurify sanitization so it only re-runs when value changes
-  const sanitizedHtml = useMemo(
-    () => DOMPurify.sanitize(String(value)),
-    [value]
-  )
+  const widget = findAdornment(field, 'WIDGET')
+  if (widget) {
+    const widgetName = typeof widget.values?.widgetName === 'string' ? widget.values.widgetName : ''
+    const widgetMetaData = widgetMetaDataMap?.[widgetName]
+    if (!widgetMetaData) {
+      return <span role="alert" className={cn('text-sm text-destructive', className)} data-qqq-id={dataQqqId}>
+        Error: Could not load widget [{widgetName}]
+      </span>
+    }
+    if (rawValue === null || rawValue === undefined) return <EmptyValue fieldName={field.name} className={className} />
+    return <div className={className} data-qqq-id={dataQqqId}><WidgetRenderer widgetMetaData={widgetMetaData} data={rawValue} /></div>
+  }
 
   if (value === null || value === undefined || value === '') {
-    return (
-      <span
-        className={cn('text-muted-foreground text-sm', className)}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        —
-      </span>
-    )
+    return <EmptyValue fieldName={field.name} className={className} />
   }
 
-  // Record reference link — field with possibleValueSourceName matching a known table
-  const pvsTable = field.possibleValueSourceName
-  const refTableMeta = pvsTable ? allTables?.[pvsTable] : undefined
-  const isRecordLink = Boolean(refTableMeta) && rawValue != null
+  const fromParams = navigateFrom
+    ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
+    : ''
 
-  // Check adornments
-  const hasLink = field.adornments?.some((a) => a.type === 'LINK')
-  const hasChip = field.adornments?.some((a) => a.type === 'CHIP')
-  const hasFileDownload = field.adornments?.some((a) => a.type === 'FILE_DOWNLOAD')
-  const hasReveal = field.adornments?.some((a) => a.type === 'REVEAL')
-  const hasSize = field.adornments?.some((a) => a.type === 'SIZE')
-  const hasRenderHtml = field.adornments?.some((a) => a.type === 'RENDER_HTML')
-  const hasCodeEditor = field.adornments?.some((a) => a.type === 'CODE_EDITOR')
-  const hasTooltipAdornment = field.adornments?.some((a) => a.type === 'TOOLTIP')
-  const hasError = field.adornments?.some((a) => a.type === 'ERROR')
-
-  // LINK adornment — render as anchor
-  if (hasLink) {
-    const linkAdornment = field.adornments?.find(
-      (a): a is Extract<FieldAdornment, { type: 'LINK' }> => a.type === 'LINK'
-    )
-    const href = linkAdornment?.values?.linkURL ?? String(value)
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(
-          'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        {String(value)}
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-      </a>
-    )
-  }
-
-  // FILE_DOWNLOAD adornment
-  if (hasFileDownload) {
-    const href = displayValue ?? String(rawValue)
-    return (
-      <a
-        href={href}
-        download
-        className={cn(
-          'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        <Download className="h-3.5 w-3.5" aria-hidden="true" />
-        Download
-      </a>
-    )
-  }
-
-  // SIZE adornment — format bytes
-  if (hasSize) {
-    const bytes = Number(rawValue)
-    const formatted = formatBytes(bytes)
-    return (
-      <span
-        className={cn('text-sm text-foreground', className)}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        {formatted}
-      </span>
-    )
-  }
-
-  // CHIP adornment — render as badge
-  if (hasChip) {
-    const chipAdornment = field.adornments?.find(
-      (a): a is Extract<FieldAdornment, { type: 'CHIP' }> => a.type === 'CHIP'
-    )
-    const colorMap: Record<string, string> = chipAdornment?.values?.colorMap ?? {}
-    const color = colorMap[String(value)] ?? 'gray'
-    return (
-      <span
-        className={cn(
-          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-          getChipClasses(color),
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        {String(value)}
-      </span>
-    )
-  }
-
-  // RENDER_HTML adornment — render sanitized HTML
-  if (hasRenderHtml || field.type === 'HTML') {
-    return (
-      <div
-        className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)}
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-        data-qqq-id={`field-value-${field.name}`}
-      />
-    )
-  }
-
-  // CODE_EDITOR adornment — render in a monospace code block
-  if (hasCodeEditor) {
-    return (
-      <pre
-        className={cn(
-          'overflow-auto rounded-md border border-border bg-muted p-3 text-sm',
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        <code className="font-mono text-foreground whitespace-pre-wrap">
-          {String(value)}
-        </code>
-      </pre>
-    )
-  }
-
-  // TOOLTIP adornment — wrap displayed value in a tooltip
-  if (hasTooltipAdornment) {
-    const tooltipAdornment = field.adornments?.find(
-      (a): a is Extract<FieldAdornment, { type: 'TOOLTIP' }> => a.type === 'TOOLTIP'
-    )
-    const tooltipText =
-      tooltipAdornment?.values?.tooltipText ??
-      tooltipAdornment?.values?.text ??
-      tooltipAdornment?.values?.tooltip ??
-      ''
-
-    if (tooltipText) {
-      return (
-        <TooltipPrimitive.Provider delayDuration={300}>
-          <TooltipPrimitive.Root>
-            <TooltipPrimitive.Trigger asChild>
-              <span
-                className={cn(
-                  'text-sm text-foreground cursor-help underline decoration-dotted decoration-muted-foreground',
-                  className
-                )}
-                data-qqq-id={`field-value-${field.name}`}
-                tabIndex={0}
-              >
-                {String(value)}
-              </span>
-            </TooltipPrimitive.Trigger>
-            <TooltipPrimitive.Portal>
-              <TooltipPrimitive.Content
-                side="top"
-                sideOffset={4}
-                className={cn(
-                  'z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm shadow-md',
-                  'text-foreground',
-                  'animate-in fade-in-0 zoom-in-95'
-                )}
-              >
-                {tooltipText}
-                <TooltipPrimitive.Arrow className="fill-border" />
-              </TooltipPrimitive.Content>
-            </TooltipPrimitive.Portal>
-          </TooltipPrimitive.Root>
-        </TooltipPrimitive.Provider>
-      )
+  if (findAdornment(field, 'LINK')) {
+    const target = linkTarget(field, record)
+    if (target?.kind === 'record') {
+      return <RecordLink tableName={target.tableName} primaryKey={target.primaryKey} label={String(value)}
+        allTables={allTables} fromParams={fromParams} dataQqqId={dataQqqId} className={className} />
     }
-
-    // Intentional fallthrough: when the TOOLTIP adornment exists but no tooltip text
-    // can be resolved (all value keys return empty), we fall through to type-based
-    // or default rendering below. The value itself is still rendered -- only the
-    // tooltip wrapper is omitted since there is no text to display.
+    if (target?.kind === 'url') {
+      if (target.external) {
+        return (
+          <a href={target.href} target={target.target} rel={target.target === '_blank' ? 'noopener noreferrer' : undefined}
+            className={cn('inline-flex items-center gap-1 text-sm text-primary underline hover:text-primary/80', className)}
+            data-qqq-id={dataQqqId}>
+            {String(value)}
+            {target.target === '_blank' && <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />}
+            {target.target === '_blank' && <span className="sr-only">(opens in a new tab)</span>}
+          </a>
+        )
+      }
+      return <Link href={target.href} className={cn('text-sm text-primary underline hover:text-primary/80', className)}
+        data-qqq-id={dataQqqId}>{String(value)}</Link>
+    }
+    return <PlainValue value={String(value)} dataQqqId={dataQqqId} className={className} />
   }
 
-  // ERROR adornment — render with error icon and destructive styling
-  if (hasError) {
-    const errorAdornment = field.adornments?.find(
-      (a): a is Extract<FieldAdornment, { type: 'ERROR' }> => a.type === 'ERROR'
-    )
-    const errorText =
-      errorAdornment?.values?.errorText ??
-      errorAdornment?.values?.text ??
-      ''
+  if (findAdornment(field, 'REVEAL')) {
+    return <RevealField value={String(value)} field={field} className={className} />
+  }
 
+  if (findAdornment(field, 'RENDER_HTML')) {
+    return <SanitizedHtml html={String(rawValue ?? '')} dataQqqId={dataQqqId} className={className} />
+  }
+
+  if (findAdornment(field, 'CHIP')) {
+    const { color, icon } = chipStyle(field, rawValue)
     return (
       <span
-        className={cn(
-          'inline-flex items-center gap-1.5 text-sm',
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
+        className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color], className)}
+        data-qqq-id={dataQqqId}
+        data-chip-color={color}
+        data-chip-icon={icon}
       >
-        <AlertCircle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-        <span className="text-destructive">
-          {String(value)}
-          {errorText && (
-            <span className="ml-1 text-xs text-destructive">({errorText})</span>
-          )}
-        </span>
+        {String(value)}
       </span>
     )
   }
 
-  // Record reference — render as a link with hover preview card
-  if (isRecordLink && refTableMeta) {
-    const fromParams = navigateFrom
-      ? `?from=${encodeURIComponent(navigateFrom.path)}&fromLabel=${encodeURIComponent(navigateFrom.label)}`
-      : ''
-    const link = (
-      <Link
-        href={`/app/${pvsTable}/${rawValue}${fromParams}`}
-        className={cn(
-          'text-sm text-primary hover:text-primary/80 hover:underline',
-          className
-        )}
-        data-qqq-id={`field-value-${field.name}`}
-      >
-        {String(value)}
-      </Link>
-    )
+  const codeEditor = findAdornment(field, 'CODE_EDITOR')
+  if (codeEditor) {
+    const languageMode = typeof codeEditor.values?.languageMode === 'string' ? codeEditor.values.languageMode : 'text'
+    return <CodeViewer code={String(rawValue ?? value)} languageMode={languageMode} fieldName={field.name} className={className} />
+  }
 
+  if (findAdornment(field, 'ERROR')) {
     return (
-      <RecordHoverCard
-        tableName={pvsTable!}
-        primaryKey={rawValue as string | number}
-        tableMetaData={refTableMeta}
-      >
-        {link}
-      </RecordHoverCard>
+      <span className={cn('inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200', className)}
+        data-qqq-id={dataQqqId} role="note">
+        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {String(rawValue ?? value)}
+      </span>
     )
   }
 
-  // Type-based rendering
+  if (findAdornment(field, 'FILE_DOWNLOAD')) {
+    const file = fileDownload(field, record)
+    if (!file) return <EmptyValue fieldName={field.name} className={className} />
+    return <FileLinks url={file.url} fileName={file.fileName} dataQqqId={dataQqqId} className={className} />
+  }
+
+  // Record reference — a possible-value field whose source is a known table.
+  const pvsTable = field.possibleValueSourceName
+  if (pvsTable && allTables?.[pvsTable] && rawValue !== null && rawValue !== undefined) {
+    return <RecordLink tableName={pvsTable} primaryKey={String(rawValue)} label={String(value)}
+      allTables={allTables} fromParams={fromParams} dataQqqId={dataQqqId} className={className} />
+  }
+
   switch (field.type) {
     case 'BOOLEAN': {
       const boolVal = rawValue === true || rawValue === 'true' || rawValue === 1
@@ -330,106 +219,60 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
               : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
             className
           )}
-          data-qqq-id={`field-value-${field.name}`}
+          data-qqq-id={dataQqqId}
         >
           {boolVal ? 'Yes' : 'No'}
         </span>
       )
     }
 
-    case 'PASSWORD': {
-      return <RevealField value={String(value)} fieldName={field.name} className={className} />
+    case 'DATE_TIME': {
+      // A zoned display value from the backend (e.g. a fixed or per-record zone) wins;
+      // otherwise the instant is shown in the viewer's time zone.
+      const text = displayValue && displayValue !== rawValue ? displayValue : (formatDateTime(rawValue) ?? String(value))
+      return <time dateTime={typeof rawValue === 'string' ? rawValue : undefined} className={cn('text-sm text-foreground', className)}
+        data-qqq-id={dataQqqId}>{text}</time>
     }
 
     case 'BLOB': {
-      // BLOB — show as file download if we have a URL, otherwise indicate large binary
-      if (typeof value === 'string' && (isHttpUrl(value) || isRelativeUrl(value))) {
-        return (
-          <a
-            href={value}
-            download
-            className={cn(
-              'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 underline',
-              className
-            )}
-            data-qqq-id={`field-value-${field.name}`}
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            Download file
-          </a>
-        )
-      }
-      return (
-        <span
-          className={cn('text-sm text-muted-foreground', className)}
-          data-qqq-id={`field-value-${field.name}`}
-        >
-          [Binary data]
-        </span>
-      )
+      if (typeof rawValue !== 'string') return <PlainValue value="[Binary data]" dataQqqId={dataQqqId} className={className} />
+      const table = tableMetaData ?? allTables?.[record.tableName]
+      const primaryKey = table?.primaryKeyField ? record.values[table.primaryKeyField] : undefined
+      const fileName = `${table?.label ?? record.tableName} ${primaryKey ?? ''} ${field.label}`.replace(/\s+/g, ' ').trim()
+      return <FileLinks url={`data:application/octet-stream;base64,${rawValue}`} fileName={fileName} dataQqqId={dataQqqId}
+        className={className} inline={false} />
     }
 
     case 'TEXT': {
       return (
-        <div
-          className={cn('whitespace-pre-wrap text-sm text-foreground', className)}
-          data-qqq-id={`field-value-${field.name}`}
-        >
+        <div className={cn('whitespace-pre-wrap text-sm text-foreground', className)} data-qqq-id={dataQqqId}>
           {String(value)}
         </div>
       )
     }
 
-    default: {
-      // REVEAL adornment on non-password fields
-      if (hasReveal) {
-        return <RevealField value={String(value)} fieldName={field.name} className={className} />
-      }
+    case 'HTML': {
+      return <SanitizedHtml html={String(rawValue ?? value)} dataQqqId={dataQqqId} className={className} />
+    }
 
-      // Auto-link URLs — detect http(s):// values and render as external links
+    default: {
       const strValue = String(value)
-      if (isHttpUrl(strValue)) {
+      if (field.type === 'STRING' && isHttpUrl(strValue)) {
         return (
-          <a
-            href={strValue}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              'inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline',
-              className
-            )}
-            data-qqq-id={`field-value-${field.name}`}
-          >
+          <a href={strValue} target="_blank" rel="noopener noreferrer"
+            className={cn('inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline', className)}
+            data-qqq-id={dataQqqId}>
             {strValue}
             <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
           </a>
         )
       }
-
-      // Auto-link emails — detect email addresses and render as mailto links
-      if (isEmail(strValue)) {
-        return (
-          <a
-            href={`mailto:${strValue}`}
-            className={cn(
-              'text-sm text-primary hover:text-primary/80 hover:underline',
-              className
-            )}
-            data-qqq-id={`field-value-${field.name}`}
-          >
-            {strValue}
-          </a>
-        )
+      if (field.type === 'STRING' && isEmail(strValue)) {
+        return <a href={`mailto:${strValue}`} className={cn('text-sm text-primary hover:text-primary/80 hover:underline', className)}
+          data-qqq-id={dataQqqId}>{strValue}</a>
       }
-
-      return (
-        <span
-          className={cn('text-sm text-foreground', className)}
-          data-qqq-id={`field-value-${field.name}`}
-        >
-          {strValue}
-        </span>
-      )
+      return <PlainValue value={strValue} dataQqqId={dataQqqId} className={className} />
     }
   }
 }
@@ -437,84 +280,183 @@ export function FieldValue({ field, record, allTables, navigateFrom, className }
 // --- Helper components ---
 
 /**
- * Renders a masked value with a toggle button to reveal or hide it.
- *
- * Used for PASSWORD field types and any field with a REVEAL adornment.
+ * Em dash for an empty value.
  *
  * @param props - Component properties.
- * @returns A span containing the masked/revealed value and an eye-toggle button.
+ * @param props.fieldName - Field name for the `data-qqq-id`.
+ * @param props.className - Optional classes.
+ * @returns The placeholder span.
  */
-function RevealField({
-  value,
-  fieldName,
-  className,
-}: {
-  value: string
-  fieldName: string
-  className?: string
+function EmptyValue({ fieldName, className }: { fieldName: string; className?: string }) {
+  return <span className={cn('text-muted-foreground text-sm', className)} data-qqq-id={`field-value-${fieldName}`}>—</span>
+}
+
+/**
+ * Plain text value.
+ *
+ * @param props - Component properties.
+ * @param props.value - Text to show.
+ * @param props.dataQqqId - `data-qqq-id` of the span.
+ * @param props.className - Optional classes.
+ * @returns The span.
+ */
+function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId: string; className?: string }) {
+  return <span className={cn('text-sm text-foreground', className)} data-qqq-id={dataQqqId}>{value}</span>
+}
+
+/**
+ * Sanitized HTML (scripts, handlers and unsafe URLs removed).
+ *
+ * @param props - Component properties.
+ * @param props.html - Untrusted HTML.
+ * @param props.dataQqqId - `data-qqq-id` of the container.
+ * @param props.className - Optional classes.
+ * @returns The rendered HTML container.
+ */
+function SanitizedHtml({ html, dataQqqId, className }: { html: string; dataQqqId: string; className?: string }) {
+  const sanitized = useMemo(() => DOMPurify.sanitize(html), [html])
+  return <div className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)} data-qqq-id={dataQqqId}
+    dangerouslySetInnerHTML={{ __html: sanitized }} />
+}
+
+/**
+ * Link to another record, with a hover preview when its table metadata is known.
+ *
+ * @param props - Component properties.
+ * @param props.tableName - Target table.
+ * @param props.primaryKey - Target record key.
+ * @param props.label - Link text (the display value).
+ * @param props.allTables - Table metadata map.
+ * @param props.fromParams - Back-navigation query string.
+ * @param props.dataQqqId - `data-qqq-id` of the link.
+ * @param props.className - Optional classes.
+ * @returns The link.
+ */
+function RecordLink({ tableName, primaryKey, label, allTables, fromParams, dataQqqId, className }: {
+  tableName: string; primaryKey: string; label: string; allTables?: Record<string, QTableMetaData>
+  fromParams: string; dataQqqId: string; className?: string
 }) {
-  const [revealed, setRevealed] = useState(false)
+  const link = (
+    <Link href={`/app/${encodeURIComponent(tableName)}/${encodeURIComponent(primaryKey)}${fromParams}`}
+      className={cn('text-sm text-primary hover:text-primary/80 hover:underline', className)} data-qqq-id={dataQqqId}>
+      {label}
+    </Link>
+  )
+  const tableMetaData = allTables?.[tableName]
+  if (!tableMetaData) return link
+  return <RecordHoverCard tableName={tableName} primaryKey={primaryKey} tableMetaData={tableMetaData}>{link}</RecordHoverCard>
+}
+
+/**
+ * File name with "Open file" and "Download file" actions.
+ *
+ * @param props - Component properties.
+ * @param props.url - File URL.
+ * @param props.fileName - File name to show and save as.
+ * @param props.dataQqqId - `data-qqq-id` of the container.
+ * @param props.className - Optional classes.
+ * @param props.inline - When false (inline data), only the download action is offered.
+ * @returns The file links.
+ */
+function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
+  url: string; fileName: string; dataQqqId: string; className?: string; inline?: boolean
+}) {
   return (
-    <span className={cn('inline-flex items-center gap-1', className)}>
-      <span
-        className="text-sm text-foreground font-mono"
-        data-qqq-id={`field-value-${fieldName}`}
-      >
-        {revealed ? value : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
-      </span>
-      <button
-        type="button"
-        onClick={() => setRevealed((r) => !r)}
-        aria-label={revealed ? 'Hide value' : 'Show value'}
-        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        {revealed ? (
-          <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
-        ) : (
-          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-      </button>
+    <span className={cn('inline-flex flex-wrap items-center gap-2 text-sm', className)} data-qqq-id={dataQqqId}>
+      <span className="text-foreground">{fileName}</span>
+      {inline && (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary underline hover:text-primary/80"
+          data-qqq-id={`${dataQqqId}-open`}>
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          Open file<span className="sr-only">: {fileName} (opens in a new tab)</span>
+        </a>
+      )}
+      <a href={inline ? attachmentUrl(url) : url} download={fileName} className="inline-flex items-center gap-1 text-primary underline hover:text-primary/80"
+        data-qqq-id={`${dataQqqId}-download`}>
+        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+        Download file<span className="sr-only">: {fileName}</span>
+      </a>
     </span>
   )
 }
 
-// --- Utilities ---
-
 /**
- * Formats a byte count into a human-readable string with the appropriate unit.
+ * Read-only code display for CODE_EDITOR fields, with JSON formatting.
  *
- * Returns `"\u2014"` (em-dash) for `NaN` inputs and `"0 B"` for zero.
- *
- * @param bytes - The number of bytes to format.
- * @returns A formatted string such as `"1.5 MB"`.
+ * @param props - Component properties.
+ * @param props.code - The code text.
+ * @param props.languageMode - The adornment's `languageMode`.
+ * @param props.fieldName - Field name for `data-qqq-id`s.
+ * @param props.className - Optional classes.
+ * @returns The code block.
  */
-function formatBytes(bytes: number): string {
-  if (isNaN(bytes)) return '\u2014'
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+function CodeViewer({ code, languageMode, fieldName, className }: { code: string; languageMode: string; fieldName: string; className?: string }) {
+  const [formatted, setFormatted] = useState(false)
+  const [formatError, setFormatError] = useState<string | null>(null)
+  const pretty = useMemo(() => {
+    if (!formatted) return code
+    try {
+      return JSON.stringify(JSON.parse(code), null, 2)
+    } catch {
+      return code
+    }
+  }, [code, formatted])
+  return (
+    <div className={cn('w-full space-y-1', className)} data-qqq-id={`field-value-${fieldName}`} data-language-mode={languageMode}>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="rounded bg-muted px-2 py-0.5 font-medium uppercase">{languageMode}</span>
+        {languageMode.toLowerCase() === 'json' && (
+          <button type="button" className="rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id={`button-format-${fieldName}`}
+            onClick={() => {
+              if (!formatted) {
+                try { JSON.parse(code); setFormatError(null) } catch (error) { setFormatError(`Error formatting code: ${error instanceof Error ? error.message : String(error)}`); return }
+              }
+              setFormatted((current) => !current)
+            }}>
+            {formatted ? 'Reset Format' : 'Format JSON'}
+          </button>
+        )}
+      </div>
+      {formatError && <p role="alert" className="text-xs text-destructive">{formatError}</p>}
+      <pre className="max-h-96 overflow-auto rounded-md border border-border bg-muted p-3 text-sm">
+        <code className="whitespace-pre-wrap font-mono text-foreground">{pretty}</code>
+      </pre>
+    </div>
+  )
 }
 
 /**
- * Maps a semantic color name to Tailwind chip badge classes.
+ * Masked value with show/hide and copy controls (REVEAL adornment).
  *
- * Uses `-950` (near-black tinted) text on `-100` backgrounds for WCAG-compliant
- * contrast.  Falls back to `gray` for unknown color names.
- *
- * @param color - A semantic color name (e.g. `"green"`, `"red"`, `"blue"`).
- * @returns A Tailwind class string for the chip badge background and text color.
+ * @param props - Component properties.
+ * @param props.value - The secret value.
+ * @param props.field - Field metadata (label for accessible names).
+ * @param props.className - Optional classes.
+ * @returns The masked value and controls.
  */
-function getChipClasses(color: string): string {
-  // Use -950 (near-black tinted) text on -100 bg for guaranteed readability
-  const colorMap: Record<string, string> = {
-    green: 'bg-emerald-100 text-emerald-950 dark:bg-emerald-900/50 dark:text-emerald-100',
-    red: 'bg-red-100 text-red-950 dark:bg-red-900/50 dark:text-red-100',
-    yellow: 'bg-amber-100 text-amber-950 dark:bg-amber-900/50 dark:text-amber-100',
-    blue: 'bg-blue-100 text-blue-950 dark:bg-blue-900/50 dark:text-blue-100',
-    purple: 'bg-purple-100 text-purple-950 dark:bg-purple-900/50 dark:text-purple-100',
-    orange: 'bg-orange-100 text-orange-950 dark:bg-orange-900/50 dark:text-orange-100',
-    gray: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-  }
-  return colorMap[color.toLowerCase()] ?? colorMap.gray
+function RevealField({ value, field, className }: { value: string; field: QFieldMetaData; className?: string }) {
+  const [revealed, setRevealed] = useState(false)
+  const [copied, setCopied] = useState(false)
+  return (
+    <span className={cn('inline-flex items-center gap-1', className)}>
+      <span className="font-mono text-sm text-foreground" data-qqq-id={`field-value-${field.name}`} data-revealed={revealed}>
+        {revealed ? value : '•'.repeat(8)}
+      </span>
+      <button type="button" onClick={() => setRevealed((current) => !current)}
+        aria-label={revealed ? `Hide ${field.label}` : `Show ${field.label}`} aria-pressed={revealed}
+        data-qqq-id={`button-reveal-${field.name}`}
+        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+        {revealed ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+      </button>
+      {revealed && (
+        <button type="button" aria-label={`Copy ${field.label}`} data-qqq-id={`button-copy-${field.name}`}
+          onClick={() => { void navigator.clipboard?.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+          {copied ? <Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
+        </button>
+      )}
+      {copied && <span role="status" className="text-xs text-muted-foreground">Copied To Clipboard</span>}
+    </span>
+  )
 }

@@ -15,202 +15,222 @@
  */
 
 /**
- * @file SavedViewsMenu — dropdown menu for saving, loading, and deleting named filter and column configurations (saved views).
+ * @file SavedViewsMenu — Material's saved views menu for the query screen: save, rename,
+ * save as, delete and new view actions; "Your Saved Views" and "Views Shared with you"; and an
+ * unsaved-changes indicator with save and reset links.
  */
 
 'use client'
 
-// SavedViewsMenu — save, load, and delete named filter+column configurations
+import React, { useEffect, useRef, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { BookmarkIcon, ChevronDown, X } from 'lucide-react'
 
-import React, { useState } from 'react'
-import { BookmarkIcon, Trash2, Check } from 'lucide-react'
+import type { SavedView } from '@/lib/utils/saved-view-utils'
+import type { SavedViewsResult } from '@/lib/hooks/use-saved-views'
 
-import type { SavedView } from '@/lib/hooks/use-record-query'
+/** Dialog shown by a view action. */
+type DialogKind = 'saveAs' | 'rename' | 'update' | 'delete'
 
 /**
  * Props for the SavedViewsMenu component.
  */
 interface SavedViewsMenuProps {
-  /** The current list of saved views retrieved from localStorage. */
-  savedViews: SavedView[]
-  /** Callback invoked when the user confirms saving the current state under a new name. */
-  onSave: (name: string) => void
-  /** Callback invoked when the user selects a saved view to restore. */
-  onLoad: (view: SavedView) => void
-  /** Callback invoked when the user deletes a saved view by its ID. */
-  onDelete: (id: string) => void
+  /** Saved view lists and actions. */
+  savedViews: SavedViewsResult
+  /** The view the screen was loaded from, or null for a new view. */
+  currentView: SavedView | null
+  /** Differences between the screen and the current (or default) view. */
+  viewDiffs: string[]
+  /** Opens a saved view. */
+  onSelectView: (view: SavedView) => void
+  /** Leaves the current view for a new (default) view. */
+  onNewView: () => void
+  /** Stores the current screen as a view (insert, or update when `id` is given) and opens it. */
+  onStore: (input: { id?: number; label: string }) => Promise<void>
+  /** Deletes the current view. */
+  onDelete: (view: SavedView) => Promise<void>
 }
 
 /**
- * Toolbar dropdown for managing named saved views of filter + column state.
- *
- * Opens a dropdown that shows a "Save current view" entry and a scrollable list of
- * existing saved views. Saving enters an inline name-input mode; loading closes the
- * dropdown and restores the chosen view; deleting is available via a per-row trash icon
- * that is only visible on hover/focus.
+ * Saved views dropdown and dialogs.
  *
  * @param props - Component properties.
- * @returns The rendered saved views menu button with dropdown.
+ * @returns The menu, or null when the backend has no saved views.
  */
-export function SavedViewsMenu({
-  savedViews,
-  onSave,
-  onLoad,
-  onDelete,
-}: SavedViewsMenuProps) {
+export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete }: SavedViewsMenuProps) {
   const [open, setOpen] = useState(false)
-  const [saveMode, setSaveMode] = useState(false)
-  const [newViewName, setNewViewName] = useState('')
+  const [dialog, setDialog] = useState<DialogKind | null>(null)
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  /**
-   * Validates the new view name, calls `onSave`, and resets the save-mode UI.
-   * Does nothing if the name is blank.
-   */
-  const handleSave = () => {
-    const name = newViewName.trim()
-    if (!name) return
-    onSave(name)
-    setNewViewName('')
-    setSaveMode(false)
-  }
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
 
-  /**
-   * Loads a saved view and closes the dropdown.
-   *
-   * @param view - The SavedView to restore.
-   */
-  const handleLoadView = (view: SavedView) => {
-    onLoad(view)
+  if (!savedViews.isAvailable) return null
+
+  const isOwner = currentView ? savedViews.isOwner(currentView) : true
+  const notOwnerText = 'You may not save changes to this view, because you are not its owner.'
+  const modified = viewDiffs.length > 0
+
+  const openDialog = (kind: DialogKind) => {
     setOpen(false)
+    setError(null)
+    setName(kind === 'rename' && currentView ? currentView.label : '')
+    setDialog(kind)
   }
+
+  const submit = async () => {
+    setSubmitting(true)
+    setError(null)
+    try {
+      if (dialog === 'delete' && currentView) await onDelete(currentView)
+      else if (dialog === 'update' && currentView) await onStore({ id: currentView.id, label: currentView.label })
+      else if (dialog === 'rename' && currentView) await onStore({ id: currentView.id, label: name.trim() })
+      else await onStore({ label: name.trim() })
+      setDialog(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const needsName = dialog === 'saveAs' || dialog === 'rename'
+  const title = dialog === 'delete' ? 'Delete View' : dialog === 'rename' ? 'Rename View' : dialog === 'update' ? 'Update Existing View' : 'Save View As'
+  const menuItem = 'flex w-full items-center px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent focus:bg-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+  const viewItem = (view: SavedView, group: 'your' | 'shared') => (
+    <button key={view.id} type="button" role="menuitem" className={`${menuItem} ${currentView?.id === view.id ? 'font-semibold text-primary' : ''}`}
+      onClick={() => { setOpen(false); onSelectView(view) }} data-qqq-id={`saved-view-${group}-${view.id}`}>
+      {view.label}
+    </button>
+  )
 
   return (
-    <div className="relative" data-qqq-id="saved-views-menu">
+    <div ref={containerRef} className="relative flex items-center gap-2" data-qqq-id="saved-views-menu">
       <button
         type="button"
-        onClick={() => {
-          setOpen((o) => !o)
-          setSaveMode(false)
-        }}
+        onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Saved views"
-        aria-haspopup="true"
+        aria-label={currentView ? `Saved views (current view: ${currentView.label})` : 'Saved views'}
+        aria-haspopup="menu"
         aria-expanded={open}
         data-qqq-id="button-saved-views"
       >
         <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
-        Views
-        {savedViews.length > 0 && (
-          <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
-            {savedViews.length}
-          </span>
-        )}
+        <span className="max-w-[12rem] truncate">{currentView ? currentView.label : 'Views'}</span>
+        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
 
+      {modified && (
+        <span className="flex items-center gap-2 text-xs" data-qqq-id="saved-view-unsaved">
+          <span className="font-semibold text-foreground" title={viewDiffs.join('\n')}>
+            {currentView ? `${viewDiffs.length} Unsaved Change${viewDiffs.length === 1 ? '' : 's'}` : 'Unsaved Changes'}
+          </span>
+          {savedViews.canStore && (!currentView || isOwner) && (
+            <button type="button" className="text-primary underline hover:text-primary/80 focus:outline-none focus:ring-1 focus:ring-ring"
+              onClick={() => openDialog(currentView ? 'update' : 'saveAs')} data-qqq-id="saved-view-save-changes">
+              {currentView ? 'Save...' : 'Save View As...'}
+            </button>
+          )}
+          <button type="button" className="text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            onClick={() => (currentView ? onSelectView(currentView) : onNewView())} data-qqq-id="saved-view-reset">
+            Reset All Changes
+          </button>
+        </span>
+      )}
+
       {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
+        <div role="menu" aria-label="Saved views" className="absolute left-0 top-full z-30 mt-1 max-h-[calc(100vh-200px)] w-80 overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm">
+          <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">View Actions</p>
+          {savedViews.canStore && (
+            <button type="button" role="menuitem" className={menuItem} disabled={Boolean(currentView) && !isOwner}
+              title={currentView && !isOwner ? notOwnerText : undefined}
+              onClick={() => openDialog(currentView ? 'update' : 'saveAs')} data-qqq-id="saved-view-action-save">
+              {currentView ? 'Save...' : 'Save As...'}
+            </button>
+          )}
+          {savedViews.canStore && currentView && (
+            <button type="button" role="menuitem" className={menuItem} disabled={!isOwner} title={!isOwner ? notOwnerText : undefined}
+              onClick={() => openDialog('rename')} data-qqq-id="saved-view-action-rename">Rename...</button>
+          )}
+          {savedViews.canStore && currentView && (
+            <button type="button" role="menuitem" className={menuItem} onClick={() => openDialog('saveAs')} data-qqq-id="saved-view-action-save-as">Save As...</button>
+          )}
+          {savedViews.canDelete && currentView && (
+            <button type="button" role="menuitem" className={menuItem} disabled={!isOwner} title={!isOwner ? notOwnerText : undefined}
+              onClick={() => openDialog('delete')} data-qqq-id="saved-view-action-delete">Delete...</button>
+          )}
+          <button type="button" role="menuitem" className={menuItem} onClick={() => { setOpen(false); onNewView() }} data-qqq-id="saved-view-action-new">New View</button>
 
-          {/* Dropdown */}
-          <div
-            className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-border bg-popover shadow-sm"
-            role="dialog"
-            aria-label="Saved views"
-          >
-            {/* Save current view */}
-            {!saveMode ? (
-              <button
-                type="button"
-                onClick={() => setSaveMode(true)}
-                className="flex w-full items-center gap-2 border-b border-border px-4 py-2.5 text-left text-sm font-medium text-primary hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
-                data-qqq-id="saved-views-save-current"
-              >
-                <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
-                Save current view...
-              </button>
-            ) : (
-              <div className="border-b border-border p-3">
-                <p className="mb-2 text-xs font-medium text-foreground">
-                  Name this view
-                </p>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={newViewName}
-                    onChange={(e) => setNewViewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSave()
-                      if (e.key === 'Escape') setSaveMode(false)
-                    }}
-                    placeholder="View name..."
-                    className="flex-1 rounded border border-input px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                    aria-label="New view name"
-                    autoFocus
-                    data-qqq-id="saved-views-name-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={!newViewName.trim()}
-                    className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-ring"
-                    aria-label="Confirm save"
-                    data-qqq-id="saved-views-confirm-save"
-                  >
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Saved views list */}
-            {savedViews.length === 0 ? (
-              <p className="px-4 py-3 text-center text-sm text-muted-foreground">
-                No saved views yet
-              </p>
-            ) : (
-              <ul className="max-h-60 overflow-y-auto" role="list">
-                {savedViews.map((view) => (
-                  <li
-                    key={view.id}
-                    className="group flex items-center justify-between px-4 py-2 hover:bg-accent"
-                    data-qqq-id={`saved-view-item-${view.id}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleLoadView(view)}
-                      className="flex-1 text-left text-sm text-popover-foreground hover:text-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                      aria-label={`Load view: ${view.name}`}
-                      data-qqq-id={`saved-view-load-${view.id}`}
-                    >
-                      <span className="truncate">{view.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {new Date(view.createdAt).toLocaleDateString()}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete(view.id)
-                      }}
-                      className="ml-2 flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 hover:text-destructive focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-destructive group-hover:opacity-100"
-                      aria-label={`Delete saved view: ${view.name}`}
-                      data-qqq-id={`saved-view-delete-${view.id}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          <div role="separator" className="my-1 border-t border-border" />
+          <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground" id="your-saved-views">Your Saved Views</p>
+          <div role="group" aria-labelledby="your-saved-views" data-qqq-id="saved-views-yours">
+            {savedViews.isLoading ? (
+              <p className="px-4 py-2 text-sm text-muted-foreground">Loading...</p>
+            ) : savedViews.error ? (
+              <p role="alert" className="px-4 py-2 text-sm text-destructive">Saved views could not be loaded.</p>
+            ) : savedViews.yourViews.length ? savedViews.yourViews.map((v) => viewItem(v, 'your')) : (
+              <p className="px-4 py-2 text-sm italic text-muted-foreground">You do not have any saved views for this table.</p>
             )}
           </div>
-        </>
+          <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground" id="shared-saved-views">Views Shared with you</p>
+          <div role="group" aria-labelledby="shared-saved-views" data-qqq-id="saved-views-shared">
+            {!savedViews.isLoading && !savedViews.error && (savedViews.sharedViews.length ? savedViews.sharedViews.map((v) => viewItem(v, 'shared')) : (
+              <p className="px-4 py-2 text-sm italic text-muted-foreground">You do not have any views shared with you for this table.</p>
+            ))}
+          </div>
+        </div>
       )}
+
+      <DialogPrimitive.Root open={dialog !== null} onOpenChange={(o) => { if (!o) setDialog(null) }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-saved-view"
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-lg focus:outline-none">
+            <div className="mb-4 flex items-center justify-between">
+              <DialogPrimitive.Title className="text-lg font-semibold text-foreground">{title}</DialogPrimitive.Title>
+              <DialogPrimitive.Close className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Close">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </DialogPrimitive.Close>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); if (!needsName || name.trim()) void submit() }}>
+              {needsName ? (
+                <>
+                  <label htmlFor="saved-view-name" className="mb-1 block text-sm text-foreground">
+                    {dialog === 'rename' ? 'Enter a new name for this view' : 'Enter a name for this view'}
+                  </label>
+                  <input id="saved-view-name" type="text" value={name} autoFocus onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                    aria-required="true" aria-invalid={Boolean(error)} data-qqq-id="saved-views-name-input" />
+                </>
+              ) : (
+                <p className="text-sm text-foreground">
+                  {dialog === 'delete'
+                    ? `Are you sure you want to delete the view '${currentView?.label}'?`
+                    : `Are you sure you want to update the view '${currentView?.label}'?`}
+                </p>
+              )}
+              {error && <p role="alert" className="mt-2 text-sm text-destructive" data-qqq-id="saved-view-error">{error}</p>}
+              <div className="mt-4 flex justify-end gap-2">
+                <DialogPrimitive.Close className="rounded border border-input px-3 py-1.5 text-sm hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">Cancel</DialogPrimitive.Close>
+                <button type="submit" disabled={submitting || (needsName && !name.trim())} data-qqq-id="saved-views-confirm-save"
+                  className={`rounded px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 disabled:opacity-50 ${dialog === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive' : 'bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-ring'}`}>
+                  {dialog === 'delete' ? 'Delete' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   )
 }

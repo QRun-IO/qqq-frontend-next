@@ -20,19 +20,24 @@
 
 'use client'
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, X } from 'lucide-react'
 
-import type { QTableMetaData, QRecord, QRecordInput } from '@/types'
+import type { QTableMetaData, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { insertRecord, updateRecord } from '@/lib/api/tables'
-import { queryKeys } from '@/lib/query-client'
-import { zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, zodFieldFromMetadata, validateCopyPasswords } from '@/lib/utils/zod-from-metadata'
+import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
+import {
+  zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, defaultValuesForCreate, zodFieldFromMetadata,
+  validateCopyPasswords, wireValuesFromForm,
+} from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
+import { getErrorMessage } from '@/lib/utils/error-utils'
+import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { toast } from '@/lib/hooks/use-toast'
 
 import { DynamicForm } from './DynamicForm'
@@ -96,6 +101,9 @@ export interface EntityFormProps {
   /** Context used to fetch possible values (table, process, or standalone). */
   possibleValueContext?: PossibleValueContext
 
+  /** Widget metadata by name, so widget sections shown on edit screens (the cron schedule) render their fields. */
+  widgets?: Record<string, QWidgetMetaData>
+
   /** Additional CSS classes applied to the `<form>` element. */
   className?: string
 }
@@ -133,6 +141,7 @@ export function EntityForm({
   fixedValues,
   fieldNamesToInclude,
   possibleValueContext,
+  widgets,
   className,
 }: EntityFormProps) {
   const router = useRouter()
@@ -154,7 +163,7 @@ export function EntityForm({
     try {
       const computedDefaults: Record<string, unknown> = record
         ? (isCopy ? defaultValuesForCopy : defaultValuesFromRecord)(tableMetaData, record.values)
-        : {}
+        : defaultValuesForCreate(tableMetaData)
       return { values: { ...computedDefaults, ...propDefaultValues }, error: null }
     } catch (error) {
       return { values: {}, error: error instanceof Error ? error.message : 'Source values are unavailable.' }
@@ -171,6 +180,10 @@ export function EntityForm({
     resolver: zodResolver(schema),
     defaultValues: mergedDefaults,
   })
+
+  // Latest dirty-field map for the update mutation (values that cannot round-trip are sent only when changed).
+  const dirtyFieldsRef = useRef<Record<string, unknown>>({})
+  dirtyFieldsRef.current = dirtyFields as Record<string, unknown>
 
   // Reset when record changes (e.g., navigating between records)
   useEffect(() => {
@@ -268,10 +281,11 @@ export function EntityForm({
       if (isCopy) validateCopyPasswords(tableMetaData, insertValues, fieldNamesToInclude)
       if (copyAssociations?.error) throw new Error(copyAssociations.error)
       const associations = copyAssociations?.getRecords(insertValues)
-      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, insertValues, associations))
+      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, wireValuesFromForm(tableMetaData, insertValues), associations))
       copyAssociations?.validateResult?.(saved)
       return saved
     },
+    meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
       toast.success(`${tableMetaData.label} created successfully.`)
@@ -283,15 +297,22 @@ export function EntityForm({
       }
     },
     onError: (err: Error) => {
-      toast.error(`Failed to create ${tableMetaData.label}: ${err.message}`)
+      toast.error(`Failed to create ${tableMetaData.label}: ${getErrorMessage(err)}`)
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: async (values: Record<string, unknown>) => {
       const pk = record!.values[tableMetaData.primaryKeyField] as string | number
-      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, values))
+      // Values that cannot round-trip through the form are sent only when changed: a
+      // masked password, a LONG beyond 2^53, a date-time shown at minute/second precision
+      // and a file (a download URL or bytes). Other values are re-sent as stored, as the
+      // Material dashboard does, so omission never triggers a write default.
+      const submitted = Object.fromEntries(Object.entries(values).filter(([name]) =>
+        Boolean(dirtyFieldsRef.current[name]) || !onlyWhenChanged(tableMetaData.fields[name])))
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, wireValuesFromForm(tableMetaData, submitted)))
     },
+    meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
       const pk = savedRecord.values[tableMetaData.primaryKeyField] as string | number
       queryClient.invalidateQueries({ queryKey: queryKeys.tableRecord(tableMetaData.name, pk) })
@@ -304,7 +325,7 @@ export function EntityForm({
       }
     },
     onError: (err: Error) => {
-      toast.error(`Failed to save ${tableMetaData.label}: ${err.message}`)
+      toast.error(`Failed to save ${tableMetaData.label}: ${getErrorMessage(err)}`)
     },
   })
 
@@ -405,7 +426,7 @@ export function EntityForm({
           className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <strong>Error: </strong>
-          {defaultsError || copyAssociations?.error || mutationError?.message || 'An error occurred while saving.'}
+          {defaultsError || copyAssociations?.error || (mutationError ? getErrorMessage(mutationError, 'An error occurred while saving.') : 'An error occurred while saving.')}
         </div>
       )}
 
@@ -422,6 +443,11 @@ export function EntityForm({
         possibleValueContext={pvContext}
         disabled={disabled || isSaving || Boolean(defaultsError)}
         dirtyFields={dirtyFields as Record<string, boolean>}
+        record={record}
+        showReadOnlyFields={isEdit}
+        helpRoles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES}
+        enforceMaxLength={false}
+        widgets={widgets}
       />
 
       {children && <fieldset disabled={disabled || isSaving} className="min-w-0">{children}</fieldset>}
@@ -492,4 +518,17 @@ export function EntityForm({
       />
     </>
   )
+}
+
+/**
+ * Whether an edit form submits a field only after the user changed it.
+ *
+ * @param field - Field metadata (undefined for values without metadata).
+ * @returns `true` for passwords without REVEAL, LONG, DATE_TIME and file fields.
+ */
+function onlyWhenChanged(field: QTableMetaData['fields'][string] | undefined): boolean {
+  if (!field) return true
+  if (field.type === 'LONG' || field.type === 'DATE_TIME' || field.type === 'BLOB') return true
+  if (field.adornments?.some((adornment) => adornment.type === 'FILE_UPLOAD')) return true
+  return field.type === 'PASSWORD' && !field.adornments?.some((adornment) => adornment.type === 'REVEAL')
 }

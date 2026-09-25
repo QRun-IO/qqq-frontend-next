@@ -20,7 +20,7 @@
 
 // QQQ Metadata Types - ported from qqq-frontend-core
 
-import type { QFieldType, Capability, QComponentType, QAppNodeType } from './enums'
+import type { QFieldType, Capability, QComponentType, QAppNodeType, AdornmentType } from './enums'
 
 /**
  * Top-level QQQ instance descriptor returned by the `/metaData/instance` endpoint.
@@ -64,14 +64,16 @@ export interface QAuthenticationMetaData {
   name: string
   /** The authentication strategy this instance uses. */
   type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK'
-  /** Provider-specific values (client ID, base URL, audience) for the chosen auth type. */
-  values: {
+  /** Provider-specific values (client ID, base URL, audience); absent for MOCK and FULLY_ANONYMOUS. */
+  values?: {
     /** OAuth2 / Auth0 client ID registered with the identity provider. */
     clientId?: string
     /** Base URL for the identity provider (used by OAUTH2 and AUTH_0 flows). */
     baseUrl?: string
     /** API audience identifier passed in Auth0 token requests. */
     audience?: string
+    /** Space-separated scopes to request from an OAUTH2 provider. */
+    scopes?: string
   }
 }
 
@@ -81,19 +83,21 @@ export interface QAuthenticationMetaData {
  * Applied globally via the theme provider and injected `<style>` tag.
  */
 export interface QBrandingMetaData {
-  /** Human-readable company name shown in the UI. */
-  companyName: string
-  /** URL linking to the company website (used on logo clicks). */
-  companyUrl: string
+  /** Human-readable company name; optional in QQQ branding. */
+  companyName?: string
+  /** URL of the company website; optional in QQQ branding. */
+  companyUrl?: string
   /** Display name for this specific application. */
-  appName: string
-  /** URL or path to the company logo image. */
+  appName?: string
+  /** URL or path to the application logo image (shown at the top of the sidebar). */
   logo?: string
-  /** URL or path to the favicon / app icon. */
+  /** URL or path to the favicon / small app icon. */
   icon?: string
   /** Hex or CSS color string used as the primary accent color. */
   accentColor?: string
-  /** Map of banner key → banner definition for global notification banners. */
+  /** Light variant of the accent color. */
+  accentColorLight?: string
+  /** Banners keyed by display slot (for example `QFMD_TOP_OF_SITE`). */
   banners?: Record<string, Banner>
   /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
   customCss?: string
@@ -130,6 +134,8 @@ export interface QTableMetaData {
   label: string
   /** When true, this table is excluded from navigation and search. */
   isHidden: boolean
+  /** Structured icon definition from table metadata. */
+  icon?: QIcon
   /** The field name whose value uniquely identifies each record. */
   primaryKeyField: string
   /** Map of field name → field metadata for every column in this table. */
@@ -154,6 +160,8 @@ export interface QTableMetaData {
   variantTableLabel: string
   /** Optional contextual help content shown on this table's pages. */
   helpContent?: QHelpContent
+  /** Table help content by slot name, as the backend declares it. */
+  helpContents?: Record<string, QHelpContent[]>
   /** Optional plugin-specific supplemental metadata not covered by the core schema. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
@@ -224,6 +232,8 @@ export interface QProcessMetaData {
   isHidden: boolean
   /** Material Icon or custom icon name used in navigation. */
   iconName: string
+  /** Structured icon definition from process metadata. */
+  icon?: QIcon
   /** Whether the current user is permitted to run this process. */
   hasPermission: boolean
   /** The step execution model — currently only LINEAR is supported. */
@@ -259,6 +269,8 @@ export interface QFrontendStepMetaData {
   recordListFields?: QFieldMetaData[]
   /** Contextual help content associated with this step. */
   helpContents?: QHelpContent[]
+  /** Step (frontend or backend) the process restarts at when the user goes Back from this screen. */
+  backStepName?: string
 }
 
 /**
@@ -285,14 +297,18 @@ export interface QAppMetaData {
   name: string
   /** Human-readable label shown in the sidebar and app home page heading. */
   label: string
-  /** Ordered list of child nodes (tables, processes, sub-apps) in this app. */
-  children: QAppTreeNode[]
-  /** Material Icon or custom icon name used in navigation. */
-  iconName: string
-  /** Names of widgets displayed on this app's home dashboard page. */
-  widgets: string[]
-  /** Ordered sections that group tables, processes, and reports on the app home. */
-  sections: QAppSection[]
+  /** Ordered list of child nodes (tables, processes, sub-apps); omitted when empty. */
+  children?: QAppTreeNode[]
+  /** Child nodes keyed by name (labels and icons for section entries). */
+  childMap?: Record<string, QAppTreeNode>
+  /** Legacy Material Icon name used in navigation. */
+  iconName?: string
+  /** Structured icon definition (overrides `iconName` when present). */
+  icon?: QIcon
+  /** Names of widgets displayed on this app's home dashboard page; omitted when empty. */
+  widgets?: string[]
+  /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
+  sections?: QAppSection[]
 }
 
 /**
@@ -328,12 +344,12 @@ export interface QAppSection {
   label: string
   /** Optional icon shown beside the section heading. */
   icon?: QIcon
-  /** Names of tables included in this section. */
-  tables: string[]
-  /** Names of processes included in this section. */
-  processes: string[]
-  /** Names of reports included in this section. */
-  reports: string[]
+  /** Names of tables included in this section; omitted when empty. */
+  tables?: string[]
+  /** Names of processes included in this section; omitted when empty. */
+  processes?: string[]
+  /** Names of reports included in this section; omitted when empty. */
+  reports?: string[]
 }
 
 /**
@@ -351,6 +367,31 @@ export interface QWidgetDropdown {
   possibleValueSourceName?: string
   /** Pre-selected value used when the user has not made an explicit selection. */
   defaultValue?: string
+  /** `POSSIBLE_VALUE_SOURCE` (default) or `DATE_PICKER`. */
+  type?: 'POSSIBLE_VALUE_SOURCE' | 'DATE_PICKER'
+  /** When true the widget waits for a selection before showing content. */
+  isRequired?: boolean
+  /** Label of an explicit "no selection" option. */
+  labelForNullValue?: string
+  /** Preferred control width in pixels. */
+  width?: number
+}
+
+/** An icon placed in a widget header, keyed by role (e.g. `topRightInsideCard`). */
+export interface QWidgetIcon {
+  /** Material Icons name. */
+  name?: string
+  /** CSS color. */
+  color?: string
+  /** Image path used instead of a named icon. */
+  path?: string
+}
+
+/** One help-content entry as served by the full widget metadata route. */
+export interface QWidgetHelpContent {
+  content?: string
+  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
+  roles?: string[]
 }
 
 /**
@@ -378,8 +419,23 @@ export interface QWidgetMetaData {
   showExportButton?: boolean
   /** Filter dropdown controls available in this widget's toolbar. */
   dropdowns?: QWidgetDropdown[]
-  /** Optional contextual help content associated with this widget. */
-  helpContent?: QHelpContent
+  /**
+   * Optional contextual help content associated with this widget. The full
+   * metadata route serves a map of slot name (e.g. `label`) to entries.
+   */
+  helpContent?: QHelpContent | Record<string, QWidgetHelpContent[]>
+  /** When false the widget renders without card chrome. Defaults to true. */
+  isCard?: boolean
+  /** Tooltip shown on the widget label. */
+  tooltip?: string
+  /** Header icons keyed by role (`topLeftInsideCard`, `topRightInsideCard`). */
+  icons?: Record<string, QWidgetIcon>
+  /** When true, dropdown selections persist in local storage. */
+  storeDropdownSelections?: boolean
+  /** Minimum body height (CSS length). */
+  minHeight?: string
+  /** Static footer HTML declared in metadata. */
+  footerHTML?: string
 }
 
 /**
@@ -400,12 +456,18 @@ export interface QTableSection {
   tier?: string
   /** Material Icon or custom icon name shown beside the section heading. */
   iconName?: string
+  /** Structured icon definition (overrides `iconName` when present). */
+  icon?: QIcon
   /** Ordered list of field names to display in this section. */
   fieldNames: string[]
   /** When set, renders a named widget in place of raw field values. */
   widgetName?: string
   /** When true, this section is collapsed / hidden from view by default. */
   isHidden: boolean
+  /** The v1 metadata spelling of `isHidden`. */
+  hidden?: boolean
+  /** Help content shown with the section heading, per each entry's screen roles. */
+  helpContents?: QHelpContent[]
   /** Number of grid columns this section occupies in the record layout. */
   gridColumns?: number
 }
@@ -461,6 +523,10 @@ export interface QReportMetaData {
   isHidden: boolean
   /** Whether the current user is permitted to run this report. */
   hasPermission: boolean
+  /** Process that runs this report (e.g. the basic report process). */
+  processName?: string
+  /** Material Icons name for navigation. */
+  iconName?: string
 }
 
 /**
@@ -471,11 +537,15 @@ export interface QReportMetaData {
 export interface QHelpContent {
   /** Optional heading text shown at the top of the help panel. */
   title?: string
-  /** Main help body (may contain Markdown). */
+  /** Main help body, in `format`. */
   content?: string
+  /** How `content` is written: `TEXT` (default), `HTML` or `MARKDOWN`. */
+  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
+  /** Backend-rendered HTML for `content` (MARKDOWN converted; TEXT and HTML as-is). */
+  contentAsHtml?: string
   /** Optional list of external documentation links. */
   links?: Array<{ label: string; url: string }>
-  /** Role names that restrict which users see this help content. */
+  /** Screens this entry applies to (for example `READ_SCREENS`, `EDIT_SCREEN`); none means every screen. */
   roles?: string[]
 }
 
@@ -485,8 +555,8 @@ export interface QHelpContent {
  * Supports both Material Icons (by name) and custom SVG paths.
  */
 export interface QIcon {
-  /** Material Icon name or custom icon identifier. */
-  name: string
+  /** Material Icon name or custom icon identifier; omitted when only `path` is set. */
+  name?: string
   /** Optional SVG path or image URL for custom icons. */
   path?: string
   /** Optional CSS color value applied to the icon. */
@@ -513,27 +583,34 @@ export interface QTableVariant {
  * Banners are defined in branding metadata and rendered by the dashboard layout.
  */
 export interface Banner {
-  /** The message text to display inside the banner. */
-  text: string
-  /** Visual severity level that controls the banner's color scheme. */
-  severity: 'info' | 'warning' | 'error'
-  /** Optional explicit CSS color override (takes precedence over `severity`). */
-  color?: string
-  /** When true, a close button is shown allowing the user to hide the banner. */
-  dismissible: boolean
+  /** Severity that selects the default colors and icon. */
+  severity?: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS'
+  /** Text color override, as a CSS color value. */
+  textColor?: string
+  /** Background color override, as a CSS color value. */
+  backgroundColor?: string
+  /** Plain-text message. */
+  messageText?: string
+  /** HTML message, used instead of the plain-text message when set (sanitized before rendering). */
+  messageHTML?: string
+  /** Additional CSS style properties for the banner, keyed by camelCase property name. */
+  additionalStyles?: Record<string, string | number>
 }
 
 /**
- * A discriminated union of all field adornment shapes supported by QQQ.
+ * A field adornment exactly as the backend declares it (`FieldAdornment.java`).
  *
  * Adornments modify how a field value is rendered — as a hyperlink, chip badge,
- * tooltip, error indicator, downloadable file, or a special renderer mode.
- * Use `Extract<FieldAdornment, { type: X }>` to narrow to a specific variant.
+ * tooltip, error indicator, downloadable file, code editor or widget. `values`
+ * uses the backend's keys, for example `toRecordFromTable` / `target` (LINK),
+ * `color.<value>` / `icon.<value>` (CHIP), `width` (SIZE), `languageMode`
+ * (CODE_EDITOR), `fileNameField` / `defaultMimeType` (FILE_DOWNLOAD), `format`
+ * (FILE_UPLOAD), `staticText` / `tooltipDynamic` (TOOLTIP) and `widgetName` (WIDGET).
+ * Read them with the helpers in `@/lib/utils/adornment-utils`.
  */
-export type FieldAdornment =
-  | { type: 'LINK'; values?: { linkURL?: string } }
-  | { type: 'CHIP'; values?: { colorMap?: Record<string, string>; color?: string } }
-  | { type: 'TOOLTIP'; values?: { tooltipText?: string; text?: string; tooltip?: string } }
-  | { type: 'ERROR'; values?: { errorText?: string; text?: string } }
-  | { type: 'FILE_DOWNLOAD'; values?: { downloadUrl?: string; fileNameField?: string; defaultMimeType?: string } }
-  | { type: 'SIZE' | 'REVEAL' | 'CODE_EDITOR' | 'RENDER_HTML' | 'FILE_UPLOAD' }
+export interface FieldAdornment {
+  /** Which adornment this is. */
+  type: AdornmentType
+  /** Adornment settings keyed as the backend declares them. */
+  values?: Record<string, unknown>
+}

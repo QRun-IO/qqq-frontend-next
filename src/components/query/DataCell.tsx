@@ -15,7 +15,7 @@
  */
 
 /**
- * @file DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, SIZE, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments and type-based fallbacks.
+ * @file DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments (backend value keys) and type-based fallbacks.
  */
 
 'use client'
@@ -23,8 +23,10 @@
 // DataCell — dispatches to the correct renderer based on field type and adornments
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import DOMPurify from 'dompurify'
 import type { QFieldMetaData, QRecord } from '@/types'
+import { chipStyle, CHIP_COLOR_CLASSES, fileDownload, linkTarget, tooltipText } from '@/lib/utils/adornment-utils'
 
 /**
  * Props for the DataCell component.
@@ -58,14 +60,26 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
   for (const adornment of field.adornments ?? []) {
     switch (adornment.type) {
       case 'LINK': {
-        const url = adornment.values?.linkURL ?? (typeof value === 'string' ? value : undefined)
-        if (url) {
+        const target = linkTarget(field, record)
+        if (target?.kind === 'record') {
+          return (
+            <Link
+              href={`/app/${encodeURIComponent(target.tableName)}/${encodeURIComponent(target.primaryKey)}`}
+              className="text-primary underline hover:text-primary/90"
+              data-qqq-id={`grid-cell-link-${field.name}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {display}
+            </Link>
+          )
+        }
+        if (target?.kind === 'url') {
           return (
             <a
-              href={url}
+              href={target.href}
               className="text-primary underline hover:text-primary/90"
-              target="_blank"
-              rel="noopener noreferrer"
+              target={target.target}
+              rel={target.target === '_blank' ? 'noopener noreferrer' : undefined}
               data-qqq-id={`grid-cell-${field.name}`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -77,30 +91,15 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'CHIP': {
-        const color = adornment.values?.color ?? 'blue'
-        const colorMap: Record<string, string> = {
-          blue: 'bg-blue-100 text-blue-800',
-          green: 'bg-green-100 text-green-800',
-          red: 'bg-red-100 text-red-800',
-          yellow: 'bg-yellow-100 text-yellow-800',
-          gray: 'bg-gray-100 text-gray-800',
-          purple: 'bg-purple-100 text-purple-800',
-        }
-        const colorClass = colorMap[color] ?? colorMap['blue']!
+        if (!display) break
+        const { color } = chipStyle(field, value)
         return (
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${CHIP_COLOR_CLASSES[color]}`}
             data-qqq-id={`grid-cell-${field.name}`}
+            data-chip-color={color}
           >
             {display}
-          </span>
-        )
-      }
-
-      case 'SIZE': {
-        return (
-          <span data-qqq-id={`grid-cell-${field.name}`} className="text-sm text-muted-foreground">
-            {formatBytes(typeof value === 'number' ? value : Number(value))}
           </span>
         )
       }
@@ -136,17 +135,18 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'FILE_DOWNLOAD': {
-        const downloadUrl = adornment.values?.downloadUrl
-        if (downloadUrl) {
+        const file = fileDownload(field, record)
+        if (file) {
           return (
             <a
-              href={downloadUrl}
-              download
+              href={file.url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-primary underline hover:text-primary/90 text-sm"
               data-qqq-id={`grid-cell-${field.name}`}
               onClick={(e) => e.stopPropagation()}
             >
-              {display || 'Download'}
+              {file.fileName}
             </a>
           )
         }
@@ -154,7 +154,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       }
 
       case 'TOOLTIP': {
-        const tooltip = adornment.values?.tooltip
+        const tooltip = tooltipText(field, record)
         return (
           <span
             title={tooltip ?? display}
@@ -174,6 +174,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
   // Type-based rendering (when no matching adornment)
   switch (field.type) {
     case 'BOOLEAN': {
+      if (value == null || value === '') return <EmptyCell fieldName={field.name} />
       const boolVal = value === true || value === 'true' || value === 1
       return (
         <span
@@ -198,7 +199,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       if (!value) return <EmptyCell fieldName={field.name} />
       return (
         <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
-          {display || formatDateTime(String(value))}
+          {displayValue && displayValue !== String(value) ? displayValue : formatDateTime(String(value))}
         </span>
       )
     }
@@ -309,21 +310,6 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
 // ------------------------------------------------------------------
 
 /**
- * Converts a byte count into a human-readable string with the appropriate unit (B, KB, MB, GB, TB).
- *
- * @param bytes - The number of bytes to format.
- * @returns A formatted string such as `"1.4 MB"` or `"0 B"`.
- */
-function formatBytes(bytes: number): string {
-  if (isNaN(bytes) || bytes < 0) return '0 B'
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  const idx = Math.min(i, units.length - 1)
-  return `${(bytes / Math.pow(1024, idx)).toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
-}
-
-/**
  * Formats an ISO date string using the browser's locale date formatting.
  *
  * Returns the original string unchanged if parsing fails.
@@ -350,11 +336,11 @@ function formatDate(value: string): string {
  * @returns A locale-formatted datetime string (e.g., `"6/15/2024, 2:30:00 PM"`).
  */
 function formatDateTime(value: string): string {
-  try {
-    const d = new Date(value)
-    if (isNaN(d.getTime())) return value
-    return d.toLocaleString()
-  } catch {
-    return value
-  }
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const hours = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12
+  const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? ''
+  // Material's "yyyy-MM-dd hh:mm:ss AM TZ", in the browser's time zone
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(hours)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'} ${zone}`.trim()
 }

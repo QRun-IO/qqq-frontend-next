@@ -1,193 +1,125 @@
-// E2E: SavedViews — save, recall, and delete named filter/column configurations
+// E2E: SavedViews — backend saved views (querySavedView / storeSavedView / deleteSavedView), mocked
 
-import { test, expect } from '@playwright/test'
-import { setupApiMocks } from './api-mocks'
+import { test, expect, type Page, type Route } from '@playwright/test'
+import { METADATA, setupApiMocks } from './api-mocks'
 
-async function waitForAppReady(page: import('@playwright/test').Page) {
-  await page
-    .waitForSelector('[role="status"][aria-label="Loading"]', {
-      state: 'hidden',
-      timeout: 30000,
-    })
-    .catch(() => null)
-  await expect(page.locator('[data-qqq-id="main-content"]')).toBeVisible({ timeout: 30000 })
-  await page
-    .waitForSelector('[aria-label="Loading content"]', { state: 'hidden', timeout: 15000 })
-    .catch(() => null)
+interface StoredView { id: number; label: string; userId: string; tableName: string; viewJson: string }
+
+const ME = 'e2e@example.invalid'
+
+/** Reads the JSON `values` field of a multipart process request. */
+function processValues(route: Route): Record<string, unknown> {
+  const body = route.request().postData() ?? ''
+  const match = body.match(/name="values"\r\n\r\n([^\r]*)/)
+  return match ? JSON.parse(match[1]) : {}
 }
 
-async function waitForGridReady(page: import('@playwright/test').Page) {
-  await waitForAppReady(page)
-  await page
-    .waitForSelector('[data-qqq-id="grid-loading"]', { state: 'hidden', timeout: 15000 })
-    .catch(() => null)
-  await expect(
-    page.locator('[data-qqq-id^="grid-person"], [data-qqq-id="grid-loading"], [data-qqq-id="grid-empty"]')
-  ).toBeVisible({ timeout: 20000 })
+/** Mocks the saved-view processes over an in-memory store; returns the store. */
+async function mockSavedViews(page: Page, initial: StoredView[]) {
+  const store = [...initial]
+  let nextId = 100
+  const record = (v: StoredView) => ({ tableName: 'savedView', values: { ...v } })
+  const complete = (route: Route, list: StoredView[]) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ type: 'COMPLETE', processUUID: 'mock', values: { savedViewList: list.map(record) } }) })
+  const processes = Object.fromEntries(['querySavedView', 'storeSavedView', 'deleteSavedView'].map((name) =>
+    [name, { name, label: name, tableName: '', isHidden: false, iconName: '', hasPermission: true, stepFlow: 'LINEAR', minInputRecords: 0, frontendSteps: [] }]))
+  await page.route('**/qqq/v1/metaData**', (route) => {
+    if (!/\/qqq\/v1\/metaData\/?(\?|$)/.test(route.request().url())) return route.fallback()
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...METADATA, processes: { ...METADATA.processes, ...processes } }) })
+  })
+  await page.route('**/qqq/v1/manageSession**', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ uuid: 'mock', values: { user: { name: 'E2E User', email: ME } } }) }))
+  await page.route('**/qqq/v1/processes/querySavedView/init**', (route) => {
+    const values = processValues(route)
+    if (values.id !== undefined) {
+      const found = store.filter((v) => v.id === Number(values.id))
+      if (!found.length) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ type: 'ERROR', processUUID: 'mock', error: 'The requested view was not found.' }) })
+      return complete(route, found)
+    }
+    return complete(route, store.filter((v) => v.tableName === values.tableName))
+  })
+  await page.route('**/qqq/v1/processes/storeSavedView/init**', (route) => {
+    const values = processValues(route)
+    const existing = store.find((v) => v.id === Number(values.id))
+    const view: StoredView = { id: existing?.id ?? nextId++, label: String(values.label), userId: ME, tableName: String(values.tableName), viewJson: String(values.viewJson) }
+    if (existing) store.splice(store.indexOf(existing), 1, view)
+    else store.push(view)
+    return complete(route, [view])
+  })
+  await page.route('**/qqq/v1/processes/deleteSavedView/init**', (route) => {
+    const index = store.findIndex((v) => v.id === Number(processValues(route).id))
+    if (index >= 0) store.splice(index, 1)
+    return complete(route, [])
+  })
+  return store
 }
 
-/** The saved views dropdown panel locator. */
-const savedViewsPanel = (page: import('@playwright/test').Page) =>
-  page.locator('[data-qqq-id="saved-views-menu"] [role="dialog"]')
-
-/** Opens the saved views dropdown, waiting for it to appear. */
-async function openSavedViewsMenu(page: import('@playwright/test').Page) {
-  // If already open, do nothing
-  if (await savedViewsPanel(page).isVisible()) return
-
-  const btn = page.locator('[data-qqq-id="button-saved-views"]')
-  await expect(btn).toBeVisible({ timeout: 10000 })
-  await btn.click()
-  await expect(savedViewsPanel(page)).toBeVisible({ timeout: 5000 })
-}
-
-/** Closes the saved views dropdown by clicking outside. */
-async function closeSavedViewsMenu(page: import('@playwright/test').Page) {
-  if (!(await savedViewsPanel(page).isVisible())) return
-  // Click the backdrop (fixed inset-0 overlay behind the dropdown)
-  await page.keyboard.press('Escape')
-  // Fallback: click outside the menu
-  await page.locator('body').click({ position: { x: 10, y: 10 }, force: true })
-  // Small wait for close animation
-  await page.waitForTimeout(100)
-}
-
-/** Saves the current view with the given name. Assumes the menu is open and in default (non-save) mode. */
-async function saveCurrentView(page: import('@playwright/test').Page, name: string) {
-  await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-  const nameInput = page.locator('[data-qqq-id="saved-views-name-input"]')
-  await expect(nameInput).toBeVisible({ timeout: 5000 })
-  await nameInput.fill(name)
-  await page.locator('[data-qqq-id="saved-views-confirm-save"]').click()
-  // After confirming, name input disappears and save-current button reappears (dropdown stays open)
-  await expect(page.locator('[data-qqq-id="saved-views-name-input"]')).not.toBeVisible({ timeout: 5000 })
+/** Opens the saved views menu. */
+async function openMenu(page: Page) {
+  await page.locator('[data-qqq-id="button-saved-views"]').click()
+  return page.getByRole('menu', { name: 'Saved views' })
 }
 
 test.describe('SavedViews', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear localStorage on every page load so saved views don't persist between tests.
-    await page.addInitScript(() => {
-      localStorage.clear()
-    })
+    await page.addInitScript(() => localStorage.clear())
+  })
+
+  test('lists your views and views shared with you', async ({ page }) => {
+    await setupApiMocks(page)
+    await mockSavedViews(page, [
+      { id: 1, label: 'Mine', userId: ME, tableName: 'person', viewJson: '{"queryFilter":{}}' },
+      { id: 2, label: 'Theirs', userId: 'someone@else.invalid', tableName: 'person', viewJson: '{"queryFilter":{}}' },
+    ])
+    await page.goto('/app/person')
+    const menu = await openMenu(page)
+    await expect(menu.getByRole('group', { name: 'Your Saved Views' })).toContainText('Mine')
+    await expect(menu.getByRole('group', { name: 'Views Shared with you' })).toContainText('Theirs')
+  })
+
+  test('shows empty messages when there are no views', async ({ page }) => {
+    await setupApiMocks(page)
+    await mockSavedViews(page, [])
+    await page.goto('/app/person')
+    const menu = await openMenu(page)
+    await expect(menu).toContainText('You do not have any saved views for this table.')
+    await expect(menu).toContainText('You do not have any views shared with you for this table.')
+  })
+
+  test('saves the current view and opens it on its route', async ({ page }) => {
+    await setupApiMocks(page)
+    const store = await mockSavedViews(page, [])
+    await page.goto('/app/person')
+    await (await openMenu(page)).getByRole('menuitem', { name: 'Save As...' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Save View As' })
+    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await dialog.getByLabel('Enter a name for this view').fill('My View')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(page).toHaveURL(/\/app\/person\/savedView\/100/)
+    expect(store).toHaveLength(1)
+    expect(JSON.parse(store[0].viewJson)).toHaveProperty('queryColumns')
+    await expect(page.locator('[data-qqq-id="button-saved-views"]')).toContainText('My View')
+  })
+
+  test('opening a view applies its filter, and deleting it returns to a new view', async ({ page }) => {
+    await setupApiMocks(page)
+    const store = await mockSavedViews(page, [{ id: 7, label: 'Alices', userId: ME, tableName: 'person',
+      viewJson: JSON.stringify({ queryFilter: { criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Alice'] }] } }) }])
+    await page.goto('/app/person')
+    const request = page.waitForRequest((r) => r.url().includes('/qqq/v1/table/person/query') && (r.postData() ?? '').includes('"Alice"'))
+    await (await openMenu(page)).getByRole('menuitem', { name: 'Alices' }).click()
+    await request
+    await expect(page).toHaveURL(/\/app\/person\/savedView\/7/)
+    await (await openMenu(page)).getByRole('menuitem', { name: 'Delete...' }).click()
+    await page.getByRole('dialog', { name: 'Delete View' }).getByRole('button', { name: 'Delete' }).click()
+    await expect(page).toHaveURL(/\/app\/person\/?$/)
+    expect(store).toHaveLength(0)
+  })
+
+  test('the menu is absent when the backend has no saved view processes', async ({ page }) => {
     await setupApiMocks(page)
     await page.goto('/app/person')
-    await waitForGridReady(page)
-  })
-
-  test('saved views button is present in the toolbar', async ({ page }) => {
-    await expect(page.locator('[data-qqq-id="button-saved-views"]')).toBeVisible()
-  })
-
-  test('clicking saved views button opens the dropdown', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await expect(savedViewsPanel(page)).toBeVisible()
-  })
-
-  test('shows "No saved views yet" when there are no saved views', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await expect(page.getByText('No saved views yet')).toBeVisible()
-  })
-
-  test('save current view — enters name input mode', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-    await expect(page.locator('[data-qqq-id="saved-views-name-input"]')).toBeVisible({ timeout: 5000 })
-  })
-
-  test('save current view — confirm button is disabled when name is blank', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-
-    const confirmBtn = page.locator('[data-qqq-id="saved-views-confirm-save"]')
-    await expect(confirmBtn).toBeVisible({ timeout: 5000 })
-    await expect(confirmBtn).toBeDisabled()
-  })
-
-  test('save current view — enabled after typing a name', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-
-    const nameInput = page.locator('[data-qqq-id="saved-views-name-input"]')
-    await nameInput.fill('My Test View')
-
-    const confirmBtn = page.locator('[data-qqq-id="saved-views-confirm-save"]')
-    await expect(confirmBtn).not.toBeDisabled({ timeout: 5000 })
-  })
-
-  test('save current view — saves and shows the view in the list', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await saveCurrentView(page, 'E2E Test View')
-
-    // The dropdown is still open after saving; verify the view is listed
-    await expect(page.getByText('E2E Test View')).toBeVisible({ timeout: 5000 })
-  })
-
-  test('save current view — pressing Enter confirms the save', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-
-    const nameInput = page.locator('[data-qqq-id="saved-views-name-input"]')
-    await nameInput.fill('Enter Key View')
-    await nameInput.press('Enter')
-
-    // The dropdown stays open; the new view should appear in the list
-    await expect(page.getByText('Enter Key View')).toBeVisible({ timeout: 5000 })
-  })
-
-  test('save current view — pressing Escape cancels name entry', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await page.locator('[data-qqq-id="saved-views-save-current"]').click()
-
-    const nameInput = page.locator('[data-qqq-id="saved-views-name-input"]')
-    await nameInput.fill('Should Not Save')
-    await nameInput.press('Escape')
-
-    // "Save current view..." entry should reappear (save mode cancelled)
-    await expect(page.locator('[data-qqq-id="saved-views-save-current"]')).toBeVisible({ timeout: 5000 })
-    // Name input should be gone
-    await expect(page.locator('[data-qqq-id="saved-views-name-input"]')).not.toBeVisible()
-  })
-
-  test('recall a saved view — clicking a view loads it and closes dropdown', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await saveCurrentView(page, 'Recall Test View')
-
-    // Dropdown is still open with the saved view listed
-    const loadBtn = page.locator('[data-qqq-id^="saved-view-load-"]').first()
-    await expect(loadBtn).toBeVisible({ timeout: 5000 })
-    await loadBtn.click()
-
-    // Dropdown should close after loading
-    await expect(savedViewsPanel(page)).not.toBeVisible({ timeout: 5000 })
-  })
-
-  test('delete a saved view — removes it from the list', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await saveCurrentView(page, 'Delete Me View')
-
-    // Dropdown is still open; hover to reveal the delete button
-    const listItem = page.locator('[data-qqq-id^="saved-view-item-"]').first()
-    await expect(listItem).toBeVisible({ timeout: 5000 })
-    await listItem.hover()
-
-    const deleteBtn = page.locator('[data-qqq-id^="saved-view-delete-"]').first()
-    await expect(deleteBtn).toBeVisible({ timeout: 5000 })
-    await deleteBtn.click()
-
-    // After deletion, "No saved views yet" should appear
-    await expect(page.getByText('No saved views yet')).toBeVisible({ timeout: 5000 })
-  })
-
-  test('saved views count badge updates after saving', async ({ page }) => {
-    await openSavedViewsMenu(page)
-    await saveCurrentView(page, 'Badge Test View')
-
-    // Close dropdown by clicking the backdrop
-    await closeSavedViewsMenu(page)
-
-    // The button should now show a count badge
-    const badge = page.locator('[data-qqq-id="button-saved-views"] span.rounded-full')
-    await expect(badge).toBeVisible({ timeout: 5000 })
-    await expect(badge).toContainText('1')
+    await expect(page.locator('[data-qqq-id^="grid-person"]')).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('[data-qqq-id="button-saved-views"]')).toHaveCount(0)
   })
 })

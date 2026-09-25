@@ -30,6 +30,7 @@ import EntityCopyPage from './[recordId]/copy/page'
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'person', recordId: '1' }),
+  usePathname: () => '/app/person/1',
   useRouter: () => ({ push, replace: vi.fn(), back: vi.fn() }),
 }))
 
@@ -239,7 +240,7 @@ describe('Create and base edit use full metadata and actual write contracts', ()
   it('shows a failed base-copy source read without offering a blank create form', async () => {
     server.use(http.get('/data/person/1', () => HttpResponse.json({ error: 'Source denied' }, { status: 403 })))
     renderPage(<EntityCopyPage />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('403')
+    expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to view People records')
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 })

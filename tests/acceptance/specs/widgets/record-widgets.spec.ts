@@ -1,0 +1,123 @@
+/*
+ * Copyright 2026 QRun.IO, Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
+ */
+
+// Widgets embedded in record-view sections (not association editors).
+import type { Page } from '@playwright/test'
+import { expect, open, test } from '../../support/fixtures'
+import { byId, expectLoaded, sqlRows, widgetBody } from './widget-support'
+
+async function openHost(page: Page, id: number) {
+  await open(page, `/app/accWidgetHost/${id}`)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+}
+
+test('[WID-060] section widgets receive the hosting record id and table', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  for (const id of [1, 2]) {
+    const [host] = await sqlRows(backend, `select owner, zero from acc_widget_host where id = ${id}`)
+    await openHost(page, id)
+    await expectLoaded(page, 'accHostHtml')
+    await expect(widgetBody(page, 'accHostHtml')).toHaveText(`Host record ${id} in accWidgetHost`)
+    await expect(byId(page, 'field-value-accHostFieldValues-owner')).toHaveText(`Owner:${host.owner}`)
+    await expect(byId(page, 'field-value-accHostFieldValues-zero')).toHaveText(`Zero:${host.zero}`)
+  }
+})
+
+test('[WID-026] cron widget shows the record expression, backend description and time zone', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const [host] = await sqlRows(backend, 'select cron_expression, cron_time_zone_id from acc_widget_host where id = 1')
+  const description = (await (await backend.api.get('/widget/accHostCron?id=1&tableName=accWidgetHost')).json()).cronDescription
+  expect(description).toBe('Every day, at 9:00 am')
+  await openHost(page, 1)
+  await expectLoaded(page, 'accHostCron')
+  await expect(byId(page, 'cron-expression-accHostCron')).toHaveText(host.cron_expression)
+  await expect(byId(page, 'cron-description-accHostCron')).toHaveText(description)
+  await expect(byId(page, 'cron-time-zone-accHostCron')).toHaveText(host.cron_time_zone_id)
+  await openHost(page, 3)
+  await expectLoaded(page, 'accHostCron')
+  await expect(byId(page, 'cron-empty-accHostCron')).toHaveText('No schedule set')
+})
+
+test('[WID-027] dynamic form widget shows labeled values including zero', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const [host] = await sqlRows(backend, 'select owner, zero from acc_widget_host where id = 1')
+  await openHost(page, 1)
+  await expectLoaded(page, 'accHostDynamicForm')
+  await expect(byId(page, 'dynamic-form-field-accHostDynamicForm-owner')).toHaveText(`Owner${host.owner}`)
+  await expect(byId(page, 'dynamic-form-field-accHostDynamicForm-zero')).toHaveText('Zero0')
+})
+
+test('[WID-024] child record list without an association lists joined records with paging and links', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const children = await sqlRows(backend, 'select id, name from acc_widget_host_child where host_id = 1 order by id')
+  expect(children).toHaveLength(3)
+  await openHost(page, 1)
+  await expectLoaded(page, 'accWidgetHostJoinChild')
+  const list = byId(page, 'widget-childRecordList-accWidgetHostJoinChild')
+  await expect(list.getByRole('columnheader')).toHaveText(['Id', 'Name'])
+  for (const child of children.slice(0, 2)) {
+    await expect(byId(page, `child-record-row-accWidgetHostJoinChild-${child.id}`)).toHaveText(`${child.id}${child.name}`)
+  }
+  await expect(byId(page, `child-record-row-accWidgetHostJoinChild-${children[2].id}`)).toHaveCount(0)
+  await expect(list).toContainText('Showing 2 of 3')
+  await expect(byId(page, 'child-record-view-all-accWidgetHostJoinChild')).toHaveAttribute('href', /\/app\/accWidgetHostChild\/?\?filter=/)
+  await list.getByRole('link', { name: String(children[0].id), exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/app/accWidgetHostChild/${children[0].id}/?$`))
+  await expect(page.getByRole('heading', { level: 1, name: children[0].name })).toBeVisible()
+  // a host without children shows an empty state
+  await open(page, '/app/accWidgetHost/3')
+  await expectLoaded(page, 'accWidgetHostJoinChild')
+  await expect(byId(page, 'widget-empty-accWidgetHostJoinChild')).toHaveText('No Widget Host Child records found')
+})
+
+test('[WID-031] row builder without an association shows its rows read-only', async ({ page, diagnostics }) => {
+  void diagnostics
+  await openHost(page, 1)
+  await expectLoaded(page, 'accHostRows')
+  const table = byId(page, 'widget-rowBuilder-accHostRows')
+  await expect(table.getByRole('columnheader')).toHaveText(['Row Name', 'Row Quantity'])
+  await expect(byId(page, 'row-builder-row-accHostRows-0')).toHaveText('Owned row one3')
+  await expect(byId(page, 'row-builder-row-accHostRows-1')).toHaveText('Owned row two0')
+  await expect(table.getByRole('textbox')).toHaveCount(0)
+})
+
+test('[WID-028] data bag viewer lists versions newest first and shows the selected contents', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const versions = await sqlRows(backend, 'select id, sequence_no, commit_message, data from data_bag_version where data_bag_id = 1 order by sequence_no desc')
+  await open(page, '/app/dataBag/1')
+  await expectLoaded(page, 'accDataBagViewer')
+  const newest = byId(page, `data-bag-version-${versions[0].id}`)
+  await expect(newest).toContainText(`Version ${versions[0].sequence_no}`)
+  await expect(newest).toContainText('CURRENT')
+  await expect(newest).toContainText(versions[0].commit_message)
+  await expect(newest).toHaveAttribute('aria-pressed', 'true')
+  const contents = byId(page, 'data-bag-contents-accDataBagViewer')
+  expect(JSON.parse((await contents.textContent())!)).toEqual(JSON.parse(versions[0].data))
+  await byId(page, `data-bag-version-${versions[1].id}`).click()
+  await expect.poll(async () => JSON.parse((await contents.textContent()) ?? 'null')).toEqual(JSON.parse(versions[1].data))
+  await open(page, '/app/dataBag/2')
+  await expectLoaded(page, 'accDataBagViewer')
+  await expect(byId(page, 'widget-empty-accDataBagViewer')).toHaveText('There are not any versions of this data bag.')
+})
+
+test('[WID-032] script viewer marks the current revision and shows each revision file', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const script = await (await backend.api.get('/data/script/1')).json()
+  expect(script.values.currentScriptRevisionId).toBe(2)
+  await open(page, '/app/script/1')
+  await expectLoaded(page, 'scriptViewer')
+  const current = byId(page, 'script-revision-2')
+  await expect(current).toContainText('Version 2')
+  await expect(current).toContainText('CURRENT')
+  await expect(current).toContainText('Owned second revision')
+  const files = page.locator('[data-qqq-id^="script-file-"]').filter({ visible: true })
+  await expect(files).toHaveCount(1)
+  await expect(files).toContainText(['return \'owned two\';'])
+  await expect(files.first()).toContainText('Script.js')
+  await byId(page, 'script-revision-1').click()
+  await expect(files.first()).toContainText('return \'owned one\';')
+})

@@ -30,19 +30,22 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import type { QInstance } from '@/types'
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { useProcessMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
+import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
 import { ReportRun } from '@/components/reports'
+import { NotFoundState } from '@/components/layout/NotFoundState'
 
 /**
  * Resolves a URL slug to its QQQ resource type and name.
@@ -86,7 +89,7 @@ export function resolveSlugTarget(
  * 2. If the slug matches a **table** → renders `<RecordQuery>` (data grid + filters).
  * 3. If the slug matches a **process** → renders `<ProcessRun>` (step wizard).
  * 4. If the slug matches a **report** → renders `<ReportRun>` (format selector + download).
- * 5. Otherwise → renders an unknown-resource message.
+ * 5. Otherwise → renders a not-found state (the backend omits objects the user may not access).
  *
  * The page header in QContext is updated whenever the resolution changes.
  *
@@ -96,10 +99,10 @@ export function resolveSlugTarget(
  *   - `<ProcessRun>` (step wizard) when the slug matches a process
  *   - `<ReportRun>` (format selector + download) when the slug matches a report
  *   - A full-screen spinner while metadata is loading or the resource is resolving
- *   - An unknown-resource message panel when the slug does not match any resource
+ *   - A not-found state when the slug matches nothing the user can access
  */
 export default function SlugPage() {
-  const params = useParams<{ slug: string }>()
+  const params = useRouteParams<{ slug: string }>()
   const searchParams = useSearchParams()
   const { setPageHeader, setTableMetaData } = useQContext()
   const slug = params.slug
@@ -117,8 +120,12 @@ export default function SlugPage() {
   const isReport = Boolean(metaData?.reports?.[slug])
 
   const app = metaData?.apps?.[slug]
-  const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp ? slug : undefined)
-  const { data: process, isError: processError } = useProcessMetaData(isProcess && !isApp && !isTable ? slug : undefined)
+  // Objects the user may not use (DenyBehavior.DISABLED) are listed in metadata with
+  // their permission flag false: show why, and do not load or start them.
+  const tableDenied = isTable && !isApp && !canReadRecords(metaData?.tables?.[slug])
+  const processDenied = isProcess && !isApp && !isTable && !canAccessProcess(metaData?.processes?.[slug])
+  const { data: table, isError: tableError } = useTableMetaData(isTable && !isApp && !tableDenied ? slug : undefined)
+  const { data: process, isError: processError } = useProcessMetaData(isProcess && !isApp && !isTable && !processDenied ? slug : undefined)
   const report = metaData?.reports?.[slug]
 
   useEffect(() => {
@@ -131,10 +138,21 @@ export default function SlugPage() {
       setPageHeader(process?.label ?? slug)
     } else if (isReport) {
       setPageHeader(report?.label ?? slug)
-    } else {
-      setPageHeader(slug)
+    } else if (metaData) {
+      setPageHeader('Not Found')
     }
-  }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, setPageHeader, setTableMetaData])
+  }, [isApp, isTable, isProcess, isReport, app, table, process, report, slug, metaData, setPageHeader, setTableMetaData])
+
+  if (tableDenied || processDenied) {
+    const label = (tableDenied ? metaData?.tables?.[slug]?.label : metaData?.processes?.[slug]?.label) ?? slug
+    return (
+      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center" role="alert" data-qqq-id="permission-denied">
+        <p className="text-sm text-yellow-700">
+          {tableDenied ? `You do not have permission to view ${label} records.` : `You do not have permission to run ${label}.`}
+        </p>
+      </div>
+    )
+  }
 
   if (metadataError || (isTable && !isApp && tableError) || (isProcess && !isApp && !isTable && processError)) {
     return (
@@ -157,6 +175,7 @@ export default function SlugPage() {
     return (
       <AppHome
         appMetaData={app}
+        instance={metaData}
         widgetRegistry={metaData.widgets ?? {}}
       />
     )
@@ -165,7 +184,7 @@ export default function SlugPage() {
   // Table record query — Package 2 implementation
   if (isTable && table) {
     const tableProcesses = getProcessesForTable(metaData, slug)
-    return <RecordQuery tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} />
+    return <RecordQuery key={slug} tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} metaData={metaData} />
   }
 
   // Table loading state (table found but metadata not yet available)
@@ -181,14 +200,25 @@ export default function SlugPage() {
   if (isProcess && process) {
     const initialRequest: ProcessInitRequest = {}
     const selection = searchParams.get('recordsParam')
-    if (selection === 'recordIds') {
+    if (selection === 'recordIds' || (!selection && searchParams.get('recordIds'))) {
       initialRequest.recordsParam = 'recordIds'
       initialRequest.recordIds = searchParams.get('recordIds') ?? ''
-    } else if (selection === 'filterJSON' || selection === 'queryFilter') {
+    } else if (selection === 'filterJSON' || selection === 'queryFilter' || (!selection && searchParams.get('filterJSON'))) {
       initialRequest.recordsParam = 'filterJSON'
       initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
     }
-    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} />
+    ////////////////////////////////////////////////////////////////////////
+    // links may preset process inputs, as in the Material dashboard:     //
+    // ?defaultProcessValues={"name":"value"}                             //
+    ////////////////////////////////////////////////////////////////////////
+    let initialValues: Record<string, unknown> | undefined
+    try {
+      const parsed: unknown = JSON.parse(searchParams.get('defaultProcessValues') ?? 'null')
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) initialValues = parsed as Record<string, unknown>
+    } catch {
+      initialValues = undefined
+    }
+    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} />
   }
 
   // Process loading state (process found but metadata not yet available)
@@ -214,15 +244,6 @@ export default function SlugPage() {
     )
   }
 
-  // Unknown slug
-  return (
-    <div className="space-y-4" data-qqq-id={`unknown-slug-${slug}`}>
-      <h2 className="text-2xl font-semibold text-foreground">{slug}</h2>
-      <div className="rounded-xl border border-dashed border-border bg-muted p-12 text-center">
-        <p className="text-muted-foreground">
-          Unknown resource: <code className="font-mono">{slug}</code>
-        </p>
-      </div>
-    </div>
-  )
+  // Unknown, hidden-and-denied, or unpermitted slug: the backend exposes nothing by this name
+  return <NotFoundState name={slug} />
 }

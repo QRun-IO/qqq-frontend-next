@@ -45,7 +45,7 @@ function fixture(childRead = false) {
     name: 'personJoinPet', type: 'ONE_TO_MANY', leftTable: 'person', rightTable: 'pet',
     joinOns: [{ leftField: 'id', rightField: 'personId' }],
   } }]
-  const registry = { ...qInstance, widgets: { ...qInstance.widgets }, tables: { person: { name: 'person', label: 'Person', readPermission: true }, pet: { name: 'pet', readPermission: false, insertPermission: true } } }
+  const registry = { ...qInstance, widgets: { ...qInstance.widgets }, tables: { person: { name: 'person', label: 'Person', readPermission: true }, pet: { name: 'pet', readPermission: childRead, insertPermission: true } } }
   server.use(
     http.get('/qqq/v1/metaData', () => HttpResponse.json(registry)),
     http.get('/qqq/v1/metaData/table/person', () => HttpResponse.json(person)),
@@ -62,8 +62,24 @@ function renderPage() {
 describe('RecordViewPage independent association loading', () => {
   beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); navigation.search = 'tab=related' })
 
+  it('keeps the base and child Add, and requests no expansion, when the child table is listed without read permission (QRun-IO/qqq#671)', async () => {
+    fixture()
+    const requests: string[] = []
+    server.use(http.get('/data/person/1', ({ request }) => {
+      requests.push(new URL(request.url).searchParams.get('includeAssociations') ?? '')
+      return HttpResponse.json(baseRecord)
+    }))
+    renderPage()
+    expect(await screen.findByText('Avery Sample')).toBeVisible()
+    expect(await screen.findByText('Related records are unavailable.')).toBeVisible()
+    expect(screen.getByRole('button', { name: '+ Add Pet' })).toBeEnabled()
+    expect(screen.queryByText('No Pets records')).not.toBeInTheDocument()
+    expect(requests).toEqual(['false'])
+  })
+
   it('keeps the readable base and child Add when whole association expansion is denied', async () => {
-    const { person: metadata } = fixture()
+    const { person: metadata, pet } = fixture(true)
+    pet.readPermission = false
     const before = structuredClone(metadata)
     const requests: string[] = []
     server.use(http.get('/data/person/1', ({ request }) => {
@@ -84,6 +100,27 @@ describe('RecordViewPage independent association loading', () => {
     expect(await screen.findByRole('dialog', { name: 'Add Pet' })).toBeVisible()
     expect(requests).toEqual(['false', 'true'])
     expect(metadata).toEqual(before)
+  })
+
+  it('neither requests nor shows an association whose table is hidden from the user (QRun-IO/qqq#671)', async () => {
+    const { registry } = fixture()
+    const { pet: _hidden, ...visibleTables } = registry.tables
+    void _hidden
+    const requests: string[] = []
+    server.use(
+      http.get('/qqq/v1/metaData', () => HttpResponse.json({ ...registry, tables: visibleTables })),
+      http.get('/qqq/v1/metaData/table/pet', () => { requests.push('pet metadata'); return HttpResponse.json({ error: 'not found' }, { status: 404 }) }),
+      http.get('/data/person/1', ({ request }) => {
+        requests.push(`includeAssociations=${new URL(request.url).searchParams.get('includeAssociations')}`)
+        return HttpResponse.json(baseRecord)
+      }),
+    )
+    renderPage()
+    expect(await screen.findByText('Avery Sample')).toBeVisible()
+    await waitFor(() => expect(requests).toContain('includeAssociations=false'))
+    expect(requests).toEqual(['includeAssociations=false'])
+    expect(screen.queryByRole('button', { name: '+ Add Pet' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Related records could not be loaded.')).not.toBeInTheDocument()
   })
 
   it('does not rename association keys or present an unmatched association as empty', async () => {

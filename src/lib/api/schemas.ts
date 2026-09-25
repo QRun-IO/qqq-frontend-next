@@ -135,10 +135,10 @@ export const QInstanceMinimalSchema = z.object({
   tables: z.record(z.unknown()),
   /** All registered processes. */
   processes: z.record(z.unknown()),
-  /** Branding configuration. */
+  /** Branding configuration; every field is optional in QQQ branding, and branding itself may be absent. */
   branding: z.object({
-    companyName: z.string(),
-    companyUrl: z.string(),
-    appName: z.string(),
-  }),
+    companyName: z.string().optional(),
+    companyUrl: z.string().optional(),
+    appName: z.string().optional(),
+  }).optional(),
 })

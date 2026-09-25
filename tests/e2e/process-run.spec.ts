@@ -27,10 +27,10 @@ async function waitForProcessReady(page: Page, _processName: string) {
   await expect(processLocator.first()).toBeVisible({ timeout: 20000 })
 }
 
-// importPeople is the process registered in MSW fixtures (importData is not in MSW metadata)
-const PROCESS_NAME = 'importPeople'
+// importData is the process in the route-mock METADATA (tests/e2e/api-mocks.ts)
+const PROCESS_NAME = 'importData'
 
-test.describe('Process Run — importPeople process', () => {
+test.describe('Process Run — importData process', () => {
   test.beforeEach(async ({ page }) => {
     await setupApiMocks(page)
     await page.goto(`/app/${PROCESS_NAME}`)

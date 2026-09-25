@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { QRecord } from '@/types'
 import { getRecord } from '@/lib/api/tables'
-import { queryKeys } from '@/lib/query-client'
+import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 
 /**
  * Configuration options for {@link useRecord}.
@@ -73,7 +73,7 @@ export function useRecord({
   enabled = true,
   includeAssociations = true,
   tableVariant,
-  staleTime = 1000 * 60 * 5, // 5 minutes
+  staleTime = 0, // revalidate on every mount; cached data shows while refetching
 }: UseRecordOptions): UseRecordResult {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [...queryKeys.tableRecord(tableName, primaryKey), { includeAssociations, tableVariant }],
@@ -84,6 +84,8 @@ export function useRecord({
       }),
     enabled: enabled && Boolean(tableName) && primaryKey !== undefined && primaryKey !== '',
     staleTime,
+    // Every caller renders its own not-found / permission / failure state.
+    meta: HANDLES_OWN_ERRORS,
   })
 
   return {

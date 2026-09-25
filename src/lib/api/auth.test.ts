@@ -24,6 +24,7 @@ vi.mock('./client', () => ({
     get: vi.fn(),
     post: vi.fn(),
     setUnauthorizedCallback: vi.fn(),
+    getInstance: () => ({ defaults: { baseURL: '/qqq/v1' } }),
   },
 }))
 
@@ -120,5 +121,32 @@ describe('Auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/logout')
     expect(localStorage.getItem('qqqAuthMetadata:/qqq/v1')).toBeNull()
     expect(localStorage.getItem('accessToken')).toBeNull()
+  })
+
+  it('posts manageSession as the JSON body v1 reads (QRun-IO/qqq#670)', async () => {
+    const { default: apiClient } = await import('./client')
+    vi.mocked(apiClient.post).mockResolvedValue({ uuid: 'u', values: { user: { name: 'Alice' } } })
+    const { manageSession } = await import('./auth')
+    await expect(manageSession('token-1')).resolves.toEqual({ uuid: 'u', values: { user: { name: 'Alice' } } })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { accessToken: 'token-1' })
+  })
+
+  it('completes OAuth2 PKCE and resumes sessions through the unversioned manageSession', async () => {
+    const { default: apiClient } = await import('./client')
+    vi.mocked(apiClient.post).mockResolvedValue({ uuid: 'u' })
+    const { createOAuth2Session, resumeSession } = await import('./auth')
+    await createOAuth2Session({ code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' }, { baseURL: '' })
+    await resumeSession('session-1')
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1', uuid: 'session-1' }, { baseURL: '' })
+  })
+
+  it('reads the sessionUUID cookie', async () => {
+    const { readSessionUUIDCookie } = await import('./auth')
+    document.cookie = 'other=1'
+    expect(readSessionUUIDCookie()).toBeNull()
+    document.cookie = 'sessionUUID=abc-123'
+    expect(readSessionUUIDCookie()).toBe('abc-123')
+    document.cookie = 'sessionUUID=; Max-Age=0'
   })
 })

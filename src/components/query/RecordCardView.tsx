@@ -40,6 +40,8 @@ interface RecordCardViewProps {
   columnVisibility: Record<string, boolean>
   columnOrder: string[]
   maxFieldsPerCard?: number
+  /** True while the first page of records loads; shows placeholder cards instead of the empty state. */
+  isLoading?: boolean
 }
 
 const MAX_VISIBLE_FIELDS = 5
@@ -52,7 +54,8 @@ const MAX_VISIBLE_FIELDS = 5
  * the record detail view.
  *
  * @param props - Component properties.
- * @returns The rendered card list, or an empty state when no records are present.
+ * @returns The rendered card list, placeholder cards while loading, or an empty state when no
+ *   records are present.
  */
 export function RecordCardView({
   tableName,
@@ -63,6 +66,7 @@ export function RecordCardView({
   columnVisibility,
   columnOrder,
   maxFieldsPerCard = MAX_VISIBLE_FIELDS,
+  isLoading = false,
 }: RecordCardViewProps) {
   const router = useRouter()
 
@@ -131,6 +135,27 @@ export function RecordCardView({
       return rawVal === true || rawVal === 'true' || rawVal === 1 ? 'Yes' : 'No'
     }
     return String(rawVal)
+  }
+
+  // Loading: placeholder cards, like the grid's skeleton rows (QRun-IO/qqq#694)
+  if (isLoading && records.length === 0) {
+    return (
+      <div
+        className="flex flex-col gap-3"
+        role="status"
+        aria-busy="true"
+        aria-label={`Loading ${tableMetaData.label} records`}
+        data-qqq-id={`record-card-view-loading-${tableName}`}
+      >
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl border border-border p-4" aria-hidden="true">
+            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (records.length === 0) {

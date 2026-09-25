@@ -15,7 +15,8 @@
  */
 
 /**
- * @file use-record-query — manages all state for the Record Query page including filters, pagination, sorting, column config, saved views, and data fetching.
+ * @file use-record-query — manages all state for the Record Query page including filters,
+ * pagination, sorting, column config, selection, joins, variants and data fetching.
  */
 
 'use client'
@@ -30,20 +31,27 @@ import type {
   QQueryFilter,
   QFilterOrderBy,
   QueryJoin,
+  QFieldMetaData,
 } from '@/types'
-import { queryRecords, countRecords } from '@/lib/api/tables'
+import { queryRecords, countRecords, type TableVariant } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import {
   emptyFilter,
   applyPagination,
-  applySort,
   serializeFilter,
   deserializeFilter,
   isFilterEmpty,
+  buildQuickFilter,
+  combineWithQuickFilter,
+  prepFilterForBackend,
+  referencedFieldNames,
+  resolveField,
 } from '@/lib/utils/filter-utils'
+import { isColumnVisible, type ViewState } from '@/lib/utils/saved-view-utils'
+import { hasCapability } from '@/lib/utils/query-columns'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { useColumnConfig } from '@/lib/hooks/use-column-config'
-import { useSavedViews } from '@/lib/hooks/use-saved-views'
+import { PAGE_SIZE_OPTIONS } from '@/lib/constants'
 
 // ------------------------------------------------------------------
 // Types
@@ -51,73 +59,48 @@ import { useSavedViews } from '@/lib/hooks/use-saved-views'
 
 /** Row density preference for the data grid. */
 export type Density = 'compact' | 'standard' | 'comfortable'
-import { PAGE_SIZE_OPTIONS } from '@/lib/constants'
 export { PAGE_SIZE_OPTIONS }
 /** Union of all valid page-size values drawn from the shared constant array. */
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
+export type { SavedView } from '@/lib/utils/saved-view-utils'
+export { hasCapability }
+
 /**
- * A named snapshot of filter, column, and sort state that the user can recall later.
- *
- * Saved views are persisted to localStorage keyed by table name. The `filter` field
- * intentionally omits `skip` and `limit` so pagination resets when the view is loaded.
+ * What the selection covers, as in Material's selection menu: the checked rows, every
+ * record matching the query, or the first N records matching the query.
  */
-export interface SavedView {
-  /** Unique identifier generated with `crypto.randomUUID()`. */
-  id: string
-  /** Human-readable label shown in the saved-views dropdown. */
-  name: string
-  /** Active filter at the time the view was saved (no pagination offsets). */
-  filter: Omit<QQueryFilter, 'skip' | 'limit'>
-  /** Map of fieldName → visible at the time the view was saved. */
-  columnVisibility: Record<string, boolean>
-  /** Ordered list of column field names at the time the view was saved. */
-  columnOrder: string[]
-  /** Sort order at the time the view was saved. */
-  sortOrder: QFilterOrderBy[]
-  /** ISO 8601 timestamp of when the view was created. */
-  createdAt: string
-}
+export type SelectionMode = 'rows' | 'all' | 'subset'
 
 /**
  * Full reducer state for the Record Query page.
- *
- * All mutable UI state — pagination, filter, sort, column config, and row selection —
- * lives here so it can be managed atomically via `useReducer`.
  */
 export interface RecordQueryState {
-  // Pagination
   /** Current 1-based page number. */
   pageNum: number
   /** Number of records per page. */
   pageSize: PageSize
-
-  // Filter
-  /** User-constructed filter from the filter panel (mutually exclusive with quickSearchTerm). */
+  /** Advanced filter (criteria, sub-filters, boolean operator). */
   userFilter: QQueryFilter
-  /** Text entered in the quick-search input; when set, supersedes `userFilter`. */
+  /** Quick-search text; ANDed with the advanced filter. */
   quickSearchTerm: string
-  /** Whether the filter panel is showing the basic or advanced editor. */
+  /** Filter panel mode, persisted in saved views. */
   filterMode: 'basic' | 'advanced'
-
-  // Sort
-  /** Active sort order applied to every data fetch. */
+  /** Active sort order. */
   sortOrder: QFilterOrderBy[]
-
-  // Column config (persisted to localStorage)
-  /** Map of fieldName → visible; `undefined` entries are treated as visible. */
+  /** Explicit column visibility (join columns default hidden, base columns default shown). */
   columnVisibility: Record<string, boolean>
-  /** Ordered list of column field names; empty array means metadata-default order. */
+  /** Ordered column names; empty means metadata-default order. */
   columnOrder: string[]
-  /** Map of fieldName → pixel width for resized columns. */
+  /** Column pixel widths. */
   columnWidths: Record<string, number>
-
-  // Selection
-  /** Map of row primary-key string → selected boolean, managed by TanStack Table. */
+  /** Row selection keyed by primary key string. */
   rowSelection: Record<string, boolean>
-
-  // UI panels
-  /** Whether the column-configuration side panel is open. */
+  /** Which records the selection covers. */
+  selectionMode: SelectionMode
+  /** Size of a "first N" subset selection. */
+  subsetSize: number | null
+  /** Whether the column-configuration panel is open. */
   columnConfigOpen: boolean
   /** Whether the filter panel is open. */
   filterPanelOpen: boolean
@@ -125,10 +108,6 @@ export interface RecordQueryState {
 
 /**
  * Discriminated union of all actions the record query reducer accepts.
- *
- * Each action corresponds to a single user interaction or state transition on the
- * Record Query page. Using a discriminated union provides exhaustive type checking
- * in the reducer switch statement.
  */
 export type RecordQueryAction =
   | { type: 'SET_PAGE'; pageNum: number }
@@ -142,109 +121,76 @@ export type RecordQueryAction =
   | { type: 'SET_COLUMN_ORDER'; order: string[] }
   | { type: 'SET_COLUMN_WIDTH'; fieldName: string; width: number }
   | { type: 'SET_ROW_SELECTION'; selection: Record<string, boolean> }
+  | { type: 'SET_SELECTION_MODE'; mode: SelectionMode; subsetSize?: number | null }
   | { type: 'CLEAR_ROW_SELECTION' }
   | { type: 'TOGGLE_COLUMN_CONFIG' }
   | { type: 'SET_COLUMN_CONFIG_OPEN'; open: boolean }
   | { type: 'TOGGLE_FILTER_PANEL' }
   | { type: 'RESET_FILTER' }
-  | { type: 'LOAD_SAVED_VIEW'; view: SavedView }
+  | { type: 'APPLY_VIEW'; view: ViewState }
 
 /**
- * Pure reducer for `RecordQueryState`.
- *
- * Handles all state transitions for the Record Query page. Pagination resets to
- * page 1 on any action that changes the result set (filter change, sort change,
- * page-size change, quick search, filter reset, or saved-view load).
+ * Pure reducer for `RecordQueryState`. Any change to the result set returns to page 1.
  *
  * @param state - Current state snapshot.
  * @param action - Dispatched action describing the transition.
- * @returns New state (always a new object reference on change).
+ * @returns New state.
  */
-function recordQueryReducer(
-  state: RecordQueryState,
-  action: RecordQueryAction
-): RecordQueryState {
+function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction): RecordQueryState {
   switch (action.type) {
     case 'SET_PAGE':
       return { ...state, pageNum: action.pageNum }
-
     case 'SET_PAGE_SIZE':
       return { ...state, pageSize: action.pageSize, pageNum: 1 }
-
     case 'SET_USER_FILTER':
-      return { ...state, userFilter: action.filter, pageNum: 1, quickSearchTerm: '' }
-
+      return { ...state, userFilter: action.filter, pageNum: 1 }
     case 'SET_QUICK_SEARCH':
       return { ...state, quickSearchTerm: action.term, pageNum: 1 }
-
     case 'SET_FILTER_MODE':
       return { ...state, filterMode: action.mode }
-
     case 'SET_SORT':
       return { ...state, sortOrder: action.sortOrder, pageNum: 1 }
-
     case 'SET_COLUMN_VISIBILITY':
       return { ...state, columnVisibility: action.visibility }
-
-    case 'TOGGLE_COLUMN': {
-      // MED-11: treat undefined (never-toggled) as visible=true before inverting
-      const currentVal = state.columnVisibility[action.fieldName] ?? true
+    case 'TOGGLE_COLUMN':
       return {
         ...state,
-        columnVisibility: {
-          ...state.columnVisibility,
-          [action.fieldName]: !currentVal,
-        },
+        columnVisibility: { ...state.columnVisibility, [action.fieldName]: !isColumnVisible(action.fieldName, state.columnVisibility) },
       }
-    }
-
     case 'SET_COLUMN_ORDER':
       return { ...state, columnOrder: action.order }
-
     case 'SET_COLUMN_WIDTH':
-      return {
-        ...state,
-        columnWidths: { ...state.columnWidths, [action.fieldName]: action.width },
-      }
-
+      return { ...state, columnWidths: { ...state.columnWidths, [action.fieldName]: action.width } }
     case 'SET_ROW_SELECTION':
-      return { ...state, rowSelection: action.selection }
-
+      return { ...state, rowSelection: action.selection, selectionMode: 'rows', subsetSize: null }
+    case 'SET_SELECTION_MODE':
+      return { ...state, selectionMode: action.mode, subsetSize: action.mode === 'subset' ? action.subsetSize ?? null : null }
     case 'CLEAR_ROW_SELECTION':
-      return { ...state, rowSelection: {} }
-
+      return { ...state, rowSelection: {}, selectionMode: 'rows', subsetSize: null }
     case 'TOGGLE_COLUMN_CONFIG':
       return { ...state, columnConfigOpen: !state.columnConfigOpen }
-
     case 'SET_COLUMN_CONFIG_OPEN':
       return { ...state, columnConfigOpen: action.open }
-
     case 'TOGGLE_FILTER_PANEL':
       return { ...state, filterPanelOpen: !state.filterPanelOpen }
-
     case 'RESET_FILTER':
+      return { ...state, userFilter: emptyFilter(state.pageSize), quickSearchTerm: '', pageNum: 1 }
+    case 'APPLY_VIEW':
       return {
         ...state,
-        userFilter: emptyFilter(state.pageSize),
-        quickSearchTerm: '',
-        pageNum: 1,
-      }
-
-    case 'LOAD_SAVED_VIEW':
-      return {
-        ...state,
-        userFilter: {
-          ...action.view.filter,
-          skip: 0,
-          limit: state.pageSize,
-        },
+        userFilter: { ...action.view.userFilter, skip: 0, limit: action.view.pageSize as PageSize },
+        sortOrder: action.view.sortOrder,
         columnVisibility: action.view.columnVisibility,
         columnOrder: action.view.columnOrder,
-        sortOrder: action.view.sortOrder,
+        columnWidths: { ...state.columnWidths, ...action.view.columnWidths },
+        pageSize: action.view.pageSize as PageSize,
+        filterMode: action.view.filterMode,
         pageNum: 1,
         quickSearchTerm: '',
+        rowSelection: {},
+        selectionMode: 'rows',
+        subsetSize: null,
       }
-
     default:
       return state
   }
@@ -266,357 +212,284 @@ interface UseRecordQueryOptions {
   allTables: Record<string, QTableMetaData> | undefined
   /** Initial number of rows per page. Defaults to 25. */
   initialPageSize?: PageSize
-  /** Initial row density for the data grid. Defaults to `'standard'`. */
-  initialDensity?: Density
+  /** Selected backend variant (tables whose backend uses variants); queries wait for one. */
+  tableVariant?: TableVariant | null
+  /** Hold all queries (for example while a saved view is loading). */
+  paused?: boolean
 }
 
 /**
- * Manages all state for the Record Query page.
+ * Manages all state for the Record Query page. State is hydrated from URL search params on
+ * mount and synced back to the URL on every change so queries are shareable. Column state is
+ * persisted to localStorage per table.
  *
- * This hook is the single source of truth for filter state, pagination, sorting,
- * column configuration, row selection, saved views, and the two TanStack Query
- * data-fetching queries (records + count). State is hydrated from URL search params
- * on mount and synced back to the URL on every change so that queries are shareable.
- *
- * Column visibility, order, and widths are additionally persisted to localStorage
- * so they survive navigation and page refreshes.
- *
- * @param options - Configuration including table name, metadata, and initial page size.
- *   `tableName` is used as the localStorage key prefix and in all API calls.
- *   `tableMetaData` and `allTables` must be defined before any queries run.
- *   `initialPageSize` defaults to 25 and is overridden by the `pageSize` URL param on first mount.
- * @returns Grouped namespaces:
- *   - `pagination` — `{ pageNum, pageSize, totalCount, totalPages, setPage, setPageSize }`.
- *   - `filter` — `{ userFilter, quickSearchTerm, filterMode, filterPanelOpen, sortOrder,
- *     effectiveFilter, setUserFilter, setQuickSearch, setFilterMode, setSort, resetFilter, toggleFilterPanel }`.
- *   - `columns` — `{ columnVisibility, columnOrder, columnWidths, columnConfigOpen,
- *     setColumnVisibility, toggleColumn, setColumnOrder, setColumnWidth, toggleColumnConfig, setColumnConfigOpen }`.
- *   - `selection` — `{ rowSelection, selectedRecordIds, setRowSelection, clearRowSelection }`.
- *   - `data` — `{ records, isLoading, isFetching, isError, error }`;
- *     `isLoading` is true on the initial fetch only, `isFetching` covers background refetches too.
- *   - `density` / `setDensity` — persisted grid row-density preference.
- *   - `views` — `{ list, saveView, loadView, deleteView }` for named filter snapshots.
+ * @param options - Configuration including table name, metadata, page size and variant.
+ * @returns Grouped state and actions: `pagination`, `filter`, `columns`, `selection`, `data`,
+ *   `joins`, `density`, and `viewState`/`applyView` for saved views.
  */
 export function useRecordQuery({
   tableName,
   tableMetaData,
   allTables,
   initialPageSize = 25,
+  tableVariant = null,
+  paused = false,
 }: UseRecordQueryOptions) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // ------------------------------------------------------------------
-  // localStorage persistence keys
-  // ------------------------------------------------------------------
-  const storageKeyDensity = `qqq-${tableName}-density`
-  const storageKeyColumns = `qqq-${tableName}-columns`
-  const storageKeyColumnOrder = `qqq-${tableName}-column-order`
-  const storageKeyColumnWidths = `qqq-${tableName}-column-widths`
+  const [density, setDensity] = useLocalStorage<Density>(`qqq-${tableName}-density`, 'standard')
+  const [storedColumnVisibility] = useLocalStorage<Record<string, boolean>>(`qqq-${tableName}-columns`, {})
+  const [storedColumnOrder] = useLocalStorage<string[]>(`qqq-${tableName}-column-order`, [])
+  const [storedColumnWidths] = useLocalStorage<Record<string, number>>(`qqq-${tableName}-column-widths`, {})
 
-  const [density, setDensity] = useLocalStorage<Density>(storageKeyDensity, 'standard')
-  const [storedColumnVisibility] = useLocalStorage<Record<string, boolean>>(
-    storageKeyColumns,
-    {}
-  )
-  const [storedColumnOrder] = useLocalStorage<string[]>(storageKeyColumnOrder, [])
-  const [storedColumnWidths] = useLocalStorage<Record<string, number>>(storageKeyColumnWidths, {})
+  const primaryKey = tableMetaData?.primaryKeyField
+  /** Material's default sort: primary key, descending. */
+  const defaultSort = useMemo<QFilterOrderBy[]>(() => (primaryKey ? [{ fieldName: primaryKey, isAscending: false }] : []), [primaryKey])
 
   // ------------------------------------------------------------------
   // Initial state — hydrate from URL params (read once on mount via ref)
   // ------------------------------------------------------------------
-  const initialStateRef = useRef<{
-    filter: QQueryFilter
-    pageNum: number
-    pageSize: PageSize
-    quickSearchTerm: string
-  } | null>(null)
-
+  const initialStateRef = useRef<RecordQueryState | null>(null)
   if (!initialStateRef.current) {
+    const pageSizeParam = Number(searchParams.get('pageSize'))
+    const pageSize = ((PAGE_SIZE_OPTIONS as readonly number[]).includes(pageSizeParam) ? pageSizeParam : initialPageSize) as PageSize
     const filterParam = searchParams.get('filter')
-    const initialFilter = filterParam
-      ? deserializeFilter(filterParam, initialPageSize)
-      : emptyFilter(initialPageSize)
-
-    const pageParam = searchParams.get('page')
-    const pageNum = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1
-
-    const pageSizeParam = searchParams.get('pageSize')
-    let resolvedPageSize = initialPageSize
-    if (pageSizeParam) {
-      const n = parseInt(pageSizeParam, 10)
-      if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(n)) resolvedPageSize = n as PageSize
-    }
-
+    const initialFilter = filterParam ? deserializeFilter(filterParam, pageSize) : emptyFilter(pageSize)
+    const pageParam = parseInt(searchParams.get('page') ?? '', 10)
     initialStateRef.current = {
-      filter: initialFilter,
-      pageNum,
-      pageSize: resolvedPageSize,
+      pageNum: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
+      pageSize,
+      userFilter: { ...initialFilter, orderBys: [] },
       quickSearchTerm: searchParams.get('q') ?? '',
+      filterMode: 'basic',
+      sortOrder: initialFilter.orderBys?.length ? initialFilter.orderBys : defaultSort,
+      columnVisibility: storedColumnVisibility,
+      columnOrder: storedColumnOrder,
+      columnWidths: storedColumnWidths,
+      rowSelection: {},
+      selectionMode: 'rows',
+      subsetSize: null,
+      columnConfigOpen: false,
+      filterPanelOpen: false,
     }
   }
 
-  const initialValues = initialStateRef.current
-  const initialState: RecordQueryState = {
-    pageNum: initialValues.pageNum,
-    pageSize: initialValues.pageSize,
-    userFilter: initialValues.filter,
-    quickSearchTerm: initialValues.quickSearchTerm,
-    filterMode: 'basic',
-    sortOrder: initialValues.filter.orderBys ?? [],
-    columnVisibility: storedColumnVisibility,
-    columnOrder: storedColumnOrder,
-    columnWidths: storedColumnWidths,
-    rowSelection: {},
-    columnConfigOpen: false,
-    filterPanelOpen: false,
-  }
-
-  const [state, dispatch] = useReducer(recordQueryReducer, initialState)
-
-  // ------------------------------------------------------------------
-  // Sub-hooks: column config and saved views
-  // ------------------------------------------------------------------
+  const [state, dispatch] = useReducer(recordQueryReducer, initialStateRef.current)
   const columns = useColumnConfig(tableName, state, dispatch)
-  const views = useSavedViews(tableName, state, dispatch)
 
   // ------------------------------------------------------------------
-  // Sync state to URL params
+  // Sync state to URL params (filter includes a non-default sort)
   // ------------------------------------------------------------------
+  const sortIsDefault = JSON.stringify(state.sortOrder) === JSON.stringify(defaultSort)
   useEffect(() => {
-    const params = new URLSearchParams()
-
+    // Keep parameters this hook does not manage (for example the `from` back link)
+    const params = new URLSearchParams(searchParams.toString())
+    for (const key of ['page', 'pageSize', 'filter', 'q']) params.delete(key)
     if (state.pageNum > 1) params.set('page', String(state.pageNum))
     if (state.pageSize !== 25) params.set('pageSize', String(state.pageSize))
-
-    if (!isFilterEmpty(state.userFilter)) {
-      params.set('filter', serializeFilter(state.userFilter))
+    if (!isFilterEmpty(state.userFilter) || !sortIsDefault) {
+      params.set('filter', serializeFilter({ ...state.userFilter, orderBys: sortIsDefault ? [] : state.sortOrder }))
     }
-
     if (state.quickSearchTerm) params.set('q', state.quickSearchTerm)
-
     const newSearch = params.toString()
-    const currentSearch = searchParams.toString()
-
-    if (newSearch !== currentSearch) {
-      router.replace(`${pathname}?${newSearch}`, { scroll: false })
+    if (newSearch !== searchParams.toString()) {
+      router.replace(`${pathname}${newSearch ? `?${newSearch}` : ''}`, { scroll: false })
     }
-  // HIGH-1: include router and pathname so the effect uses the current route in concurrent mode
-  }, [state.pageNum, state.pageSize, state.userFilter, state.quickSearchTerm, router, pathname])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams is read, not tracked, to avoid loops
+  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, router, pathname])
 
   // ------------------------------------------------------------------
-  // Build the effective filter for API calls
-  // Merges userFilter + quickSearch + pagination + sort
+  // Joins: only the exposed joins the visible columns, criteria or sort use
   // ------------------------------------------------------------------
+  const readableExposedJoins = useMemo(() => (tableMetaData?.exposedJoins ?? []).filter(({ joinTable, joinPath = [] }) => {
+    if (!joinTable?.name || joinTable.readPermission === false) return false
+    const names = [joinTable.name, ...joinPath.flatMap(({ leftTable, rightTable }) => [leftTable, rightTable])]
+    return names.every((name) => name === tableName || allTables?.[name]?.readPermission === true)
+  }), [tableMetaData, tableName, allTables])
 
-  // Separated so effectiveFilter/countFilter don't depend on columnVisibility
-  // when quickSearchTerm is empty (avoids needless re-queries on column toggle)
-  /**
-   * Base filter built from the quick-search term, or `null` when the term is empty.
-   *
-   * Kept separate from `effectiveFilter` and `countFilter` so that toggling column
-   * visibility does not trigger a re-query when no quick-search term is active.
-   */
-  const quickSearchBase = useMemo<QQueryFilter | null>(() => {
-    if (!state.quickSearchTerm) return null
-    return buildQuickFilterFromState(state.quickSearchTerm, tableMetaData, state.columnVisibility)
-  }, [state.quickSearchTerm, tableMetaData, state.columnVisibility])
+  const visibleJoinColumns = useMemo(() => Object.entries(state.columnVisibility).filter(([name, visible]) => visible && name.includes('.')).map(([name]) => name), [state.columnVisibility])
 
-  /**
-   * Fully assembled filter sent to the records query.
-   *
-   * Merges `quickSearchBase` (or `userFilter`), the active sort order, and
-   * the current pagination offsets (`skip` / `limit`).
-   */
-  const effectiveFilter = useMemo<QQueryFilter>(() => {
-    const base = quickSearchBase ?? { ...state.userFilter }
-    const withSort = applySort(base, state.sortOrder)
-    return applyPagination(withSort, state.pageNum, state.pageSize)
-  }, [quickSearchBase, state.userFilter, state.sortOrder, state.pageNum, state.pageSize])
+  const activeJoinTables = useMemo(() => {
+    const used = new Set<string>()
+    for (const name of [...visibleJoinColumns, ...referencedFieldNames({ ...state.userFilter, orderBys: state.sortOrder })]) {
+      const dot = name.indexOf('.')
+      if (dot > 0) used.add(name.slice(0, dot))
+    }
+    return used
+  }, [visibleJoinColumns, state.userFilter, state.sortOrder])
 
-  /**
-   * Filter sent to the count query — identical to `effectiveFilter` but with
-   * `skip: 0`, `limit: 0`, and no sort order so the backend returns only the total count.
-   */
-  const countFilter = useMemo<QQueryFilter>(() => {
-    const base = quickSearchBase ?? { ...state.userFilter }
-    return { ...base, skip: 0, limit: 0, orderBys: [] }
-  }, [quickSearchBase, state.userFilter])
+  const activeExposedJoins = useMemo(() => readableExposedJoins.filter((j) => activeJoinTables.has(j.joinTable!.name)), [readableExposedJoins, activeJoinTables])
 
-  // ------------------------------------------------------------------
-  // Build joins from exposedJoins metadata
-  // Derived directly from stable tableMetaData prop — no useMemo needed
-  // ------------------------------------------------------------------
-  /**
-   * Automatic joins require readable metadata for the target and every intermediate table.
-   * Only the query descriptors are filtered; related/create UI retains the full metadata.
-   * User criteria and sorting remain intact so the server can reject unauthorized reads.
-   *
-   * Many-side joins use `LEFT` so records without related rows are still returned;
-   * one-side joins use `INNER`. Undefined when the table has no exposed joins.
-   */
-  const joins: QueryJoin[] | undefined = tableMetaData?.exposedJoins?.length
-    ? tableMetaData.exposedJoins
-        .filter(({ joinTable, joinPath = [] }) => {
-          if (!joinTable?.name || !joinTable.readPermission) return false
-          const joinedTableNames = [
-            joinTable.name,
-            ...joinPath.flatMap(({ leftTable, rightTable }) => [leftTable, rightTable]),
-          ]
-          return joinedTableNames.every((name) => {
-            if (name === tableName) return true
-            return allTables?.[name]?.readPermission
-          })
-        })
-        .map((exposedJoin): QueryJoin => ({
-          joinTable: exposedJoin.joinTable!.name,
-          select: true,
-          type: exposedJoin.isMany ? 'LEFT' : 'INNER',
-        }))
+  const joins: QueryJoin[] | undefined = activeExposedJoins.length
+    ? activeExposedJoins.map((exposedJoin): QueryJoin => ({
+        joinTable: exposedJoin.joinTable!.name,
+        select: true,
+        type: 'LEFT',
+        ...(exposedJoin.joinPath?.length === 1 && exposedJoin.joinPath[0].name ? { joinName: exposedJoin.joinPath[0].name } : {}),
+      }))
     : undefined
+  /** A many-side join can repeat base records, so the count also asks for the distinct count. */
+  const includeDistinct = activeExposedJoins.some((j) => j.isMany)
 
   // ------------------------------------------------------------------
-  // TanStack Query: records
+  // Filters sent to the backend
   // ------------------------------------------------------------------
-  /**
-   * TanStack Query result for the paginated records list.
-   *
-   * Disabled until table and join-permission metadata are available. Uses `placeholderData`
-   * so the previous page's records remain visible during transitions (avoids layout shift).
-   * Cache key includes the serialized `effectiveFilter` and `joins` so any filter
-   * or join change triggers an independent cache entry.
-   */
+  const fieldFor = useCallback((fieldName: string): QFieldMetaData | undefined => (tableMetaData ? resolveField(tableMetaData, fieldName)?.field : undefined), [tableMetaData])
+
+  const quickFilter = useMemo<QQueryFilter | null>(() => {
+    if (!state.quickSearchTerm.trim() || !tableMetaData) return null
+    const visible = Object.values(tableMetaData.fields).filter((f) => !f.isHidden && isColumnVisible(f.name, state.columnVisibility)).map((f) => f.name)
+    const types = Object.fromEntries(Object.values(tableMetaData.fields).map((f) => [f.name, f.type]))
+    const quick = buildQuickFilter(state.quickSearchTerm, visible, types, state.pageSize)
+    return quick.criteria.length ? quick : null
+  }, [state.quickSearchTerm, tableMetaData, state.columnVisibility, state.pageSize])
+
+  /** Criteria, quick search and sort, prepared for the backend, without paging. */
+  const baseFilter = useMemo<QQueryFilter>(() => {
+    const combined = combineWithQuickFilter({ ...state.userFilter, orderBys: state.sortOrder }, quickFilter)
+    return prepFilterForBackend(combined, fieldFor)
+  }, [state.userFilter, state.sortOrder, quickFilter, fieldFor])
+
+  const effectiveFilter = useMemo<QQueryFilter>(() => applyPagination(baseFilter, state.pageNum, state.pageSize), [baseFilter, state.pageNum, state.pageSize])
+  const countFilter = useMemo<QQueryFilter>(() => ({ ...baseFilter, skip: 0, limit: 0, orderBys: [] }), [baseFilter])
+
+  // ------------------------------------------------------------------
+  // Queries
+  // ------------------------------------------------------------------
+  const canQuery = hasCapability(tableMetaData, 'TABLE_QUERY')
+  const canCount = hasCapability(tableMetaData, 'TABLE_COUNT')
+  const needsVariant = Boolean(tableMetaData?.usesVariants) && !tableVariant
+  const enabled = Boolean(tableMetaData && allTables) && canQuery && !needsVariant && !paused
+  const variantKey = tableVariant ? `${tableVariant.type}:${tableVariant.id}` : null
+
   const recordsQuery = useQuery({
     queryKey: [
       ...queryKeys.tableRecords(tableName),
       'query',
       JSON.stringify(effectiveFilter),
       JSON.stringify(joins ?? null),
+      variantKey,
     ],
     queryFn: () =>
       queryRecords(tableName, {
         filter: effectiveFilter,
         joins,
+        ...(tableVariant ? { tableVariant } : {}),
       }),
-    staleTime: 30 * 1000,
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
-    enabled: Boolean(tableMetaData && allTables),
+    enabled,
   })
 
-  // ------------------------------------------------------------------
-  // TanStack Query: count
-  // ------------------------------------------------------------------
-  /**
-   * TanStack Query result for the total record count matching the active filter.
-   *
-   * Uses `countFilter` (no pagination offsets) so the total is independent of the
-   * current page. Runs in parallel with `recordsQuery` and uses the same
-   * `placeholderData` strategy to avoid flickering the pagination controls.
-   */
   const countQuery = useQuery({
     queryKey: [
       ...queryKeys.tableRecords(tableName),
       'count',
       JSON.stringify(countFilter),
       JSON.stringify(joins ?? null),
+      variantKey,
+      includeDistinct,
     ],
     queryFn: () =>
-      countRecords(tableName, {
-        filter: countFilter,
-        joins,
-      }),
-    staleTime: 30 * 1000,
+      countRecords(
+        tableName,
+        {
+          filter: countFilter,
+          joins,
+          ...(tableVariant ? { tableVariant } : {}),
+        },
+        includeDistinct
+      ),
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
-    enabled: Boolean(tableMetaData && allTables),
+    enabled: enabled && canCount,
   })
 
-  // ------------------------------------------------------------------
-  // Derived values
-  // ------------------------------------------------------------------
-  /** Flat array of records returned by the current query; empty array while loading. */
-  const records = useMemo<QRecord[]>(
-    () => recordsQuery.data?.records ?? [],
-    [recordsQuery.data?.records]
-  )
-  /** Total number of records matching the active filter (for pagination controls). */
-  const totalCount: number = countQuery.data?.count ?? 0
-  /** Total number of pages; always at least 1 to avoid division-by-zero. */
-  const totalPages = Math.max(1, Math.ceil(totalCount / state.pageSize))
-  /** `true` while either the records or count query is in its initial loading state. */
-  const isLoading = recordsQuery.isLoading || countQuery.isLoading
-  /** `true` whenever the records query is fetching (includes background refetches). */
-  const isFetching = recordsQuery.isFetching
-  /** `true` if either the records or count query encountered an error. */
+  const records = useMemo<QRecord[]>(() => recordsQuery.data?.records ?? [], [recordsQuery.data?.records])
+  /** Total matching rows, or null when the table cannot count. */
+  const totalCount: number | null = canCount ? countQuery.data?.count ?? 0 : null
+  const distinctCount: number | null = canCount && includeDistinct ? countQuery.data?.distinctCount ?? null : null
+  const totalPages = totalCount === null
+    ? state.pageNum + (records.length >= state.pageSize ? 1 : 0)
+    : Math.max(1, Math.ceil(totalCount / state.pageSize))
+  const isLoading = enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading))
   const isError = recordsQuery.isError || countQuery.isError
-  /** The error thrown by either query, or `null`. */
-  const error = recordsQuery.error ?? countQuery.error
-
-  /**
-   * Primary-key values of all currently selected rows.
-   *
-   * `rowSelection` is keyed by PK string (set via DataGrid's `getRowId`), so the
-   * keys are used directly instead of resolving through the records array by index
-   * (HIGH-7). Numeric-looking strings are converted to numbers to match the backend's
-   * expected type for delete / bulk-action calls.
-   */
-  const selectedRecordIds = useMemo<(string | number)[]>(() => {
-    return Object.entries(state.rowSelection)
-      .filter(([, selected]) => selected)
-      .map(([id]): string | number => {
-        const numId = Number(id)
-        return Number.isFinite(numId) && String(numId) === id ? numId : id
-      })
-  }, [state.rowSelection])
 
   // ------------------------------------------------------------------
-  // Action dispatchers (stable references)
+  // Selection
   // ------------------------------------------------------------------
-  /** Navigate to a specific 1-based page number. */
+  // Row ids are primary keys; a repeated key (many-side join) carries a "#n" suffix
+  const selectedRecordIds = useMemo<(string | number)[]>(() => [...new Set(Object.entries(state.rowSelection)
+    .filter(([id, selected]) => selected && !id.startsWith('row-'))
+    .map(([id]) => id.replace(/#\d+$/, '')))]
+    .map((id): string | number => {
+      const numId = Number(id)
+      return Number.isFinite(numId) && String(numId) === id ? numId : id
+    }), [state.rowSelection])
+  const matchingCount = distinctCount ?? totalCount
+  const selectionCount = state.selectionMode === 'all'
+    ? matchingCount ?? 0
+    : state.selectionMode === 'subset'
+      ? Math.min(state.subsetSize ?? 0, matchingCount ?? state.subsetSize ?? 0)
+      : selectedRecordIds.length
+  /** Filter describing the selection when it is "all" or "first N" (no page skip; subset limit). */
+  const selectionFilter = useMemo<QQueryFilter | null>(() => {
+    if (state.selectionMode === 'rows') return null
+    const { skip: _skip, limit: _limit, ...rest } = baseFilter
+    void _skip
+    void _limit
+    return (state.selectionMode === 'subset' ? { ...rest, skip: 0, limit: state.subsetSize ?? 0 } : { ...rest, skip: 0 }) as QQueryFilter
+  }, [state.selectionMode, state.subsetSize, baseFilter])
+
+  // ------------------------------------------------------------------
+  // Action dispatchers
+  // ------------------------------------------------------------------
   const setPage = useCallback((pageNum: number) => dispatch({ type: 'SET_PAGE', pageNum }), [])
-  /** Change the number of rows per page; resets to page 1. */
   const setPageSize = useCallback((pageSize: PageSize) => dispatch({ type: 'SET_PAGE_SIZE', pageSize }), [])
-  /** Replace the user-constructed filter; clears quick-search and resets to page 1. */
   const setUserFilter = useCallback((filter: QQueryFilter) => dispatch({ type: 'SET_USER_FILTER', filter }), [])
-  /** Update the quick-search text; resets to page 1. */
   const setQuickSearch = useCallback((term: string) => dispatch({ type: 'SET_QUICK_SEARCH', term }), [])
-  /** Switch between the basic and advanced filter editors. */
   const setFilterMode = useCallback((mode: 'basic' | 'advanced') => dispatch({ type: 'SET_FILTER_MODE', mode }), [])
-  /** Replace the active sort order; resets to page 1. */
-  const setSort = useCallback((sortOrder: QFilterOrderBy[]) => dispatch({ type: 'SET_SORT', sortOrder }), [])
-  /**
-   * Replace the row selection map (keyed by primary key string).
-   *
-   * @param selection - Map of PK string → selected boolean.
-   */
-  const setRowSelection = useCallback(
-    (selection: Record<string, boolean>) => dispatch({ type: 'SET_ROW_SELECTION', selection }),
-    []
-  )
-  /** Deselect all currently selected rows. */
+  const setSort = useCallback((sortOrder: QFilterOrderBy[]) => dispatch({ type: 'SET_SORT', sortOrder: sortOrder.length ? sortOrder : defaultSort }), [defaultSort])
+  const setRowSelection = useCallback((selection: Record<string, boolean>) => dispatch({ type: 'SET_ROW_SELECTION', selection }), [])
+  const setSelectionMode = useCallback((mode: SelectionMode, subsetSize?: number | null) => dispatch({ type: 'SET_SELECTION_MODE', mode, subsetSize }), [])
   const clearRowSelection = useCallback(() => dispatch({ type: 'CLEAR_ROW_SELECTION' }), [])
-  /** Toggle the filter panel open/closed. */
   const toggleFilterPanel = useCallback(() => dispatch({ type: 'TOGGLE_FILTER_PANEL' }), [])
-  /** Clear all active filters and quick-search, resetting to page 1. */
   const resetFilter = useCallback(() => dispatch({ type: 'RESET_FILTER' }), [])
+  const applyView = useCallback((view: ViewState) => dispatch({ type: 'APPLY_VIEW', view }), [])
+
+  const viewState = useMemo<ViewState>(() => ({
+    userFilter: state.userFilter,
+    sortOrder: state.sortOrder,
+    columnVisibility: state.columnVisibility,
+    columnOrder: state.columnOrder,
+    columnWidths: state.columnWidths,
+    pageSize: state.pageSize,
+    filterMode: state.filterMode,
+  }), [state.userFilter, state.sortOrder, state.columnVisibility, state.columnOrder, state.columnWidths, state.pageSize, state.filterMode])
 
   return {
     pagination: {
       pageNum: state.pageNum,
       pageSize: state.pageSize,
       totalCount,
+      distinctCount,
       totalPages,
       setPage,
       setPageSize,
     },
-
     filter: {
       userFilter: state.userFilter,
       quickSearchTerm: state.quickSearchTerm,
       filterMode: state.filterMode,
       filterPanelOpen: state.filterPanelOpen,
       sortOrder: state.sortOrder,
+      defaultSort,
       effectiveFilter,
+      baseFilter,
       setUserFilter,
       setQuickSearch,
       setFilterMode,
@@ -624,77 +497,32 @@ export function useRecordQuery({
       resetFilter,
       toggleFilterPanel,
     },
-
     columns,
-
     selection: {
       rowSelection: state.rowSelection,
       selectedRecordIds,
+      selectionMode: state.selectionMode,
+      subsetSize: state.subsetSize,
+      selectionCount,
+      selectionFilter,
       setRowSelection,
+      setSelectionMode,
       clearRowSelection,
     },
-
     data: {
       records,
       isLoading,
-      isFetching,
+      isFetching: recordsQuery.isFetching,
       isError,
-      error,
+      error: recordsQuery.error ?? countQuery.error,
+      canQuery,
+      canCount,
+      needsVariant,
     },
-
-    // Density is a persisted display preference — kept flat for brevity
+    joins,
     density,
     setDensity,
-
-    views,
-  }
-}
-
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
-
-/**
- * Build a `QQueryFilter` that performs an OR-joined `CONTAINS` search across all
- * visible `STRING` and `TEXT` columns.
- *
- * Used exclusively by `useRecordQuery` to implement the quick-search input. Returns
- * an empty filter when `searchTerm` is blank, `tableMetaData` is undefined, or no
- * visible string/text columns exist.
- *
- * @param searchTerm - The user's raw search string (trimmed internally before use).
- * @param tableMetaData - Metadata for the table being searched.
- * @param columnVisibility - Current column visibility map; columns set to `false` are excluded.
- * @returns A `QQueryFilter` with one `CONTAINS` criterion per visible string/text field,
- *          joined with `booleanOperator: 'OR'`, or an empty filter if no columns qualify.
- */
-function buildQuickFilterFromState(
-  searchTerm: string,
-  tableMetaData: QTableMetaData | undefined,
-  columnVisibility: Record<string, boolean>
-): QQueryFilter {
-  if (!tableMetaData || !searchTerm.trim()) {
-    return emptyFilter()
-  }
-
-  const visibleStringFields = Object.values(tableMetaData.fields).filter((f) => {
-    if (f.isHidden) return false
-    if (columnVisibility[f.name] === false) return false
-    return ['STRING', 'TEXT'].includes(f.type)
-  })
-
-  if (visibleStringFields.length === 0) return emptyFilter()
-
-  return {
-    criteria: visibleStringFields.map((field) => ({
-      fieldName: field.name,
-      operator: 'CONTAINS' as const,
-      values: [searchTerm],
-    })),
-    orderBys: [],
-    subFilters: [],
-    booleanOperator: 'OR',
-    skip: 0,
-    limit: 25,
+    viewState,
+    applyView,
   }
 }

@@ -32,6 +32,7 @@ const { recordQuery, params, location } = vi.hoisted(() => ({
 }))
 vi.mock('next/navigation', () => ({
   useParams: () => params,
+  usePathname: () => '/app/' + params.slug,
   useSearchParams: () => new URLSearchParams(location.search),
   useRouter: () => ({ push: vi.fn() }),
 }))
@@ -141,12 +142,12 @@ describe('SlugPage process initialization', () => {
     let releaseMetadata!: () => void
     const metadataReady = new Promise<void>((resolve) => { releaseMetadata = resolve })
     const initialize = vi.spyOn(processesApi, 'processInit').mockResolvedValue({
-      processUUID: 'selected-run', nextStep: 'setup', values: {},
+      type: 'COMPLETE', processUUID: 'selected-run', nextStep: 'setup', values: {},
     })
     server.use(
-      http.get('/qqq/v1/metaData/process/greetInteractive', async () => {
+      http.get('/metaData/process/greetInteractive', async () => {
         await metadataReady
-        return HttpResponse.json(greeting)
+        return HttpResponse.json({ process: greeting })
       }),
     )
     renderPage()
@@ -155,16 +156,16 @@ describe('SlugPage process initialization', () => {
     await act(async () => { releaseMetadata() })
     await screen.findByRole('textbox', { name: 'Greeting Prefix' })
     expect(initialize).toHaveBeenCalledWith(greeting.name, {
-      recordsParam: expectedSelector, [field]: value,
+      recordsParam: expectedSelector, [field]: value, tableName: 'person',
     })
   })
 
   it('does not initialize when full process metadata is denied', async () => {
     let initialized = false
     server.use(
-      http.get('/qqq/v1/metaData/process/greetInteractive', () =>
+      http.get('/metaData/process/greetInteractive', () =>
         HttpResponse.json({ error: 'Permission denied' }, { status: 403 })),
-      http.post('/qqq/v1/processes/greetInteractive/init', () => {
+      http.post('/processes/greetInteractive/init', () => {
         initialized = true
         return HttpResponse.json({ processUUID: 'unexpected', values: {} })
       }),
@@ -172,5 +173,21 @@ describe('SlugPage process initialization', () => {
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load process metadata')
     expect(initialized).toBe(false)
+  })
+})
+
+describe('SlugPage unknown names', () => {
+  beforeEach(() => {
+    location.search = ''
+    server.use(http.get('/qqq/v1/metaData', () => HttpResponse.json(registry)))
+  })
+
+  it('shows the not-found state with a link to the dashboard (regression: bare "Unknown resource")', async () => {
+    params.slug = 'noSuchThing'
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.getByText('noSuchThing')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to the dashboard' })).toHaveAttribute('href', '/app')
+    expect(screen.queryByText(/Unknown resource/)).not.toBeInTheDocument()
   })
 })

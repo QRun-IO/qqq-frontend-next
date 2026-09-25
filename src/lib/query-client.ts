@@ -71,7 +71,7 @@ function handleQueryError(error: unknown, context: 'query' | 'mutation'): void {
 }
 
 /**
- * Smart retry predicate used for both queries and mutations.
+ * Smart retry predicate for queries (mutations are never retried automatically).
  *
  * - Never retries 4xx client errors — these are deterministic failures.
  * - Retries server errors (5xx) and network failures up to 3 times with
@@ -105,17 +105,40 @@ function exponentialBackoff(attemptIndex: number): number {
  * Configured with conservative defaults suitable for a metadata-driven admin UI:
  * - 5-minute stale time so metadata and record lists stay fresh without excessive refetching.
  * - 10-minute GC time keeps recently visited pages snappy when navigating back.
- * - Smart retry logic: never retries 4xx errors; retries server errors up to 3 times.
+ * - Smart query retry: never retries 4xx errors; retries server errors up to 3 times. Mutations are not retried.
  * - Global `QueryCache.onError` and `MutationCache.onError` surface toast notifications
  *   for all unhandled API errors without requiring per-call error handling.
  * - Pending queries are included in dehydration so SSR can pass them to the client shell.
  */
+/**
+ * Meta flag for queries and mutations whose component renders its own error state
+ * (for example a record-not-found panel, a form error alert, or a widget's inline
+ * error with a retry button). The global toast is
+ * skipped for them so the user sees one accurate message instead of a generic duplicate.
+ */
+export const HANDLES_OWN_ERRORS = { handlesOwnErrors: true } as const
+
+/**
+ * Whether a query or mutation opted out of the global error toast.
+ *
+ * @param meta - The query or mutation `meta` object.
+ * @returns `true` when `meta.handlesOwnErrors` is set.
+ */
+function handlesOwnErrors(meta: Record<string, unknown> | undefined): boolean {
+  return meta?.handlesOwnErrors === true
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => handleQueryError(error, 'query'),
+    // Queries that render their own error state (records, widgets) opt out with HANDLES_OWN_ERRORS.
+    onError: (error, query) => {
+      if (!handlesOwnErrors(query.meta)) handleQueryError(error, 'query')
+    },
   }),
   mutationCache: new MutationCache({
-    onError: (error) => handleQueryError(error, 'mutation'),
+    onError: (error, _variables, _context, mutation) => {
+      if (!handlesOwnErrors(mutation.meta)) handleQueryError(error, 'mutation')
+    },
   }),
   defaultOptions: {
     queries: {
@@ -126,8 +149,9 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: smartRetry,
-      retryDelay: exponentialBackoff,
+      // Writes are not idempotent: a failed insert/process step is never re-sent
+      // automatically (a retry after a lost response would duplicate the change).
+      retry: false,
     },
     dehydrate: {
       shouldDehydrateQuery: (query) =>
@@ -227,7 +251,7 @@ export const queryKeys = {
    * @returns The single record query key tuple.
    */
   tableRecord: (tableName: string, id: string | number) =>
-    [...queryKeys.tableRecords(tableName), id] as const,
+    [...queryKeys.tableRecords(tableName), String(id)] as const,
   /**
    * Key for a count query scoped to a specific filter.
    *

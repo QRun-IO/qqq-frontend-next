@@ -25,10 +25,13 @@ import React from 'react'
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
+import { selectHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
+import { HelpContent } from '@/components/records/HelpContent'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
+import { SectionIcon } from '@/components/layout/MetadataIcon'
 
 interface RecordViewSectionProps {
   renderAssociation?: (name: string, label?: string) => React.ReactNode
@@ -74,7 +77,7 @@ export function RecordViewSection({
   stacked = false,
   className,
 }: RecordViewSectionProps) {
-  if (section.isHidden) return null
+  if (section.isHidden || section.hidden) return null
 
   // If this section has a widgetName, render a widget instead of the field list
   if (section.widgetName) {
@@ -101,6 +104,7 @@ export function RecordViewSection({
                 id={`section-heading-${section.name}`}
                 className="text-lg font-bold text-foreground"
               >
+                <SectionIcon section={section} />
                 {section.label}
               </h3>
             </div>
@@ -111,6 +115,13 @@ export function RecordViewSection({
               tableName: tableMetaData.name,
               id: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : '',
             }}
+            recordContext={{
+              tableName: tableMetaData.name,
+              recordId: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : undefined,
+              record,
+              tableMetaData,
+            }}
+            widgetRegistry={widgetMetaDataMap}
           />
         </section>
       )
@@ -129,6 +140,7 @@ export function RecordViewSection({
               id={`section-heading-${section.name}`}
               className="text-lg font-bold text-foreground"
             >
+              <SectionIcon section={section} />
               {section.label}
             </h3>
           </div>
@@ -140,10 +152,11 @@ export function RecordViewSection({
     )
   }
 
-  // Filter to visible fields
+  // Filter to visible fields. Heavy fields are included: a single-record read returns them.
   const visibleFields = section.fieldNames
     .map((fn) => tableMetaData.fields[fn])
-    .filter((f) => f && !f.isHidden && !f.isHeavy)
+    .filter((f) => f && !f.isHidden)
+  const sectionHelp = selectHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES)
 
   if (visibleFields.length === 0) return null
 
@@ -165,8 +178,14 @@ export function RecordViewSection({
                 : 'text-lg font-bold text-foreground'
             )}
           >
+            <SectionIcon section={section} />
             {section.label}
           </h3>
+          {sectionHelp && (
+            <p className="mt-1 text-sm text-muted-foreground" data-qqq-id={`section-help-${section.name}`}>
+              <HelpContent helpContent={sectionHelp} />
+            </p>
+          )}
         </div>
       )}
       {compact ? (
@@ -184,7 +203,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd className="flex-1 text-sm text-foreground">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
             )
@@ -205,7 +224,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd className="text-sm text-foreground">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
             )
@@ -240,7 +259,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
                 <dd>
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
             )

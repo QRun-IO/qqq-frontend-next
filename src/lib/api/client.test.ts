@@ -61,4 +61,31 @@ describe('APIClient', () => {
     expect(instance.interceptors).toBeDefined()
     expect(instance.interceptors.response).toBeDefined()
   })
+
+  it('does not treat session endpoint 401s as an expired session (QRun-IO/qqq#669)', async () => {
+    const { isSessionEndpoint } = await import('./client')
+    expect(isSessionEndpoint('/manageSession')).toBe(true)
+    expect(isSessionEndpoint('/logout')).toBe(true)
+    expect(isSessionEndpoint('/metaData')).toBe(false)
+    expect(isSessionEndpoint('/data/manageSessions')).toBe(false)
+    expect(isSessionEndpoint(undefined)).toBe(false)
+  })
+
+  it('reports the backend error message and the expired-session callback (QRun-IO/qqq#673)', async () => {
+    const { default: apiClient } = await import('./client')
+    const callback = vi.fn()
+    apiClient.setUnauthorizedCallback(callback)
+    const instance = apiClient.getInstance()
+    const reply = (status: number, data: unknown) => async (config: import('axios').InternalAxiosRequestConfig) => {
+      const error = new (await import('axios')).AxiosError(`Request failed with status code ${status}`, 'ERR_BAD_REQUEST', config, null,
+        { status, data, statusText: '', headers: {}, config })
+      throw error
+    }
+    await expect(instance.get('/data/person/1', { adapter: reply(403, { error: 'Permission denied.' }) })).rejects.toThrow('Permission denied.')
+    expect(callback).not.toHaveBeenCalled()
+    await expect(instance.post('/manageSession', {}, { adapter: reply(401, { error: 'Denied' }) })).rejects.toThrow('Denied')
+    expect(callback).not.toHaveBeenCalled()
+    await expect(instance.get('/metaData', { adapter: reply(401, {}) })).rejects.toThrow('Request failed with status code 401')
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
 })

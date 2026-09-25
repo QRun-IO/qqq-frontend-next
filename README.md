@@ -2,15 +2,26 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-## QQQ 4.0 compatibility
+## Use it in a QQQ application
 
-With published QQQ 4.0.0, Next renders canonical statistics, HTML and bar/line/pie charts through the framework's authenticated `/widget/{name}` and full `/metaData` routes; deployments must forward these routes at the same application root as `/qqq/v1`. Next does not yet have full Material dashboard widget parity: multi-statistics, tables, stacked bars, steppers, small line charts and canonical composite children remain limited ([#550](https://github.com/QRun-IO/qqq/issues/550), deferred). Full dashboard parity remains a follow-up; the published QQQ 4.0.0 release does not imply that every Material widget is supported by Next.
+The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq-bom-pom`) and `QApplicationJavalinServer` serves it at `/`, on the same port and origin as the API:
+
+```xml
+<dependency>
+    <groupId>com.kingsrook.qqq</groupId>
+    <artifactId>qqq-frontend-next</artifactId>
+</dependency>
+```
+
+The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
+
+Feature coverage is certified by the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
 
 ## Run the local QQQ sample
 
-Use the [QQQ quickstart](https://github.com/QRun-IO/qqq/blob/main/qqq-sample-project/README.md#quickstart-with-next) to clone editable Java sample source, compile against published QQQ 4.0.0, and launch this dashboard by default. It checks JDK 21+, Git, curl, unzip, and Docker; no Node.js or Maven installation is needed. Sample data is local and resets on restart.
+Use the [QQQ quickstart](https://github.com/QRun-IO/qqq/blob/main/qqq-sample-project/README.md#quickstart-with-next): it clones editable Java sample source, compiles it against published QQQ, and serves this dashboard from the sample on port 8000. It needs JDK 21+, Git, curl and unzip; no Node.js, Maven or Docker installation.
 
-The versioned image `ghcr.io/qrun-io/qqq-frontend-next:0.1.0` supplies Next on port 3000 and proxies the sample's API on host port 8000. It is built from `docker/quickstart/Dockerfile` for Linux amd64 and arm64 with browser mocks disabled. The launcher publishes the dashboard on localhost and removes its container on Ctrl+C. This image is configured for the local sample; application-specific deployments should set their backend during the build.
+A container image (`ghcr.io/qrun-io/qqq-frontend-next`, built from `docker/quickstart/Dockerfile`) remains available for running the dashboard as a separate Node server in front of a backend on host port 8000. The backend origin is fixed at image build time (`QQQ_BACKEND_URL`).
 
 ## Frontend development prerequisites
 
@@ -33,7 +44,8 @@ The dev server starts at [http://localhost:3000](http://localhost:3000).
 | Variable | Default | Description |
 |---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | `/qqq/v1` | Base URL for all QQQ backend API calls |
-| `QQQ_BACKEND_URL` | _(unset)_ | Build-time backend origin for same-origin API rewrites; the quickstart image uses `http://host.docker.internal:8000` |
+| `QQQ_BACKEND_URL` | _(unset)_ | Standalone build only: backend origin for same-origin API rewrites; the container image uses `http://host.docker.internal:8000` |
+| `QQQ_NEXT_OUTPUT` | _(unset)_ | `export` produces the static export for QQQ hosting (`pnpm build:export`) |
 | `NEXT_PUBLIC_MOCK_API` | _(unset)_ | Set to `true` to activate MSW browser mocks for dev/demo without a live backend |
 
 Copy `.env.example` to `.env.local` and adjust as needed.
@@ -43,7 +55,10 @@ Copy `.env.example` to `.env.local` and adjust as needed.
 | Command | Description |
 |---|---|
 | `pnpm dev` | Start the Next.js development server (Turbopack) |
-| `pnpm build` | Compile a production build |
+| `pnpm build` | Compile the standalone (Node server) production build |
+| `pnpm build:export` | Compile the static export served by QQQ (`out/`) |
+| `pnpm build:jar` | Static export packaged as the `qqq-frontend-next` Maven jar |
+| `pnpm test:acceptance` | Real-backend acceptance suite and matrix gate (needs `QQQ_SAMPLE_JAR`) |
 | `pnpm start` | Serve the production build |
 | `pnpm test` | Run Vitest unit tests (single pass) |
 | `pnpm test:watch` | Run Vitest in watch mode |
@@ -96,7 +111,7 @@ src/
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router) with React 19
+- **Framework:** Next.js 16 (App Router) with React 19
 - **Language:** TypeScript 5.x (`strict: true`)
 - **Styling:** Tailwind CSS 4.x with CSS custom properties
 - **Components:** shadcn/ui (Radix primitives + Tailwind)

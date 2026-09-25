@@ -14,450 +14,77 @@
  * limitations under the License.
  */
 
-// Tests for SavedViewsMenu component
+// Tests for the backend saved views menu (#649)
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
+import type { SavedViewsResult } from '@/lib/hooks/use-saved-views'
+import type { SavedView } from '@/lib/utils/saved-view-utils'
 import { SavedViewsMenu } from './SavedViewsMenu'
-import type { SavedView } from '@/lib/hooks/use-record-query'
 
-function makeView(overrides: Partial<SavedView> = {}): SavedView {
+const view = (id: number, label: string, userId: string): SavedView => ({ id, label, userId, tableName: 'person', view: { queryFilter: {} } })
+const mine = view(1, 'My View', 'sample:alice')
+const theirs = view(2, 'Their View', 'sample:bob')
+
+function makeViews(overrides: Partial<SavedViewsResult> = {}): SavedViewsResult {
   return {
-    id: 'view-1',
-    name: 'My View',
-    filter: {
-      criteria: [],
-      orderBys: [],
-      subFilters: [],
-      booleanOperator: 'AND',
-    },
-    columnVisibility: { id: true, name: true },
-    columnOrder: ['id', 'name'],
-    sortOrder: [],
-    createdAt: '2024-01-15T12:00:00.000Z',
-    ...overrides,
+    isAvailable: true, canStore: true, canDelete: true, yourViews: [mine], sharedViews: [theirs], isLoading: false, error: null,
+    storeView: vi.fn(), deleteView: vi.fn(), isOwner: (v) => v.userId === 'sample:alice', ...overrides,
   }
 }
 
-describe('SavedViewsMenu — rendering', () => {
-  it('renders the trigger button with label "Views"', () => {
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('button', { name: /saved views/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /saved views/i })).toHaveTextContent('Views')
+const noop = () => undefined
+
+describe('SavedViewsMenu', () => {
+  it('renders nothing when the backend has no saved view processes', () => {
+    const { container } = render(<SavedViewsMenu savedViews={makeViews({ isAvailable: false })} currentView={null} viewDiffs={[]}
+      onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows a count badge when there are saved views', () => {
-    render(
-      <SavedViewsMenu
-        savedViews={[makeView(), makeView({ id: 'view-2', name: 'Second View' })]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    expect(screen.getByText('2')).toBeInTheDocument()
+  it('lists your views apart from views shared with you and opens one', async () => {
+    const onSelect = vi.fn()
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={onSelect} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Saved views' }))
+    expect(screen.getByRole('group', { name: 'Your Saved Views' })).toHaveTextContent('My View')
+    expect(screen.getByRole('group', { name: 'Views Shared with you' })).toHaveTextContent('Their View')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Their View' }))
+    expect(onSelect).toHaveBeenCalledWith(theirs)
   })
 
-  it('does not show count badge when there are no saved views', () => {
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    // No numeric badge should appear
-    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  it('saves a new view by name and shows backend errors in the dialog', async () => {
+    const onStore = vi.fn().mockRejectedValueOnce(new Error('You already have a saved view on this table with this name.')).mockResolvedValueOnce(undefined)
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={['Changed the filter']} onSelectView={noop} onNewView={noop} onStore={onStore} onDelete={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Save View As...' }))
+    await userEvent.type(screen.getByLabelText('Enter a name for this view'), 'My View')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('You already have a saved view on this table with this name.')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(onStore).toHaveBeenLastCalledWith({ label: 'My View' })
   })
 
-  it('has data-qqq-id="saved-views-menu" on wrapper', () => {
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    expect(document.querySelector('[data-qqq-id="saved-views-menu"]')).toBeInTheDocument()
+  it('disables owner-only actions on a view shared with you', async () => {
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={theirs} viewDiffs={['Changed the filter']} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Save...' })).not.toBeInTheDocument()
+    expect(screen.getByText('1 Unsaved Change')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Saved views (current view: Their View)' }))
+    expect(screen.getByRole('menuitem', { name: 'Save...' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Rename...' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Delete...' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Save As...' })).toBeEnabled()
   })
 
-  it('dropdown is not visible initially', () => {
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-})
-
-describe('SavedViewsMenu — open / close', () => {
-  it('opens the dropdown when trigger button is clicked', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByRole('dialog', { name: /saved views/i })).toBeInTheDocument()
-  })
-
-  it('closes the dropdown when the backdrop is clicked', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-
-    const backdrop = document.querySelector('.fixed.inset-0')
-    expect(backdrop).toBeInTheDocument()
-    await user.click(backdrop!)
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('closes the dropdown when trigger is clicked again', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-})
-
-describe('SavedViewsMenu — empty state', () => {
-  it('shows "No saved views yet" when list is empty', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByText(/no saved views yet/i)).toBeInTheDocument()
-  })
-})
-
-describe('SavedViewsMenu — saved views list', () => {
-  it('lists all saved views by name', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[
-          makeView({ id: 'v1', name: 'Alpha View' }),
-          makeView({ id: 'v2', name: 'Beta View' }),
-        ]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByText('Alpha View')).toBeInTheDocument()
-    expect(screen.getByText('Beta View')).toBeInTheDocument()
-  })
-
-  it('calls onLoad with the correct view when a view is clicked', async () => {
-    const user = userEvent.setup()
-    const onLoad = vi.fn()
-    const view = makeView({ id: 'v1', name: 'Alpha View' })
-
-    render(
-      <SavedViewsMenu
-        savedViews={[view]}
-        onSave={vi.fn()}
-        onLoad={onLoad}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /load view: alpha view/i }))
-
-    expect(onLoad).toHaveBeenCalledOnce()
-    expect(onLoad).toHaveBeenCalledWith(view)
-  })
-
-  it('closes the dropdown after loading a view', async () => {
-    const user = userEvent.setup()
-    const view = makeView({ id: 'v1', name: 'Alpha View' })
-
-    render(
-      <SavedViewsMenu
-        savedViews={[view]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /load view: alpha view/i }))
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('calls onDelete with the correct view id when delete button is clicked', async () => {
-    const user = userEvent.setup()
-    const onDelete = vi.fn()
-    const view = makeView({ id: 'v1', name: 'Alpha View' })
-
-    render(
-      <SavedViewsMenu
-        savedViews={[view]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={onDelete}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /delete saved view: alpha view/i }))
-
-    expect(onDelete).toHaveBeenCalledOnce()
-    expect(onDelete).toHaveBeenCalledWith('v1')
-  })
-
-  it('does not trigger onLoad when delete button is clicked', async () => {
-    const user = userEvent.setup()
-    const onLoad = vi.fn()
-    const onDelete = vi.fn()
-    const view = makeView({ id: 'v1', name: 'Alpha View' })
-
-    render(
-      <SavedViewsMenu
-        savedViews={[view]}
-        onSave={vi.fn()}
-        onLoad={onLoad}
-        onDelete={onDelete}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /delete saved view: alpha view/i }))
-
-    expect(onLoad).not.toHaveBeenCalled()
-  })
-
-  it('renders createdAt date in the view row', async () => {
-    const user = userEvent.setup()
-    const view = makeView({ id: 'v1', name: 'My View', createdAt: '2024-06-01T00:00:00.000Z' })
-
-    render(
-      <SavedViewsMenu
-        savedViews={[view]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    // Just verify something date-like is present (locale formatting varies)
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText(/\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|Jun/i)).toBeInTheDocument()
-  })
-})
-
-describe('SavedViewsMenu — save current view', () => {
-  it('shows "Save current view..." button in the dropdown', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.getByRole('button', { name: /save current view/i })).toBeInTheDocument()
-  })
-
-  it('switches to save-mode when "Save current view..." is clicked', async () => {
-    const user = userEvent.setup()
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-
-    expect(screen.getByRole('textbox', { name: /new view name/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /confirm save/i })).toBeInTheDocument()
-  })
-
-  it('calls onSave with the entered name when confirm is clicked', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={onSave}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-    await user.type(screen.getByRole('textbox', { name: /new view name/i }), 'My Custom View')
-    await user.click(screen.getByRole('button', { name: /confirm save/i }))
-
-    expect(onSave).toHaveBeenCalledOnce()
-    expect(onSave).toHaveBeenCalledWith('My Custom View')
-  })
-
-  it('calls onSave when Enter key is pressed in the name input', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={onSave}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-    await user.type(screen.getByRole('textbox', { name: /new view name/i }), 'My View{Enter}')
-
-    expect(onSave).toHaveBeenCalledWith('My View')
-  })
-
-  it('does not call onSave when name is blank', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={onSave}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-    // Click confirm without typing anything
-    await user.click(screen.getByRole('button', { name: /confirm save/i }))
-
-    expect(onSave).not.toHaveBeenCalled()
-  })
-
-  it('confirm save button is disabled when name input is empty', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-
-    expect(screen.getByRole('button', { name: /confirm save/i })).toBeDisabled()
-  })
-
-  it('exits save-mode when Escape is pressed in the name input', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-    await user.keyboard('{Escape}')
-
-    // Should return to normal mode — "Save current view..." button visible again
-    expect(screen.getByRole('button', { name: /save current view/i })).toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: /new view name/i })).not.toBeInTheDocument()
-  })
-
-  it('resets save-mode when the trigger button is clicked again', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <SavedViewsMenu
-        savedViews={[]}
-        onSave={vi.fn()}
-        onLoad={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    )
-
-    // Open → enter save mode
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    await user.click(screen.getByRole('button', { name: /save current view/i }))
-    expect(screen.getByRole('textbox', { name: /new view name/i })).toBeInTheDocument()
-
-    // Click trigger to close
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    // Re-open — should NOT be in save mode
-    await user.click(screen.getByRole('button', { name: /saved views/i }))
-    expect(screen.queryByRole('textbox', { name: /new view name/i })).not.toBeInTheDocument()
+  it('confirms before deleting the current view', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={mine} viewDiffs={[]} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={onDelete} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Saved views (current view: My View)' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete...' }))
+    expect(screen.getByText("Are you sure you want to delete the view 'My View'?")).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(mine))
   })
 })

@@ -23,11 +23,12 @@
 import React from 'react'
 import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
-import type { QFieldMetaData, QTableSection, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 
 import { DynamicFormField } from './DynamicFormField'
+import { SectionIcon } from '@/components/layout/MetadataIcon'
 
 /**
  * Props for the {@link DynamicForm} component.
@@ -68,11 +69,50 @@ export interface DynamicFormProps {
    */
   dirtyFields?: Record<string, boolean>
 
+  /**
+   * The record being edited, if any: supplies the display of read-only fields, the
+   * current file of upload fields and the labels of possible-value selections.
+   */
+  record?: QRecord
+
+  /** Show non-editable fields as read-only controls (the edit screen does; create and copy do not). */
+  showReadOnlyFields?: boolean
+
+  /** Screen roles used to choose field help content, most specific first. */
+  helpRoles?: readonly string[]
+
+  /** Limit typing to each field's `maxLength` (default); record forms turn this off. */
+  enforceMaxLength?: boolean
+
   /** Optional heading rendered above the field grid. */
   formLabel?: string
 
+  /**
+   * Widget metadata by name. A section housing a widget shown on record edit
+   * screens (`includeOnRecordEditScreen`, e.g. the cron schedule) renders the
+   * record fields that widget edits, which usually sit in a hidden section.
+   */
+  widgets?: Record<string, QWidgetMetaData>
+
   /** Additional CSS classes applied to the outermost container. */
   className?: string
+}
+
+/**
+ * The record fields a widget section edits on a record form, as Material's
+ * EntityForm does for `cronUI` widgets (expression and time zone fields).
+ *
+ * @param section - A table section.
+ * @param widgets - Widget metadata by name.
+ * @returns The edited field names, or `undefined` when the section is not an editable widget section.
+ */
+export function editScreenWidgetFieldNames(section: QTableSection, widgets: Record<string, QWidgetMetaData> | undefined): string[] | undefined {
+  const widget = section.widgetName ? widgets?.[section.widgetName] : undefined
+  if (!widget || widget.hasPermission === false || widget.type !== 'cronUI') return undefined
+  const defaults = widget.defaultValues ?? {}
+  if (defaults.includeOnRecordEditScreen !== true) return undefined
+  const names = [defaults.cronExpressionFieldName, defaults.timeZoneFieldName].filter((name): name is string => typeof name === 'string' && name !== '')
+  return names.length > 0 ? names : undefined
 }
 
 /**
@@ -104,7 +144,12 @@ export function DynamicForm({
   possibleValueContext,
   disabled = false,
   dirtyFields,
+  record,
+  showReadOnlyFields = false,
+  helpRoles,
+  enforceMaxLength = true,
   formLabel,
+  widgets,
   className,
 }: DynamicFormProps) {
   // Determine the set of fields to render
@@ -127,8 +172,8 @@ export function DynamicForm({
     // Collect field names in section order
     const resolvedSections = sections ?? tableMetaData.sections
     for (const section of resolvedSections) {
-      if (section.isHidden) continue
-      for (const fn of section.fieldNames) {
+      if (section.isHidden || section.hidden) continue
+      for (const fn of section.fieldNames ?? []) {
         if (!fieldOrder.includes(fn)) fieldOrder.push(fn)
       }
     }
@@ -155,24 +200,28 @@ export function DynamicForm({
   const hasSections =
     tableMetaData &&
     tableMetaData.sections &&
-    tableMetaData.sections.filter((s) => !s.isHidden).length > 0 &&
+    tableMetaData.sections.filter((s) => !s.isHidden && !s.hidden).length > 0 &&
     !fields
 
   if (hasSections && tableMetaData) {
-    const resolvedSections = sections ?? tableMetaData.sections
+    const resolvedSections = (sections ?? tableMetaData.sections).map((section) => {
+      const widgetFieldNames = editScreenWidgetFieldNames(section, widgets)
+      return widgetFieldNames ? { ...section, fieldNames: widgetFieldNames } : section
+    })
     return (
       <div className={cn('space-y-6', className)} data-qqq-id="dynamic-form">
         {formLabel && (
           <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
         )}
         {resolvedSections
-          .filter((s) => !s.isHidden)
+          .filter((s) => !s.isHidden && !s.hidden)
           .map((section) => {
-            const sectionFields = section.fieldNames
+            const sectionFields = (section.fieldNames ?? [])
               .map((fn) => tableMetaData.fields[fn])
               .filter((f): f is QFieldMetaData => {
                 if (!f) return false
                 if (f.isHidden) return false
+                if (!f.isEditable && !showReadOnlyFields && !disabled) return false
                 if (fieldNamesToInclude && !fieldNamesToInclude.includes(f.name)) return false
                 return true
               })
@@ -189,7 +238,8 @@ export function DynamicForm({
               >
                 {section.label && (
                   <div className="border-b border-border pb-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">
+                    <h4 className="flex items-center text-sm font-medium text-muted-foreground">
+                      <SectionIcon section={section} />
                       {section.label}
                     </h4>
                   </div>
@@ -219,6 +269,10 @@ export function DynamicForm({
                         disabled={disabled}
                         isDirty={dirtyFields?.[f.name] === true}
                         possibleValueContext={possibleValueContext}
+                        record={record}
+                        showReadOnly={showReadOnlyFields}
+                        helpRoles={helpRoles}
+                        enforceMaxLength={enforceMaxLength}
                       />
                     </div>
                   ))}
@@ -253,6 +307,10 @@ export function DynamicForm({
               disabled={disabled}
               isDirty={dirtyFields?.[f.name] === true}
               possibleValueContext={possibleValueContext}
+              record={record}
+              showReadOnly={showReadOnlyFields}
+              helpRoles={helpRoles}
+              enforceMaxLength={enforceMaxLength}
             />
           </div>
         ))}

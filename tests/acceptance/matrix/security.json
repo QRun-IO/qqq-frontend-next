@@ -1,0 +1,826 @@
+{
+  "area": "security",
+  "prefixes": [
+    "SEC",
+    "INT"
+  ],
+  "description": "Permissions, sessions, authentication and interaction quality",
+  "rows": [
+    {
+      "id": "SEC-001",
+      "feature": "Table hidden from a user (DenyBehavior.HIDDEN): absent from navigation, direct link loads nothing, backend refuses",
+      "source": [
+        "qqq-backend-core actions/metadata/MetaDataAction.java (DENY_HIDE omitted, DENY_DISABLE flagged)",
+        "qqq-backend-core actions/permissions/PermissionsHelper.java",
+        "src/app/(dashboard)/app/[slug]/page.tsx",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (noPets)",
+      "scenarios": [
+        "noPets sees Person but no Pet / Pet Note in navigation",
+        "person record neither shows nor requests the hidden pet association"
+      ],
+      "negative": [
+        "direct link /app/pet shows unknown resource with no data request",
+        "API query/get of pet returns 403, table metadata 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-002",
+      "feature": "Table disabled for a user (DenyBehavior.DISABLED): listed, but list/record/create/edit links explain the denial without loading data",
+      "source": [
+        "qqq-backend-core actions/metadata/MetaDataAction.java (DENY_HIDE omitted, DENY_DISABLE flagged)",
+        "src/lib/auth/permissions.ts",
+        "src/app/(dashboard)/app/[slug]/page.tsx",
+        "qqq-frontend-material-dashboard RecordQuery.tsx (readPermission alert)"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityLedger, base name pet, noPets)",
+      "scenarios": [
+        "admin lists the ledger rows",
+        "noPets sees the Security Ledger link"
+      ],
+      "negative": [
+        "noPets list, record, create and edit links show the permission message and request no records",
+        "API query/get/insert/update return 403 and rows are unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-003",
+      "feature": "Insert permission denied: create not offered, create link refused, backend writes nothing",
+      "source": [
+        "qqq-backend-core actions/permissions/PermissionsHelper.java",
+        "src/app/(dashboard)/app/[slug]/create/page.tsx",
+        "src/components/query/RecordQuery.tsx",
+        "src/app/(dashboard)/app/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer)",
+      "scenarios": [
+        "viewer list has no Create button and the dashboard has no Create quick action"
+      ],
+      "negative": [
+        "/app/person/create shows the permission message with no form",
+        "POST /data/person returns 403 and the person count is unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-004",
+      "feature": "Edit permission denied: edit not offered, edit link refused, backend changes nothing",
+      "source": [
+        "qqq-backend-core actions/permissions/PermissionsHelper.java",
+        "src/components/records/RecordActions.tsx",
+        "src/app/(dashboard)/app/[slug]/[recordId]/edit/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer)",
+      "scenarios": [
+        "viewer record view has no Edit action"
+      ],
+      "negative": [
+        "/app/person/1/edit shows the permission message without loading the record",
+        "PUT /data/person/1 returns 403 and the name is unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-005",
+      "feature": "Delete permission denied: delete not offered on record or bulk bar, bulk delete refused, backend deletes nothing",
+      "source": [
+        "qqq-backend-core actions/permissions/PermissionsHelper.java",
+        "src/components/records/RecordActions.tsx",
+        "src/components/query/BulkActionBar.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer)",
+      "scenarios": [
+        "record view and bulk action bar have no Delete"
+      ],
+      "negative": [
+        "/app/person.bulkDelete is unknown to the viewer",
+        "DELETE /data/person/1 and bulkDelete init return 403; the row remains"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-006",
+      "feature": "Copy requires insert permission: copy not offered and copy link refused",
+      "source": [
+        "src/app/(dashboard)/app/[slug]/[recordId]/copy/page.tsx",
+        "src/components/records/RecordActions.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer)",
+      "scenarios": [
+        "viewer record view has no Copy action"
+      ],
+      "negative": [
+        "/app/person/1/copy shows the permission message; nothing is inserted"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-007",
+      "feature": "Process permission denied (hidden): processes not offered in navigation or launcher, links do not start them, backend refuses",
+      "source": [
+        "qqq-backend-core actions/permissions/PermissionsHelper.java",
+        "src/components/query/ProcessLauncherMenu.tsx",
+        "src/lib/utils/process-utils.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (viewer, noProcesses)",
+      "scenarios": [
+        "viewer has no Actions menu; noProcesses' Actions menu offers only the table's bulk actions (table rights) and no standalone process; no process links",
+        "noProcesses keeps table rights (Create offered)"
+      ],
+      "negative": [
+        "/app/clonePeople and /app/greetInteractive are unknown and make no process request",
+        "legacy and v1 process init return 403; no person is cloned"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-008",
+      "feature": "Process disabled for a user (DenyBehavior.DISABLED): shown disabled, link explains the denial, backend refuses with no side effect",
+      "source": [
+        "qqq-backend-core actions/metadata/MetaDataAction.java (DENY_HIDE omitted, DENY_DISABLE flagged)",
+        "src/components/widgets/AppHome.tsx",
+        "src/app/(dashboard)/app/page.tsx",
+        "qqq-frontend-material-dashboard pages/apps/Home.tsx (disabled ProcessLinkCard)"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityAudit process)",
+      "scenarios": [
+        "admin runs Security Audit and one audit row is written",
+        "viewer sees the audit tile disabled and no dashboard quick action for it"
+      ],
+      "negative": [
+        "viewer direct link shows the permission message and never calls init",
+        "process init returns 403 and the audit log stays empty"
+      ],
+      "issues": [
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-009",
+      "feature": "Widget restrictions: hidden widgets absent, disabled widgets show a permission state without loading data, backend refuses",
+      "source": [
+        "qqq-backend-core actions/metadata/MetaDataAction.java (DENY_HIDE omitted, DENY_DISABLE flagged)",
+        "src/components/widgets/ConnectedWidget.tsx",
+        "src/lib/hooks/use-widget.ts",
+        "qqq-frontend-material-dashboard components/widgets/Widget.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityPetWidget, securityPetDisabledWidget)",
+      "scenarios": [
+        "admin sees both pet widgets with their content",
+        "noPets sees the open bulletin widget"
+      ],
+      "negative": [
+        "noPets: hidden widget absent, disabled widget shows \"You do not have permission to view this data.\" and no /widget request",
+        "GET /widget/<denied> returns 403"
+      ],
+      "issues": [
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-010",
+      "feature": "App restrictions: hidden apps absent from navigation and unknown by link; disabled apps keep their children gated",
+      "source": [
+        "qqq-backend-core actions/metadata/MetaDataAction.java (DENY_HIDE omitted, DENY_DISABLE flagged)",
+        "src/lib/hooks/use-routes.ts",
+        "src/app/(dashboard)/app/[slug]/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityPetApp hidden, securityPetDisabledApp disabled)",
+      "scenarios": [
+        "admin sees both pet apps"
+      ],
+      "negative": [
+        "noPets: Pet Vault App absent and /app/securityPetApp unknown; Pet Disabled App children stay permission-gated"
+      ],
+      "issues": [
+        "QRun-IO/qqq#651",
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-011",
+      "feature": "Record-level security (sharing demo): users see only their own or shared saved views/reports; direct links and writes to others are refused",
+      "source": [
+        "qqq-sample-project SampleSharingMetaDataProvider.java (RecordSecurityLock on userId)",
+        "prime-sharing-database.sql"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (alice, bob)",
+      "scenarios": [
+        "alice lists and opens her own saved view"
+      ],
+      "negative": [
+        "bob's list omits alice's view; bob's direct link shows not found",
+        "bob's GET/PUT/DELETE of alice's view are refused and the row is unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-012",
+      "feature": "Record security lock on a data table: list filtered to the key, other users' records unreachable, forged owner refused",
+      "source": [
+        "qqq-backend-core model/metadata/security/RecordSecurityLock.java"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityNote locked by sample user)",
+      "scenarios": [
+        "alice sees and edits only her notes (persisted)"
+      ],
+      "negative": [
+        "bob's direct link to alice's note shows not found",
+        "bob's update/delete of alice's note and insert with alice as owner are refused; SQL unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "SEC-013",
+      "feature": "Field protection: hidden fields never shown or returned, password fields masked and never overwritten by the mask, heavy fields not loaded in lists",
+      "source": [
+        "qqq-backend-core actions/tables/QueryAction.java (omit hidden, mask PASSWORD, REVEAL)",
+        "src/components/records/FieldValue.tsx",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityVault)",
+      "scenarios": [
+        "REVEAL password can be revealed on request",
+        "editing another field keeps the stored password"
+      ],
+      "negative": [
+        "hidden value absent from list, record, edit form and API responses",
+        "masked password shows only the mask; the list query does not carry the heavy BLOB"
+      ],
+      "issues": [
+        "QRun-IO/qqq#672"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-014",
+      "feature": "Capability restrictions: tables without insert/update/delete capabilities offer none of them and refuse direct links",
+      "source": [
+        "qqq-backend-core model/metadata/tables/Capability.java",
+        "src/lib/auth/permissions.ts",
+        "src/components/records/RecordActions.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/SecurityFixtures.java via SecurityAcceptanceServer (security variant) (securityArchive)",
+      "scenarios": [
+        "admin can list and view the archive"
+      ],
+      "negative": [
+        "no Create/Edit/Delete offered; create and edit links explain the table cannot be changed",
+        "backend insert/update/delete are refused; SQL unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#671"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-015",
+      "feature": "Permission revoked mid-session: stale UI actions are refused by the backend with a clear message, nothing is written, reload reflects the new rights",
+      "source": [
+        "src/lib/query-client.ts (403 toasts)",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (admin then viewer)",
+      "scenarios": [
+        "after reload the viewer rights are shown"
+      ],
+      "negative": [
+        "saving an open edit form after revocation shows a permission error and the row is unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-020",
+      "feature": "MOCK sign-in: a deep link establishes the session and shows the session user from manageSession values",
+      "source": [
+        "qqq-backend-core MockAuthenticationModule.java",
+        "qqq-middleware-javalin specs/v1/ManageSessionSpecV1.java",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas",
+      "scenarios": [
+        "lands on the requested page with rows",
+        "user menu shows Alice (sample) / sample:alice"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#332",
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-021",
+      "feature": "Logout: POST /qqq/v1/logout ends the session, protected pages stay on login, Sign in returns to the page, per-user client data is cleared",
+      "source": [
+        "qqq-middleware-javalin specs/v1/LogoutSpecV1.java",
+        "src/lib/auth/auth-provider.tsx",
+        "src/lib/auth/auth-storage.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas",
+      "scenarios": [
+        "Sign in returns to the original page"
+      ],
+      "negative": [
+        "after logout a protected page (full load) stays on login and reads no data",
+        "a different user signing in on the same browser never sees the previous user's cached pages or recent records"
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-022",
+      "feature": "Session expiry: 401 redirects to login with returnTo and re-authenticates back to the page (initial load and mid-use)",
+      "source": [
+        "qqq-middleware-javalin QJavalinImplementation.setupSession (401, cookie cleared)",
+        "src/lib/api/client.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas (expired)",
+      "scenarios": [
+        "expired on first load returns to the page",
+        "expired mid-use returns to the clicked record"
+      ],
+      "negative": [
+        "no hang on \"Setting up anonymous session\""
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-023",
+      "feature": "Denied sign-in: a 401 from manageSession keeps the user out with an explanation (no silent anonymous fallback)",
+      "source": [
+        "qqq-backend-core MockAuthenticationModule.java (accessToken Deny)",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas",
+      "scenarios": [],
+      "negative": [
+        "login shows \"Sign-in was denied\", no navigation or data is rendered"
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-024",
+      "feature": "Post-login returnTo is limited to in-app paths (open-redirect guard)",
+      "source": [
+        "src/lib/auth/return-to.ts",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas",
+      "scenarios": [
+        "in-app returnTo with query string is honoured"
+      ],
+      "negative": [
+        "absolute, protocol-relative, backslash and javascript: targets land on /app"
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-025",
+      "feature": "OAUTH2 authorization code + PKCE sign-in with an owned OIDC provider (discovery, authorize, callback, backend token exchange, session, reload resume)",
+      "source": [
+        "qqq-backend-core OAuth2AuthenticationModule.java",
+        "qqq-sample-project OAuth2MetaDataProvider.java",
+        "src/lib/auth/oidc.ts",
+        "qqq-frontend-material-dashboard authorization/oauth2/useOAuth2AuthenticationModule.tsx"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "authorize request carries S256 challenge, state, client id, scopes and /token redirect",
+        "backend exchanges code + verifier with client secret; user_session row stored",
+        "provider identity is displayed; reload resumes without the provider"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#670",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-026",
+      "feature": "OAUTH2 sign-in failures: provider denial, tampered state and failed code exchange are reported and create no session",
+      "source": [
+        "src/app/(auth)/callback/CallbackContent.tsx",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [],
+      "negative": [
+        "access_denied shows the provider denial",
+        "a state mismatch is rejected before any token exchange",
+        "a rejected code exchange shows the failure; no user_session row"
+      ],
+      "issues": [
+        "QRun-IO/qqq#670"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-027",
+      "feature": "OAUTH2 logout: backend session deleted, provider end-session called, next visit requires provider sign-in",
+      "source": [
+        "qqq-backend-core OAuth2AuthenticationModule.logout",
+        "src/lib/auth/oidc.ts"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "user_session row deleted and provider session ended"
+      ],
+      "negative": [
+        "protected page after logout returns to the provider login"
+      ],
+      "issues": [
+        "QRun-IO/qqq#670",
+        "QRun-IO/qqq#674"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-028",
+      "feature": "OAUTH2 session revoked server-side mid-use: 401 sends the user through the provider and back to the page",
+      "source": [
+        "qqq-backend-core OAuth2AuthenticationModule (userSession lookup)",
+        "src/lib/api/client.ts"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "returns to the same page after provider sign-in"
+      ],
+      "negative": [
+        "revoked session gets 401, not stale data"
+      ],
+      "issues": [
+        "QRun-IO/qqq#670"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-029",
+      "feature": "AUTH_0 authorization code + PKCE with an owned Auth0-compatible provider (browser token exchange, backend JWT validation via JWKS)",
+      "source": [
+        "qqq-backend-core Auth0AuthenticationModule.java",
+        "src/lib/auth/oidc.ts (exchangeAuth0Code)",
+        "qqq-frontend-material-dashboard authorization/auth0"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=AUTH_0",
+      "scenarios": [
+        "sign-in and data access through the Auth0 module",
+        "logout returns through the provider"
+      ],
+      "negative": [
+        "provider denial is reported"
+      ],
+      "issues": [
+        "QRun-IO/qqq#670"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-030",
+      "feature": "AUTH_0 against a real Auth0 tenant",
+      "source": [
+        "qqq-backend-core Auth0AuthenticationModule.java"
+      ],
+      "fixture": "Requires an Auth0 tenant QRun does not own in CI",
+      "scenarios": [
+        "real tenant sign-in/logout"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": false,
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): real Auth0 tenant; the AUTH_0 flow is covered against an owned Auth0-compatible provider by SEC-029/SEC-031; real-service testing is follow-up work."
+    },
+    {
+      "id": "SEC-031",
+      "feature": "FULLY_ANONYMOUS authentication: session without an identity provider, anonymous identity, logout and sign-in again",
+      "source": [
+        "qqq-backend-core FullyAnonymousAuthenticationModule.java"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=FULLY_ANONYMOUS",
+      "scenarios": [
+        "deep link loads data as Anonymous"
+      ],
+      "negative": [
+        "after logout the page stays signed out until Sign in"
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-032",
+      "feature": "Unsupported authentication type (TABLE_BASED, also unsupported by Material) is reported, never silently treated as another type",
+      "source": [
+        "qqq-backend-core QAuthenticationType.java",
+        "qqq-frontend-material-dashboard App.tsx (Unrecognized authenticationMetaData.type)"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED",
+      "scenarios": [],
+      "negative": [
+        "login shows \"Unsupported authentication type: TABLE_BASED\" and no data is requested"
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-033",
+      "feature": "Server-side logout invalidation: v1 logout expires every session cookie it issued and an ended Auth0 session cannot be replayed",
+      "source": [
+        "qqq-middleware-javalin specs/v1/LogoutSpecV1.java",
+        "qqq-backend-core Auth0AuthenticationModule.java (logout)",
+        "backend branch feature/GH-649-security-backend"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "logout response expires sessionUUID and sessionId"
+      ],
+      "negative": [
+        "a logged-out Auth0 sessionUUID replayed against the API gets 401"
+      ],
+      "issues": [
+        "QRun-IO/qqq#674",
+        "QRun-IO/qqq#675"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-001",
+      "feature": "Keyboard: navigate from the sidebar to a list, open a record, edit and save without a pointer",
+      "source": [
+        "src/components/layout/Sidebar.tsx",
+        "src/components/query/DataGrid.tsx",
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "edit saved by keyboard persists (SQL)"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#676",
+        "QRun-IO/qqq#682"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-002",
+      "feature": "Keyboard: run a process through its steps without a pointer",
+      "source": [
+        "src/components/process/ProcessRun.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "greetInteractive completes and shows results"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "INT-003",
+      "feature": "Dialogs trap focus, close on Escape and restore focus to the trigger; confirm by keyboard",
+      "source": [
+        "src/components/records/DeleteConfirmDialog.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "keyboard delete confirmation deletes the row (SQL)"
+      ],
+      "negative": [
+        "Escape cancels without deleting; focus returns to Delete"
+      ],
+      "issues": [
+        "QRun-IO/qqq#682",
+        "QRun-IO/qqq#683",
+        "QRun-IO/qqq#694"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-004",
+      "feature": "Command menu, search and shortcut dialogs: keyboard open, focus inside, Escape restores focus",
+      "source": [
+        "src/components/feedback/CommandMenu.tsx",
+        "src/components/feedback/KeyboardShortcutsDialog.tsx",
+        "src/app/(dashboard)/layout.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "command menu navigates to a table"
+      ],
+      "negative": [
+        "Escape closes and returns focus"
+      ],
+      "issues": [
+        "QRun-IO/qqq#682"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-005",
+      "feature": "Automated accessibility scan (axe WCAG 2.1 AA) of login, dashboard, list, record, edit form and process step",
+      "source": [
+        "@axe-core/playwright",
+        "CLAUDE.md Accessibility"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "no serious or critical violations on each page"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#682"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-006",
+      "feature": "Form labels and ARIA: every field has an accessible label, required fields are marked, invalid fields announce their error",
+      "source": [
+        "src/components/forms/DynamicFormField.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "labels match metadata labels"
+      ],
+      "negative": [
+        "submitting empty required fields sets aria-invalid and a described error"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "INT-007",
+      "feature": "Validation and error messages: client and backend validation name the field and nothing is saved",
+      "source": [
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [],
+      "negative": [
+        "missing required value is named and focused",
+        "backend rejection is shown verbatim; SQL unchanged"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "INT-008",
+      "feature": "Responsive layout at phone width (Pixel 7): navigation drawer, list, record and form usable without horizontal scrolling",
+      "source": [
+        "src/components/layout/Sidebar.tsx",
+        "src/components/query/RecordCardView.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "drawer navigation to a list, open and edit a record on a phone viewport"
+      ],
+      "negative": [
+        "no horizontal page overflow"
+      ],
+      "issues": [
+        "QRun-IO/qqq#676"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-009",
+      "feature": "Loading states: a delayed list or record request shows a busy state, then the real data",
+      "source": [
+        "src/components/query/RecordQueryContent.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "busy indicator while the real request is held, then rows"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#694"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-010",
+      "feature": "Failed request and recovery: a failed list request shows an error with retry; retry loads the data",
+      "source": [
+        "src/components/query/RecordQueryContent.tsx",
+        "src/lib/query-client.ts"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "retry succeeds"
+      ],
+      "negative": [
+        "the failure is explained, not a blank page"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "INT-011",
+      "feature": "Delayed save: the submit control is disabled while saving and double submission creates one record",
+      "source": [
+        "src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "exactly one row inserted (SQL)"
+      ],
+      "negative": [
+        "second click while pending is ignored"
+      ],
+      "issues": [
+        "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-012",
+      "feature": "Stale state: changes and deletions made elsewhere are shown after refresh/navigation, not stale cache",
+      "source": [
+        "src/lib/query-client.ts",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "record edited through the API shows the new value on revisit"
+      ],
+      "negative": [
+        "record deleted through the API shows not found"
+      ],
+      "issues": [
+        "QRun-IO/qqq#683"
+      ],
+      "required": true
+    },
+    {
+      "id": "INT-013",
+      "feature": "Empty state: a query with no results explains it and offers the create action",
+      "source": [
+        "src/components/query/RecordQueryContent.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "no-match filter shows the empty message and Create"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "INT-014",
+      "feature": "Backend unavailable at sign-in: the login page explains the failure and recovers with Try again",
+      "source": [
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "qqq-sample-project (stock sample, mock auth, sharing demo)",
+      "scenarios": [
+        "Try again after recovery signs in"
+      ],
+      "negative": [
+        "network failure shows \"Sign-in failed\""
+      ],
+      "issues": [
+        "QRun-IO/qqq#669"
+      ],
+      "required": true
+    }
+  ]
+}

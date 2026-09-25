@@ -23,6 +23,8 @@ export interface AssociationTableState {
   table?: QTableMetaData
   isLoading: boolean
   isError: boolean
+  /** The user may not read the associated table: the panel is not shown. */
+  isDenied?: boolean
 }
 
 /**

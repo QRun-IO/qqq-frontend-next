@@ -43,6 +43,8 @@ interface DateFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help text that describes this control. */
+  describedBy?: string
 }
 
 /**
@@ -62,6 +64,7 @@ export function DateField({
   disabled = false,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: DateFieldProps) {
   return (
     <div className="flex flex-col gap-1">
@@ -80,7 +83,7 @@ export function DateField({
         disabled={disabled}
         aria-required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
         data-qqq-id={dataQqqId}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',

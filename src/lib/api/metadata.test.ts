@@ -53,11 +53,43 @@ describe('Metadata API', () => {
     const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { allowed: { name: 'allowed', type: 'statistics' } } }
     const widgets = { allowed: { name: 'allowed', hasPermission: true, gridColumns: 4 }, denied: { name: 'denied', hasPermission: false } }
     vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets })
-    expect(await loadMetaData()).toEqual({ ...light, widgets })
+    expect(await loadMetaData()).toEqual({ ...light, widgets, reports: {} })
     expect(apiClient.get).toHaveBeenLastCalledWith('/metaData', expect.objectContaining({ baseURL: 'https://example.invalid/prefix' }))
     vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, widgets })
     expect(await loadMetaData()).toEqual({ ...light, widgets })
     expect(apiClient.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves reports the app tree links to from the full metadata (v1 omits reports)', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const appTree = [{ name: 'app', label: 'App', type: 'APP', children: [{ name: 'rpt', label: 'Rpt', type: 'REPORT' }] }]
+    const light = { apps: {}, tables: {}, processes: {}, appTree, widgets: {} }
+    const reports = { rpt: { name: 'rpt', label: 'Rpt', isHidden: false, hasPermission: true } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ reports })
+    expect(await loadMetaData()).toEqual({ ...light, reports })
+    // An app tree without report nodes needs no second request
+    vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, appTree: [] })
+    await loadMetaData()
+    expect(apiClient.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an invalid reports map when the app tree links to reports', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const appTree = [{ name: 'rpt', label: 'Rpt', type: 'REPORT' }]
+    const light = { apps: {}, tables: {}, processes: {}, appTree, widgets: {} }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ reports: [] })
+    await expect(loadMetaData()).rejects.toThrow('Invalid report metadata response')
+  })
+
+  it('takes reports (absent from V1) from the full metadata route', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { w: { name: 'w' } } }
+    const reports = { people: { name: 'people', label: 'People', processName: 'reports.basic', hasPermission: true } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets: { w: { name: 'w', hasPermission: true } }, reports })
+    expect((await loadMetaData()).reports).toEqual(reports)
   })
 
   it('does not infer permission when full widget metadata fails', async () => {
@@ -93,14 +125,23 @@ describe('Metadata API', () => {
   })
 
   describe('loadProcessMetaData', () => {
-    it('gets process metadata by name', async () => {
+    it('gets process metadata by name from the registered route and unwraps it', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({ name: 'bulkImport', frontendSteps: [] })
+      const process = { name: 'bulkImport', minInputRecords: 1, frontendSteps: [] }
+      vi.mocked(apiClient.get).mockResolvedValue({ process })
 
       const { loadProcessMetaData } = await import('./metadata')
-      await loadProcessMetaData('bulkImport')
+      await expect(loadProcessMetaData('bulk Import')).resolves.toEqual(process)
 
-      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulkImport')
+      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulk%20Import', { baseURL: 'https://example.invalid/prefix' })
+    })
+
+    it('rejects a response without a process', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ error: 'nope' })
+
+      const { loadProcessMetaData } = await import('./metadata')
+      await expect(loadProcessMetaData('bulkImport')).rejects.toThrow('Invalid process metadata response')
     })
   })
 })

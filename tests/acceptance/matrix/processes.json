@@ -1,0 +1,871 @@
+{
+  "area": "processes",
+  "prefixes": [
+    "PRC"
+  ],
+  "description": "Processes: steps, components, lifecycle, bulk load/edit/delete",
+  "rows": [
+    {
+      "id": "PRC-001",
+      "feature": "Selected-record run: record ids reach the backend, screen values are submitted, mixed view and record-list results render",
+      "source": [
+        "qqq/qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleMetaDataProvider.java",
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "sample greetInteractive",
+      "scenarios": [
+        "recordIds 1,2 -> setup prefix/suffix -> results view values and both greeted rows"
+      ],
+      "negative": [],
+      "issues": [
+        "#645",
+        "#656"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-002",
+      "feature": "All-records run from a filter selection with no criteria",
+      "source": [
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "sample greetInteractive",
+      "scenarios": [
+        "filterJSON {criteria:[]} greets every seeded person (count checked against SQL)"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-003",
+      "feature": "Zero-record runs from a filter that matches nothing",
+      "source": [
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/ValidationReview.tsx"
+      ],
+      "fixture": "sample greetInteractive, clonePeople",
+      "scenarios": [
+        "clonePeople input 0, validation on 0 with no lines, 0 processed"
+      ],
+      "negative": [
+        "greetInteractive record-list step with zero records is refused (\"Missing input records.\")"
+      ],
+      "issues": [
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-004",
+      "feature": "Processes launched from an app (no records)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcLab app, sample greetInteractive",
+      "scenarios": [
+        "app shortcut opens Component Lab without records"
+      ],
+      "negative": [
+        "greetInteractive without records is refused at init (\"Missing input records.\")"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-005",
+      "feature": "Process launched from selected rows of a table query",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "sample person + greetInteractive",
+      "scenarios": [
+        "select Avery and Casey, Actions -> Greet Interactive -> both greeted"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-006",
+      "feature": "Minimum and maximum input records",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/processes/RunBackendStepAction.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcBounds (min 1, max 2)",
+      "scenarios": [
+        "1-2 selected records run and are listed"
+      ],
+      "negative": [
+        "0 or 3 explicit records show a message without init",
+        "filter selecting 5 shows the backend refusal",
+        "API filter selecting 0 is refused"
+      ],
+      "issues": [
+        "#662"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-007",
+      "feature": "Every declared component renders on one screen, in declared order, with one action bar",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents mixed screen",
+      "scenarios": [
+        "HELP_TEXT, HELP_TEXT, VIEW_FORM, EDIT_FORM, HTML, EDIT_FORM in order"
+      ],
+      "negative": [],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-008",
+      "feature": "HELP_TEXT with line breaks and previewText toggle",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "plain lines",
+        "Show/Hide preview text"
+      ],
+      "negative": [],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-009",
+      "feature": "EDIT_FORM field subsets (includeFieldNames), section labels and persisted input values",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "Lab Inputs section holds only its fields",
+        "values saved (SQL prc_lab_run)"
+      ],
+      "negative": [],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-010",
+      "feature": "Required input validation on screens and in the backend",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/processes/RunBackendStepAction.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "filled required field proceeds"
+      ],
+      "negative": [
+        "empty required field blocks without a request",
+        "API step without the required input is refused"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-011",
+      "feature": "Process possible-value fields",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents labColor (prcColor enum)",
+      "scenarios": [
+        "options from the process route",
+        "chosen id saved, label shown on review",
+        "search filters options"
+      ],
+      "negative": [],
+      "issues": [
+        "#667"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-012",
+      "feature": "VIEW_FORM labels and backend values",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/ProcessViewForm.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "Introduction and Status values"
+      ],
+      "negative": [],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-013",
+      "feature": "HTML component renders the step html value, sanitized",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents mixed.html",
+      "scenarios": [
+        "markup rendered"
+      ],
+      "negative": [
+        "script and onerror removed, never executed"
+      ],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-014",
+      "feature": "DOWNLOAD_FORM delivers the generated file",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/processes/ProcessFileDownload.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents compute step",
+      "scenarios": [
+        "download bytes equal the generated file"
+      ],
+      "negative": [
+        "unregistered file path refused (403)"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-015",
+      "feature": "Step help content for process screens",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents helpContent (PROCESS_SCREEN)",
+      "scenarios": [
+        "help text shown"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-016",
+      "feature": "Back to the backend back step with entered values",
+      "source": [
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents review, prcWizard longDetails, greetInteractive",
+      "scenarios": [
+        "Back restarts at the back step with values (possible-value label shown)",
+        "resubmitting saves again"
+      ],
+      "negative": [
+        "no Back without a backend backStep"
+      ],
+      "issues": [
+        "#655",
+        "#667"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-017",
+      "feature": "Dynamic step list from processMetaDataAdjustment.updatedFrontendStepList",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/actions/processes/RunBackendStepOutput.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcWizard",
+      "scenarios": [
+        "short route drops a screen from the stepper",
+        "values logged (SQL)"
+      ],
+      "negative": [],
+      "issues": [
+        "#662"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-018",
+      "feature": "Updated field metadata from processMetaDataAdjustment.updatedFields",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcWizard long route",
+      "scenarios": [
+        "field relabelled and required on the later screen"
+      ],
+      "negative": [
+        "empty relabelled required field blocks"
+      ],
+      "issues": [
+        "#662"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-019",
+      "feature": "Async job progress (message, N of M, progress bar, updated time) then continue",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/async/AsyncJobCallback.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcProgress",
+      "scenarios": [
+        "RUNNING progress shown while polling",
+        "finished screen and SQL log"
+      ],
+      "negative": [],
+      "issues": [
+        "#657"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-020",
+      "feature": "Cancel from a screen and mid-job runs the cancel step and leaves",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/processes/CancelProcessAction.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcProgress cancelStep",
+      "scenarios": [
+        "confirm dialog",
+        "cancel step row (SQL) from a screen and while working"
+      ],
+      "negative": [
+        "Stay on Page keeps the run"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-021",
+      "feature": "Step errors: user-facing messages directly, internal errors behind a detail toggle, Close",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq/qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleMetaDataProvider.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcFailures, prcComponents, sample simpleThrow",
+      "scenarios": [
+        "user-facing message",
+        "internal detail toggle",
+        "simpleThrow \"I always throw.\"",
+        "Close returns to the app"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-022",
+      "feature": "Retry after an error restarts with the original record selection",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcFlaky (fails once)",
+      "scenarios": [
+        "retry loads the selected records 2 and 4"
+      ],
+      "negative": [],
+      "issues": [
+        "#658"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-023",
+      "feature": "Completion: Next/Submit labels, Return on the last screen or when noMoreSteps",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents, prcWizard, prcEarlyFinish",
+      "scenarios": [
+        "Submit on the step before the last screen",
+        "Return only on the last screen",
+        "noMoreSteps ends early"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-024",
+      "feature": "Linear stepper and step position",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "all step labels",
+        "current step marked",
+        "Step i of n"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-025",
+      "feature": "RECORD_LIST paging and page size over process records",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcManyRows (23 generated records)",
+      "scenarios": [
+        "1-10, 11-20, 21-23",
+        "page size 25"
+      ],
+      "negative": [
+        "next disabled on the last page"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-026",
+      "feature": "Validation review: input count, validate-or-skip choice, Next/Submit label, record preview",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/ValidationReview.tsx"
+      ],
+      "fixture": "sample clonePeople",
+      "scenarios": [
+        "Input: 2 Person records.",
+        "radio switches the button label",
+        "preview 1 of 2 / 2 of 2"
+      ],
+      "negative": [],
+      "issues": [
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-027",
+      "feature": "Full validation summary lines (OK, WARNING, ERROR) with record links",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/models/processes/ProcessSummaryLine.tsx",
+        "qqq/qqq-sample-project/src/main/java/com/kingsrook/sampleapp/processes/clonepeople/ClonePeopleTransformStep.java"
+      ],
+      "fixture": "sample clonePeople + inserted clone persons",
+      "scenarios": [
+        "four lines with counts and messages",
+        "link filters to the refused record"
+      ],
+      "negative": [
+        "nothing persisted by validation"
+      ],
+      "issues": [
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-028",
+      "feature": "Process summary results after execution and persisted effects",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/ProcessSummaryResults.tsx"
+      ],
+      "fixture": "sample clonePeople",
+      "scenarios": [
+        "result lines and processed count",
+        "clones persisted (SQL)",
+        "skip validation executes immediately"
+      ],
+      "negative": [
+        "refused and nested records not cloned"
+      ],
+      "issues": [
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-029",
+      "feature": "Bulk edit: switched-on fields only, review and result",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "enricher person.bulkEdit",
+      "scenarios": [
+        "edited fields persisted for selected records only (SQL)",
+        "result lines"
+      ],
+      "negative": [
+        "no switched-on field blocks without a request"
+      ],
+      "issues": [
+        "#656",
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-030",
+      "feature": "Bulk delete: review, validation and result",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java"
+      ],
+      "fixture": "enricher person.bulkDelete",
+      "scenarios": [
+        "selected records removed (SQL)"
+      ],
+      "negative": [
+        "validation deletes nothing"
+      ],
+      "issues": [
+        "#659"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-031",
+      "feature": "Bulk insert: upload, column mapping, value mapping, profile, review preview and result",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadFileMappingForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadValueMappingForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadProfileForm.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "enricher person.bulkInsert + prcUploadArchive",
+      "scenarios": [
+        "uploaded CSV mapped and inserted (SQL)"
+      ],
+      "negative": [
+        "missing required file blocks"
+      ],
+      "issues": [
+        "#656",
+        "#660",
+        "#543"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-032",
+      "feature": "Bulk load mapping validation and Back through mapping and upload",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java",
+        "qqq-frontend-material-dashboard/src/qqq/models/processes/BulkLoadModels.ts"
+      ],
+      "fixture": "enricher person.bulkInsert",
+      "scenarios": [
+        "Back from review keeps the mapping",
+        "Back from mapping to upload"
+      ],
+      "negative": [
+        "unmapped required column blocks without a request"
+      ],
+      "issues": [
+        "#655",
+        "#660"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-033",
+      "feature": "Bulk edit with a file matched by key fields",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java"
+      ],
+      "fixture": "enricher person.bulkEditWithFile",
+      "scenarios": [
+        "rows matched by Id updated (SQL)"
+      ],
+      "negative": [],
+      "issues": [
+        "#656",
+        "#660"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-034",
+      "feature": "Upload instructions HTML with downloadable template",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/instances/QInstanceEnricher.java"
+      ],
+      "fixture": "enricher person.bulkInsert upload.html",
+      "scenarios": [
+        "template CSV downloads with the header row"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-035",
+      "feature": "Named WIDGET fetched with the process UUID and values",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcWidgets prcHtmlWidget",
+      "scenarios": [
+        "widget text built from process values"
+      ],
+      "negative": [],
+      "issues": [
+        "#661"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-036",
+      "feature": "Named composite WIDGET seeded from process values",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessWidgetBlockUtils.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcWidgets prcCompositeWidget",
+      "scenarios": [
+        "seeded blocks rendered, no fetch"
+      ],
+      "negative": [],
+      "issues": [
+        "#661"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-037",
+      "feature": "Ad hoc composite WIDGET: interpolation, conditional blocks, action buttons, submit-on-enter inputs",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessWidgetBlockUtils.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcWidgets ad hoc blocks",
+      "scenarios": [
+        "Approve submits actionCode (SQL)",
+        "Enter submits the scan code (SQL)"
+      ],
+      "negative": [
+        "conditional block hidden"
+      ],
+      "issues": [
+        "#661"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-038",
+      "feature": "GOOGLE_DRIVE_SELECT_FOLDER screen keeps its other components working",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/GoogleDriveFolderPicker.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcDrive",
+      "scenarios": [
+        "help text and edit form submit (SQL)",
+        "picker explains it is not configured"
+      ],
+      "negative": [
+        "required export note blocks"
+      ],
+      "issues": [
+        "#645"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-039",
+      "feature": "Google Drive folder selection through the Google Picker",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/GoogleDriveFolderPicker.tsx"
+      ],
+      "fixture": "needs GOOGLE_APP_CLIENT_ID, GOOGLE_APP_API_KEY and a Google account",
+      "scenarios": [
+        "pick a folder and submit its id"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": false,
+      "approval": "Approved by James 2026-09-25 (QRun-IO/qqq#649): Google Drive folder picker needs a real Google OAuth client and account; the rest of the step is covered by PRC-038; real-service testing is follow-up work."
+    },
+    {
+      "id": "PRC-040",
+      "feature": "Reload mid-process starts a fresh run",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "new process UUID, first screen, empty inputs",
+        "earlier effects kept (SQL)"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-041",
+      "feature": "Expired session mid-process returns to sign-in",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java"
+      ],
+      "fixture": "prcComponents + expired persona",
+      "scenarios": [
+        "401 redirects to login"
+      ],
+      "negative": [
+        "nothing saved"
+      ],
+      "issues": [
+        "#668"
+      ],
+      "required": true,
+      "notes": "Needs QRun-IO/qqq branch feature/GH-649-processes-backend (#668): the registered process step route answers an expired session with HTTP 200. Fails against the current sample jar until that fix is integrated."
+    },
+    {
+      "id": "PRC-042",
+      "feature": "Process permission enforcement",
+      "source": [
+        "qqq/qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinProcessHandler.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "prcComponents + noProcesses persona",
+      "scenarios": [
+        "revoked permission shows the permission message"
+      ],
+      "negative": [
+        "step refused, nothing saved",
+        "direct link offers no process",
+        "API init refused (403)"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-043",
+      "feature": "Default process values from the link (defaultProcessValues)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq/qqq-sample-project/src/main/java/com/kingsrook/sampleapp/metadata/SampleMetaDataProvider.java"
+      ],
+      "fixture": "sample sleepInteractive, prcComponents",
+      "scenarios": [
+        "sleepMillis preset drives an async sleep to screen1",
+        "labName prefilled"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-044",
+      "feature": "Scanner-format screens: no heading or action bar, input blocks submit",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcScanner (format scanner)",
+      "scenarios": [
+        "auto-focused input submits on Enter (SQL)"
+      ],
+      "negative": [
+        "no Next/Cancel buttons rendered"
+      ],
+      "issues": [
+        "#661"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-045",
+      "feature": "State-machine step flow: repeated screens, no linear stepper",
+      "source": [
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/metadata/processes/QStateMachineStep.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcLoop (STATE_MACHINE)",
+      "scenarios": [
+        "screen repeats with fresh inputs and counted rounds",
+        "noMoreSteps ends with Return"
+      ],
+      "negative": [
+        "no stepper or Step i of n"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "PRC-046",
+      "feature": "Saved bulk load profiles: save, choose for a later load, delete",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/SavedBulkLoadProfiles.tsx",
+        "qqq/qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedbulkloadprofiles/SavedBulkLoadProfileMetaDataProvider.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "SavedBulkLoadProfileMetaDataProvider on owned saved_bulk_load_profile tables",
+      "scenarios": [
+        "Save As stores the mapping (SQL)",
+        "choosing the profile restores the mapping and is named on review",
+        "Delete removes it (SQL)"
+      ],
+      "negative": [
+        "a duplicate name is refused"
+      ],
+      "issues": [
+        "#660"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-047",
+      "feature": "A run with no frontend screens completes with a completion screen",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "prcQuickTask (backend step only)",
+      "scenarios": [
+        "completion heading and message",
+        "backend effect persisted (SQL)"
+      ],
+      "negative": [],
+      "issues": [],
+      "required": true
+    }
+  ]
+}

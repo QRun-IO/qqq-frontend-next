@@ -21,7 +21,8 @@
 import { http, HttpResponse } from 'msw'
 import type { QJobComplete, QJobStarted } from '@/types'
 
-const BASE = '/qqq/v1'
+// Process lifecycle requests use the registered routes beside /qqq/v1 (see src/lib/api/processes.ts)
+const BASE = ''
 
 // Active process sessions (keyed by processUUID)
 interface ProcessSession {

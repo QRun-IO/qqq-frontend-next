@@ -15,34 +15,65 @@
  */
 
 /**
- * @file RecordQuery — orchestrator page component for the record query page. Brings together DataGrid, FilterBuilder, Pagination, ColumnConfig, BulkActionBar, and more.
+ * @file RecordQuery — orchestrator page component for the record query page. Brings together
+ * DataGrid, FilterBuilder, Pagination, ColumnConfig, selection, the Actions menu, backend saved
+ * views, export and table variants.
  */
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { X, ArrowLeft } from 'lucide-react'
+import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import type { QTableMetaData, QProcessMetaData } from '@/types'
-import { useRecordQuery } from '@/lib/hooks/use-record-query'
+import type { QTableMetaData, QProcessMetaData, QInstance } from '@/types'
+import type { TableVariant } from '@/lib/api/tables'
+import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
-import { countActiveCriteria } from '@/lib/utils/filter-utils'
+import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
+import { countActiveCriteria, emptyFilter } from '@/lib/utils/filter-utils'
+import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
+import { buildViewJson, diffViews, isColumnVisible, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { queryKeys } from '@/lib/query-client'
+import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
-import { SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+import { canInsertRecords } from '@/lib/auth/permissions'
+import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
+import { SavedViewsMenu } from './SavedViewsMenu'
+import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
+import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
+
+/** localStorage key root for a table's selected variant (the same key Material uses). */
+export const TABLE_VARIANT_STORAGE_KEY_ROOT = 'qqq.tableVariant'
+
+/**
+ * Reads a table's stored variant.
+ *
+ * @param tableName - Backend table name.
+ * @returns The stored variant, or null.
+ */
+function readStoredVariant(tableName: string): TableVariant | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`)
+    const parsed = raw ? (JSON.parse(raw) as TableVariant) : null
+    return parsed && parsed.id !== undefined && typeof parsed.type === 'string' ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Props for the RecordQuery component.
@@ -54,165 +85,236 @@ interface RecordQueryProps {
   tableMetaData: QTableMetaData
   /** Complete table registry, including permissions for intermediate join tables. */
   allTables: Record<string, QTableMetaData>
-  /** Optional list of processes that can be launched from this table's toolbar or bulk action bar. */
+  /** The table's visible processes (Actions menu). */
   processes?: QProcessMetaData[]
+  /** Instance metadata (bulk processes, saved view processes). */
+  metaData?: QInstance
+  /** Saved view to open (the `/savedView/{id}` route). */
+  savedViewId?: number
 }
 
 /**
  * Full-page record query component for a QQQ table.
  *
- * Composes the toolbar (search, filter toggle, column config, density, view mode, export,
- * saved views, process launcher, refresh), inline/mobile filter panels, bulk action bar,
- * error/empty states, DataGrid or RecordCardView, and Pagination.
- *
  * @param props - Component properties.
- * @returns A composed page that assembles:
- *   - `RecordQueryToolbar` (search, filter toggle, column config, density, view mode, export,
- *     saved views, process launcher, refresh button)
- *   - An inline `FilterBuilder` panel (desktop) and a modal bottom-sheet (mobile)
- *   - `RecordQueryBulkBar` (selection count + bulk-process actions, visible when rows are selected)
- *   - `RecordQueryContent` (DataGrid or RecordCardView based on `viewMode`, plus Pagination)
- *   - `VariantPicker` dialog when the table requires a variant selection before querying
+ * @returns The composed query page.
  */
-export function RecordQuery({ tableName, tableMetaData, allTables, processes }: RecordQueryProps) {
+export function RecordQuery({ tableName, tableMetaData, allTables, processes, metaData, savedViewId }: RecordQueryProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromPath = searchParams.get('from')
   const fromLabel = searchParams.get('fromLabel')
-  // MED-6: only allow same-origin paths to prevent open redirect (rejects //evil.com protocol-relative URLs)
   const safeFromPath = fromPath && isSafeRedirectPath(fromPath) ? fromPath : null
   const queryClient = useQueryClient()
   const quickSearchRef = useRef<HTMLInputElement>(null)
   const { preferences } = useUserPreferences()
+  const { userId } = useQContext()
+  const allProcesses = useMemo(() => metaData?.processes ?? {}, [metaData])
+
+  // ------------------------------------------------------------------
+  // Variants (tables whose backend uses variants): stored per table, as in Material
+  // ------------------------------------------------------------------
+  const [tableVariant, setTableVariant] = useState<TableVariant | null>(() => (tableMetaData.usesVariants ? readStoredVariant(tableName) : null))
+  const [variantPickerOpen, setVariantPickerOpen] = useState(() => Boolean(tableMetaData.usesVariants) && readStoredVariant(tableName) === null)
+  const chooseVariant = (variant: TableVariant) => {
+    try {
+      localStorage.setItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`, JSON.stringify(variant))
+    } catch {
+      // persistence is best-effort
+    }
+    setTableVariant(variant)
+    setVariantPickerOpen(false)
+  }
+
+  // ------------------------------------------------------------------
+  // Saved views
+  // ------------------------------------------------------------------
+  const savedViews = useSavedViews(tableName, metaData, userId)
+  const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable)
+  const currentView: SavedView | null = savedViewId !== undefined ? savedViewQuery.data ?? null : null
+  const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize'].some((key) => searchParams.has(key)))
+  const appliedViewRef = useRef<string | null>(null)
+  const viewLoading = savedViewId !== undefined && savedViews.isAvailable && savedViewQuery.isLoading
 
   const rq = useRecordQuery({
     tableName,
     tableMetaData,
     allTables,
     initialPageSize: preferences.tableDefaultPageSize,
+    tableVariant,
+    paused: viewLoading || !tableMetaData.readPermission,
   })
+  const { applyView } = rq
 
-  // Debounced quick search
+  // Apply a saved view once it loads (unless the URL already carries modified state)
+  useEffect(() => {
+    if (!currentView) return
+    const key = `${currentView.id}:${JSON.stringify(currentView.view)}`
+    if (appliedViewRef.current === key) return
+    const first = appliedViewRef.current === null
+    appliedViewRef.current = key
+    if (first && hadUrlStateRef.current) return
+    applyView(viewToState(tableMetaData, currentView.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
+  }, [currentView, applyView, tableMetaData, preferences.tableDefaultPageSize])
+
+  const defaultViewState = useMemo<ViewState>(() => ({
+    userFilter: emptyFilter(preferences.tableDefaultPageSize),
+    sortOrder: rq.filter.defaultSort,
+    columnVisibility: {},
+    columnOrder: [],
+    columnWidths: {},
+    pageSize: preferences.tableDefaultPageSize,
+    filterMode: 'basic',
+  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort])
+  const currentViewJson = useMemo(() => buildViewJson(tableMetaData, rq.viewState), [tableMetaData, rq.viewState])
+  const viewDiffs = useMemo(
+    () => diffViews(tableMetaData, currentView ? currentView.view : buildViewJson(tableMetaData, defaultViewState), currentViewJson),
+    [tableMetaData, currentView, defaultViewState, currentViewJson]
+  )
+
+  const openNewView = () => {
+    setLocalSearchTerm('')
+    if (savedViewId === undefined) {
+      applyView(defaultViewState)
+      return
+    }
+    // Leaving a saved view: the table page starts from the default columns
+    try {
+      for (const suffix of ['columns', 'column-order', 'column-widths']) localStorage.removeItem(`qqq-${tableName}-${suffix}`)
+    } catch {
+      // persistence is best-effort
+    }
+    router.push(`/app/${encodeURIComponent(tableName)}`)
+  }
+  const openSavedView = (view: SavedView) => {
+    if (view.id === savedViewId) {
+      setLocalSearchTerm('')
+      applyView(viewToState(tableMetaData, view.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
+      return
+    }
+    router.push(`/app/${encodeURIComponent(tableName)}/savedView/${view.id}`)
+  }
+  const storeView = async ({ id, label }: { id?: number; label: string }) => {
+    // keep settings Next does not edit (Material quick filter fields) from the view being saved over
+    const stored = await savedViews.storeView({ id, label, view: buildViewJson(tableMetaData, rq.viewState, id !== undefined ? currentView?.view : undefined) })
+    if (stored.id !== savedViewId) router.push(`/app/${encodeURIComponent(tableName)}/savedView/${stored.id}`)
+    else await savedViewQuery.refetch()
+  }
+  const deleteView = async (view: SavedView) => {
+    await savedViews.deleteView(view.id)
+    openNewView()
+  }
+
+  // ------------------------------------------------------------------
+  // Quick search (debounced)
+  // ------------------------------------------------------------------
   const [localSearchTerm, setLocalSearchTerm] = useState(rq.filter.quickSearchTerm)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /**
-   * Updates local state immediately so the search input feels responsive, then
-   * debounces propagation to the query hook by {@link SEARCH_DEBOUNCE_MS} (300 ms)
-   * to reduce API traffic during fast typing. The timer is cleared on each
-   * invocation and on component unmount to prevent stale requests.
-   *
-   * @param value - The current value of the quick-search input.
-   */
   const handleSearchChange = (value: string) => {
     setLocalSearchTerm(value)
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    searchTimeoutRef.current = setTimeout(() => {
-      rq.filter.setQuickSearch(value)
-    }, SEARCH_DEBOUNCE_MS)
+    searchTimeoutRef.current = setTimeout(() => rq.filter.setQuickSearch(value), SEARCH_DEBOUNCE_MS)
   }
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    }
-  }, [])
+  useEffect(() => () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }, [])
 
   const activeFilterCount = countActiveCriteria(rq.filter.userFilter)
 
-  // View mode: grid vs card — default from user preferences; MED-7: apply mobile
-  // override in useEffect (not useState) to avoid SSR/client hydration mismatch
+  // View mode: grid vs card — default from user preferences; mobile override after mount
   const [viewMode, setViewMode] = useState<ViewMode>(preferences.tableDefaultViewMode)
   useEffect(() => {
     if (window.innerWidth < 768) setViewMode('card')
-    // intentional: runs once on mount to apply mobile breakpoint
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Mobile filter bottom-sheet state
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [alertMessage, setAlertMessage] = useState<string | null>(null)
+  const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
+  // Column statistics need the table's QUERY_STATS capability and the columnStats process
+  const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
+  const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
 
-  // Variant state — CRIT-15: tables with usesVariants require a variant selection
-  const [variantId, setVariantId] = useState<string | number | null>(null)
-  const [variantLabel, setVariantLabel] = useState<string | null>(null)
-  const [variantPickerOpen, setVariantPickerOpen] = useState(
-    // Auto-open on mount when the table requires a variant and none is selected
-    tableMetaData.usesVariants
+  const canCreate = canInsertRecords(tableMetaData)
+  const distinct = rq.pagination.distinctCount !== null
+  const matchingCount = rq.pagination.distinctCount ?? rq.pagination.totalCount
+
+  const exportColumns = useMemo(
+    () => orderColumns(getQueryColumns(tableMetaData), rq.columns.columnOrder).filter((c) => isColumnVisible(c.name, rq.columns.columnVisibility)).map((c) => c.name),
+    [tableMetaData, rq.columns.columnOrder, rq.columns.columnVisibility]
   )
 
-  const canCreate = tableMetaData.insertPermission
-
-  /**
-   * Navigates to the create-record route for the current table.
-   */
-  const handleCreateRecord = () => {
-    router.push(`/app/${tableName}/create`)
-  }
-
-  /**
-   * Invalidates the TanStack Query cache for this table's records, triggering a fresh fetch.
-   */
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })
   }
 
   /**
-   * Builds the process URL with selected record IDs as query parameters and navigates to it.
-   * Called from both the toolbar ProcessLauncherMenu and the BulkActionBar.
-   *
-   * @param processName - The backend process name to navigate to.
+   * Launches a process with the current selection, as Material does: all/first-N selections send
+   * the query filter (no page skip; the subset size as the limit), row selections send the ids.
    */
-  // Handle process navigation from the bulk action bar
-  const handleRunProcess = useCallback(
-    (processName: string) => {
-      const params = new URLSearchParams()
-      if (rq.selection.selectedRecordIds.length > 0) {
-        params.set('recordsParam', 'recordIds')
-        params.set('recordIds', rq.selection.selectedRecordIds.join(','))
-      }
-      const queryString = params.toString()
-      router.push(`/app/${encodeURIComponent(processName)}${queryString ? `?${queryString}` : ''}`)
-    },
-    [router, rq.selection.selectedRecordIds]
-  )
-
-  /**
-   * Toggles the advanced filter panel.
-   *
-   * On viewports below the `md` breakpoint the mobile bottom-sheet is opened instead of
-   * the inline desktop panel, avoiding layout issues on small screens.
-   */
-  // Desktop filter toggle also opens mobile bottom-sheet on small screens
-  const handleFilterToggle = useCallback(() => {
-    // On mobile (below md), use bottom-sheet; on desktop, use inline panel
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setMobileFilterOpen((o) => !o)
-    } else {
-      rq.filter.toggleFilterPanel()
+  const launchProcess = useCallback((process: QProcessMetaData) => {
+    const params = new URLSearchParams()
+    if (rq.selection.selectionFilter) {
+      params.set('recordsParam', 'filterJSON')
+      params.set('filterJSON', JSON.stringify(rq.selection.selectionFilter))
+    } else if (rq.selection.selectedRecordIds.length > 0) {
+      params.set('recordsParam', 'recordIds')
+      params.set('recordIds', rq.selection.selectedRecordIds.join(','))
     }
+    const queryString = params.toString()
+    router.push(`/app/${encodeURIComponent(process.name)}${queryString ? `?${queryString}` : ''}`)
+  }, [router, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
+
+  const handleFilterToggle = useCallback(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)
+    else rq.filter.toggleFilterPanel()
   }, [rq])
+
+  const pageRowCount = rq.data.records.length
+  const allPageRowsSelected = pageRowCount > 0 && rq.selection.selectionMode === 'rows' && rq.selection.selectedRecordIds.length > 0
+    && rq.data.records.every((r) => rq.selection.selectedRecordIds.map(String).includes(String(r.values[tableMetaData.primaryKeyField])))
+  const pageOffset = (rq.pagination.pageNum - 1) * rq.pagination.pageSize
+  const { selectionMode, subsetSize } = rq.selection
+  const coveredByQuery = useCallback(
+    (index: number) => selectionMode === 'all' || (selectionMode === 'subset' && pageOffset + index < (subsetSize ?? 0)),
+    [selectionMode, pageOffset, subsetSize]
+  )
+  const isRowSelectedByQuery = selectionMode === 'rows' ? undefined : coveredByQuery
+
+  if (!tableMetaData.readPermission) {
+    return (
+      <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive" data-qqq-id="query-no-permission">
+        You do not have permission to view {tableMetaData.label} records.
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`}>
-      {/* Back link — shown when navigated from another record (e.g., "View All" related records) */}
       {safeFromPath && (
-        <Link
-          href={safeFromPath}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          data-qqq-id="link-back-to-source"
-        >
+        <Link href={safeFromPath} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground" data-qqq-id="link-back-to-source">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to {fromLabel || 'previous page'}
         </Link>
       )}
 
-      {/* ============================================================
-          Toolbar
-      ============================================================ */}
+      {savedViewId !== undefined && savedViewQuery.isError && (
+        <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive" data-qqq-id="saved-view-load-error">
+          There was an error loading the selected view: {savedViewQuery.error instanceof Error ? savedViewQuery.error.message : 'unknown error'}
+        </div>
+      )}
+
+      {alertMessage && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-alert">
+          <span>{alertMessage}</span>
+          <button type="button" onClick={() => setAlertMessage(null)} aria-label="Dismiss" className="rounded p-0.5 hover:bg-amber-100 focus:outline-none focus:ring-1 focus:ring-ring dark:hover:bg-amber-900">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       <RecordQueryToolbar
         tableName={tableName}
         tableMetaData={tableMetaData}
         processes={processes}
         canCreate={canCreate}
-        handleCreateRecord={handleCreateRecord}
+        handleCreateRecord={() => router.push(`/app/${tableName}/create`)}
         localSearchTerm={localSearchTerm}
         quickSearchRef={quickSearchRef}
         handleSearchChange={handleSearchChange}
@@ -222,12 +324,36 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes }: 
         mobileFilterOpen={mobileFilterOpen}
         activeFilterCount={activeFilterCount}
         handleFilterToggle={handleFilterToggle}
-        selectedRecordIds={rq.selection.selectedRecordIds}
-        effectiveFilter={rq.filter.effectiveFilter}
-        savedViews={rq.views.list}
-        onSaveView={rq.views.saveView}
-        onLoadView={rq.views.loadView}
-        onDeleteView={rq.views.deleteView}
+        allProcesses={allProcesses}
+        selectionCount={rq.selection.selectionCount}
+        onLaunchProcess={launchProcess}
+        onProcessBlocked={setAlertMessage}
+        exportFilter={rq.filter.baseFilter}
+        exportColumns={exportColumns}
+        totalCount={rq.pagination.totalCount}
+        tableVariant={tableVariant}
+        savedViewsMenu={
+          <SavedViewsMenu
+            savedViews={savedViews}
+            currentView={currentView}
+            viewDiffs={viewDiffs}
+            onSelectView={openSavedView}
+            onNewView={openNewView}
+            onStore={storeView}
+            onDelete={deleteView}
+          />
+        }
+        selectionMenu={
+          <SelectionMenu
+            pageRowCount={pageRowCount}
+            matchingCount={matchingCount}
+            distinct={distinct}
+            onSelectPage={() => rq.selection.setRowSelection(Object.fromEntries(rq.data.records
+              .map((r) => r.values[tableMetaData.primaryKeyField]).filter((id) => id != null).map((id) => [String(id), true])))}
+            onSelectMode={rq.selection.setSelectionMode}
+            onClear={rq.selection.clearRowSelection}
+          />
+        }
         columnVisibility={rq.columns.columnVisibility}
         columnOrder={rq.columns.columnOrder}
         columnConfigOpen={rq.columns.columnConfigOpen}
@@ -241,146 +367,122 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes }: 
         setViewMode={setViewMode}
         isFetching={rq.data.isFetching}
         handleRefresh={handleRefresh}
-        selectedVariantId={variantId}
-        selectedVariantLabel={variantLabel}
+        selectedVariantId={tableVariant?.id ?? null}
+        selectedVariantLabel={tableVariant?.name ?? null}
         onVariantChipClick={tableMetaData.usesVariants ? () => setVariantPickerOpen(true) : undefined}
       />
 
-      {/* ============================================================
-          Filter Panel (advanced) — desktop inline
-      ============================================================ */}
       {rq.filter.filterPanelOpen && (
-        <div className="hidden md:block rounded-xl border border-primary/20 bg-primary/5">
+        <div className="hidden rounded-xl border border-primary/20 bg-primary/5 md:block">
           <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
-            <span className="text-base font-semibold text-primary">
-              Advanced Filters
-            </span>
-            <button
-              type="button"
-              onClick={rq.filter.toggleFilterPanel}
-              className="text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring"
-              aria-label="Close filter panel"
-              data-qqq-id="filter-panel-close"
-            >
+            <span className="text-base font-semibold text-primary">Advanced Filters</span>
+            <button type="button" onClick={rq.filter.toggleFilterPanel}
+              className="text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring" aria-label="Close filter panel" data-qqq-id="filter-panel-close">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <FilterBuilder
-            tableMetaData={tableMetaData}
-            filter={rq.filter.userFilter}
-            onChange={(f) => rq.filter.setUserFilter(f)}
-            onClose={rq.filter.toggleFilterPanel}
-          />
+          <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={rq.filter.toggleFilterPanel} />
         </div>
       )}
 
-      {/* ============================================================
-          Filter Panel — mobile bottom-sheet overlay
-      ============================================================ */}
       {mobileFilterOpen && (
         <div className="md:hidden" data-qqq-id="mobile-filter-sheet">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setMobileFilterOpen(false)}
-            aria-hidden="true"
-          />
-          {/* Bottom sheet */}
-          <div
-            className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-border bg-card shadow-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Filter panel"
-          >
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMobileFilterOpen(false)} aria-hidden="true" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-border bg-card shadow-sm" role="dialog" aria-modal="true" aria-label="Filter panel">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="text-base font-semibold text-foreground">
-                Advanced Filters
-              </span>
-              <button
-                type="button"
-                onClick={() => setMobileFilterOpen(false)}
+              <span className="text-base font-semibold text-foreground">Advanced Filters</span>
+              <button type="button" onClick={() => setMobileFilterOpen(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Close filter panel"
-                data-qqq-id="mobile-filter-close"
-              >
+                aria-label="Close filter panel" data-qqq-id="mobile-filter-close">
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            {/* Drag indicator */}
             <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-muted-foreground/30" aria-hidden="true" />
-            <FilterBuilder
-              tableMetaData={tableMetaData}
-              filter={rq.filter.userFilter}
-              onChange={(f) => rq.filter.setUserFilter(f)}
-              onClose={() => setMobileFilterOpen(false)}
-            />
+            <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={() => setMobileFilterOpen(false)} />
           </div>
         </div>
       )}
 
-      {/* ============================================================
-          Bulk Action Bar
-      ============================================================ */}
       <RecordQueryBulkBar
         tableMetaData={tableMetaData}
-        processes={processes}
-        selectedRecordIds={rq.selection.selectedRecordIds}
-        totalCount={rq.pagination.totalCount}
+        allProcesses={allProcesses}
+        selectionMode={rq.selection.selectionMode}
+        selectionCount={rq.selection.selectionCount}
+        pageRowCount={pageRowCount}
+        allPageRowsSelected={allPageRowsSelected}
+        distinct={distinct}
         onClearSelection={rq.selection.clearRowSelection}
-        handleRunProcess={processes && processes.length > 0 ? handleRunProcess : undefined}
-        effectiveFilter={rq.filter.effectiveFilter}
+        onLaunch={launchProcess}
       />
 
-      {/* ============================================================
-          Content — error state, empty state, DataGrid/CardView, Pagination
-      ============================================================ */}
-      <RecordQueryContent
-        tableName={tableName}
-        tableMetaData={tableMetaData}
-        viewMode={viewMode}
-        activeFilterCount={activeFilterCount}
-        records={rq.data.records}
-        isLoading={rq.data.isLoading}
-        isFetching={rq.data.isFetching}
-        isError={rq.data.isError}
-        error={rq.data.error}
-        sortOrder={rq.filter.sortOrder}
-        onSortChange={rq.filter.setSort}
-        onResetFilter={rq.filter.resetFilter}
-        quickSearchTerm={rq.filter.quickSearchTerm}
-        rowSelection={rq.selection.rowSelection}
-        onRowSelectionChange={rq.selection.setRowSelection}
-        columnVisibility={rq.columns.columnVisibility}
-        columnOrder={rq.columns.columnOrder}
-        columnWidths={rq.columns.columnWidths}
-        onColumnWidthChange={rq.columns.setColumnWidth}
-        density={rq.density}
-        pageNum={rq.pagination.pageNum}
-        pageSize={rq.pagination.pageSize as PageSize}
-        totalCount={rq.pagination.totalCount}
-        totalPages={rq.pagination.totalPages}
-        onPageChange={rq.pagination.setPage}
-        onPageSizeChange={rq.pagination.setPageSize}
-      />
+      {!rq.data.canQuery ? (
+        <div role="status" className="rounded-xl border border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground" data-qqq-id="query-not-supported">
+          {tableMetaData.label} records cannot be queried.
+        </div>
+      ) : rq.data.needsVariant ? (
+        <div role="status" className="rounded-xl border border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground" data-qqq-id="query-needs-variant">
+          <p>Select a {tableMetaData.variantTableLabel} to view {tableMetaData.label} records.</p>
+          <button type="button" onClick={() => setVariantPickerOpen(true)} data-qqq-id="button-choose-variant"
+            className="mt-3 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring">
+            Select {tableMetaData.variantTableLabel}
+          </button>
+        </div>
+      ) : viewLoading ? (
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground" data-qqq-id="saved-view-loading">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading saved view...
+        </div>
+      ) : (
+        <RecordQueryContent
+          tableName={tableName}
+          tableMetaData={tableMetaData}
+          viewMode={viewMode}
+          activeFilterCount={activeFilterCount}
+          records={rq.data.records}
+          isLoading={rq.data.isLoading}
+          isFetching={rq.data.isFetching}
+          isError={rq.data.isError}
+          error={rq.data.error}
+          sortOrder={rq.filter.sortOrder}
+          onSortChange={rq.filter.setSort}
+          onResetFilter={() => { setLocalSearchTerm(''); rq.filter.resetFilter() }}
+          quickSearchTerm={rq.filter.quickSearchTerm}
+          rowSelection={rq.selection.rowSelection}
+          onRowSelectionChange={rq.selection.setRowSelection}
+          isRowSelectedByQuery={isRowSelectedByQuery}
+          onColumnStats={canShowStats ? (name, label) => setStatsColumn({ name, label }) : undefined}
+          columnVisibility={rq.columns.columnVisibility}
+          columnOrder={rq.columns.columnOrder}
+          columnWidths={rq.columns.columnWidths}
+          onColumnWidthChange={rq.columns.setColumnWidth}
+          density={rq.density}
+          pageNum={rq.pagination.pageNum}
+          pageSize={rq.pagination.pageSize as PageSize}
+          totalCount={rq.pagination.totalCount}
+          distinctCount={rq.pagination.distinctCount}
+          totalPages={rq.pagination.totalPages}
+          onPageChange={rq.pagination.setPage}
+          onPageSizeChange={rq.pagination.setPageSize}
+        />
+      )}
 
-      {/* ============================================================
-          Variant Picker dialog — CRIT-15: shown when table uses variants
-      ============================================================ */}
+      {canShowStats && (
+        <ColumnStatsDialog
+          tableName={tableName}
+          fieldName={statsColumn?.name ?? null}
+          fieldLabel={statsColumn?.label ?? ''}
+          filter={rq.filter.baseFilter}
+          onClose={() => setStatsColumn(null)}
+        />
+      )}
+
       {tableMetaData.usesVariants && (
         <VariantPicker
           open={variantPickerOpen}
+          tableName={tableName}
           variantTableLabel={tableMetaData.variantTableLabel}
-          onCancel={() => {
-            // Allow closing if a variant was already selected; otherwise keep open
-            if (variantId != null) {
-              setVariantPickerOpen(false)
-            }
-          }}
-          onSelect={(id, label) => {
-            setVariantId(id)
-            setVariantLabel(label)
-            setVariantPickerOpen(false)
-          }}
+          selected={tableVariant}
+          onCancel={() => setVariantPickerOpen(false)}
+          onSelect={chooseVariant}
         />
       )}
     </div>

@@ -15,70 +15,61 @@
  */
 
 /**
- * @file BulkActionBar — shows when rows are selected; provides bulk actions including process launcher.
+ * @file BulkActionBar — the selection banner shown while records are selected: Material's
+ * selection text, a clear button, and shortcuts to the table's bulk processes.
  */
 
 'use client'
 
-// BulkActionBar — shows when rows are selected; provides bulk actions including process launcher
-
 import React from 'react'
-import { X, Trash2, Download } from 'lucide-react'
+import { X } from 'lucide-react'
 
-import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
-import { ProcessLauncherMenu } from './ProcessLauncherMenu'
-
-interface BulkActionBarProps {
-  tableMetaData: QTableMetaData
-  selectedCount: number
-  totalCount: number
-  onClearSelection: () => void
-  onDeleteSelected?: () => void
-  onExportSelected?: () => void
-  onRunProcess?: (processName: string) => void
-  processes?: QProcessMetaData[]
-  selectedRecordIds?: (string | number)[]
-  currentFilter?: QQueryFilter
+/** A shortcut button in the bar. */
+export interface BulkAction {
+  /** Stable key. */
+  key: string
+  /** Button text. */
+  label: string
+  /** data-qqq-id for the button. */
+  dataId: string
+  /** Whether the action is destructive (styled accordingly). */
+  destructive?: boolean
+  /** Click handler. */
+  onClick: () => void
 }
 
 /**
- * Action bar displayed when one or more rows are selected in the DataGrid.
- *
- * Shows a count of selected records, a "Clear" button, and optional bulk
- * actions: Export, Delete, and a process launcher dropdown.
+ * Props for the BulkActionBar component.
+ */
+interface BulkActionBarProps {
+  /** Records the selection covers; the bar is hidden at zero. */
+  selectionCount: number
+  /** Material's selection banner text. */
+  selectionText: string
+  /** Clears the selection. */
+  onClearSelection: () => void
+  /** Shortcut actions (for example Bulk Edit and Bulk Delete). */
+  actions?: BulkAction[]
+}
+
+/**
+ * Selection banner with bulk shortcuts. Returns null when nothing is selected.
  *
  * @param props - Component properties.
- * @returns The rendered bulk action bar, or null when no rows are selected.
+ * @returns The bar or null.
  */
-export function BulkActionBar({
-  tableMetaData,
-  selectedCount,
-  totalCount,
-  onClearSelection,
-  onDeleteSelected,
-  onExportSelected,
-  processes,
-  selectedRecordIds,
-  currentFilter,
-}: BulkActionBarProps) {
-  if (selectedCount === 0) return null
-
-  const canDelete = tableMetaData.deletePermission
-  const hasProcesses = processes && processes.length > 0
-
+export function BulkActionBar({ selectionCount, selectionText, onClearSelection, actions = [] }: BulkActionBarProps) {
+  if (selectionCount === 0) return null
   return (
     <div
-      className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-2"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2"
       role="region"
       aria-label="Bulk actions"
       aria-live="polite"
       data-qqq-id="bulk-action-bar"
     >
-      {/* Selection info */}
       <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-primary">
-          {selectedCount} of {totalCount.toLocaleString()} selected
-        </span>
+        <span className="text-sm font-medium text-primary" data-qqq-id="bulk-selection-text">{selectionText}</span>
         <button
           type="button"
           onClick={onClearSelection}
@@ -90,45 +81,21 @@ export function BulkActionBar({
           Clear
         </button>
       </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2">
-        {onExportSelected && (
-          <button
-            type="button"
-            onClick={onExportSelected}
-            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-            aria-label="Export selected records"
-            data-qqq-id="bulk-export"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            Export
-          </button>
-        )}
-
-        {canDelete && onDeleteSelected && (
-          <button
-            type="button"
-            onClick={onDeleteSelected}
-            className="flex items-center gap-1.5 rounded border border-destructive bg-background px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-destructive"
-            aria-label={`Delete ${selectedCount} selected record${selectedCount !== 1 ? 's' : ''}`}
-            data-qqq-id="bulk-delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Delete
-          </button>
-        )}
-
-        {/* Process launcher in bulk action bar */}
-        {hasProcesses && selectedRecordIds && currentFilter && (
-          <ProcessLauncherMenu
-            processes={processes}
-            selectedRecordIds={selectedRecordIds}
-            tableName={tableMetaData.name}
-            currentFilter={currentFilter}
-          />
-        )}
-      </div>
+      {actions.length > 0 && (
+        <div className="flex items-center gap-2">
+          {actions.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              onClick={action.onClick}
+              className={`flex items-center gap-1.5 rounded border bg-background px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 ${action.destructive ? 'border-destructive text-destructive hover:bg-destructive/10 focus:ring-destructive' : 'border-input text-foreground hover:bg-accent focus:ring-ring'}`}
+              data-qqq-id={action.dataId}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -45,7 +45,7 @@ export interface ScriptEditorProps {
    */
   onChange: (value: string) => void
   /** Programming language used for the badge display. Defaults to `'text'`. */
-  language?: 'javascript' | 'groovy' | 'python' | 'sql' | 'text'
+  language?: 'javascript' | 'groovy' | 'python' | 'sql' | 'json' | 'text'
   /** When `true`, the textarea is rendered as read-only with muted styling. */
   readOnly?: boolean
   /**
@@ -63,6 +63,7 @@ const LANGUAGE_LABELS: Record<NonNullable<ScriptEditorProps['language']>, string
   groovy: 'Groovy',
   python: 'Python',
   sql: 'SQL',
+  json: 'JSON',
   text: 'Text',
 }
 

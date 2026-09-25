@@ -20,10 +20,11 @@
 
 'use client'
 
-import React, { useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import DOMPurify from 'dompurify'
 import { Bold, Italic, Underline, Link } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { normalizeEditorHtml } from '@/lib/utils/editor-html'
 
 /**
  * Props for the {@link RichTextField} component.
@@ -75,6 +76,31 @@ export function RichTextField({
   className,
 }: RichTextFieldProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  // The editor HTML last reported and the normalized value it was reported as
+  const emitted = useRef<{ html: string; value: string } | null>(null)
+
+  // Write the value into the editor only when it changed from outside (initial load,
+  // form reset). Re-writing the user's own input would move the caret to the start
+  // on every keystroke. Values are sanitized to prevent stored XSS.
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    if (emitted.current && value === emitted.current.value && editor.innerHTML === emitted.current.html) return
+    if (editor.innerHTML !== value) editor.innerHTML = DOMPurify.sanitize(value)
+  }, [value])
+
+  /**
+   * Reports the editor content, normalized so the stored HTML does not depend on the
+   * browser engine (see {@link normalizeEditorHtml}).
+   */
+  const emitChange = () => {
+    const editor = editorRef.current
+    if (!editor) return
+    const html = editor.innerHTML
+    const next = normalizeEditorHtml(html)
+    emitted.current = { html, value: next }
+    onChange(next)
+  }
 
   /**
    * Applies a `document.execCommand` formatting instruction to the current
@@ -87,9 +113,7 @@ export function RichTextField({
     editorRef.current?.focus()
     document.execCommand(command, false)
     // Sync updated inner HTML back to the parent form state
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
-    }
+    emitChange()
   }
 
   /**
@@ -101,18 +125,14 @@ export function RichTextField({
     if (!url) return
     editorRef.current?.focus()
     document.execCommand('createLink', false, url)
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
-    }
+    emitChange()
   }
 
   /**
    * Syncs the contentEditable HTML to React state on every input event.
    */
   const handleInput = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
-    }
+    emitChange()
   }
 
   return (
@@ -193,9 +213,6 @@ export function RichTextField({
         suppressContentEditableWarning
         onInput={handleInput}
         onBlur={handleInput}
-        // Set initial HTML; subsequent updates are managed by execCommand.
-        // Sanitize on init to prevent stored XSS from backend-sourced values.
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
         className={cn(
           'min-h-[120px] w-full rounded-b-md border border-input bg-background px-3 py-2',
           'text-sm text-foreground',

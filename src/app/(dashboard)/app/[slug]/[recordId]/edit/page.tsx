@@ -30,15 +30,17 @@
  */
 
 import React, { useEffect } from 'react'
-import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
+import { recordLoadFailure } from '@/lib/utils/error-utils'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
 
 /**
  * Renders the record-edit form for the record identified by `slug` and `recordId`.
@@ -57,7 +59,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
  *     wrapped in a centered `max-w-4xl` container
  */
 export default function EntityEditPage() {
-  const params = useParams<{ slug: string; recordId: string }>()
+  const params = useRouteParams<{ slug: string; recordId: string }>()
   const { setPageHeader, setTableMetaData } = useQContext()
   const { slug, recordId } = params
 
@@ -72,7 +74,7 @@ export default function EntityEditPage() {
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData?.editPermission),
+    enabled: canEditRecords(tableMetaData),
     includeAssociations: false,
   })
 
@@ -95,14 +97,17 @@ export default function EntityEditPage() {
     )
   }
 
-  if (!tableMetaData.editPermission) {
+  if (!canEditRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to edit {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_UPDATE')
+            ? `${tableMetaData.label} records cannot be edited.`
+            : `You do not have permission to edit ${tableMetaData.label} records.`}
         </p>
       </div>
     )
@@ -115,7 +120,7 @@ export default function EntityEditPage() {
         role="alert"
       >
         <p className="text-sm text-destructive">
-          {error?.message ?? `Failed to load ${tableMetaData.label} #${recordId}`}
+          {recordLoadFailure(tableMetaData.label, recordId, error)}
         </p>
       </div>
     )
@@ -123,7 +128,7 @@ export default function EntityEditPage() {
 
   return (
     <div className="mx-auto max-w-4xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
-      <EntityForm tableMetaData={tableMetaData} record={record} />
+      <EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} />
     </div>
   )
 }

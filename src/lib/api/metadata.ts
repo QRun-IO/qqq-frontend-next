@@ -38,29 +38,54 @@ export async function loadMetaData(): Promise<QInstance> {
   const result = await apiClient.get<QInstance>('/metaData', {
     params: {
       frontendName: 'qqq-frontend-next',
-      frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
+      frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
     },
   })
   const parsed = QInstanceMinimalSchema.safeParse(result)
   if (!parsed.success) {
     console.warn('[API] QInstance metadata response failed schema validation:', parsed.error.flatten())
   }
-  // V1 supplies light widget metadata. Resolve permission/presentation fields
+  // V1 supplies light widget metadata and no report metadata. Resolve widget
+  // permission/presentation fields, and the reports the app tree links to,
   // through the registered full metadata route instead of assuming access.
-  if (Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')) {
+  const needsWidgets = Object.values(result.widgets ?? {}).some((widget) => typeof widget.hasPermission !== 'boolean')
+  const needsReports = !result.reports && hasReportNode(result.appTree ?? [])
+  if (needsWidgets || needsReports) {
     const full = await apiClient.get<QInstance>('/metaData', {
       baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
       params: {
         frontendName: 'qqq-frontend-next',
-        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0',
+        frontendVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
       },
     })
-    if (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets)) {
+    if (needsWidgets && (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets))) {
       throw new Error('Invalid widget metadata response')
     }
-    return { ...result, widgets: full.widgets }
+    if (needsReports && (!full || typeof full !== 'object' || Array.isArray(full.reports))) {
+      throw new Error('Invalid report metadata response')
+    }
+    // V1 has no reports map; the full route carries each report's permission and
+    // process, so take it whenever the full route was fetched (for widgets or reports).
+    const fullReports = full && typeof full === 'object' && full.reports && typeof full.reports === 'object' && !Array.isArray(full.reports)
+      ? full.reports
+      : undefined
+    return {
+      ...result,
+      ...(needsWidgets ? { widgets: full.widgets } : {}),
+      reports: fullReports ?? result.reports ?? {},
+    }
   }
   return result
+}
+
+/**
+ * Whether an app tree links to any report.
+ *
+ * @param nodes - App-tree nodes.
+ * @returns `true` when a REPORT node appears at any depth.
+ */
+function hasReportNode(nodes: QInstance['appTree']): boolean {
+  return nodes.some((node) => node.type === 'REPORT' || hasReportNode(node.children ?? []))
 }
 
 /**
@@ -95,5 +120,17 @@ export async function loadTableMetaData(tableName: string): Promise<QTableMetaDa
  *   and overall process configuration such as the process label and step components.
  */
 export async function loadProcessMetaData(processName: string): Promise<QProcessMetaData> {
-  return apiClient.get<QProcessMetaData>(`/metaData/process/${encodeURIComponent(processName)}`)
+  //////////////////////////////////////////////////////////////////////////////
+  // The registered route carries min/max input records, component values     //
+  // (ad hoc widget blocks keep blockTypeName and conditional) and step back   //
+  // names, which the versioned process metadata omits; it wraps the process. //
+  //////////////////////////////////////////////////////////////////////////////
+  const body = await apiClient.get<{ process?: QProcessMetaData }>(`/metaData/process/${encodeURIComponent(processName)}`, {
+    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
+  })
+  const process = body?.process
+  if (!process || typeof process !== 'object' || typeof process.name !== 'string' || !Array.isArray(process.frontendSteps)) {
+    throw new Error('Invalid process metadata response')
+  }
+  return process
 }

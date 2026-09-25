@@ -14,446 +14,80 @@
  * limitations under the License.
  */
 
-// Tests for ExportButton component
+// Tests for ExportButton: backend export with visible columns and the full filter (#649)
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
-import { ExportButton } from './ExportButton'
-import type { QTableMetaData } from '@/types'
+import type { QTableMetaData, QQueryFilter } from '@/types'
+import { ExportButton, formatDateTimeForFileName } from './ExportButton'
 
-// Mock the tables API so we don't hit the network
-vi.mock('@/lib/api/tables', () => ({
-  queryRecords: vi.fn(),
-}))
+vi.mock('@/lib/api/tables', () => ({ exportRecords: vi.fn() }))
+vi.mock('@/lib/hooks/use-toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
-// Mock the toast to verify error notifications
-vi.mock('@/lib/hooks/use-toast', () => ({
-  toast: {
-    error: vi.fn(),
-    success: vi.fn(),
-    info: vi.fn(),
-    warning: vi.fn(),
-    dismiss: vi.fn(),
-  },
-  useToast: () => ({ toast: { error: vi.fn() } }),
-}))
-
-import { queryRecords } from '@/lib/api/tables'
+import { exportRecords } from '@/lib/api/tables'
 import { toast } from '@/lib/hooks/use-toast'
 
-const mockQueryRecords = vi.mocked(queryRecords)
-const mockToastError = vi.mocked(toast.error)
+const mockExport = vi.mocked(exportRecords)
 
-const RECORDS = [
-  { values: { id: 1, name: 'Alice' }, displayValues: { id: '1', name: 'Alice Smith' } },
-  { values: { id: 2, name: 'Bob' }, displayValues: { id: '2', name: 'Bob Jones' } },
-]
+const table = (capabilities: string[]): QTableMetaData => ({
+  name: 'person', label: 'People', isHidden: false, primaryKeyField: 'id', fields: {}, sections: [], exposedJoins: [],
+  capabilities: capabilities as QTableMetaData['capabilities'], readPermission: true, insertPermission: false, editPermission: false,
+  deletePermission: false, usesVariants: false, variantTableLabel: '',
+})
 
-function makeTableMeta(overrides: Partial<QTableMetaData> = {}): QTableMetaData {
-  return {
-    name: 'person',
-    label: 'People',
-    isHidden: false,
-    primaryKeyField: 'id',
-    fields: {
-      id: {
-        name: 'id',
-        label: 'ID',
-        type: 'INTEGER',
-        isRequired: true,
-        isEditable: false,
-        isHeavy: false,
-        isHidden: false,
-        adornments: [],
-      },
-      name: {
-        name: 'name',
-        label: 'Name',
-        type: 'STRING',
-        isRequired: false,
-        isEditable: true,
-        isHeavy: false,
-        isHidden: false,
-        adornments: [],
-      },
-    },
-    sections: [],
-    capabilities: ['TABLE_QUERY'],
-    exposedJoins: [],
-    readPermission: true,
-    insertPermission: false,
-    editPermission: false,
-    deletePermission: false,
-    usesVariants: false,
-    variantTableLabel: '',
-    ...overrides,
-  }
-}
-
-const baseFilter = {
-  criteria: [],
-  orderBys: [],
+const filter: QQueryFilter = {
+  criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Avery'] }],
+  orderBys: [{ fieldName: 'id', isAscending: false }],
   subFilters: [],
-  booleanOperator: 'AND' as const,
-  skip: 0,
+  booleanOperator: 'AND',
+  skip: 50,
   limit: 25,
 }
 
-// Helpers for mocking URL / anchor download
-let createdObjectUrls: string[] = []
-let revokedObjectUrls: string[] = []
-let anchorClicks = 0
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  createdObjectUrls = []
-  revokedObjectUrls = []
-  anchorClicks = 0
-
-  mockQueryRecords.mockResolvedValue({ records: RECORDS } as unknown as Awaited<ReturnType<typeof queryRecords>>)
-
-  // Stub URL.createObjectURL / revokeObjectURL
-  vi.stubGlobal('URL', {
-    createObjectURL: vi.fn((blob: Blob) => {
-      const url = `blob:test-url-${createdObjectUrls.length}`
-      createdObjectUrls.push(url)
-      return url
-    }),
-    revokeObjectURL: vi.fn((url: string) => {
-      revokedObjectUrls.push(url)
-    }),
+describe('ExportButton', () => {
+  beforeEach(() => {
+    mockExport.mockReset()
+    vi.mocked(toast.error).mockReset()
+    URL.createObjectURL = vi.fn(() => 'blob:export')
+    URL.revokeObjectURL = vi.fn()
   })
 
-  // Intercept anchor click to track it without navigating
-  const originalCreateElement = document.createElement.bind(document)
-  vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
-    const el = originalCreateElement(tag)
-    if (tag === 'a') {
-      vi.spyOn(el as HTMLAnchorElement, 'click').mockImplementation(() => {
-        anchorClicks++
-      })
+  it('posts the visible columns and the filter without paging for each format', async () => {
+    mockExport.mockResolvedValue(new Blob(['id\n1']))
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_QUERY', 'TABLE_EXPORT'])} exportFilter={filter}
+      columnNames={['id', 'firstName', 'pet.name']} totalCount={3} />)
+    for (const format of ['csv', 'xlsx', 'json']) {
+      await userEvent.click(screen.getByRole('button', { name: 'Export records' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: new RegExp(`Export ${format.toUpperCase()}`) }))
+      await waitFor(() => expect(mockExport).toHaveBeenCalledTimes(['csv', 'xlsx', 'json'].indexOf(format) + 1))
+      const [tableName, filename, fields, sentFilter] = mockExport.mock.calls.at(-1)!
+      expect(tableName).toBe('person')
+      expect(filename).toMatch(new RegExp(`^People Export \\d{4}-\\d{2}-\\d{2} \\d{4}\\.${format}$`))
+      expect(fields).toEqual(['id', 'firstName', 'pet.name'])
+      expect(sentFilter).toEqual({ criteria: filter.criteria, orderBys: filter.orderBys, subFilters: [], booleanOperator: 'AND' })
     }
-    return el
-  })
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
-})
-
-describe('ExportButton — rendering', () => {
-  it('renders the export trigger button', () => {
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-    expect(screen.getByRole('button', { name: /export records/i })).toBeInTheDocument()
   })
 
-  it('shows "Export" label by default', () => {
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-    expect(screen.getByRole('button', { name: /export records/i })).toHaveTextContent('Export')
+  it('disables the formats when nothing matches and the button without TABLE_EXPORT', async () => {
+    const { rerender } = render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={0} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export records' }))
+    expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toBeDisabled()
+    rerender(<ExportButton tableName="person" tableMetaData={table(['TABLE_QUERY'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    expect(screen.getByRole('button', { name: /exports are not allowed/ })).toBeDisabled()
   })
 
-  it('has data-qqq-id="export-button" on wrapper', () => {
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-    expect(document.querySelector('[data-qqq-id="export-button"]')).toBeInTheDocument()
+  it('reports backend export errors', async () => {
+    mockExport.mockRejectedValue(new Error('Permission denied'))
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={1} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export records' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /Export CSV/ }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Export failed: Permission denied'))
   })
 
-  it('dropdown is not visible initially', () => {
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-})
-
-describe('ExportButton — dropdown', () => {
-  it('opens dropdown menu when trigger is clicked', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.getByRole('menu', { name: /export options/i })).toBeInTheDocument()
-  })
-
-  it('shows "All records" menu item', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.getByRole('menuitem', { name: /all records/i })).toBeInTheDocument()
-  })
-
-  it('shows "Current page" menu item', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.getByRole('menuitem', { name: /current page/i })).toBeInTheDocument()
-  })
-
-  it('shows "Selected (N)" menu item when selectedRecordIds is non-empty', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-        selectedRecordIds={[1, 2, 3]}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.getByRole('menuitem', { name: /selected \(3\)/i })).toBeInTheDocument()
-  })
-
-  it('does not show "Selected" option when no records are selected', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-        selectedRecordIds={[]}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.queryByRole('menuitem', { name: /selected/i })).not.toBeInTheDocument()
-  })
-
-  it('closes the dropdown when clicking the backdrop', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-
-    // Click on the fixed backdrop
-    const backdrop = document.querySelector('.fixed.inset-0')
-    expect(backdrop).toBeInTheDocument()
-    await user.click(backdrop!)
-
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-})
-
-describe('ExportButton — download (all records)', () => {
-  it('calls queryRecords and triggers anchor download for "All records"', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /all records/i }))
-
-    await waitFor(() => {
-      expect(mockQueryRecords).toHaveBeenCalledWith('person', expect.objectContaining({
-        filter: expect.objectContaining({ limit: 10000 }),
-      }))
-      expect(anchorClicks).toBe(1)
-    })
-  })
-
-  it('shows "Exporting..." label while the fetch is in progress', async () => {
-    // Delay the fetch so we can observe the loading state
-    mockQueryRecords.mockImplementation(() => new Promise((resolve) => {
-      setTimeout(() => resolve({ records: RECORDS } as unknown as Awaited<ReturnType<typeof queryRecords>>), 200)
-    }))
-
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /all records/i }))
-
-    // Immediately after click — should show Exporting...
-    expect(screen.getByRole('button', { name: /export records/i })).toHaveTextContent('Exporting...')
-
-    // Button should be disabled during export
-    expect(screen.getByRole('button', { name: /export records/i })).toBeDisabled()
-
-    // Wait for completion
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /export records/i })).toHaveTextContent(/^Export$/)
-      expect(screen.getByRole('button', { name: /export records/i })).toBeEnabled()
-    })
-  })
-
-  it('revokes the object URL after download', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /all records/i }))
-
-    await waitFor(() => {
-      expect(revokedObjectUrls).toHaveLength(1)
-    })
-  })
-})
-
-describe('ExportButton — download (current page)', () => {
-  it('calls queryRecords with the currentFilter for "Current page"', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /current page/i }))
-
-    await waitFor(() => {
-      expect(mockQueryRecords).toHaveBeenCalledWith('person', { filter: baseFilter })
-    })
-  })
-})
-
-describe('ExportButton — download (selected)', () => {
-  it('builds a filter with IN criteria for selected record IDs', async () => {
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-        selectedRecordIds={[1, 2]}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /selected \(2\)/i }))
-
-    await waitFor(() => {
-      expect(mockQueryRecords).toHaveBeenCalledWith('person', expect.objectContaining({
-        filter: expect.objectContaining({
-          criteria: [expect.objectContaining({ operator: 'IN', values: ['1', '2'] })],
-        }),
-      }))
-    })
-  })
-})
-
-describe('ExportButton — error handling', () => {
-  it('shows a toast error and re-enables button when queryRecords rejects', async () => {
-    mockQueryRecords.mockRejectedValue(new Error('Network error'))
-
-    const user = userEvent.setup()
-    render(
-      <ExportButton
-        tableName="person"
-        tableMetaData={makeTableMeta()}
-        currentFilter={baseFilter}
-        columnVisibility={{}}
-        columnOrder={['id', 'name']}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /export records/i }))
-    await user.click(screen.getByRole('menuitem', { name: /all records/i }))
-
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining('Export failed'))
-      expect(screen.getByRole('button', { name: /export records/i })).not.toBeDisabled()
-    })
+  it('formats file-name dates like Material', () => {
+    expect(formatDateTimeForFileName(new Date(2026, 0, 2, 3, 4))).toBe('2026-01-02 0304')
   })
 })

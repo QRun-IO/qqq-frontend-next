@@ -15,7 +15,9 @@
  */
 
 /**
- * @file FileUploadField — drag-and-drop file upload field with drag-over feedback, click-to-browse support, and React Hook Form integration.
+ * @file FileUploadField — file upload for BLOB / FILE_UPLOAD fields: a "Choose file" button
+ * or a drag-and-drop zone (the FILE_UPLOAD adornment's `format`), with the record's current
+ * file, React Hook Form integration and keyboard access.
  */
 
 'use client'
@@ -31,9 +33,9 @@ import { cn } from '@/lib/utils/cn'
  * Props for the {@link FileUploadField} component.
  */
 interface FileUploadFieldProps {
-  /** The HTML `id` for the upload drop-zone region and its associated `<label>`. */
+  /** The HTML `id` for the upload control. */
   id: string
-  /** Human-readable field label rendered above the drop-zone. */
+  /** Human-readable field label. */
   label: string
   /** The React Hook Form field name used by the `Controller`. */
   name: string
@@ -41,31 +43,30 @@ interface FileUploadFieldProps {
   control: Control<Record<string, unknown>>
   /** Validation error; when present triggers error styling and an error message. */
   error?: FieldError
-  /** When `true`, the drop-zone is non-interactive and visually dimmed. */
+  /** When `true`, the control is non-interactive and visually dimmed. */
   disabled?: boolean
   /** When `true`, an asterisk indicator is shown next to the label. */
   required?: boolean
   /** Forwarded to the hidden `<input type="file">` `accept` attribute (e.g. `"image/*,.pdf"`). */
   accept?: string
-  /** Name of a previously uploaded file shown in the drop-zone before a new file is selected. */
+  /** `button` (default): a "Choose file to upload" button; `dragAndDrop`: a drop zone. */
+  format?: 'button' | 'dragAndDrop'
+  /** The file the record already holds (edit screen), shown with a remove action. */
+  currentFile?: { name: string; url?: string }
+  /** @deprecated Use `currentFile`. Name of a previously uploaded file. */
   existingFileName?: string
-  /** `data-qqq-id` attribute forwarded to the drop-zone region for CSS customization. */
+  /** `data-qqq-id` attribute for CSS customization. */
   'data-qqq-id'?: string
 }
 
 /**
- * Drag-and-drop file upload field integrated with React Hook Form.
+ * File upload field integrated with React Hook Form.
  *
- * Supports both click-to-browse (delegates to a visually hidden
- * `<input type="file">`) and native drag-and-drop.  While a file is being
- * dragged over the drop zone, a highlighted border and "Drop file here"
- * overlay are shown for clear visual feedback.  A clear button removes
- * the selected file from the form state.  When a file is already selected
- * or `existingFileName` is provided, the file name is displayed with the
- * remove option.
+ * The value is a `File` once chosen, the record's original value while untouched,
+ * and `null` when the current file is removed (saved as a cleared file).
  *
  * @param props - See {@link FileUploadFieldProps}.
- * @returns The rendered drag-and-drop upload zone with label and optional error message.
+ * @returns The upload control with label, current file and optional error message.
  */
 export function FileUploadField({
   id,
@@ -76,107 +77,125 @@ export function FileUploadField({
   disabled = false,
   required = false,
   accept,
+  format = 'button',
+  currentFile,
   existingFileName,
   'data-qqq-id': dataQqqId,
 }: FileUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const initialValue = useRef<{ captured: boolean; value: unknown }>({ captured: false, value: null })
   const [dragOver, setDragOver] = useState(false)
+  const current = currentFile ?? (existingFileName ? { name: existingFileName } : undefined)
+  const labelId = `${id}-label`
 
   return (
     <div className="flex flex-col gap-1">
-      <label
-        className="text-sm font-medium text-foreground"
-        data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-      >
+      <span id={labelId} className="text-sm font-medium text-foreground" data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}>
         {label}
         {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
-      </label>
+      </span>
       <Controller
         name={name}
         control={control}
         render={({ field }) => {
-          const currentFile = field.value instanceof File ? (field.value as File) : null
-          const displayName = currentFile?.name ?? existingFileName
+          if (!initialValue.current.captured) initialValue.current = { captured: true, value: field.value ?? null }
+          const selected = field.value instanceof File ? field.value : null
+          const showsCurrent = Boolean(current) && !selected && field.value !== null && field.value !== '' && field.value !== undefined
 
-          /**
-           * Updates the form field value with the first file from a FileList.
-           *
-           * @param files - The `FileList` from a file input or drag-drop event; no-op when empty or null.
-           */
+          const choose = () => { if (!disabled) inputRef.current?.click() }
           const handleFiles = (files: FileList | null) => {
-            if (files && files.length > 0) {
-              field.onChange(files[0])
-            }
+            if (files && files.length > 0) field.onChange(files[0])
+          }
+          const clearSelection = () => {
+            field.onChange(initialValue.current.value instanceof File ? null : initialValue.current.value)
+            if (inputRef.current) inputRef.current.value = ''
           }
 
           return (
-            <div>
-              <div
-                id={id}
-                role="region"
-                aria-label={`${label} upload area`}
-                aria-describedby={error ? `${id}-error` : undefined}
-                data-qqq-id={dataQqqId}
-                onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setDragOver(false)
-                  if (!disabled) handleFiles(e.dataTransfer.files)
-                }}
-                className={cn(
-                  'flex flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center',
-                  'transition-colors duration-150 cursor-pointer',
-                  dragOver && !disabled
-                    ? 'border-primary border-2 bg-accent'
-                    : 'border-input',
-                  disabled && 'cursor-not-allowed opacity-50',
-                  error && !dragOver && 'border-destructive',
-                  'hover:border-primary'
-                )}
-                onClick={() => !disabled && inputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+            <div className="space-y-2">
+              {showsCurrent && current && (
+                <div className="flex items-center gap-2 text-sm" data-qqq-id={dataQqqId ? `${dataQqqId}-current-file` : undefined}>
+                  <span className="text-muted-foreground">Current File:</span>
+                  {current.url
+                    ? <a href={current.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{current.name}</a>
+                    : <span className="text-foreground">{current.name}</span>}
+                  {!disabled && (
+                    <button type="button" aria-label={`Remove current file ${current.name}`} title="Remove current file"
+                      data-qqq-id={dataQqqId ? `${dataQqqId}-remove-current` : undefined}
+                      onClick={() => field.onChange(null)}
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-2 focus:ring-destructive">
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+              {!selected && current && field.value === null && (
+                <p className="text-sm text-muted-foreground" role="status">The current file will be removed when you save.</p>
+              )}
+
+              {format === 'dragAndDrop' ? (
+                <div
+                  id={id}
+                  role="group"
+                  aria-labelledby={labelId}
+                  aria-describedby={error ? `${id}-error` : undefined}
+                  data-qqq-id={dataQqqId}
+                  data-upload-format="dragAndDrop"
+                  onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
                     e.preventDefault()
-                    inputRef.current?.click()
-                  }
-                }}
-                tabIndex={disabled ? -1 : 0}
-              >
-                {dragOver && !disabled ? (
-                  <span className="text-sm font-medium text-primary">Drop file here</span>
-                ) : displayName ? (
-                  <div className="flex items-center gap-2 text-sm text-foreground">
-                    <FileIcon className="h-5 w-5 text-primary" aria-hidden="true" />
-                    <span className="max-w-[200px] truncate">{displayName}</span>
-                    {!disabled && (
-                      <button
-                        type="button"
-                        aria-label={`Remove ${displayName}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          field.onChange(null)
-                          if (inputRef.current) inputRef.current.value = ''
-                        }}
-                        className="ml-1 rounded p-0.5 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-2 focus:ring-destructive"
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium text-primary">Click to upload</span>{' '}
-                      or drag and drop
-                    </p>
-                    {accept && (
-                      <p className="mt-1 text-xs text-muted-foreground">{accept}</p>
-                    )}
-                  </>
-                )}
-              </div>
+                    setDragOver(false)
+                    if (!disabled) handleFiles(e.dataTransfer.files)
+                  }}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center',
+                    'transition-colors duration-150',
+                    dragOver && !disabled ? 'border-primary bg-accent' : 'border-input',
+                    disabled && 'cursor-not-allowed opacity-50',
+                    error && !dragOver && 'border-destructive'
+                  )}
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                  <p className="text-sm text-muted-foreground">{dragOver && !disabled ? 'Drop file here' : 'Drag and drop a file'}</p>
+                  <p className="text-xs text-muted-foreground">or</p>
+                  <button type="button" onClick={choose} disabled={disabled} aria-describedby={labelId}
+                    data-qqq-id={dataQqqId ? `${dataQqqId}-browse` : undefined}
+                    className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed">
+                    Browse files
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3" data-qqq-id={dataQqqId} data-upload-format="button">
+                  <button id={id} type="button" onClick={choose} disabled={disabled}
+                    aria-labelledby={`${labelId} ${id}`}
+                    aria-describedby={error ? `${id}-error` : undefined}
+                    data-qqq-id={dataQqqId ? `${dataQqqId}-choose` : undefined}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium',
+                      'bg-card text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      error ? 'border-destructive' : 'border-input'
+                    )}>
+                    <Upload className="h-4 w-4" aria-hidden="true" />
+                    Choose file to upload
+                  </button>
+                </div>
+              )}
+
+              {selected && (
+                <div className="flex items-center gap-2 text-sm text-foreground" data-qqq-id={dataQqqId ? `${dataQqqId}-selected-file` : undefined}>
+                  <FileIcon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span className="max-w-[240px] truncate">{selected.name}</span>
+                  {!disabled && (
+                    <button type="button" aria-label={`Remove ${selected.name}`} onClick={clearSelection}
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-2 focus:ring-destructive">
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <input
                 ref={inputRef}
                 type="file"
@@ -186,6 +205,7 @@ export function FileUploadField({
                 aria-hidden="true"
                 tabIndex={-1}
                 className="sr-only"
+                data-qqq-id={dataQqqId ? `${dataQqqId}-file-input` : undefined}
                 onChange={(e) => handleFiles(e.target.files)}
               />
             </div>

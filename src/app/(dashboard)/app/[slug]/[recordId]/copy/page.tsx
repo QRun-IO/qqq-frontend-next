@@ -21,9 +21,9 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
+import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -32,7 +32,8 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { QTableMetaData } from '@/types'
 import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
-import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
+import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
 import { EntityForm, type EntityFormProps } from '@/components/forms/EntityForm'
 import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
 
@@ -53,7 +54,7 @@ import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
  *     wrapped in a centered `max-w-4xl` container; submitting creates a new record
  */
 export default function EntityCopyPage() {
-  const params = useParams<{ slug: string; recordId: string }>()
+  const params = useRouteParams<{ slug: string; recordId: string }>()
   return <CopyPageContent key={JSON.stringify(params)} slug={params.slug} recordId={params.recordId} />
 }
 
@@ -79,12 +80,12 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: Boolean(tableMetaData?.insertPermission && tableMetaData?.readPermission),
+    enabled: canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
     includeAssociations: false,
   })
 
   const expanded = useRecord({ tableName: slug, primaryKey: recordId, includeAssociations: true,
-    enabled: mode === 'full' && !tree && Boolean(tableMetaData?.insertPermission && tableMetaData?.readPermission),
+    enabled: mode === 'full' && !tree && canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
   })
   const sourceTables = useMemo(() => {
     if (!expanded.record) return { names: [] as string[] }
@@ -134,17 +135,20 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   }
 
   if (!tableMetaData.readPermission) {
-    return <div role="alert" className="py-12 text-center text-destructive">You do not have permission to read the source {tableMetaData.label} record.</div>
+    return <div role="alert" data-qqq-id="permission-denied" className="py-12 text-center text-destructive">You do not have permission to read the source {tableMetaData.label} record.</div>
   }
 
-  if (!tableMetaData.insertPermission) {
+  if (!canInsertRecords(tableMetaData)) {
     return (
       <div
         className="rounded-xl border border-yellow-200 bg-yellow-50 p-8 text-center"
         role="alert"
+        data-qqq-id="permission-denied"
       >
         <p className="text-sm text-yellow-700">
-          You do not have permission to create {tableMetaData.label} records.
+          {!hasCapability(tableMetaData, 'TABLE_INSERT')
+            ? `${tableMetaData.label} records cannot be created.`
+            : `You do not have permission to create ${tableMetaData.label} records.`}
         </p>
       </div>
     )
@@ -157,7 +161,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         role="alert"
       >
         <p className="text-sm text-destructive">
-          {error?.message ?? `Failed to load ${tableMetaData.label} #${recordId}`}
+          {recordLoadFailure(tableMetaData.label, recordId, error)}
         </p>
       </div>
     )
@@ -173,6 +177,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
       <p className="mb-4 text-sm text-muted-foreground">{mode === 'base' ? 'Copy this record’s editable fields. Associated records are not copied.' : 'Copy editable fields and every loaded named association. A record reached through two named paths is copied twice. Normal insert defaults and validation apply. Limited to 64 association levels and 1000 associated records in this form.'}</p>
       <EntityForm
         tableMetaData={tableMetaData}
+        widgets={metaData?.widgets}
         record={record}
         isCopy={true}
         copyAssociations={mode === 'full' ? fullState : undefined}

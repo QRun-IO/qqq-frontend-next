@@ -22,6 +22,7 @@ import { render, screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 import { ColumnConfig } from './ColumnConfig'
+import { columnConfigPosition } from './RecordQueryToolbar'
 import type { QTableMetaData } from '@/types'
 
 function makeTableMeta(overrides: Partial<QTableMetaData> = {}): QTableMetaData {
@@ -487,5 +488,31 @@ describe('ColumnConfig — column order (display order)', () => {
     expect(labels[0]).toContain('Last Name')
     expect(labels[1]).toContain('First Name')
     expect(labels[2]).toContain('ID')
+  })
+})
+
+describe('ColumnConfig — viewport bound', () => {
+  it('limits the fixed panel to the viewport height below its button', () => {
+    // a button pushed down by banners leaves 720 - (292 + 4) - 8 = 416px for the panel
+    expect(columnConfigPosition({ bottom: 292, right: 1000 }, 1280, 720)).toEqual({ top: 296, right: 280, maxHeight: 416 })
+    expect(columnConfigPosition({ bottom: 800, right: 1280 }, 1280, 720).maxHeight).toBe(0)
+  })
+
+  it('applies the height limit and keeps the column list as the shrinking scroll area', () => {
+    render(
+      <ColumnConfig
+        tableMetaData={makeTableMeta()}
+        columnVisibility={defaultVisibility}
+        columnOrder={defaultOrder}
+        onVisibilityChange={vi.fn()}
+        onOrderChange={vi.fn()}
+        onClose={vi.fn()}
+        maxHeight={416}
+      />
+    )
+    expect(screen.getByRole('dialog', { name: 'Configure columns' })).toHaveStyle({ maxHeight: '416px' })
+    const list = document.querySelector('[data-qqq-id="column-config-list"]')
+    expect(list).toHaveClass('min-h-0', 'overflow-y-auto')
+    expect(within(list as HTMLElement).getByText('First Name')).toBeInTheDocument()
   })
 })

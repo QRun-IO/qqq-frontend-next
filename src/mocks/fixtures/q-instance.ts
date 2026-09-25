@@ -927,11 +927,9 @@ export const qInstance: QInstance = {
     icon: null as unknown as string,
     accentColor: '#6366f1',
     banners: {
-      environment: {
-        text: 'Mock Development Environment — data is not real',
-        severity: 'warning',
-        color: '#f59e0b',
-        dismissible: true,
+      QFMD_TOP_OF_SITE: {
+        messageText: 'Mock Development Environment — data is not real',
+        severity: 'WARNING',
       },
     },
   },

@@ -35,3 +35,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .claude/
+target/
+/test-results/
+/playwright-report/
+/log/
+/.playwright-mcp/
