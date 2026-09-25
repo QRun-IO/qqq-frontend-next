@@ -501,8 +501,6 @@ export interface QHelpContent {
   links?: Array<{ label: string; url: string }>
   /** Screens this entry applies to (for example `READ_SCREENS`, `EDIT_SCREEN`); none means every screen. */
   roles?: string[]
-  /** Content format: `TEXT`, `HTML` or `MARKDOWN`. */
-  format?: string
 }
 
 /**
