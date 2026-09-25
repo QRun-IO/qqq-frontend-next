@@ -1360,6 +1360,26 @@
         "QRun-IO/qqq#702"
       ],
       "required": true
+    },
+    {
+      "id": "WID-065",
+      "feature": "record view mounts only the active layout, so each section widget mounts and loads once",
+      "source": [
+        "src/components/records/RecordViewTabs.tsx",
+        "src/lib/hooks/use-media-query.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost",
+      "scenarios": [
+        "desktop tabs: every section widget is in the DOM once and requested once; no accordion is mounted",
+        "phone accordion: only open sections mount; each widget is requested once, on opening"
+      ],
+      "negative": [
+        "the desktop tab layout is not mounted at phone width"
+      ],
+      "issues": [
+        "QRun-IO/qqq#706"
+      ],
+      "required": true
     }
   ]
 }

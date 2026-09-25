@@ -122,6 +122,54 @@ test('[WID-032] script viewer marks the current revision and shows each revision
   await expect(files.first()).toContainText('return \'owned one\';')
 })
 
+/** Records the widget data requests the page makes, by widget name. */
+function widgetRequests(page: Page): Map<string, number> {
+  const counts = new Map<string, number>()
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url())
+    if (!pathname.startsWith('/widget/')) return
+    const name = decodeURIComponent(pathname.slice('/widget/'.length))
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  })
+  return counts
+}
+
+const HOST_SECTION_WIDGETS = ['accHostCron', 'accHostFieldValues', 'accHostHtml', 'accHostDynamicForm', 'accWidgetHostJoinChild', 'accHostRows']
+
+test('[WID-065] a record view mounts each section widget once and requests its data once', async ({ page, diagnostics }) => {
+  void diagnostics
+  const requests = widgetRequests(page)
+  await openHost(page, 1)
+  for (const name of HOST_SECTION_WIDGETS) await expectLoaded(page, name)
+  await expect(page.locator('[data-qqq-id="record-view-accordion"]')).toHaveCount(0)
+  for (const name of HOST_SECTION_WIDGETS) {
+    await expect(page.locator(`[data-qqq-id="widget-${name}"]`), `${name} mounted once`).toHaveCount(1)
+    expect(requests.get(name), `${name} requested once`).toBe(1)
+  }
+})
+
+test.describe('at phone width', () => {
+  test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
+
+  test('[WID-065] the accordion mounts only open sections and requests each widget once @mobile', async ({ page, diagnostics }) => {
+    void diagnostics
+    const requests = widgetRequests(page)
+    await openHost(page, 1)
+    // the first section (the schedule) starts open; the desktop tab layout is not mounted
+    await expectLoaded(page, 'accHostCron')
+    await expect(page.locator('[data-qqq-id="record-view-tabs"]')).toHaveCount(0)
+    await expect(page.locator('[data-qqq-id="widget-accHostHtml"]')).toHaveCount(0)
+    expect(requests.get('accHostHtml')).toBeUndefined()
+    await page.getByRole('button', { name: 'Owned Record Html' }).click()
+    await expectLoaded(page, 'accHostHtml')
+    await expect(widgetBody(page, 'accHostHtml')).toHaveText('Host record 1 in accWidgetHost')
+    for (const name of ['accHostCron', 'accHostHtml']) {
+      await expect(page.locator(`[data-qqq-id="widget-${name}"]`), `${name} mounted once`).toHaveCount(1)
+      expect(requests.get(name), `${name} requested once`).toBe(1)
+    }
+  })
+})
+
 test('[WID-064] the schedule editor edits an existing expression in Advanced mode with live validation and the backend description', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const expression = '0 */15 8-17 ? * MON-FRI'
