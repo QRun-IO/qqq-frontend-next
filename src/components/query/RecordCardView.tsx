@@ -42,6 +42,8 @@ interface RecordCardViewProps {
   maxFieldsPerCard?: number
   /** True while the first page of records loads; shows placeholder cards instead of the empty state. */
   isLoading?: boolean
+  /** Reports whether a card at a page index is covered by an all/first-N selection. */
+  isRowSelectedByQuery?: (rowIndex: number) => boolean
 }
 
 const MAX_VISIBLE_FIELDS = 5
@@ -67,6 +69,7 @@ export function RecordCardView({
   columnOrder,
   maxFieldsPerCard = MAX_VISIBLE_FIELDS,
   isLoading = false,
+  isRowSelectedByQuery,
 }: RecordCardViewProps) {
   const router = useRouter()
 
@@ -114,7 +117,15 @@ export function RecordCardView({
   )
 
   const handleSelectionToggle = useCallback(
-    (recordId: string) => {
+    (recordId: string, index: number) => {
+      // Unchecking a card under an all/first-N selection keeps the other covered cards (as the grid does)
+      if (isRowSelectedByQuery) {
+        onRowSelectionChange(Object.fromEntries(records
+          .map((r, i) => [getRecordId(r, i), i] as const)
+          .filter(([, i]) => i !== index && isRowSelectedByQuery(i))
+          .map(([id]) => [id, true])))
+        return
+      }
       const next = { ...rowSelection }
       if (next[recordId]) {
         delete next[recordId]
@@ -123,7 +134,7 @@ export function RecordCardView({
       }
       onRowSelectionChange(next)
     },
-    [rowSelection, onRowSelectionChange]
+    [rowSelection, onRowSelectionChange, isRowSelectedByQuery, records, getRecordId]
   )
 
   const getDisplayValue = (record: QRecord, field: QFieldMetaData): string => {
@@ -181,7 +192,7 @@ export function RecordCardView({
     >
       {records.map((record, index) => {
         const recordId = getRecordId(record, index)
-        const isSelected = Boolean(rowSelection[recordId])
+        const isSelected = isRowSelectedByQuery ? isRowSelectedByQuery(index) : Boolean(rowSelection[recordId])
         const recordLabel = record.recordLabel || recordId
 
         return (
@@ -204,19 +215,26 @@ export function RecordCardView({
             data-qqq-id={`record-card-${recordId}`}
           >
             {/* Card header: checkbox + record label */}
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={(e) => {
-                  e.stopPropagation()
-                  handleSelectionToggle(recordId)
-                }}
+            <div className="flex items-start gap-3 pointer-coarse:items-center">
+              {/* The label is the checkbox's touch target (44 px on coarse pointers, globals.css) */}
+              <label
+                className="inline-flex shrink-0 cursor-pointer items-center justify-center pointer-coarse:-my-2.5 pointer-coarse:-ml-3"
                 onClick={(e) => e.stopPropagation()}
-                aria-label={`Select ${recordLabel}`}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-ring cursor-pointer"
-                data-qqq-id={`card-select-${recordId}`}
-              />
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    handleSelectionToggle(recordId, index)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`Select ${recordLabel}`}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-ring cursor-pointer pointer-coarse:mt-0 pointer-coarse:h-5 pointer-coarse:w-5"
+                  data-qqq-id={`card-select-${recordId}`}
+                />
+              </label>
               <div className="min-w-0 flex-1">
                 <h3
                   className="truncate text-sm font-semibold text-card-foreground"
@@ -236,11 +254,11 @@ export function RecordCardView({
                 }
 
                 return (
-                  <div key={field.name} className="flex items-baseline gap-2 text-sm">
+                  <div key={field.name} className="flex items-baseline gap-2 text-sm" data-qqq-id={`card-field-${field.name}`}>
                     <dt className="shrink-0 text-muted-foreground">
                       {field.label}:
                     </dt>
-                    <dd className="min-w-0 truncate text-card-foreground">
+                    <dd className="min-w-0 break-words text-card-foreground">
                       {getDisplayValue(record, field)}
                     </dd>
                   </div>
