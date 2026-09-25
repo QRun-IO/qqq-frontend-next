@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type APIRequestContext, type Page, type Response } from '@playwright/test'
-import { ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
+import { ACCEPTANCE_BACKEND_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
 export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired'
@@ -74,19 +74,22 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     // WebKit reports a Next.js prefetch or RSC payload fetch that a document navigation cuts off
     // as "<url> due to access control checks." although the server answers 200 - the equivalent
     // of Chromium's ERR_ABORTED (WebKit cancels these before Playwright sees a request). After the
-    // test, such a report is ignored only when it names a same-origin Next.js route or payload
-    // URL and arrives within a second of a main-frame document navigation. Any other
+    // test, such a report is ignored only when it names a Next.js route or payload URL on the
+    // origin of a document the page navigated to (the UI, or an area's own server such as the
+    // security fixture's) and arrives within a second of a main-frame navigation. Any other
     // access-control failure - an API call, a cross-origin (CORS) error, or one unrelated to a
     // navigation - still fails the test.
-    const uiHost = new URL(ACCEPTANCE_UI_URL).host
+    const documentHosts = new Set<string>()
     const navigations: number[] = []
     page.on('request', (request) => {
-      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations.push(performance.now())
+      if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) return
+      navigations.push(performance.now())
+      documentHosts.add(new URL(request.url()).host)
     })
     const accessControl = /^(?:.*?\bload )?\/*(\S+) due to access control checks\.?$/
     const nextRouteFetch = (target: string) => {
       const url = new URL(`http://${target.replace(/^https?:\/+/, '')}`)
-      return url.host === uiHost && (/\/__next\.|\/index\.txt$/.test(url.pathname) || url.searchParams.has('_rsc') || url.pathname.endsWith('/'))
+      return documentHosts.has(url.host) && (/\/__next\.|\/index\.txt$/.test(url.pathname) || url.searchParams.has('_rsc') || url.pathname.endsWith('/'))
     }
     const reports: { text: string; at: number; push: () => void }[] = []
     const report = (text: string, push: () => void) => {
