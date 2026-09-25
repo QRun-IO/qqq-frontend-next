@@ -173,6 +173,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
       <p className="mb-4 text-sm text-muted-foreground">{mode === 'base' ? 'Copy this record’s editable fields. Associated records are not copied.' : 'Copy editable fields and every loaded named association. A record reached through two named paths is copied twice. Normal insert defaults and validation apply. Limited to 64 association levels and 1000 associated records in this form.'}</p>
       <EntityForm
         tableMetaData={tableMetaData}
+        widgets={metaData?.widgets}
         record={record}
         isCopy={true}
         copyAssociations={mode === 'full' ? fullState : undefined}

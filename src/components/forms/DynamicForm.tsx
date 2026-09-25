@@ -23,7 +23,7 @@
 import React from 'react'
 import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
-import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 
@@ -87,8 +87,32 @@ export interface DynamicFormProps {
   /** Optional heading rendered above the field grid. */
   formLabel?: string
 
+  /**
+   * Widget metadata by name. A section housing a widget shown on record edit
+   * screens (`includeOnRecordEditScreen`, e.g. the cron schedule) renders the
+   * record fields that widget edits, which usually sit in a hidden section.
+   */
+  widgets?: Record<string, QWidgetMetaData>
+
   /** Additional CSS classes applied to the outermost container. */
   className?: string
+}
+
+/**
+ * The record fields a widget section edits on a record form, as Material's
+ * EntityForm does for `cronUI` widgets (expression and time zone fields).
+ *
+ * @param section - A table section.
+ * @param widgets - Widget metadata by name.
+ * @returns The edited field names, or `undefined` when the section is not an editable widget section.
+ */
+export function editScreenWidgetFieldNames(section: QTableSection, widgets: Record<string, QWidgetMetaData> | undefined): string[] | undefined {
+  const widget = section.widgetName ? widgets?.[section.widgetName] : undefined
+  if (!widget || widget.hasPermission === false || widget.type !== 'cronUI') return undefined
+  const defaults = widget.defaultValues ?? {}
+  if (defaults.includeOnRecordEditScreen !== true) return undefined
+  const names = [defaults.cronExpressionFieldName, defaults.timeZoneFieldName].filter((name): name is string => typeof name === 'string' && name !== '')
+  return names.length > 0 ? names : undefined
 }
 
 /**
@@ -125,6 +149,7 @@ export function DynamicForm({
   helpRoles,
   enforceMaxLength = true,
   formLabel,
+  widgets,
   className,
 }: DynamicFormProps) {
   // Determine the set of fields to render
@@ -179,7 +204,10 @@ export function DynamicForm({
     !fields
 
   if (hasSections && tableMetaData) {
-    const resolvedSections = sections ?? tableMetaData.sections
+    const resolvedSections = (sections ?? tableMetaData.sections).map((section) => {
+      const widgetFieldNames = editScreenWidgetFieldNames(section, widgets)
+      return widgetFieldNames ? { ...section, fieldNames: widgetFieldNames } : section
+    })
     return (
       <div className={cn('space-y-6', className)} data-qqq-id="dynamic-form">
         {formLabel && (

@@ -124,7 +124,7 @@ export default function EntityEditPage() {
 
   return (
     <div className="mx-auto max-w-4xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
-      <EntityForm tableMetaData={tableMetaData} record={record} />
+      <EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} />
     </div>
   )
 }

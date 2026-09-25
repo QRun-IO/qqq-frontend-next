@@ -98,7 +98,7 @@ export default function EntityCreatePage() {
 
   return (
     <div className="mx-auto max-w-4xl" data-qqq-id={`entity-create-${slug}`}>
-      <EntityForm tableMetaData={tableMetaData} />
+      <EntityForm tableMetaData={tableMetaData} widgets={metaData?.widgets} />
     </div>
   )
 }

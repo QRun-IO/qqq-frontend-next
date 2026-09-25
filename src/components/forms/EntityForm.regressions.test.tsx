@@ -20,7 +20,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AxiosError, AxiosHeaders } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QFieldMetaData, QRecord, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QRecord, QTableMetaData, QWidgetMetaData } from '@/types'
 import apiClient from '@/lib/api/client'
 import { EntityForm } from './EntityForm'
 
@@ -114,5 +114,59 @@ describe('Record form regressions (#649)', () => {
     expect((post.mock.calls[0][1] as FormData).get('flag')).toBe('true')
     expect(await screen.findByText('Error inserting Lab: Another record already exists with this Title')).toBeVisible()
     expect(screen.getByLabelText(/^Title/)).toHaveValue('Dupe')
+  })
+  it('renders the fields a cron schedule widget section edits, though they sit in a hidden section, and saves them', async () => {
+    const user = userEvent.setup()
+    const scheduled: QTableMetaData = {
+      ...table,
+      name: 'schedule', label: 'Schedule',
+      fields: {
+        id: field('id', { type: 'INTEGER', isEditable: false }),
+        subject: field('subject'),
+        cronExpression: field('cronExpression', { label: 'Cron Expression', isRequired: true }),
+        cronTimeZoneId: field('cronTimeZoneId', { label: 'Cron Time Zone Id' }),
+        userId: field('userId', { label: 'User Id' }),
+      },
+      sections: [
+        { name: 'email', label: 'Email', isHidden: false, fieldNames: ['subject'] },
+        { name: 'schedule', label: 'Schedule', isHidden: false, fieldNames: [], widgetName: 'cronWidget' },
+        { name: 'hidden', label: 'Hidden', isHidden: true, fieldNames: ['userId', 'cronExpression', 'cronTimeZoneId'] },
+      ],
+    }
+    const widgets = {
+      cronWidget: { name: 'cronWidget', label: 'Schedule', type: 'cronUI', hasPermission: true,
+        defaultValues: { cronExpressionFieldName: 'cronExpression', timeZoneFieldName: 'cronTimeZoneId', includeOnRecordEditScreen: true } },
+    } as unknown as Record<string, QWidgetMetaData>
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'schedule', values: { id: 1 }, displayValues: {} }] })
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
+    expect(screen.getByRole('heading', { name: 'Schedule' })).toBeVisible()
+    // only the widget's fields are revealed; the rest of the hidden section stays hidden
+    expect(screen.queryByLabelText(/^User Id/)).toBeNull()
+    await user.type(screen.getByLabelText(/^Cron Expression/), '0 0 9 * * ?')
+    await user.type(screen.getByLabelText(/^Cron Time Zone Id/), 'UTC')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    const body = post.mock.calls[0][1] as FormData
+    expect(body.get('cronExpression')).toBe('0 0 9 * * ?')
+    expect(body.get('cronTimeZoneId')).toBe('UTC')
+  })
+
+  it('keeps a hidden section hidden when its widget is not shown on edit screens', () => {
+    const scheduled: QTableMetaData = {
+      ...table,
+      fields: { ...table.fields, cronExpression: field('cronExpression', { label: 'Cron Expression' }) },
+      sections: [
+        ...table.sections,
+        { name: 'schedule', label: 'Schedule', isHidden: false, fieldNames: [], widgetName: 'cronWidget' },
+        { name: 'hidden', label: 'Hidden', isHidden: true, fieldNames: ['cronExpression'] },
+      ],
+    }
+    const widgets = {
+      cronWidget: { name: 'cronWidget', label: 'Schedule', type: 'cronUI', hasPermission: true, defaultValues: { cronExpressionFieldName: 'cronExpression' } },
+    } as unknown as Record<string, QWidgetMetaData>
+    const client = new QueryClient()
+    render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
+    expect(screen.queryByLabelText(/^Cron Expression/)).toBeNull()
   })
 })

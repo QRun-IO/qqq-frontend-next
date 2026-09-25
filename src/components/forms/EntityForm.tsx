@@ -27,7 +27,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, X } from 'lucide-react'
 
-import type { QTableMetaData, QRecord, QRecordInput } from '@/types'
+import type { QTableMetaData, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
@@ -101,6 +101,9 @@ export interface EntityFormProps {
   /** Context used to fetch possible values (table, process, or standalone). */
   possibleValueContext?: PossibleValueContext
 
+  /** Widget metadata by name, so widget sections shown on edit screens (the cron schedule) render their fields. */
+  widgets?: Record<string, QWidgetMetaData>
+
   /** Additional CSS classes applied to the `<form>` element. */
   className?: string
 }
@@ -138,6 +141,7 @@ export function EntityForm({
   fixedValues,
   fieldNamesToInclude,
   possibleValueContext,
+  widgets,
   className,
 }: EntityFormProps) {
   const router = useRouter()
@@ -443,6 +447,7 @@ export function EntityForm({
         showReadOnlyFields={isEdit}
         helpRoles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES}
         enforceMaxLength={false}
+        widgets={widgets}
       />
 
       {children && <fieldset disabled={disabled || isSaving} className="min-w-0">{children}</fieldset>}
