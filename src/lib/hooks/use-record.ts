@@ -73,7 +73,7 @@ export function useRecord({
   enabled = true,
   includeAssociations = true,
   tableVariant,
-  staleTime = 1000 * 60 * 5, // 5 minutes
+  staleTime = 0, // revalidate on every mount; cached data shows while refetching
 }: UseRecordOptions): UseRecordResult {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [...queryKeys.tableRecord(tableName, primaryKey), { includeAssociations, tableVariant }],

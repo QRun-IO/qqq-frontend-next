@@ -499,7 +499,8 @@ export function useRecordQuery({
         filter: effectiveFilter,
         joins,
       }),
-    staleTime: 30 * 1000,
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
     enabled: Boolean(tableMetaData && allTables),
   })
@@ -526,7 +527,8 @@ export function useRecordQuery({
         filter: countFilter,
         joins,
       }),
-    staleTime: 30 * 1000,
+    // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
+    staleTime: 0,
     placeholderData: (prev) => prev,
     enabled: Boolean(tableMetaData && allTables),
   })
