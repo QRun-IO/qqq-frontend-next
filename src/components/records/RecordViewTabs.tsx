@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -90,6 +90,10 @@ function AccordionSection({
   children: React.ReactNode
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  // A deep link (?tab=...) that names this section opens it, also once metadata arrives
+  useEffect(() => {
+    if (defaultOpen) setIsOpen(true)
+  }, [defaultOpen])
   const panelId = `accordion-panel-${id}`
   const triggerId = `accordion-trigger-${id}`
 
@@ -285,7 +289,7 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={idx === 0}
+            defaultOpen={idx === 0 || activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -306,7 +310,7 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={false}
+            defaultOpen={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -322,7 +326,7 @@ export function RecordViewTabs({
 
         {/* Unbound named associations */}
         {associations.map((association) => (
-          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name}>
+          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name} defaultOpen={activeTab === 'related'}>
             {renderAssociation(association.name)}
           </AccordionSection>
         ))}
