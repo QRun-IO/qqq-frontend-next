@@ -68,7 +68,7 @@ function valuesFor(data: DynamicFormPayload, recordContext: WidgetComponentProps
  * `false` are shown; absent values show an em dash.
  *
  * @param props - Widget metadata, payload and the hosting record context.
- * @returns The rendered definition list, the no-fields message, or a contained notice.
+ * @returns The rendered definition list, the no-fields message (nothing when the payload has none), or a contained notice.
  */
 export function DynamicFormWidget({ widgetMetaData, data, recordContext }: WidgetComponentProps<DynamicFormPayload>) {
   const widgetName = widgetMetaData.name
@@ -78,7 +78,8 @@ export function DynamicFormWidget({ widgetMetaData, data, recordContext }: Widge
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('dynamic form', 'fieldList or recordOfFieldValues')} />
   }
   if (fields.length === 0) {
-    return <WidgetEmpty widgetName={widgetName}>{data?.noFieldsMessage ?? 'No fields'}</WidgetEmpty>
+    // Without a message there is nothing to show: a process step with no report variables has no form (as in Material)
+    return data?.noFieldsMessage ? <WidgetEmpty widgetName={widgetName}>{data.noFieldsMessage}</WidgetEmpty> : null
   }
   const displayValues = data?.recordOfFieldValues?.displayValues ?? {}
   return (

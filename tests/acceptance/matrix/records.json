@@ -957,6 +957,26 @@
         "QRun-IO/qqq#673"
       ],
       "required": true
+    },
+    {
+      "id": "REC-049",
+      "feature": "pages of a table outside the app tree use the table label in the document title and breadcrumbs",
+      "source": [
+        "src/lib/hooks/use-routes.ts",
+        "src/components/layout/Breadcrumbs.tsx"
+      ],
+      "fixture": "scheduledReport (memory, not in the app tree) for savedReport 1",
+      "scenarios": [
+        "create page title is \"Create Scheduled Report | Scheduled Report | QQQ Sample\"",
+        "record view title is the record label, then Scheduled Report"
+      ],
+      "negative": [
+        "the table name (scheduledReport) is not shown in the breadcrumbs"
+      ],
+      "issues": [
+        "QRun-IO/qqq#707"
+      ],
+      "required": true
     }
   ]
 }

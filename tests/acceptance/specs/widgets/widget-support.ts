@@ -23,10 +23,7 @@ export async function sqlRows(backend: Backend, query: string): Promise<Array<Re
   return rows as Array<Record<string, string>>
 }
 
-/**
- * The visible element with a data-qqq-id. Record views mount section widgets in
- * both their tab and accordion layouts (one hidden), so tests target the visible one.
- */
+/** The visible element with a data-qqq-id (record views mount one layout; WID-065 proves it). */
 export function byId(page: Page, id: string): Locator {
   return page.locator(`[data-qqq-id="${id}"]`).filter({ visible: true })
 }

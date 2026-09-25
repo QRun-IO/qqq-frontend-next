@@ -87,8 +87,8 @@ test('[RPT-010] a saved report renders to a CSV with its saved columns and rows'
   expect(rows.slice(1)).toEqual(species.map((record) => [String(record.values.possibleValueId), record.values.possibleValueLabel]))
 })
 
-/** Opens the scheduled-report create form from the saved report's Schedules section and fills it. */
-async function fillSchedule(page: Page, cronExpression: string) {
+/** Opens the scheduled-report create form from the saved report's Schedules section and fills it, except the schedule. */
+async function openScheduleForm(page: Page) {
   await open(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await byId(page, 'child-record-add-scheduledReportJoinSavedReport').click()
@@ -104,9 +104,88 @@ async function fillSchedule(page: Page, cronExpression: string) {
   await form.getByLabel(/^Subject/).fill('Owned schedule')
   await form.getByLabel(/^Cron Time Zone/).click()
   await page.getByRole('option', { name: /^UTC$/ }).first().click()
+  return form
+}
+
+/** Fills the scheduled-report create form, typing the expression in the schedule editor's Advanced mode, and saves. */
+async function fillSchedule(page: Page, cronExpression: string) {
+  const form = await openScheduleForm(page)
+  await byId(page, 'cron-mode-advanced-scheduledReportCronWidget').click()
   await form.getByLabel(/^Cron Expression/).fill(cronExpression)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
 }
+
+test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the live description is the one QQQ stores', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await openScheduleForm(page)
+  const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
+  const live = byId(page, 'cron-editor-description-scheduledReportCronWidget')
+  await expect(editor.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Not set')
+
+  await editor.getByRole('button', { name: /^Days/ }).click()
+  const days = page.getByRole('dialog', { name: 'Days' })
+  await days.getByRole('radio', { name: 'Selected Weekdays' }).check()
+  await days.getByRole('checkbox', { name: 'Monday' }).check()
+  await days.getByRole('checkbox', { name: 'Friday' }).check()
+  await page.keyboard.press('Escape')
+  await expect(days).toBeHidden()
+  await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
+  await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Mon, Fri')
+
+  // a new schedule starts at midnight, as in Material
+  await editor.getByRole('button', { name: /^Hours/ }).click()
+  const hours = page.getByRole('dialog', { name: 'Hours' })
+  await expect(hours.getByRole('checkbox', { name: '12am' })).toBeChecked()
+  await hours.getByRole('checkbox', { name: '9am' }).check()
+  await hours.getByRole('checkbox', { name: '12am' }).uncheck()
+  await page.keyboard.press('Escape')
+  await editor.getByRole('button', { name: /^Minutes/ }).click()
+  const minutes = page.getByRole('dialog', { name: 'Minutes' })
+  await minutes.getByRole('checkbox', { name: '30' }).check()
+  await minutes.getByRole('checkbox', { name: '00' }).uncheck()
+  await page.keyboard.press('Escape')
+  await expect(editor.getByRole('button', { name: /^Hours/ })).toHaveText('9am')
+  await expect(editor.getByRole('button', { name: /^Minutes/ })).toHaveText('30')
+  await expect(live).toHaveText('Every week, on Monday and Friday, at 9:30 am')
+
+  await editor.getByRole('button', { name: 'Advanced' }).click()
+  await expect(editor.getByLabel(/^Cron Expression/)).toHaveValue('0 30 9 ? * MON,FRI')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/scheduledReport\/\d+\/?$/)
+  const id = /\/scheduledReport\/(\d+)/.exec(page.url())![1]
+  const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
+  expect(saved.values).toMatchObject({ cronExpression: '0 30 9 ? * MON,FRI', cronDescription: 'Every week, on Monday and Friday, at 9:30 am', cronTimeZoneId: 'UTC' })
+  await expectLoaded(page, 'scheduledReportCronWidget')
+  await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every week, on Monday and Friday, at 9:30 am')
+})
+
+test('[WID-064] a schedule is required: saving without one shows the error in the editor and nothing is saved', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await openScheduleForm(page)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
+  await expect(editor.getByRole('alert')).toHaveText('Cron Expression is required')
+  await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
+  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
+  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
+})
+
+test('[RPT-019] the render report input step shows only its fields, without a stray no-fields message', async ({ page, diagnostics }) => {
+  void diagnostics
+  await open(page, '/app/savedReport/1')
+  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name: 'Render Report' }).click()
+  await expect(page).toHaveURL(/\/app\/renderSavedReport/)
+  await expect(page.getByLabel(/^Report Format/)).toBeVisible()
+  await expect(page.getByLabel(/^Email To/)).toBeVisible()
+  await expect(page.getByLabel(/^Email Subject/)).toBeVisible()
+  // the report has no variables: its values widget loads and renders nothing
+  const values = page.locator('[data-qqq-id="process-widget-renderReportProcessValuesWidget"]')
+  await expect(values).toHaveCount(1)
+  await expect(values).toHaveText('')
+  await expect(page.getByText('No fields', { exact: true })).toHaveCount(0)
+})
 
 test('[RPT-012] a scheduled report is created for a saved report and shows its schedule', async ({ page, backend, diagnostics }) => {
   void diagnostics

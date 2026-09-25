@@ -195,6 +195,20 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
 
   // A user with no permitted apps still gets the Dashboard entry (which explains the situation)
   const appRoutes = visit(metaData.appTree ?? [], [])
+
+  // Tables, processes and reports outside the app tree (reached through links, such as a
+  // child record list's add button) still title their pages and breadcrumbs with their labels
+  const unlisted: Array<[Record<string, { label?: string }> | undefined, boolean]> = [
+    [metaData.tables, true], [metaData.processes, false], [metaData.reports, false],
+  ]
+  for (const [objects, isTable] of unlisted) {
+    for (const [name, object] of Object.entries(objects ?? {})) {
+      const path = `/app/${name}`
+      if (pathToLabelMap[path] !== undefined || !object.label) continue
+      pathToLabelMap[path] = object.label
+      if (isTable) pathToLabelMap[`${path}/create`] = `Create ${object.label}`
+    }
+  }
   const sidebarRoutes: SidebarRoute[] = [
     { name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' },
     ...appRoutes,

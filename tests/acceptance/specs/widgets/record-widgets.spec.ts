@@ -121,3 +121,86 @@ test('[WID-032] script viewer marks the current revision and shows each revision
   await byId(page, 'script-revision-1').click()
   await expect(files.first()).toContainText('return \'owned one\';')
 })
+
+/** Records the widget data requests the page makes, by widget name. */
+function widgetRequests(page: Page): Map<string, number> {
+  const counts = new Map<string, number>()
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url())
+    if (!pathname.startsWith('/widget/')) return
+    const name = decodeURIComponent(pathname.slice('/widget/'.length))
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  })
+  return counts
+}
+
+const HOST_SECTION_WIDGETS = ['accHostCron', 'accHostFieldValues', 'accHostHtml', 'accHostDynamicForm', 'accWidgetHostJoinChild', 'accHostRows']
+
+test('[WID-065] a record view mounts each section widget once and requests its data once', async ({ page, diagnostics }) => {
+  void diagnostics
+  const requests = widgetRequests(page)
+  await openHost(page, 1)
+  for (const name of HOST_SECTION_WIDGETS) await expectLoaded(page, name)
+  await expect(page.locator('[data-qqq-id="record-view-accordion"]')).toHaveCount(0)
+  for (const name of HOST_SECTION_WIDGETS) {
+    await expect(page.locator(`[data-qqq-id="widget-${name}"]`), `${name} mounted once`).toHaveCount(1)
+    expect(requests.get(name), `${name} requested once`).toBe(1)
+  }
+})
+
+test.describe('at phone width', () => {
+  test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
+
+  test('[WID-065] the accordion mounts only open sections and requests each widget once @mobile', async ({ page, diagnostics }) => {
+    void diagnostics
+    const requests = widgetRequests(page)
+    await openHost(page, 1)
+    // the first section (the schedule) starts open; the desktop tab layout is not mounted
+    await expectLoaded(page, 'accHostCron')
+    await expect(page.locator('[data-qqq-id="record-view-tabs"]')).toHaveCount(0)
+    await expect(page.locator('[data-qqq-id="widget-accHostHtml"]')).toHaveCount(0)
+    expect(requests.get('accHostHtml')).toBeUndefined()
+    await page.getByRole('button', { name: 'Owned Record Html' }).click()
+    await expectLoaded(page, 'accHostHtml')
+    await expect(widgetBody(page, 'accHostHtml')).toHaveText('Host record 1 in accWidgetHost')
+    for (const name of ['accHostCron', 'accHostHtml']) {
+      await expect(page.locator(`[data-qqq-id="widget-${name}"]`), `${name} mounted once`).toHaveCount(1)
+      expect(requests.get(name), `${name} requested once`).toBe(1)
+    }
+  })
+})
+
+test('[WID-064] the schedule editor edits an existing expression in Advanced mode with live validation and the backend description', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const expression = '0 */15 8-17 ? * MON-FRI'
+  const backendDescription = (await (await backend.api.get(`/widget/accHostCron?cronExpression=${encodeURIComponent(expression)}`)).json()).cronDescription
+  expect(backendDescription).toBe('Every week, every day between Monday and Friday, every hour between 8am and 5pm, every 15 minutes between 00 and 59')
+  await open(page, '/app/accWidgetHost/1/edit')
+  const editor = byId(page, 'cron-editor-accHostCron')
+  const live = byId(page, 'cron-editor-description-accHostCron')
+  // the stored 0 0 9 * * ? opens in Basic mode
+  await expect(editor.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Every day')
+  await expect(editor.getByRole('button', { name: /^Hours/ })).toHaveText('9am')
+  await expect(editor.getByRole('button', { name: /^Minutes/ })).toHaveText('00')
+  await expect(live).toHaveText('Every day, at 9:00 am')
+
+  await editor.getByRole('button', { name: 'Advanced' }).click()
+  const input = editor.getByLabel(/^Schedule Expression/)
+  await expect(input).toHaveValue('0 0 9 * * ?')
+  await input.fill('0 75 9 * * ?')
+  await expect(byId(page, 'cron-editor-error-accHostCron')).toHaveText('Minute values must be between 0 and 59')
+  await expect(input).toHaveAttribute('aria-invalid', 'true')
+  await input.fill(expression)
+  await expect(live).toHaveText(backendDescription)
+  await expect(input).not.toHaveAttribute('aria-invalid')
+  await expect(editor.getByRole('button', { name: 'Basic' })).toBeDisabled()
+  await expect(byId(page, 'cron-basic-reason-accHostCron')).toHaveText('To use Basic mode each part must be *, single values, lists or ranges')
+  await page.getByLabel(/^Time Zone/).fill('America/New_York')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/accWidgetHost\/1\/?$/)
+  expect(await sqlRows(backend, 'select cron_expression, cron_time_zone_id from acc_widget_host where id = 1')).toEqual([{ cron_expression: expression, cron_time_zone_id: 'America/New_York' }])
+  await expectLoaded(page, 'accHostCron')
+  await expect(byId(page, 'cron-description-accHostCron')).toHaveText(backendDescription)
+  await expect(byId(page, 'cron-time-zone-accHostCron')).toHaveText('America/New_York')
+})

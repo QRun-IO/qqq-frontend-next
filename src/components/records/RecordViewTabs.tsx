@@ -23,6 +23,7 @@
 import React, { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
+import { PHONE_MEDIA_QUERY, useMediaQuery } from '@/lib/hooks/use-media-query'
 import { cn } from '@/lib/utils/cn'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -140,11 +141,11 @@ function AccordionSection({
  * same content is rendered as collapsible accordion sections.
  *
  * @param props - See {@link RecordViewTabsProps}.
- * @returns A React fragment containing two parallel layout trees: a desktop
- *   pill-style tab bar with `role="tablist"` (visible at `md+`) and the
- *   corresponding tab panels; and a stacked set of {@link AccordionSection}
- *   items (visible below `md`). Both trees render the same content so there
- *   is no hydration mismatch between server and client.
+ * Only the layout for the current viewport is mounted, so each section widget
+ * mounts (and loads its data) once.
+ *
+ * @returns At `md` and wider, a pill-style tab bar with `role="tablist"` and the
+ *   active tab panel; below `md`, a stacked set of {@link AccordionSection} items.
  */
 export function RecordViewTabs({
   tableMetaData,
@@ -160,12 +161,11 @@ export function RecordViewTabs({
   allTables,
   navigateFrom,
 }: RecordViewTabsProps) {
-  return (
-    <>
-      {/* ============================================================
-          Desktop layout: pill-style tab bar (hidden below md) — MED-18
-      ============================================================ */}
-      <div className="hidden md:contents">
+  const isPhone = useMediaQuery(PHONE_MEDIA_QUERY)
+  if (!isPhone) {
+    return (
+      <>
+        {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
         <div
           className="flex rounded-xl border border-border bg-muted/50 p-1"
@@ -273,12 +273,14 @@ export function RecordViewTabs({
             <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
           </div>
         )}
-      </div>
+      </>
+    )
+  }
 
-      {/* ============================================================
-          Mobile layout: collapsible accordion sections (shown below md) — MED-18
-      ============================================================ */}
-      <div className="flex flex-col gap-3 md:hidden" data-qqq-id="record-view-accordion">
+  return (
+    <>
+      {/* Mobile layout: collapsible accordion sections (below md) — MED-18 */}
+      <div className="flex flex-col gap-3" data-qqq-id="record-view-accordion">
         {/* T2 sections as individual accordion items; first open by default */}
         {secondarySections.map((section, idx) => (
           <AccordionSection

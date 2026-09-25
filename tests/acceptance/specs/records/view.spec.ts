@@ -105,3 +105,33 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
   }
   await expect(fieldValue(page, 'boundedValue')).toHaveText('12.50')
 })
+
+test('[REC-049] pages of a table outside the app tree use its label in the document title and breadcrumbs', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  type Node = { name: string; children?: Node[] }
+  const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
+  const names = (nodes: Node[]): string[] => nodes.flatMap((node) => [node.name, ...names(node.children ?? [])])
+  expect(names(meta.appTree)).not.toContain('scheduledReport')
+  const label = meta.tables.scheduledReport.label
+  expect(label).toBe('Scheduled Report')
+  const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumb' })
+
+  await page.goto('/app/scheduledReport/create', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { level: 2, name: `Create ${label}` })).toBeVisible()
+  await expect(page).toHaveTitle(`Create ${label} | ${label} | QQQ Sample`)
+  await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
+  await expect(breadcrumbs).not.toContainText('scheduledReport')
+
+  const created = await backend.api.post('/data/scheduledReport', { multipart: {
+    savedReportId: '1', isActive: 'true', format: 'CSV', toAddresses: 'owned-title@example.com', subject: 'Owned title', cronExpression: '0 0 9 * * ?', cronTimeZoneId: 'UTC',
+  } })
+  expect(created.status()).toBe(200)
+  const record = (await created.json()).records[0]
+  await page.goto(`/app/scheduledReport/${record.values.id}`, { waitUntil: 'domcontentloaded' })
+  const heading = page.getByRole('heading', { level: 1 })
+  await expect(heading).toHaveText(/\S/)
+  const recordLabel = (await heading.textContent())!.trim()
+  expect(recordLabel).toContain('Pet Species Report')
+  await expect(page).toHaveTitle(`${recordLabel} | ${label} | QQQ Sample`)
+  await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
+})
