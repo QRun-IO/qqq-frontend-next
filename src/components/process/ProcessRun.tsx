@@ -55,6 +55,8 @@ export interface ProcessRunProps {
   initialValues?: Record<string, unknown>
   /** Record selection and other supported process initialization parameters. */
   initialRequest?: ProcessInitRequest
+  /** In-app path to leave to (the record or query that launched the run); defaults to {@link processReturnPath}. */
+  returnTo?: string
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
@@ -129,6 +131,7 @@ export function ProcessRun({
   processMetaData,
   initialValues,
   initialRequest,
+  returnTo,
   className,
 }: ProcessRunProps) {
   const router = useRouter()
@@ -165,7 +168,7 @@ export function ProcessRun({
     document.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
   }, [state.phase, state.screenInstance])
 
-  const leave = () => router.push(processReturnPath(processMetaData, instance))
+  const leave = () => router.push(returnTo ?? processReturnPath(processMetaData, instance))
   const cancelAndLeave = async () => {
     await cancel()
     leave()

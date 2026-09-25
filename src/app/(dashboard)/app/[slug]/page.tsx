@@ -41,6 +41,7 @@ import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
+import { safeReturnTo } from '@/lib/auth/return-to'
 import { RecordQuery } from '@/components/query'
 import { ProcessRun } from '@/components/process'
 import { AppHome } from '@/components/widgets'
@@ -218,7 +219,10 @@ export default function SlugPage() {
     } catch {
       initialValues = undefined
     }
-    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} />
+    // a launch from a record or query screen returns there (Material closes its modal over that screen)
+    const rawReturnTo = searchParams.get('returnTo')
+    const returnTo = rawReturnTo ? safeReturnTo(rawReturnTo, undefined, '') || undefined : undefined
+    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} returnTo={returnTo} />
   }
 
   // Process loading state (process found but metadata not yet available)

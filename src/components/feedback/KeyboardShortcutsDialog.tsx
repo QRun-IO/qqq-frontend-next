@@ -61,18 +61,19 @@ const shortcutSections: ShortcutSection[] = [
   {
     title: 'Table Query Page',
     shortcuts: [
-      { keys: ['n'], description: 'New Record' },
-      { keys: ['r'], description: 'Refresh' },
-      { keys: ['f'], description: 'Toggle Filters' },
+      { keys: ['n'], description: 'Create a New Record' },
+      { keys: ['r'], description: 'Refresh the Query' },
+      { keys: ['f'], description: 'Open the Filter Builder' },
     ],
   },
   {
     title: 'Record View Page',
     shortcuts: [
-      { keys: ['n'], description: 'New Record' },
-      { keys: ['e'], description: 'Edit' },
-      { keys: ['c'], description: 'Copy' },
-      { keys: ['d'], description: 'Delete' },
+      { keys: ['n'], description: 'Create a New Record' },
+      { keys: ['e'], description: 'Edit the current Record' },
+      { keys: ['c'], description: 'Copy the current Record' },
+      { keys: ['d'], description: 'Delete the current Record' },
+      { keys: ['a'], description: 'Audit the current Record' },
     ],
   },
 ]

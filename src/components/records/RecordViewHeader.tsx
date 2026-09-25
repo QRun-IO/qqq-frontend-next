@@ -20,13 +20,18 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { queryKeys } from '@/lib/query-client'
+import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
 
 import { RecordActions } from './RecordActions'
 import { FieldLabel } from './FieldLabel'
@@ -34,6 +39,7 @@ import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
+import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -82,6 +88,8 @@ interface RecordViewHeaderProps {
   auditSource?: AuditSource
   /** Widget metadata, for WIDGET-adorned T1 fields. */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Reloads the record and its children (after a child is created from a link). */
+  onRecordChanged?: () => void
 }
 
 /**
@@ -110,8 +118,10 @@ export function RecordViewHeader({
   navigateFrom,
   auditSource = null,
   widgetMetaDataMap,
+  onRecordChanged,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
@@ -153,6 +163,28 @@ export function RecordViewHeader({
   const availableProcesses = (processes ?? []).filter(
     (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
   )
+
+  // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
+  const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
+  const recordPath = `${tablePath}/${encodeURIComponent(String(primaryKey))}`
+  // Material hash links on a record view: #audit, #/launchProcess={process}, #/createChild={table}/defaultValues=...
+  const [hash, clearHash] = useLocationHash()
+  const hashAction = useMemo(() => recordHashAction(hash), [hash])
+  const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
+  useEffect(() => {
+    if (!hashAction) return
+    if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)
+    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath }))
+    else if (hashAction.type === 'createChild') setCreateChild(hashAction)
+  }, [hashAction, auditSource, router, primaryKey, recordPath])
+
+  usePageShortcuts({
+    n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
+    e: !hideActions && canEdit && (() => router.push(`${recordPath}/edit`)),
+    c: !hideActions && canInsert && (() => router.push(`${recordPath}/copy`)),
+    d: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
+    a: Boolean(auditSource) && (() => setAuditOpen(true)),
+  })
 
   return (
     <div className="flex items-start gap-4">
@@ -391,7 +423,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(`/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`)
+                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath }))
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
@@ -446,11 +478,29 @@ export function RecordViewHeader({
       {auditSource && (
         <AuditHistoryDialog
           open={auditOpen}
-          onOpenChange={setAuditOpen}
+          onOpenChange={(open) => {
+            setAuditOpen(open)
+            if (!open && hashAction?.type === 'audit') clearHash()
+          }}
           source={auditSource}
           tableMetaData={tableMetaData}
           primaryKey={primaryKey}
           recordLabel={record.recordLabel || String(primaryKey)}
+        />
+      )}
+
+      {createChild && (
+        <CreateChildFromLinkDialog
+          tableName={createChild.tableName}
+          presets={createChild}
+          onClose={() => {
+            setCreateChild(null)
+            clearHash()
+          }}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.widgets() })
+            onRecordChanged?.()
+          }}
         />
       )}
 

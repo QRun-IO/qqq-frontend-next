@@ -74,6 +74,33 @@ export interface ChildRecordListPayload {
   omitFieldNames?: string[]
   onlyIncludeFieldNames?: string[]
   canAddChildRecord?: boolean
+  /** Join values a new child gets (the parent's key on the join fields). */
+  defaultValuesForNewChildRecords?: Record<string, unknown>
+  /** Fields shown read-only for a new child; defaults to the defaulted fields. */
+  disabledFieldsForNewChildRecords?: string[]
+  /** Child field to parent field, for defaults taken from the hosting record. */
+  defaultValuesForNewChildRecordsFromParentFields?: Record<string, string>
+}
+
+/**
+ * Where "Add new" goes, as in Material: on a record view the `#/createChild=` link that opens
+ * the child create form over the record, elsewhere the child's create page; both carry the
+ * join defaults (and parent-field defaults) with those fields locked.
+ *
+ * @param data - Widget payload.
+ * @param tableName - Child table name.
+ * @param parent - Values of the hosting record, when the widget is on a record view.
+ * @returns The link.
+ */
+export function addChildHref(data: ChildRecordListPayload, tableName: string, parent: Record<string, unknown> | undefined): string {
+  const defaults: Record<string, unknown> = { ...(isPlainObject(data.defaultValuesForNewChildRecords) ? data.defaultValuesForNewChildRecords : {}) }
+  if (parent && isPlainObject(data.defaultValuesForNewChildRecordsFromParentFields)) {
+    for (const [childField, parentField] of Object.entries(data.defaultValuesForNewChildRecordsFromParentFields)) defaults[childField] = parent[parentField]
+  }
+  const disabled = asList<string>(data.disabledFieldsForNewChildRecords) ?? []
+  const locked = Object.fromEntries((disabled.length > 0 ? disabled : Object.keys(defaults)).map((name) => [name, 1]))
+  const presets = `/defaultValues=${encodeURIComponent(JSON.stringify(defaults))}/disabledFields=${encodeURIComponent(JSON.stringify(locked))}`
+  return parent ? `#/createChild=${encodeURIComponent(tableName)}${presets}` : `/app/${encodeURIComponent(tableName)}/create#${presets}`
 }
 
 /**
@@ -129,7 +156,7 @@ export function nextViewAllHref(viewAllLink: string, tableName: string): string 
  * @param props - Widget props with a `ChildRecordListRenderer` payload.
  * @returns A table of child records, an empty state, or a payload notice.
  */
-export function ChildRecordListWidget({ widgetMetaData, data }: WidgetComponentProps<ChildRecordListPayload>) {
+export function ChildRecordListWidget({ widgetMetaData, data, recordContext }: WidgetComponentProps<ChildRecordListPayload>) {
   const widgetName = widgetMetaData.name
   const table = data?.childFrontendTableMetaData ?? data?.childTableMetaData
   const queryOutput = data?.queryOutput
@@ -149,13 +176,14 @@ export function ChildRecordListWidget({ widgetMetaData, data }: WidgetComponentP
     <div className="space-y-2" data-qqq-id={`widget-childRecordList-${widgetName}`}>
       {data.canAddChildRecord === true && (
         <div className="flex justify-end">
-          <Link
-            href={`/app/${encodeURIComponent(table.name)}/create`}
+          {/* a plain anchor: the record view reacts to the hash change (Next's Link would not fire it) */}
+          <a
+            href={addChildHref(data, table.name, recordContext?.record?.values)}
             className="text-sm font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
             data-qqq-id={`child-record-add-${widgetName}`}
           >
             Add new {tableLabel}
-          </Link>
+          </a>
         </div>
       )}
       {records.length === 0 ? (

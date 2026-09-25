@@ -525,6 +525,8 @@ export interface QReportMetaData {
   hasPermission: boolean
   /** Process that runs this report (e.g. the basic report process). */
   processName?: string
+  /** Table whose records the report reads, when it has one. */
+  tableName?: string
   /** Material Icons name for navigation. */
   iconName?: string
 }

@@ -43,7 +43,9 @@ import { useRecord } from '@/lib/hooks/use-record'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { AssociationTableState } from '@/lib/utils/association-utils'
 import { canReadRecords } from '@/lib/auth/permissions'
+import { processRunHref, tableProcessForSegment, tableReportForSegment } from '@/lib/utils/material-links'
 import { RecordView } from '@/components/records/RecordView'
+import { RouteRedirect } from '@/components/layout/RouteRedirect'
 
 /**
  * Renders the detail view for a single record identified by `slug` (table name)
@@ -73,10 +75,14 @@ export default function RecordViewPage() {
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
+  // Material URL shapes: /app/{table}/{process} runs the process, /app/{table}/{report} runs the report.
+  const scopedProcess = metaData?.tables?.[slug] ? tableProcessForSegment(metaData, slug, recordId) : null
+  const scopedReport = metaData?.tables?.[slug] && !scopedProcess ? tableReportForSegment(metaData, slug, recordId) : null
+
   const { record, isLoading, isError, error, refetch } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: canReadRecords(tableMetaData),
+    enabled: canReadRecords(tableMetaData) && Boolean(metaData) && !scopedProcess && !scopedReport,
     includeAssociations: false,
   })
 
@@ -135,6 +141,15 @@ export default function RecordViewPage() {
       })
     }
   }, [record, tableMetaData])
+
+  if (metaData && scopedProcess) {
+    const search = typeof window === 'undefined' ? '' : window.location.search
+    const href = processRunHref(scopedProcess, { search, returnTo: `/app/${encodeURIComponent(slug)}` })
+    return <RouteRedirect href={href} label={metaData.processes[scopedProcess]?.label ?? scopedProcess} />
+  }
+  if (metaData && scopedReport) {
+    return <RouteRedirect href={`/app/${encodeURIComponent(scopedReport)}`} label={metaData.reports[scopedReport]?.label ?? scopedReport} />
+  }
 
   if (metadataError || tableError || (metaData && !metaData.tables?.[slug])) {
     return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>

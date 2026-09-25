@@ -41,6 +41,7 @@ import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { FilterBuilder } from './FilterBuilder'
@@ -257,14 +258,24 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
       params.set('recordsParam', 'recordIds')
       params.set('recordIds', rq.selection.selectedRecordIds.join(','))
     }
-    const queryString = params.toString()
-    router.push(`/app/${encodeURIComponent(process.name)}${queryString ? `?${queryString}` : ''}`)
+    // the run comes back to this query (filter, sort and page kept), as Material's modal does
+    params.set('returnTo', `${window.location.pathname}${window.location.search}`)
+    router.push(`/app/${encodeURIComponent(process.name)}?${params.toString()}`)
   }, [router, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
   const handleFilterToggle = useCallback(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)
     else rq.filter.toggleFilterPanel()
   }, [rq])
+
+  // Material query-screen shortcuts: n new record, r refresh the query, f open the filter builder.
+  usePageShortcuts({
+    n: canCreate && (() => router.push(`/app/${encodeURIComponent(tableName)}/create`)),
+    r: handleRefresh,
+    f: () => {
+      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+    },
+  }, Boolean(tableMetaData.readPermission))
 
   const pageRowCount = rq.data.records.length
   const allPageRowsSelected = pageRowCount > 0 && rq.selection.selectionMode === 'rows' && rq.selection.selectedRecordIds.length > 0
