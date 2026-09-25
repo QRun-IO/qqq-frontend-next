@@ -174,13 +174,18 @@ test('[RPT-015] the owner removes a share', async ({ page, backend, diagnostics 
 
 test('[RPT-018] a saved view is shared through the same dialog', async ({ page, backend, diagnostics }) => {
   void diagnostics
+  // other areas may seed shares on the same stock view (the query fixture shares it with bob)
+  const sharesSql = 'select saved_view_id, user_id, scope from shared_saved_view order by id'
+  const before = await sqlRows(backend, sharesSql)
+  expect(before.map((row) => row.user_id)).not.toContain('sample:casey')
   const dialog = await openShare(page, '/app/savedView/1')
   await expect(dialog.getByRole('heading', { name: /^Share View: / })).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: `Current Shares (${before.filter((row) => row.saved_view_id === '1').length})` })).toBeVisible()
   await dialog.getByLabel('User or Group').selectOption({ label: 'Casey' })
   await dialog.getByLabel('Scope', { exact: true }).selectOption('READ_WRITE')
-  await dialog.getByRole('button', { name: 'Share' }).click()
+  await dialog.getByRole('button', { name: 'Share', exact: true }).click()
   await expect(dialog.getByRole('list')).toContainText('Casey')
-  expect(await sqlRows(backend, 'select saved_view_id, user_id, scope from shared_saved_view')).toEqual([{ saved_view_id: '1', user_id: 'sample:casey', scope: 'READ_WRITE' }])
+  expect(await sqlRows(backend, sharesSql)).toEqual([...before, { saved_view_id: '1', user_id: 'sample:casey', scope: 'READ_WRITE' }])
 })
 
 test('[RPT-017] only the owner may share: the button is disabled for others and the server refuses', async ({ page, backend, diagnostics }) => {
