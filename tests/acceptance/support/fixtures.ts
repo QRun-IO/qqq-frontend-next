@@ -12,6 +12,9 @@ import { ACCEPTANCE_BACKEND_URL } from './ports'
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
 export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'expired'
 
+/** Sample sharing-demo identities (owners of the seeded saved view and report). */
+export type SampleUser = 'alice' | 'bob' | 'casey'
+
 export interface Diagnostics {
   pageErrors: string[]
   consoleErrors: string[]
@@ -28,7 +31,7 @@ export interface Backend {
   /** Direct backend HTTP call with this test's session, for independent enforcement checks. */
   api: APIRequestContext
   sessionId: string
-  setPersona: (persona: Persona) => Promise<void>
+  setPersona: (persona: Persona, user?: SampleUser) => Promise<void>
 }
 
 async function control(path: string, body: unknown) {
@@ -40,13 +43,14 @@ async function control(path: string, body: unknown) {
   return text ? JSON.parse(text) : null
 }
 
-export const test = base.extend<{ persona: Persona; backend: Backend; diagnostics: Diagnostics }>({
+export const test = base.extend<{ persona: Persona; user: SampleUser; backend: Backend; diagnostics: Diagnostics }>({
   persona: ['admin', { option: true }],
+  user: ['alice', { option: true }],
 
-  backend: async ({ context, persona, playwright }, use) => {
+  backend: async ({ context, persona, user, playwright }, use) => {
     const sessionId = randomUUID()
     await control('reset', {})
-    await control('persona', { sessionId, persona })
+    await control('persona', { sessionId, persona, user })
     // Mock authentication keys each request's session to the sessionId cookie.
     await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1' }])
     const api = await playwright.request.newContext({
@@ -56,7 +60,7 @@ export const test = base.extend<{ persona: Persona; backend: Backend; diagnostic
       sessionId,
       api,
       sql: async (query) => (await control('sql', { query })).rows,
-      setPersona: async (next) => { await control('persona', { sessionId, persona: next }) },
+      setPersona: async (next, nextUser = user) => { await control('persona', { sessionId, persona: next, user: nextUser }) },
     })
     await api.dispose()
   },

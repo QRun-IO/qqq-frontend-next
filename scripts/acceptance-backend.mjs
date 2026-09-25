@@ -27,6 +27,7 @@ if (!existsSync(path.join(classes, 'AcceptanceSampleServer.class'))) process.exi
 
 const server = spawn('java', [
   '-Dqqq.sample.mockAuthentication=true',
+  '-Dqqq.sample.sharing=true',
   `-Dqqq.sample.port=${port}`,
   '-Duser.timezone=UTC',
   // javalin mode: the fresh export shadows any dashboard bundled in the sample jar

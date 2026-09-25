@@ -15,6 +15,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -34,18 +36,21 @@ import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModu
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.sampleapp.SampleJavalinServer;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
+import com.kingsrook.sampleapp.metadata.SampleSharingMetaDataProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 
 /*******************************************************************************
  ** Owned acceptance fixture: the stock sample application on loopback, with a
- ** granular permission policy, named personas keyed by the mock sessionId
- ** cookie, and loopback-only control routes for reset and SQL readback.
+ ** granular permission policy, the sharing demo tables, named personas and
+ ** sample users (alice, bob, casey) keyed by the mock sessionId cookie, and
+ ** loopback-only control routes for reset and SQL readback.
  *******************************************************************************/
 public class AcceptanceSampleServer
 {
    private static final Map<String, String> PERSONAS = new ConcurrentHashMap<>();
+   private static final Map<String, String> USERS    = new ConcurrentHashMap<>();
    private static volatile QInstance        instance;
 
 
@@ -85,6 +90,7 @@ public class AcceptanceSampleServer
          {
             JSONObject body = new JSONObject(context.body());
             PERSONAS.put(body.getString("sessionId"), body.getString("persona"));
+            USERS.put(body.getString("sessionId"), body.optString("user", "alice"));
             context.contentType("application/json").result("{}");
          });
          config.routes.post("/acceptance/sql", context ->
@@ -111,6 +117,7 @@ public class AcceptanceSampleServer
    private static synchronized void reset() throws Exception
    {
       SampleMetaDataProvider.primeTestDatabase("prime-test-database.sql");
+      SampleMetaDataProvider.primeTestDatabase("prime-sharing-database.sql");
       primeFixtures();
    }
 
@@ -199,11 +206,20 @@ public class AcceptanceSampleServer
       public void customizeSession(QInstance qInstance, QSession session, Map<String, Object> context)
       {
          String persona = PERSONAS.getOrDefault(session.getUuid(), "admin");
+         String user    = USERS.getOrDefault(session.getUuid(), "alice");
          if("expired".equals(persona))
          {
             // Same path as a provider rejecting an expired token: 401 and the session cookie is cleared.
             AcceptanceSampleServer.<RuntimeException>sneakyThrow(new QAuthenticationException("Session expired"));
          }
+         //////////////////////////////////////////////////////////////////////
+         // same identity and security key as the sample's sharing demo user //
+         //////////////////////////////////////////////////////////////////////
+         String userId = "sample:" + user;
+         session.getUser().setIdReference(userId);
+         session.getUser().setFullName(Character.toUpperCase(user.charAt(0)) + user.substring(1) + " (sample)");
+         session.withValueForFrontend("user", new LinkedHashMap<>(Map.of("name", session.getUser().getFullName(), "email", userId)));
+         session.setSecurityKeyValues(Map.of(SampleSharingMetaDataProvider.USER_KEY, List.of(userId)));
          session.withPermissions(permissionsFor(persona));
       }
    }
