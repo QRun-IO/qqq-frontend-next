@@ -106,15 +106,22 @@ describe('Metadata API', () => {
   })
 
   describe('loadProcessMetaData', () => {
-    it('gets process metadata by name from the registered route and unwraps it', async () => {
+    it('gets process metadata by name from the v1 route', async () => {
       const { default: apiClient } = await import('./client')
-      const process = { name: 'bulkImport', minInputRecords: 1, frontendSteps: [] }
-      vi.mocked(apiClient.get).mockResolvedValue({ process })
+      const process = { name: 'bulkImport', minInputRecords: 1, frontendSteps: [{ name: 'upload' }] }
+      vi.mocked(apiClient.get).mockResolvedValue(process)
 
       const { loadProcessMetaData } = await import('./metadata')
       await expect(loadProcessMetaData('bulk Import')).resolves.toEqual(process)
 
-      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulk%20Import', { baseURL: 'https://example.invalid/prefix' })
+      expect(apiClient.get).toHaveBeenCalledWith('/metaData/process/bulk%20Import')
+    })
+
+    it('treats the step list v1 omits for a process without screens as empty', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ name: 'backendOnly' })
+      const { loadProcessMetaData } = await import('./metadata')
+      await expect(loadProcessMetaData('backendOnly')).resolves.toEqual({ name: 'backendOnly', frontendSteps: [] })
     })
 
     it('rejects a response without a process', async () => {

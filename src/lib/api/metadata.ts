@@ -89,17 +89,13 @@ export async function loadTableMetaData(tableName: string): Promise<QTableMetaDa
  *   and overall process configuration such as the process label and step components.
  */
 export async function loadProcessMetaData(processName: string): Promise<QProcessMetaData> {
-  //////////////////////////////////////////////////////////////////////////////
-  // The registered route carries min/max input records, component values     //
-  // (ad hoc widget blocks keep blockTypeName and conditional) and step back   //
-  // names, which the versioned process metadata omits; it wraps the process. //
-  //////////////////////////////////////////////////////////////////////////////
-  const body = await apiClient.get<{ process?: QProcessMetaData }>(`/metaData/process/${encodeURIComponent(processName)}`, {
-    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
-  })
-  const process = body?.process
-  if (!process || typeof process !== 'object' || typeof process.name !== 'string' || !Array.isArray(process.frontendSteps)) {
+  // v1 returns the process itself, with min/max input records, step back names, help
+  // contents and widget block names (QRun-IO/qqq#406).
+  const process = await apiClient.get<QProcessMetaData>(`/metaData/process/${encodeURIComponent(processName)}`)
+  // v1 omits an empty step list (a process without screens)
+  const steps = process && typeof process === 'object' && process.frontendSteps === undefined ? [] : process?.frontendSteps
+  if (!process || typeof process !== 'object' || typeof process.name !== 'string' || !Array.isArray(steps)) {
     throw new Error('Invalid process metadata response')
   }
-  return process
+  return { ...process, frontendSteps: steps }
 }

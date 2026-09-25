@@ -46,12 +46,13 @@ export interface ProcessBlockData {
 
 /**
  * Read a block list from composite widget data or component values.
- * @param source - Object with a `blocks` array.
+ * @param source - Object with a `blocks` (or v1 `subBlocks`) array.
  * @returns The blocks.
  */
 export function readBlocks(source: unknown): ProcessBlockData[] {
   if (!source || typeof source !== 'object') return []
-  const blocks = (source as { blocks?: unknown }).blocks
+  // v1 process metadata nests a composite's blocks as `subBlocks`
+  const blocks = (source as { blocks?: unknown }).blocks ?? (source as { subBlocks?: unknown }).subBlocks
   return Array.isArray(blocks) ? blocks.filter((block): block is ProcessBlockData => Boolean(block) && typeof block === 'object') : []
 }
 
