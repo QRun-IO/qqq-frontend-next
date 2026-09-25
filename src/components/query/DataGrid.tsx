@@ -26,6 +26,7 @@ import {
   getCoreRowModel,
   flexRender,
   type ColumnDef,
+  type Row,
   type SortingState,
   type RowSelectionState,
 } from '@tanstack/react-table'
@@ -638,46 +639,92 @@ export function DataGrid({
 
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr
+            <GridRow
               key={row.id}
-              className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${row.getIsSelected() ? 'bg-primary/5' : ''}`}
-              onClick={() => handleRowClick(row.original)}
-              data-qqq-id={`grid-row-${row.index}`}
-            >
-              {row.getVisibleCells().map((cell, colIndex) => {
-                // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
-                const cellStickyClass =
-                  colIndex === 0
-                    ? 'sticky left-0 z-[1] bg-card'
-                    : colIndex === 1
-                      ? 'sticky left-[44px] z-[1] bg-card'
-                      : ''
-
-                return (
-                  <td
-                    key={cell.id}
-                    className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass}`}
-                    style={{ width: `${cell.column.getSize()}px` }}
-                    data-qqq-id={`grid-cell-${cell.column.id}`}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      // Enter on a focused cell opens the record, like a row click (keyboard parity)
-                      if (e.key === 'Enter' && e.target === e.currentTarget && cell.column.id !== '_select') {
-                        e.preventDefault()
-                        handleRowClick(row.original)
-                        return
-                      }
-                      handleCellKeyDown(e)
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                )
-              })}
-            </tr>
+              row={row}
+              columns={columns}
+              isSelected={row.getIsSelected()}
+              isChecked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
+              rowClass={rowClass}
+              cellClass={cellClass}
+              onRowClick={handleRowClick}
+              onCellKeyDown={handleCellKeyDown}
+            />
           ))}
         </tbody>
       </table>
     </div>
   )
 }
+
+
+/** Props for {@link GridRow}. */
+interface GridRowProps {
+  /** The TanStack row. */
+  row: Row<QRecord>
+  /** The column definitions the row's cells render with (a new array re-renders the row). */
+  columns: ColumnDef<QRecord>[]
+  /** Whether the row is selected (row highlight). */
+  isSelected: boolean
+  /** Whether the row's checkbox shows as checked (also true when selected by query). */
+  isChecked: boolean
+  /** Density row class. */
+  rowClass: string
+  /** Density cell class. */
+  cellClass: string
+  /** Opens the row's record. */
+  onRowClick: (record: QRecord) => void
+  /** Arrow-key cell navigation. */
+  onCellKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => void
+}
+
+/**
+ * One grid body row. Memoized: a page of 250 rows by 40 columns is 10,000 cells, and the
+ * grid re-renders on every query state change (the page number before its request, the
+ * URL sync, fetching flags), so unchanged rows skip rendering (QRun-IO/qqq#710).
+ * `columns`, `isSelected` and `isChecked` are props so column and selection changes
+ * still re-render the row.
+ *
+ * @param props - Component properties.
+ * @returns The table row.
+ */
+const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellClass, onRowClick, onCellKeyDown }: GridRowProps) {
+  return (
+    <tr
+      className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${isSelected ? 'bg-primary/5' : ''}`}
+      onClick={() => onRowClick(row.original)}
+      data-qqq-id={`grid-row-${row.index}`}
+    >
+      {row.getVisibleCells().map((cell, colIndex) => {
+        // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
+        const cellStickyClass =
+          colIndex === 0
+            ? 'sticky left-0 z-[1] bg-card'
+            : colIndex === 1
+              ? 'sticky left-[44px] z-[1] bg-card'
+              : ''
+
+        return (
+          <td
+            key={cell.id}
+            className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass}`}
+            style={{ width: `${cell.column.getSize()}px` }}
+            data-qqq-id={`grid-cell-${cell.column.id}`}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              // Enter on a focused cell opens the record, like a row click (keyboard parity)
+              if (e.key === 'Enter' && e.target === e.currentTarget && cell.column.id !== '_select') {
+                e.preventDefault()
+                onRowClick(row.original)
+                return
+              }
+              onCellKeyDown(e)
+            }}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </td>
+        )
+      })}
+    </tr>
+  )
+})

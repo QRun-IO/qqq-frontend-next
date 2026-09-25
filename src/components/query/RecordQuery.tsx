@@ -230,6 +230,8 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   // Column statistics need the table's QUERY_STATS capability and the columnStats process
   const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
+  // Stable, so the grid's memoized rows are not re-rendered by a new handler each render
+  const openColumnStats = useCallback((name: string, label: string) => setStatsColumn({ name, label }), [])
 
   const canCreate = canInsertRecords(tableMetaData)
   const distinct = rq.pagination.distinctCount !== null
@@ -449,7 +451,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           rowSelection={rq.selection.rowSelection}
           onRowSelectionChange={rq.selection.setRowSelection}
           isRowSelectedByQuery={isRowSelectedByQuery}
-          onColumnStats={canShowStats ? (name, label) => setStatsColumn({ name, label }) : undefined}
+          onColumnStats={canShowStats ? openColumnStats : undefined}
           columnVisibility={rq.columns.columnVisibility}
           columnOrder={rq.columns.columnOrder}
           columnWidths={rq.columns.columnWidths}
