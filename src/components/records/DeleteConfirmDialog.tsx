@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { forgetDeletedRecord } from '@/lib/utils/record-cache'
 import { toast } from '@/lib/hooks/use-toast'
+import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 
 interface DeleteConfirmDialogProps {
   tableMetaData: QTableMetaData
@@ -80,6 +81,7 @@ export function DeleteConfirmDialog({
   })
 
   const mutationError = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
+  const restoreFocus = useRestoreFocus(true)
 
   return (
     <DialogPrimitive.Root open onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
@@ -88,6 +90,7 @@ export function DeleteConfirmDialog({
           className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70"
         />
         <DialogPrimitive.Content
+          onCloseAutoFocus={restoreFocus}
           data-qqq-id="delete-confirm-dialog"
           aria-describedby="delete-dialog-description"
           className={cn(

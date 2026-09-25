@@ -603,6 +603,9 @@ export function DataGrid({
                           role="separator"
                           aria-orientation="vertical"
                           aria-label={`Resize ${fieldLabel} column`}
+                          aria-valuenow={header.getSize()}
+                          aria-valuemin={header.column.columnDef.minSize ?? 0}
+                          aria-valuemax={header.column.columnDef.maxSize ?? 2000}
                           tabIndex={0}
                           onMouseDown={(e) =>
                             handleResizeMouseDown(e, header.id, header.getSize())
@@ -644,7 +647,15 @@ export function DataGrid({
                     style={{ width: `${cell.column.getSize()}px` }}
                     data-qqq-id={`grid-cell-${cell.column.id}`}
                     tabIndex={0}
-                    onKeyDown={handleCellKeyDown}
+                    onKeyDown={(e) => {
+                      // Enter on a focused cell opens the record, like a row click (keyboard parity)
+                      if (e.key === 'Enter' && e.target === e.currentTarget && cell.column.id !== '_select') {
+                        e.preventDefault()
+                        handleRowClick(row.original)
+                        return
+                      }
+                      handleCellKeyDown(e)
+                    }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>

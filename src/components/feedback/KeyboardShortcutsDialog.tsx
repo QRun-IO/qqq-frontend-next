@@ -25,6 +25,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 
 /**
  * Describes a single keyboard shortcut with its key combination and action description.
@@ -120,6 +121,7 @@ interface KeyboardShortcutsDialogProps {
  *   shortcuts under a heading with {@link Kbd} badges for each key combination.
  */
 export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {
+  const restoreFocus = useRestoreFocus(open)
   return (
     <Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <Dialog.Portal>
@@ -128,6 +130,7 @@ export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDial
           data-qqq-id="keyboard-shortcuts-overlay"
         />
         <Dialog.Content
+          onCloseAutoFocus={restoreFocus}
           className={cn(
             'fixed left-1/2 top-1/2 z-[2001] w-full max-w-md -translate-x-1/2 -translate-y-1/2',
             'rounded-xl border border-border bg-card shadow-lg',
