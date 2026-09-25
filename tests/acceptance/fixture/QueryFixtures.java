@@ -114,6 +114,31 @@ final class QueryFixtures
             List.of("quantity", "price", "receivedDate", "checkedAt", "isActive", "ownerId", "speciesId", "notes", "photo")))
          .withExposedJoin(new ExposedJoin().withJoinTable(SampleMetaDataProvider.TABLE_NAME_PERSON).withJoinPath(List.of("qryItemJoinPerson")))
          .withExposedJoin(new ExposedJoin().withJoinTable("qryItemNote").withJoinPath(List.of("qryItemJoinItemNote")))));
+      //////////////////////////////////////////////////////////////////////////////////////////////
+      // default grid column order (Material): fields declared out of order, sections decide (#714) //
+      //////////////////////////////////////////////////////////////////////////////////////////////
+      QTableMetaData ordered = new QTableMetaData().withName("qryOrdered").withLabel("Ordered Item").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withField(new QFieldMetaData("price", QFieldType.DECIMAL))
+         .withField(new QFieldMetaData("quantity", QFieldType.INTEGER))
+         .withField(new QFieldMetaData("code", QFieldType.STRING))
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))
+         .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "code")))
+         .withSection(new QFieldSection("details", "Details", new QIcon("dataset"), Tier.T2, List.of("price")))
+         .withSection(new QFieldSection("stock", "Stock", new QIcon("inventory"), Tier.T2, List.of("quantity")));
+      ordered.setBackendDetails(new RDBMSTableBackendDetails().withTableName("qry_item"));
+      QInstanceEnricher.setInferredFieldBackendNames(ordered);
+      qInstance.addTable(ordered);
+
+      ////////////////////////////////////////////////////////////////////////////
+      // more than a thousand rows: pagination numbers are locale formatted (#714) //
+      ////////////////////////////////////////////////////////////////////////////
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryManyRow").withLabel("Many Row").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))));
+
       qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryItemNote").withLabel("Item Note").withBackendName(rdbms)
          .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("note")
          .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
@@ -226,6 +251,9 @@ final class QueryFixtures
          for(String sql : List.of(
             "DROP TABLE IF EXISTS qry_item_note",
             "DROP TABLE IF EXISTS qry_item",
+            "DROP TABLE IF EXISTS qry_many_row",
+            "CREATE TABLE qry_many_row (id INT PRIMARY KEY, name VARCHAR(40) NOT NULL)",
+            "INSERT INTO qry_many_row (id, name) SELECT X, CONCAT('Row ', X) FROM SYSTEM_RANGE(1, 1234)",
             """
                CREATE TABLE qry_item (id INT PRIMARY KEY, name VARCHAR(80) NOT NULL, code VARCHAR(40), quantity INT, price DECIMAL(12, 2),
                received_date DATE, checked_at TIMESTAMP, is_active BOOLEAN, owner_id INT, species_id INT, notes VARCHAR(1000), photo BLOB)""",
