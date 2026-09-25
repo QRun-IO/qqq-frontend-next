@@ -84,7 +84,7 @@
       ],
       "fixture": "sample person + greetInteractive",
       "scenarios": [
-        "select Avery and Casey, Run process -> Greet Interactive -> both greeted"
+        "select Avery and Casey, Actions -> Greet Interactive -> both greeted"
       ],
       "negative": [],
       "issues": [],
