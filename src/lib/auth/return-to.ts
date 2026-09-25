@@ -22,8 +22,11 @@
  * Returns a same-origin, in-app path for a post-login redirect, or `fallback`.
  *
  * Rejects absolute and protocol-relative URLs (`//host`, `/\host`), non-http
- * schemes and the login page itself. The value is used as-is: `URLSearchParams`
- * has already decoded it once, and decoding again would corrupt encoded query values.
+ * schemes and the login page itself, also when they only appear after the URL is
+ * normalized (`/.//host` and `/app/..//host` normalize to `//host`, which a
+ * navigation would treat as another origin; QRun-IO/qqq#696). The value is used
+ * as-is: `URLSearchParams` has already decoded it once, and decoding again would
+ * corrupt encoded query values.
  *
  * @param raw - The `returnTo` value from the URL or storage.
  * @param origin - The application origin (defaults to `window.location.origin`).
@@ -40,6 +43,7 @@ export function safeReturnTo(raw: string | null | undefined, origin?: string, fa
     return fallback
   }
   if (url.origin !== new URL(base).origin) return fallback
+  if (url.pathname.startsWith('//') || url.pathname.startsWith('/\\')) return fallback
   if (/^\/(login|token|callback)(\/|$)/.test(url.pathname)) return fallback
   return `${url.pathname}${url.search}${url.hash}`
 }
