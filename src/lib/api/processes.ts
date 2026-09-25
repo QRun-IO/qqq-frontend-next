@@ -393,6 +393,63 @@ export async function processCancel(
   return true
 }
 
+/** A saved bulk load profile (the `savedBulkLoadProfile` table). */
+export interface SavedBulkLoadProfileRecord {
+  id: number
+  label: string
+  tableName: string
+  userId?: string
+  /** The v1 bulk load profile as JSON. */
+  mappingJson: string
+  isBulkEdit?: boolean
+}
+
+/**
+ * Run one of the saved bulk load profile processes and read its `savedBulkLoadProfileList`.
+ * @param processName - `querySavedBulkLoadProfile`, `storeSavedBulkLoadProfile` or `deleteSavedBulkLoadProfile`.
+ * @param values - Process inputs.
+ * @returns The records the process returned.
+ */
+async function runSavedBulkLoadProfileProcess(processName: string, values: Record<string, unknown>): Promise<SavedBulkLoadProfileRecord[]> {
+  const response = await processInit(processName, { values, stepTimeoutMillis: 60_000 })
+  if (response.type === 'ERROR') throw new Error(response.userFacingError ?? response.error)
+  if (response.type !== 'COMPLETE') throw new Error('Unexpected server response.')
+  const list = response.values.savedBulkLoadProfileList
+  return Array.isArray(list)
+    ? list.map((record) => (record && typeof record === 'object' ? (record as { values?: SavedBulkLoadProfileRecord }).values : undefined))
+      .filter((record): record is SavedBulkLoadProfileRecord => Boolean(record) && typeof record!.id === 'number')
+    : []
+}
+
+/**
+ * List the saved bulk load profiles for a table (insert or edit profiles).
+ * @param tableName - Table the profiles load into.
+ * @param isBulkEdit - `true` for bulk-edit-with-file profiles.
+ * @returns The profiles, ordered by label.
+ */
+export function querySavedBulkLoadProfiles(tableName: string, isBulkEdit: boolean): Promise<SavedBulkLoadProfileRecord[]> {
+  return runSavedBulkLoadProfileProcess('querySavedBulkLoadProfile', { tableName, isBulkEdit })
+}
+
+/**
+ * Create (without `id`) or update a saved bulk load profile.
+ * @param profile - Label, table, mode and mapping (and `id` to update).
+ * @returns The stored profile.
+ */
+export async function storeSavedBulkLoadProfile(profile: Omit<SavedBulkLoadProfileRecord, 'id' | 'userId'> & { id?: number }): Promise<SavedBulkLoadProfileRecord> {
+  const [stored] = await runSavedBulkLoadProfileProcess('storeSavedBulkLoadProfile', { ...profile })
+  if (!stored) throw new Error('The profile was not saved.')
+  return stored
+}
+
+/**
+ * Delete a saved bulk load profile.
+ * @param id - Profile id.
+ */
+export async function deleteSavedBulkLoadProfile(id: number): Promise<void> {
+  await runSavedBulkLoadProfileProcess('deleteSavedBulkLoadProfile', { id })
+}
+
 /**
  * Build the URL of a file a process step made available for download
  * (`DOWNLOAD_FORM`), from the `downloadFileName` plus either `serverFilePath`

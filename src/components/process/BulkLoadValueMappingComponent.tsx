@@ -32,6 +32,7 @@ import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 
 import { useProcessStep, useSubmitContributor } from './ProcessStepContext'
 import { BulkLoadMapping, profileSubmitValues, readTableStructure, type BulkLoadProfile } from './bulk-load-models'
+import { SavedBulkLoadProfiles, readSavedProfile } from './SavedBulkLoadProfiles'
 
 /** Props for {@link BulkLoadValueMappingComponent}. */
 export interface BulkLoadValueMappingComponentProps {
@@ -59,6 +60,7 @@ export function BulkLoadValueMappingComponent({ index }: BulkLoadValueMappingCom
     return { ...fromValues, ...fromProfile }
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [savedProfile, setSavedProfile] = useState(() => readSavedProfile(values.savedBulkLoadProfileRecord))
 
   const fieldIndex = typeof values.valueMappingFieldIndex === 'number' ? values.valueMappingFieldIndex : 0
   const fieldCount = Array.isArray(values.fieldNamesToDoValueMapping) ? values.fieldNamesToDoValueMapping.length : 1
@@ -88,7 +90,11 @@ export function BulkLoadValueMappingComponent({ index }: BulkLoadValueMappingCom
     const { profile } = draft.toProfile()
     return {
       maySubmit: Object.keys(nextErrors).length === 0,
-      values: { ...profileSubmitValues(draft, profile), mappedValuesJSON: JSON.stringify(mapped) },
+      values: {
+        ...profileSubmitValues(draft, profile),
+        mappedValuesJSON: JSON.stringify(mapped),
+        ...(savedProfile ? { savedBulkLoadProfileId: String(savedProfile.id) } : {}),
+      },
     }
   })
 
@@ -111,6 +117,18 @@ export function BulkLoadValueMappingComponent({ index }: BulkLoadValueMappingCom
 
   return (
     <div className="space-y-2" data-qqq-id={`process-bulk-load-value-mapping-${index}`}>
+      <SavedBulkLoadProfiles
+        tableName={tableStructure?.tableName ?? ''}
+        isBulkEdit={mapping.isBulkEdit}
+        current={savedProfile}
+        allowSelecting={false}
+        profileToSave={() => {
+          const draft = mapping.clone()
+          draft.valueMappings[fieldFullName] = mapped
+          return draft.toProfile().profile
+        }}
+        onChange={setSavedProfile}
+      />
       {fileValues.map((fileValue, rowIndex) => {
         const label = `${field.label} value for ${fileValue}`
         const current = mapped[fileValue]

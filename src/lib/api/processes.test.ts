@@ -204,6 +204,36 @@ describe('Processes API', () => {
     })
   })
 
+  describe('saved bulk load profiles', () => {
+    it('queries profiles through the query process and reads the record values', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({
+        processUUID: 'p', values: { savedBulkLoadProfileList: [{ tableName: 'savedBulkLoadProfile', values: { id: 3, label: 'CSV', tableName: 'person', mappingJson: '{}' } }] },
+      })
+      const { querySavedBulkLoadProfiles } = await import('./processes')
+      await expect(querySavedBulkLoadProfiles('person', false)).resolves.toEqual([{ id: 3, label: 'CSV', tableName: 'person', mappingJson: '{}' }])
+      const [url, body] = vi.mocked(apiClient.post).mock.calls[0]
+      expect(url).toBe('/processes/querySavedBulkLoadProfile/init')
+      expect((body as FormData).get('tableName')).toBe('person')
+      expect((body as FormData).get('isBulkEdit')).toBe('false')
+      expect((body as FormData).get('_qStepTimeoutMillis')).toBe('60000')
+    })
+
+    it('stores and deletes profiles and surfaces the backend refusal', async () => {
+      const { default: apiClient } = await import('./client')
+      const { storeSavedBulkLoadProfile, deleteSavedBulkLoadProfile } = await import('./processes')
+      vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', values: { savedBulkLoadProfileList: [{ values: { id: 9, label: 'New', tableName: 'person', mappingJson: '{"version":"v1"}' } }] } })
+      await expect(storeSavedBulkLoadProfile({ label: 'New', tableName: 'person', isBulkEdit: false, mappingJson: '{"version":"v1"}' })).resolves.toMatchObject({ id: 9 })
+      expect((vi.mocked(apiClient.post).mock.calls[0][1] as FormData).get('mappingJson')).toBe('{"version":"v1"}')
+      vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', error: 'dup', userFacingError: 'You already have a saved Bulk Load Profile on this table with this name.' })
+      await expect(storeSavedBulkLoadProfile({ label: 'New', tableName: 'person', isBulkEdit: false, mappingJson: '{}' })).rejects.toThrow('You already have a saved Bulk Load Profile on this table with this name.')
+      vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', values: {} })
+      await deleteSavedBulkLoadProfile(9)
+      expect(vi.mocked(apiClient.post).mock.calls[2][0]).toBe('/processes/deleteSavedBulkLoadProfile/init')
+      expect((vi.mocked(apiClient.post).mock.calls[2][1] as FormData).get('id')).toBe('9')
+    })
+  })
+
   describe('processDownloadUrl', () => {
     it('builds server-file and storage download links', async () => {
       const { processDownloadUrl } = await import('./processes')

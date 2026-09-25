@@ -23,7 +23,7 @@
 
 'use client'
 
-import React, { useId, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
 
@@ -38,6 +38,7 @@ import {
   readTableStructure,
   type BulkLoadProfile,
 } from './bulk-load-models'
+import { SavedBulkLoadProfiles, readSavedProfile } from './SavedBulkLoadProfiles'
 
 /** Props for {@link BulkLoadFileMappingComponent}. */
 export interface BulkLoadFileMappingComponentProps {
@@ -162,13 +163,19 @@ function MappedFieldRow({ field, file, hasHeaderRow, isBulkEdit, onPatch, onRemo
  * @returns The mapping editor.
  */
 export function BulkLoadFileMappingComponent({ index }: BulkLoadFileMappingComponentProps) {
-  const { values, isWorking, processName } = useProcessStep()
+  const { values, isWorking, processName, tableMetaData, setStepLabel } = useProcessStep()
   const tableStructure = readTableStructure(values.tableStructure)
   const file = useMemo(() => new FileDescription(values.headerValues, values.headerLetters, values.bodyValuesPreview), [values.headerValues, values.headerLetters, values.bodyValuesPreview])
   const [mapping, setMapping] = useState<BulkLoadMapping | null>(() => tableStructure
     ? BulkLoadMapping.fromProfile(tableStructure, (values.bulkLoadProfile ?? values.suggestedBulkLoadProfile) as BulkLoadProfile | undefined)
     : null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [savedProfile, setSavedProfile] = useState(() => readSavedProfile(values.savedBulkLoadProfileRecord))
+
+  useEffect(() => {
+    setStepLabel(savedProfile ? `File Mapping / ${savedProfile.label}` : null)
+    return () => setStepLabel(null)
+  }, [savedProfile, setStepLabel])
   const headingId = useId()
 
   const keyFieldsQuery = useQuery({
@@ -213,7 +220,10 @@ export function BulkLoadFileMappingComponent({ index }: BulkLoadFileMappingCompo
     if (draft.requiredFields.length === 0 && draft.additionalFields.length === 0) nextErrors.fields = 'You must have at least 1 field.'
     setErrors(nextErrors)
     setMapping(draft)
-    return { maySubmit: !haveErrors && Object.keys(nextErrors).length === 0, values: profileSubmitValues(draft, profile) }
+    return {
+      maySubmit: !haveErrors && Object.keys(nextErrors).length === 0,
+      values: { ...profileSubmitValues(draft, profile), ...(savedProfile ? { savedBulkLoadProfileId: String(savedProfile.id) } : {}) },
+    }
   })
 
   if (!tableStructure || !mapping) {
@@ -227,6 +237,18 @@ export function BulkLoadFileMappingComponent({ index }: BulkLoadFileMappingCompo
 
   return (
     <div className="space-y-6" data-qqq-id={`process-bulk-load-file-mapping-${index}`}>
+      <SavedBulkLoadProfiles
+        tableName={tableStructure.tableName || tableMetaData?.name || ''}
+        isBulkEdit={mapping.isBulkEdit}
+        current={savedProfile}
+        allowSelecting
+        profileToSave={() => mapping.clone().toProfile().profile}
+        onSelect={(profile) => {
+          const suggested = (values.suggestedBulkLoadProfile ?? values.bulkLoadProfile) as BulkLoadProfile | undefined
+          setMapping(BulkLoadMapping.fromProfile(tableStructure, profile ? JSON.parse(profile.mappingJson) as BulkLoadProfile : suggested))
+        }}
+        onChange={setSavedProfile}
+      />
       <section aria-labelledby={headingId} className="space-y-3">
         <h4 id={headingId} className="text-sm font-semibold text-foreground">File Details</h4>
         <div className="flex flex-wrap gap-x-6 text-sm">

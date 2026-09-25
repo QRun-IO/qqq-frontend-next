@@ -22,10 +22,11 @@
 
 'use client'
 
-import React, { useId, useMemo } from 'react'
+import React, { useId, useMemo, useState } from 'react'
 
 import { useProcessStep, useSubmitContributor } from './ProcessStepContext'
 import { BulkLoadMapping, FileDescription, readTableStructure, type BulkLoadProfile } from './bulk-load-models'
+import { SavedBulkLoadProfiles, readSavedProfile } from './SavedBulkLoadProfiles'
 
 /** Props for {@link BulkLoadProfileComponent}. */
 export interface BulkLoadProfileComponentProps {
@@ -43,15 +44,13 @@ export function BulkLoadProfileComponent({ index }: BulkLoadProfileComponentProp
   const tableStructure = readTableStructure(values.tableStructure)
   const mapping = useMemo(() => tableStructure ? BulkLoadMapping.fromProfile(tableStructure, values.bulkLoadProfile as BulkLoadProfile | undefined) : null, [tableStructure, values.bulkLoadProfile])
   const file = useMemo(() => new FileDescription(values.headerValues, values.headerLetters, values.bodyValuesPreview), [values.headerValues, values.headerLetters, values.bodyValuesPreview])
-  const saved = values.savedBulkLoadProfileRecord && typeof values.savedBulkLoadProfileRecord === 'object'
-    ? values.savedBulkLoadProfileRecord as { values?: Record<string, unknown> } : null
-  const savedId = saved?.values?.id
-  const savedLabel = typeof saved?.values?.label === 'string' ? saved.values.label : null
+  const [saved, setSaved] = useState(() => readSavedProfile(values.savedBulkLoadProfileRecord))
+  const savedLabel = saved?.label ?? null
   const action = mapping?.isBulkEdit ? 'edit' : 'load'
 
   useSubmitContributor(`bulkLoadProfile-${index}`, () => ({
     maySubmit: true,
-    values: savedId !== undefined && savedId !== null ? { savedBulkLoadProfileId: String(savedId) } : {},
+    values: saved ? { savedBulkLoadProfileId: String(saved.id) } : {},
   }))
 
   if (!mapping) return null
@@ -64,7 +63,7 @@ export function BulkLoadProfileComponent({ index }: BulkLoadProfileComponentProp
       <p className="mb-2 text-muted-foreground" data-qqq-id="bulk-load-profile-name">
         {savedLabel ? `You are using the bulk ${action} profile: ${savedLabel}` : `You are not using a saved bulk ${action} profile.`}
       </p>
-      <ul className="space-y-0.5" data-qqq-id="bulk-load-profile-fields">
+      <ul className="mb-2 space-y-0.5" data-qqq-id="bulk-load-profile-fields">
         {mapped.map((field) => (
           <li key={field.key}>
             <span className="font-medium">{field.getQualifiedLabel()}</span>
@@ -74,6 +73,17 @@ export function BulkLoadProfileComponent({ index }: BulkLoadProfileComponentProp
           </li>
         ))}
       </ul>
+      {tableStructure && (
+        <SavedBulkLoadProfiles
+          tableName={tableStructure.tableName}
+          isBulkEdit={mapping.isBulkEdit}
+          current={saved}
+          allowSelecting={false}
+          showCurrent={false}
+          profileToSave={() => mapping.clone().toProfile().profile}
+          onChange={setSaved}
+        />
+      )}
     </section>
   )
 }
