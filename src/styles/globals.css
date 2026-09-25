@@ -81,6 +81,26 @@
   }
 }
 
+/* Touch targets (QRun-IO/qqq#708): on a touch screen every control is at least 44 x 44 CSS px
+ * (WCAG 2.5.5). Keyed to the pointer, not the width, so mouse layouts are unchanged at any size
+ * and tablets in the desktop layout get the larger targets too. Zero specificity (:where) keeps
+ * component classes in charge; a label wrapping a checkbox or radio is the target for its box.
+ * Links in running text and data values keep their inline size (WCAG 2.5.5 inline exception). */
+@media (pointer: coarse) {
+  :where(button, select, summary, [role="button"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"],
+    [role="menuitemradio"], [role="option"], [role="combobox"],
+    input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="color"])) {
+    min-height: 44px;
+  }
+  :where(button, summary, [role="button"], [role="tab"], [role="radio"]) {
+    min-width: 44px;
+  }
+  :where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* D-T-5: Solid focus ring on dark backgrounds — the color-mix 50% opacity used in
  * the default rule can disappear against dark surfaces. A solid ring is always visible. */
 @media (prefers-color-scheme: dark) {
