@@ -78,6 +78,8 @@ test('[QRY-051] saving a new view stores the filter, sort, columns and page size
   expect(stored!.view.rowsPerPage).toBe(10)
   const email = stored!.view.queryColumns.columns.find((c: { name: string }) => c.name === 'email')
   expect(email.isVisible).toBe(false)
+  // The saved view's own route has opened (leaving before it settles aborts the next navigation in Firefox)
+  await expect(page.locator('[data-qqq-id="button-saved-views"]')).toContainText('Sample People')
   // Reopening the stored view from a fresh start restores it
   await open(page, '/app/person')
   await (await openViews(page)).getByRole('menuitem', { name: 'Sample People' }).click()
