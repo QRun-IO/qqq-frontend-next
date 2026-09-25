@@ -53,11 +53,20 @@ describe('Metadata API', () => {
     const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { allowed: { name: 'allowed', type: 'statistics' } } }
     const widgets = { allowed: { name: 'allowed', hasPermission: true, gridColumns: 4 }, denied: { name: 'denied', hasPermission: false } }
     vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets })
-    expect(await loadMetaData()).toEqual({ ...light, widgets })
+    expect(await loadMetaData()).toEqual({ ...light, widgets, reports: {} })
     expect(apiClient.get).toHaveBeenLastCalledWith('/metaData', expect.objectContaining({ baseURL: 'https://example.invalid/prefix' }))
     vi.mocked(apiClient.get).mockClear().mockResolvedValue({ ...light, widgets })
     expect(await loadMetaData()).toEqual({ ...light, widgets })
     expect(apiClient.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes reports (absent from V1) from the full metadata route', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const light = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: { w: { name: 'w' } } }
+    const reports = { people: { name: 'people', label: 'People', processName: 'reports.basic', hasPermission: true } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(light).mockResolvedValueOnce({ widgets: { w: { name: 'w', hasPermission: true } }, reports })
+    expect((await loadMetaData()).reports).toEqual(reports)
   })
 
   it('does not infer permission when full widget metadata fails', async () => {

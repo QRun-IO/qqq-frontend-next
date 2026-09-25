@@ -58,7 +58,9 @@ export async function loadMetaData(): Promise<QInstance> {
     if (!full || !full.widgets || typeof full.widgets !== 'object' || Array.isArray(full.widgets)) {
       throw new Error('Invalid widget metadata response')
     }
-    return { ...result, widgets: full.widgets }
+    // V1 has no reports map; the full route carries each report's permission and process.
+    const reports = full.reports && typeof full.reports === 'object' && !Array.isArray(full.reports) ? full.reports : result.reports
+    return { ...result, widgets: full.widgets, reports: reports ?? {} }
   }
   return result
 }

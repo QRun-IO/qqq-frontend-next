@@ -31,6 +31,7 @@ import { RecordActions } from './RecordActions'
 import { RecordHoverCard } from './RecordHoverCard'
 import { FieldLabel } from './FieldLabel'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { ShareButton } from '@/components/sharing/ShareDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -253,12 +254,14 @@ export function RecordViewHeader({
         {!hideActions && (
           <>
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
-            <div className="hidden md:flex">
+            <div className="hidden md:flex md:items-center md:gap-2">
+              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
               <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
             </div>
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
-            <div className="flex md:hidden">
+            <div className="flex items-center gap-2 md:hidden">
+              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
               <button
                 type="button"
                 onClick={() => setMobileActionsOpen(true)}
