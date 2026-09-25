@@ -241,6 +241,7 @@ export function RecordQueryContent({
                   onRowSelectionChange={onRowSelectionChange}
                   columnVisibility={columnVisibility}
                   columnOrder={columnOrder}
+                  isLoading={isLoading}
                 />
               </div>
             )}

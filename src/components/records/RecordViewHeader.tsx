@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
@@ -116,6 +116,23 @@ export function RecordViewHeader({
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
+  const mobileActionsTrigger = useRef<HTMLButtonElement>(null)
+  const mobileActionsClose = useRef<HTMLButtonElement>(null)
+
+  /**
+   * Closes the phone action sheet and returns focus to its trigger. The sheet's items unmount
+   * when it closes, so a dialog opened from one would otherwise restore focus to the body
+   * (QRun-IO/qqq#694); focusing the stable trigger first makes it the dialog's return target.
+   */
+  const closeMobileActions = () => {
+    mobileActionsTrigger.current?.focus()
+    setMobileActionsOpen(false)
+  }
+
+  // Move focus into the action sheet when it opens, so keyboard and screen-reader users land in it.
+  useEffect(() => {
+    if (mobileActionsOpen) mobileActionsClose.current?.focus()
+  }, [mobileActionsOpen])
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
 
@@ -264,8 +281,11 @@ export function RecordViewHeader({
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
               <button
                 type="button"
+                ref={mobileActionsTrigger}
                 onClick={() => setMobileActionsOpen(true)}
                 aria-label="Record actions"
+                aria-haspopup="dialog"
+                aria-expanded={mobileActionsOpen}
                 data-qqq-id="button-mobile-actions"
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium',
@@ -288,7 +308,7 @@ export function RecordViewHeader({
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setMobileActionsOpen(false)}
+            onClick={closeMobileActions}
             aria-hidden="true"
           />
           {/* Bottom sheet panel */}
@@ -297,13 +317,20 @@ export function RecordViewHeader({
             role="dialog"
             aria-modal="true"
             aria-label="Record actions"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.stopPropagation()
+                closeMobileActions()
+              }
+            }}
           >
             {/* Drag handle */}
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <span className="text-base font-semibold text-foreground">Actions</span>
               <button
+                ref={mobileActionsClose}
                 type="button"
-                onClick={() => setMobileActionsOpen(false)}
+                onClick={closeMobileActions}
                 aria-label="Close actions menu"
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full',
@@ -343,7 +370,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(`/app/${tableMetaData.name}/${primaryKey}/copy`)
+                    router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
@@ -388,7 +415,7 @@ export function RecordViewHeader({
                 <button
                   type="button"
                   onClick={() => {
-                    setMobileActionsOpen(false)
+                    closeMobileActions()
                     setShowMobileDeleteDialog(true)
                   }}
                   className={cn(
