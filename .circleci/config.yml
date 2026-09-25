@@ -8,10 +8,22 @@ orbs:
 # Central on release tags, with the same orb commands and credentials as the
 # Material Dashboard. QApplicationJavalinServer serves it at / when it is present.
 
+commands:
+  configure-package-install:
+    steps:
+      - run:
+          name: Keep package installation unattended
+          command: |
+            # These build machines are discarded after the job; avoid the interactive needrestart prompt.
+            sudo sed -i 's|http://security.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+            sudo install -d /etc/needrestart/conf.d
+            printf '%s\n' '$nrconf{restart} = "l";' | sudo tee /etc/needrestart/conf.d/99-qqq-ci.conf >/dev/null
+
 jobs:
   publish_dashboard_jar:
     executor: qqq-orb/java
     steps:
+      - configure-package-install
       - checkout
       - qqq-orb/install_java:
           install_node: true
