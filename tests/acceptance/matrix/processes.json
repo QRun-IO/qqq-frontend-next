@@ -866,6 +866,28 @@
       "negative": [],
       "issues": [],
       "required": true
+    },
+    {
+      "id": "PRC-048",
+      "feature": "Process-field possible values load and search through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "the process combobox loads its options from the v1 process route",
+        "the chosen value reaches the process and persists",
+        "a v1 search returns the exact match"
+      ],
+      "negative": [
+        "an unknown process field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

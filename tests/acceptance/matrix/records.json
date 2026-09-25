@@ -957,6 +957,29 @@
         "QRun-IO/qqq#673"
       ],
       "required": true
+    },
+    {
+      "id": "REC-049",
+      "feature": "Table-field possible values search and resolve through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "recordLab",
+      "scenarios": [
+        "owner search sends a v1 POST with the search term and lists the exact match",
+        "ids and labels resolve to the exact option",
+        "the chosen owner persists"
+      ],
+      "negative": [
+        "a source table the persona cannot read is refused (403) by the v1 route",
+        "an unknown field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }
