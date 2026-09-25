@@ -26,6 +26,7 @@ import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
+import type { SearchableTable } from '@/lib/utils/record-search'
 
 /**
  * Props for the Header component.
@@ -45,6 +46,8 @@ export interface HeaderProps {
   ancestorAppMap?: Record<string, ParentAppInfo[]>
   /** Navigable app-tree nodes for the header search. */
   navTargets?: NavTarget[]
+  /** Tables the backend record search covers, for the header search (empty: local search only). */
+  searchTables?: SearchableTable[]
 }
 
 /**
@@ -63,7 +66,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [] }: HeaderProps) {
+export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (
@@ -99,7 +102,7 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
         </button>
 
         {/* Global search — hidden on mobile */}
-        <GlobalSearch navTargets={navTargets} className="hidden md:block" />
+        <GlobalSearch navTargets={navTargets} searchTables={searchTables} className="hidden md:block" />
 
         {/* Keyboard shortcuts hint */}
         <button

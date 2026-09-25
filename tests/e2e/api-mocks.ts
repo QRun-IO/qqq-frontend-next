@@ -163,7 +163,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
 
   // Global search
   await page.route('**/qqq/v1/search**', (route) => {
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) })
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [] }) })
   })
 
   // Possible values

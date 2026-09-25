@@ -98,8 +98,8 @@ describe('queryKeys factory', () => {
     expect(queryKeys.audits('person', 1)).toEqual(['qqq', 'records', 'person', '1', 'audits'])
   })
 
-  it('globalSearch includes search term', () => {
-    expect(queryKeys.globalSearch('Alice')).toEqual(['qqq', 'search', 'Alice'])
+  it('recordSearch includes the term, tables and limit', () => {
+    expect(queryKeys.recordSearch('Alice', ['person'], 5)).toEqual(['qqq', 'search', 'records', 'Alice', ['person'], 5])
   })
 
   it('keys are distinct across different entities', () => {

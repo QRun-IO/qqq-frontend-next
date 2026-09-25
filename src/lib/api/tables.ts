@@ -18,7 +18,6 @@
  * @file Tables API — CRUD, query, count, global search, and audit endpoints for QQQ table records.
  */
 
-import { isAxiosError } from 'axios'
 import { z } from 'zod'
 
 import type { QRecord, QRecordInput, QQueryFilter, QueryJoin } from '@/types'
@@ -27,7 +26,7 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  GlobalSearchResponseSchema,
+  RecordSearchResponseSchema,
 } from './schemas'
 
 /**
@@ -365,51 +364,49 @@ export async function deleteRecord(
 }
 
 /**
- * Single result entry returned by the global search endpoint.
+ * One record matched by record search (`POST /search`).
  */
-export interface GlobalSearchResult {
-  /** Backend-registered name of the table containing this result. */
+export interface RecordSearchResult {
+  /** Backend-registered name of the table containing this record. */
   tableName: string
-  /** Human-readable label for the table. Omitted by some backends when the table has no display label configured. */
+  /** User-facing label of the table. */
   tableLabel?: string
   /** Primary key of the matching record, serialised as a string. */
   recordId: string
-  /** Human-readable label for the matching record. */
+  /** User-facing label of the matching record. */
   recordLabel: string
 }
 
+/** Options for {@link searchRecords}. */
+export interface RecordSearchOptions {
+  /** Tables to search; when omitted the backend searches every searchable table the user may read. */
+  tableNames?: string[]
+  /** Maximum records per table (the backend caps it). */
+  limitPerTable?: number
+}
+
 /**
- * Global search across tables. Posts to /search endpoint.
- * Falls back to empty results if the endpoint returns 404.
+ * Record search across tables: `POST /search` (QQQ v1). Call it only when the
+ * metadata advertises searchable tables (`searchFields`); a backend without the
+ * capability has no such endpoint, so every error is re-thrown.
  *
- * Sends `searchTerm` and an optional list of `tableNames` to scope the search.
- * A 404 response is swallowed and returns an empty array because the `/search`
- * endpoint is optional — backends that do not implement it return 404.
- * All other errors are re-thrown.
+ * The backend matches the term against each table's declared search fields,
+ * searches only the tables the session may read, and applies record security locks.
  *
- * @param searchTerm - Free-text query string to search for.
- * @param tableNames - Optional list of table names to restrict the search scope.
- * @returns Array of matching result entries, or an empty array when the endpoint is absent.
+ * @param searchTerm - Free-text search term (the backend trims it).
+ * @param options - Table scope and per-table limit.
+ * @returns Matching records, grouped by table in backend order.
+ * @throws When the request fails or the response is not a record search response.
  */
-export async function globalSearch(
-  searchTerm: string,
-  tableNames: string[] = []
-): Promise<GlobalSearchResult[]> {
-  try {
-    const result = await apiClient.post<GlobalSearchResult[]>('/search', {
-      searchTerm,
-      tableNames,
-    })
-    const parsed = GlobalSearchResponseSchema.safeParse(result)
-    if (!parsed.success) {
-      console.warn('[API] GlobalSearch response failed schema validation:', parsed.error.flatten())
-    }
-    return parsed.success ? parsed.data : result
-  } catch (err) {
-    // Only swallow 404 — the search endpoint is optional
-    if (isAxiosError(err) && err.response?.status === 404) return []
-    throw err
-  }
+export async function searchRecords(searchTerm: string, options: RecordSearchOptions = {}): Promise<RecordSearchResult[]> {
+  const result = await apiClient.post<unknown>('/search', {
+    searchTerm,
+    ...(options.tableNames ? { tableNames: options.tableNames } : {}),
+    ...(options.limitPerTable ? { limitPerTable: options.limitPerTable } : {}),
+  })
+  const parsed = RecordSearchResponseSchema.safeParse(result)
+  if (!parsed.success) throw new Error('Invalid record search response')
+  return parsed.data.results
 }
 
 /**

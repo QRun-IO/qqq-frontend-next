@@ -44,6 +44,7 @@ The phone-relevant rows and their `@mobile` tests:
 | Forms and validation | INT-008, INT-007, PRC-009 |
 | Process run | PRC-001, PRC-004, PRC-009 |
 | Dialogs and focus (action sheet, delete dialog) | INT-003 (QRun-IO/qqq#694) |
+| Search dialog with record search ("Open search" button) | NAV-030 (QRun-IO/qqq#701) |
 | Sign-in, logout, session expiry | SEC-020, SEC-021, SEC-022 (both) |
 | Accessibility scan at phone width | INT-005 |
 

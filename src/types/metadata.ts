@@ -148,6 +148,12 @@ export interface QTableMetaData {
   capabilities: Capability[]
   /** Whether the current user may read records from this table. */
   readPermission: boolean
+  /**
+   * Fields that record search (`POST /search`) matches for this table. Present only
+   * when the backend supports record search, the table declares search fields and
+   * the user may read the table.
+   */
+  searchFields?: string[]
   /** Whether the current user may create new records in this table. */
   insertPermission: boolean
   /** Whether the current user may update existing records in this table. */

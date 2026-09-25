@@ -15,8 +15,9 @@
  */
 
 /**
- * @file GlobalSearch — header "jump to" search over apps, tables, processes, reports and
- * recently viewed records. Matching is local; no backend search endpoint is called.
+ * @file GlobalSearch — header search over apps, tables, processes, reports and recently
+ * viewed records (matched locally), plus records found by the backend record search when
+ * the metadata advertises searchable tables. Without searchable tables no search request is made.
  */
 
 'use client'
@@ -26,11 +27,19 @@ import { useRouter } from 'next/navigation'
 import { Search, ArrowRight } from 'lucide-react'
 
 import type { NavTarget } from '@/lib/hooks/use-routes'
+import { useRecordSearch } from '@/lib/hooks/use-record-search'
 import { cn } from '@/lib/utils/cn'
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
+import type { SearchableTable } from '@/lib/utils/record-search'
 import { NavigationSearchResults } from './NavigationSearchResults'
+
+/** Records shown per table in the dropdown. */
+const DROPDOWN_RECORDS_PER_TABLE = 5
+
+/** Stable empty default for `searchTables`. */
+const NO_SEARCH_TABLES: SearchableTable[] = []
 
 /**
  * Props for the GlobalSearch component.
@@ -38,13 +47,16 @@ import { NavigationSearchResults } from './NavigationSearchResults'
 export interface GlobalSearchProps {
   /** Navigable targets from the app tree. */
   navTargets: NavTarget[]
+  /** Tables the backend record search covers (empty: record search unavailable, never called). */
+  searchTables?: SearchableTable[]
   /** Additional Tailwind class names applied to the outermost container div. */
   className?: string
 }
 
 /**
  * Inline header search with a dropdown of matching pages (apps, tables,
- * processes, reports by label) and recently viewed records.
+ * processes, reports by label), records found by record search (when available)
+ * and recently viewed records.
  *
  * - With no text, the dropdown lists recently viewed records.
  * - ArrowUp/ArrowDown move the selection; Enter opens the selected result, or
@@ -53,7 +65,7 @@ export interface GlobalSearchProps {
  * @param props - Component properties.
  * @returns A `<div>` containing the search combobox and, when open, a listbox dropdown.
  */
-export function GlobalSearch({ navTargets, className }: GlobalSearchProps) {
+export function GlobalSearch({ navTargets, searchTables = NO_SEARCH_TABLES, className }: GlobalSearchProps) {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -70,9 +82,10 @@ export function GlobalSearch({ navTargets, className }: GlobalSearchProps) {
     }
   }, [isOpen])
 
+  const recordSearch = useRecordSearch(isOpen ? searchTerm : '', searchTables, DROPDOWN_RECORDS_PER_TABLE)
   const items = useMemo(
-    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm),
-    [navTargets, recentRecords, searchTerm]
+    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm, 8, recordSearch.results),
+    [navTargets, recentRecords, searchTerm, recordSearch.results]
   )
 
   // Close dropdown on outside click
@@ -171,9 +184,9 @@ export function GlobalSearch({ navTargets, className }: GlobalSearchProps) {
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Jump to..."
+          placeholder={recordSearch.available ? 'Search...' : 'Jump to...'}
           className="w-36 bg-transparent text-foreground placeholder:text-muted-foreground outline-none"
-          aria-label="Search pages and recent records"
+          aria-label={recordSearch.available ? 'Search pages and records' : 'Search pages and recent records'}
           aria-expanded={showDropdown}
           aria-controls="header-search-results"
           aria-haspopup="listbox"
@@ -193,6 +206,7 @@ export function GlobalSearch({ navTargets, className }: GlobalSearchProps) {
             selectedIndex={selectedIndex}
             onSelect={handleNavigate}
             onHover={setSelectedIndex}
+            recordSearch={recordSearch}
           />
           {hasTerm && (
             <div className="border-t border-border px-3 py-2">

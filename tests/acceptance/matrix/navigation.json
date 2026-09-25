@@ -444,7 +444,7 @@
     },
     {
       "id": "NAV-025",
-      "feature": "Header search, '/' search dialog and search page jump to navigation targets and recently viewed records without a backend search endpoint",
+      "feature": "Header search, '/' search dialog and search page jump to navigation targets and recently viewed records by label (matched locally, alongside record search when the backend offers it: NAV-030)",
       "source": [
         "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/app/(dashboard)/app/search/page.tsx",
         "qqq-middleware-javalin (no /search route)"
@@ -456,7 +456,7 @@
         "Enter without a selection opens /app/search?q= with the matches, surviving refresh"
       ],
       "negative": [
-        "no POST /qqq/v1/search request is made (regression: every keystroke produced a 404)"
+        "no search request fails (regression: every keystroke produced a 404 from a missing /search endpoint); with no searchable tables no request is made at all (NAV-032)"
       ],
       "issues": [
         "#653"
@@ -530,6 +530,72 @@
       ],
       "issues": [
         "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-030",
+      "feature": "Global search (header box, '/' dialog, search page) lists the records a backend record search (POST /qqq/v1/search over each table's searchFields) finds, after the matching pages, by record label with the table label; results open by keyboard and the search page survives refresh",
+      "source": [
+        "src/lib/hooks/use-record-search.ts, src/lib/utils/record-search.ts, src/lib/utils/navigation-search.ts",
+        "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/components/layout/NavigationSearchResults.tsx, src/app/(dashboard)/app/search/page.tsx",
+        "qqq-backend-core RecordSearchAction, QTableMetaData.searchFields; qqq-middleware-javalin RecordSearchSpecV1"
+      ],
+      "fixture": "stock sample + NavigationFixtures (search fields on person, pet, savedView)",
+      "scenarios": [
+        "'/' dialog: 'COCO' finds the pet Coco (label and table label), case-insensitively; ArrowDown and Enter open /app/pet/{id}",
+        "the request searches the readable searchable tables (person, pet, savedView) with a per-table limit of 5",
+        "header box: 'Sample' lists the matching people (database order, limit 5) after pages; Enter opens /app/search?q=Sample whose Records region lists every match (limit 25) before and after refresh; a link opens the record"
+      ],
+      "negative": [
+        "a one-character term is not sent (unit), and a recent record already found is not listed twice (unit)"
+      ],
+      "issues": [
+        "#701"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-031",
+      "feature": "Record search respects table read permissions and record security locks, in the UI and the API",
+      "source": [
+        "qqq-backend-core RecordSearchAction (PermissionsHelper READ, QueryAction record locks), QFrontendTableMetaData.searchFields",
+        "src/lib/utils/record-search.ts (searchableTables)"
+      ],
+      "fixture": "stock sample + NavigationFixtures + QueryFixtures (alice's saved view shared read-only with bob); noPets persona; sharing demo users",
+      "scenarios": [
+        "noPets: 'ey' lists the matching people only; the UI never asks for pets and the metadata advertises no pet search fields",
+        "admin: the backend returns the pets matching 'EY' for tableNames [pet]",
+        "alice finds her saved view 'Alice People View' with the saved view table label, in the UI and from the API",
+        "bob, with whom the view is shared read-only, finds it from the API (the lock admits shared readers)"
+      ],
+      "negative": [
+        "noPets: POST /qqq/v1/search with tableNames [pet] returns no results; an unscoped search returns no pets",
+        "casey (neither owner nor shared reader): the locked saved view is not found in the UI or from the API"
+      ],
+      "issues": [
+        "#701"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-032",
+      "feature": "Without searchable tables (the backend declares no searchFields) global search stays local and never calls a search endpoint",
+      "source": [
+        "src/lib/utils/record-search.ts (searchableTables), src/lib/hooks/use-record-search.ts",
+        "tests/acceptance/fixture/SecurityAcceptanceServer.java (stock sample + SecurityFixtures, no search fields)"
+      ],
+      "fixture": "security variant (stock sample + SecurityFixtures)",
+      "scenarios": [
+        "the variant's v1 metadata lists no table with searchFields",
+        "header box, '/' dialog and search page keep the local labels and matches, with no Records group or region"
+      ],
+      "negative": [
+        "no request to /qqq/v1/search or /search is made while typing, opening the dialog or loading the search page"
+      ],
+      "issues": [
+        "#701",
+        "#653"
       ],
       "required": true
     }

@@ -31,6 +31,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportView;
 import com.kingsrook.qqq.backend.core.model.metadata.reporting.ReportType;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
+import com.kingsrook.qqq.backend.core.model.savedviews.SavedView;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardBannerSlots;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
@@ -47,7 +48,10 @@ import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
  ** - a report as an app child, so REPORT app-tree nodes are navigable;
  ** - an app with no children, sections or widgets (empty app home);
  ** - branding extras the stock sample lacks: accent color and one banner per
- **   supported slot.
+ **   supported slot;
+ ** - record search (QRun-IO/qqq#701): search fields on the sample's person
+ **   (name, email) and pet (name) tables and on saved views (label; locked to
+ **   their owner). The security variant declares none, so it has no search.
  *******************************************************************************/
 final class NavigationFixtures
 {
@@ -77,6 +81,10 @@ final class NavigationFixtures
     *******************************************************************************/
    static void define(QInstance instance)
    {
+      instance.getTable(SampleMetaDataProvider.TABLE_NAME_PERSON).withSearchFields("firstName", "lastName", "email");
+      instance.getTable(SampleMetaDataProvider.TABLE_NAME_PET).withSearchFields("name");
+      instance.getTable(SavedView.TABLE_NAME).withSearchFields("label");
+
       QTableMetaData deepItem = new QTableMetaData()
          .withName(TABLE_DEEP)
          .withLabel("Nav Deep Item")
