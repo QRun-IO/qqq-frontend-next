@@ -24,7 +24,11 @@ test('[WID-057] every block type renders its values and styles', async ({ page, 
   await expect(text).toHaveAttribute('data-block-id', 'ownedText')
   await expect(text).toContainText('Owned text line one')
   await expect(text).toContainText('Owned text line two')
-  const textStyle = await text.locator('span[style]').first().evaluate((node) => getComputedStyle(node))
+  // Read the properties inside the page: a CSSStyleDeclaration only serializes in Chromium
+  const textStyle = await text.locator('span[style]').first().evaluate((node) => {
+    const { fontSize, fontWeight } = getComputedStyle(node)
+    return { fontSize, fontWeight }
+  })
   expect(textStyle.fontSize).toBe('24px')
   expect(textStyle.fontWeight).toBe('700')
 
