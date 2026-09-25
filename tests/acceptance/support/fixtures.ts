@@ -19,6 +19,11 @@ export interface Diagnostics {
   pageErrors: string[]
   consoleErrors: string[]
   failedRequests: string[]
+  /**
+   * Content-Security-Policy violations the page reported (`securitypolicyviolation`
+   * events, in every frame and browser): `<directive> <blocked URI> at <source>:<line> <sample>`.
+   */
+  cspViolations: string[]
   /** WebKit reports of Next.js prefetches a document navigation cut off (ignored; see below). */
   interruptedFetches: string[]
   /** Substrings of expected console/request failures for negative scenarios. */
@@ -70,7 +75,27 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
   diagnostics: async ({ page }, use, testInfo) => {
     const allowed: (string | RegExp)[] = []
     const matches = (text: string) => allowed.some((pattern) => typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text))
-    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], interruptedFetches: [], allow: (pattern) => { allowed.push(pattern) } }
+    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], allow: (pattern) => { allowed.push(pattern) } }
+    // The dashboard is served with a strict Content-Security-Policy (QRun-IO/qqq#695). Browsers
+    // report a blocked script, style, connection, frame or image as a `securitypolicyviolation`
+    // event (console messages for these differ per engine), so every frame forwards the events.
+    await page.exposeBinding('__qqqReportCspViolation', (_source, violation: Record<string, string | number>) => {
+      const sample = violation.sample ? ` "${String(violation.sample).slice(0, 80)}"` : ''
+      diagnostics.cspViolations.push(`${violation.directive} ${violation.blockedURI || '(inline)'} at ${violation.sourceFile || violation.documentURI}:${violation.lineNumber}${sample}`)
+    })
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (event) => {
+        const report = (window as unknown as { __qqqReportCspViolation?: (violation: Record<string, string | number>) => void }).__qqqReportCspViolation
+        void report?.({
+          directive: event.effectiveDirective || event.violatedDirective,
+          blockedURI: event.blockedURI,
+          sourceFile: event.sourceFile,
+          documentURI: event.documentURI,
+          lineNumber: event.lineNumber,
+          sample: event.sample,
+        })
+      }, true)
+    })
     // WebKit reports a Next.js prefetch or RSC payload fetch that a document navigation cuts off
     // as "<url> due to access control checks." although the server answers 200 - the equivalent
     // of Chromium's ERR_ABORTED (WebKit cancels these before Playwright sees a request). After the
@@ -117,14 +142,17 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       if (response.status() >= 400) diagnostics.failedRequests.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`)
     })
     await use(diagnostics)
+    // One round trip delivers violation reports still queued in the page.
+    if (!page.isClosed()) await page.evaluate(() => 0).catch(() => undefined)
     classifyAccessControlReports()
     const unexpected = [
       ...diagnostics.pageErrors.map((text) => `pageerror: ${text}`),
       ...diagnostics.consoleErrors.map((text) => `console: ${text}`),
       ...diagnostics.failedRequests.map((text) => `request: ${text}`),
+      ...diagnostics.cspViolations.map((text) => `csp: ${text}`),
     ].filter((text) => !matches(text))
     await testInfo.attach('diagnostics.json', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' })
-    expect(unexpected, 'unexplained console errors or failed application requests').toEqual([])
+    expect(unexpected, 'unexplained console errors, failed application requests or Content-Security-Policy violations').toEqual([])
   },
 })
 

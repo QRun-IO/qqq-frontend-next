@@ -114,6 +114,12 @@ public class AcceptanceSampleServer
             context.contentType("application/json").result(new JSONObject().put("rows", select(query)).toString());
          });
       });
+      //////////////////////////////////////////////////////////////////////////////////
+      // The dashboard's Content-Security-Policy (QRun-IO/qqq#695) allows only this    //
+      // origin; the application override hook adds the widgets fixture's loopback    //
+      // service, which stands in for QuickSight and serves an image and audio clip.  //
+      //////////////////////////////////////////////////////////////////////////////////
+      server.withNextDashboardSecurityHeadersCustomizer(WidgetsFixtures::allowFakeService);
       Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
       server.start();
       primeFixtures();

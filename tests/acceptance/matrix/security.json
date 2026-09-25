@@ -401,10 +401,12 @@
         "in-app returnTo with query string is honoured"
       ],
       "negative": [
-        "absolute, protocol-relative, backslash and javascript: targets land on /app"
+        "absolute, protocol-relative, backslash and javascript: targets land on /app",
+        "paths that normalize to another origin (/.//host, /app/..//host, /app/../\\host) land on /app"
       ],
       "issues": [
-        "QRun-IO/qqq#669"
+        "QRun-IO/qqq#669",
+        "QRun-IO/qqq#696"
       ],
       "required": true
     },
@@ -577,6 +579,146 @@
       "issues": [
         "QRun-IO/qqq#674",
         "QRun-IO/qqq#675"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-034",
+      "feature": "Dashboard documents carry a strict Content-Security-Policy (script-src self plus the hash of each inline script, object-src none, base-uri/form-action self, frame-ancestors none), X-Frame-Options DENY, Referrer-Policy and Permissions-Policy",
+      "source": [
+        "qqq-middleware-javalin routeproviders/NextDashboardRouteProvider.java",
+        "qqq-middleware-javalin routeproviders/NextDashboardSecurityHeaders.java",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java (javalin mode)",
+      "scenarios": [
+        "login, token, app, list, record, edit and 404 documents send the policy and headers; the script-src hashes equal the hashes of the inline scripts in each served document",
+        "pages hydrate and navigate under the policy with no violation"
+      ],
+      "negative": [
+        "another web site framing the dashboard gets no content",
+        "an injected inline script and inline event handler do not run and are reported as violations"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-035",
+      "feature": "The policy allows the configured identity provider origin (OAUTH2 discovery, AUTH_0 browser token exchange) and no other connection target",
+      "source": [
+        "qqq-middleware-javalin routeproviders/NextDashboardRouteProvider.java (identityProviderOrigins)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2|AUTH_0",
+      "scenarios": [
+        "OAUTH2: connect-src is self plus the provider origin; sign-in completes with no violation",
+        "AUTH_0: connect-src is self plus the Auth0 domain; the browser token exchange completes with no violation"
+      ],
+      "negative": [
+        "a fetch to any other origin is refused and reported (connect-src)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-036",
+      "feature": "Application override hook and metadata-derived origins: the application adds its own origins (QApplicationJavalinServer.withNextDashboardSecurityHeadersCustomizer); QuickSight and custom component bundle origins come from widget metadata",
+      "source": [
+        "qqq-middleware-javalin QApplicationJavalinServer.java (withNextDashboardSecurityHeadersCustomizer)",
+        "tests/acceptance/fixture/WidgetsFixtures.java (allowFakeService)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java loopback service",
+      "scenarios": [
+        "the QuickSight embed, block image and audio from the loopback service and the custom component bundle load with no violation",
+        "the policy lists exactly the configured origins"
+      ],
+      "negative": [
+        "a frame from an origin the application did not configure is refused and reported (frame-src)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-037",
+      "feature": "The login page explains known sign-in error codes and never displays text taken from the link",
+      "source": [
+        "src/lib/auth/callback-errors.ts",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "access_denied and other known codes show their message; other well-formed codes show the code",
+        "Try again signs in through the provider"
+      ],
+      "negative": [
+        "free text in ?error= is replaced by a generic message"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-038",
+      "feature": "Rendered HTML (field values, widgets, process steps, help, banners) cannot add forms, form controls, style sheets or page-covering positioning",
+      "source": [
+        "src/lib/utils/sanitize-html.ts",
+        "src/components/records/FieldValue.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/RecordsFixtures.java fieldLab.htmlValue",
+      "scenarios": [
+        "formatting in a stored HTML value is kept; the stored value is unchanged in the database"
+      ],
+      "negative": [
+        "a stored form with a password input, a style element and a position:fixed overlay render as plain content"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-039",
+      "feature": "Per-user browser data (recently viewed records, stored identity) is bound to the signed-in identity",
+      "source": [
+        "src/lib/auth/auth-storage.ts (claimClientData)",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas and sample users",
+      "scenarios": [
+        "the same user keeps their recently viewed records across reloads"
+      ],
+      "negative": [
+        "a different user signing in on the same browser without a logout does not see the previous user's recent records"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-040",
+      "feature": "Session cookies (sessionUUID, sessionId) are SameSite=Lax for the whole site, and Secure when the request arrived over HTTPS",
+      "source": [
+        "qqq-middleware-javalin QJavalinImplementation.java (setSessionCookie)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java",
+      "scenarios": [
+        "manageSession and API responses set the cookies with Path=/ and SameSite=Lax; the browser stores them as Lax"
+      ],
+      "negative": [
+        "over plain HTTP the cookies are not Secure (sign-in keeps working); behind X-Forwarded-Proto https they are"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
       ],
       "required": true
     },
