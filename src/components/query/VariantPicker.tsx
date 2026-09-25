@@ -16,7 +16,7 @@
 
 /**
  * @file VariantPicker — dialog for choosing the backend variant of a table whose backend uses
- * variants (Material's TableVariantDialog). Options come from `GET /data/{table}/variants`.
+ * variants (Material's TableVariantDialog). Options come from `GET /qqq/v1/table/{table}/variants`.
  */
 
 'use client'

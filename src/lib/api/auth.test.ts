@@ -131,14 +131,14 @@ describe('Auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { accessToken: 'token-1' })
   })
 
-  it('completes OAuth2 PKCE and resumes sessions through the unversioned manageSession', async () => {
+  it('completes OAuth2 PKCE and resumes sessions through the v1 manageSession', async () => {
     const { default: apiClient } = await import('./client')
     vi.mocked(apiClient.post).mockResolvedValue({ uuid: 'u' })
     const { createOAuth2Session, resumeSession } = await import('./auth')
     await createOAuth2Session({ code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
-    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' }, { baseURL: '' })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
     await resumeSession('session-1')
-    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1', uuid: 'session-1' }, { baseURL: '' })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1' })
   })
 
   it('reads the sessionUUID cookie', async () => {

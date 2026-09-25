@@ -239,6 +239,18 @@ describe('Tables API', () => {
     })
   })
 
+  describe('fetchTableVariants', () => {
+    it('reads the v1 variants envelope', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ variants: [{ id: '2', type: 'store', name: 'South' }, { name: 'no id' }] })
+      const { fetchTableVariants } = await import('./tables')
+      expect(await fetchTableVariants('my table')).toEqual([{ id: '2', type: 'store', name: 'South' }])
+      expect(apiClient.get).toHaveBeenCalledWith('/table/my%20table/variants')
+      vi.mocked(apiClient.get).mockResolvedValue([{ id: 1, type: 'store' }])
+      await expect(fetchTableVariants('t')).rejects.toThrow('Invalid variants response')
+    })
+  })
+
   describe('exportRecords', () => {
     it('posts the v1 export body and reads the file as a blob', async () => {
       const { default: apiClient } = await import('./client')

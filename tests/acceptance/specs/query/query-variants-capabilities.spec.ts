@@ -23,7 +23,8 @@ test('[QRY-060] a variant table asks for a variant, queries with it and remember
   await picker.getByRole('option', { name: 'South Store' }).click()
   await picker.getByRole('button', { name: 'Select' }).click()
   await expectColumn(page, 'sku', ['S-KIWI'])
-  expect(queries.at(-1)?.tableVariant).toEqual({ id: 2, type: 'qryStore', name: 'South Store' })
+  // v1 variant ids are strings (the v1 TableVariant contract)
+  expect(queries.at(-1)?.tableVariant).toEqual({ id: '2', type: 'qryStore', name: 'South Store' })
   await expect(page.locator('[data-qqq-id="button-variant-picker"]')).toContainText('South Store')
 
   // Switch store: different data from the same table

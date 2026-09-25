@@ -967,6 +967,27 @@
         "QRun-IO/qqq#406"
       ],
       "required": true
+    },
+    {
+      "id": "QRY-066",
+      "feature": "Variant options come from the v1 variants route",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/components/query/VariantPicker.tsx"
+      ],
+      "fixture": "qryStock (qryStore options)",
+      "scenarios": [
+        "the variant picker lists the stores from GET /qqq/v1/table/{table}/variants",
+        "the v1 route lists every option with its type and id; a table without variants lists none"
+      ],
+      "negative": [
+        "an unknown table is refused (403)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

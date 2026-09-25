@@ -52,8 +52,8 @@ export interface QueryRecordsRequest {
 }
 
 /**
- * One backend variant option, as returned by `GET /data/{tableName}/variants` and sent back
- * in query/count bodies (v1) or the `tableVariant` parameter (legacy routes).
+ * One backend variant option, as returned by `GET /qqq/v1/table/{tableName}/variants` and sent
+ * back as `tableVariant` in query, count, get and export requests.
  */
 export interface TableVariant {
   /** Variant record id. */
@@ -71,7 +71,8 @@ export interface TableVariant {
  * @returns The variant options.
  */
 export async function fetchTableVariants(tableName: string): Promise<TableVariant[]> {
-  const result = await apiClient.get<unknown>(`/data/${encodeURIComponent(tableName)}/variants`, { baseURL: legacyBaseURL() })
+  const body = await apiClient.get<{ variants?: unknown }>(`/table/${encodeURIComponent(tableName)}/variants`)
+  const result = body?.variants
   if (!Array.isArray(result)) throw new Error('Invalid variants response')
   return result.filter((v): v is TableVariant => Boolean(v) && typeof v === 'object' && 'id' in v && 'type' in v)
 }
@@ -231,14 +232,6 @@ export async function getRecord(
     throw new Error('Invalid record response')
   }
   return result
-}
-
-/**
- * Preserve the configured host and deployment prefix for legacy CRUD routes.
- * @returns The configured base URL without the V1 route suffix.
- */
-function legacyBaseURL() {
-  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
 }
 
 /**

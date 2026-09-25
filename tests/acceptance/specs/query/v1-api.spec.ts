@@ -38,3 +38,20 @@ test('[QRY-065] export streams from the v1 export route and the route enforces t
   const refused = await backend.api.post('/qqq/v1/table/qryLedger/export', { data: { format: 'csv' } })
   expect(refused.status()).toBe(403)
 })
+
+test('[QRY-066] variant options come from the v1 variants route', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const lists: string[] = []
+  page.on('request', (request) => { if (new URL(request.url()).pathname.endsWith('/variants')) lists.push(`${request.method()} ${new URL(request.url()).pathname}`) })
+  await open(page, '/app/qryStock')
+  const picker = page.locator('[data-qqq-id="variant-picker-dialog"]')
+  const stores = await sqlColumn(backend, 'select name from qry_store order by id')
+  await expect(picker.getByRole('option')).toHaveText(stores)
+  expect(lists).toEqual(['GET /qqq/v1/table/qryStock/variants'])
+
+  const direct = await (await backend.api.get('/qqq/v1/table/qryStock/variants')).json()
+  expect(direct.variants.map((variant: { name: string }) => variant.name)).toEqual(stores)
+  expect(direct.variants[0]).toMatchObject({ type: 'qryStore', id: (await sqlColumn(backend, 'select id from qry_store order by id'))[0] })
+  expect((await (await backend.api.get('/qqq/v1/table/qryItem/variants')).json()).variants).toEqual([])
+  expect((await backend.api.get('/qqq/v1/table/noSuchTable/variants')).status()).toBe(403)
+})

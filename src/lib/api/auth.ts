@@ -103,15 +103,6 @@ export interface SessionResponse {
 }
 
 /**
- * Base URL of the unversioned (legacy) middleware routes, e.g. `/manageSession`.
- *
- * @returns The API base URL without its `/qqq/v1` suffix.
- */
-function legacyBaseURL(): string | undefined {
-  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
-}
-
-/**
  * Creates a QQQ session from an access token via `POST /qqq/v1/manageSession`.
  *
  * The v1 endpoint reads a JSON body. For MOCK and FULLY_ANONYMOUS the token is a
@@ -129,24 +120,25 @@ export async function manageSession(accessToken: string): Promise<SessionRespons
  * Completes an OAuth2 authorization-code + PKCE login: the backend exchanges the
  * code with the identity provider (using its client secret) and creates a session.
  *
- * Uses the unversioned `POST /manageSession`, which passes these values to the
- * OAuth2 module; v1 accepts only `accessToken` (QRun-IO/qqq#406).
+ * Uses the v1 `POST /manageSession`, which passes these values to the OAuth2 module
+ * (QRun-IO/qqq#406).
  *
  * @param params - The authorization code, the PKCE verifier and the redirect URI used.
  * @returns The session UUID and its frontend values.
  */
 export async function createOAuth2Session(params: { code: string; codeVerifier: string; redirectUri: string }): Promise<SessionResponse> {
-  return apiClient.post<SessionResponse>('/manageSession', params, { baseURL: legacyBaseURL() })
+  return apiClient.post<SessionResponse>('/manageSession', params)
 }
 
 /**
- * Resumes an existing OAuth2/Auth0 session from its `sessionUUID` cookie value.
+ * Resumes an existing OAuth2/Auth0 session from its `sessionUUID` cookie value, via the v1
+ * `POST /manageSession`.
  *
  * @param sessionUUID - The session UUID the backend issued at sign-in.
  * @returns The session UUID and its frontend values; rejects with 401 when it is no longer valid.
  */
 export async function resumeSession(sessionUUID: string): Promise<SessionResponse> {
-  return apiClient.post<SessionResponse>('/manageSession', { sessionUUID, uuid: sessionUUID }, { baseURL: legacyBaseURL() })
+  return apiClient.post<SessionResponse>('/manageSession', { sessionUUID })
 }
 
 /**
