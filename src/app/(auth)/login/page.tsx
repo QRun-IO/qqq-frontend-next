@@ -34,13 +34,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth/use-auth'
 import { recordReauthAttempt, resetReauthAttempts } from '@/lib/auth/auth-storage'
 import { safeReturnTo } from '@/lib/auth/return-to'
-
-/** Messages for provider callback errors passed back as `?error=`. */
-const CALLBACK_ERRORS: Record<string, string> = {
-  access_denied: 'Sign-in was denied by the identity provider.',
-  callback_failed: 'Sign-in could not be completed.',
-  login_required: 'The identity provider requires you to sign in again.',
-}
+import { callbackErrorMessage } from '@/lib/auth/callback-errors'
 
 /**
  * Card wrapper shared by every login state.
@@ -70,10 +64,7 @@ function LoginContent() {
   const [loopStopped, setLoopStopped] = React.useState(false)
 
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
-  const callbackErrorCode = searchParams.get('error')
-  const callbackError = callbackErrorCode
-    ? CALLBACK_ERRORS[callbackErrorCode] ?? `Sign-in failed (${callbackErrorCode}).`
-    : null
+  const callbackError = callbackErrorMessage(searchParams.get('error'))
   const errorMessage = authError ?? callbackError ?? (loopStopped ? 'Your session could not be re-established. Sign in again to continue.' : null)
 
   // Signed in: go where the user was headed.
