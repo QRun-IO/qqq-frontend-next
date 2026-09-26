@@ -227,6 +227,11 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /**
+   * Possible values declared inline on the field (an ENUM source on the field itself; never
+   * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
+   */
+  inlinePossibleValueSource?: { enumValues?: Array<{ id: string | number; label: string }> }
   /** A printf-style or date-format string used when rendering the field value. */
   displayFormat?: string
   /** Maximum character length enforced during validation (for STRING/TEXT fields). */
@@ -243,6 +248,13 @@ export interface QFieldMetaData {
   helpContents?: QHelpContent[]
   /** Named behaviors (backend extension hooks) attached to this field. */
   behaviors?: string[]
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`, whose
+   * form adjusters run on load and change), as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy key (form adjuster output, legacy routes). */
+  supplementalFieldMetaData?: Record<string, unknown>
 }
 
 /**

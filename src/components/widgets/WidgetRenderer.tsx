@@ -35,7 +35,7 @@
 import React, { lazy, Suspense } from 'react'
 
 import type { QWidgetMetaData } from '@/types'
-import type { BlockActionCallback, QqqChartPayload, QqqCompositeData, WidgetRecordContext } from './widget-types'
+import type { BlockActionCallback, QqqChartPayload, QqqCompositeData, WidgetFormContext, WidgetRecordContext } from './widget-types'
 import { isPlainObject } from './widget-types'
 import { StatisticsWidget } from './StatisticsWidget'
 import type { StatisticsWidgetPayload } from './StatisticsWidget'
@@ -101,6 +101,8 @@ interface WidgetRendererProps {
   data: unknown
   /** Record context for record-view widgets. */
   recordContext?: WidgetRecordContext
+  /** Present when the widget edits inside a form (record create/edit sections, process screens). */
+  formContext?: WidgetFormContext
   /** Interactive block callback (process steps). */
   actionCallback?: BlockActionCallback
   /** All widget metadata, for parent widgets. */
@@ -127,11 +129,11 @@ function isCanonicalChart(data: Record<string, unknown>): boolean {
  * @param props - Component properties.
  * @returns The rendered widget body, or an "unknown widget type" placeholder.
  */
-export function WidgetRenderer({ widgetMetaData, data, recordContext, actionCallback, widgetRegistry, childParams, onReload }: WidgetRendererProps) {
+export function WidgetRenderer({ widgetMetaData, data, recordContext, formContext, actionCallback, widgetRegistry, childParams, onReload }: WidgetRendererProps) {
   const { name } = widgetMetaData
   if (!isPlainObject(data)) return null
   const resolvedType = widgetMetaData.type ?? (typeof data.type === 'string' ? data.type : null)
-  const common = { widgetMetaData, recordContext, actionCallback, onReload }
+  const common = { widgetMetaData, recordContext, formContext, actionCallback, onReload }
 
   if (resolvedType && CHART_VARIANTS[resolvedType] && isCanonicalChart(data)) {
     return (

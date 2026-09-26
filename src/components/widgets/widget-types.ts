@@ -122,6 +122,39 @@ export interface QqqChartPayload {
   }
 }
 
+/**
+ * Context for a widget shown as an editable part of a form: a section of a record
+ * create or edit form (Material's `EntityForm.getWidgetSection`) or a process screen.
+ * Widgets that receive it edit; without it they render read-only, as on the record view.
+ */
+export interface WidgetFormContext {
+  /** Where the widget edits: a record create or edit form, or a process screen. */
+  screen: 'recordCreate' | 'recordEdit' | 'processStep'
+  /** The form's current values, live (they change as the user edits the form). */
+  values: Record<string, unknown>
+  /**
+   * Writes values into the form by field name (Material `onSaveCallback`, which calls
+   * `setFormFieldValuesFromWidget`). On a process screen they are submitted with the screen.
+   */
+  setValues: (values: Record<string, unknown>) => void
+  /**
+   * Replaces the child records a widget manages for a named association of the form's
+   * table; they are saved with the parent record (Material `associationsFromWidgets`).
+   */
+  setAssociation: (associationName: string, records: Array<Record<string, unknown>>) => void
+  /**
+   * Registers a check the form runs before it saves or submits (Material `addSubValidations`);
+   * pass `null` to remove it. The check shows its own messages and returns them (none means valid).
+   */
+  registerValidator: (key: string, validate: (() => string[]) | null) => void
+  /** The record being edited (edit screen only). */
+  record?: QRecord
+  /** Metadata of the form's table (record forms only). */
+  tableMetaData?: QTableMetaData
+  /** When true the form is locked (saving, or disabled by a form adjuster): show, but do not edit. */
+  disabled?: boolean
+}
+
 /** Props accepted by every canonical widget renderer. */
 export interface WidgetComponentProps<T> {
   /** Metadata for the widget being rendered. */
@@ -130,6 +163,8 @@ export interface WidgetComponentProps<T> {
   data: T
   /** Record context when rendered inside a record view section. */
   recordContext?: WidgetRecordContext
+  /** Present when the widget edits inside a form (record create/edit or a process screen). */
+  formContext?: WidgetFormContext
   /** Interactive block callback (process steps). */
   actionCallback?: BlockActionCallback
   /** Re-fetch the widget's data. */
