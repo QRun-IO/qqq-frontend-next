@@ -16,13 +16,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Shell and navigation | 86 | 2 | 7 | 9 | 7 | 111 |
+| Shell and navigation | 95 | 2 | 3 | 4 | 7 | 111 |
 | Query | 122 | 3 | 3 | 1 | 2 | 131 |
-| Records | 110 | 1 | 7 | 12 | 8 | 138 |
+| Records | 111 | 1 | 7 | 11 | 8 | 138 |
 | Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
 | Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 1 | 11 | 51 |
-| **Total** | **650** | **8** | **58** | **45** | **34** | **795** |
+| **Total** | **660** | **8** | **54** | **39** | **34** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -69,10 +69,10 @@ This area covers routing, auth and session handling, context and extension point
 | No-apps route and page | material:src/App.tsx:547-558; material:src/qqq/pages/apps/NoApps.tsx:36-41 | src/app/(dashboard)/app/page.tsx:315; src/lib/hooks/use-routes.ts:199 | NAV-029 | Done |
 | Default landing is the first permitted app | material:src/App.tsx:282-292,856 | src/app/page.tsx → `/app` dashboard | NAV-016, NAV-017 | Done (different UX): synthetic dashboard, by design |
 | Unknown path redirects to the default route | material:src/App.tsx:856 | src/app/not-found.tsx; src/components/layout/NotFoundState.tsx | NAV-021, NAV-022 | Done (different UX): not-found page instead of a silent redirect |
-| Backend `metaData.redirects` (from/to, wildcard, replace) | material:src/App.tsx:603-613,801-806,857 | none | none | Missing: instance redirect rules ignored; #732 |
-| Legacy nested Material URLs (bookmarks, backend-built links) | material:src/App.tsx:264 | src/lib/utils/material-links.ts; src/app/(dashboard)/app/[slug]/[recordId]/[action]/page.tsx; src/components/widgets/ChildRecordListWidget.tsx:115 | NAV-022, NAV-034, NAV-035 | Partial: table-scoped Material URLs now resolve (NAV-034, NAV-035); other legacy nested app-path URLs still 404; #732 |
+| Backend `metaData.redirects` (from/to, wildcard, replace) | material:src/App.tsx:603-613,801-806,857 | src/lib/utils/legacy-paths.ts:applyRedirects; src/components/layout/LegacyPathRedirect.tsx | none | Done: exact and trailing-wildcard rules resolve before nested path dispatch; unit-tested; #732 |
+| Legacy nested Material URLs (bookmarks, backend-built links) | material:src/App.tsx:264 | src/lib/utils/legacy-paths.ts:legacyMaterialPath; src/components/layout/LegacyPathRedirect.tsx; src/lib/utils/material-links.ts | NAV-022, NAV-034, NAV-035 | Done: nested app paths resolve to flat Next routes, including table, process and report targets; unit-tested; #732 |
 | Hosting under a base path (`<base>`/script detection, router basename, `resolveAssetUrl`) | material:src/qqq/utils/PathUtils.ts:131-156; material:src/index.tsx:104; material:src/App.tsx:490,846-847 | none (next.config.ts has no basePath; branding URLs used raw) | none | Missing: sub-path deploys break; unverified whether they are a required target; #732 |
-| Scroll to top on route change | material:src/App.tsx:647-651 | none found (no scrollTop reset in src/app or src/components/layout) | none | Missing: unverified; content scrolls in `#main-content` with no reset found; #732 |
+| Scroll to top on route change | material:src/App.tsx:647-651 | src/app/(dashboard)/layout.tsx; src/lib/utils/scroll-to-top.ts | none | Done: pathname change resets the main scrolling region and document; unit-tested; #732 |
 
 ### Auth, session, 401
 
@@ -80,13 +80,13 @@ This area covers routing, auth and session handling, context and extension point
 |---|---|---|---|---|
 | Auth module chosen by `QAuthenticationMetaData.type` | material:src/index.tsx:55,101-124; material:src/App.tsx:105-134 | src/lib/auth/auth-provider.tsx:establishSession | SEC-020, SEC-025, SEC-029, SEC-031 | Done |
 | Unknown auth type reported | material:src/index.tsx:125-130 | src/lib/auth/auth-provider.tsx:232 → login error | SEC-032 | Done |
-| Auth metadata localStorage cache; `?clearAuthenticationMetaDataLocalStorage` | material:src/index.tsx:49-52 | src/lib/api/auth.ts:getAuthenticationMetaData (10-minute TTL) | none | Partial: no URL flag to force-clear; #732 |
+| Auth metadata localStorage cache; `?clearAuthenticationMetaDataLocalStorage` | material:src/index.tsx:49-52 | src/lib/api/auth.ts:getAuthenticationMetaData | none | Done: the flag bypasses and clears the cached copy; unit-tested; #732 |
 | MOCK / FULLY_ANONYMOUS session | material:src/qqq/authorization/anonymous/useAnonymousAuthenticationModule.tsx:47-69 | src/lib/auth/auth-provider.tsx:217-218; src/lib/auth/auth-storage.ts | SEC-020, SEC-031 | Done |
 | Full `sessionValues` persisted | material:src/qqq/authorization/anonymous/useAnonymousAuthenticationModule.tsx:57; material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:189,269; material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:147-199 | src/lib/auth/auth-storage.ts:storeSessionValues,getStoredSessionValues; src/lib/analytics/use-analytics.ts | none | Done: full values are stored for configured analytics identity and cleared on logout; #730 |
 | OAUTH2 authorization code + PKCE, `/token` callback | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:147-221,475 | src/lib/auth/oidc.ts; src/app/(auth)/token/page.tsx; src/lib/auth/auth-provider.tsx:handleOAuthCallback | SEC-025 | Done |
 | OAUTH2 resumes an existing sessionUUID cookie | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:256-285 | src/lib/auth/auth-provider.tsx:220-230 | SEC-025 | Done |
 | Return to the pre-sign-in page | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:209-220,297-306 | src/lib/auth/oidc.ts:196; src/lib/auth/return-to.ts:safeReturnTo | SEC-022, SEC-024 | Done: Next adds an open-redirect guard |
-| OAUTH2 authority = `externalBaseUrl` or `baseUrl` | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:435 | src/lib/auth/oidc.ts:requireValues (baseUrl only) | none | Missing: split internal/external IdP deployments break; #732 |
+| OAUTH2 authority = `externalBaseUrl` or `baseUrl` | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:435 | qqq:qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/specs/v1/responses/AuthenticationMetaDataResponseV1.java; src/lib/auth/oidc.ts:requireValues | SEC-025 | Done: v1 selects the external URL when configured and publishes it as `values.baseUrl`; backend-tested; #732 |
 | OAUTH2 scopes from metadata | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:470 | src/lib/auth/oidc.ts:36,175 | SEC-025 | Done: unverified whether SEC-025 asserts scopes |
 | OAUTH2 missing or unknown state recovery | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:228-245 | src/app/(auth)/callback/CallbackContent.tsx | SEC-026 | Done: always errors, even with a valid cookie (minor) |
 | OAUTH2/Auth0 misconfiguration error | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:445-448; material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:266 | src/lib/auth/oidc.ts:125-126 | none | Done: no acceptance row |
@@ -113,7 +113,7 @@ This area covers routing, auth and session handling, context and extension point
 | dotMenuOpen, keyboardHelpOpen, modalStack | material:src/QContext.tsx:41-50; material:src/App.tsx:761-793 | src/lib/context/q-context.tsx | NAV-024, INT-004 | Done |
 | tableMetaData / tableProcesses in context | material:src/QContext.tsx:52-56 | src/lib/context/q-context.tsx | none | Done: unused by the palette (see the palette Actions rows) |
 | pathToLabelMap for breadcrumbs | material:src/App.tsx:560-566 | src/lib/hooks/use-routes.ts:buildRouteMap | NAV-014 | Done |
-| `?helpHelp` mode shows help-slot keys | material:src/App.tsx:705; material:src/qqq/components/misc/HelpContent.tsx:133-141; material:src/qqq/utils/qqq/QFMDBridge.tsx:80-92 | src/lib/context/q-context.tsx:230 (hard-coded false) | none | Missing: flag does nothing; #732 |
+| `?helpHelp` mode shows help-slot keys | material:src/App.tsx:705; material:src/qqq/components/misc/HelpContent.tsx:133-141; material:src/qqq/utils/qqq/QFMDBridge.tsx:80-92 | src/lib/context/q-context.tsx; src/lib/utils/help-utils.ts; src/components/widgets/WidgetSlotHelp.tsx | none | Done: the URL flag activates slot keys for fields, sections, steps and widgets; unit-tested; #732 |
 | `window.React` / `window.ReactDOM` globals | material:src/index.tsx:44-45 | src/components/widgets/qfmd-bridge.tsx:exposeReactGlobals; src/components/widgets/QqqContainerWidgets.tsx | WID-025 | Done: globals are installed before a custom bundle loads; #728 |
 | Dynamic custom-component loader | material:src/qqq/utils/qqq/useDynamicComponents.tsx | src/components/widgets/QqqContainerWidgets.tsx:loadBundle | WID-025, WID-062 | Done |
 | QFMD bridge (makeAlert/Button/Form/Modal/Widget) and live qContext | material:src/qqq/utils/qqq/QFMDBridge.tsx:53-60,402-434 | src/components/widgets/qfmd-bridge.tsx; src/components/widgets/QqqContainerWidgets.tsx:287 | none | Done: all five bridge functions and live QContext reach the custom component; #728 |
@@ -187,10 +187,10 @@ This area covers routing, auth and session handling, context and extension point
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Home-icon crumb | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:146-148 | none | NAV-014 | Partial: no home crumb (NAV-014 does not assert it); #732 |
+| Home-icon crumb | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:146-148 | src/components/layout/Breadcrumbs.tsx | NAV-014 | Done: the leading Home icon links to `/app`; unit-tested; #732 |
 | App-hierarchy crumbs, linked | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:88-122,149-153 | src/components/layout/Breadcrumbs.tsx:buildBreadcrumbs | NAV-014 | Done |
 | savedView crumb trimming | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:95-113 | src/components/layout/Breadcrumbs.tsx:101-103 | none | Done: shows Table > "Saved View" |
-| Humanized fallback crumb labels | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:36-57 | src/components/layout/Breadcrumbs.tsx (SEGMENT_LABELS, decodeSegment) | none | Partial: unmapped segments show raw; #732 |
+| Humanized fallback crumb labels | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:36-57 | src/components/layout/Breadcrumbs.tsx:humanizeSegment | none | Done: unknown segments split case and separators while record IDs stay literal; unit-tested; #732 |
 | Document title "Page \| apps \| appName" | material:src/qqq/components/horseshoe/Breadcrumbs.tsx:90,124 | src/components/layout/Breadcrumbs.tsx:buildDocumentTitle; src/lib/hooks/use-document-title.ts | NAV-015 | Done |
 | Page header title plus actions | material:src/qqq/components/horseshoe/NavBar.tsx:270-278 | Page-level headers (e.g. src/components/records/RecordViewHeader.tsx) | REC-001 | Done: unverified whether REC-001 asserts the header |
 
@@ -202,7 +202,7 @@ This area covers routing, auth and session handling, context and extension point
 | Widget-level error isolation | none (Material has none) | src/components/widgets/WidgetErrorBoundary.tsx | WID-051, WID-053 | Done: Next goes further |
 | Help formats TEXT / HTML / MARKDOWN | material:src/qqq/components/misc/HelpContent.tsx:44-56 | src/components/records/HelpContent.tsx:47-67 | REC-039, REC-040, WID-044 | Done |
 | Help role priority | material:src/qqq/components/misc/HelpContent.tsx:62-88 | src/lib/utils/help-utils.ts:41-48 | REC-039 | Done |
-| Instance-level help slots | material:src/qqq/components/query/FilterCriteriaPaster.tsx:359-361 | none | none | Missing: v1 lacks instance helpContent; #732 |
+| Instance-level help slots | material:src/qqq/components/query/FilterCriteriaPaster.tsx:359-361 | qqq:qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/specs/v1/responses/MetaDataResponseV1.java; src/components/query/FilterValuePaster.tsx | none | Done: v1 publishes `helpContents` and the filter paster renders its slots; #732 |
 | App home "header" help | material:src/qqq/pages/apps/Home.tsx:230-241,313 | none | none | Missing: v1 AppMetaData lacks helpContent; #732 |
 
 ### App home
@@ -455,7 +455,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | DATE_TIME initial values converted to local `yyyy-MM-ddTHH:mm` | material:src/qqq/components/forms/EntityForm.tsx:1105; material:src/qqq/utils/qqq/ValueUtils.tsx formatDateTimeValueForForm | src/lib/utils/datetime-utils.ts / zod-from-metadata | REC-018 | Done |
 | Edit shows all fields (non-editable ones disabled); insert/copy shows only editable fields; empty sections dropped | material:src/qqq/components/forms/EntityForm.tsx:1159 | src/components/forms/DynamicForm.tsx (showReadOnlyFields=isEdit); DynamicFormField ReadOnlyFormField | REC-010 | Done |
 | Form sections as cards with label | material:src/qqq/components/forms/EntityForm.tsx:417 | DynamicForm section blocks with SectionIcon + label | REC-047 | Done |
-| Section help content in forms (INSERT_SCREEN/EDIT_SCREEN roles) | material:src/qqq/components/forms/EntityForm.tsx:1610 | none (DynamicForm renders no section help) | none | Missing: no section help in forms; #732 |
+| Section help content in forms (INSERT_SCREEN/EDIT_SCREEN roles) | material:src/qqq/components/forms/EntityForm.tsx:1610 | src/components/forms/DynamicForm.tsx; src/lib/utils/help-utils.ts | none | Done: form sections choose help by screen role and show authoring keys when requested; #732 |
 | Field help in forms (INSERT/EDIT/WRITE_SCREENS/ALL_SCREENS roles) | material:src/qqq/components/forms/DynamicForm.tsx:424 | src/components/forms/DynamicFormField.tsx FieldHelpTooltip | REC-039 | Done |
 | Form sidebar (section links; hidden sections greyed via sectionVisibility) | material:src/qqq/components/forms/EntityForm.tsx:1672 | src/components/forms/FormSectionSidebar.tsx; src/components/forms/EntityForm.tsx | none | Done: the form uses a section sidebar on large screens; #723 |
 | T1 section fields inside the form header card | material:src/qqq/components/forms/EntityForm.tsx:1760 | src/components/forms/EntityForm.tsx | none | Done: the first T1 section renders in the header card; #723 |
@@ -1246,5 +1246,5 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
-- #732 Next UI 1.0 parity: shell, auth and help small items: 19 open rows
+- #732 Next UI 1.0 parity: shell, auth and help small items: 9 open rows
 - #736 (title not recorded): 0 open rows
