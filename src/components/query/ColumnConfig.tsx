@@ -46,10 +46,16 @@ interface ColumnConfigProps {
   onVisibilityChange: (visibility: Record<string, boolean>) => void
   /** Called with the full new order. */
   onOrderChange: (order: string[]) => void
-  /** Called when the panel is dismissed. */
-  onClose: () => void
+  /** Called when the panel is dismissed (its close button; not shown when `embedded`). */
+  onClose?: () => void
   /** Height limit in pixels (the room left in the viewport); the column list scrolls within it. */
   maxHeight?: number
+  /**
+   * When true the panel is part of a larger editor (the saved report filter and columns dialog)
+   * rather than a popup: it fills its container, is a labelled group instead of a dialog, and
+   * has no close button.
+   */
+  embedded?: boolean
 }
 
 /**
@@ -78,7 +84,7 @@ export function columnMatchesSearch(column: Pick<QueryColumn, 'label'>, search: 
  * @param props - Component properties.
  * @returns The rendered panel.
  */
-export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, columnPins = null, onVisibilityChange, onOrderChange, onClose, maxHeight }: ColumnConfigProps) {
+export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, columnPins = null, onVisibilityChange, onOrderChange, onClose, maxHeight, embedded = false }: ColumnConfigProps) {
   const allColumns = useMemo(() => getQueryColumns(tableMetaData), [tableMetaData])
   const arrange = (list: QueryColumn[]) => arrangePinnedColumns(list, effectivePins(list.map((c) => c.name), columnPins, tableMetaData.primaryKeyField))
   const [columns, setColumns] = useState<QueryColumn[]>(() => arrange(orderColumns(allColumns, columnOrder)))
@@ -152,15 +158,18 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, col
   }
 
   return (
-    <div className="flex w-80 max-w-[calc(100vw-16px)] flex-col rounded-xl border border-border bg-card shadow-sm" data-qqq-id="column-config" role="dialog" aria-label="Configure columns"
+    <div className={`flex ${embedded ? 'w-full' : 'w-80 shadow-sm'} max-w-[calc(100vw-16px)] flex-col rounded-xl border border-border bg-card`} data-qqq-id="column-config"
+      role={embedded ? 'group' : 'dialog'} aria-label="Configure columns"
       style={maxHeight === undefined ? undefined : { maxHeight }}>
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
         <h3 className="text-base font-semibold text-foreground">Configure Columns</h3>
-        <button type="button" onClick={onClose}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Close column configuration" data-qqq-id="column-config-close">
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        {!embedded && (
+          <button type="button" onClick={onClose}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Close column configuration" data-qqq-id="column-config-close">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="relative shrink-0 border-b border-border px-4 py-2">

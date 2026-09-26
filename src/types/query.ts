@@ -131,8 +131,16 @@ export interface QueryJoin {
 export interface FilterVariableExpression {
   /** Discriminant: the backend expression class name. */
   type: 'FilterVariableExpression'
-  /** The name of the runtime variable whose value is substituted at query time. */
-  variableName: string
+  /**
+   * The name of the runtime variable whose value is substituted at query time. The backend
+   * assigns it when a saved report is stored; a variable just assigned in the filter editor
+   * (Material's `AssignFilterVariable`) has only `fieldName` and `valueIndex`.
+   */
+  variableName?: string
+  /** The criterion field the variable supplies a value for. */
+  fieldName?: string
+  /** Which of the criterion's values the variable supplies (0, or 1 for the second value of "is between"). */
+  valueIndex?: number
 }
 
 /**

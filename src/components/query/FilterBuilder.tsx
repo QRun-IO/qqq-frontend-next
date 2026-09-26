@@ -25,7 +25,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef, useMemo, useId } from 'react'
-import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X, CalendarClock, CircleCheck, CircleDashed } from 'lucide-react'
+import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X, CalendarClock, CircleCheck, CircleDashed, Variable } from 'lucide-react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { useQuery } from '@tanstack/react-query'
 
@@ -36,6 +36,7 @@ import type {
   QFieldMetaData,
   QPossibleValue,
   ExpressionTimeUnit,
+  FilterVariableExpression,
 } from '@/types'
 import {
   emptyFilter,
@@ -46,7 +47,9 @@ import {
   validateCriterion,
   caseBehaviorTransform,
   isFilterExpression,
+  isFilterVariableExpression,
   describeExpression,
+  describeVariable,
   utcToLocalDateTimeInput,
   weekdayOptions,
   type CriteriaValue,
@@ -147,6 +150,11 @@ interface FilterBuilderProps {
   onClose?: () => void
   /** Opens the page's clear confirmation, when provided. */
   onClear?: () => void
+  /**
+   * When true a criterion's value can be a filter variable (`${VARIABLE}`) instead of a
+   * literal, as in Material's report setup (`AssignFilterVariable`). Defaults to false.
+   */
+  allowVariables?: boolean
 }
 
 // ------------------------------------------------------------------
@@ -159,12 +167,12 @@ interface FilterBuilderProps {
  * @param props - Component properties.
  * @returns The rendered filter builder panel.
  */
-export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClear }: FilterBuilderProps) {
+export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClear, allowVariables = false }: FilterBuilderProps) {
   const fields = useMemo(() => buildFilterFields(tableMetaData), [tableMetaData])
 
   return (
     <div className="flex flex-col gap-3 p-4" data-qqq-id="filter-builder">
-      <FilterGroup filter={filter} fields={fields} onChange={onChange} depth={0} />
+      <FilterGroup filter={filter} fields={fields} onChange={onChange} depth={0} allowVariables={allowVariables} />
 
       <div className="flex items-center justify-between border-t border-border pt-3">
         <button
@@ -207,12 +215,14 @@ interface FilterGroupProps {
   onChange: (updated: QQueryFilter) => void
   /** Nesting depth (0 = root group). Sub-groups are capped at depth 2. */
   depth: number
+  /** Whether criterion values may be filter variables. */
+  allowVariables: boolean
 }
 
 /**
  * Renders one AND/OR group of filter criteria with nested sub-group support.
  */
-const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth }: FilterGroupProps) {
+const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth, allowVariables }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
   const criteriaIdCounterRef = useRef(0)
@@ -311,12 +321,13 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
           onChange={(updated) => updateCriterion(idx, updated)}
           onRemove={() => removeCriterion(idx)}
           depth={depth}
+          allowVariables={allowVariables}
         />
       ))}
 
       {(filter.subFilters ?? []).map((sub, idx) => (
         <div key={getSubFilterKey(sub)} className="relative">
-          <FilterGroup filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} />
+          <FilterGroup filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} allowVariables={allowVariables} />
           <button
             type="button"
             onClick={() => removeSubFilter(idx)}
@@ -375,6 +386,8 @@ interface CriteriaRowProps {
   onRemove: () => void
   /** Nesting depth, used in data-qqq-id attributes. */
   depth: number
+  /** Whether the value may be a filter variable. */
+  allowVariables?: boolean
 }
 
 /**
@@ -383,7 +396,7 @@ interface CriteriaRowProps {
  * Changing to a field of a different type (or possible value source) resets the operator
  * and values, as in Material; otherwise the operator and values are kept.
  */
-export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth }: CriteriaRowProps) {
+export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, allowVariables = false }: CriteriaRowProps) {
   const { weekday } = useFilterSettings()
   const selectedField = fields.find((f) => f.name === criterion.fieldName)
   const options = selectedField ? getOperatorOptions(selectedField, { weekday }) : []
@@ -451,6 +464,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
           onChange={(values) => onChange({ ...criterion, values })}
           depth={depth}
           index={index}
+          allowVariables={allowVariables}
         />
       )}
 
@@ -495,6 +509,8 @@ interface FilterValueInputProps {
   depth: number
   /** Row index within the group, used in data-qqq-id construction. */
   index: number
+  /** Whether a (single or between) value may be a filter variable. */
+  allowVariables?: boolean
 }
 
 /**
@@ -524,7 +540,7 @@ function pasterKindFor(field: FilterField): PasterKind {
 /**
  * Renders the value input widget(s) for a criterion.
  */
-export const FilterValueInput = React.memo(function FilterValueInput({ field, valueMode, values, onChange, depth, index }: FilterValueInputProps) {
+export const FilterValueInput = React.memo(function FilterValueInput({ field, valueMode, values, onChange, depth, index, allowVariables = false }: FilterValueInputProps) {
   const hasPossibleValues = Boolean(field.possibleValueSourceName)
   const at = (i: number): CriteriaValue => values[i] ?? ''
 
@@ -535,14 +551,33 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     )
   }
 
+  /**
+   * One value slot: the literal input, or the slot's variable (see {@link VariableSlot}).
+   *
+   * @param valueIndex - Which value (0, or 1 for the second value of "is between").
+   * @param dataId - data-qqq-id of the slot's input.
+   * @param input - The literal value input.
+   * @param setValue - Writes the slot's value.
+   * @returns The slot.
+   */
+  const slot = (valueIndex: number, dataId: string, input: React.ReactNode, setValue: (value: CriteriaValue) => void) => (
+    <VariableSlot field={field} value={at(valueIndex)} valueIndex={valueIndex} allowVariables={allowVariables} dataId={dataId} onChange={setValue}>
+      {input}
+    </VariableSlot>
+  )
+
   if (valueMode === 'double') {
+    const fromId = `filter-value-from-${depth}-${index}`
+    const toId = `filter-value-to-${depth}-${index}`
+    const setFrom = (v: CriteriaValue) => onChange([v, at(1)])
+    const setTo = (v: CriteriaValue) => onChange([at(0), v])
     return (
       <div className="flex items-center gap-1">
-        <SingleValueInput field={field} value={at(0)} onChange={(v) => onChange([v, at(1)])} placeholder="From"
-          ariaLabel={`Filter value from for ${field.label}`} dataId={`filter-value-from-${depth}-${index}`} />
+        {slot(0, fromId, <SingleValueInput field={field} value={at(0)} onChange={setFrom} placeholder="From"
+          ariaLabel={`Filter value from for ${field.label}`} dataId={fromId} />, setFrom)}
         <span className="text-sm text-muted-foreground">and</span>
-        <SingleValueInput field={field} value={at(1)} onChange={(v) => onChange([at(0), v])} placeholder="To"
-          ariaLabel={`Filter value to for ${field.label}`} dataId={`filter-value-to-${depth}-${index}`} />
+        {slot(1, toId, <SingleValueInput field={field} value={at(1)} onChange={setTo} placeholder="To"
+          ariaLabel={`Filter value to for ${field.label}`} dataId={toId} />, setTo)}
       </div>
     )
   }
@@ -571,18 +606,84 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     )
   }
 
+  const valueId = `filter-value-${depth}-${index}`
+  const setValue = (v: CriteriaValue) => onChange([v])
   if (hasPossibleValues) {
-    return (
+    return slot(0, valueId, (
       <PossibleValueSingleSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
-        value={String(at(0) ?? '')} onChange={(v) => onChange([v])} data-qqq-id={`filter-value-${depth}-${index}`} />
-    )
+        value={String(at(0) ?? '')} onChange={setValue} data-qqq-id={valueId} />
+    ), setValue)
   }
 
-  return (
-    <SingleValueInput field={field} value={at(0)} onChange={(v) => onChange([v])} placeholder="Value..."
-      ariaLabel={`Filter value for ${field.label}`} dataId={`filter-value-${depth}-${index}`} />
-  )
+  return slot(0, valueId, (
+    <SingleValueInput field={field} value={at(0)} onChange={setValue} placeholder="Value..."
+      ariaLabel={`Filter value for ${field.label}`} dataId={valueId} />
+  ), setValue)
 })
+
+// ------------------------------------------------------------------
+// VariableSlot — a value that may be a filter variable (report setup)
+// ------------------------------------------------------------------
+
+/**
+ * Props for {@link VariableSlot}.
+ */
+interface VariableSlotProps {
+  /** The field being filtered. */
+  field: FilterField
+  /** The slot's current value. */
+  value: CriteriaValue
+  /** Which of the criterion's values the slot holds. */
+  valueIndex: number
+  /** Whether the value may be a filter variable. */
+  allowVariables: boolean
+  /** data-qqq-id of the slot's literal input; the variable controls extend it. */
+  dataId: string
+  /** Writes the slot's value. */
+  onChange: (value: CriteriaValue) => void
+  /** The literal value input. */
+  children: React.ReactNode
+}
+
+/**
+ * A criterion value slot. A slot holding a filter variable shows it (`${VARIABLE}`, or
+ * `${NAME}` once the backend has named it) with a clear button; otherwise it shows the literal
+ * input and, when variables are allowed, Material's button that makes the value a variable
+ * (`AssignFilterVariable`: `{fieldName, valueIndex, type: "FilterVariableExpression"}`).
+ *
+ * @param props - Component properties.
+ * @returns The slot.
+ */
+function VariableSlot({ field, value, valueIndex, allowVariables, dataId, onChange, children }: VariableSlotProps) {
+  if (isFilterVariableExpression(value)) {
+    const text = describeVariable(value)
+    return (
+      <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-variable`}>
+        <span>{text}</span>
+        <button type="button" onClick={() => onChange('')} aria-label={`Clear variable for ${field.label}`}
+          className="rounded p-0.5 hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring" data-qqq-id={`${dataId}-variable-clear`}>
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      </span>
+    )
+  }
+  if (!allowVariables) return <>{children}</>
+  const label = `Use a variable as the value for the ${field.label} field`
+  const assign = () => {
+    const expression: FilterVariableExpression = { fieldName: field.tableFieldName, valueIndex, type: 'FilterVariableExpression' }
+    onChange(expression)
+  }
+  return (
+    <span className="flex items-center gap-1">
+      {children}
+      <button type="button" onClick={assign} aria-label={label} title={label}
+        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        data-qqq-id={`${dataId}-assign-variable`}>
+        <Variable className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </span>
+  )
+}
 
 // ------------------------------------------------------------------
 // SingleValueInput — typed input, with relative expressions for dates

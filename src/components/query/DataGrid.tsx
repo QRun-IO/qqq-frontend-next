@@ -93,8 +93,8 @@ interface DataGridProps {
   density: Density
   /** Current page size, used to determine the number of skeleton rows during loading. */
   pageSize: number
-  /** Callback invoked when the user clicks "Clear filters" in the empty state. */
-  onResetFilter: () => void
+  /** Callback invoked when the user clicks "Clear filters" in the empty state; without it that button is not shown. */
+  onResetFilter?: () => void
   /**
    * When the selection is "all matching" or "first N" (not individual rows), reports whether
    * the row at a page index is covered, so its checkbox shows as checked.
@@ -112,6 +112,10 @@ interface DataGridProps {
   height?: number
   /** Changes when the page or page size changes; the grid then scrolls back to its first row. */
   scrollResetKey?: string
+  /** When false the grid has no row selection column (Material's report-setup grid). Defaults to true. */
+  selectable?: boolean
+  /** When true clicking (or pressing Enter on) a row does not open its record (Material's report-setup grid). */
+  disableRowClick?: boolean
 }
 
 /** Tailwind height classes for each row density variant. */
@@ -205,6 +209,8 @@ export function DataGrid({
   onShowFilter,
   height,
   scrollResetKey,
+  selectable = true,
+  disableRowClick = false,
 }: DataGridProps) {
   const router = useRouter()
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null)
@@ -236,7 +242,7 @@ export function DataGrid({
   // when the browser lays the table out differently, see the layout effect below)
   const declaredPlacements = useMemo(() => {
     const placements: Record<string, PinPlacement> = {}
-    let left = SELECT_COLUMN_WIDTH
+    let left = selectable ? SELECT_COLUMN_WIDTH : 0
     const leftPinned = visibleFields.filter((c) => pins[c.name] === 'left')
     leftPinned.forEach((column, index) => {
       placements[column.name] = { side: 'left', offset: left, edge: index === leftPinned.length - 1 }
@@ -249,7 +255,7 @@ export function DataGrid({
       right += widthOf(column)
     })
     return placements
-  }, [visibleFields, pins, widthOf])
+  }, [visibleFields, pins, widthOf, selectable])
   const [measuredPlacements, setMeasuredPlacements] = useState<Record<string, PinPlacement> | null>(null)
   const placements = measuredPlacements ?? declaredPlacements
 
@@ -429,8 +435,8 @@ export function DataGrid({
       }
     })
 
-    return [selectColumn, ...fieldColumns]
-  }, [visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins])
+    return selectable ? [selectColumn, ...fieldColumns] : fieldColumns
+  }, [visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins, selectable])
 
   const table = useReactTable<QRecord>({
     data: records,
@@ -439,8 +445,8 @@ export function DataGrid({
       rowSelection,
       sorting: tanstackSorting,
     },
-    enableRowSelection: true,
-    enableMultiRowSelection: true,
+    enableRowSelection: selectable,
+    enableMultiRowSelection: selectable,
     onRowSelectionChange: (updater) => {
       const next =
         typeof updater === 'function' ? updater(rowSelection) : updater
@@ -466,8 +472,8 @@ export function DataGrid({
       if (widths.every((w) => w === 0)) return
       const ids = headers.map((th) => th.dataset.col ?? '')
       const next: Record<string, PinPlacement> = {}
-      let left = widths[0] ?? SELECT_COLUMN_WIDTH
-      for (let i = 1; i < ids.length; i++) {
+      let left = selectable ? widths[0] ?? SELECT_COLUMN_WIDTH : 0
+      for (let i = selectable ? 1 : 0; i < ids.length; i++) {
         const declared = declaredPlacements[ids[i]]
         if (declared?.side === 'left') {
           next[ids[i]] = { ...declared, offset: left }
@@ -475,7 +481,7 @@ export function DataGrid({
         }
       }
       let right = 0
-      for (let i = ids.length - 1; i >= 1; i--) {
+      for (let i = ids.length - 1; i >= (selectable ? 1 : 0); i--) {
         const declared = declaredPlacements[ids[i]]
         if (declared?.side === 'right') {
           next[ids[i]] = { ...declared, offset: right }
@@ -494,7 +500,7 @@ export function DataGrid({
     observer.observe(tableRef.current)
     return () => observer.disconnect()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- placementKey stands for declaredPlacements
-  }, [placementKey, records.length])
+  }, [placementKey, records.length, selectable])
 
   /** Sticky classes and offsets per column id, shared by header and body cells. */
   const pinStyles = useMemo(() => {
@@ -730,14 +736,16 @@ export function DataGrid({
         <p className="mt-1 text-sm text-muted-foreground">
           Try adjusting your filters or clearing the search.
         </p>
-        <button
-          type="button"
-          onClick={onResetFilter}
-          className="mt-4 text-sm text-primary underline hover:text-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
-          data-qqq-id="button-clear-filters"
-        >
-          Clear filters
-        </button>
+        {onResetFilter && (
+          <button
+            type="button"
+            onClick={onResetFilter}
+            className="mt-4 text-sm text-primary underline hover:text-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id="button-clear-filters"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
     )
   }
@@ -855,10 +863,10 @@ export function DataGrid({
               rowClass={rowClass}
               cellClass={cellClass}
               pinStyles={pinStyles}
-              onRowMouseDown={handleRowMouseDown}
-              onRowClick={handleRowClick}
-              onRowDoubleClick={handleRowDoubleClick}
-              onOpenRecord={openRecord}
+              onRowMouseDown={disableRowClick ? undefined : handleRowMouseDown}
+              onRowClick={disableRowClick ? undefined : handleRowClick}
+              onRowDoubleClick={disableRowClick ? undefined : handleRowDoubleClick}
+              onOpenRecord={disableRowClick ? undefined : openRecord}
               onCellKeyDown={handleCellKeyDown}
             />
           ))}
@@ -934,13 +942,13 @@ interface GridRowProps {
   /** Sticky classes and offsets of pinned columns. */
   pinStyles: Record<string, { className: string; style: React.CSSProperties }>
   /** Starts a row press (row-click guard). */
-  onRowMouseDown: (e: React.MouseEvent) => void
+  onRowMouseDown?: (e: React.MouseEvent) => void
   /** A row click (opens the record unless it was a drag or double-click). */
-  onRowClick: (record: QRecord, e: React.MouseEvent) => void
+  onRowClick?: (record: QRecord, e: React.MouseEvent) => void
   /** A row double-click (cancels the pending open). */
-  onRowDoubleClick: () => void
+  onRowDoubleClick?: () => void
   /** Opens the row's record at once (keyboard). */
-  onOpenRecord: (record: QRecord) => void
+  onOpenRecord?: (record: QRecord) => void
   /** Arrow-key cell navigation. */
   onCellKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => void
 }
@@ -962,9 +970,9 @@ const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellCla
   const stickyBackground = odd && !isSelected ? STRIPE_BG : 'bg-card'
   return (
     <tr
-      className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${background}`}
+      className={`border-b border-border transition-colors hover:bg-muted/50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClass} ${background}`}
       onMouseDown={onRowMouseDown}
-      onClick={(e) => onRowClick(row.original, e)}
+      onClick={onRowClick ? (e) => onRowClick(row.original, e) : undefined}
       onDoubleClick={onRowDoubleClick}
       data-qqq-id={`grid-row-${row.index}`}
       data-row-parity={odd ? 'odd' : 'even'}
@@ -983,7 +991,7 @@ const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellCla
             tabIndex={0}
             onKeyDown={(e) => {
               // Enter on a focused cell opens the record, like a row click (keyboard parity)
-              if (e.key === 'Enter' && e.target === e.currentTarget && !isSelectCol) {
+              if (onOpenRecord && e.key === 'Enter' && e.target === e.currentTarget && !isSelectCol) {
                 e.preventDefault()
                 onOpenRecord(row.original)
                 return

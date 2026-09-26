@@ -1008,7 +1008,18 @@ export function describeExpression(expression: FilterExpression, fieldType: QFie
       : `${expression.operator === 'LAST' ? 'last' : 'this'} ${unitWord(expression.timeUnit)}`
     return fieldType === 'DATE_TIME' || expression.timeUnit !== 'DAYS' ? `start of ${period}` : period
   }
-  return `\${${expression.variableName}}`
+  return describeVariable(expression)
+}
+
+/**
+ * Text for a filter variable: `${NAME}` once the backend has named it, else Material's
+ * `${VARIABLE}` (a variable just assigned in the filter editor has no name yet).
+ *
+ * @param expression - The variable expression.
+ * @returns The display text.
+ */
+export function describeVariable(expression: FilterVariableExpression): string {
+  return `\${${expression.variableName || 'VARIABLE'}}`
 }
 
 /**
