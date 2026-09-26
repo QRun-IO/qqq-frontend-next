@@ -23,7 +23,7 @@
 
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 
 import type {
   QTableMetaData,
@@ -235,7 +235,6 @@ export function useRecordQuery({
   tableVariant = null,
   paused = false,
 }: UseRecordQueryOptions) {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -295,10 +294,12 @@ export function useRecordQuery({
     if (state.quickSearchTerm) params.set('q', state.quickSearchTerm)
     const newSearch = params.toString()
     if (newSearch !== searchParams.toString()) {
-      router.replace(`${pathname}${newSearch ? `?${newSearch}` : ''}`, { scroll: false })
+      // History, not router.replace: a router navigation refetches the route's RSC payload, and if a
+      // document navigation cuts that fetch off, Next falls back to loading this stale URL instead.
+      window.history.replaceState(null, '', `${pathname}${newSearch ? `?${newSearch}` : ''}`)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams is read, not tracked, to avoid loops
-  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, router, pathname])
+  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, pathname])
 
   // ------------------------------------------------------------------
   // Joins: only the exposed joins the visible columns, criteria or sort use

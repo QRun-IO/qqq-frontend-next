@@ -422,7 +422,6 @@ function RecordViewContent({
 }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
-  const router = useRouter()
   const { preferences } = useUserPreferences()
 
   // Persist tab and view mode in URL so back navigation restores state
@@ -456,8 +455,9 @@ function RecordViewContent({
       params.set(key, value)
     }
     const qs = params.toString()
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [searchParams, pathname, router])
+    // History, not router.replace: see the URL sync in use-record-query
+    window.history.replaceState(null, '', `${pathname}${qs ? `?${qs}` : ''}`)
+  }, [searchParams, pathname])
 
   /**
    * Switches the active tab by updating the `tab` URL parameter.
