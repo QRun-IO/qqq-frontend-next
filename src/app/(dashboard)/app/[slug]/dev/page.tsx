@@ -39,7 +39,7 @@ import { EsbSection } from '@/components/esb/EsbSection'
  * @returns A composed page that assembles:
  *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
  *   - An `<EsbSection>` with the table's ESB publications and subscribers, omitted when the
- *     ESB endpoint answers 403 or 404
+ *     table has none to show (403, 404, or a backend without the ESB module)
  *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */

@@ -66,8 +66,25 @@ describe('getEsbForTable', () => {
     await expect(getEsbForTable('order')).rejects.toThrow('Broker management API unavailable')
   })
 
-  it('rejects a body that is not an ESB table response', async () => {
-    server.use(http.get('/qqq/v1/esb/table/order', () => HttpResponse.text('<html>SPA</html>')))
-    await expect(getEsbForTable('order')).rejects.toThrow('Invalid ESB response')
+  it('returns null for the SPA index page a backend without the ESB module answers', async () => {
+    server.use(
+      http.get('/qqq/v1/esb/table/order', () =>
+        HttpResponse.html('<!doctype html><html><body>SPA</body></html>')
+      )
+    )
+    await expect(getEsbForTable('order')).resolves.toBeNull()
+  })
+
+  it.each([
+    ['an empty body', ''],
+    ['a JSON object without publications and subscribers', { error: 'unexpected' }],
+    ['a JSON array', []],
+  ])('returns null for %s', async (_label, body) => {
+    server.use(
+      http.get('/qqq/v1/esb/table/order', () =>
+        typeof body === 'string' ? HttpResponse.text(body) : HttpResponse.json(body)
+      )
+    )
+    await expect(getEsbForTable('order')).resolves.toBeNull()
   })
 })

@@ -20,10 +20,11 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { QContextProvider } from '@/lib/context/q-context'
-import { queryKeys } from '@/lib/query-client'
+import { queryClient, queryKeys } from '@/lib/query-client'
 import { server } from '@/mocks/node'
 import TableDeveloperViewPage from './page'
 
@@ -34,14 +35,20 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn() }),
 }))
+vi.mock('sonner', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('sonner')>()),
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
+}))
 
 /**
- * Renders the page with a fresh query client.
+ * Renders the page with a query client.
  *
+ * @param client - The query client; a fresh one without retries by default.
  * @returns The query client, for inspecting query state.
  */
-function renderPage(): QueryClient {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage(
+  client: QueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+): QueryClient {
   render(
     <QueryClientProvider client={client}>
       <QContextProvider>
@@ -68,6 +75,11 @@ async function settled(client: QueryClient, tableName: string): Promise<void> {
 describe('TableDeveloperViewPage ESB section', () => {
   beforeEach(() => {
     params.slug = 'order'
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    queryClient.clear()
   })
 
   it('shows the ESB section returned for the table', async () => {
@@ -99,5 +111,19 @@ describe('TableDeveloperViewPage ESB section', () => {
     expect(
       screen.queryByRole('heading', { name: 'Enterprise Service Bus' })
     ).not.toBeInTheDocument()
+  })
+
+  it('omits the section without a toast when a backend without the ESB module answers with its SPA page', async () => {
+    server.use(
+      http.get('/qqq/v1/esb/table/order', () =>
+        HttpResponse.html('<!doctype html><html><body>SPA</body></html>')
+      )
+    )
+    const client = renderPage(queryClient)
+    await settled(client, 'order')
+    expect(
+      screen.queryByRole('heading', { name: 'Enterprise Service Bus' })
+    ).not.toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
