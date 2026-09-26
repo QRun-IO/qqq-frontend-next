@@ -9,13 +9,14 @@
 // qryLocker can be read by key but not queried, so its query screen opens Go To.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { captureQueries, sqlColumn } from './query-helpers'
+import { expectTouchReady } from '../../support/touch'
+import { captureQueries, columnCells, expectColumn, sqlColumn } from './query-helpers'
 
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Go To...' })
 const goButton = (page: Page, table: string, key: string) => dialog(page).getByRole('button', { name: `Go to the ${table} record with this ${key}` })
 
 test.describe('Go To record', () => {
-  test('[QRY-067] Go To opens a record by primary key or by either unique key', async ({ page, backend, diagnostics }) => {
+  test('[QRY-067] Go To opens a record by primary key or by either unique key @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     // the v1 table metadata carries the Material supplemental metadata the button reads
     const table = await (await backend.api.get('/qqq/v1/metaData/table/qryBin')).json()
@@ -23,13 +24,15 @@ test.describe('Go To record', () => {
 
     const queries = captureQueries(page, 'qryBin')
     await open(page, '/app/qryBin')
-    await expect(page.locator('tbody td[data-qqq-id="grid-cell-contents"]')).toHaveText(await sqlColumn(backend, 'select contents from qry_bin order by id desc'))
+    await expectColumn(page, 'contents', await sqlColumn(backend, 'select contents from qry_bin order by id desc'))
     const gotoButton = page.locator('[data-qqq-id="button-goto"]')
     await expect(gotoButton).toHaveText('Go To...')
 
     // Options: the primary key, then each configured key; fields labelled by their labels
     await gotoButton.click()
     await expect(dialog(page).locator('form')).toHaveCount(3)
+    // the dialog fits a phone and its controls are touch-sized (no-op checks with a mouse)
+    await expectTouchReady(page, dialog(page))
     await expect(dialog(page).getByRole('form', { name: 'Go to by Id' })).toBeVisible()
     await expect(dialog(page).getByRole('form', { name: 'Go to by Bin Code' })).toBeVisible()
     await expect(dialog(page).getByRole('form', { name: 'Go to by Aisle and Shelf' })).toBeVisible()
@@ -66,7 +69,7 @@ test.describe('Go To record', () => {
     ])
   })
 
-  test('[QRY-067] Go To reports no match and more than one match, and Enter submits', async ({ page, backend, diagnostics }) => {
+  test('[QRY-067] Go To reports no match and more than one match, and Enter submits @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryBin')
     await page.locator('[data-qqq-id="button-goto"]').click()
@@ -101,7 +104,7 @@ test.describe('Go To record', () => {
     await expect(page.locator('[data-qqq-id="button-goto"]')).toBeFocused()
   })
 
-  test('[QRY-067] a table that is not queryable opens Go To, which cannot be dismissed', async ({ page, backend, diagnostics }) => {
+  test('[QRY-067] a table that is not queryable opens Go To, which cannot be dismissed @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryLocker')
     await expect(page.locator('[data-qqq-id="query-not-supported"]')).toHaveText('Locker records cannot be queried.')
@@ -117,12 +120,12 @@ test.describe('Go To record', () => {
     await expect(dialog(page)).toHaveCount(0)
   })
 
-  test('[QRY-067] tables without gotoFieldNames offer no Go To', async ({ page, backend, diagnostics }) => {
+  test('[QRY-067] tables without gotoFieldNames offer no Go To @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const table = await (await backend.api.get('/qqq/v1/metaData/table/qryItem')).json()
     expect(table.supplementalMetaData?.materialDashboard?.gotoFieldNames ?? null).toBeNull()
     await open(page, '/app/qryItem')
-    await expect(page.locator('tbody td[data-qqq-id="grid-cell-name"]').first()).toBeVisible()
+    await expect(columnCells(page, 'name').first()).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-goto"]')).toHaveCount(0)
     await open(page, '/app/qryItem/1')
     await expect(page.getByRole('heading', { level: 1, name: 'Alpha Widget' })).toBeVisible()

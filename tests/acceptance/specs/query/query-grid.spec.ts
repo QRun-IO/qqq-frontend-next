@@ -7,12 +7,19 @@
 
 // Record list basics: columns, default sort, sorting, pagination, column configuration.
 import { expect, open, test } from '../../support/fixtures'
-import { columnCells, expectColumn, grid, nextQuery, showTable, sqlColumn } from './query-helpers'
+import { columnCells, expectColumn, grid, isPhone, nextQuery, showTable, sqlColumn } from './query-helpers'
 
-test('[QRY-068] default columns follow the table sections, then fields no section lists (Material order)', async ({ page, backend, diagnostics }) => {
+test('[QRY-068] default columns follow the table sections, then fields no section lists (Material order) @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // the fields are declared price, quantity, code, id, name; the sections list id, name, code, then price, then quantity
   await open(page, '/app/qryOrdered')
+  if (isPhone(page)) {
+    // phone cards list the same default columns in the same order, then the grid view shows them as columns
+    await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
+    const card = page.getByRole('list', { name: 'Ordered Item records' }).getByRole('listitem').first()
+    await expect(card.locator('[data-qqq-id^="card-field-"] dt')).toHaveText(['Id:', 'Name:', 'Code:', 'Price:', 'Quantity:'])
+    await showTable(page)
+  }
   const headers = grid(page, 'Ordered Item').locator('thead button[aria-label^="Sort by "]')
   await expect(headers).toHaveCount(5)
   expect(await headers.evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')))).toEqual(
@@ -20,7 +27,7 @@ test('[QRY-068] default columns follow the table sections, then fields no sectio
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
 })
 
-test('[QRY-069] pagination numbers are locale formatted in the range and the total', async ({ page, backend, diagnostics }) => {
+test('[QRY-069] pagination numbers are locale formatted in the range and the total @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect(await sqlColumn(backend, 'select count(*) from qry_many_row')).toEqual(['1234'])
   await open(page, '/app/qryManyRow?pageSize=250&page=5')
