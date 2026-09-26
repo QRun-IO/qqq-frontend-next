@@ -6,7 +6,7 @@
  */
 
 // Saved reports (setup widgets, rendering), scheduled reports, and record sharing.
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import type { Backend } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
@@ -21,6 +21,27 @@ async function openShare(page: Page, path: string) {
   await expect(dialog.locator('[data-qqq-id="share-status"]')).toHaveCount(0)
   await expectTouchReady(page, dialog)
   return dialog
+}
+
+/**
+ * Asserts an open schedule editor popover fits the screen: inside the viewport, its body
+ * reachable (it scrolls inside when taller than the space), no sideways page scroll, and
+ * touch-sized choices on a touch screen.
+ */
+async function expectPopoverFits(page: Page, popover: Locator) {
+  const box = (await popover.boundingBox())!
+  const viewport = page.viewportSize()!
+  expect(box.x, 'popover left edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width, 'popover right edge on screen').toBeLessThanOrEqual(viewport.width + 1)
+  expect(box.y, 'popover top edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.y + box.height, 'popover bottom edge on screen').toBeLessThanOrEqual(viewport.height + 1)
+  // the choices do not overlap one another
+  const overlaps = await popover.locator('label').evaluateAll((labels) => {
+    const boxes = labels.map((label) => label.getBoundingClientRect())
+    return boxes.filter((a, i) => boxes.some((b, j) => j !== i && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5)).length
+  })
+  expect(overlaps, 'overlapping choices').toBe(0)
+  await expectTouchReady(page, popover)
 }
 
 /** Runs a sharing process directly with the test's session. */
@@ -131,19 +152,21 @@ async function fillSchedule(page: Page, cronExpression: string) {
   return dialog
 }
 
-test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the live description is the one QQQ stores', async ({ page, backend, diagnostics }) => {
+test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the live description is the one QQQ stores @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const dialog = await openScheduleForm(page)
   const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
   const live = byId(page, 'cron-editor-description-scheduledReportCronWidget')
   await expect(editor.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
   await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Not set')
+  await expectTouchReady(page, editor)
 
   await editor.getByRole('button', { name: /^Days/ }).click()
   const days = page.getByRole('dialog', { name: 'Days' })
   await days.getByRole('radio', { name: 'Selected Weekdays' }).check()
   await days.getByRole('checkbox', { name: 'Monday' }).check()
   await days.getByRole('checkbox', { name: 'Friday' }).check()
+  await expectPopoverFits(page, days)
   await page.keyboard.press('Escape')
   await expect(days).toBeHidden()
   await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
@@ -155,11 +178,13 @@ test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the 
   await expect(hours.getByRole('checkbox', { name: '12am' })).toBeChecked()
   await hours.getByRole('checkbox', { name: '9am' }).check()
   await hours.getByRole('checkbox', { name: '12am' }).uncheck()
+  await expectPopoverFits(page, hours)
   await page.keyboard.press('Escape')
   await editor.getByRole('button', { name: /^Minutes/ }).click()
   const minutes = page.getByRole('dialog', { name: 'Minutes' })
   await minutes.getByRole('checkbox', { name: '30' }).check()
   await minutes.getByRole('checkbox', { name: '00' }).uncheck()
+  await expectPopoverFits(page, minutes)
   await page.keyboard.press('Escape')
   await expect(editor.getByRole('button', { name: /^Hours/ })).toHaveText('9am')
   await expect(editor.getByRole('button', { name: /^Minutes/ })).toHaveText('30')
@@ -176,12 +201,12 @@ test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the 
   const id = records[0].values.id
   const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
   expect(saved.values).toMatchObject({ cronExpression: '0 30 9 ? * MON,FRI', cronDescription: 'Every week, on Monday and Friday, at 9:30 am', cronTimeZoneId: 'UTC' })
-  await open(page, `/app/scheduledReport/${id}`)
+  await openRecord(page, `/app/scheduledReport/${id}`)
   await expectLoaded(page, 'scheduledReportCronWidget')
   await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every week, on Monday and Friday, at 9:30 am')
 })
 
-test('[WID-064] a schedule is required: saving without one shows the error in the editor and nothing is saved', async ({ page, backend, diagnostics }) => {
+test('[WID-064] a schedule is required: saving without one shows the error in the editor and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const dialog = await openScheduleForm(page)
   await dialog.getByRole('button', { name: 'Create', exact: true }).click()
@@ -194,11 +219,10 @@ test('[WID-064] a schedule is required: saving without one shows the error in th
   expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
-test('[RPT-019] the render report input step shows only its fields, without a stray no-fields message', async ({ page, diagnostics }) => {
+test('[RPT-019] the render report input step shows only its fields, without a stray no-fields message @mobile', async ({ page, diagnostics }) => {
   void diagnostics
-  await open(page, '/app/savedReport/1')
-  await page.getByRole('button', { name: 'Actions' }).click()
-  await page.getByRole('menuitem', { name: 'Render Report' }).click()
+  await openRecord(page, '/app/savedReport/1')
+  await recordAction(page, 'Render Report')
   await expect(page).toHaveURL(/\/app\/renderSavedReport/)
   await expect(page.getByLabel(/^Report Format/)).toBeVisible()
   await expect(page.getByLabel(/^Email To/)).toBeVisible()
@@ -208,6 +232,7 @@ test('[RPT-019] the render report input step shows only its fields, without a st
   await expect(values).toHaveCount(1)
   await expect(values).toHaveText('')
   await expect(page.getByText('No fields', { exact: true })).toHaveCount(0)
+  await expectTouchReady(page, page.locator('[data-qqq-id="process-run-renderSavedReport"]'))
 })
 
 test('[RPT-012] a scheduled report is created for a saved report and shows its schedule @mobile', async ({ page, backend, diagnostics }) => {

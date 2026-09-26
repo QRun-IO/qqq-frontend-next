@@ -7,7 +7,7 @@
 
 import type { Page, Request } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess, viewValue } from './process-helpers'
+import { advance, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
 
 const COMPONENTS = 'prcComponents'
 
@@ -18,13 +18,14 @@ function requestsMatching(page: Page, pattern: RegExp): Request[] {
   return requests
 }
 
-test('[PRC-048] process-field possible values load and search through the v1 API', async ({ page, backend, diagnostics }) => {
+test('[PRC-048] process-field possible values load and search through the v1 API @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const lookups = requestsMatching(page, /\/possibleValues\//)
   await openProcess(page, COMPONENTS)
   await expectScreen(page, 'mixed', 'Mixed Components')
   await page.getByRole('combobox', { name: 'Lab Color' }).click()
   await expect(page.getByRole('listbox', { name: 'Lab Color options' }).getByRole('option')).toHaveText(['Red', 'Green', 'Blue'])
+  await expectRunTouchReady(page, COMPONENTS)
   await page.getByRole('option', { name: 'Green', exact: true }).click()
   await page.getByLabel('Lab Name').fill('Juniper')
   await advance(page, 'Next')
@@ -42,7 +43,7 @@ test('[PRC-048] process-field possible values load and search through the v1 API
   expect(unknown.status()).toBe(404)
 })
 
-test('[PRC-049] a bulk load runs on the v1 process routes: upload, step, back step and process records', async ({ page, backend, diagnostics }) => {
+test('[PRC-049] a bulk load runs on the v1 process routes: upload, step, back step and process records @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const calls = requestsMatching(page, /\/(processes|metaData\/process)\//)
   await openProcess(page, 'person.bulkInsert')
@@ -53,8 +54,10 @@ test('[PRC-049] a bulk load runs on the v1 process routes: upload, step, back st
   await advance(page, 'Next')
   const mapping = await expectScreen(page, 'fileMapping', 'File Mapping')
   await expect(mapping.getByRole('table', { name: 'File preview' })).toContainText('vera.upload@example.invalid')
+  await expectRunTouchReady(page, 'person.bulkInsert')
   await advance(page, 'Next')
   await expectScreen(page, 'review', 'Review')
+  await expectRunTouchReady(page, 'person.bulkInsert')
   await page.getByRole('button', { name: 'Back' }).click()
   await expectScreen(page, 'fileMapping', 'File Mapping')
   await advance(page, 'Next')

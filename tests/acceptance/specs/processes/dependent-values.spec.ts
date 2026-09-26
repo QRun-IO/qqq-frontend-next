@@ -7,7 +7,7 @@
 
 import type { APIResponse, Request } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
-import { advance, choosePossibleValue, expectScreen, openProcess, viewValue } from './process-helpers'
+import { advance, choosePossibleValue, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
 
 // The pick screen's Specimen field uses the prcSpecimen source filtered on category = ${input.category}.
 const PROCESS = 'prcSpecimenPick'
@@ -25,7 +25,7 @@ function postedValues(request: Request): Record<string, unknown> {
   return (JSON.parse(request.postData() ?? '{}') as { values?: Record<string, unknown> }).values ?? {}
 }
 
-test('[PRC-051] a process screen narrows Specimen choices to its Category and records the pick', async ({ page, backend, diagnostics }) => {
+test('[PRC-051] a process screen narrows Specimen choices to its Category and records the pick @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const searches: Request[] = []
   page.on('request', (request) => { if (new URL(request.url()).pathname === SPECIMEN_SEARCH) searches.push(request) })
@@ -43,6 +43,7 @@ test('[PRC-051] a process screen narrows Specimen choices to its Category and re
   await choosePossibleValue(page, 'Category', 'Mineral')
   await specimen.click()
   await expect(specimens.getByRole('option')).toHaveText(['Alpha', 'Beta'])
+  await expectRunTouchReady(page, PROCESS)
   await specimen.click()
 
   // Changing the source field changes the dependent field's choices.
@@ -62,6 +63,7 @@ test('[PRC-051] a process screen narrows Specimen choices to its Category and re
   const picked = await expectScreen(page, 'picked', 'Specimen Picked')
   await expect(viewValue(picked, 'category')).toHaveText('Plant')
   await expect(viewValue(picked, 'specimenId')).toHaveText('Delta')
+  await expectRunTouchReady(page, PROCESS)
   expect(await backend.sql('select category, specimen_id from prc_pick_log')).toEqual([{ category: 'Plant', specimen_id: '4' }])
 })
 

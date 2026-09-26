@@ -6,9 +6,10 @@
  */
 
 import { expect, open, test } from '../../support/fixtures'
-import { downloadText, expectLoaded, parseCsv, sqlRows } from './widget-support'
+import { expectTouchReady } from '../../support/touch'
+import { downloadText, expectLoaded, parseCsv, sqlRows, widget } from './widget-support'
 
-test('[RPT-020] report files download from the v1 download and report routes, which enforce access', async ({ page, backend, diagnostics }) => {
+test('[RPT-020] report files download from the v1 download and report routes, which enforce access @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, 'select id, first_name, last_name, email from person order by id')
 
@@ -17,6 +18,7 @@ test('[RPT-020] report files download from the v1 download and report routes, wh
   await page.getByLabel('Output format').selectOption('CSV')
   await page.getByRole('button', { name: 'Run Report' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Report complete' })).toBeVisible()
+  await expectTouchReady(page, page.locator('[data-qqq-id="report-run-accPersonReport"]'))
   const link = page.getByRole('link', { name: /^Download / })
   await expect(link).toHaveAttribute('href', /^\/qqq\/v1\/download\/[^?]+\.csv\?filePath=/)
   const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
@@ -29,6 +31,7 @@ test('[RPT-020] report files download from the v1 download and report routes, wh
   await page.getByRole('button', { name: 'Run Report' }).click()
   const streamed = page.getByRole('link', { name: /^Download / })
   await expect(streamed).toHaveAttribute('href', '/qqq/v1/reports/accStreamedReport?format=csv')
+  await expectTouchReady(page, page.locator('[data-qqq-id="report-run-accStreamedReport"]'))
   const [file] = await Promise.all([page.waitForEvent('download'), streamed.click()])
   expect(parseCsv(await downloadText(file)).slice(1)).toEqual(pets.map((pet) => [pet.id, pet.name]))
 
@@ -45,7 +48,7 @@ test('[RPT-020] report files download from the v1 download and report routes, wh
 test.describe('persona without pet permissions', () => {
   test.use({ persona: 'noPets' })
 
-  test('[WID-066] widget metadata and data come from v1, which refuses a denied widget without rendering it', async ({ page, backend, diagnostics }) => {
+  test('[WID-066] widget metadata and data come from v1, which refuses a denied widget without rendering it @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const renders = async () => Number(/renders=(\d+)/.exec((await (await backend.api.post('/qqq/v1/widget/accDenied')).json()).html)![1])
     await backend.setPersona('admin')
@@ -62,6 +65,7 @@ test.describe('persona without pet permissions', () => {
     page.on('request', (request) => { if (/\/(metaData|widget\/)/.test(new URL(request.url()).pathname)) requests.push(`${request.method()} ${new URL(request.url()).pathname}`) })
     await open(page, '/app/widgetPermissions')
     await expectLoaded(page, 'accHealthy')
+    await expectTouchReady(page, widget(page, 'accHealthy'))
     expect(requests).toContain('POST /qqq/v1/widget/accHealthy')
     expect(requests.every((request) => request.includes(' /qqq/v1/'))).toBe(true)
     expect(requests).not.toContain('POST /qqq/v1/widget/accDenied')
