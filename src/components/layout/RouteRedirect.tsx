@@ -24,6 +24,8 @@
 import React, { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { withTrailingSlash } from '@/lib/utils/material-links'
+
 /**
  * Props for {@link RouteRedirect}.
  */
@@ -43,7 +45,7 @@ interface RouteRedirectProps {
 export function RouteRedirect({ href, label }: RouteRedirectProps) {
   const router = useRouter()
   useEffect(() => {
-    router.replace(href)
+    router.replace(withTrailingSlash(href))
   }, [router, href])
   return (
     <div role="status" aria-busy="true" className="py-12 text-center text-sm text-muted-foreground" data-qqq-id="route-redirect">

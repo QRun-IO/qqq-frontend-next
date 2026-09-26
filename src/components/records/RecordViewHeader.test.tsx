@@ -115,13 +115,13 @@ describe('RecordViewHeader #/launchProcess= links', () => {
   it('launches a table process missing from the screen list (hidden) without a tableName', async () => {
     window.location.hash = '#/launchProcess=person.bulkEdit'
     renderHeader([])
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/person.bulkEdit?recordsParam=recordIds&recordIds=5&returnTo=%2Fapp%2Fperson%2F5'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/person.bulkEdit/?recordsParam=recordIds&recordIds=5&returnTo=%2Fapp%2Fperson%2F5'))
   })
 
   it('names this table for a process added to every screen', async () => {
     window.location.hash = '#/launchProcess=tagRecords'
     renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/tagRecords?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/tagRecords/?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5'))
   })
 })
 

@@ -172,6 +172,24 @@ export function tableReportForSegment(instance: QInstance | undefined, tableName
 }
 
 /**
+ * Gives an in-app href an explicit trailing slash on its path (before any query or hash).
+ *
+ * The static export uses trailing slashes, and Next adds one to a link on its own, except when
+ * the last path segment looks like a file name. Process names such as `person.bulkEdit` do, so
+ * without the slash the router asks for `/app/person.bulkEdit.txt`, a file the export does not
+ * have, and falls back to a full page load (which WebKit on Linux never completes).
+ *
+ * @param href - In-app href, optionally with a query string or hash.
+ * @returns The href with a trailing slash on its path.
+ */
+export function withTrailingSlash(href: string): string {
+  const cut = href.search(/[?#]/)
+  const path = cut === -1 ? href : href.slice(0, cut)
+  const rest = cut === -1 ? '' : href.slice(cut)
+  return path.endsWith('/') ? href : `${path}/${rest}`
+}
+
+/**
  * The process-run URL for a Material-style launch, returning to `returnTo` afterwards.
  *
  * @param processName - Process to run.
@@ -192,7 +210,7 @@ export function processRunHref(processName: string, options: { recordId?: string
   }
   if (options.tableName) params.set('tableName', options.tableName)
   params.set('returnTo', options.returnTo)
-  return `/app/${encodeURIComponent(processName)}?${params.toString()}`
+  return withTrailingSlash(`/app/${encodeURIComponent(processName)}?${params.toString()}`)
 }
 
 /**

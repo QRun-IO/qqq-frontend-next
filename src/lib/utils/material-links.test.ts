@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { QInstance, QTableMetaData } from '@/types'
 import {
-  formPresetsFromHash, lockedPresetValues, parseHashParams, processRunHref, recordHashAction, tableProcessForSegment, tableReportForSegment,
+  formPresetsFromHash, lockedPresetValues, parseHashParams, processRunHref, withTrailingSlash, recordHashAction, tableProcessForSegment, tableReportForSegment,
 } from './material-links'
 
 // The exact shape AbstractHTMLWidgetRenderer.linkTableCreateChild builds.
@@ -84,8 +84,21 @@ describe('table-scoped paths', () => {
 
   it('builds the process URL with the record, the original selection and the way back', () => {
     expect(processRunHref('person.bulkEdit', { recordId: 3, returnTo: '/app/person/3' }))
-      .toBe('/app/person.bulkEdit?recordsParam=recordIds&recordIds=3&returnTo=%2Fapp%2Fperson%2F3')
+      .toBe('/app/person.bulkEdit/?recordsParam=recordIds&recordIds=3&returnTo=%2Fapp%2Fperson%2F3')
     expect(processRunHref('person.bulkEdit', { search: '?recordsParam=recordIds&recordIds=1,2', returnTo: '/app/person' }))
-      .toBe('/app/person.bulkEdit?recordsParam=recordIds&recordIds=1%2C2&returnTo=%2Fapp%2Fperson')
+      .toBe('/app/person.bulkEdit/?recordsParam=recordIds&recordIds=1%2C2&returnTo=%2Fapp%2Fperson')
+  })
+})
+
+describe('withTrailingSlash', () => {
+  it('adds the slash a dotted last segment would otherwise lose, keeping the query and hash', () => {
+    expect(withTrailingSlash('/app/person.bulkEdit?recordIds=1%2C2&returnTo=%2Fapp%2Fperson')).toBe('/app/person.bulkEdit/?recordIds=1%2C2&returnTo=%2Fapp%2Fperson')
+    expect(withTrailingSlash('/app/person.bulkEdit#step')).toBe('/app/person.bulkEdit/#step')
+    expect(withTrailingSlash('/app/person')).toBe('/app/person/')
+  })
+
+  it('leaves an href that already ends its path with a slash unchanged', () => {
+    expect(withTrailingSlash('/app/person/?page=2')).toBe('/app/person/?page=2')
+    expect(withTrailingSlash('/app/')).toBe('/app/')
   })
 })

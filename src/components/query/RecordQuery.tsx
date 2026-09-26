@@ -35,6 +35,7 @@ import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { countActiveCriteria, emptyFilter } from '@/lib/utils/filter-utils'
+import { withTrailingSlash } from '@/lib/utils/material-links'
 import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -270,7 +271,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     if (forTable) params.set('tableName', forTable)
     // the run comes back to this query (filter, sort and page kept), as Material's modal does
     params.set('returnTo', `${window.location.pathname}${window.location.search}`)
-    router.push(`/app/${encodeURIComponent(process.name)}?${params.toString()}`)
+    router.push(withTrailingSlash(`/app/${encodeURIComponent(process.name)}?${params.toString()}`))
   }, [router, tableName, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
   const handleFilterToggle = useCallback(() => {
