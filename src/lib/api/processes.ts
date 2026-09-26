@@ -368,17 +368,19 @@ export async function processRecords(
   limit = 50,
   tableVariant?: string
 ): Promise<ProcessRecordsResponse> {
-  const body = await apiClient.get<ProcessRecordsResponse>(
+  const body = await apiClient.get<Partial<ProcessRecordsResponse>>(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
     {
       baseURL: legacyBaseURL(),
       params: { skip, limit, ...(tableVariant ? { tableVariant } : {}) },
     }
   )
-  if (!body || !Array.isArray(body.records) || typeof body.totalRecords !== 'number') {
+  // The backend omits empty lists, so a run with no records answers {"totalRecords":0}.
+  const records = body && typeof body === 'object' && body.records === undefined ? [] : body?.records
+  if (!body || typeof body !== 'object' || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
   }
-  return body
+  return { totalRecords: body.totalRecords, records }
 }
 
 /**
