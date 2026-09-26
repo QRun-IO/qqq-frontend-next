@@ -50,7 +50,7 @@ import {
 } from '@/lib/utils/filter-utils'
 import { isColumnVisible, type ViewState } from '@/lib/utils/saved-view-utils'
 import { getDefaultQuickFilterFieldNames, reconcileBasicMode } from '@/lib/utils/quick-filter-utils'
-import { hasCapability, type ColumnPins } from '@/lib/utils/query-columns'
+import { hasCapability, withReadableExposedJoins, type ColumnPins } from '@/lib/utils/query-columns'
 import { DENSITY_STORAGE_KEY, readLegacyColumnState } from '@/lib/utils/query-view-storage'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { useColumnConfig } from '@/lib/hooks/use-column-config'
@@ -400,11 +400,9 @@ export function useRecordQuery({
   // ------------------------------------------------------------------
   // Joins: only the exposed joins the visible columns, criteria or sort use
   // ------------------------------------------------------------------
-  const readableExposedJoins = useMemo(() => (tableMetaData?.exposedJoins ?? []).filter(({ joinTable, joinPath = [] }) => {
-    if (!joinTable?.name || joinTable.readPermission === false) return false
-    const names = [joinTable.name, ...joinPath.flatMap(({ leftTable, rightTable }) => [leftTable, rightTable])]
-    return names.every((name) => name === tableName || allTables?.[name]?.readPermission === true)
-  }), [tableMetaData, tableName, allTables])
+  const readableExposedJoins = useMemo(() => tableMetaData && allTables
+    ? withReadableExposedJoins(tableMetaData, allTables).exposedJoins ?? []
+    : [], [tableMetaData, allTables])
 
   const visibleJoinColumns = useMemo(() => Object.entries(state.columnVisibility).filter(([name, visible]) => visible && name.includes('.')).map(([name]) => name), [state.columnVisibility])
 

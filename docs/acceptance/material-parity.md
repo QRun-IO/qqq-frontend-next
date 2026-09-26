@@ -17,13 +17,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
-| Query | 122 | 3 | 3 | 1 | 2 | 131 |
+| Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
 | Processes and reports | 93 | 2 | 20 | 10 | 3 | 128 |
 | Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **663** | **9** | **50** | **35** | **38** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
+| **Total** | **664** | **10** | **48** | **35** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 8 | 10 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -238,7 +238,7 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Create New gated by insert capability + permission | material:src/qqq/pages/records/query/RecordQuery.tsx:3210 | src/components/query/RecordQueryToolbar.tsx (button-create) | QRY-035, QRY-062 | Done: labelled "Create" |
 | Bulk with no selection / missing-process alerts | material:src/qqq/pages/records/query/RecordQuery.tsx:1697-1753 | src/components/query/ProcessLauncherMenu.tsx:blockedMessage | QRY-031 | Done: missing process hides item |
 | Process min/maxInputRecords alerts | material:src/qqq/pages/records/query/RecordQuery.tsx:1759-1780 | src/components/query/ProcessLauncherMenu.tsx; src/components/process/ProcessRun.tsx:inputRecordBoundsMessage | PRC-006 | Done: query-menu path not acceptance-tested |
-| Alerts: error, count error, deleted success, state.warning, copy success/info | material:src/qqq/pages/records/query/RecordQuery.tsx:249-265,3226-3274 | src/components/query/RecordQuery.tsx; src/components/query/RecordQueryContent.tsx | QRY-007 | Partial: count errors, reconcile warnings, copy feedback and dismissible grid errors exist; record-deletion success wording still needs verification; #717 |
+| Alerts: error, count error, deleted success, state.warning, copy success/info | material:src/qqq/pages/records/query/RecordQuery.tsx:249-265,3226-3274 | src/components/query/RecordQuery.tsx; src/components/query/RecordQueryContent.tsx; src/components/records/DeleteConfirmDialog.tsx | QRY-007, REC-012 | Done (different UX): deletion returns to the query and shows a success toast with the record label; REC-012 verifies the message and stored deletion |
 | Warnings for removed fields / misconfigured boolean operator | material:src/qqq/pages/records/query/RecordQuery.tsx:2094-2106 | src/lib/utils/saved-view-utils.ts:reconcileView; src/components/query/RecordQuery.tsx | none | Done: removed fields and unsupported Boolean operators produce visible warnings. |
 | Reconcile view w/ metadata (add new cols, drop deleted fields) | material:src/qqq/pages/records/query/RecordQuery.tsx:1970-2092 | src/lib/utils/saved-view-utils.ts:reconcileView | none | Done: dropped fields, sorts and criteria are removed; current columns are reconciled. |
 | No read permission message | material:src/qqq/pages/records/query/RecordQuery.tsx:2700-2707 | src/components/query/RecordQuery.tsx (query-no-permission) | SEC-002 | Done |
@@ -280,7 +280,7 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Row click opens record (drag/double-click guard) | material:src/qqq/pages/records/query/RecordQuery.tsx:1321-1340; material:src/qqq/utils/DataGridUtils.tsx:44-70 | src/components/query/DataGrid.tsx | QRY-006 | Done: pointer movement and double-click cancel pending row navigation. |
 | Ctrl/Cmd-click new tab | material:src/qqq/utils/DataGridUtils.tsx:311 (PK Link only) | src/components/query/DataCell.tsx (Links) | REL-001 | Done: neither UI does it on rows; links work |
 | Refresh button | material:src/qqq/pages/records/query/RecordQuery.tsx:2578 | src/components/query/RecordQueryToolbar.tsx | QRY-006 | Done |
-| Query joins only for readable join paths | material:src/qqq/pages/records/query/RecordQuery.tsx:1083-1092; material:src/qqq/utils/qqq/TableUtils.ts:221-264 | src/lib/hooks/use-record-query.ts (activeExposedJoins); src/lib/utils/query-columns.ts | QRY-020 | Partial: checks the join table's readPermission only, not every joinPath table; #696 |
+| Query joins only for readable join paths | material:src/qqq/pages/records/query/RecordQuery.tsx:1083-1092; material:src/qqq/utils/qqq/TableUtils.ts:221-264 | src/lib/utils/query-columns.ts:withReadableExposedJoins; src/components/query/RecordQuery.tsx; src/lib/hooks/use-record-query.ts | QRY-020 | Done: requests and every query child control omit joins with a denied or missing target or intermediate path table; unit-tested |
 | Distinct count for many-joins | material:src/qqq/pages/records/query/RecordQuery.tsx:1110 | src/lib/hooks/use-record-query.ts:includeDistinct | QRY-021 | Done |
 | Page sizes 10/25/50/100/250, default 50, persisted in view | material:src/qqq/components/query/CustomPaginationComponent.tsx:165; material:src/qqq/pages/records/query/RecordQuery.tsx:279,1284 | src/lib/constants.ts; src/lib/utils/saved-view-utils.ts | QRY-002 | Done: default 50, URL state and saved-view persistence. |
 | "Showing X to Y of Z" / "Counting…" / "No rows" | material:src/qqq/components/query/CustomPaginationComponent.tsx:93-112 | src/components/query/Pagination.tsx; src/lib/hooks/use-record-query.ts | QRY-002 | Done: count loading, range and empty states render. |
@@ -1156,7 +1156,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Column-header field help tooltip | material:src/qqq/utils/DataGridUtils.tsx:368-380 | src/components/query/DataGrid.tsx:ColumnFieldHelp | none | Done: metadata help appears on the header control. |
 | Pagination "(N distinct)" tooltip | material:src/qqq/components/query/CustomPaginationComponent.tsx:55-65 | src/components/query/Pagination.tsx | QRY-021 | Done |
 | Density selector popup | material:src/qqq/pages/records/query/RecordQuery.tsx:2586 | src/lib/hooks/use-record-query.ts; src/components/query/RecordQueryToolbar.tsx | QRY-005 | Done: global Material density key drives the popup. |
-| Query alerts (error, count error, deleted, success, info, warning) | material:src/qqq/pages/records/query/RecordQuery.tsx:3226-3274 | src/components/query/RecordQuery.tsx; src/components/query/RecordQueryContent.tsx | QRY-007 | Partial: count errors, warnings, copy feedback and dismissible grid errors exist; record-deletion success wording still needs verification; #717 |
+| Query alerts (error, count error, deleted, success, info, warning) | material:src/qqq/pages/records/query/RecordQuery.tsx:3226-3274 | src/components/query/RecordQuery.tsx; src/components/query/RecordQueryContent.tsx; src/components/records/DeleteConfirmDialog.tsx | QRY-007, REC-012 | Done (different UX): a success toast names the deleted record after the query opens; REC-012 verifies it |
 | Error boundary "click here to fix it" (resets saved state) | material:src/qqq/pages/records/query/RecordQuery.tsx:132-180 | src/components/query/RecordQueryContent.tsx; src/lib/utils/query-view-storage.ts | none | Done: reset clears the saved query state. |
 | Filter setup "Open In New Window" | material:src/qqq/pages/records/query/RecordQuery.tsx:997-1003 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:170; src/components/widgets/filter-and-columns-utils.ts:openInNewWindowHref | none | Done: the editor opens the query with its current filter in a new window; #722 |
 
@@ -1228,11 +1228,11 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 Rows counted are Partial or Missing rows whose status names the issue.
 
 - #406 Complete V1 API surface for new frontend: 0 open rows
-- #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 1 open row
+- #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 0 open rows
 - #702 Next UI 1.0: cronUI widget with live schedule description: 7 open rows
 - #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 open row
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 0 open rows (integrated)
-- #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 1 open row (record-deletion success wording)
+- #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 0 open rows
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows

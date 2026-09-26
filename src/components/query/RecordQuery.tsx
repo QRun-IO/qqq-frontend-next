@@ -38,7 +38,7 @@ import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { countActiveCriteria, emptyFilter, isCriterionComplete, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
-import { getQueryColumns, orderColumns, pinColumn } from '@/lib/utils/query-columns'
+import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { AD_HOC_VIEW_IDENTITY, clearStoredQueryState, readCurrentSavedViewId, readStoredQueryView, savedViewIdentity, writeCurrentSavedViewId, writeStoredQueryView } from '@/lib/utils/query-view-storage'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -97,7 +97,8 @@ interface RecordQueryProps {
  * @param props - Component properties.
  * @returns The composed query page.
  */
-export function RecordQuery({ tableName, tableMetaData, allTables, processes, metaData, savedViewId }: RecordQueryProps) {
+export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, allTables, processes, metaData, savedViewId }: RecordQueryProps) {
+  const tableMetaData = useMemo(() => withReadableExposedJoins(sourceTableMetaData, allTables), [sourceTableMetaData, allTables])
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromPath = searchParams.get('from')

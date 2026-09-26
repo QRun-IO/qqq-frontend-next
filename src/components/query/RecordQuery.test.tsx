@@ -227,6 +227,19 @@ describe('RecordQuery joined read permissions', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('omits columns behind an unreadable join path from the column chooser', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Configure Columns/ }))
+    const chooser = screen.getByRole('dialog', { name: 'Configure columns' })
+    expect(chooser).toHaveTextContent('Companies Fields')
+    expect(chooser).not.toHaveTextContent('Order Lines Fields')
+    expect(chooser).not.toHaveTextContent('Orders Fields')
+  })
+
   it('sends a LEFT join, named for a single-hop path, for a visible readable join column', async () => {
     const options = makeOptions()
     options.tableMetaData.exposedJoins = [{ ...options.tableMetaData.exposedJoins[2], joinPath: [{ name: 'personCompany', type: 'MANY_TO_ONE', leftTable: 'person', rightTable: 'company' }] }]

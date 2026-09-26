@@ -46,6 +46,23 @@ export interface QueryColumn {
   defaultWidth: number
 }
 
+/**
+ * Remove joins whose target or an intermediate path table is not readable. The query page
+ * passes this metadata to its grid, column chooser, filters and saved-view controls.
+ *
+ * @param table - Query table metadata.
+ * @param allTables - Visible table registry with read permissions.
+ * @returns The original table when every join is readable, otherwise a filtered copy.
+ */
+export function withReadableExposedJoins(table: QTableMetaData, allTables: Record<string, QTableMetaData>): QTableMetaData {
+  const joins = (table.exposedJoins ?? []).filter(({ joinTable, joinPath = [] }) => {
+    if (!joinTable?.name || joinTable.readPermission === false) return false
+    const names = [joinTable.name, ...joinPath.flatMap(({ leftTable, rightTable }) => [leftTable, rightTable])]
+    return names.every((name) => name === table.name || allTables[name]?.readPermission === true)
+  })
+  return joins.length === table.exposedJoins?.length ? table : { ...table, exposedJoins: joins }
+}
+
 /** The side a column is pinned to. */
 export type ColumnPin = 'left' | 'right'
 

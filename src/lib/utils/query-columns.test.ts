@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { QTableMetaData } from '@/types'
-import { fieldsInSectionOrder, getQueryColumns } from './query-columns'
+import { fieldsInSectionOrder, getQueryColumns, withReadableExposedJoins } from './query-columns'
 
 const table = {
   name: 'thing',
@@ -52,5 +52,25 @@ describe('fieldsInSectionOrder', () => {
 describe('getQueryColumns', () => {
   it('uses the section order and drops hidden and heavy fields', () => {
     expect(getQueryColumns(table).map((column) => column.name)).toEqual(['id', 'alpha', 'zeta', 'loose'])
+  })
+})
+
+describe('withReadableExposedJoins', () => {
+  it('hides columns behind an unreadable path table while keeping readable joins', () => {
+    const base = { ...table, readPermission: true }
+    const target = { ...table, name: 'target', label: 'Target', readPermission: true }
+    const bridge = { ...table, name: 'bridge', label: 'Bridge', readPermission: false }
+    const joined = {
+      ...base,
+      exposedJoins: [
+        { label: 'Blocked', isMany: false, joinTable: target, joinPath: [{ name: 'throughBridge', type: 'MANY_TO_ONE', leftTable: 'thing', rightTable: 'bridge' }] },
+        { label: 'Allowed', isMany: false, joinTable: target, joinPath: [{ name: 'direct', type: 'MANY_TO_ONE', leftTable: 'thing', rightTable: 'target' }] },
+      ],
+    } as QTableMetaData
+    const allTables = { thing: base, target, bridge }
+    const filtered = withReadableExposedJoins(joined, allTables)
+    expect(filtered.exposedJoins.map((join) => join.label)).toEqual(['Allowed'])
+    expect(getQueryColumns(filtered).some((column) => column.label.startsWith('Blocked:'))).toBe(false)
+    expect(joined.exposedJoins).toHaveLength(2)
   })
 })

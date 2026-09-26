@@ -30,8 +30,8 @@ test('[REC-060] table and field form adjusters update a real form; field rules c
   await expect(control(page, 'note')).toHaveValue('')
   await expect(control(page, 'status')).toHaveValue('')
 
-  // A hash-only navigation keeps the current client form mounted; start a fresh create page.
-  await page.goto('/app/')
+  // Leave the current form without starting another authenticated route's session restore.
+  await page.goto('about:blank')
   await openForm(page, `/app/adjusterLab/create#/defaultValues=${encodeURIComponent(JSON.stringify({ name: 'Locked' }))}`, 'Create Adjuster Lab')
   await expect(page.locator('[data-qqq-id="entity-form-disabled-adjusterLab"]')).toHaveText('Locked by the server')
   await expect(page.locator('[data-qqq-id="button-save"]')).toBeDisabled()
