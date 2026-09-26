@@ -82,6 +82,10 @@ interface DynamicFormFieldProps {
   helpRoles?: readonly string[]
   /** Limit typing to `maxLength` (process forms); record forms leave it to the server's too-long policy. */
   enforceMaxLength?: boolean
+  /** Called when a text-like input loses focus, with its value (form adjusters run on blur). */
+  onFieldBlur?: (fieldName: string, value: unknown) => void
+  /** Possible-value labels to show for values the form set (form adjusters), by field name. */
+  displayValueOverrides?: Record<string, string>
 }
 
 /**
@@ -259,6 +263,8 @@ export function DynamicFormField({
   showReadOnly = false,
   helpRoles,
   enforceMaxLength = true,
+  onFieldBlur,
+  displayValueOverrides,
 }: DynamicFormFieldProps) {
   if (field.isHidden) return null
   if (!field.isEditable && !disabled && !showReadOnly) return null
@@ -272,6 +278,10 @@ export function DynamicFormField({
   const helpContent = selectHelpContent(field.helpContents, roles)
   const hasHelp = Boolean(helpContent)
   const helpDescribedBy = hasHelp ? `${idPrefix ? `${idPrefix}-` : ''}field-help-content-${field.name}` : undefined
+  // Text-like inputs: a form adjuster runs when the input loses focus (Material's blur handler).
+  const registration = () => register(field.name, onFieldBlur
+    ? { onBlur: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onFieldBlur(field.name, event.target.value) }
+    : undefined)
 
   if (!field.isEditable && showReadOnly) {
     // A WIDGET-adorned value is a computed display (widget data), not an editable value.
@@ -284,8 +294,9 @@ export function DynamicFormField({
     )
   }
 
-  // Fields with possibleValues use PossibleValueSelect (async combobox)
-  if (field.possibleValueSourceName) {
+  // Fields with possible values (a named source, or values declared inline) use PossibleValueSelect
+  const inlineOptions = field.inlinePossibleValueSource ? (field.inlinePossibleValueSource.enumValues ?? []) : undefined
+  if (field.possibleValueSourceName || inlineOptions) {
     const pvContext: PossibleValueContext = possibleValueContext ?? { type: 'standalone' }
     return (
       <DirtyWrapper isDirty={isDirty}>
@@ -297,7 +308,9 @@ export function DynamicFormField({
             control={control as Control<Record<string, unknown>>}
             fieldName={field.name}
             possibleValueSourceName={field.possibleValueSourceName}
-            initialLabel={record?.displayValues?.[field.name]}
+            initialLabel={displayValueOverrides?.[field.name] ?? record?.displayValues?.[field.name]}
+            inlineOptions={inlineOptions}
+            chipField={field}
             context={pvContext}
             error={fieldError}
             disabled={isDisabled}
@@ -369,7 +382,7 @@ export function DynamicFormField({
             <TextField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
@@ -402,7 +415,7 @@ export function DynamicFormField({
               </div>
               <textarea
                 id={fieldId}
-                {...register(field.name)}
+                {...registration()}
                 disabled={isDisabled}
                 aria-required={field.isRequired}
                 aria-invalid={fieldError ? true : undefined}
@@ -477,7 +490,7 @@ export function DynamicFormField({
             <NumberField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -499,7 +512,7 @@ export function DynamicFormField({
             <NumberField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -540,7 +553,7 @@ export function DynamicFormField({
             <DateField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -559,7 +572,7 @@ export function DynamicFormField({
             <DateTimeField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -593,7 +606,7 @@ export function DynamicFormField({
                 id={fieldId}
                 type="time"
                 step={1}
-                {...register(field.name)}
+                {...registration()}
                 disabled={isDisabled}
                 aria-required={field.isRequired}
                 aria-invalid={fieldError ? true : undefined}
@@ -624,7 +637,7 @@ export function DynamicFormField({
             <PasswordField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
@@ -645,7 +658,7 @@ export function DynamicFormField({
             <TextField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}

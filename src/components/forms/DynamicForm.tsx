@@ -99,6 +99,18 @@ export interface DynamicFormProps {
    */
   widgets?: Record<string, QWidgetMetaData>
 
+  /**
+   * Renders a section that houses a widget as an editable part of the form (record create
+   * and edit screens); returning `undefined` leaves the section to the default handling.
+   */
+  renderWidgetSection?: (section: QTableSection) => React.ReactNode | undefined
+
+  /** Called when a text-like input loses focus, with its value (form adjusters run on blur). */
+  onFieldBlur?: (fieldName: string, value: unknown) => void
+
+  /** Possible-value labels to show for values set by the form (form adjusters), by field name. */
+  displayValueOverrides?: Record<string, string>
+
   /** Additional CSS classes applied to the outermost container. */
   className?: string
 }
@@ -177,6 +189,9 @@ export function DynamicForm({
   enforceMaxLength = true,
   formLabel,
   widgets,
+  renderWidgetSection,
+  onFieldBlur,
+  displayValueOverrides,
   className,
 }: DynamicFormProps) {
   // Determine the set of fields to render
@@ -219,16 +234,26 @@ export function DynamicForm({
     }
   }
 
-  if (resolvedFields.length === 0) {
-    return null
-  }
-
   // If we have table sections, render section-grouped layout
   const hasSections =
     tableMetaData &&
     tableMetaData.sections &&
     tableMetaData.sections.filter((s) => !s.isHidden && !s.hidden).length > 0 &&
     !fields
+
+  // Sections housing a widget the form edits (rendered by the caller).
+  const widgetSectionContent = new Map<string, React.ReactNode>()
+  if (hasSections && tableMetaData && renderWidgetSection) {
+    for (const section of sections ?? tableMetaData.sections) {
+      if (section.isHidden || section.hidden || !section.widgetName) continue
+      const content = renderWidgetSection(section)
+      if (content !== undefined && content !== null) widgetSectionContent.set(section.name, content)
+    }
+  }
+
+  if (resolvedFields.length === 0 && widgetSectionContent.size === 0) {
+    return null
+  }
 
   if (hasSections && tableMetaData) {
     const resolvedSections = (sections ?? tableMetaData.sections).map((section) => {
@@ -243,6 +268,22 @@ export function DynamicForm({
         {resolvedSections
           .filter((s) => !s.isHidden && !s.hidden)
           .map((section) => {
+            const widgetContent = widgetSectionContent.get(section.name)
+            if (widgetContent !== undefined) {
+              return (
+                <div key={section.name} className="space-y-4" data-qqq-id={`form-section-${section.name}`}>
+                  {section.label && (
+                    <div className="border-b border-border pb-2">
+                      <h4 className="flex items-center text-sm font-medium text-muted-foreground">
+                        <SectionIcon section={section} />
+                        {section.label}
+                      </h4>
+                    </div>
+                  )}
+                  {widgetContent}
+                </div>
+              )
+            }
             const sectionFields = (section.fieldNames ?? [])
               .map((fn) => tableMetaData.fields[fn])
               .filter((f): f is QFieldMetaData => {
@@ -324,6 +365,8 @@ export function DynamicForm({
                         showReadOnly={showReadOnlyFields}
                         helpRoles={helpRoles}
                         enforceMaxLength={enforceMaxLength}
+                        onFieldBlur={onFieldBlur}
+                        displayValueOverrides={displayValueOverrides}
                       />
                     </div>
                   ))}
@@ -362,6 +405,8 @@ export function DynamicForm({
               showReadOnly={showReadOnlyFields}
               helpRoles={helpRoles}
               enforceMaxLength={enforceMaxLength}
+              onFieldBlur={onFieldBlur}
+              displayValueOverrides={displayValueOverrides}
             />
           </div>
         ))}

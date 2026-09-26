@@ -524,3 +524,83 @@ describe('PossibleValueSelect — error state', () => {
     expect(screen.getByRole('combobox')).toHaveAttribute('aria-invalid', 'true')
   })
 })
+
+describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const INLINE: QPossibleValue[] = [
+    { id: 'LOW', label: 'Low' },
+    { id: 'MEDIUM', label: 'Medium' },
+    { id: 'HIGH', label: 'High' },
+    { id: 'LOCKED', label: 'Locked' },
+  ]
+
+  function InlineWrapper({ defaultValue, chipField }: { defaultValue?: unknown; chipField?: Parameters<typeof PossibleValueSelect>[0]['chipField'] }) {
+    const { control, watch } = useForm<Record<string, unknown>>({ defaultValues: { priority: defaultValue ?? null } })
+    return (
+      <>
+        <PossibleValueSelect
+          id="field-priority"
+          label="Priority"
+          name="priority"
+          control={control}
+          fieldName="priority"
+          context={{ type: 'table', tableName: 'task' }}
+          inlineOptions={INLINE}
+          chipField={chipField}
+          data-qqq-id="priority"
+        />
+        <output data-testid="held">{String(watch('priority'))}</output>
+      </>
+    )
+  }
+
+  it('offers the inline values without any request and filters them by label prefix', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper />)
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Low', 'Medium', 'High', 'Locked'])
+    const search = screen.getByRole('textbox', { name: 'Search Priority options' })
+    await user.type(search, 'lo')
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Low', 'Locked'])
+    // a prefix, not a substring: "ed" starts no label
+    await user.clear(search)
+    await user.type(search, 'ed')
+    expect(screen.getByText('No options found')).toBeInTheDocument()
+    await user.clear(search)
+    await user.click(screen.getByRole('option', { name: 'High' }))
+    expect(screen.getByTestId('held')).toHaveTextContent('HIGH')
+    expect(screen.getByRole('combobox')).toHaveTextContent('High')
+    expect(mockFetchTable).not.toHaveBeenCalled()
+    expect(mockFetchProcess).not.toHaveBeenCalled()
+    expect(mockFetchStandalone).not.toHaveBeenCalled()
+  })
+
+  it('shows the label of a held inline value without a request', async () => {
+    render(<InlineWrapper defaultValue="MEDIUM" />)
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Medium'))
+    expect(mockFetchTable).not.toHaveBeenCalled()
+  })
+
+  it('styles options as chips with the CHIP adornment color and icon of each value', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper chipField={{
+      name: 'priority', label: 'Priority', type: 'STRING', isRequired: false, isEditable: true, isHeavy: false, isHidden: false,
+      adornments: [{ type: 'CHIP', values: { 'color.HIGH': 'error', 'icon.HIGH': 'warning', 'color.LOW': 'success' } }],
+    }} />)
+    await user.click(screen.getByRole('combobox'))
+    const high = screen.getByRole('option', { name: 'High' }).querySelector('[data-chip-color]')
+    expect(high).toHaveAttribute('data-chip-color', 'error')
+    expect(high).toHaveAttribute('data-chip-icon', 'warning')
+    expect(high?.querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('option', { name: 'Low' }).querySelector('[data-chip-color]')).toHaveAttribute('data-chip-color', 'success')
+    expect(screen.getByRole('option', { name: 'Medium' }).querySelector('[data-chip-color]')).toHaveAttribute('data-chip-color', 'default')
+  })
+
+  it('renders plain options when the field has no CHIP adornment', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper />)
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('option', { name: 'Low' }).querySelector('[data-chip-color]')).toBeNull()
+  })
+})

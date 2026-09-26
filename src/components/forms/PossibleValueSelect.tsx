@@ -25,14 +25,16 @@ import type { Control, FieldError } from 'react-hook-form'
 import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
-import { cn } from '@/lib/utils/cn'
-import type { QPossibleValue } from '@/types'
+import type { QFieldMetaData, QPossibleValue } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import {
   fetchTablePossibleValues,
   fetchProcessPossibleValues,
   fetchPossibleValues,
 } from '@/lib/api/possible-values'
+import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
+import { cn } from '@/lib/utils/cn'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 /**
  * Props for the {@link PossibleValueSelect} component.
@@ -64,6 +66,24 @@ interface PossibleValueSelectProps {
   possibleValueSourceName?: string
   /** Label of the value the field already holds (e.g. the record's display value). */
   initialLabel?: string
+  /**
+   * The field's inline possible values (`inlinePossibleValueSource`): offered without any
+   * request and searched by label prefix, as Material's DynamicSelect does.
+   */
+  inlineOptions?: QPossibleValue[]
+  /** Field metadata whose CHIP adornment styles the options (color and icon per value). */
+  chipField?: QFieldMetaData
+}
+
+/**
+ * The inline options whose label starts with the search term (case-insensitive), as in Material.
+ * @param options - Every inline option.
+ * @param term - The search term (empty matches all).
+ * @returns The matching options, in their declared order.
+ */
+export function filterInlineOptions(options: QPossibleValue[], term: string): QPossibleValue[] {
+  const prefix = term.toLowerCase()
+  return options.filter((option) => (option.label ?? '').toLowerCase().startsWith(prefix))
 }
 
 /**
@@ -106,6 +126,8 @@ export function PossibleValueSelect({
   fieldName,
   possibleValueSourceName,
   initialLabel,
+  inlineOptions,
+  chipField,
   context,
   error,
   disabled = false,
@@ -139,6 +161,12 @@ export function PossibleValueSelect({
   const fetchOptions = useCallback(
     async (term: string) => {
       const sequence = ++requestSequence.current
+      if (inlineOptions) {
+        setOptions(filterInlineOptions(inlineOptions, term))
+        setLoadFailed(false)
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
       setLoadFailed(false)
       try {
@@ -161,7 +189,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName, possibleValueSourceName, scope]
+    [context, fieldName, possibleValueSourceName, scope, inlineOptions]
   )
 
   /**
@@ -196,6 +224,11 @@ export function PossibleValueSelect({
   useEffect(() => {
     const held = watchedValue === null || watchedValue === undefined || watchedValue === '' ? '' : String(watchedValue)
     if (!held || initialLabel || (selectedOption && String(selectedOption.id) === held)) return
+    if (inlineOptions) {
+      const inline = inlineOptions.find((option) => String(option.id) === held)
+      if (inline) setSelectedOption(inline)
+      return
+    }
     let cancelled = false
     const request = { ids: held, ...scope }
     const lookup = context.type === 'table'
@@ -231,7 +264,26 @@ export function PossibleValueSelect({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value
     setSearchTerm(term)
-    debouncedFetch(term)
+    if (inlineOptions) fetchOptions(term)
+    else debouncedFetch(term)
+  }
+
+  // A CHIP adornment styles each option by its value (color and icon), as Material's renderOption does.
+  const hasChips = Boolean(chipField && findAdornment(chipField, 'CHIP'))
+  const optionContent = (option: QPossibleValue) => {
+    if (!hasChips || !chipField) return <span>{option.label}</span>
+    const { color, icon } = chipStyle(chipField, option.id)
+    return (
+      <span
+        className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color])}
+        data-qqq-id={dataQqqId ? `option-chip-${dataQqqId}` : undefined}
+        data-chip-color={color}
+        data-chip-icon={icon}
+      >
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
+        {option.label}
+      </span>
+    )
   }
 
   return (
@@ -432,7 +484,7 @@ export function PossibleValueSelect({
                               index === activeIndex && 'ring-2 ring-inset ring-ring'
                             )}
                           >
-                            <span>{option.label}</span>
+                            {optionContent(option)}
                             {isSelected && (
                               <Check className="h-4 w-4 text-primary" aria-hidden="true" />
                             )}
