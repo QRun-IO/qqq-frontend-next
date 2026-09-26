@@ -187,3 +187,13 @@ describe('RecordViewHeader audit history', () => {
     await waitFor(() => expect(audit).toHaveFocus())
   })
 })
+
+describe('RecordViewHeader Material CSS hooks (QRun-IO/qqq#731)', () => {
+  it('wraps the header in record-view-header-{table} and marks the avatar and title', () => {
+    renderHeader()
+    const wrapper = document.querySelector('[data-qqq-id="record-view-header-person"]')
+    expect(wrapper).toContainElement(document.querySelector('[data-qqq-id="record-view-header"]') as HTMLElement)
+    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"]')).toHaveTextContent('MS')
+    expect(screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })).toHaveAttribute('data-qqq-id', 'record-view-title-person')
+  })
+})

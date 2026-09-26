@@ -28,6 +28,7 @@ import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMet
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { formFieldColumnClasses } from '@/lib/utils/form-layout'
+import { formFieldQqqId, sanitizeQqqId } from '@/lib/utils/qqq-id'
 
 import { CronScheduleEditor } from './CronScheduleEditor'
 import { DynamicFormField } from './DynamicFormField'
@@ -359,12 +360,12 @@ export function DynamicForm({
                 key={section.name}
                 id={hideSectionLabels ? undefined : formSectionElementId(section.name)}
                 tabIndex={hideSectionLabels ? undefined : -1}
-                className="scroll-mt-24 space-y-4 focus:outline-none"
-                data-qqq-id={`form-section-${section.name}`}
+                className="form-section-wrapper is-visible scroll-mt-24 space-y-4 focus:outline-none"
+                data-qqq-id={`form-section-${sanitizeQqqId(section.name)}`}
               >
                 {section.label && !hideSectionLabels && (
                   <div className="border-b border-border pb-2">
-                    <h4 className="flex items-center text-sm font-medium text-muted-foreground">
+                    <h4 className="flex items-center text-sm font-medium text-muted-foreground" data-qqq-id={`form-section-header-${sanitizeQqqId(section.name)}`}>
                       <SectionIcon section={section} />
                       {section.label}
                     </h4>
@@ -394,7 +395,11 @@ export function DynamicForm({
                 {/* a 12-column grid: full width on phones, half from sm, the field's gridColumns from lg (Material) */}
                 <div className="grid grid-cols-12 gap-4">
                   {gridFields.map((f) => (
-                    <div key={f.name} className={formFieldColumnClasses(f)} data-qqq-id={`form-field-cell-${f.name}`}>
+                    <div
+                      key={f.name}
+                      className={cn('field-wrapper is-visible', formFieldColumnClasses(f))}
+                      data-qqq-id={formFieldQqqId(f)}
+                    >
                       <DynamicFormField
                         field={f}
                         register={register}
@@ -428,7 +433,11 @@ export function DynamicForm({
       )}
       <div className="grid grid-cols-12 gap-4">
         {resolvedFields.map((f) => (
-          <div key={f.name} className={formFieldColumnClasses(f)} data-qqq-id={`form-field-cell-${f.name}`}>
+          <div
+            key={f.name}
+            className={cn('field-wrapper is-visible', formFieldColumnClasses(f))}
+            data-qqq-id={formFieldQqqId(f)}
+          >
             <DynamicFormField
               field={f}
               register={register}

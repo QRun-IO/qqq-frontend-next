@@ -29,6 +29,7 @@ import { countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
 import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permissions'
+import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { ConnectedWidget } from './ConnectedWidget'
 import { widgetColumnClasses } from './widget-utils'
@@ -159,7 +160,9 @@ function EntryGroup({ title, showTitle = true, idPrefix, kind, entries, instance
               </span>
             ) : (
               <Link href={`/app/${entry.name}`} className={CARD_CLASS} data-qqq-id={`${idPrefix}-${entry.name}`}>
-                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary" />
+                {/* Material's app-card-{name}-icon hook on child app cards (QRun-IO/qqq#731) */}
+                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary"
+                  qqqId={kind === 'app' ? `app-card-${sanitizeQqqId(entry.name)}-icon` : undefined} />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{entry.label}</span>
                   {kind === 'table' && instance && <TableCount tableName={entry.name} instance={instance} />}

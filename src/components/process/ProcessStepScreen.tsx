@@ -34,6 +34,7 @@ import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData
 import type { ProcessFiles } from '@/lib/api/processes'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 
 import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
@@ -321,7 +322,7 @@ export function ProcessStepScreen({
         </div>
         {!isScanner && <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3" data-qqq-id="process-actions">
           {noMoreSteps ? (
-            <button type="button" onClick={onReturn} disabled={isWorking} className={secondaryButton} data-qqq-id="button-return">
+            <button type="button" onClick={onReturn} disabled={isWorking} className={secondaryButton} data-qqq-id="button-return" data-button-variant={MATERIAL_BUTTON_VARIANTS.return}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Return
             </button>
@@ -329,18 +330,18 @@ export function ProcessStepScreen({
             <>
               {/* an embedded (widget) run has no Cancel: there is nowhere to leave to (Material isWidget) */}
               {!isEmbedded && (
-                <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel">
+                <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel" data-button-variant={MATERIAL_BUTTON_VARIANTS.cancel}>
                   <X className="h-4 w-4" aria-hidden="true" />
                   Cancel
                 </button>
               )}
               {backStep && (
-                <button type="button" onClick={onBack} disabled={isWorking} className={secondaryButton} data-qqq-id="button-back">
+                <button type="button" onClick={onBack} disabled={isWorking} className={secondaryButton} data-qqq-id="button-back" data-button-variant={MATERIAL_BUTTON_VARIANTS.back}>
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                   Back
                 </button>
               )}
-              <button type="submit" disabled={isWorking} className={primaryButton} data-qqq-id="button-next">
+              <button type="submit" disabled={isWorking} className={primaryButton} data-qqq-id="button-next" data-button-variant={MATERIAL_BUTTON_VARIANTS.next}>
                 {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   : isSubmitLabel ? <Check className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                 {isSubmitLabel ? 'Submit' : 'Next'}

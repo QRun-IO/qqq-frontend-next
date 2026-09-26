@@ -26,6 +26,7 @@ import React, { useId, useState } from 'react'
 import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 
 /** Props for {@link ProcessErrorState}. */
 export interface ProcessErrorStateProps {
@@ -84,7 +85,7 @@ export function ProcessErrorState({ error, isUserFacing, processName, processLab
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
         {onClose && (
-          <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close">
+          <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close" data-button-variant={MATERIAL_BUTTON_VARIANTS.close}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Close
           </button>

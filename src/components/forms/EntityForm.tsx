@@ -43,6 +43,7 @@ import {
 import { applyAdjustedDefinitions, fieldFormAdjusters, hasTableOnLoadAdjuster, tableFieldRules } from '@/lib/utils/form-adjuster-utils'
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
+import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
@@ -732,7 +733,6 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         ? `Copy ${tableMetaData.label}: ${recordLabel}`
         : `Creating New ${tableMetaData.label}`
   )
-  const formMode = isEdit ? 'edit' : isCopy ? 'copy' : 'create'
 
   // Page forms show the first T1 section's fields in the header card, under the title, and a
   // sidebar of the form's sections (Material EntityForm); modal forms keep a plain layout.
@@ -749,6 +749,10 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   })
   const headerSection = formSections.find(({ section }) => section.tier === 'T1')?.section
   const bodySections = headerSection ? (formTable.sections ?? []).filter((section) => section.name !== headerSection.name) : undefined
+
+  // Material CSS hooks (QRun-IO/qqq#731): record-{mode}-{part}-{table}
+  const formMode = isCopy ? 'copy' : isEdit ? 'edit' : 'create'
+  const tableNameForId = sanitizeQqqId(tableMetaData.name)
 
   // Possible value context — default to table context
   const pvContext: PossibleValueContext = possibleValueContext ?? {
@@ -812,6 +816,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       type="submit"
       disabled={saveDisabled}
       data-qqq-id="button-save"
+      data-button-variant={MATERIAL_BUTTON_VARIANTS.save}
       className={cn(
         'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
         'text-primary-foreground bg-primary hover:bg-primary/90',
@@ -842,6 +847,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     >
       {/* Header card — only if not modal: table icon, title and the first T1 section's fields */}
       {!isModal && (
+        <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
         <div
           id={headerSection ? formSectionElementId(headerSection.name) : undefined}
           tabIndex={headerSection ? -1 : undefined}
@@ -855,7 +861,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
             >
               <MetadataIcon icon={tableMetaData.icon} kind="table" className="h-5 w-5" />
             </span>
-            <h2 className="min-w-0 break-words text-xl font-semibold text-foreground">{heading}</h2>
+            <h2 className="min-w-0 break-words text-xl font-semibold text-foreground" data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>{heading}</h2>
           </div>
           {headerSection && (
             <DynamicForm
@@ -881,6 +887,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
               className="mt-4"
             />
           )}
+        </div>
         </div>
       )}
 
@@ -954,11 +961,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {/* Actions — sticky on mobile, static on desktop */}
       <div
         className={cn(
+          isModal ? 'modalBottomButtonBar' : 'stickyBottomButtonBar',
           'sticky bottom-0 z-10 bg-background border-t border-border py-3 mt-4 -mx-6 px-6',
           'flex items-center justify-end gap-3',
           'md:static md:border-t md:mt-6 md:mx-0 md:px-0'
         )}
-        data-qqq-id="entity-form-actions"
+        data-qqq-id={`record-${formMode}-button-bar-${tableNameForId}`}
       >
         <button
           ref={cancelButtonRef}
@@ -966,6 +974,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
           onClick={handleCancel}
           disabled={isSaving}
           data-qqq-id="button-cancel"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.cancel}
           className={cn(
             'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
             'text-foreground bg-background hover:bg-accent',
@@ -988,10 +997,10 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     <>
       {isModal ? (
         <div data-qqq-id={`entity-form-modal-${tableMetaData.name}`}>
-          <div className="p-6">{formContent}</div>
+          <div className="entityForm p-6" data-qqq-id={`record-${formMode}-${tableNameForId}`}>{formContent}</div>
         </div>
       ) : (
-        <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6">
+        <div className="entityForm lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6" data-qqq-id={`record-${formMode}-${tableNameForId}`}>
           {/* the section sidebar on large screens; phones and tablets scroll one column */}
           <FormSectionSidebar
             sections={formSections.map(({ section }) => section)}

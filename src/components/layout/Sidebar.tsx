@@ -36,6 +36,7 @@ import {
 import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
+import { navItemQqqId } from '@/lib/utils/qqq-id'
 import { UserPreferencesDialog } from './UserPreferencesDialog'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
@@ -232,52 +233,55 @@ export default function Sidebar({
       data-qqq-id="sidebar"
       aria-label="Main navigation"
     >
-      {/* Logo / App Branding — height matches header so border lines up */}
-      <div className="flex items-center gap-2 border-b border-border px-4" style={{ height: 'var(--qqq-header-height)' }}>
-        <SidebarBranding branding={branding} />
-        {/* Close button for mobile drawer */}
-        {isMobileDrawer && (
-          <button
-            onClick={onClose}
-            className="ml-auto rounded p-1 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Close navigation"
-            data-qqq-id="button-sidebar-close"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+      {/* Material's sidenav-root hook (QRun-IO/qqq#731): fills the panel, so app CSS keyed to it styles the whole sidebar */}
+      <div className="flex min-h-0 flex-1 flex-col" data-qqq-id="sidenav-root">
+        {/* Logo / App Branding — height matches header so border lines up */}
+        <div className="flex items-center gap-2 border-b border-border px-4" style={{ height: 'var(--qqq-header-height)' }} data-qqq-id="sidenav-logo-area">
+          <SidebarBranding branding={branding} />
+          {/* Close button for mobile drawer */}
+          {isMobileDrawer && (
+            <button
+              onClick={onClose}
+              className="ml-auto rounded p-1 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Close navigation"
+              data-qqq-id="button-sidebar-close"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <BannerComponent banners={branding?.banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" className="mx-3 mt-3 rounded-lg" />
+
+        {/* Navigation */}
+        <nav
+          className="flex-1 overflow-y-auto px-3 pt-4 pb-4"
+          role="navigation"
+          aria-label="App navigation"
+        >
+          {routes.length === 0 ? (
+            /* Skeleton placeholder while metadata is loading */
+            <div aria-hidden="true" data-qqq-id="sidebar-skeleton">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse h-8 rounded-md bg-muted/60 mx-2 mb-1"
+                />
+              ))}
+            </div>
+          ) : (
+            <SidebarList routes={routes} pathname={pathname} openCollapses={openCollapses} onToggle={toggleCollapse} />
+          )}
+        </nav>
+
+        {/* User info footer with menu */}
+        {(userName || userEmail || logout) && (
+          <UserFooter
+            userName={userName}
+            userEmail={userEmail}
+            logout={logout}
+          />
         )}
       </div>
-      <BannerComponent banners={branding?.banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" className="mx-3 mt-3 rounded-lg" />
-
-      {/* Navigation */}
-      <nav
-        className="flex-1 overflow-y-auto px-3 pt-4 pb-4"
-        role="navigation"
-        aria-label="App navigation"
-      >
-        {routes.length === 0 ? (
-          /* Skeleton placeholder while metadata is loading */
-          <div aria-hidden="true" data-qqq-id="sidebar-skeleton">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse h-8 rounded-md bg-muted/60 mx-2 mb-1"
-              />
-            ))}
-          </div>
-        ) : (
-          <SidebarList routes={routes} pathname={pathname} openCollapses={openCollapses} onToggle={toggleCollapse} />
-        )}
-      </nav>
-
-      {/* User info footer with menu */}
-      {(userName || userEmail || logout) && (
-        <UserFooter
-          userName={userName}
-          userEmail={userEmail}
-          logout={logout}
-        />
-      )}
     </aside>
   )
 
@@ -351,7 +355,11 @@ interface SidebarListProps {
  */
 function SidebarList({ routes, pathname, openCollapses, onToggle, depth = 0 }: SidebarListProps) {
   return (
-    <ul className={cn('space-y-0.5', depth > 0 && 'mt-0.5 ml-3 border-l border-border/60 pl-2')} role="list">
+    <ul
+      className={cn('space-y-0.5', depth > 0 && 'mt-0.5 ml-3 border-l border-border/60 pl-2')}
+      role="list"
+      data-qqq-id={depth === 0 ? 'sidenav-menu-list' : undefined}
+    >
       {routes.map((route) =>
         route.type === 'collapse' && route.children?.length ? (
           <SidebarCollapseItem
@@ -409,14 +417,17 @@ function SidebarCollapseItem({ route, isOpen, pathname, openCollapses, onToggle,
   const isActive = containsActive(route, pathname)
 
   return (
-    <li role="listitem">
-      <div className={`flex items-center rounded-lg transition-colors ${
-        isExactActive
-          ? 'bg-primary text-primary-foreground shadow-sm'
-          : isActive
-            ? 'text-primary'
-            : 'text-foreground/70 hover:bg-accent hover:text-foreground'
-      }`}>
+    <li role="listitem" data-qqq-id={navItemQqqId(undefined, route.name, route.path)}>
+      <div
+        className={`flex items-center rounded-lg transition-colors ${
+          isExactActive
+            ? 'qqq-sidebar-active bg-primary text-primary-foreground shadow-sm'
+            : isActive
+              ? 'text-primary'
+              : 'text-foreground/70 hover:bg-accent hover:text-foreground'
+        }`}
+        data-qqq-sidenav-item-type={depth === 0 ? 'top-level-parent-app' : undefined}
+      >
         {/* App name — links to app home */}
         <Link
           href={route.path}
@@ -472,12 +483,12 @@ interface SidebarLinkItemProps {
  */
 function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
   return (
-    <li role="listitem">
+    <li role="listitem" data-qqq-id={navItemQqqId(undefined, route.name, route.path)}>
       <Link
         href={route.path}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 ${
           isActive
-            ? 'bg-primary text-primary-foreground shadow-sm'
+            ? 'qqq-sidebar-active bg-primary text-primary-foreground shadow-sm'
             : 'text-foreground/70 hover:bg-accent hover:text-foreground'
         }`}
         aria-current={isActive ? 'page' : undefined}
@@ -584,7 +595,7 @@ function UserFooter({
                     'hover:bg-accent transition-colors',
                     'focus:outline-none focus:bg-accent'
                   )}
-                  data-qqq-id="menu-item-logout"
+                  data-qqq-id="sidenav-logout-button"
                 >
                   <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   Log Out
@@ -605,6 +616,7 @@ function UserFooter({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           data-qqq-id="sidebar-user-button"
+          data-qqq-sidenav-item-type="user-profile"
         >
           {/* Avatar circle */}
           <div

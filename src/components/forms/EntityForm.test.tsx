@@ -222,3 +222,58 @@ describe('Copy never submits native password masks', () => {
     expect(source.values.secret).toBe('********')
   })
 })
+
+describe('Material CSS hooks (QRun-IO/qqq#731)', () => {
+  function renderHooksForm(props: { record?: QRecord; isCopy?: boolean; isModal?: boolean } = {}) {
+    const table = structuredClone(qInstance.tables.company)
+    table.name = 'salesOrder'
+    table.fields = {
+      id: table.fields.id,
+      name: table.fields.name,
+      isActive: { ...table.fields.name, name: 'isActive', label: 'Active', type: 'BOOLEAN', isRequired: false },
+      ownerId: { ...table.fields.id, name: 'ownerId', label: 'Owner', isEditable: true, possibleValueSourceName: 'person' },
+    }
+    table.sections = [{ name: 'employmentInfo', label: 'Employment Info', isHidden: false, fieldNames: ['name', 'isActive', 'ownerId'] }]
+    const client = new QueryClient()
+    return render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} {...props} /></QueryClientProvider>)
+  }
+
+  it('wraps a create form in entityForm with record-create hooks for the header, title and sticky button bar', () => {
+    renderHooksForm()
+    const root = document.querySelector('[data-qqq-id="record-create-salesorder"]')
+    expect(root).toHaveClass('entityForm')
+    expect(root?.querySelector('[data-qqq-id="entity-form-salesOrder"]')).not.toBeNull()
+    expect(document.querySelector('[data-qqq-id="record-create-header-salesorder"]')).toContainElement(
+      document.querySelector('[data-qqq-id="record-create-title-salesorder"]') as HTMLElement)
+    expect(screen.getByRole('heading', { name: /^Creating New / })).toHaveAttribute('data-qqq-id', 'record-create-title-salesorder')
+    const bar = document.querySelector('[data-qqq-id="record-create-button-bar-salesorder"]')
+    expect(bar).toHaveClass('stickyBottomButtonBar')
+    expect(bar?.querySelector('[data-qqq-id="button-save"]')).toHaveAttribute('data-button-variant', 'gradient')
+    expect(bar?.querySelector('[data-qqq-id="button-cancel"]')).toHaveAttribute('data-button-variant', 'outlined')
+  })
+
+  it('names the mode edit or copy', () => {
+    const record: QRecord = { tableName: 'company', values: { id: 1, name: 'Acme' } }
+    const { unmount } = renderHooksForm({ record })
+    expect(document.querySelector('[data-qqq-id="record-edit-salesorder"]')).toHaveClass('entityForm')
+    unmount()
+    renderHooksForm({ record, isCopy: true })
+    expect(document.querySelector('[data-qqq-id="record-copy-salesorder"]')).toHaveClass('entityForm')
+  })
+
+  it('uses the modal button bar class in a modal form', () => {
+    renderHooksForm({ isModal: true })
+    expect(document.querySelector('[data-qqq-id="record-create-button-bar-salesorder"]')).toHaveClass('modalBottomButtonBar')
+  })
+
+  it('marks sections and field wrappers with Material ids and visibility classes', () => {
+    renderHooksForm()
+    const section = document.querySelector('[data-qqq-id="form-section-employmentinfo"]')
+    expect(section).toHaveClass('form-section-wrapper', 'is-visible')
+    expect(section?.querySelector('[data-qqq-id="form-section-header-employmentinfo"]')).toHaveTextContent('Employment Info')
+    const wrappers = [...document.querySelectorAll('.field-wrapper')]
+    expect(wrappers.map((wrapper) => wrapper.getAttribute('data-qqq-id'))).toEqual(['input-name', 'switch-isactive', 'select-ownerid'])
+    expect(wrappers.every((wrapper) => wrapper.classList.contains('is-visible'))).toBe(true)
+    expect(wrappers[0]).toContainElement(screen.getByLabelText(/Name/))
+  })
+})

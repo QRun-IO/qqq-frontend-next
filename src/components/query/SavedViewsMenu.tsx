@@ -129,19 +129,22 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
 
   return (
     <div ref={containerRef} className="relative flex items-center gap-2" data-qqq-id="saved-views-menu">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label={currentView ? `Saved views (current view: ${currentView.label})` : 'Saved views'}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-qqq-id="button-saved-views"
-      >
-        <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
-        <span className="max-w-[12rem] truncate">{currentView ? currentView.label : 'Views'}</span>
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
+      {/* Material's button-views hook (QRun-IO/qqq#731); the wrapper is layout-neutral */}
+      <span className="contents" data-qqq-id="button-views">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label={currentView ? `Saved views (current view: ${currentView.label})` : 'Saved views'}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-qqq-id="button-saved-views"
+        >
+          <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
+          <span className="max-w-[12rem] truncate">{currentView ? currentView.label : 'Views'}</span>
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </span>
 
       {modified && (
         <span className="flex items-center gap-2 text-xs" data-qqq-id="saved-view-unsaved">

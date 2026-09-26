@@ -409,4 +409,53 @@ describe('Sidebar', () => {
     renderSidebar(leafRoutes)
     expect(screen.getByRole('navigation', { name: /app navigation/i })).toBeInTheDocument()
   })
+
+  // ─── Material CSS hooks (QRun-IO/qqq#731) ─────────────────────────────────
+
+  describe('Material CSS hooks', () => {
+    it('marks the root, logo area and menu list as Material does', () => {
+      renderSidebar(leafRoutes, { branding: { appName: 'Test App', logo: '/logo.png' } })
+      const root = document.querySelector('[data-qqq-id="sidenav-root"]')
+      expect(root?.closest('[data-qqq-id="sidebar"]')).not.toBeNull()
+      expect(root?.querySelector('[data-qqq-id="sidenav-logo-area"] img[src="/logo.png"]')).not.toBeNull()
+      const list = document.querySelector('[data-qqq-id="sidenav-menu-list"]')
+      expect(list?.tagName).toBe('UL')
+      expect(list?.parentElement?.tagName).toBe('NAV')
+      // only the top-level list carries the menu-list hook
+      expect(document.querySelectorAll('[data-qqq-id="sidenav-menu-list"]')).toHaveLength(1)
+    })
+
+    it('gives each navigation item sidenav-{sanitized label}', () => {
+      renderSidebar(collapseRoutes, { pathname: '/app/order' })
+      expect(document.querySelector('li[data-qqq-id="sidenav-sales-app"]')).toContainElement(screen.getByRole('link', { name: 'Sales App' }))
+      expect(document.querySelector('li[data-qqq-id="sidenav-orders"]')).toContainElement(screen.getByRole('link', { name: 'Orders' }))
+    })
+
+    it('puts qqq-sidebar-active on the highlighted item only', () => {
+      renderSidebar(collapseRoutes, { pathname: '/app/order' })
+      const active = document.querySelectorAll('.qqq-sidebar-active')
+      expect(active).toHaveLength(1)
+      expect(active[0]).toBe(screen.getByRole('link', { name: 'Orders' }))
+
+      renderSidebar(collapseRoutes, { pathname: '/app/salesApp' })
+      const exact = document.querySelector('li[data-qqq-id="sidenav-sales-app"] > .qqq-sidebar-active')
+      expect(exact).toContainElement(screen.getAllByRole('link', { name: 'Sales App' }).at(-1)!)
+    })
+
+    it('marks top-level parent apps with data-qqq-sidenav-item-type', () => {
+      renderSidebar(nestedRoutes, { pathname: '/app/deepItem' })
+      const typed = document.querySelectorAll('[data-qqq-sidenav-item-type="top-level-parent-app"]')
+      expect(typed).toHaveLength(1)
+      expect(typed[0]).toContainElement(screen.getByRole('link', { name: 'Level One' }))
+    })
+
+    it('marks the user profile and the logout entry', async () => {
+      currentPathname = '/'
+      render(<Sidebar routes={leafRoutes} userName="Alice" userEmail="alice@example.com" logout={vi.fn()} />)
+      const profile = document.querySelector('[data-qqq-sidenav-item-type="user-profile"]')
+      expect(profile).toHaveAttribute('data-qqq-id', 'sidebar-user-button')
+      await userEvent.setup().click(profile as HTMLElement)
+      expect(screen.getByRole('menuitem', { name: 'Log Out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
+    })
+  })
 })

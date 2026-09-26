@@ -108,3 +108,12 @@ describe('DataGrid selection checkboxes', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 })
+
+describe('DataGrid Material CSS hooks (QRun-IO/qqq#731)', () => {
+  it('gives each data column header table-header-{sanitized field name}', () => {
+    render(grid())
+    const headers = [...document.querySelectorAll('th[data-qqq-id^="table-header-"]')]
+    expect(headers.map((header) => header.getAttribute('data-qqq-id'))).toEqual(['table-header-id', 'table-header-name'])
+    expect(headers[1]).toContainElement(document.querySelector('[data-qqq-id="grid-header-name"]') as HTMLElement)
+  })
+})

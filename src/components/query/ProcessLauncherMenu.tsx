@@ -31,6 +31,7 @@ import { Play, ChevronDown } from 'lucide-react'
 
 import type { QIcon, QProcessMetaData, QTableMetaData } from '@/types'
 import { hasCapability } from '@/lib/utils/query-columns'
+import { menuItemQqqId } from '@/lib/utils/qqq-id'
 
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
@@ -156,9 +157,10 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
     else onLaunch(entry.process)
   }
 
+  // Material's menu-item-{label} hook sits on a layout-neutral wrapper (QRun-IO/qqq#731)
   const item = (entry: MenuEntry) => (
+    <span key={entry.key} role="none" className="contents" data-qqq-id={menuItemQqqId(undefined, entry.label)}>
     <button
-      key={entry.key}
       type="button"
       role="menuitem"
       onClick={() => choose(entry)}
@@ -168,6 +170,7 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
       <MetadataIcon icon={entry.icon} iconName={entry.iconName} kind="process" className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="truncate">{entry.label}</span>
     </button>
+    </span>
   )
 
   return (

@@ -28,6 +28,7 @@ import { ChevronDown, ChevronRight, Copy, MoreVertical, Pencil, Trash2 } from 'l
 
 import type { QTableMetaData, QRecord, QTableMenu } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 import { recordAdditionalMenus, hasMenuItems, type RecordMenuAction, type RecordMenuEntry } from '@/lib/utils/record-menu-utils'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
@@ -83,7 +84,7 @@ export function RecordMenuItems({ entries, onAction }: { entries: RecordMenuEntr
         if (entry.kind === 'submenu') {
           return (
             <DropdownMenuPrimitive.Sub key={entry.key}>
-              <DropdownMenuPrimitive.SubTrigger className={cn(ITEM_CLASSES, 'justify-between')} data-qqq-id={`record-action-${entry.id}`}>
+              <DropdownMenuPrimitive.SubTrigger className={cn(ITEM_CLASSES, 'justify-between')} data-qqq-id={`menu-item-${sanitizeQqqId(entry.id)}`}>
                 <span className="flex items-center gap-2">
                   {entry.iconName ? <MetadataIcon iconName={entry.iconName} /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                   {entry.label}
@@ -103,7 +104,7 @@ export function RecordMenuItems({ entries, onAction }: { entries: RecordMenuEntr
             key={entry.key}
             disabled={entry.disabled}
             onSelect={() => onAction(entry.action)}
-            data-qqq-id={`record-action-${entry.id}`}
+            data-qqq-id={`menu-item-${sanitizeQqqId(entry.id)}`}
             className={cn(ITEM_CLASSES, entry.action.type === 'delete' && 'text-destructive data-[highlighted]:bg-destructive/10')}
           >
             <RecordMenuIcon entry={entry} />
@@ -136,12 +137,13 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
     .filter(({ entries }) => hasMenuItems(entries))
 
   return (
-    <div className={cn('flex items-center gap-2', className)} data-qqq-id={`record-actions-${tableMetaData.name}`}>
+    <div className={cn('flex items-center gap-2', className)} data-qqq-id={`record-view-button-bar-${sanitizeQqqId(tableMetaData.name)}`}>
       {canEdit && (
         <button
           type="button"
           onClick={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/edit`)}
           data-qqq-id="button-edit"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.edit}
           aria-label={`Edit ${tableMetaData.label} record`}
           className={BUTTON_CLASSES}
         >
@@ -155,6 +157,7 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
           type="button"
           onClick={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)}
           data-qqq-id="button-copy"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.edit}
           aria-label={`Copy ${tableMetaData.label} record`}
           className={BUTTON_CLASSES}
         >
@@ -168,6 +171,7 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
           type="button"
           onClick={() => onAction({ type: 'delete' })}
           data-qqq-id="button-delete"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.delete}
           aria-label={`Delete ${tableMetaData.label} record`}
           className={cn(BUTTON_CLASSES, 'border-destructive/30 text-destructive hover:bg-destructive/10')}
         >
@@ -194,19 +198,21 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
       ))}
 
       {hasMenuItems(actionEntries) && (
+        <span className="contents" data-qqq-id="record-view-actions-menu-button">
         <DropdownMenuPrimitive.Root>
           <DropdownMenuPrimitive.Trigger asChild>
-            <button type="button" data-qqq-id="record-action-menu" aria-label="Record actions menu" className={BUTTON_CLASSES}>
+            <button type="button" data-qqq-id="button-actions-menu" data-button-variant={MATERIAL_BUTTON_VARIANTS['actions-menu']} aria-label="Record actions menu" className={BUTTON_CLASSES}>
               Actions
               <MoreVertical className="h-4 w-4" aria-hidden="true" />
             </button>
           </DropdownMenuPrimitive.Trigger>
           <DropdownMenuPrimitive.Portal>
-            <DropdownMenuPrimitive.Content align="end" sideOffset={4} className={CONTENT_CLASSES}>
+            <DropdownMenuPrimitive.Content align="end" sideOffset={4} className={CONTENT_CLASSES} data-qqq-id="record-view-actions-menu">
               <RecordMenuItems entries={actionEntries} onAction={onAction} />
             </DropdownMenuPrimitive.Content>
           </DropdownMenuPrimitive.Portal>
         </DropdownMenuPrimitive.Root>
+        </span>
       )}
     </div>
   )

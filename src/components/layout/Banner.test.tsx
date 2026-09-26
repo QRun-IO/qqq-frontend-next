@@ -75,4 +75,13 @@ describe('Banner', () => {
     render(<BannerComponent banners={{ QFMD_TOP_OF_SITE: { messageText: 'Plain' } }} slot="QFMD_TOP_OF_SITE" />)
     expect(screen.getByRole('region', { name: 'Site banner' })).toHaveAttribute('data-severity', 'info')
   })
+
+  it('carries Material\'s `banner {severity}` class hook (QRun-IO/qqq#731)', () => {
+    const { rerender } = render(<BannerComponent banners={banners} slot="QFMD_TOP_OF_BODY" />)
+    expect(screen.getByRole('region', { name: 'Page banner' })).toHaveClass('banner', 'warning')
+    rerender(<BannerComponent banners={{ QFMD_TOP_OF_SITE: { messageText: 'Plain' } }} slot="QFMD_TOP_OF_SITE" />)
+    expect(screen.getByRole('region', { name: 'Site banner' })).toHaveClass('banner', 'info')
+    rerender(<BannerComponent banners={banners} slot="QFMD_SIDE_NAV_UNDER_LOGO" />)
+    expect(screen.getByRole('region', { name: 'Navigation banner' })).toHaveClass('banner', 'success')
+  })
 })

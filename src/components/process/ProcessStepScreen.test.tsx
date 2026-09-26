@@ -147,6 +147,13 @@ describe('ProcessStepScreen', () => {
     expect(onBack).toHaveBeenCalled()
   })
 
+  it('carries Material\'s data-button-variant on the step buttons (QRun-IO/qqq#731)', () => {
+    renderScreen({ backStep: 'mixed' })
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-button-variant', 'outlined')
+    expect(screen.getByRole('button', { name: 'Back' })).toHaveAttribute('data-button-variant', 'gradient')
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('data-button-variant', 'gradient')
+  })
+
   it('labels the button Submit before the last screen and offers only Return on it', () => {
     renderScreen({ step: later, values: {} })
     expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument()

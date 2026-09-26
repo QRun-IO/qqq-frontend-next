@@ -175,28 +175,31 @@ export function RecordViewTabs({
         {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
         {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
-        <div
-          className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
-          role="tablist"
-          data-qqq-id="record-view-tabs"
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              data-qqq-id={`record-tab-${tab.id}`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Material's record-sidebar hook (QRun-IO/qqq#731): Next's section navigation is this tab bar */}
+        <div data-qqq-id="record-sidebar">
+          <div
+            className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
+            role="tablist"
+            data-qqq-id="record-view-tabs"
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'sidebar-section is-visible flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                data-qqq-id={`record-tab-${tab.id}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab content: Overview — all T2 sections in 2-column card grid */}

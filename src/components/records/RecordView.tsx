@@ -27,6 +27,7 @@ import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } fro
 import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
+import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
@@ -562,12 +563,15 @@ function RecordViewContent({
     () => ({ tableMetaData, allTables, navigateFrom }),
     [tableMetaData, allTables, navigateFrom]
   )
+  const viewId = `record-view-${tableMetaData.name}`
+  const materialViewId = `record-view-${sanitizeQqqId(tableMetaData.name)}`
 
   return (
     <RecordViewContext.Provider value={contextValue}>
+      <div className="recordView" data-qqq-id={materialViewId !== viewId ? materialViewId : undefined}>
       <div
         className={cn('space-y-5', className)}
-        data-qqq-id={`record-view-${tableMetaData.name}`}
+        data-qqq-id={viewId}
       >
         {/* Back link — returns to source page if navigated from another record, otherwise table list */}
         <Link
@@ -727,6 +731,7 @@ function RecordViewContent({
           </div>
         )}
 
+      </div>
       </div>
     </RecordViewContext.Provider>
   )

@@ -40,6 +40,7 @@ import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
 import type { TableVariant } from '@/lib/api/tables'
 import type { ColumnPins } from '@/lib/utils/query-columns'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 
 import { GotoRecordButton } from '@/components/records/GotoRecordDialog'
 
@@ -419,7 +420,8 @@ export function RecordQueryToolbar({
           onClick={handleCreateRecord}
           className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
           aria-label={`Create new ${tableMetaData.label} record`}
-          data-qqq-id="button-create"
+          data-qqq-id="button-create-new"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS['create-new']}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Create
@@ -491,28 +493,31 @@ export function RecordQueryToolbar({
         )}
       </div>
 
-      {/* Advanced filter toggle — min 44px touch target (HIGH-5) */}
-      <button
-        ref={filterButtonRef}
-        type="button"
-        onClick={handleFilterToggle}
-        className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-          filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
-            ? 'border-primary bg-primary/10 text-primary'
-            : 'border-input bg-background text-foreground hover:bg-accent'
-        }`}
-        aria-label="Toggle advanced filter panel"
-        aria-expanded={filterPanelOpen || mobileFilterOpen}
-        data-qqq-id="button-filter"
-      >
-        <Filter className="h-4 w-4" aria-hidden="true" />
-        Filter
-        {activeFilterCount > 0 && (
-          <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
+      {/* Advanced filter toggle — min 44px touch target (HIGH-5); Material's button-filter-builder
+          hook sits on a layout-neutral wrapper (QRun-IO/qqq#731) */}
+      <span className="contents" data-qqq-id="button-filter-builder">
+        <button
+          ref={filterButtonRef}
+          type="button"
+          onClick={handleFilterToggle}
+          className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+            filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-input bg-background text-foreground hover:bg-accent'
+          }`}
+          aria-label="Toggle advanced filter panel"
+          aria-expanded={filterPanelOpen || mobileFilterOpen}
+          data-qqq-id="button-filter"
+        >
+          <Filter className="h-4 w-4" aria-hidden="true" />
+          Filter
+          {activeFilterCount > 0 && (
+            <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </span>
 
       {/* Selection menu (this page / full query result / first N) */}
       {selectionMenu}

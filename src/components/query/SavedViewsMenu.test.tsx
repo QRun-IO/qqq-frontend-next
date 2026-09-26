@@ -104,4 +104,11 @@ describe('SavedViewsMenu', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Saved views' }))
     expect(screen.getByRole('menuitem', { name: 'Create Report from Current View' })).toHaveAttribute('href', href)
   })
+
+  it('wraps the views button in Material\'s layout-neutral button-views hook (QRun-IO/qqq#731)', () => {
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    const hook = document.querySelector('[data-qqq-id="button-views"]')
+    expect(hook).toHaveClass('contents')
+    expect(hook).toContainElement(screen.getByRole('button', { name: 'Saved views' }))
+  })
 })

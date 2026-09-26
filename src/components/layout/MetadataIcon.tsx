@@ -46,6 +46,8 @@ export interface MetadataIconProps {
   kind?: MetadataIconKind
   /** Tailwind classes for size and color. */
   className?: string
+  /** `data-qqq-id` for the icon element (a CSS hook such as Material's `app-card-{name}-icon`). */
+  qqqId?: string
 }
 
 /**
@@ -62,7 +64,7 @@ export interface MetadataIconProps {
  * @param props - Component properties.
  * @returns An `<img>` or `<svg>` element.
  */
-export function MetadataIcon({ icon, iconName, kind = 'section', className }: MetadataIconProps) {
+export function MetadataIcon({ icon, iconName, kind = 'section', className, qqqId }: MetadataIconProps) {
   const sizeClass = cn('h-4 w-4 flex-shrink-0', className)
 
   if (icon?.path) {
@@ -74,6 +76,7 @@ export function MetadataIcon({ icon, iconName, kind = 'section', className }: Me
         aria-hidden="true"
         className={cn(sizeClass, 'object-contain')}
         data-qqq-icon="path"
+        data-qqq-id={qqqId}
       />
     )
   }
@@ -87,6 +90,7 @@ export function MetadataIcon({ icon, iconName, kind = 'section', className }: Me
     'aria-hidden': 'true',
     'data-qqq-icon': name ? normalizeMaterialIconName(name) : 'none',
     'data-qqq-icon-fallback': Icon ? undefined : 'true',
+    'data-qqq-id': qqqId,
   }
   return React.createElement(Icon ?? FALLBACK[kind], props)
 }

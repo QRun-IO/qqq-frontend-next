@@ -45,6 +45,7 @@ import { arrangePinnedColumns, effectivePins, getQueryColumns, orderColumns, typ
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 import { HelpContent } from '@/components/records/HelpContent'
 import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
+import { tableHeaderQqqId } from '@/lib/utils/qqq-id'
 import { DataCell } from './DataCell'
 
 /**
@@ -802,6 +803,7 @@ export function DataGrid({
                 return (
                   <th
                     key={header.id}
+                    data-qqq-id={isSelectCol ? undefined : tableHeaderQqqId(undefined, header.id)}
                     scope="col"
                     data-col={header.id}
                     data-pinned={isSelectCol ? undefined : pins[header.id]}

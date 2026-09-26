@@ -27,6 +27,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData, QTableMenu } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
+import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
@@ -299,11 +300,12 @@ export function RecordViewHeader({
   })
 
   return (
+    <div className="contents" data-qqq-id={`record-view-header-${sanitizeQqqId(tableMetaData.name)}`}>
     <div className="flex flex-wrap items-start gap-4" data-qqq-id="record-view-header">
       <div
         className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
         aria-hidden="true"
-        data-qqq-id="record-avatar"
+        data-qqq-id={`record-view-avatar-${sanitizeQqqId(tableMetaData.name)}`}
       >
         {getInitials(
           record.recordLabel ||
@@ -314,7 +316,7 @@ export function RecordViewHeader({
           with the sidebar open) they wrap onto their own row instead of squeezing the title. */}
       <div className="min-w-0 flex-1 basis-56">
         <div className="flex items-center gap-2">
-          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl" data-qqq-id={`record-view-title-${sanitizeQqqId(tableMetaData.name)}`}>
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
           {/* D-V-5: Copy record ID to clipboard */}
@@ -641,6 +643,7 @@ export function RecordViewHeader({
           }}
         />
       )}
+      </div>
     </div>
   )
 }
