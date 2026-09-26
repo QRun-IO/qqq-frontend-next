@@ -64,7 +64,7 @@ test('[PRF-002] 250-row pages of 40 columns render, page and reach the last page
   const last = await timed('last page', () => page.getByRole('button', { name: 'Last page' }).click(), () => expect(columnCells(page, 'id')).toHaveText(idsDown(250, 250)))
   expect((await sent).filter).toMatchObject({ skip: 9_750, limit: 250 })
   await expect(cells).toHaveCount(250 * 40)
-  await expect(page.locator('[data-qqq-id="pagination"]')).toContainText('Showing 9751–10000 of 10,000')
+  await expect(page.locator('[data-qqq-id="pagination"]')).toContainText('Showing 9,751–10,000 of 10,000')
 
   for (const [label, elapsed] of [['page size 250', resize], ['next page', next], ['last page', last]] as const) {
     expect(elapsed, label).toBeLessThan(PERFORMANCE_BUDGET.pageMs)
