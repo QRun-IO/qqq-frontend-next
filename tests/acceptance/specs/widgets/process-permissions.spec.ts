@@ -9,7 +9,7 @@
 import { expect, open, test } from '../../support/fixtures'
 import { expectLoaded, sqlRows, widget, widgetBody } from './widget-support'
 
-test('[WID-021] a process widget runs the interactive greeting inline and shows its result', async ({ page, backend, diagnostics }) => {
+test('[WID-021] a process widget runs the interactive greeting inline and shows its result @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const payload = await (await backend.api.get('/widget/accProcess')).json()
   expect(payload.processMetaData.name).toBe('greetInteractive')
@@ -28,7 +28,7 @@ test('[WID-021] a process widget runs the interactive greeting inline and shows 
 test.describe('without process permission', () => {
   test.use({ persona: 'noProcesses' })
 
-  test('[WID-061] a process widget is contained when the user may not run its process', async ({ page, backend, diagnostics }) => {
+  test('[WID-061] a process widget is contained when the user may not run its process @mobile', async ({ page, backend, diagnostics }) => {
     // process metadata comes from the registered /metaData/process route, which refuses the denied process
     diagnostics.allow('/metaData/process/greetInteractive 403')
     diagnostics.allow('Failed to load resource: the server responded with a status of 403')
@@ -42,7 +42,7 @@ test.describe('without process permission', () => {
 })
 
 test.describe('widget permission', () => {
-  test('[WID-054] an administrator sees the restricted widget', async ({ page, diagnostics }) => {
+  test('[WID-054] an administrator sees the restricted widget @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await open(page, '/app/widgetPermissions')
     await expectLoaded(page, 'accDenied')
@@ -52,7 +52,7 @@ test.describe('widget permission', () => {
   test.describe('denied', () => {
     test.use({ persona: 'noPets' })
 
-    test('[WID-054] a denied widget is absent, not requested, and refused by the server without rendering', async ({ page, backend, diagnostics }) => {
+    test('[WID-054] a denied widget is absent, not requested, and refused by the server without rendering @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       const renders = async () => Number(/renders=(\d+)/.exec((await (await backend.api.get('/widget/accDenied')).json()).html)![1])
       await backend.setPersona('admin')

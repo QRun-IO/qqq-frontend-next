@@ -8,6 +8,7 @@
 // Widget chrome and header controls: dropdowns, stored selections, reload, export, help, card chrome.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { downloadText, expectLoaded, widget, widgetBody } from './widget-support'
 
 const EXPECTED_CSV = '"Label","Value"\n"A,""B""",7\n"Beta","0"\n'
@@ -27,7 +28,7 @@ function renders(text: string | null): number {
   return Number(match[1])
 }
 
-test('[WID-049] required dropdowns wait with the backend message, then children render with the selections', async ({ page, diagnostics }) => {
+test('[WID-049] required dropdowns wait with the backend message, then children render with the selections @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expect(page.locator('[data-qqq-id="widget-needs-selection-accControls"]')).toHaveText('Please select a Choice and Day from the dropdowns above.')
@@ -42,7 +43,7 @@ test('[WID-049] required dropdowns wait with the backend message, then children 
   await expect(widgetBody(page, 'accControlValues')).toContainText('choice=beta; day=2026-09-24; renders=')
 })
 
-test('[WID-048] a DATE_PICKER dropdown sends the chosen date to the renderer', async ({ page, diagnostics }) => {
+test('[WID-048] a DATE_PICKER dropdown sends the chosen date to the renderer @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   const day = widget(page, 'accControls').getByLabel('Select Day')
@@ -54,7 +55,7 @@ test('[WID-048] a DATE_PICKER dropdown sends the chosen date to the renderer', a
   await expect(widgetBody(page, 'accControlValues')).toContainText('choice=alpha; day=2025-12-31')
 })
 
-test('[WID-050] stored dropdown selections persist across reload and stale stored options are dropped', async ({ page, diagnostics }) => {
+test('[WID-050] stored dropdown selections persist across reload and stale stored options are dropped @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await widget(page, 'accControls').getByLabel('Select Choice').selectOption('beta')
@@ -78,7 +79,7 @@ test('[WID-050] stored dropdown selections persist across reload and stale store
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), CHOICE_KEY)).toBeNull()
 })
 
-test('[WID-047] a payload PVS dropdown sends the selection, clears it, and does not persist without storeDropdownSelections', async ({ page, diagnostics }) => {
+test('[WID-047] a payload PVS dropdown sends the selection, clears it, and does not persist without storeDropdownSelections @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expectLoaded(page, 'accDropdownHtml')
@@ -99,7 +100,7 @@ test('[WID-047] a payload PVS dropdown sends the selection, clears it, and does 
   await expect(widgetBody(page, 'accDropdownHtml')).toHaveText('dropdown choice=(none)')
 })
 
-test('[WID-045] reload re-renders the widget from the backend', async ({ page, diagnostics }) => {
+test('[WID-045] reload re-renders the widget from the backend @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expectLoaded(page, 'accReload')
@@ -115,7 +116,7 @@ test('[WID-045] reload re-renders the widget from the backend', async ({ page, d
   await expect(page.locator('[data-qqq-id="button-widget-reload-accHelp"]')).toHaveCount(0)
 })
 
-test('[WID-046] export downloads the payload csvData with Material quoting; no data shows a message', async ({ page, diagnostics }) => {
+test('[WID-046] export downloads the payload csvData with Material quoting; no data shows a message @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expectLoaded(page, 'accExport')
@@ -135,7 +136,7 @@ test('[WID-046] export downloads the payload csvData with Material quoting; no d
   expect(downloaded).toBe(false)
 })
 
-test('[WID-044] help content shows sanitized HTML help on the widget label', async ({ page, diagnostics }) => {
+test('[WID-044] help content shows sanitized HTML help on the widget label @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expectLoaded(page, 'accHelp')
@@ -147,7 +148,48 @@ test('[WID-044] help content shows sanitized HTML help on the widget label', asy
   await expect(help.locator('b')).toHaveText('content')
 })
 
-test('[WID-041] plain (non-card) widgets drop the card chrome and show metadata footers; payload sublabels render', async ({ page, diagnostics }) => {
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
+
+  test('[WID-044] a tap on the help icon shows the sanitized help and a tap elsewhere hides it @mobile', async ({ page, diagnostics }) => {
+    void diagnostics
+    await openControls(page)
+    await expectLoaded(page, 'accHelp')
+    const trigger = page.locator('[data-qqq-id="button-widget-help-accHelp"]').locator('xpath=..')
+    const help = page.locator('[data-qqq-id="widget-help-accHelp"]')
+    const target = await trigger.boundingBox()
+    expect(Math.min(target!.width, target!.height), 'the help icon is a 44 px touch target').toBeGreaterThanOrEqual(44)
+    await trigger.tap()
+    await expect(help).toBeVisible()
+    await expect(help).toHaveText('Owned help content')
+    await expect(help.locator('b')).toHaveText('content')
+    await expectTouchReady(page, widget(page, 'accHelp'))
+    await page.getByRole('heading', { level: 1, name: 'Widget Controls' }).tap()
+    await expect(help).toBeHidden()
+  })
+
+  test('[WID-047] [WID-048] [WID-045] [WID-046] dropdowns, the date picker, reload and export are touch-sized and work by tap @mobile', async ({ page, diagnostics }) => {
+    void diagnostics
+    await openControls(page)
+    const controls = widget(page, 'accControls')
+    await expectTouchReady(page, controls)
+    await controls.getByLabel('Select Choice').selectOption('alpha')
+    await controls.getByLabel('Select Day').fill('2025-12-31')
+    await expect(widgetBody(page, 'accControlValues')).toContainText('choice=alpha; day=2025-12-31')
+    await expectLoaded(page, 'accReload')
+    const body = widgetBody(page, 'accReload')
+    const before = renders(await body.textContent())
+    await page.getByRole('button', { name: 'Reload Owned Reload' }).tap()
+    await expect.poll(async () => renders(await body.textContent())).toBe(before + 1)
+    await expectTouchReady(page, widget(page, 'accReload'))
+    await expectLoaded(page, 'accExport')
+    await expectTouchReady(page, widget(page, 'accExport'))
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export Owned Export' }).tap()])
+    expect(await downloadText(download)).toBe(EXPECTED_CSV)
+  })
+})
+
+test('[WID-041] plain (non-card) widgets drop the card chrome and show metadata footers; payload sublabels render @mobile', async ({ page, diagnostics }) => {
   // the gallery deliberately includes a custom component whose bundle is missing
   diagnostics.allow('/missing-extension.js 404')
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
