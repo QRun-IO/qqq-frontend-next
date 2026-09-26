@@ -44,6 +44,14 @@ describe('sanitizeHtml (QRun-IO/qqq#696)', () => {
     expect(clean).not.toMatch(/onerror|<script|javascript:|alert/)
   })
 
+  it('renders Material link icons without exposing the font ligature as link text', () => {
+    const clean = parse(sanitizeHtml('<a href="/app/person/1">Owned parent<span class="material-icons-round MuiIcon-root">open_in_new</span></a>'))
+    const icon = clean.querySelector('a span')
+    expect(icon?.textContent).toBe('↗')
+    expect(icon?.getAttribute('aria-hidden')).toBe('true')
+    expect(clean.querySelector('a')?.getAttribute('href')).toBe('/app/person/1')
+  })
+
   it('removes style elements, forms and form controls', () => {
     const clean = parse(sanitizeHtml(
       '<style>body { display: none }</style><form action="https://evil.example/collect" method="post">'

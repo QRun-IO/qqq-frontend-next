@@ -43,7 +43,7 @@ test.describe('table and chart extras', () => {
     const card = widget(page, 'accTableCells')
     const table = card.getByRole('table')
     // hidden columns are not shown; the last header is the sub-row expander column
-    expect(await table.locator('thead th').allInnerTexts()).toEqual(['Name', 'Count', 'Status', 'Product', 'Detail', 'Details'])
+    expect((await table.locator('thead th').allInnerTexts()).map((label) => label.trim())).toEqual(['Name', 'Count', 'Status', 'Product', 'Detail', 'Details'])
 
     const first = table.locator('[data-qqq-id="table-row-accTableCells-0"] td')
     await expect(first.nth(0).getByRole('link', { name: 'Owned parent' })).toHaveAttribute('href', '/app/person/1')
@@ -86,9 +86,9 @@ test.describe('table and chart extras', () => {
     await expect(headers.nth(1).getByRole('tooltip', { includeHidden: true })).toHaveCount(0)
 
     // sub-rows expand and collapse, nested rows are shaded
-    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent', 'Owned second'])
+    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent↗', 'Owned second'])
     await card.getByRole('button', { name: 'Expand row 1' }).click()
-    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent', 'Owned child one', 'Owned child two', 'Owned second'])
+    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent↗', 'Owned child one', 'Owned child two', 'Owned second'])
     const child = table.locator('[data-qqq-id="table-row-accTableCells-0.0"]')
     await expect(child).toHaveAttribute('data-depth', '1')
     await expect(child.locator('td').nth(1)).toHaveText('7')
@@ -98,8 +98,8 @@ test.describe('table and chart extras', () => {
     await card.getByRole('button', { name: 'Expand row 1.2' }).click()
     await expect(table.locator('[data-qqq-id="table-row-accTableCells-0.1.0"]')).toHaveAttribute('data-depth', '2')
     await expect(table.locator('[data-qqq-id="table-row-accTableCells-0.1.0"] td').nth(0)).toHaveText('Owned grandchild')
-    await card.getByRole('button', { name: 'Collapse row 1' }).click()
-    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent', 'Owned second'])
+    await card.getByRole('button', { name: 'Collapse row 1', exact: true }).click()
+    expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent↗', 'Owned second'])
     await expect(table.locator('[data-qqq-id="table-row-accTableCells-0.1.0"]')).toHaveCount(0)
     await expectTouchReady(page, card)
   })

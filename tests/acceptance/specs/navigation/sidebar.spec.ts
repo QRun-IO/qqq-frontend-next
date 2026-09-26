@@ -173,9 +173,11 @@ test.describe('sidebar', () => {
     await expect(viewIcon).toHaveClass(/lucide-database/)
 
     await open(page, `/app/carrier/${carrier.id}/edit`)
-    for (const [label, name] of [['Identity', 'badge'], ['Basic Info', 'dataset']]) {
-      await expect(page.getByRole('main').getByRole('heading', { name: label, exact: true }).first().locator('svg')).toHaveAttribute('data-qqq-icon', name)
-    }
+    const identityIcon = (page.viewportSize()?.width ?? 0) < 1024
+      ? page.getByRole('main').getByRole('heading', { name: 'Identity' }).locator('svg')
+      : page.getByRole('navigation', { name: 'Carrier form sections' }).getByRole('button', { name: 'Identity' }).locator('svg')
+    await expect(identityIcon).toHaveAttribute('data-qqq-icon', 'badge')
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Basic Info', exact: true }).first().locator('svg')).toHaveAttribute('data-qqq-icon', 'dataset')
   })
 
   test('[NAV-028] a report in the app tree is listed under its app and opens the report page @mobile', async ({ page, backend, diagnostics }) => {

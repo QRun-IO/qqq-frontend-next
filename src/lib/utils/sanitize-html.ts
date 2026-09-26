@@ -47,6 +47,14 @@ let purifier: Purifier | null = null
 function instance(): Purifier {
   if (!purifier) {
     purifier = DOMPurify(window)
+    purifier.addHook('afterSanitizeElements', (node) => {
+      const element = node as Element
+      if (element.tagName === 'SPAN' && element.classList?.contains('MuiIcon-root') && element.textContent?.trim() === 'open_in_new') {
+        // Material's icon-font ligature is plain text without that font in Next.
+        element.textContent = '↗'
+        element.setAttribute('aria-hidden', 'true')
+      }
+    })
     purifier.addHook('afterSanitizeAttributes', (node) => {
       const element = node as Element & { style?: CSSStyleDeclaration }
       if (typeof element.getAttribute !== 'function' || !element.style || !element.getAttribute('style')) return

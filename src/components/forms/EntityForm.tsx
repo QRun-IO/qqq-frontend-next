@@ -48,7 +48,7 @@ import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/he
 import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
-import { MetadataIcon } from '@/components/layout/MetadataIcon'
+import { MetadataIcon, SectionIcon } from '@/components/layout/MetadataIcon'
 
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import { DynamicForm, formSectionElementId, renderableFormSections } from './DynamicForm'
@@ -863,6 +863,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
             </span>
             <h2 className="min-w-0 break-words text-xl font-semibold text-foreground" data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>{heading}</h2>
           </div>
+          {headerSection?.label && (
+            <h3 className="mt-4 flex items-center text-sm font-medium text-muted-foreground lg:hidden" data-qqq-id={`form-header-section-${sanitizeQqqId(headerSection.name)}`}>
+              <SectionIcon section={headerSection} />
+              {headerSection.label}
+            </h3>
+          )}
           {headerSection && (
             <DynamicForm
               register={register}
