@@ -691,7 +691,7 @@ function ScriptTest({ fieldName, scriptId, files, inputFields, outputFields }: {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <form
-        className="space-y-3 rounded-md border border-border p-4"
+        className="min-w-0 space-y-3 rounded-md border border-border p-4"
         onSubmit={(event) => {
           event.preventDefault()
           run.mutate()
@@ -743,22 +743,25 @@ function ScriptTest({ fieldName, scriptId, files, inputFields, outputFields }: {
         {result && result.logLines.length > 0 && (
           <div>
             <h4 className="mb-2 text-base font-semibold text-foreground">Test Log Lines</h4>
-            <table className="min-w-full text-sm" data-qqq-id={`script-test-log-lines-${fieldName}`}>
-              <thead className="bg-muted text-left">
-                <tr>
-                  <th scope="col" className="px-3 py-2 font-medium text-foreground">Timestamp</th>
-                  <th scope="col" className="px-3 py-2 font-medium text-foreground">Log Line</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.logLines.map((line, index) => (
-                  <tr key={index} className="border-t border-border align-top">
-                    <td className="whitespace-nowrap px-3 py-2 text-foreground">{dateTimeText(line.timestamp)}</td>
-                    <td className="whitespace-pre-wrap px-3 py-2 text-foreground">{line.text}</td>
+            {/* the table scrolls inside the output card when the card is narrow (tablets with the sidebar) */}
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="min-w-full text-sm" data-qqq-id={`script-test-log-lines-${fieldName}`}>
+                <thead className="bg-muted text-left">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 font-medium text-foreground">Timestamp</th>
+                    <th scope="col" className="px-3 py-2 font-medium text-foreground">Log Line</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.logLines.map((line, index) => (
+                    <tr key={index} className="border-t border-border align-top">
+                      <td className="whitespace-nowrap px-3 py-2 text-foreground">{dateTimeText(line.timestamp)}</td>
+                      <td className="whitespace-pre-wrap px-3 py-2 text-foreground">{line.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

@@ -308,6 +308,8 @@ describe('AssociatedScriptViewer', () => {
     const lines = byQqqId(`script-test-log-lines-${FIELD}`)!
     expect(within(lines).getByText('Tested with Ada')).toBeInTheDocument()
     expect(within(lines).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Timestamp', 'Log Line'])
+    // a narrow output card (tablet with the sidebar, QRun-IO/qqq#708) scrolls the log table inside it
+    expect(lines.parentElement).toHaveClass('overflow-x-auto')
   })
 
   it('shows the exception message chain and process errors of a test', async () => {
