@@ -16,14 +16,14 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Shell and navigation | 72 | 2 | 11 | 19 | 7 | 111 |
+| Shell and navigation | 86 | 2 | 7 | 9 | 7 | 111 |
 | Query | 122 | 3 | 3 | 1 | 2 | 131 |
-| Records | 107 | 1 | 7 | 15 | 8 | 138 |
+| Records | 108 | 1 | 7 | 14 | 8 | 138 |
 | Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
-| Widgets and blocks | 173 | 0 | 21 | 38 | 4 | 236 |
+| Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 1 | 11 | 51 |
-| **Total** | **603** | **8** | **66** | **84** | **34** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 65 | 7 | 13 | 30 | 12 | 127 |
+| **Total** | **648** | **8** | **58** | **47** | **34** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -82,7 +82,7 @@ This area covers routing, auth and session handling, context and extension point
 | Unknown auth type reported | material:src/index.tsx:125-130 | src/lib/auth/auth-provider.tsx:232 → login error | SEC-032 | Done |
 | Auth metadata localStorage cache; `?clearAuthenticationMetaDataLocalStorage` | material:src/index.tsx:49-52 | src/lib/api/auth.ts:getAuthenticationMetaData (10-minute TTL) | none | Partial: no URL flag to force-clear; #732 |
 | MOCK / FULLY_ANONYMOUS session | material:src/qqq/authorization/anonymous/useAnonymousAuthenticationModule.tsx:47-69 | src/lib/auth/auth-provider.tsx:217-218; src/lib/auth/auth-storage.ts | SEC-020, SEC-031 | Done |
-| Full `sessionValues` persisted | material:src/qqq/authorization/anonymous/useAnonymousAuthenticationModule.tsx:57; material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:189,269; material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:147-199 | src/lib/auth/auth-storage.ts:storeUser (name and email only) | none | Partial: other session values dropped (needed for analytics identity); #730 |
+| Full `sessionValues` persisted | material:src/qqq/authorization/anonymous/useAnonymousAuthenticationModule.tsx:57; material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:189,269; material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:147-199 | src/lib/auth/auth-storage.ts:storeSessionValues,getStoredSessionValues; src/lib/analytics/use-analytics.ts | none | Done: full values are stored for configured analytics identity and cleared on logout; #730 |
 | OAUTH2 authorization code + PKCE, `/token` callback | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:147-221,475 | src/lib/auth/oidc.ts; src/app/(auth)/token/page.tsx; src/lib/auth/auth-provider.tsx:handleOAuthCallback | SEC-025 | Done |
 | OAUTH2 resumes an existing sessionUUID cookie | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:256-285 | src/lib/auth/auth-provider.tsx:220-230 | SEC-025 | Done |
 | Return to the pre-sign-in page | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:209-220,297-306 | src/lib/auth/oidc.ts:196; src/lib/auth/return-to.ts:safeReturnTo | SEC-022, SEC-024 | Done: Next adds an open-redirect guard |
@@ -123,13 +123,13 @@ This area covers routing, auth and session handling, context and extension point
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Analytics set up after auth; providers from `environmentValues.ANALYTICS_PROVIDERS` | material:src/App.tsx:714-720; material:src/qqq/utils/analytics/AnalyticsUtils.ts:32,159-160 | none | none | Missing: no analytics at all; #730 |
-| Google Analytics 4 | material:src/qqq/utils/analytics/GoogleAnalyticsProvider.ts:42,74,79 | none | none | Missing: no GA4 provider; #730 |
-| PostHog (key, host, identify, reset) | material:src/qqq/utils/analytics/PostHogAnalyticsProvider.ts:83,139,230 | none | none | Missing: no PostHog provider; #730 |
-| `window.QQQAnalytics` plugin registry and plugin scripts | material:src/qqq/utils/analytics/AnalyticsPluginRegistry.ts:105; material:src/qqq/utils/analytics/AnalyticsUtils.ts:104 | none | none | Missing: integrator extension point gone; #730 |
-| Page views (App/Query/View/New/Edit/Copy/Process/Developer Mode) | material:src/qqq/pages/apps/Home.tsx:93; material:src/qqq/pages/records/query/RecordQuery.tsx:2752; material:src/qqq/pages/records/view/RecordView.tsx:596; material:src/qqq/components/forms/EntityForm.tsx:938; material:src/qqq/pages/processes/ProcessRun.tsx:1876; material:src/qqq/pages/records/view/RecordDeveloperView.tsx:90 | none | none | Missing: no page-view events; #730 |
-| About 15 events (app, table, process, `dotMenuKeyboardShortcut`) | material:src/qqq/pages/apps/Home.tsx:94; material:src/qqq/pages/records/query/RecordQuery.tsx:1066,1879,1896; material:src/qqq/pages/records/view/RecordView.tsx:660,843; material:src/qqq/components/forms/EntityForm.tsx:954,994,1387,1431; material:src/qqq/components/query/ExportMenuItem.tsx:54; material:src/qqq/pages/processes/ProcessRun.tsx:1877,1955,1975; material:src/CommandMenu.tsx:90 | none | none | Missing: no analytics events; #730 |
-| recordAnalytics in context; reset on logout | material:src/QContext.tsx:61; material:src/App.tsx:725-728,149-169 | none | none | Missing: no recordAnalytics and no logout reset; #730 |
+| Analytics set up after auth; providers from `environmentValues.ANALYTICS_PROVIDERS` | material:src/App.tsx:714-720; material:src/qqq/utils/analytics/AnalyticsUtils.ts:32,159-160 | src/lib/analytics/use-analytics.ts; src/lib/analytics/analytics.ts | none | Done: configures declared providers after metadata and sign-in; absent configuration stays off; #730 |
+| Google Analytics 4 | material:src/qqq/utils/analytics/GoogleAnalyticsProvider.ts:42,74,79 | src/lib/analytics/google.ts; src/lib/analytics/providers.test.ts | none | Done: GA4 script and events use configured ID and enable flag; #730 |
+| PostHog (key, host, identify, reset) | material:src/qqq/utils/analytics/PostHogAnalyticsProvider.ts:83,139,230 | src/lib/analytics/posthog.ts; src/lib/analytics/providers.test.ts | none | Done: configured host/key, identity and reset are implemented; #730 |
+| `window.QQQAnalytics` plugin registry and plugin scripts | material:src/qqq/utils/analytics/AnalyticsPluginRegistry.ts:105; material:src/qqq/utils/analytics/AnalyticsUtils.ts:104 | src/lib/analytics/registry.ts; src/lib/analytics/analytics.ts; src/lib/analytics/analytics.test.ts | none | Done: registered plugins load only from configured script origins; #730 |
+| Page views (App/Query/View/New/Edit/Copy/Process/Developer Mode) | material:src/qqq/pages/apps/Home.tsx:93; material:src/qqq/pages/records/query/RecordQuery.tsx:2752; material:src/qqq/pages/records/view/RecordView.tsx:596; material:src/qqq/components/forms/EntityForm.tsx:938; material:src/qqq/pages/processes/ProcessRun.tsx:1876; material:src/qqq/pages/records/view/RecordDeveloperView.tsx:90 | src/lib/analytics/page-views.ts; src/lib/analytics/use-analytics.ts; src/lib/analytics/page-views.test.ts | none | Done: route page views and opening events derive from metadata labels; #730 |
+| About 15 events (app, table, process, `dotMenuKeyboardShortcut`) | material:src/qqq/pages/apps/Home.tsx:94; material:src/qqq/pages/records/query/RecordQuery.tsx:1066,1879,1896; material:src/qqq/pages/records/view/RecordView.tsx:660,843; material:src/qqq/components/forms/EntityForm.tsx:954,994,1387,1431; material:src/qqq/components/query/ExportMenuItem.tsx:54; material:src/qqq/pages/processes/ProcessRun.tsx:1877,1955,1975; material:src/CommandMenu.tsx:90 | src/lib/analytics/page-views.ts; src/components/forms/EntityForm.tsx; src/components/query/RecordQuery.tsx; src/components/query/ExportButton.tsx; src/components/records/DeleteConfirmDialog.tsx; src/app/(dashboard)/layout.tsx | none | Done: app, table, process, export and keyboard events are wired; #730 |
+| recordAnalytics in context; reset on logout | material:src/QContext.tsx:61; material:src/App.tsx:725-728,149-169 | src/lib/analytics/analytics.ts:recordAnalytics; src/lib/auth/auth-storage.ts; src/lib/auth/use-auth.ts | none | Done: shared recorder and logout reset; #730 |
 
 ### Command palette and keyboard shortcuts
 
@@ -138,23 +138,23 @@ This area covers routing, auth and session handling, context and extension point
 | `.` opens the palette (ignored in inputs) | material:src/CommandMenu.tsx:79-92 | src/app/(dashboard)/layout.tsx:handleGlobalKeyDown | NAV-024, INT-004 | Done: Next adds Cmd/Ctrl+K and `/` |
 | `?` opens the keyboard-shortcuts dialog | material:src/CommandMenu.tsx:93-97,476-509 | src/components/feedback/KeyboardShortcutsDialog.tsx | INT-004 | Done: Next also has a header button |
 | Help dialog lists Global, Table Query and Record View keys | material:src/CommandMenu.tsx:482-502 | src/components/feedback/KeyboardShortcutsDialog.tsx:shortcutSections | INT-004 | Done: text aligned to Material |
-| Palette "{Table} Actions": New, Copy, Edit, Audit (gated; hidden on edit/create/copy/audit) | material:src/CommandMenu.tsx:217-251 | none (src/components/feedback/CommandMenu.tsx has only a Navigation group) | none | Missing: palette ignores the current table; #729 |
-| Palette Actions: the current table's processes | material:src/CommandMenu.tsx:252-257 | none | none | Missing: no current-table processes in the palette; #729 |
+| Palette "{Table} Actions": New, Copy, Edit, Audit (gated; hidden on edit/create/copy/audit) | material:src/CommandMenu.tsx:217-251 | src/components/feedback/CommandMenu.tsx; src/lib/utils/command-palette.ts:buildTableActions,tableScreenFor | NAV-024 | Done: current table actions are permission-gated and omitted on edit/create/copy/audit screens; #729 |
+| Palette Actions: the current table's processes | material:src/CommandMenu.tsx:252-257 | src/lib/utils/command-palette.ts:buildTableActions; src/components/feedback/CommandMenu.tsx | NAV-024 | Done: permitted table and record processes appear with launch links; #729 |
 | Palette Tables group | material:src/CommandMenu.tsx:268-294 | src/components/feedback/CommandMenu.tsx (navTargets) | NAV-024, NAV-006 | Done: one group with type labels; adds processes and reports |
 | Palette Apps group with full path | material:src/CommandMenu.tsx:146-169,300-328 | src/components/feedback/CommandMenu.tsx:193-213 | NAV-024 | Done |
-| Palette "Recently Viewed Records" group | material:src/CommandMenu.tsx:334-367 | Not in the palette (src/components/feedback/SearchDialog.tsx and src/components/layout/GlobalSearch.tsx have recents) | NAV-025 | Partial: the `.`/Cmd+K palette has no recents (NAV-025 covers search, not the palette); #729 |
-| Palette filter: per-word substring, starts-with first ranking | material:src/CommandMenu.tsx:177-211,394-451 | cmdk default scorer | NAV-024 | Partial: match and ranking differ; optional; #729 |
+| Palette "Recently Viewed Records" group | material:src/CommandMenu.tsx:334-367 | src/components/feedback/CommandMenu.tsx:visibleRecent; src/lib/utils/recent-records.ts | NAV-025 | Done: recently viewed records appear in the palette with table icons; #729 |
+| Palette filter: per-word substring, starts-with first ranking | material:src/CommandMenu.tsx:177-211,394-451 | src/lib/utils/command-palette.ts:commandMatches,compareCommandLabels; src/components/feedback/CommandMenu.tsx | NAV-024 | Done: explicit Material matching and ranking replace cmdk filtering; #729 |
 | Palette chrome (placeholder, close, "No results found.") | material:src/CommandMenu.tsx:458-466 | src/components/feedback/CommandMenu.tsx:150-182 | NAV-024 | Done: adds focus trap and restore |
 | Selecting navigates and closes | material:src/CommandMenu.tsx:126-135 | src/components/feedback/CommandMenu.tsx:handleSelect | NAV-024 | Done: pushes history instead of replace |
-| Navbar search icon opens the palette | material:src/qqq/components/horseshoe/NavBar.tsx:262-266 | src/components/layout/Header.tsx:96,102 (search, not the palette) | NAV-025 | Partial: no pointer control opens the palette itself; #729 |
+| Navbar search icon opens the palette | material:src/qqq/components/horseshoe/NavBar.tsx:262-266 | src/components/layout/Header.tsx:button-command-palette; src/app/(dashboard)/layout.tsx | NAV-024 | Done: header command button opens the palette on pointer or touch; #729 |
 
 ### Header and recently viewed
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | Navbar "Recently Viewed Records" dropdown | material:src/qqq/components/horseshoe/NavBar.tsx:117-188 | src/components/layout/GlobalSearch.tsx; src/components/layout/NavigationSearchResults.tsx | NAV-025 | Done: clock glyph instead of the table icon; table icons tracked on #729 |
-| History store (`qqq.history`, cap 20, dedupe) | material:src/qqq/utils/HistoryUtils.tsx:38-69; material:src/qqq/pages/records/view/RecordView.tsx:699 | src/lib/utils/recent-records.ts (`qqq-recent-records`, cap 20) | NAV-025 | Done: different key, no migration |
-| Remove a 404'd path from history | material:src/qqq/utils/HistoryUtils.tsx:92-105; material:src/qqq/pages/records/view/RecordView.tsx:668 | none | none | Missing: deleted or denied records stay in recents; #729 |
+| History store (`qqq.history`, cap 20, dedupe) | material:src/qqq/utils/HistoryUtils.tsx:38-69; material:src/qqq/pages/records/view/RecordView.tsx:699 | src/lib/utils/recent-records.ts | NAV-025 | Done: recent records migrate once from Material history and retain cap and dedupe; #729 |
+| Remove a 404'd path from history | material:src/qqq/utils/HistoryUtils.tsx:92-105; material:src/qqq/pages/records/view/RecordView.tsx:668 | src/app/(dashboard)/app/[slug]/[recordId]/page.tsx:recordStatus; src/lib/utils/recent-records.ts:removeRecentRecord | REC-003 | Done: 403/404 reads and successful deletion remove the item; #729 |
 | Navbar right half hidden below md | material:src/qqq/components/horseshoe/NavBar.tsx:232-240 | src/components/layout/Header.tsx:102 (`hidden md:block`) | NAV-026 | Done: plus a mobile search button |
 
 ### Sidebar
@@ -367,7 +367,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Record view loads full table metadata + record by id and renders label, sections, formatted values | material:src/qqq/pages/records/view/RecordView.tsx:586 | src/app/(dashboard)/app/[slug]/[recordId]/page.tsx; src/components/records/RecordView.tsx | REC-001 | Done |
 | Page header set to record label | material:src/qqq/pages/records/view/RecordView.tsx:686 | src/app/(dashboard)/app/[slug]/[recordId]/page.tsx (setPageHeader) | REC-044 | Done |
 | Viewed record pushed to recent history (HistoryUtils.push) | material:src/qqq/pages/records/view/RecordView.tsx:699 | src/lib/utils/recent-records.ts addRecentRecord (called from record page) | NAV-025 | Done |
-| Not-found (404) message; record purged from history | material:src/qqq/pages/records/view/RecordView.tsx:660 | src/components/records/RecordView.tsx ("Record Not Found" + Back to table) | REC-003 | Done: wording differs ("does not exist or has been deleted"); 404'd record not removed from recents (#729) |
+| Not-found (404) message; record purged from history | material:src/qqq/pages/records/view/RecordView.tsx:660 | src/components/records/RecordView.tsx; src/app/(dashboard)/app/[slug]/[recordId]/page.tsx | REC-003 | Done: wording differs and 404/403 removes the recent item; #729 |
 | 403 on record GET: "You do not have permission to view X records" | material:src/qqq/pages/records/view/RecordView.tsx:674 | src/components/records/RecordView.tsx (Permission Denied + Go Back); record page canReadRecords message | SEC-002 | Done |
 | Sections from table metadata; no sections -> pseudo "All Fields" section | material:src/qqq/utils/qqq/TableUtils.ts:49,134 | src/components/records/RecordView.tsx (fallback grid of all visible fields) | REC-001 | Done |
 | Section `alternatives` for RECORD_VIEW replace a section's definition | material:src/qqq/pages/records/view/RecordView.tsx:712 | none | none | Missing: no code references `alternatives`; #723 |
@@ -476,7 +476,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Possible-value dependent filtering: other form values sent as `values` and useCase=form; options reload on open when other values changed | material:src/qqq/components/forms/DynamicSelect.tsx:194,271; material:src/qqq/components/forms/EntityForm.tsx:430 | src/components/forms/PossibleValueSelect.tsx; src/lib/api/possible-values.ts; src/lib/hooks/use-possible-values.ts | REC-052 | Done |
 | inlinePossibleValueSource (enum inline) filtered client-side by label prefix | material:src/qqq/components/forms/DynamicFormUtils.ts:214; material:src/qqq/components/forms/DynamicSelect.tsx:177 | none | none | Missing: not rendered; whether the backend also sets possibleValueSourceName is unverified; #721 |
 | CHIP adornment styles possible-value options | material:src/qqq/components/forms/DynamicSelect.tsx:372 | none | none | Missing: minor; options not chip-styled; #721 |
-| Widget sub-validations merged into form validation (addSubValidations) | material:src/qqq/components/forms/EntityForm.tsx:629 | none | none | Missing: needed once form widgets exist; #722 |
+| Widget sub-validations merged into form validation (addSubValidations) | material:src/qqq/components/forms/EntityForm.tsx:629 | src/components/forms/EntityForm.tsx:validatorsRef,onSubmit; src/components/widgets/RowBuilderEditor.tsx:validateRef | none | Done: hosted widgets register checks run before record save; #722 |
 | Update -> view with success; modal -> closeModalHandler | material:src/qqq/components/forms/EntityForm.tsx:1392 | EntityForm updateMutation | REC-009 | Done: Save disabled until the form is dirty (Material allowed saving anytime) |
 | Create -> new record URL (copy replaces `/<id>/copy`) | material:src/qqq/components/forms/EntityForm.tsx:1437 | EntityForm insertMutation | REC-006, REC-013 | Done |
 | Server error alert + scroll to top (modal: scroll to modalTopReference) | material:src/qqq/components/forms/EntityForm.tsx:1482 | EntityForm alert + toast | REC-048, REC-027 | Done |
@@ -685,7 +685,7 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | divider (rule, no card chrome) | material:src/qqq/components/widgets/DashboardWidgets.tsx:756-758; material:src/qqq/components/widgets/misc/Divider.tsx:26-33 | src/components/widgets/DividerWidget.tsx via src/components/widgets/ConnectedWidget.tsx:215-221 | WID-004 | Done |
 | horizontalBarChart | material:src/qqq/components/widgets/DashboardWidgets.tsx:761-769; material:src/qqq/components/widgets/charts/barchart/HorizontalBarChart.tsx | src/components/widgets/QqqChartWidget.tsx (horizontalBar) | WID-007 | Done |
 | lineChart | material:src/qqq/components/widgets/DashboardWidgets.tsx:771-787; material:src/qqq/components/widgets/charts/linechart/DefaultLineChart.tsx | src/components/widgets/QqqChartWidget.tsx (line) | WID-009 | Done |
-| childRecordList | material:src/qqq/components/widgets/DashboardWidgets.tsx:789-803; material:src/qqq/components/widgets/misc/RecordGridWidget.tsx | src/components/widgets/ChildRecordListWidget.tsx; src/components/records/AssociatedRecords.tsx | WID-024, REL-002 | Partial: viewing works; editing in forms is group I; #722 |
+| childRecordList | material:src/qqq/components/widgets/DashboardWidgets.tsx:789-803; material:src/qqq/components/widgets/misc/RecordGridWidget.tsx | src/components/widgets/ChildRecordListWidget.tsx; src/components/forms/FormWidgetSection.tsx; src/components/forms/ChildRecordListEditor.tsx | WID-024, REL-002 | Done: record view and create/edit association screens are wired; #722 |
 | fieldValueList | material:src/qqq/components/widgets/DashboardWidgets.tsx:806-814; material:src/qqq/components/widgets/misc/FieldValueListWidget.tsx | src/components/widgets/QqqDisplayWidgets.tsx:QqqFieldValueListWidget | WID-005 | Done |
 | composite | material:src/qqq/components/widgets/DashboardWidgets.tsx:816-829; material:src/qqq/components/widgets/CompositeWidget.tsx | src/components/widgets/blocks/QqqComposite.tsx:QqqComposite | WID-023, WID-057, WID-058 | Done |
 | block: a single leaf block as the whole widget payload | material:src/qqq/components/widgets/DashboardWidgets.tsx:831-844; material:src/qqq/components/widgets/WidgetBlock.tsx:57-104 | src/components/widgets/WidgetRenderer.tsx:180-185 → src/components/widgets/blocks/QqqComposite.tsx:QqqComposite (leaf block → QqqBlock) | WID-067 | Done |
@@ -745,8 +745,8 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | "An error occurred loading widget content." | material:src/qqq/components/widgets/Widget.tsx:803, 901-905 | src/components/widgets/WidgetBlock.tsx:288-306 (with detail and Retry) | WID-051 | Done |
 | dropdownNeedsSelectedText (required dropdowns) | material:src/qqq/components/widgets/Widget.tsx:907-912 | src/components/widgets/WidgetBlock.tsx:138-141 | WID-049 | Done |
 | Collapsible widget (isCollapsible, initiallyOpen, chevron, state in localStorage, controls hidden when collapsed) | material:src/qqq/components/widgets/Widget.tsx:464-466, 473-482, 687-719, 881-885, 957-975 | src/components/widgets/WidgetBlock.tsx:53-67,136-141,193-307 | none | Done: state is remembered, chevron is keyboard accessible and body controls close; #728 |
-| HeaderLinkButtonComponent (header text button with disabled tooltip) | material:src/qqq/components/widgets/Widget.tsx:182-209 | none | none | Missing: Used only by setup widgets in edit mode; #722 |
-| HeaderToggleComponent (labelled switch in the header) | material:src/qqq/components/widgets/Widget.tsx:215-247 | none | none | Missing: Used only by the pivot setup in edit mode; #722 |
+| HeaderLinkButtonComponent (header text button with disabled tooltip) | material:src/qqq/components/widgets/Widget.tsx:182-209 | src/components/widgets/WidgetHeaderControls.tsx:WidgetHeaderLinkButton; FilterAndColumnsSetupEditor.tsx; PivotTableSetupWidget.tsx | none | Done: setup editors use a disabled-aware header link button; #722 |
+| HeaderToggleComponent (labelled switch in the header) | material:src/qqq/components/widgets/Widget.tsx:215-247 | src/components/widgets/WidgetHeaderControls.tsx:WidgetHeaderToggle; src/components/widgets/PivotTableSetupWidget.tsx:250 | none | Done: pivot editor uses the labelled header toggle; #722 |
 | Layout props (omitPadding, omitLabel, additionalCSS, labelBoxAdditionalSx), commented-out LinearProgress | material:src/qqq/components/widgets/Widget.tsx:65-98, 889-896, 931-947 | none | none | N/A: Internal styling hooks or dead code |
 
 ### D. Widget dropdowns (Widget.tsx, WidgetDropdownMenu.tsx)
@@ -887,24 +887,24 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | "Add new" opens a create-child modal prefilled from defaultValues and parent fields, with disabledFields | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:317-340; material:src/qqq/components/widgets/Widget.tsx:253-285; material:src/qqq/pages/records/view/RecordView.tsx:410-429 | src/components/widgets/ChildRecordListWidget.tsx:addChildHref; src/components/records/CreateChildFromLinkDialog.tsx; src/components/records/AssociatedRecords.tsx:CreateChildRecordDialog | RPT-012, REL-003, REL-008 | Done: create dialog over the parent with presets locked |
 | Add shown only when canAddChildRecord | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:317 | src/components/widgets/ChildRecordListWidget.tsx:150; src/components/records/AssociatedRecords.tsx:284 | REL-006 | Done |
 | createChild deep link opens the create modal | material:src/qqq/pages/records/view/RecordView.tsx:397-429 | src/lib/utils/material-links.ts; src/components/records/RecordViewHeader.tsx; src/components/records/CreateChildFromLinkDialog.tsx | REC-057 | Done: #/createChild= hash opens the create dialog |
-| Child list shown inside the parent create and edit form | material:src/qqq/components/forms/EntityForm.tsx:498-515, 895-900 | none | none | Missing: no child list in forms; #722 |
-| Edit form: add a child in a modal (held in memory) | material:src/qqq/components/forms/EntityForm.tsx:192-215, 285-345 | none | none | Missing: no add-child modal in forms; #722 |
-| Edit form: edit a child row in a modal | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:212-229; material:src/qqq/components/forms/EntityForm.tsx:221-232 | none | none | Missing: REL-005 edits the child on its own page; #722 |
-| Edit form: delete a child row | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:225; material:src/qqq/components/forms/EntityForm.tsx:238-241 | none | none | Missing: no child delete in forms; #722 |
-| Saving the parent posts child rows as `associations` | material:src/qqq/components/forms/EntityForm.tsx:1337-1382 | src/lib/api/tables.ts:updateRecord (no associations parameter; verified) | none | Missing: Only insert supports associations; #722 |
+| Child list shown inside the parent create and edit form | material:src/qqq/components/forms/EntityForm.tsx:498-515, 895-900 | src/components/forms/EntityForm.tsx:renderWidgetSection; src/components/forms/FormWidgetSection.tsx:ChildRecordListEditor | none | Done: metadata widget sections render the managed child list in create/edit; #722 |
+| Edit form: add a child in a modal (held in memory) | material:src/qqq/components/forms/EntityForm.tsx:192-215, 285-345 | src/components/forms/ChildRecordListEditor.tsx:openAdd; src/components/forms/EntityForm.tsx:associations | none | Done: dialog edits local child rows until parent save; #722 |
+| Edit form: edit a child row in a modal | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:212-229; material:src/qqq/components/forms/EntityForm.tsx:221-232 | src/components/forms/ChildRecordListEditor.tsx:openEdit; src/components/forms/EntityForm.tsx:associations | none | Done: existing child rows edit in the form dialog; #722 |
+| Edit form: delete a child row | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:225; material:src/qqq/components/forms/EntityForm.tsx:238-241 | src/components/forms/ChildRecordListEditor.tsx; src/components/forms/EntityForm.tsx:associations | none | Done: deleting updates the pending association; #722 |
+| Saving the parent posts child rows as `associations` | material:src/qqq/components/forms/EntityForm.tsx:1337-1382 | src/components/forms/EntityForm.tsx:widgetAssociations; src/lib/api/tables.ts:updateRecord,insertRecord | none | Done: both insert and update send recursive association wire data; #722 |
 
 ### J. RowBuilder
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Read-only rows table, "No rows" | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:772-825 | src/components/widgets/RowBuilderWidget.tsx:84-119 | WID-031 | Partial: Ignores frontendFields and isHidden; no inlineHeading; #722 |
-| Inline editable fields per row (typed inputs, possible values) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:508-552, 673-770 | none | none | Missing: no inline editing; #722 |
-| Add a row with defaults and focus it; remove a row | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:319-437 | none | none | Missing: no add or remove rows; #722 |
-| Drag to reorder rows (orderByFieldName resequenced) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:439-465; material:src/qqq/components/widgets/misc/DragAndDropElementWrapper.tsx:68-199 | none | none | Missing: no drag reorder; #722 |
-| Modal editor ("Edit Rows"; Cancel reverts, OK applies) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:177-183, 470-617, 863-906 | none | none | Missing: no modal editor; #722 |
-| Per-field validation merged into the parent form | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:234-251; material:src/qqq/components/forms/EntityForm.tsx:629-633 | none | none | Missing: no validation merged into the form; #722 |
-| Output to a process value (outputFieldName) or to record associations | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:621-640; material:src/qqq/pages/processes/ProcessRun.tsx:399-402 | none | none | Missing: no output to process values or associations; #722 |
-| RowBuilder on the record edit screen | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:125-127; material:src/qqq/components/forms/EntityForm.tsx:910 | none | none | Missing: not on the edit screen; #722 |
+| Read-only rows table, "No rows" | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:772-825 | src/components/widgets/RowBuilderWidget.tsx:78-129; src/components/widgets/RowBuilderTable.tsx:90 | WID-031 | Done: frontendFields, hidden fields and inline heading drive the view; #722 |
+| Inline editable fields per row (typed inputs, possible values) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:508-552, 673-770 | src/components/widgets/RowBuilderEditor.tsx; src/components/widgets/RowBuilderRowForm.tsx | none | Done: row form uses typed fields and possible-value sources; #722 |
+| Add a row with defaults and focus it; remove a row | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:319-437 | src/components/widgets/RowBuilderEditor.tsx:addRow,removeRow,pendingFocusRef | none | Done: defaults and focus follow add/remove; #722 |
+| Drag to reorder rows (orderByFieldName resequenced) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:439-465; material:src/qqq/components/widgets/misc/DragAndDropElementWrapper.tsx:68-199 | src/components/widgets/RowBuilderEditor.tsx:moveTo,dragHandlers | none | Done: drag and keyboard moves resequence the order field; #722 |
+| Modal editor ("Edit Rows"; Cancel reverts, OK applies) | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:177-183, 470-617, 863-906 | src/components/widgets/RowBuilderEditor.tsx:openModal,cancelModal,acceptModal | none | Done: modal draft applies only on OK; #722 |
+| Per-field validation merged into the parent form | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:234-251; material:src/qqq/components/forms/EntityForm.tsx:629-633 | src/components/widgets/RowBuilderEditor.tsx:validateRef; src/components/forms/EntityForm.tsx:validatorsRef | none | Done: row errors block parent save and focus the first invalid field; #722 |
+| Output to a process value (outputFieldName) or to record associations | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:621-640; material:src/qqq/pages/processes/ProcessRun.tsx:399-402 | src/components/widgets/RowBuilderEditor.tsx:emit; src/components/widgets/ProcessRowBuilderEditor.tsx | none | Done: row output goes to the configured host field or association; #722 |
+| RowBuilder on the record edit screen | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:125-127; material:src/qqq/components/forms/EntityForm.tsx:910 | src/components/forms/EntityForm.tsx:renderWidgetSection; src/components/forms/FormWidgetSection.tsx; src/components/widgets/RowBuilderWidget.tsx | none | Done: editable rowBuilder sections render on record edit; #722 |
 
 ### K. ScriptViewer and ScriptEditor
 
@@ -928,7 +928,7 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 |---|---|---|---|---|
 | View: criteria and sub-filter summary, sort, column chips | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:502-550 | src/components/widgets/FilterAndColumnsSetupWidget.tsx:255-336 | WID-030, RPT-009 | Done |
 | View: live preview grid of matching records (unless hidePreview) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:551-566 | src/components/widgets/FilterAndColumnsSetupWidget.tsx → FilterAndColumnsSetupEditor.tsx:FilterSetupPreview | WID-030 | Done: first page and count via typed query hook; five profiles |
-| Default criteria from record fields; unknown fields removed with a warning | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:136-184, 271-287 | src/components/widgets/filter-and-columns-utils.ts:seedDefaultCriteria,removeUnknownCriteria; FilterAndColumnsSetupWidget.tsx | none | Partial: defaults are seeded; the editor removes unknown criteria with a warning, while the read-only summary flags unknown fields without removing them; #722 |
+| Default criteria from record fields; unknown fields removed with a warning | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:136-184, 271-287 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:83-84; src/components/widgets/filter-and-columns-utils.ts | none | Done: editor seeds and screens criteria before preview; #722 |
 | API-versioned table metadata | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:205-257 | src/lib/hooks/use-filter-setup.ts:useApiTableMetaData; FilterAndColumnsSetupWidget.tsx; FilterAndColumnsSetupEditor.tsx | none | Partial: API-versioned variant lacks real-server acceptance; #722 |
 | Edit: "Edit Filters and Columns", "+ Add Filters", "+ Add Columns" | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:303-330, 457-546 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: header Edit button works; separate Add Filters and Add Columns buttons are absent; #722 |
 | Edit: modal with the full query screen (filter builder, sort, columns, variables) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter builder, variable values, one sort choice, columns, preview and query link work; Material supports multiple sort levels; #722 |
@@ -941,13 +941,13 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | View: rows, columns, values ("Count of Id") | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:765-774; material:src/qqq/components/widgets/misc/PivotTableGroupByElement.tsx:190-201; material:src/qqq/components/widgets/misc/PivotTableValueElement.tsx:256-265 | src/components/widgets/PivotTableSetupWidget.tsx:78-131 | WID-029, RPT-009 | Done |
-| View: "does not use a Pivot Table" from the usePivotTable flag | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:761-764 | src/components/widgets/PivotTableSetupWidget.tsx:95-101 | none | Partial: Flag ignored; only an empty definition is detected; #722 |
-| Edit: "Use Pivot Table?" header toggle (off clears pivotTableJson) | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:233-243, 486-490 | none | none | Missing: no toggle; #722 |
-| Edit: "Edit Pivot Table" modal, disabled until a table and columns exist | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:476-481, 551-559, 776-807 | none | none | Missing: no editor modal; #722 |
-| Edit: add and remove row or column group-bys (picker limited to report columns, used fields excluded) | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:258-268, 579-603; material:src/qqq/components/widgets/misc/PivotTableGroupByElement.tsx:184-227 | none | none | Missing: no group-by editing; #722 |
-| Edit: add and remove values with an aggregate filtered by field type | material:src/qqq/components/widgets/misc/PivotTableValueElement.tsx:181-336; material:src/qqq/models/misc/PivotTableDefinitionModels.ts:86-140 | none | none | Missing: no value editing; #722 |
-| Edit: drag to reorder rows, columns and values | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:451-473; material:src/qqq/components/widgets/misc/PivotTableGroupByElement.tsx:78-160 | none | none | Missing: no drag reorder; #722 |
-| Edit: "Missing value in N fields" validation, then OK saves pivotTableJson | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:639-726 | none | none | Missing: no validation or save; #722 |
+| View: "does not use a Pivot Table" from the usePivotTable flag | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:761-764 | src/components/widgets/PivotTableSetupWidget.tsx:usesPivotTable,PivotTableSetupView | none | Done: the view reads usePivotTable and the stored definition; #722 |
+| Edit: "Use Pivot Table?" header toggle (off clears pivotTableJson) | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:233-243, 486-490 | src/components/widgets/PivotTableSetupWidget.tsx:250-257 | none | Done: header toggle writes usePivotTable and clears the definition when off; #722 |
+| Edit: "Edit Pivot Table" modal, disabled until a table and columns exist | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:476-481, 551-559, 776-807 | src/components/widgets/PivotTableSetupWidget.tsx:216-310; src/components/widgets/pivot-table/PivotTableEditorDialog.tsx | none | Done: disabled reason and modal are wired; #722 |
+| Edit: add and remove row or column group-bys (picker limited to report columns, used fields excluded) | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:258-268, 579-603; material:src/qqq/components/widgets/misc/PivotTableGroupByElement.tsx:184-227 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx; src/components/widgets/pivot-table/pivot-table-model.ts | none | Done: editor limits choices to available report fields; #722 |
+| Edit: add and remove values with an aggregate filtered by field type | material:src/qqq/components/widgets/misc/PivotTableValueElement.tsx:181-336; material:src/qqq/models/misc/PivotTableDefinitionModels.ts:86-140 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx; src/components/widgets/pivot-table/pivot-table-model.ts | none | Done: value and aggregate controls follow field type; #722 |
+| Edit: drag to reorder rows, columns and values | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:451-473; material:src/qqq/components/widgets/misc/PivotTableGroupByElement.tsx:78-160 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx:328-346 | none | Done: all three sections support drag and keyboard moves; #722 |
+| Edit: "Missing value in N fields" validation, then OK saves pivotTableJson | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:639-726 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx:missingValueMessage; src/components/widgets/PivotTableSetupWidget.tsx:save | none | Done: invalid definitions stay open; OK serializes to the record field; #722 |
 
 ### N. CronUI
 
@@ -967,18 +967,18 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | Versions list, selection, JSON contents | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:197-237, 298-350 | src/components/widgets/DataBagViewerWidget.tsx:69-173 | WID-028 | Done |
-| Data Preview tab (expandable JSON tree) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:295, 351-369; material:src/qqq/components/databags/DataBagPreview.tsx:81-123 | none | none | Missing: no preview tree; #724 |
-| "Edit", "Edit and Activate", "Create New Version" open a JSON editor modal with a Preview toggle | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:239-254, 321-325, 374-382; material:src/qqq/components/databags/DataBagDataEditor.tsx:162, 168 | none | none | Missing: no editor; #724 |
-| Save a version (invalid JSON blocked, commit message, storeDataBagVersion) | material:src/qqq/components/databags/DataBagDataEditor.tsx:72-107, 197-201; material:src/qqq/components/widgets/misc/DataBagViewer.tsx:143-172 | none | none | Missing: no save; #724 |
+| Data Preview tab (expandable JSON tree) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:295, 351-369; material:src/qqq/components/databags/DataBagPreview.tsx:81-123 | src/components/widgets/DataBagViewerWidget.tsx; src/components/databags/JsonPreview.tsx | WID-028 | Done: expandable preview tree is mounted in the Data Preview tab; #724 |
+| "Edit", "Edit and Activate", "Create New Version" open a JSON editor modal with a Preview toggle | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:239-254, 321-325, 374-382; material:src/qqq/components/databags/DataBagDataEditor.tsx:162, 168 | src/components/widgets/DataBagViewerWidget.tsx; src/components/databags/DataBagEditorDialog.tsx | WID-028 | Done: actions open an editor with live preview; #724 |
+| Save a version (invalid JSON blocked, commit message, storeDataBagVersion) | material:src/qqq/components/databags/DataBagDataEditor.tsx:72-107, 197-201; material:src/qqq/components/widgets/misc/DataBagViewer.tsx:143-172 | src/components/databags/DataBagEditorDialog.tsx; src/lib/api/developer.ts:storeDataBagVersion | WID-028 | Done: validation and commit message gate a new version; #724 |
 
 ### P. DynamicForm and field rules
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | View: labeled values, noFieldsMessage | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:177-183, 226-251 | src/components/widgets/DynamicFormWidget.tsx:73-98 | WID-027 | Done |
-| Edit: typed inputs in the record edit form (e.g. scheduled-report inputs) | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:62-74, 157-220; material:src/qqq/components/forms/EntityForm.tsx:550-560, 902 | none | none | Missing: no editing in forms; #722 |
-| Edit: values merged as JSON into mergedDynamicFormValuesIntoFieldName | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:123-151 | none | none | Missing: no merged JSON value; #722 |
-| Edit: report variables entered in a dynamicForm widget on a process screen (saved report with variables) | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:41-110 (isEditable, defaultValues.isEditable) | src/components/widgets/DynamicFormWidget.tsx (read-only) | none | Missing: read-only in processes; #736 |
+| Edit: typed inputs in the record edit form (e.g. scheduled-report inputs) | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:62-74, 157-220; material:src/qqq/components/forms/EntityForm.tsx:550-560, 902 | src/components/forms/EntityForm.tsx; src/components/forms/FormWidgetSection.tsx; src/components/widgets/DynamicFormWidget.tsx | REC-061 | Done: widget fields join the host form and block invalid saves; #722 |
+| Edit: values merged as JSON into mergedDynamicFormValuesIntoFieldName | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:123-151 | src/components/widgets/DynamicFormWidget.tsx; src/components/forms/EntityForm.tsx | REC-061 | Done: one declared JSON field persists widget values without transient field names; #722 |
+| Edit: report variables entered in a dynamicForm widget on a process screen (saved report with variables) | material:src/qqq/components/widgets/misc/DynamicFormWidget.tsx:41-110 (isEditable, defaultValues.isEditable) | src/components/process/ProcessStepScreen.tsx; src/components/widgets/DynamicFormWidget.tsx; src/components/process/process-widgets.test.tsx | none | Done: process host validates and submits typed widget fields; #736 |
 
 ## Supplemental metadata and theme
 
@@ -1071,8 +1071,8 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | Command palette dialog on `.` (ignored in inputs) | material:src/CommandMenu.tsx:79-92,457 | src/components/feedback/CommandMenu.tsx (cmdk); src/app/(dashboard)/layout.tsx:handleGlobalKeyDown | NAV-024, INT-004 | Done: Next adds Cmd/Ctrl+K and `/`, focus trap and restore |
-| Palette "{Table} Actions" group (New, Copy, Edit, Audit, table processes) | material:src/CommandMenu.tsx:217-257 | none (Navigation group only) | none | Missing: palette ignores the current table; #729 |
-| Palette "Recently Viewed Records" group | material:src/CommandMenu.tsx:334-367 | src/components/feedback/SearchDialog.tsx; src/components/layout/GlobalSearch.tsx (recents outside the palette) | NAV-025 | Partial: the `.`/Cmd+K palette has no recents; #729 |
+| Palette "{Table} Actions" group (New, Copy, Edit, Audit, table processes) | material:src/CommandMenu.tsx:217-257 | src/components/feedback/CommandMenu.tsx; src/lib/utils/command-palette.ts | NAV-024 | Done: group is permission-gated for the current table; #729 |
+| Palette "Recently Viewed Records" group | material:src/CommandMenu.tsx:334-367 | src/components/feedback/CommandMenu.tsx:visibleRecent; src/lib/utils/recent-records.ts | NAV-025 | Done: recently viewed records appear in the palette with table icons; #729 |
 | Keyboard-shortcut help dialog on `?` | material:src/CommandMenu.tsx:93-97,478-509 | src/components/feedback/KeyboardShortcutsDialog.tsx | INT-004 | Done: text aligned to Material; Next also has a header button |
 | Navbar "Recently Viewed Records" dropdown (Autocomplete in a Popper) | material:src/qqq/components/horseshoe/NavBar.tsx:117-188 | src/components/layout/GlobalSearch.tsx; src/components/layout/NavigationSearchResults.tsx | NAV-025 | Done: clock glyph instead of the table icon; table icons tracked on #729 |
 | Search dialog (phone search button, Next-only) | none | src/components/feedback/SearchDialog.tsx; src/components/layout/Header.tsx | NAV-026 | N/A: Next-only |
@@ -1080,7 +1080,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | User preferences dialog (Next-only) | none | src/components/layout/UserPreferencesDialog.tsx | none | N/A: Next-only |
 | Responsive off-canvas sidebar drawer | material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:116-140,340-352; material:src/qqq/components/horseshoe/NavBar.tsx:252 | src/components/layout/Sidebar.tsx (drawer, closes on route change); src/components/layout/Header.tsx:82 | NAV-026, INT-008 | Done: breakpoint 768px vs 1200px |
 | Mini sidebar rail with hover-to-expand | material:src/qqq/components/horseshoe/sidenav/SideNavRoot.tsx:79-91 | none | none | N/A: unreachable in Material |
-| QFMD bridge `makeModal` / `makeAlert` for custom components | material:src/qqq/utils/qqq/QFMDBridge.tsx:333,366 | src/components/widgets/QqqContainerWidgets.tsx:274 (empty bridge) | none | Missing: bridge modals and alerts unavailable to custom components; #728 |
+| QFMD bridge `makeModal` / `makeAlert` for custom components | material:src/qqq/utils/qqq/QFMDBridge.tsx:333,366 | src/components/widgets/qfmd-bridge.tsx:makeModal,makeAlert; src/components/widgets/QqqContainerWidgets.tsx | WID-025 | Done: custom components receive working modal and alert bridge functions; #728 |
 | No-apps error alert | material:src/qqq/pages/apps/NoApps.tsx:18 | src/app/(dashboard)/app/page.tsx:315 | NAV-029 | Done |
 | Global error boundary / error page | none (Material has only local boundaries) | src/app/error.tsx; src/components/feedback/ErrorBoundary.tsx | none | N/A: Next-only |
 | Help-content error boundary | material:src/qqq/components/misc/HelpContent.tsx:154-156 | src/components/records/HelpContent.tsx (DOMPurify) | none | Done: equivalent |
@@ -1106,7 +1106,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Process modal over a record (`/{table}/{id}/{process}`, `#/launchProcess=`, menu) | material:src/qqq/pages/records/view/RecordView.tsx:360-385,1365; material:src/App.tsx:383-388 | src/app/(dashboard)/app/[slug]/[recordId]/[action]/page.tsx; src/components/process/ProcessRun.tsx:processReturnPath | PRC-001, NAV-034, NAV-035, REC-056 | Done (different UX): runs as a full page that returns to the record |
 | Create-child modal (`#/createChild=`, child list "Add new", association "+ Add") | material:src/qqq/pages/records/view/RecordView.tsx:397-429,1374; material:src/qqq/components/widgets/Widget.tsx:253-285 | src/components/records/CreateChildFromLinkDialog.tsx; src/components/widgets/ChildRecordListWidget.tsx:addChildHref; src/components/records/AssociatedRecords.tsx:CreateChildRecordDialog | REC-057, RPT-012, REL-003, REL-008 | Done: create dialog over the parent with presets locked |
 | `/{table}/{id}/createChild/{child}` path opens the create modal | material:src/App.tsx:329-333; material:src/qqq/pages/records/view/RecordView.tsx:400 | src/app/(dashboard)/app/[slug]/[recordId]/createChild/[childTable]/page.tsx | none | Done: the path route exists and mounts the child create flow; #723 |
-| Child-record edit modal inside the create/edit form (add, edit, delete child rows) | material:src/qqq/components/forms/EntityForm.tsx:192-340,1805 | none | none | Missing: no child editing in forms; #722 |
+| Child-record edit modal inside the create/edit form (add, edit, delete child rows) | material:src/qqq/components/forms/EntityForm.tsx:192-340,1805 | src/components/forms/ChildRecordListEditor.tsx; src/components/forms/EntityForm.tsx:renderWidgetSection | none | Done: child rows edit in the parent form dialog; #722 |
 | Phone record action sheet (Next-only) | none | src/components/records/RecordViewHeader.tsx (mobile-actions-sheet, role=dialog) | none | N/A: Next-only |
 | Record hover cards on links (Next-only) | none | src/components/records/RecordHoverCard.tsx | REC-036 | N/A: Next-only |
 | REVEAL button (show/hide, copy with "Copied To Clipboard" tooltip) | material:src/qqq/utils/qqq/ValueUtils.tsx:670,712-721 | src/components/records/FieldValue.tsx:RevealField | REC-033 | Done |
@@ -1158,7 +1158,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Density selector popup | material:src/qqq/pages/records/query/RecordQuery.tsx:2586 | src/lib/hooks/use-record-query.ts; src/components/query/RecordQueryToolbar.tsx | QRY-005 | Done: global Material density key drives the popup. |
 | Query alerts (error, count error, deleted, success, info, warning) | material:src/qqq/pages/records/query/RecordQuery.tsx:3226-3274 | src/components/query/RecordQuery.tsx; src/components/query/RecordQueryContent.tsx | QRY-007 | Partial: count errors, warnings, copy feedback and dismissible grid errors exist; record-deletion success wording still needs verification; #717 |
 | Error boundary "click here to fix it" (resets saved state) | material:src/qqq/pages/records/query/RecordQuery.tsx:132-180 | src/components/query/RecordQueryContent.tsx; src/lib/utils/query-view-storage.ts | none | Done: reset clears the saved query state. |
-| Filter setup "Open In New Window" | material:src/qqq/pages/records/query/RecordQuery.tsx:997-1003 | none | none | Missing: no embedded query screen; #722 |
+| Filter setup "Open In New Window" | material:src/qqq/pages/records/query/RecordQuery.tsx:997-1003 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:170; src/components/widgets/filter-and-columns-utils.ts:openInNewWindowHref | none | Done: the editor opens the query with its current filter in a new window; #722 |
 
 ### Processes
 
@@ -1190,7 +1190,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Widget DATE_PICKER popup with "Today" | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:306-337 | src/components/widgets/WidgetBlock.tsx:191-200 (native date input) | WID-048 | Partial: no Today action; #728 |
 | Widget custom timeframe (start and end inputs) | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:246-286 | none | none | Missing: no custom range; #728 |
 | Widget label tooltip and help content | material:src/qqq/components/widgets/Widget.tsx:785-797 | src/components/widgets/WidgetBlock.tsx:171-187; src/components/widgets/HoverTooltip.tsx | WID-043, WID-044 | Done |
-| Header link-button disabled tooltip (setup widgets in edit mode) | material:src/qqq/components/widgets/Widget.tsx:182-209 | none | none | Missing: no header link button; #722 |
+| Header link-button disabled tooltip (setup widgets in edit mode) | material:src/qqq/components/widgets/Widget.tsx:182-209 | src/components/widgets/WidgetHeaderControls.tsx:WidgetHeaderLinkButton; src/components/widgets/PivotTableSetupWidget.tsx:285 | none | Done: disabled setup actions explain their reason; #722 |
 | Block tooltips (tooltipMap, nested composite tooltip) | material:src/qqq/components/widgets/blocks/BlockElementWrapper.tsx:99-116 | src/components/widgets/blocks/BlockSlot.tsx (Radix tooltip) | WID-023, WID-058 | Done |
 | Block help content as the fallback tooltip | material:src/qqq/components/widgets/blocks/BlockElementWrapper.tsx:77-93 | none | none | Missing: no help fallback; #728 |
 | composite modalMode (modal from values, sends hideModal on close) | material:src/qqq/components/widgets/CompositeWidget.tsx:168-211 | none (always inline) | none | Missing: no modal composite; #728 |
@@ -1201,15 +1201,15 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | "There is no data available to export." browser alert() | material:src/qqq/components/widgets/Widget.tsx:660-663; material:src/qqq/components/widgets/tables/TableWidget.tsx:128; material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:300 | src/components/widgets/ConnectedWidget.tsx:187-189 | WID-046 | Done: inline message instead of alert() |
 | Widget error and unsupported-block alerts | material:src/qqq/components/widgets/DashboardWidgets.tsx:490; material:src/qqq/components/widgets/WidgetBlock.tsx:104 | src/components/widgets/WidgetBlock.tsx:WidgetErrorState; src/components/widgets/blocks/QqqComposite.tsx:150-160 | WID-051, WID-059 | Done |
 | Widget-level error boundary (Next-only) | none | src/components/widgets/WidgetErrorBoundary.tsx | WID-051, WID-053 | N/A: Next-only |
-| FilterAndColumnsSetup editor modal (full query screen) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | none | none | Missing: no editor modal; #722 |
-| PivotTableSetup editor modal | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:776-807 | none | none | Missing: no editor modal; #722 |
-| RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | none | none | Missing: no modal editor; #722 |
+| FilterAndColumnsSetup editor modal (full query screen) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | none | Partial: filter, sort, columns, preview and save work; it is a compact editor rather than the full embedded query screen; #722 |
+| PivotTableSetup editor modal | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:776-807 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx; src/components/widgets/PivotTableSetupWidget.tsx:297 | none | Done: pivot editor dialog is mounted from the record form; #722 |
+| RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | src/components/widgets/RowBuilderEditor.tsx:417-461 | none | Done: modal edits a draft and applies on OK; #722 |
 | CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | none | none | Missing: no cron builder; #702 |
 | Script editor modal (Edit, Edit and Activate, Create New Version) with commit-message dialog | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:556; material:src/qqq/components/scripts/ScriptEditor.tsx:555 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Script editor multi-file panes, API name/version selects, error snackbar | material:src/qqq/components/scripts/ScriptEditor.tsx:162,352-375,406 | none | none | Missing: single-file editing only; #724 |
 | Script viewer save success / failure snackbars | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:407,416 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
-| Data bag editor modal (JSON editor, Preview toggle, error snackbar) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:376; material:src/qqq/components/databags/DataBagDataEditor.tsx:133 | none | none | Missing: no data bag editor; #724 |
-| Data bag save success / failure snackbars | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:268,277 | none | none | Missing: no data bag save; #724 |
+| Data bag editor modal (JSON editor, Preview toggle, error snackbar) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:376; material:src/qqq/components/databags/DataBagDataEditor.tsx:133 | src/components/databags/DataBagEditorDialog.tsx | WID-028 | Done: JSON editor and preview are mounted; save errors are shown; #724 |
+| Data bag save success / failure snackbars | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:268,277 | src/components/widgets/DataBagViewerWidget.tsx; src/components/databags/DataBagEditorDialog.tsx | WID-028 | Done: success and error feedback are wired; #724 |
 
 ### Notifications after save, delete and process
 
@@ -1227,24 +1227,24 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 
 Rows counted are Partial or Missing rows whose status names the issue.
 
-- #406 Complete V1 API surface for new frontend: 1 row
-- #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 1 row
-- #702 Next UI 1.0: cronUI widget with live schedule description: 7 rows
-- #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 row
+- #406 Complete V1 API surface for new frontend: 0 open rows
+- #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 1 open row
+- #702 Next UI 1.0: cronUI widget with live schedule description: 7 open rows
+- #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 open row
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 0 open rows (integrated)
 - #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 1 open row (record-deletion success wording)
-- #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 25 rows
-- #720 Next UI 1.0 parity: form adjusters and field rules: 13 rows
-- #721 Next UI 1.0 parity: inline possible-value sources and chip options: 2 rows
-- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 37 rows
-- #723 Next UI 1.0 parity: record view layout and menus: 37 rows
-- #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 11 rows
-- #725 Next UI 1.0 parity: process screens: widgets and blocks: 12 rows
-- #726 Next UI 1.0 parity: bulk load fidelity: 16 rows
-- #727 Next UI 1.0 parity: report runs: 2 rows
-- #728 Next UI 1.0 parity: dashboard widget extras: 57 rows
-- #729 Next UI 1.0 parity: command palette and recently viewed: 6 rows
-- #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 8 rows
-- #731 Next UI 1.0 parity: CSS and test hook parity: 3 rows
-- #732 Next UI 1.0 parity: shell, auth and help small items: 20 rows
-- #736 (title not recorded): 1 row
+- #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
+- #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
+- #721 Next UI 1.0 parity: inline possible-value sources and chip options: 2 open rows
+- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 8 open rows
+- #723 Next UI 1.0 parity: record view layout and menus: 14 open rows
+- #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 8 open rows
+- #725 Next UI 1.0 parity: process screens: widgets and blocks: 12 open rows
+- #726 Next UI 1.0 parity: bulk load fidelity: 16 open rows
+- #727 Next UI 1.0 parity: report runs: 2 open rows
+- #728 Next UI 1.0 parity: dashboard widget extras: 11 open row
+- #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
+- #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
+- #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
+- #732 Next UI 1.0 parity: shell, auth and help small items: 19 open rows
+- #736 (title not recorded): 0 open rows
