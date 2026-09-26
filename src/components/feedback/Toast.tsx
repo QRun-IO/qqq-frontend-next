@@ -48,7 +48,7 @@ const TOAST_HEADER_GAP = 8
 
 /**
  * Keeps {@link TOAST_TOP_VARIABLE} just below an element (the dashboard header) while it is
- * mounted, following its size and position (a site banner above it, a resized window).
+ * mounted, following its size and position (a site banner appearing above it, a resized window).
  *
  * @param ref - The element toasts must stay below.
  */
@@ -59,9 +59,10 @@ export function useToastTopBelow(ref: React.RefObject<HTMLElement | null>) {
     const root = document.documentElement
     const update = () => root.style.setProperty(TOAST_TOP_VARIABLE, `${Math.max(0, Math.round(element.getBoundingClientRect().bottom)) + TOAST_HEADER_GAP}px`)
     update()
+    // Content appearing above the element (a site banner once branding loads) moves it without
+    // resizing it, but resizes one of its ancestors, so the whole chain is observed.
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
-    observer?.observe(element)
-    observer?.observe(document.body)
+    for (let node: HTMLElement | null = element; node; node = node.parentElement) observer?.observe(node)
     window.addEventListener('resize', update)
     return () => {
       observer?.disconnect()

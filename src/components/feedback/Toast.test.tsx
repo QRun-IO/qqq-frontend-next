@@ -59,3 +59,30 @@ describe('toasts below the header', () => {
     header.remove()
   })
 })
+
+describe('toasts below a header that moves', () => {
+  it('follows the header when content above it resizes one of its ancestors', () => {
+    const observed: Element[] = []
+    let notify: () => void = () => {}
+    const original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback: () => void) { notify = callback }
+      observe(target: Element) { observed.push(target) }
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof ResizeObserver
+    const column = document.createElement('div')
+    const header = document.createElement('header')
+    column.appendChild(header)
+    document.body.appendChild(column)
+    header.getBoundingClientRect = () => ({ bottom: 64 } as DOMRect)
+    const { unmount } = renderHook(() => useToastTopBelow({ current: header }))
+    expect(observed).toEqual(expect.arrayContaining([header, column, document.body]))
+    header.getBoundingClientRect = () => ({ bottom: 117 } as DOMRect)
+    act(() => notify())
+    expect(document.documentElement.style.getPropertyValue(TOAST_TOP_VARIABLE)).toBe('125px')
+    unmount()
+    column.remove()
+    globalThis.ResizeObserver = original
+  })
+})
