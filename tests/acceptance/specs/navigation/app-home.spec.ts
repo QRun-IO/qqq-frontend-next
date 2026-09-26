@@ -199,7 +199,7 @@ test.describe('app home', () => {
     expect(order).toEqual(declared.map((name) => `widget-grid-item-${name}`))
   })
 
-  test('[NAV-036] Material app settings hide the home-screen label and the table counts', async ({ page, backend, diagnostics }) => {
+  test('[NAV-036] Material app settings hide the home-screen label and the table counts @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     // the backend delivers MaterialDashboardAppMetaData with the app (v1 supplementalAppMetaData)
     const meta = await v1MetaData(backend)
@@ -218,6 +218,8 @@ test.describe('app home', () => {
     await expect(entry).toHaveText('Nav Quiet Item')
     await expect(home.locator('[data-qqq-id="app-section-table-count-navQuietItem"]')).toHaveCount(0)
     expect(counts).toEqual([])
+    // the quiet home is usable by touch (a no-op check with a mouse)
+    await expectTouchReady(page, home)
 
     // an app without the settings keeps both (Material defaults)
     await open(page, '/app/miscellaneous')

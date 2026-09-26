@@ -56,6 +56,18 @@ async function cloneThroughResult(page: Page) {
   await expect.poll(() => summaryLines(page)).toEqual(['OK 1 were cloned'])
 }
 
+/** Launches a record process: from the Actions menu, or from the record actions sheet on a phone. */
+async function recordProcess(page: Page, label: string) {
+  const sheetTrigger = page.locator('[data-qqq-id="button-mobile-actions"]')
+  if (await sheetTrigger.isVisible()) {
+    await sheetTrigger.click()
+    await page.getByRole('dialog', { name: 'Record actions' }).getByRole('button', { name: label, exact: true }).click()
+    return
+  }
+  await page.getByRole('button', { name: 'Record actions menu' }).click()
+  await page.getByRole('menuitem', { name: label }).click()
+}
+
 /** Cancels a running process through its confirmation dialog. */
 async function cancelRun(page: Page) {
   await page.locator('[data-qqq-id="button-cancel"]').click()
@@ -63,7 +75,7 @@ async function cancelRun(page: Page) {
 }
 
 test.describe('Material table-scoped URLs', () => {
-  test('[NAV-034] /app/{table}/{process} opens the table process or an instance process, replacing the history entry', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] /app/{table}/{process} opens the table process or an instance process, replacing the history entry @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const meta = await v1MetaData(backend)
     expect(meta.processes['person.bulkEdit']?.label).toBe('Person Bulk Edit')
@@ -87,7 +99,7 @@ test.describe('Material table-scoped URLs', () => {
     await expect(page.locator('[data-qqq-id="process-run-prcQuickTask"]')).toBeVisible()
   })
 
-  test('[NAV-034] /app/{table}/{id}/{process} runs the process for that record and Return comes back to the record', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] /app/{table}/{id}/{process} runs the process for that record and Return comes back to the record @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const init = nextInit(page, 'clonePeople')
     await open(page, '/app/person/1/clonePeople')
@@ -110,7 +122,7 @@ test.describe('Material table-scoped URLs', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
   })
 
-  test('[NAV-034] an unknown segment after a record id shows the not-found state and starts nothing', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] an unknown segment after a record id shows the not-found state and starts nothing @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect((await v1MetaData(backend)).processes.noSuchProcess).toBeUndefined()
     const inits: string[] = []
@@ -126,13 +138,12 @@ test.describe('Material table-scoped URLs', () => {
 })
 
 test.describe('process runs return to where they were launched', () => {
-  test('[NAV-035] a process launched from a record view returns to the record', async ({ page, backend, diagnostics }) => {
+  test('[NAV-035] a process launched from a record view returns to the record @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/2')
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
-    await page.getByRole('button', { name: 'Record actions menu' }).click()
     const init = nextInit(page, 'clonePeople')
-    await page.getByRole('menuitem', { name: 'Clone People' }).click()
+    await recordProcess(page, 'Clone People')
     await expect(page).toHaveURL(/\/app\/clonePeople\/?\?recordsParam=recordIds&recordIds=2&returnTo=%2Fapp%2Fperson%2F2$/)
     expect(field(await init, 'recordIds')).toBe('2')
     await cloneThroughResult(page)
@@ -142,7 +153,7 @@ test.describe('process runs return to where they were launched', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
   })
 
-  test('[NAV-035] a process launched from a filtered query returns to the same filter and rows', async ({ page, backend, diagnostics }) => {
+  test('[NAV-035] a process launched from a filtered query returns to the same filter and rows @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const filter = { criteria: [{ fieldName: 'isEmployed', operator: 'EQUALS', values: [true] }] }
     const employed = (await backend.sql('select first_name from person where is_employed = true order by id')).map((row) => row.first_name!)
@@ -150,7 +161,8 @@ test.describe('process runs return to where they were launched', () => {
     await open(page, `/app/person?filter=${encodeURIComponent(JSON.stringify(filter))}`)
     await expectRecords(page, 'Person', employed)
     const launchedFrom = new URL(page.url())
-    await page.locator('[data-qqq-id="grid-select-row-0"]').check()
+    // the first row's checkbox in the grid, or the first card's on a phone
+    await page.locator('[data-qqq-id="grid-select-row-0"], [data-qqq-id^="card-select-"]').first().check()
     const init = nextInit(page, 'person.bulkEdit')
     await page.getByRole('button', { name: 'Actions' }).click()
     await page.getByRole('menuitem', { name: 'Bulk Edit', exact: true }).click()
