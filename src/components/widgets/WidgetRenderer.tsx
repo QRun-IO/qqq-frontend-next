@@ -68,9 +68,6 @@ import { ChildRecordListWidget } from './ChildRecordListWidget'
 import { CronUIWidget } from './CronUIWidget'
 import { DataBagViewerWidget } from './DataBagViewerWidget'
 import { DynamicFormWidget } from './DynamicFormWidget'
-import { FilterAndColumnsSetupWidget } from './FilterAndColumnsSetupWidget'
-import { PivotTableSetupWidget } from './PivotTableSetupWidget'
-import { RowBuilderWidget } from './RowBuilderWidget'
 import { ScriptViewerWidget } from './ScriptViewerWidget'
 import { EsbOverviewWidget } from './EsbOverviewWidget'
 
@@ -78,9 +75,14 @@ const QqqChartWidget = lazy(() => import('./QqqChartWidget').then((m) => ({ defa
 const BarChartWidget = lazy(() => import('./BarChartWidget').then((m) => ({ default: m.BarChartWidget })))
 const LineChartWidget = lazy(() => import('./LineChartWidget').then((m) => ({ default: m.LineChartWidget })))
 const PieChartWidget = lazy(() => import('./PieChartWidget').then((m) => ({ default: m.PieChartWidget })))
+const FilterAndColumnsSetupWidget = lazy(() => import('./FilterAndColumnsSetupWidget').then((m) => ({ default: m.FilterAndColumnsSetupWidget })))
+const PivotTableSetupWidget = lazy(() => import('./PivotTableSetupWidget').then((m) => ({ default: m.PivotTableSetupWidget })))
+const RowBuilderWidget = lazy(() => import('./RowBuilderWidget').then((m) => ({ default: m.RowBuilderWidget })))
 
 /** Fallback while a lazy chart chunk loads; matches the default chart height. */
 const ChartFallback = <div className="h-60 animate-pulse rounded bg-muted" />
+/** Keeps a setup widget's place while its type-specific editor code loads. */
+const SetupFallback = <div className="h-24 animate-pulse rounded bg-muted" role="status" aria-label="Loading widget" />
 
 /** Canonical chart widget types and the chart variant each renders. */
 const CHART_VARIANTS: Record<string, QqqChartVariant> = {
@@ -204,11 +206,11 @@ export function WidgetRenderer({ widgetMetaData, data, recordContext, formContex
     case 'dataBagViewer':
       return <DataBagViewerWidget {...common} data={data} />
     case 'pivotTableSetup':
-      return <PivotTableSetupWidget {...common} data={data} />
+      return <Suspense fallback={SetupFallback}><PivotTableSetupWidget {...common} data={data} /></Suspense>
     case 'filterAndColumnsSetup':
-      return <FilterAndColumnsSetupWidget {...common} data={data} />
+      return <Suspense fallback={SetupFallback}><FilterAndColumnsSetupWidget {...common} data={data} /></Suspense>
     case 'rowBuilder':
-      return <RowBuilderWidget {...common} data={data} />
+      return <Suspense fallback={SetupFallback}><RowBuilderWidget {...common} data={data} /></Suspense>
     case 'scriptViewer':
       return <ScriptViewerWidget {...common} data={data} />
     case 'ESB_OVERVIEW':

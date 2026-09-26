@@ -21,7 +21,7 @@
 
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -30,7 +30,8 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
-import { RecordQuery } from '@/components/query/RecordQuery'
+
+const RecordQuery = lazy(() => import('@/components/query/RecordQuery').then((module) => ({ default: module.RecordQuery })))
 
 /**
  * Saved view route: resolves the table and renders its query screen with the view applied.
@@ -71,7 +72,7 @@ export default function SavedViewPage() {
   }
 
   return (
-    <RecordQuery
+    <Suspense fallback={<div role="status" aria-label="Loading saved view" className="py-12 text-center">Loading saved view…</div>}><RecordQuery
       key={`${slug}-${id}`}
       tableName={slug}
       tableMetaData={table}
@@ -79,6 +80,6 @@ export default function SavedViewPage() {
       processes={getProcessesForTable(metaData, slug)}
       metaData={metaData}
       savedViewId={id}
-    />
+    /></Suspense>
   )
 }

@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -34,8 +34,10 @@ import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
 import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
 import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
-import { EntityForm, type EntityFormProps } from '@/components/forms/EntityForm'
+import type { EntityFormProps } from '@/components/forms/EntityForm'
 import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
+
+const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
 
 /**
  * Renders the entity copy form for the record identified by `slug` and `recordId`.
@@ -175,7 +177,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         <label className="flex items-center gap-2"><input type="radio" name="copy-mode" checked={mode === 'full'} onChange={() => setMode('full')} data-qqq-id="copy-mode-full" />Full copy</label>
       </fieldset>
       <p className="mb-4 text-sm text-muted-foreground">{mode === 'base' ? 'Copy this record’s editable fields. Associated records are not copied.' : 'Copy editable fields and every loaded named association. A record reached through two named paths is copied twice. Normal insert defaults and validation apply. Limited to 64 association levels and 1000 associated records in this form.'}</p>
-      <EntityForm
+      <Suspense fallback={<div role="status" aria-label="Loading form" className="py-12 text-center">Loading form…</div>}><EntityForm
         tableMetaData={tableMetaData}
         widgets={metaData?.widgets}
         record={record}
@@ -183,7 +185,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         copyAssociations={mode === 'full' ? fullState : undefined}
       >
         {tree && <fieldset hidden={mode !== 'full'} disabled={mode !== 'full'} className="min-w-0"><FullCopyDraft tree={tree} onChange={setCopyState} /></fieldset>}
-      </EntityForm>
+      </EntityForm></Suspense>
     </div>
   )
 }

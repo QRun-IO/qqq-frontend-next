@@ -29,7 +29,7 @@
  * - `recordId` — the primary-key value of the record to display.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -46,8 +46,9 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { AssociationTableState } from '@/lib/utils/association-utils'
 import { canReadRecords } from '@/lib/auth/permissions'
 import { processRunHref, tableProcessForSegment, tableReportForSegment } from '@/lib/utils/material-links'
-import { RecordView } from '@/components/records/RecordView'
 import { RouteRedirect } from '@/components/layout/RouteRedirect'
+
+const RecordView = lazy(() => import('@/components/records/RecordView').then((module) => ({ default: module.RecordView })))
 
 /**
  * Renders the detail view for a single record identified by `slug` (table name)
@@ -190,7 +191,7 @@ export default function RecordViewPage() {
       {record && associations.isError && (
         <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
       )}
-      <RecordView
+      <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
         tableMetaData={tableMetaData}
         record={displayRecord}
         isLoading={isLoading}
@@ -206,7 +207,7 @@ export default function RecordViewPage() {
         widgetMetaDataMap={metaData?.widgets}
         associationTables={associationTables}
         auditSource={auditSource(metaData)}
-      />
+      /></Suspense>
     </>
   )
 }

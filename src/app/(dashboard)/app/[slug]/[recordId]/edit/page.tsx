@@ -29,7 +29,7 @@
  * - `recordId` — the primary-key value of the record to edit.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -38,9 +38,10 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { recordLoadFailure } from '@/lib/utils/error-utils'
-import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
+
+const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
 
 /**
  * Renders the record-edit form for the record identified by `slug` and `recordId`.
@@ -128,7 +129,7 @@ export default function EntityEditPage() {
 
   return (
     <div className="mx-auto max-w-6xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
-      <EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} />
+      <Suspense fallback={<div role="status" aria-label="Loading form" className="py-12 text-center">Loading form…</div>}><EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} /></Suspense>
     </div>
   )
 }

@@ -71,7 +71,7 @@ describe('RecordViewPage independent association loading', () => {
       return HttpResponse.json(baseRecord)
     }))
     renderPage()
-    expect(await screen.findByText('Avery Sample')).toBeVisible()
+    expect(await screen.findByText('Avery Sample', {}, { timeout: 5000 })).toBeVisible()
     expect(await screen.findByText('Related records are unavailable.')).toBeVisible()
     expect(screen.getByRole('button', { name: '+ Add Pet' })).toBeEnabled()
     expect(screen.queryByText('No Pets records')).not.toBeInTheDocument()

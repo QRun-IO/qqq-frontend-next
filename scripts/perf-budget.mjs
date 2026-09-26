@@ -63,7 +63,7 @@ function measure(lazyBudgets = {}) {
     for (const match of text.matchAll(/(?:src|href)="(\/_next\/static\/[^"?#]+\.(?:js|css))"/g)) refs.add(match[1])
     const js = [...refs].filter((r) => r.endsWith('.js'))
     const css = [...refs].filter((r) => r.endsWith('.css'))
-    const sum = (list, key) => list.reduce((total, ref) => total + sizes(path.join(OUT, ref))[key], 0)
+    const sum = (list, key) => list.reduce((total, ref) => total + sizes(path.join(OUT, decodeURIComponent(ref)))[key], 0)
     return {
       route: routeOf(file),
       scripts: js.length,
@@ -75,7 +75,7 @@ function measure(lazyBudgets = {}) {
   }).sort((a, b) => a.route.localeCompare(b.route))
 
   const chunks = files.filter((f) => f.includes(`${path.sep}_next${path.sep}static${path.sep}`) && f.endsWith('.js'))
-  const firstLoad = new Set(html.flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/(?:src|href)="\/(_next\/static\/[^"?#]+\.js)"/g)].map((m) => m[1])))
+  const firstLoad = new Set(html.flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/(?:src|href)="\/(_next\/static\/[^"?#]+\.js)"/g)].map((m) => decodeURIComponent(m[1]))))
   const lazy = Object.entries(lazyBudgets).map(([name, { marker }]) => {
     const matched = chunks.filter((f) => readFileSync(f, 'utf8').includes(marker)).map((f) => path.relative(OUT, f).split(path.sep).join('/'))
     return {
