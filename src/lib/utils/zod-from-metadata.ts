@@ -170,8 +170,14 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
     case 'DECIMAL':
       return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue)
 
-    case 'BOOLEAN':
-      return z.boolean().optional()
+    case 'BOOLEAN': {
+      // An optional boolean may be unset: a stored null, or the switch cycled back to
+      // unset (QRun-IO/qqq#761). A required one needs true or false, as in Material.
+      const message = `${label ?? type} is required`
+      return isRequired
+        ? z.boolean({ required_error: message, invalid_type_error: message })
+        : z.boolean().nullable().optional()
+    }
 
     case 'DATE':
     case 'TIME':

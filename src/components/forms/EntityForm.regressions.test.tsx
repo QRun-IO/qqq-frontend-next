@@ -193,4 +193,32 @@ describe('Record form regressions (#649)', () => {
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
     expect(screen.queryByLabelText(/^Cron Expression/)).toBeNull()
   })
+
+  it('saves an edit of a record whose optional boolean is null, keeping it null (QRun-IO/qqq#761)', async () => {
+    const user = userEvent.setup()
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
+    renderForm({ ...stored, values: { ...stored.values, flag: null }, displayValues: { ...stored.displayValues, flag: '' } })
+    expect(screen.getByRole('checkbox', { name: 'Flag' })).toHaveAttribute('aria-checked', 'mixed')
+    const title = screen.getByLabelText(/^Title/)
+    await user.clear(title)
+    await user.type(title, 'New')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1))
+    expect(screen.queryByText('Expected boolean, received null')).toBeNull()
+    const body = patch.mock.calls[0][1] as FormData
+    expect(Object.fromEntries(body.entries())).toEqual({ title: 'New', owner: 'sample:bob', flag: '' })
+  })
+
+  it('saves an optional boolean cycled back to unset as a clear (QRun-IO/qqq#761)', async () => {
+    const user = userEvent.setup()
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
+    renderForm(stored)
+    const flag = screen.getByRole('checkbox', { name: 'Flag' })
+    expect(flag).toHaveAttribute('aria-checked', 'false')
+    await user.click(flag)
+    expect(flag).toHaveAttribute('aria-checked', 'mixed')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1))
+    expect((patch.mock.calls[0][1] as FormData).get('flag')).toBe('')
+  })
 })

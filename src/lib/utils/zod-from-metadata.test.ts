@@ -66,6 +66,16 @@ it('preserves explicit null only in copy defaults while retaining ordinary defau
   expect(values).toEqual({ flag: null, note: null })
 })
 
+it('validates an edit of a record whose optional boolean is null (QRun-IO/qqq#761)', () => {
+  const table = makeTable({
+    flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
+    note: makeField({ name: 'note' }),
+  })
+  const values = defaultValuesFromRecord(table, { flag: null, note: 'Kept' })
+  expect(values).toEqual({ flag: null, note: 'Kept' })
+  expect(zodSchemaFromTableMetadata(table).safeParse(values)).toMatchObject({ success: true, data: { flag: null, note: 'Kept' } })
+})
+
 it('accepts null only for optional copy fields without changing ordinary form schemas', () => {
   const table = makeTable({
     flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
@@ -154,6 +164,23 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse(true).success).toBe(true)
       expect(schema.safeParse(false).success).toBe(true)
       expect(schema.safeParse(undefined).success).toBe(true)
+    })
+
+    // QRun-IO/qqq#761: an optional BOOLEAN stored as null (or cycled back to unset) is a valid value.
+    it('accepts null for an optional boolean', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'BOOLEAN' }))
+      const result = schema.safeParse(null)
+      expect(result.success).toBe(true)
+      expect(result.success && result.data).toBeNull()
+    })
+
+    it('requires a value for a required boolean, with a readable message', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'BOOLEAN', isRequired: true, label: 'Active' }))
+      expect(schema.safeParse(true).success).toBe(true)
+      expect(schema.safeParse(false).success).toBe(true)
+      const missing = schema.safeParse(null)
+      expect(missing.success).toBe(false)
+      expect(missing.error?.issues[0]?.message).toBe('Active is required')
     })
   })
 
