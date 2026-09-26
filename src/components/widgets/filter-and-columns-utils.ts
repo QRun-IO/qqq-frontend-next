@@ -215,7 +215,7 @@ export function fieldLookup(table: QTableMetaData): (fieldName: string) => QFiel
 
 /** A filter in the JSON shape Material saves (`QQueryFilter` as `prepQueryFilterForBackend` builds it). */
 export interface BackendQueryFilter {
-  criteria: Array<Pick<QFilterCriteria, 'fieldName' | 'operator' | 'values'>>
+  criteria: QFilterCriteria[]
   orderBys?: Array<{ fieldName: string; isAscending: boolean }>
   subFilters: BackendQueryFilter[]
   booleanOperator: 'AND' | 'OR'
@@ -233,7 +233,7 @@ export interface BackendQueryFilter {
  */
 export function toBackendFilter(table: QTableMetaData, filter: QQueryFilter): BackendQueryFilter {
   const shape = (f: QQueryFilter): BackendQueryFilter => ({
-    criteria: f.criteria.map(({ fieldName, operator, values }) => ({ fieldName, operator, values })),
+    criteria: f.criteria.map((criterion) => ({ ...criterion })),
     ...(f.orderBys ? { orderBys: f.orderBys.map(({ fieldName, isAscending }) => ({ fieldName, isAscending })) } : {}),
     subFilters: (f.subFilters ?? []).map(shape),
     booleanOperator: f.booleanOperator === 'OR' ? 'OR' : 'AND',

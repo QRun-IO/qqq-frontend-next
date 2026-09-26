@@ -61,10 +61,37 @@ test('[WID-030] filter and columns setup shows the saved filter, sort and visibl
   await expect(byId(page, 'filter-criterion-reportSetupWidget-0-1')).toHaveText('Annual Salary greater than 1000')
   await expect(byId(page, 'filter-sort-reportSetupWidget')).toHaveText('Sorted by Last Name descending')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['Id', 'First Name', 'Last Name'])
+  await expect(byId(page, 'filter-preview-reportSetupWidget')).toBeVisible()
   await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'reportSetupWidget')
   await expect(byId(page, 'filter-none-reportSetupWidget')).toHaveText('No filters')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['ID', 'Species'])
+})
+
+test('[WID-070] saved-report filter editor cancels drafts and persists OK through the form @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const before = (await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]
+  await open(page, '/app/savedReport/1/edit')
+  const edit = page.getByRole('button', { name: 'Edit Filters and Columns' })
+  await expect(edit).toBeVisible()
+  await edit.click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByLabel('Sort by').selectOption('possibleValueLabel')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toHaveCount(0)
+  expect((await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]).toEqual(before)
+
+  await edit.click()
+  await dialog.getByLabel('Sort by').selectOption('possibleValueLabel')
+  await dialog.getByRole('button', { name: 'OK' }).click()
+  await expect(dialog).toHaveCount(0)
+  expect((await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]).toEqual(before)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  const after = (await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]
+  expect(JSON.parse(after.query_filter_json).orderBys).toEqual([{ fieldName: 'possibleValueLabel', isAscending: true }])
+  expect(JSON.parse(after.columns_json).columns.some((column: { name: string }) => column.name === 'possibleValueLabel')).toBe(true)
 })
 
 test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {

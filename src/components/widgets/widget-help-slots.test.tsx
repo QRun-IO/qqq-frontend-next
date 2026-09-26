@@ -21,6 +21,10 @@ import { beforeAll, describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: vi.fn(() => ({ data: undefined, isLoading: false, isError: false })) }))
+vi.mock('@/lib/hooks/use-filter-setup', () => ({
+  useApiTableMetaData: () => ({ data: undefined, isLoading: false, isError: false }),
+  useFilterSetupPreview: () => ({ records: [], totalCount: 0, isLoading: false, error: null }),
+}))
 
 import type { QRecord, QWidgetMetaData } from '@/types'
 import { QContext, type QContextType } from '@/lib/context/q-context'

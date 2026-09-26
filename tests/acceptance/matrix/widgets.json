@@ -564,6 +564,26 @@
       "required": true
     },
     {
+      "id": "WID-070",
+      "feature": "filterAndColumnsSetup edits a saved report's filter, sort and columns through the host form",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:303-362",
+        "src/components/widgets/FilterAndColumnsSetupEditor.tsx"
+      ],
+      "fixture": "prime-sharing savedReport 1 (Pet Species Report, no pivot table); saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "Edit Filters and Columns opens the report setup dialog",
+        "OK writes queryFilterJson and columnsJson to the host form, and Save persists a changed sort to the backend"
+      ],
+      "negative": [
+        "Cancel discards the draft; OK without host Save leaves the backend row unchanged"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
       "id": "WID-031",
       "feature": "rowBuilder widget without association binding shows its rows read-only",
       "source": [
