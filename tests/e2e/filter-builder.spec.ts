@@ -179,12 +179,17 @@ test.describe('FilterBuilder', () => {
     await page.locator('[data-qqq-id="filter-add-criterion-0"]').click()
     await expect(page.locator('[data-qqq-id="filter-row-0-0"]')).toBeVisible({ timeout: 5000 })
 
-    // Click "Clear all"
+    // Clearing filters requires confirmation; Cancel keeps the current criterion.
     const clearBtn = page.locator('[data-qqq-id="button-clear-filter"]')
     await expect(clearBtn).toBeVisible()
     await clearBtn.click()
+    const confirmation = page.getByRole('alertdialog')
+    await expect(confirmation).toBeVisible()
+    await confirmation.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.locator('[data-qqq-id="filter-row-0-0"]')).toBeVisible()
 
-    // Criteria row should be gone
+    await clearBtn.click()
+    await confirmation.getByRole('button', { name: 'Clear filters' }).click()
     await expect(page.locator('[data-qqq-id="filter-row-0-0"]')).not.toBeVisible({ timeout: 5000 })
   })
 
