@@ -18,5 +18,12 @@
   },
   "cssGzipKB": 18,
   "totalJsGzipKB": 710,
-  "largestChunkGzipKB": 100
+  "largestChunkGzipKB": 100,
+  "lazyChunks": {
+    "rapidoc": {
+      "$comment": "RapiDoc (the table developer view's API docs, QRun-IO/qqq#714) loads only when that view opens: import('rapidoc') in TableApiDocs. Measured 204.5 KB gzip at 1.0; budget about 5% above.",
+      "marker": "customElements.define(\"rapi-doc\"",
+      "gzipKB": 215
+    }
+  }
 }

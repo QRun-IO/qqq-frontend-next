@@ -13,6 +13,11 @@
 // First-load JS of a route is every script the route's HTML loads before hydration (script src
 // and preload links), gzip-compressed the way the server sends it. Next 16 no longer prints these
 // sizes, so they are measured from out/. The report lands in test-results/performance/bundle.json.
+//
+// A library that only one screen loads on demand (RapiDoc for the table API docs, QRun-IO/qqq#714)
+// is budgeted on its own under `lazyChunks`: its chunk is found by a marker in its code, must not be
+// part of any route's first load, must stay within its own budget, and is left out of the total and
+// largest-chunk budgets, which keep measuring the rest of the application.
 import { gzipSync } from 'node:zlib'
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -49,7 +54,7 @@ function routeOf(file) {
 const kb = (bytes) => Math.round((bytes / 1024) * 10) / 10
 
 /** Measures every exported route. */
-function measure() {
+function measure(lazyBudgets = {}) {
   const files = walk(OUT)
   const html = files.filter((f) => f.endsWith('.html'))
   const routes = html.map((file) => {
@@ -70,9 +75,23 @@ function measure() {
   }).sort((a, b) => a.route.localeCompare(b.route))
 
   const chunks = files.filter((f) => f.includes(`${path.sep}_next${path.sep}static${path.sep}`) && f.endsWith('.js'))
-  const largest = chunks.map((f) => ({ file: path.relative(OUT, f), ...sizes(f) })).sort((a, b) => b.gzip - a.gzip)
+  const firstLoad = new Set(html.flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/(?:src|href)="\/(_next\/static\/[^"?#]+\.js)"/g)].map((m) => m[1])))
+  const lazy = Object.entries(lazyBudgets).map(([name, { marker }]) => {
+    const matched = chunks.filter((f) => readFileSync(f, 'utf8').includes(marker)).map((f) => path.relative(OUT, f).split(path.sep).join('/'))
+    return {
+      name,
+      chunks: matched,
+      gzipKB: kb(matched.reduce((t, c) => t + sizes(path.join(OUT, c)).gzip, 0)),
+      inFirstLoad: matched.filter((c) => firstLoad.has(c)),
+    }
+  })
+  const lazyFiles = new Set(lazy.flatMap((entry) => entry.chunks))
+  const largest = chunks.map((f) => ({ file: path.relative(OUT, f).split(path.sep).join('/'), ...sizes(f) }))
+    .filter((c) => !lazyFiles.has(c.file))
+    .sort((a, b) => b.gzip - a.gzip)
   return {
     routes,
+    lazy,
     totalJsGzipKB: kb(largest.reduce((t, c) => t + c.gzip, 0)),
     totalJsRawKB: kb(largest.reduce((t, c) => t + c.raw, 0)),
     chunkCount: largest.length,
@@ -94,13 +113,19 @@ function check(result, budget) {
   for (const route of Object.keys(budget.routes ?? {})) {
     if (!result.routes.some((r) => r.route === route)) problems.push(`${route}: budgeted route missing from the export`)
   }
+  for (const entry of result.lazy) {
+    const limit = budget.lazyChunks[entry.name].gzipKB
+    if (!entry.chunks.length) problems.push(`lazy chunk ${entry.name}: no chunk contains its marker (update the marker, or remove the entry)`)
+    for (const chunk of entry.inFirstLoad) problems.push(`lazy chunk ${entry.name}: ${chunk} is loaded on first load of a route`)
+    over(`lazy chunk ${entry.name} (gzip)`, entry.gzipKB, limit)
+  }
   over('total JS (gzip)', result.totalJsGzipKB, budget.totalJsGzipKB)
   over(`largest chunk ${result.largestChunks[0]?.file} (gzip)`, result.largestChunks[0]?.gzipKB ?? 0, budget.largestChunkGzipKB)
   return problems
 }
 
 const budget = JSON.parse(readFileSync(BUDGET_FILE, 'utf8'))
-const result = measure()
+const result = measure(budget.lazyChunks)
 if (!result.routes.length) {
   console.error(`No exported HTML under ${OUT}; run \`pnpm build:export\` first.`)
   process.exit(1)
@@ -114,6 +139,9 @@ for (const r of result.routes) {
 }
 console.log(`Total JS: ${result.totalJsGzipKB} KB gzip (${result.totalJsRawKB} KB raw) in ${result.chunkCount} chunks; budget ${budget.totalJsGzipKB} KB`)
 console.log(`Largest chunks: ${result.largestChunks.map((c) => `${c.file} ${c.gzipKB} KB`).join(', ')}; budget ${budget.largestChunkGzipKB} KB`)
+for (const entry of result.lazy) {
+  console.log(`Lazy chunk ${entry.name}: ${entry.gzipKB} KB gzip in ${entry.chunks.join(', ') || 'no chunk'}; budget ${budget.lazyChunks[entry.name].gzipKB} KB; first load: ${entry.inFirstLoad.length ? entry.inFirstLoad.join(', ') : 'none'}`)
+}
 
 mkdirSync(path.dirname(REPORT), { recursive: true })
 writeFileSync(REPORT, JSON.stringify({ budget, result, problems }, null, 2) + '\n')
