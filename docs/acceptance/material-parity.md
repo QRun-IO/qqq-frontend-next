@@ -16,13 +16,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Shell and navigation | 95 | 2 | 3 | 4 | 7 | 111 |
+| Shell and navigation | 97 | 3 | 0 | 3 | 8 | 111 |
 | Query | 122 | 3 | 3 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
 | Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
 | Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
-| Supplemental metadata and theme | 36 | 0 | 3 | 1 | 11 | 51 |
-| **Total** | **660** | **8** | **54** | **39** | **34** | **795** |
+| Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
+| **Total** | **663** | **9** | **51** | **37** | **35** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -91,16 +91,16 @@ This area covers routing, auth and session handling, context and extension point
 | OAUTH2 missing or unknown state recovery | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:228-245 | src/app/(auth)/callback/CallbackContent.tsx | SEC-026 | Done: always errors, even with a valid cookie (minor) |
 | OAUTH2/Auth0 misconfiguration error | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:445-448; material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:266 | src/lib/auth/oidc.ts:125-126 | none | Done: no acceptance row |
 | OAUTH2 logout (backend logout, cookies, `oidc.*` keys, end-session) | material:src/qqq/authorization/oauth2/useOAuth2AuthenticationModule.tsx:353-405 | src/lib/auth/auth-provider.tsx:handleLogout; src/lib/auth/oidc.ts:buildEndSessionUrl | SEC-027, SEC-033 | Done |
-| AUTH_0 sign-in | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:147-199,261,291 | src/lib/auth/oidc.ts:exchangeAuth0Code | SEC-029, SEC-030 | Partial: redirect URI moved from `{origin}/` to `{origin}/token`; Auth0 app registrations need updating; #732 |
+| AUTH_0 sign-in | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:147-199,261,291 | src/lib/auth/oidc.ts:redirectUri,exchangeAuth0Code; src/app/page.tsx | SEC-029, SEC-030 | Done: the existing `{origin}/` redirect URI is retained; `/` handles code and error callbacks |
 | AUTH_0 token cache and JWT-claims comparison | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:56-100 | Cookie resume instead | none | N/A: different mechanism, same visible result |
-| AUTH_0 `?error=` shows `error_description`, then logout | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:228-235; material:src/HandleAuthorizationError.tsx:33-48 | src/app/(auth)/callback/CallbackContent.tsx; src/app/(auth)/login/page.tsx:CALLBACK_ERRORS | SEC-029, SEC-026 | Partial: provider text only logged to the console; user sees a generic message; #732 |
+| AUTH_0 `?error=` shows `error_description`, then logout | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:228-235; material:src/HandleAuthorizationError.tsx:33-48 | src/app/(auth)/callback/CallbackContent.tsx; src/lib/auth/callback-errors.ts | SEC-029, SEC-026, SEC-041 | Done: a state-matched provider description is shown once; forged callbacks and direct links keep a generic message |
 | AUTH_0 ProtectedRoute and Loader | material:src/qqq/authorization/auth0/ProtectedRoute.tsx; material:src/qqq/authorization/auth0/Loader.tsx | src/app/(dashboard)/layout.tsx; src/app/(auth)/login/page.tsx | SEC-029 | Done |
 | AUTH_0 logout | material:src/qqq/authorization/auth0/useAuth0AuthenticationModule.tsx:206-211 | src/lib/auth/auth-provider.tsx:handleLogout | SEC-029, SEC-033 | Done |
 | Auth0 Profile and CodeSnippet components | material:src/qqq/authorization/auth0/Profile.tsx; material:src/qqq/authorization/auth0/CodeSnippet.tsx | none | none | N/A: dead code |
 | Global 401 handling | material:src/qqq/utils/qqq/Client.ts:handleException; material:src/App.tsx:100 | src/lib/api/client.ts (interceptor); src/lib/auth/auth-provider.tsx:250-261 | SEC-022, SEC-028, PRC-041 | Done: re-authenticates and returns to the page (Material logged out); loop guard |
 | 401 while loading metadata | material:src/App.tsx:580-596 | src/lib/api/client.ts; src/lib/auth/auth-provider.tsx:250-260 | SEC-022 | Done |
 | Logout clears per-user client data | material:src/App.tsx:149-169 | src/lib/auth/auth-storage.ts:clearUserClientData | SEC-021 | Done: analytics reset is covered in the Analytics rows |
-| User entry: name, Gravatar (`gravatarDefault`), or "Anonymous" | material:src/App.tsx:514-530 | src/components/layout/Sidebar.tsx:UserFooter (initial letter) | SEC-020, SEC-031 | Partial: no Gravatar or gravatarDefault (the backend field exists); no "Anonymous" label; #732 |
+| User entry: name, Gravatar (`gravatarDefault`), or "Anonymous" | material:src/App.tsx:514-530 | src/components/layout/Sidebar.tsx:UserFooter; src/lib/utils/gravatar.ts | SEC-020, SEC-031 | Done (different UX): "Anonymous" and Gravatar with `gravatarDefault` are implemented and unit-tested; Next requires branding opt-in before requesting an avatar from Gravatar |
 | Log Out button | material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:384 | src/components/layout/Sidebar.tsx:UserFooter (menu-item-logout) | SEC-021, SEC-027 | Done: two clicks |
 | MUI X license key | material:src/App.tsx:136-144 | none | none | N/A: MUI-specific |
 
@@ -163,7 +163,7 @@ This area covers routing, auth and session handling, context and extension point
 |---|---|---|---|---|
 | Permitted apps from appTree (label, order, icons) | material:src/App.tsx:538-575; material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:212-306 | src/lib/hooks/use-routes.ts:buildRouteMap; src/components/layout/Sidebar.tsx | NAV-002, NAV-005 | Done: Next also lists leaves |
 | Nested apps (Material caps at depth 2) | material:src/App.tsx:196-258 | src/lib/hooks/use-routes.ts:visit (unlimited) | NAV-003 | Done: more than Material |
-| `hideChildrenFromNavigation` | material:src/App.tsx:210 | none | none | Missing: children still shown; #732 |
+| `hideChildrenFromNavigation` | material:src/App.tsx:193-256 | src/lib/hooks/use-routes.ts:visit | none | N/A: Material's sidebar builder always visits children and never reads this backend-core flag; both UIs show the children |
 | Expand/collapse groups; the current route's group opens | material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:110-114,166-188,256-269 | src/components/layout/Sidebar.tsx:activeGroupPaths, toggleCollapse | NAV-003, NAV-004 | Done: several groups open vs accordion |
 | Active-entry highlighting | material:src/qqq/components/horseshoe/sidenav/SideNavCollapse.tsx:64; material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:178,200-204,232 | src/components/layout/Sidebar.tsx (aria-current) | NAV-004 | Done |
 | Logo or appName, click goes home | material:src/qqq/components/horseshoe/sidenav/SideNav.tsx:353-368 | src/components/layout/Sidebar.tsx:SidebarBranding | NAV-012 | Done: links to `/app` |
@@ -515,7 +515,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | Process runs as a modal over the query screen (`/table/process`), query stays behind | `material:src/App.tsx:369-381`; `material:src/qqq/pages/records/query/RecordQuery.tsx:1644-1670, 2790-2812, 3373-3378` | `src/components/query/RecordQuery.tsx:launchProcess` → full page `/app/{process}?recordsParam…` | PRC-005, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the query |
 | Process runs as a modal over a record view (`/table/id/process`) with `recordIds=[id]` | `material:src/App.tsx:383-388`; `material:src/qqq/pages/records/view/RecordView.tsx:362-375, 1016-1020, 1364-1368` | `src/components/records/RecordActions.tsx:234`, `src/components/records/RecordViewHeader.tsx:394` → `/app/{process}?recordIds=pk` | PRC-001, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the record |
 | Deep links in Material's URL shapes (`…/table/process`, `…/table/:id/process`) | `material:src/App.tsx:376-388` | `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve to the process | NAV-034, NAV-035 | Done |
-| Generic processes added to every query/view screen (`materialDashboard.processNamesToAddToAllQueryAndViewScreens`, deprecated `runRecordScript`) | `material:src/App.tsx:390-443`; `material:src/qqq/pages/records/view/RecordView.tsx:546-566` | src/lib/utils/process-utils.ts:getProcessesForTable, getRecordActionProcesses; src/lib/api/metadata.ts (supplementalInstanceMetaData) | PRC-050 | Done: deprecated runRecordScript fallback is Missing, tracked on #732 |
+| Generic processes added to every query/view screen (`materialDashboard.processNamesToAddToAllQueryAndViewScreens`, deprecated `runRecordScript`) | `material:src/App.tsx:390-443`; `material:src/qqq/pages/records/view/RecordView.tsx:546-566` | src/lib/utils/process-utils.ts:getProcessesForTable,getProcessesForAllScreens,getRecordActionProcesses; src/lib/api/metadata.ts | PRC-050 | Done: the deprecated runRecordScript fallback is unit-tested when Material instance metadata is absent |
 | Closing a query modal goes up one path and refreshes the grid (`updateTable`) | `material:src/qqq/pages/records/query/RecordQuery.tsx:1676-1691` | `src/components/process/ProcessRun.tsx:processReturnPath` → launching query; records refetch (staleTime 0 in `src/lib/hooks/use-record-query.ts`) | PRC-023, NAV-034, NAV-035 | Done: returns to the launching query |
 | Closing a record modal returns to the record and reloads it | `material:src/qqq/pages/records/view/RecordView.tsx:1022-1041, 455-461` | `src/components/process/ProcessRun.tsx:processReturnPath` → launching record | NAV-034, NAV-035 | Done: returns to the launching record |
 | Backdrop click / Escape don't close a modal process | `material:src/qqq/pages/records/query/RecordQuery.tsx:1678-1681` | — | none | N/A: no modal in Next |
@@ -563,7 +563,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | Page header = overrideLabel ?? process label | `material:src/qqq/pages/processes/ProcessRun.tsx:1187-1190` | `src/app/(dashboard)/app/[slug]/page.tsx` setPageHeader | NAV-014 | Done |
 | Step title (modal shows "Process: Step") | `material:src/qqq/pages/processes/ProcessRun.tsx:774-779` | `src/components/process/ProcessStepScreen.tsx` heading | PRC-007 | Done: modal variant N/A |
 | Scanner format: no heading, no action bar | `material:src/qqq/pages/processes/ProcessRun.tsx:765, 774, 2262` | `src/components/process/ProcessStepScreen.tsx` isScanner | PRC-044 | Done |
-| Step help content (PROCESS_SCREEN / ALL_SCREENS roles; shown in help-authoring mode) | `material:src/qqq/pages/processes/ProcessRun.tsx:762-786` | `src/components/process/ProcessStepScreen.tsx:StepHelp` | PRC-015 | Done: no help-authoring (helpHelpActive) mode; #732 |
+| Step help content (PROCESS_SCREEN / ALL_SCREENS roles; shown in help-authoring mode) | `material:src/qqq/pages/processes/ProcessRun.tsx:762-786` | `src/components/process/ProcessStepScreen.tsx:StepHelp`; `src/lib/utils/help-utils.ts` | PRC-015 | Done: step help selects screen roles and appends the slot key in help-authoring mode |
 | Floating form-error alert | `material:src/qqq/pages/processes/ProcessRun.tsx:2312` | per-component error text (e.g. `src/components/process/BulkEditFormComponent.tsx`) | PRC-029 | Done |
 | Form reset per screen (touched cleared) | `material:src/qqq/pages/processes/ProcessRun.tsx:1216-1219, 2200` | `src/components/process/ProcessStepScreen.tsx` keyed by screenInstance | none | Done |
 | Enter submits the step | `material:src/qqq/pages/processes/ProcessRun.tsx:2218` (Formik Form) | `src/components/process/ProcessStepScreen.tsx` `<form onSubmit>` | INT-002 | Done |
@@ -1060,7 +1060,7 @@ What the backend sends and what Next reads (QQQ `develop` includes [#804](https:
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| No-instance-metadata fallback: `runRecordScript` process on all query and view screens (deprecated path) | material:src/qqq/components/query/QueryScreenActionMenu.tsx:126-137; material:src/qqq/pages/records/view/RecordView.tsx:561-565; material:src/App.tsx:420-440 | none | none | Missing: runRecordScript fallback; #732 |
+| No-instance-metadata fallback: `runRecordScript` process on all query and view screens (deprecated path) | material:src/qqq/components/query/QueryScreenActionMenu.tsx:126-137; material:src/qqq/pages/records/view/RecordView.tsx:561-565; material:src/App.tsx:420-440 | src/lib/utils/process-utils.ts:getProcessesForAllScreens | none | Done: selects runRecordScript when supplemental Material instance metadata is absent; unit-tested |
 
 ## Windows, menus, dialogs, popovers, drawers and modals
 
@@ -1246,5 +1246,5 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
-- #732 Next UI 1.0 parity: shell, auth and help small items: 9 open rows
+- #732 Next UI 1.0 parity: shell, auth and help small items: 4 open rows
 - #736 (title not recorded): 0 open rows

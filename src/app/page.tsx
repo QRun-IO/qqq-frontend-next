@@ -15,13 +15,15 @@
  */
 
 /**
- * @file Root page — redirects the application root to the dashboard.
+ * @file Root page — handles the Material Auth0 callback or opens the dashboard.
  */
 
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+import CallbackContent from './(auth)/callback/CallbackContent'
 
 /**
  * Root page that immediately redirects to `/app`.
@@ -32,10 +34,23 @@ import { useRouter } from 'next/navigation'
  *
  * @returns Nothing; navigation replaces this page.
  */
-export default function RootPage() {
+function RootContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isCallback = searchParams.has('code') || searchParams.has('error')
   useEffect(() => {
-    router.replace('/app')
-  }, [router])
+    if (!isCallback) router.replace('/app')
+  }, [isCallback, router])
+  if (isCallback) {
+    return <main className="flex min-h-screen items-center justify-center bg-muted p-4"><CallbackContent /></main>
+  }
   return null
+}
+
+/**
+ * Wraps the root route in the search parameter boundary required by static export.
+ * @returns The root route.
+ */
+export default function RootPage() {
+  return <Suspense fallback={null}><RootContent /></Suspense>
 }

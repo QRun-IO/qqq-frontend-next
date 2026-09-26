@@ -50,14 +50,14 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
     const authorize = auth0.requests.find((request) => request.path === '/authorize')
-    expect(authorize?.query).toMatchObject({ client_id: AUTH0_CLIENT, audience: AUDIENCE, code_challenge_method: 'S256', redirect_uri: `${SECURITY_URL}/token` })
+    expect(authorize?.query).toMatchObject({ client_id: AUTH0_CLIENT, audience: AUDIENCE, code_challenge_method: 'S256', redirect_uri: `${SECURITY_URL}/` })
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
 
     // a public SPA client: the browser redeems the code with its PKCE verifier, no secret
     const [token] = auth0.requests.filter((request) => request.path === '/oauth/token')
     expect(token.authorization).toBeUndefined()
-    expect(token.form).toMatchObject({ grant_type: 'authorization_code', client_id: AUTH0_CLIENT, redirect_uri: `${SECURITY_URL}/token` })
+    expect(token.form).toMatchObject({ grant_type: 'authorization_code', client_id: AUTH0_CLIENT, redirect_uri: `${SECURITY_URL}/` })
     expect(token.form.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/)
     // the backend fetched the provider keys to verify the access token
     expect(auth0.requests.some((request) => request.path === '/.well-known/jwks.json')).toBe(true)
@@ -100,7 +100,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     void diagnostics
     await open(page, '/app/person')
     await page.getByRole('button', { name: 'Deny' }).click()
-    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in was denied by the identity provider.')
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('The user denied the sign-in.')
     expect(auth0.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
     expect(Number((await variantSql('select count(*) as n from user_session'))[0].n)).toBe(0)
   })

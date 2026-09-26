@@ -39,7 +39,7 @@ import type { QLoginBranding } from '@/types'
 import { useAuth } from '@/lib/auth/use-auth'
 import { recordReauthAttempt, resetReauthAttempts } from '@/lib/auth/auth-storage'
 import { safeReturnTo } from '@/lib/auth/return-to'
-import { callbackErrorMessage } from '@/lib/auth/callback-errors'
+import { callbackErrorMessage, consumeProviderError } from '@/lib/auth/callback-errors'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { applyBrandingTheme, isSafeImageSource } from '@/lib/theme/apply-branding'
 
@@ -193,13 +193,19 @@ function LoginContent() {
   const { isAuthenticated, isLoading, authMetadata, authError, isSignedOut, signIn, signInWithPassword } = useAuth()
   const autoSignInStarted = useRef(false)
   const [loopStopped, setLoopStopped] = React.useState(false)
+  const [providerError, setProviderError] = useState<string | null>(null)
 
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
-  const callbackError = callbackErrorMessage(searchParams.get('error'))
-  const errorMessage = authError ?? callbackError ?? (loopStopped ? 'Your session could not be re-established. Sign in again to continue.' : null)
+  const callbackCode = searchParams.get('error')
+  const callbackError = callbackErrorMessage(callbackCode)
+  const errorMessage = authError ?? providerError ?? callbackError ?? (loopStopped ? 'Your session could not be re-established. Sign in again to continue.' : null)
   const passwordSignIn = authMetadata?.type === 'TABLE_BASED'
   const branding = authMetadata?.branding
   const appName = branding?.appName?.trim()
+
+  useEffect(() => {
+    setProviderError(consumeProviderError(callbackCode))
+  }, [callbackCode])
 
   // Pre-sign-in branding: accent colors and favicon, and the app name in the title.
   useEffect(() => {

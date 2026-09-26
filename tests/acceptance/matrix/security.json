@@ -442,8 +442,8 @@
       "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
       "scenarios": [],
       "negative": [
-        "access_denied shows the provider denial",
-        "a state mismatch is rejected before any token exchange",
+        "a state-matched access_denied shows the provider description once",
+        "a state mismatch shows a generic error and is rejected before any token exchange",
         "a rejected code exchange shows the failure; no user_session row"
       ],
       "issues": [
@@ -748,7 +748,7 @@
       ],
       "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
       "scenarios": [
-        "access_denied and other known codes show their message; other well-formed codes show the code",
+        "direct links with access_denied and other known codes show their safe message; other well-formed codes show the code",
         "Try again signs in through the provider"
       ],
       "negative": [

@@ -24,6 +24,7 @@ import React, { useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth/use-auth'
+import { saveProviderError } from '@/lib/auth/callback-errors'
 import { PKCE_STORAGE } from '@/lib/auth/oidc'
 import { safeReturnTo } from '@/lib/auth/return-to'
 
@@ -50,11 +51,20 @@ export default function CallbackContent() {
     const returnTo = safeReturnTo(sessionStorage.getItem(PKCE_STORAGE.returnTo))
     const toLogin = (reason: string) => {
       sessionStorage.removeItem(PKCE_STORAGE.verifier)
+      sessionStorage.removeItem(PKCE_STORAGE.state)
+      sessionStorage.removeItem(PKCE_STORAGE.redirectUri)
+      sessionStorage.removeItem(PKCE_STORAGE.returnTo)
       router.replace(`/login?error=${encodeURIComponent(reason)}&returnTo=${encodeURIComponent(returnTo)}`)
     }
 
     if (error) {
-      console.warn('[Callback] Identity provider error:', error, searchParams.get('error_description') ?? '')
+      if (!state || state !== sessionStorage.getItem(PKCE_STORAGE.state)) {
+        console.warn('[Callback] Identity provider error with an invalid state:', error)
+        toLogin('callback_failed')
+        return
+      }
+      saveProviderError(error, searchParams.get('error_description'))
+      console.warn('[Callback] Identity provider error:', error)
       toLogin(error)
       return
     }

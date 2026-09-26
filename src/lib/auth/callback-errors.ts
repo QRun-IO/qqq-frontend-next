@@ -31,6 +31,42 @@ const CALLBACK_ERRORS: Record<string, string> = {
 
 /** An OAuth 2.0 style error code (RFC 6749 §4.1.2.1): lowercase words joined by underscores. */
 const ERROR_CODE = /^[a-z][a-z0-9_]{0,63}$/
+const PROVIDER_ERROR_KEY = 'oauth_provider_error'
+
+/** Discard a description when a new authorization attempt starts. */
+export function clearProviderError(): void {
+  sessionStorage.removeItem(PROVIDER_ERROR_KEY)
+}
+
+/**
+ * Carry a provider's explanation across the callback redirect, never through the URL.
+ * @param code - The provider's error code.
+ * @param description - The provider's explanation.
+ */
+export function saveProviderError(code: string, description: string | null): void {
+  clearProviderError()
+  const message = description?.replace(/\p{Cc}/gu, ' ').trim().slice(0, 300)
+  if (ERROR_CODE.test(code) && message) {
+    sessionStorage.setItem(PROVIDER_ERROR_KEY, JSON.stringify({ code, message }))
+  }
+}
+
+/**
+ * Return the provider's explanation once, only for its matching callback error.
+ * @param code - The login page's error code.
+ * @returns The saved explanation or null.
+ */
+export function consumeProviderError(code: string | null): string | null {
+  const stored = sessionStorage.getItem(PROVIDER_ERROR_KEY)
+  sessionStorage.removeItem(PROVIDER_ERROR_KEY)
+  if (!stored || !code) return null
+  try {
+    const value = JSON.parse(stored) as { code?: unknown; message?: unknown }
+    return value.code === code && typeof value.message === 'string' ? value.message : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * The login page message for an `?error=` value. Anyone can link to the login

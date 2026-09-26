@@ -441,7 +441,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       throw new Error('The sign-in attempt is missing its PKCE verifier.')
     }
     const metadata = await loadMetadata()
-    const uri = sessionStorage.getItem(PKCE_STORAGE.redirectUri) ?? redirectUri()
+    const uri = sessionStorage.getItem(PKCE_STORAGE.redirectUri) ?? redirectUri(metadata)
     let response: SessionResponse
     let fallback: AuthUser | null = null
     if (metadata.type === 'AUTH_0') {

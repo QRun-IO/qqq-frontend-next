@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from 'vitest'
-import { callbackErrorMessage } from './callback-errors'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { callbackErrorMessage, clearProviderError, consumeProviderError, saveProviderError } from './callback-errors'
+
+beforeEach(() => sessionStorage.clear())
 
 describe('callbackErrorMessage (QRun-IO/qqq#696)', () => {
   it('explains known provider and callback codes', () => {
@@ -46,5 +48,26 @@ describe('callbackErrorMessage (QRun-IO/qqq#696)', () => {
   it('returns null without an error', () => {
     expect(callbackErrorMessage(null)).toBeNull()
     expect(callbackErrorMessage('')).toBeNull()
+  })
+
+  it('shows a matching provider description once without placing it in the URL', () => {
+    saveProviderError('access_denied', ' The user denied the sign-in. ')
+    expect(consumeProviderError('access_denied')).toBe('The user denied the sign-in.')
+    expect(consumeProviderError('access_denied')).toBeNull()
+  })
+
+  it('rejects descriptions for another error and malformed error codes', () => {
+    saveProviderError('access_denied', 'The user denied the sign-in.')
+    expect(consumeProviderError('callback_failed')).toBeNull()
+    saveProviderError('not a code', 'Spoofed provider text')
+    expect(consumeProviderError('not a code')).toBeNull()
+  })
+
+  it('limits provider text and clears it for a new attempt', () => {
+    saveProviderError('access_denied', `A\n${'x'.repeat(400)}`)
+    expect(consumeProviderError('access_denied')).toBe(`A ${'x'.repeat(298)}`)
+    saveProviderError('access_denied', 'Old denial')
+    clearProviderError()
+    expect(consumeProviderError('access_denied')).toBeNull()
   })
 })

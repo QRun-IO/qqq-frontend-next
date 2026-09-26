@@ -88,7 +88,7 @@ test.describe('OAUTH2 with PKCE', () => {
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
     await page.getByRole('button', { name: 'Deny' }).click()
     await expect(page).toHaveURL(/\/login\/?\?error=access_denied/)
-    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in was denied by the identity provider.')
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('The user denied the sign-in.')
     expect(idp.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
     expect(await sessions()).toBe(0)
 
@@ -101,6 +101,16 @@ test.describe('OAUTH2 with PKCE', () => {
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
     await open(page, '/token?code=stolen-code&state=forged-state')
+    await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in could not be completed.')
+    expect(idp.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
+    expect(await sessions()).toBe(0)
+  })
+
+  test('[SEC-026] a denial with a forged state cannot show provider text @mobile', async ({ page, idp, diagnostics }) => {
+    void diagnostics
+    await open(page, '/app/person')
+    await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
+    await open(page, '/token?error=access_denied&error_description=Spoofed%20provider%20text&state=forged-state')
     await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in could not be completed.')
     expect(idp.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
     expect(await sessions()).toBe(0)

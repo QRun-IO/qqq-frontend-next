@@ -23,6 +23,7 @@
  */
 
 import type { QAuthenticationMetaData } from '@/types'
+import { clearProviderError } from './callback-errors'
 
 /** sessionStorage keys that carry one authorization attempt across the IdP redirect. */
 export const PKCE_STORAGE = {
@@ -93,13 +94,14 @@ export function generateState(): string {
 }
 
 /**
- * The redirect URI registered with the identity provider. `/token` matches the
- * Material dashboard, so existing IdP client registrations keep working.
+ * The redirect URI registered with the identity provider. Material used `/token`
+ * for OAUTH2 and the origin root for AUTH_0; keep both client registrations valid.
  *
- * @returns `{origin}/token`.
+ * @param authMeta - Authentication metadata, when known.
+ * @returns The Material-compatible callback URI.
  */
-export function redirectUri(): string {
-  return `${window.location.origin}/token`
+export function redirectUri(authMeta?: QAuthenticationMetaData): string {
+  return `${window.location.origin}${authMeta?.type === 'AUTH_0' ? '/' : '/token'}`
 }
 
 /**
@@ -171,7 +173,7 @@ export async function buildAuthorizationUrl(authMeta: QAuthenticationMetaData, c
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
-    redirect_uri: redirectUri(),
+    redirect_uri: redirectUri(authMeta),
     scope: authMeta.values?.scopes || DEFAULT_SCOPES,
     state,
     code_challenge: challenge,
@@ -191,10 +193,11 @@ export async function startAuthorizationRedirect(authMeta: QAuthenticationMetaDa
   const verifier = generateCodeVerifier()
   const state = generateState()
   const url = await buildAuthorizationUrl(authMeta, await generateCodeChallenge(verifier), state)
+  clearProviderError()
   sessionStorage.setItem(PKCE_STORAGE.verifier, verifier)
   sessionStorage.setItem(PKCE_STORAGE.state, state)
   sessionStorage.setItem(PKCE_STORAGE.returnTo, returnTo)
-  sessionStorage.setItem(PKCE_STORAGE.redirectUri, redirectUri())
+  sessionStorage.setItem(PKCE_STORAGE.redirectUri, redirectUri(authMeta))
   window.location.assign(url)
 }
 
@@ -216,7 +219,7 @@ export async function exchangeAuth0Code(authMeta: QAuthenticationMetaData, code:
       client_id: clientId,
       code,
       code_verifier: codeVerifier,
-      redirect_uri: sessionStorage.getItem(PKCE_STORAGE.redirectUri) ?? redirectUri(),
+      redirect_uri: sessionStorage.getItem(PKCE_STORAGE.redirectUri) ?? redirectUri(authMeta),
     }).toString(),
   })
   const body = await response.json().catch(() => ({})) as Partial<TokenResponse> & { error?: string; error_description?: string }
