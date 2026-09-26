@@ -353,7 +353,8 @@ export async function processStatus(
  * @param processUUID - UUID identifying this process run instance.
  * @param skip - Number of records to skip (zero-based offset for pagination).
  * @param limit - Maximum number of records to return in this page.
- * @returns An object containing the total record count and the current page of records.
+ * @returns An object containing the total record count and the current page of records
+ *   (an empty page when the backend omits `records` for a run with no input records).
  */
 export async function processRecords(
   processName: string,
@@ -368,9 +369,12 @@ export async function processRecords(
       params: { skip, limit },
     }
   )
-  if (!body || !Array.isArray(body.records) || typeof body.totalRecords !== 'number') {
+  if (!body || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
   }
+  // The backend omits `records` (a null list) for a run with no input records.
+  if (body.records == null && body.totalRecords === 0) return { ...body, records: [] }
+  if (!Array.isArray(body.records)) throw new Error('Invalid process records response')
   return body
 }
 
