@@ -16,13 +16,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Shell and navigation | 97 | 3 | 0 | 3 | 8 | 111 |
+| Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 122 | 3 | 3 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
-| Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
+| Processes and reports | 93 | 2 | 20 | 10 | 3 | 128 |
 | Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **663** | **9** | **51** | **37** | **35** | **795** |
+| **Total** | **663** | **9** | **50** | **35** | **38** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -34,7 +34,7 @@ These gaps were closed on `feature/next-1.0-parity` during the audit. The area t
 
 - Page keyboard shortcuts: query `n`/`r`/`f`, record `n`/`e`/`c`/`d`/`a`, suppressed in text entry and open overlays (QRY-070, REC-055).
 - Record-view hash links `#audit`, `#/launchProcess=`, `#/createChild=`, section anchors, and the create page's `#/defaultValues=` / `#/disabledFields=` presets (REC-056, REC-051).
-- Material table-scoped URLs `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve, and process runs return to the launching record or query (NAV-034, NAV-035). Material ran these processes as a modal over the screen; Next runs them as a full page that returns to the caller, so those rows are Done (different UX). The table-scoped report URL `/app/{table}/{report}` stays Partial: the backend report metadata (QFrontendReportMetaData) has no tableName, so no report can match (#732).
+- Material table-scoped URLs `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve, and process runs return to the launching record or query (NAV-034, NAV-035). Material ran these processes as a modal over the screen; Next runs them as a full page that returns to the caller, so those rows are Done (different UX). The table-scoped report route is unreachable in Material because the frontend report metadata has no `tableName`.
 - The child record list "Add new" opens a create dialog over the parent with the join fields preset and locked (RPT-012).
 - The table variant is sent on process init, every process step and record requests (QRY-071).
 - Material app-home settings `showAppLabelOnHomeScreen` and `includeTableCountsOnHomeScreen` (NAV-036).
@@ -203,7 +203,7 @@ This area covers routing, auth and session handling, context and extension point
 | Help formats TEXT / HTML / MARKDOWN | material:src/qqq/components/misc/HelpContent.tsx:44-56 | src/components/records/HelpContent.tsx:47-67 | REC-039, REC-040, WID-044 | Done |
 | Help role priority | material:src/qqq/components/misc/HelpContent.tsx:62-88 | src/lib/utils/help-utils.ts:41-48 | REC-039 | Done |
 | Instance-level help slots | material:src/qqq/components/query/FilterCriteriaPaster.tsx:359-361 | qqq:qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/specs/v1/responses/MetaDataResponseV1.java; src/components/query/FilterValuePaster.tsx | none | Done: v1 publishes `helpContents` and the filter paster renders its slots; #732 |
-| App home "header" help | material:src/qqq/pages/apps/Home.tsx:230-241,313 | none | none | Missing: v1 AppMetaData lacks helpContent; #732 |
+| App home "header" help | material:src/qqq/pages/apps/Home.tsx:230-241,313 | none | none | N/A: Material renders the app heading and section heading here, but never reads app help content |
 
 ### App home
 
@@ -215,7 +215,7 @@ This area covers routing, auth and session handling, context and extension point
 | Table record counts | material:src/qqq/pages/apps/Home.tsx:130-181,462-467 | src/components/widgets/AppHome.tsx:107-124 | NAV-009 | Done |
 | `includeTableCountsOnHomeScreen = false` | material:src/qqq/pages/apps/Home.tsx:81-87,176-187 | src/components/widgets/AppHome.tsx:226 | NAV-036 | Done |
 | `showAppLabelOnHomeScreen = false` | material:src/qqq/pages/apps/Home.tsx:84-86,307-314 | src/components/widgets/AppHome.tsx:225 | NAV-036 | Done |
-| Section `apps` list | material:src/qqq/pages/apps/Home.tsx:424-450 | none (src/types/metadata.ts:340-353 has no `apps`) | none | Missing: v1 AppSection lacks apps; #732 |
+| Section `apps` list | material:src/qqq/pages/apps/Home.tsx:424-450 | none | none | N/A: Material renders table cards here and never reads `section.apps`; child app cards use `app.children` in a separate branch |
 | Child-app cards; empty app home | material:src/qqq/pages/apps/Home.tsx:248-302 | src/components/widgets/AppHome.tsx:260-277 | NAV-010, NAV-003 | Done |
 
 ## Query
@@ -511,7 +511,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Table-scoped report route `{table}/{report}` | `material:src/App.tsx:445-455` | src/lib/utils/material-links.ts:tableReportForSegment (matches a report by tableName, which the backend does not send) | NAV-034 | Partial: the backend report metadata (QFrontendReportMetaData) has no tableName, so a table-scoped report URL cannot resolve; #732 |
+| Table-scoped report route `{table}/{report}` | `material:src/App.tsx:442-454`; `material:src/qqq/utils/qqq/ProcessUtils.ts:50-65` | src/lib/utils/material-links.ts:tableReportForSegment | NAV-034 | N/A: Material also cannot match this route; QFrontendReportMetaData never sends `tableName` |
 | Process runs as a modal over the query screen (`/table/process`), query stays behind | `material:src/App.tsx:369-381`; `material:src/qqq/pages/records/query/RecordQuery.tsx:1644-1670, 2790-2812, 3373-3378` | `src/components/query/RecordQuery.tsx:launchProcess` → full page `/app/{process}?recordsParam…` | PRC-005, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the query |
 | Process runs as a modal over a record view (`/table/id/process`) with `recordIds=[id]` | `material:src/App.tsx:383-388`; `material:src/qqq/pages/records/view/RecordView.tsx:362-375, 1016-1020, 1364-1368` | `src/components/records/RecordActions.tsx:234`, `src/components/records/RecordViewHeader.tsx:394` → `/app/{process}?recordIds=pk` | PRC-001, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the record |
 | Deep links in Material's URL shapes (`…/table/process`, `…/table/:id/process`) | `material:src/App.tsx:376-388` | `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve to the process | NAV-034, NAV-035 | Done |
@@ -1246,5 +1246,5 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
-- #732 Next UI 1.0 parity: shell, auth and help small items: 4 open rows
+- #732 Next UI 1.0 parity: shell, auth and help small items: 1 open row
 - #736 (title not recorded): 0 open rows
