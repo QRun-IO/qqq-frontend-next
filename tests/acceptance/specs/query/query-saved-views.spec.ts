@@ -104,8 +104,8 @@ test('[QRY-052] update, rename and delete your view @mobile', async ({ page, bac
   await closeFilterSheet(page)
   // Opening the Advanced editor also changes the saved Basic/Advanced mode.
   const unsaved = page.locator('[data-qqq-id="saved-view-unsaved"]')
-  await expect(unsaved).toContainText('2 Unsaved Changes')
-  await expect(unsaved.locator('span[title]')).toHaveAttribute('title', /Changed the filter\nMode changed from basic to advanced/)
+  await expect(unsaved).toContainText('3 Unsaved Changes')
+  await expect(unsaved.locator('span[title]')).toHaveAttribute('title', /Changed a filter from First Name equals Avery to First Name starts with B\nThis view did not previously have columns saved with it, so the next time you save it they will be initialized\.\nMode changed from basic to advanced/)
   await page.locator('[data-qqq-id="saved-view-save-changes"]').click()
   await page.getByRole('dialog', { name: 'Update Existing View' }).getByRole('button', { name: 'Save' }).click()
   await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toHaveCount(0)
