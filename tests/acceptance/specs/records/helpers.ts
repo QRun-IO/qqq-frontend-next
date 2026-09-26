@@ -127,7 +127,10 @@ export async function openRecord(page: Page, table: string, id: string | number,
 /** Waits for an entity form (create, edit or copy) to render. */
 export async function openForm(page: Page, path: string, heading: string) {
   await page.goto(path, { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible()
+  const name = heading.startsWith('Create ')
+    ? `Creating New ${heading.slice('Create '.length)}`
+    : new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`)
+  await expect(page.getByRole('heading', { level: 2, name })).toBeVisible()
 }
 
 /**

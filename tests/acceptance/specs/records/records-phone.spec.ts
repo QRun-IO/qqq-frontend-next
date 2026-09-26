@@ -140,7 +140,7 @@ test.describe('on a phone', () => {
     // An action from the sheet
     await trigger.click()
     await sheet.getByRole('button', { name: 'Edit Record Lab', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 2, name: 'Edit Record Lab' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: /^Edit Record Lab:/ })).toBeVisible()
   })
 
   test('[REC-036] a tap shows the tooltip text, a second tap or a tap elsewhere hides it @mobile', async ({ page, diagnostics }) => {

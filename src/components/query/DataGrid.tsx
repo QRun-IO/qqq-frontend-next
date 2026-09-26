@@ -130,7 +130,7 @@ const DENSITY_CELL_CLASS: Record<Density, string> = {
 /** Width of the selection (checkbox) column. */
 const SELECT_COLUMN_WIDTH = 44
 /** Room for a sort label, statistics action and column menu without covering the next header. */
-const MIN_COLUMN_WIDTH = 140
+const MIN_COLUMN_WIDTH = 60
 
 /** Opaque background of odd (striped) rows, so pinned cells cover what scrolls under them. */
 const STRIPE_BG = 'bg-[color-mix(in_oklch,var(--color-muted)_55%,var(--color-card))]'

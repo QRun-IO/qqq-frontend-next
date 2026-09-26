@@ -66,19 +66,19 @@ test('[REC-055] record view shortcuts n, e, c, d and a open create, edit, copy, 
   await openRecord(page, 'person', 1, 'Avery Sample')
   await page.keyboard.press('e')
   await expect(page).toHaveURL(/\/app\/person\/1\/edit\/?$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'Edit Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: /^Edit Person:/ })).toBeVisible()
   await expect(control(page, 'firstName')).toHaveValue('Avery')
 
   await openRecord(page, 'person', 1, 'Avery Sample')
   await page.keyboard.press('c')
   await expect(page).toHaveURL(/\/app\/person\/1\/copy\/?$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'Copy Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: /^Copy Person:/ })).toBeVisible()
   await expect(control(page, 'email')).toHaveValue('avery@example.invalid')
 
   await openRecord(page, 'person', 1, 'Avery Sample')
   await page.keyboard.press('n')
   await expect(page).toHaveURL(/\/app\/person\/create\/?$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'Create Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Creating New Person' })).toBeVisible()
   await expect(control(page, 'firstName')).toHaveValue('')
 
   // a opens the audit history; while it is open the other shortcuts do nothing

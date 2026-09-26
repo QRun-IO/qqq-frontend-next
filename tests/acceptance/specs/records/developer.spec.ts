@@ -34,7 +34,7 @@ function card(page: Page): Locator {
 
 /** The version buttons of the associated script, in display order. */
 function versions(page: Page): Locator {
-  return card(page).locator('[data-qqq-id^="script-version-"]')
+  return card(page).locator('button[data-qqq-id^="script-version-"]')
 }
 
 /** The code block of Script.js for the selected version. */

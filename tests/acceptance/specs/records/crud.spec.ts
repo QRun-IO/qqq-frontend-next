@@ -117,7 +117,7 @@ test('[REC-009] edit prefills stored values, saves only the change and shows the
   const writes = recordRequests(page, '/qqq/v1/table/person/1')
   await openRecord(page, 'person', 1, 'Avery Sample')
   await recordAction(page, 'Edit', 'Person')
-  await expect(page.getByRole('heading', { level: 2, name: 'Edit Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: /^Edit Person:/ })).toBeVisible()
 
   await expect(control(page, 'firstName')).toHaveValue(before.first_name!)
   await expect(control(page, 'email')).toHaveValue(before.email!)
@@ -219,7 +219,7 @@ test('[REC-013] copy prefills a new record and saves it separately from the sour
   const source = await sqlOne(backend, 'select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed, modify_date from person where id = 1')
   await openRecord(page, 'person', 1, 'Avery Sample')
   await recordAction(page, 'Copy', 'Person')
-  await expect(page.getByRole('heading', { level: 2, name: 'Copy Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: /^Copy Person:/ })).toBeVisible()
   await expect(control(page, 'firstName')).toHaveValue('Avery')
   await expect(control(page, 'email')).toHaveValue('avery@example.invalid')
   await expect(control(page, 'id')).toHaveCount(0)
