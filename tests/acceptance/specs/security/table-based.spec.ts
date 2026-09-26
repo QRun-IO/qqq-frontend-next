@@ -209,7 +209,7 @@ const unsupportedTest = acceptanceTest.extend<{ unsupported: void }>({
   },
 })
 
-unsupportedTest('[SEC-032] an authentication type this UI does not know is reported and nothing else is attempted', async ({ page, unsupported, diagnostics }) => {
+unsupportedTest('[SEC-032] an authentication type this UI does not know is reported and nothing else is attempted @mobile', async ({ page, unsupported, diagnostics }) => {
   void unsupported
   void diagnostics
   const reads = recordRequests(page)
