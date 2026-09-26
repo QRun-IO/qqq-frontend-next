@@ -1239,6 +1239,28 @@
       "required": true
     },
     {
+      "id": "REC-062",
+      "feature": "Inline enum possible values filter by label prefix without a lookup request; CHIP adornments style options and chosen IDs persist",
+      "source": [
+        "src/components/forms/DynamicFormField.tsx",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "recordLab priority field with an inline enum and CHIP adornment",
+      "scenarios": [
+        "v1 metadata exposes the inline enum and the edit form shows the held label",
+        "a label-prefix search filters options and the CHIP adornment colors and icons them",
+        "choosing High stores HIGH in SQL and shows High after reload"
+      ],
+      "negative": [
+        "a substring that is not a prefix offers no options",
+        "the picker makes no possible-values request"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#721"
+      ],
+      "required": true
+    },
+    {
       "id": "REC-060",
       "feature": "Material table and field form adjusters and field rules operate against the real QQQ sample server",
       "source": [

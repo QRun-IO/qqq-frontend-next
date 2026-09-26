@@ -535,7 +535,7 @@ describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)
     { id: 'LOCKED', label: 'Locked' },
   ]
 
-  function InlineWrapper({ defaultValue, chipField }: { defaultValue?: unknown; chipField?: Parameters<typeof PossibleValueSelect>[0]['chipField'] }) {
+  function InlineWrapper({ defaultValue, chipField, initialLabel }: { defaultValue?: unknown; chipField?: Parameters<typeof PossibleValueSelect>[0]['chipField']; initialLabel?: string }) {
     const { control, watch } = useForm<Record<string, unknown>>({ defaultValues: { priority: defaultValue ?? null } })
     return (
       <>
@@ -548,6 +548,7 @@ describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)
           context={{ type: 'table', tableName: 'task' }}
           inlineOptions={INLINE}
           chipField={chipField}
+          initialLabel={initialLabel}
           data-qqq-id="priority"
         />
         <output data-testid="held">{String(watch('priority'))}</output>
@@ -579,6 +580,13 @@ describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)
   it('shows the label of a held inline value without a request', async () => {
     render(<InlineWrapper defaultValue="MEDIUM" />)
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Medium'))
+    expect(mockFetchTable).not.toHaveBeenCalled()
+  })
+
+  it('prefers the inline label when the record display value is the raw ID', async () => {
+    render(<InlineWrapper defaultValue="MEDIUM" initialLabel="MEDIUM" />)
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Medium'))
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('MEDIUM')
     expect(mockFetchTable).not.toHaveBeenCalled()
   })
 

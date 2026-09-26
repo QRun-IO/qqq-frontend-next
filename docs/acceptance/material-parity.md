@@ -18,11 +18,11 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 86 | 2 | 7 | 9 | 7 | 111 |
 | Query | 122 | 3 | 3 | 1 | 2 | 131 |
-| Records | 108 | 1 | 7 | 14 | 8 | 138 |
+| Records | 110 | 1 | 7 | 12 | 8 | 138 |
 | Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
 | Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 1 | 11 | 51 |
-| **Total** | **648** | **8** | **58** | **47** | **34** | **795** |
+| **Total** | **650** | **8** | **58** | **45** | **34** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 7 | 11 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -474,8 +474,8 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | DATE_TIME unchanged -> omitted; changed -> local converted to UTC | material:src/qqq/components/forms/EntityForm.tsx:1302 | EntityForm onlyWhenChanged; zod-from-metadata wireValuesFromForm | REC-018, REC-009 | Done |
 | Possible-value select: async search, spinner, "No matches found", keyboard | material:src/qqq/components/forms/DynamicSelect.tsx:194,479 | src/components/forms/PossibleValueSelect.tsx | REC-045 | Done |
 | Possible-value dependent filtering: other form values sent as `values` and useCase=form; options reload on open when other values changed | material:src/qqq/components/forms/DynamicSelect.tsx:194,271; material:src/qqq/components/forms/EntityForm.tsx:430 | src/components/forms/PossibleValueSelect.tsx; src/lib/api/possible-values.ts; src/lib/hooks/use-possible-values.ts | REC-052 | Done |
-| inlinePossibleValueSource (enum inline) filtered client-side by label prefix | material:src/qqq/components/forms/DynamicFormUtils.ts:214; material:src/qqq/components/forms/DynamicSelect.tsx:177 | none | none | Missing: not rendered; whether the backend also sets possibleValueSourceName is unverified; #721 |
-| CHIP adornment styles possible-value options | material:src/qqq/components/forms/DynamicSelect.tsx:372 | none | none | Missing: minor; options not chip-styled; #721 |
+| inlinePossibleValueSource (enum inline) filtered client-side by label prefix | material:src/qqq/components/forms/DynamicFormUtils.ts:214; material:src/qqq/components/forms/DynamicSelect.tsx:177 | src/components/forms/DynamicFormField.tsx; src/components/forms/PossibleValueSelect.tsx; qqq:qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/specs/v1/responses/components/FieldMetaData.java | REC-062 | Done: v1 publishes the inline enum, its options search locally without a lookup, and the chosen ID persists; #721 |
+| CHIP adornment styles possible-value options | material:src/qqq/components/forms/DynamicSelect.tsx:372 | src/components/forms/PossibleValueSelect.tsx; src/lib/utils/adornment-utils.ts | REC-062 | Done: option colors and icons come from CHIP metadata; #721 |
 | Widget sub-validations merged into form validation (addSubValidations) | material:src/qqq/components/forms/EntityForm.tsx:629 | src/components/forms/EntityForm.tsx:validatorsRef,onSubmit; src/components/widgets/RowBuilderEditor.tsx:validateRef | none | Done: hosted widgets register checks run before record save; #722 |
 | Update -> view with success; modal -> closeModalHandler | material:src/qqq/components/forms/EntityForm.tsx:1392 | EntityForm updateMutation | REC-009 | Done: Save disabled until the form is dirty (Material allowed saving anytime) |
 | Create -> new record URL (copy replaces `/<id>/copy`) | material:src/qqq/components/forms/EntityForm.tsx:1437 | EntityForm insertMutation | REC-006, REC-013 | Done |
@@ -1235,7 +1235,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 1 open row (record-deletion success wording)
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
-- #721 Next UI 1.0 parity: inline possible-value sources and chip options: 2 open rows
+- #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows
 - #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 8 open rows
 - #723 Next UI 1.0 parity: record view layout and menus: 14 open rows
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 8 open rows

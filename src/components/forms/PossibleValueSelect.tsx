@@ -226,12 +226,13 @@ export function PossibleValueSelect({
   const contextKey = JSON.stringify(context)
   useEffect(() => {
     const held = watchedValue === null || watchedValue === undefined || watchedValue === '' ? '' : String(watchedValue)
-    if (!held || initialLabel || (selectedOption && String(selectedOption.id) === held)) return
+    if (!held || (selectedOption && String(selectedOption.id) === held)) return
     if (inlineOptions) {
       const inline = inlineOptions.find((option) => String(option.id) === held)
       if (inline) setSelectedOption(inline)
       return
     }
+    if (initialLabel) return
     let cancelled = false
     const request = { ids: held, ...scope }
     const lookup = context.type === 'table'

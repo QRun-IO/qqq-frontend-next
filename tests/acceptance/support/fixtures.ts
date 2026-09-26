@@ -134,13 +134,16 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       documentHosts.add(new URL(request.url()).host)
     })
     const accessControl = /^(?:.*?\bload )?\/*(\S+) due to access control checks\.?$/
+    // WebKit can also log Next's RSC fallback when an in-flight route fetch is
+    // superseded by a full navigation. Apply the same origin and timing checks.
+    const rscFallback = /^Failed to fetch RSC payload for (https?:\/\/\S+?)\. Falling back to browser navigation\. TypeError: Load failed$/
     const nextRouteFetch = (target: string) => {
       const url = new URL(`http://${target.replace(/^https?:\/+/, '')}`)
       return documentHosts.has(url.host) && (/\/__next\.|\/index\.txt$/.test(url.pathname) || url.searchParams.has('_rsc') || url.pathname.endsWith('/'))
     }
     const reports: { text: string; at: number; push: () => void }[] = []
     const report = (text: string, push: () => void) => {
-      const target = accessControl.exec(text.trim())?.[1]
+      const target = accessControl.exec(text.trim())?.[1] ?? rscFallback.exec(text.trim())?.[1]
       if (target && nextRouteFetch(target)) reports.push({ text, at: performance.now(), push })
       else push()
     }
@@ -170,7 +173,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       if (/access control checks/i.test(failure) && nextRouteFetch(request.url())) reports.push({ text, at: performance.now(), push: () => diagnostics.failedRequests.push(text) })
       else diagnostics.failedRequests.push(text)
     })
-    const classifyAccessControlReports = () => {
+    const classifyInterruptedRouteReports = () => {
       for (const { text, at, push } of reports) {
         if (navigations.some((navigation) => Math.abs(navigation - at) < 1000)) diagnostics.interruptedFetches.push(text)
         else push()
@@ -183,7 +186,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     await use(diagnostics)
     // One round trip delivers violation reports still queued in the page.
     if (!page.isClosed()) await page.evaluate(() => 0).catch(() => undefined)
-    classifyAccessControlReports()
+    classifyInterruptedRouteReports()
     for (const { text, url } of truncatedImages) {
       const decodes = !page.isClosed() && new URL(url).origin === new URL(page.url()).origin && await page.evaluate((src) => new Promise<boolean>((resolve) => {
         const image = new Image()

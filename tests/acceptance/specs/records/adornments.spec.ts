@@ -57,6 +57,45 @@ test('[REC-029] CHIP adornments color and label values by their stored value @mo
   await expect(fieldValue(page, 'status')).toHaveAttribute('data-chip-color', 'default')
 })
 
+test('[REC-062] inline possible values search locally, render chip options and persist their IDs @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const metadata = await (await backend.api.get('/qqq/v1/metaData/table/recordLab')).json() as {
+    fields?: { priority?: { inlinePossibleValueSource?: { enumValues?: { id: string; label: string }[] } } }
+  }
+  expect(metadata.fields?.priority?.inlinePossibleValueSource?.enumValues).toEqual([
+    { id: 'LOW', label: 'Low' }, { id: 'MEDIUM', label: 'Medium' },
+    { id: 'HIGH', label: 'High' }, { id: 'LOCKED', label: 'Locked' },
+  ])
+
+  const requests: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.includes('/possibleValues/priority')) requests.push(request.url())
+  })
+  await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
+  const priority = control(page, 'priority')
+  await expect(priority).toHaveText(/^Medium/)
+  await priority.click()
+  const list = page.getByRole('listbox', { name: 'Priority options' })
+  await expect(list.getByRole('option')).toHaveText(['Low', 'Medium', 'High', 'Locked'])
+  const highChip = list.getByRole('option', { name: 'High' }).locator('[data-chip-color]')
+  await expect(highChip).toHaveAttribute('data-chip-color', 'error')
+  await expect(highChip).toHaveAttribute('data-chip-icon', 'warning')
+  const search = page.getByRole('textbox', { name: 'Search Priority options' })
+  await search.fill('lo')
+  await expect(list.getByRole('option')).toHaveText(['Low', 'Locked'])
+  await search.fill('ed')
+  await expect(list).toContainText('No options found')
+  await search.fill('hi')
+  await list.getByRole('option', { name: 'High' }).click()
+  await expect(priority).toHaveText(/^High/)
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Lab: Alpha' })).toBeVisible()
+  expect((await sqlOne(backend, 'select priority from record_lab where id = 1')).priority).toBe('HIGH')
+  await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
+  await expect(control(page, 'priority')).toHaveText(/^High/)
+  expect(requests).toEqual([])
+})
+
 test('[REC-030] SIZE adornment sets the query grid column width @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await page.goto('/app/recordLab', { waitUntil: 'domcontentloaded' })

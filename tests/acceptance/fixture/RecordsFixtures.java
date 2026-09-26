@@ -54,6 +54,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValue;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
+import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSourceType;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.AssociatedScript;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
@@ -147,6 +148,14 @@ final class RecordsFixtures
                .withValue(AdornmentType.ChipValues.colorValue("ACTIVE", AdornmentType.ChipValues.COLOR_SUCCESS))
                .withValue(AdornmentType.ChipValues.colorValue("RETIRED", AdornmentType.ChipValues.COLOR_ERROR))
                .withValue(AdornmentType.ChipValues.iconValue("ACTIVE", "check_circle"))))
+         .withField(new QFieldMetaData("priority", QFieldType.STRING).withLabel("Priority").withDefaultValue("MEDIUM")
+            .withInlinePossibleValueSource(new QPossibleValueSource().withType(QPossibleValueSourceType.ENUM).withIdType(QFieldType.STRING)
+               .withEnumValues(List.of(new QPossibleValue<>("LOW", "Low"), new QPossibleValue<>("MEDIUM", "Medium"),
+                  new QPossibleValue<>("HIGH", "High"), new QPossibleValue<>("LOCKED", "Locked"))))
+            .withFieldAdornment(new FieldAdornment(AdornmentType.CHIP)
+               .withValue(AdornmentType.ChipValues.colorValue("LOW", AdornmentType.ChipValues.COLOR_SUCCESS))
+               .withValue(AdornmentType.ChipValues.colorValue("HIGH", AdornmentType.ChipValues.COLOR_ERROR))
+               .withValue(AdornmentType.ChipValues.iconValue("HIGH", "warning"))))
          .withField(new QFieldMetaData("ownerId", QFieldType.INTEGER).withPossibleValueSourceName(SampleMetaDataProvider.TABLE_NAME_PERSON).withLabel("Owner")
             .withHelpContent(new QHelpContent().withContentAsText("Pick the person who owns this record.").withRole(QHelpRole.INSERT_SCREEN)))
          .withField(new QFieldMetaData("website", QFieldType.STRING).withMaxLength(250)
@@ -188,7 +197,7 @@ final class RecordsFixtures
 
          .withSection(new QFieldSection("summary", new QIcon("label"), Tier.T1, List.of("id", "title", "status")))
          .withSection(new QFieldSection("links", new QIcon("link"), Tier.T2, List.of("ownerId", "website")))
-         .withSection(new QFieldSection("presentation", new QIcon("palette"), Tier.T2, List.of("shortCode", "config", "htmlNote", "apiToken", "hint", "problem", "summaryWidget"))
+         .withSection(new QFieldSection("presentation", new QIcon("palette"), Tier.T2, List.of("priority", "shortCode", "config", "htmlNote", "apiToken", "hint", "problem", "summaryWidget"))
             .withHelpContent(new QHelpContent().withContentAsHTML("These fields show each <b>adornment</b>.")))
          .withSection(new QFieldSection("files", new QIcon("attach_file"), Tier.T2, List.of("attachment", "attachmentName", "notesFile")))
          .withSection(new QFieldSection("dates", new QIcon("calendar_month"), Tier.T3, List.of("createDate", "modifyDate")))
@@ -309,6 +318,7 @@ final class RecordsFixtures
                   old_value VARCHAR(250), new_value VARCHAR(250))""",
             """
                CREATE TABLE record_lab (id INTEGER AUTO_INCREMENT PRIMARY KEY, title VARCHAR(60) NOT NULL UNIQUE, status VARCHAR(20),
+                  priority VARCHAR(20) DEFAULT 'MEDIUM',
                   owner_id INTEGER, website VARCHAR(250), short_code VARCHAR(12), config TEXT, html_note VARCHAR(250), api_token VARCHAR(250),
                   hint VARCHAR(250), problem VARCHAR(250), summary_widget VARCHAR(250), attachment BLOB, attachment_name VARCHAR(250),
                   notes_file BLOB, hidden_code VARCHAR(40), legacy_code VARCHAR(40), create_date TIMESTAMP, modify_date TIMESTAMP)""",
