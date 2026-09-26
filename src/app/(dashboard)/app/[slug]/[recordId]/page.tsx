@@ -192,6 +192,7 @@ export default function RecordViewPage() {
         <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
       )}
       <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
+        instance={metaData}
         tableMetaData={tableMetaData}
         record={displayRecord}
         isLoading={isLoading}

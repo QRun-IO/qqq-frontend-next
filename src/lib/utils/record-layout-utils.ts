@@ -21,7 +21,7 @@
  * and 12-column grid spans (`gridColumns`).
  */
 
-import type { QInstance, QTableMetaData, QTableSection } from '@/types'
+import type { QInstance, QTableMetaData, QTableSection, QWidgetMetaData } from '@/types'
 import { MATERIAL_DASHBOARD_TYPE, materialDashboardTableMetaData } from './goto-utils'
 
 /** Section alternative type for the record view screen. */
@@ -39,6 +39,23 @@ export type RecordViewActionsPlacement = 'IN_IDENTITY_SECTION' | 'INLINE_WITH_PA
  */
 export function recordViewSections(table: QTableMetaData): QTableSection[] {
   return (table.sections ?? []).map((section) => section.alternatives?.[RECORD_VIEW_ALTERNATIVE] ?? section)
+}
+
+/**
+ * Resolves alternatives before filtering hidden or empty record-view sections.
+ *
+ * @param table - Table metadata.
+ * @returns Renderable sections in metadata order.
+ */
+export function visibleRecordViewSections(table: QTableMetaData): QTableSection[] {
+  return recordViewSections(table).filter((section) => {
+    if (section.isHidden || section.hidden) return false
+    if (section.widgetName) return true
+    return section.fieldNames.some((name) => {
+      const field = table.fields[name]
+      return field && !field.isHidden
+    })
+  })
 }
 
 /**
@@ -158,4 +175,16 @@ export function twelfths(gridColumns: number | undefined | null): number | undef
  */
 export function gridSpanClasses(span: number): string {
   return `col-span-12 min-w-0 ${LG_SPANS[twelfths(span) ?? 12]}`
+}
+
+/**
+ * A widget section's card takes the widget width, otherwise the section width.
+ *
+ * @param section - Record-view section metadata.
+ * @param widgets - Widgets available to the viewer.
+ * @returns Classes for a full mobile row and the declared desktop span.
+ */
+export function recordSectionGridSpan(section: QTableSection, widgets?: Record<string, QWidgetMetaData>): string {
+  const width = section.widgetName ? widgets?.[section.widgetName]?.gridColumns : section.gridColumns
+  return gridSpanClasses(twelfths(width) ?? 12)
 }

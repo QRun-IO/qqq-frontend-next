@@ -96,6 +96,12 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
   for (const section of ['Date Defaults', 'Field Types', 'Time Zones', 'Length Policies', 'Case and Whitespace', 'Numeric Bounds']) {
     await expect(overview.getByRole('heading', { level: 3, name: section })).toBeVisible()
   }
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    const sidebar = page.locator('[data-qqq-id="record-sidebar"]')
+    await expect(sidebar).toBeVisible()
+    await sidebar.getByRole('button', { name: 'Numeric Bounds' }).click()
+    await expect(overview.getByRole('heading', { level: 3, name: 'Numeric Bounds' })).toBeInViewport()
+  }
 
   await page.getByRole('tab', { name: 'Case and Whitespace' }).click()
   await expect(page).toHaveURL(/tab=section-normalization/)

@@ -47,6 +47,7 @@ For code changes, follow import order and file naming in [CLAUDE.md](../../CLAUD
 | Add an app home section | `QAppMetaData.sections` (`tables`, `processes`, `reports` by name) | Labels, order, links and permissions in app home. |
 | Place dashboard widgets | `QAppMetaData.widgets` ordered names; matching `QInstance.widgets` metadata | `WidgetGrid`, widget POST, grid span, denied cases. |
 | Place a record widget | `QTableSection.widgetName` and compatible record context; [`FormWidgetSection.tsx`](../../src/components/forms/FormWidgetSection.tsx) for editing | Two records render their own values; form widget changes join host validation/save; no cross-record cache leak. |
+| Configure record layout | `QTableSection.alternatives.RECORD_VIEW`, field/section/widget `gridColumns`, section `collapsible`; Material supplemental table `showRecordSidebar` and `recordViewActionsPlacement`; instance `recordViewActionsPlacement` override | Use [`record-layout-utils.ts`](../../src/lib/utils/record-layout-utils.ts); verify sidebar, scroll, saved collapse state, and action location in desktop and phone layouts. |
 | Add fields or editors | `QTableMetaData.fields`, sections, adornments, possible-value source | Form, view, validation, server save, keyboard and phone. |
 | Add a process screen | `QProcessMetaData.frontendSteps` and a supported `QFrontendComponent.type` | Init, submit, async status, cancel/retry, output and server mutations. |
 | Add report | `QInstance.reports`, optional `processName` | CSV/XLSX/JSON and required inputs; actual downloaded bytes. |

@@ -18,8 +18,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { QInstance, QTableMetaData, QTableSection } from '@/types'
 import {
-  collapsibleSectionStorageKey, gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordViewActionsPlacement, recordViewSections,
-  showRecordSidebar, storeSectionOpen, twelfths,
+  collapsibleSectionStorageKey, gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionGridSpan, recordViewActionsPlacement, recordViewSections,
+  showRecordSidebar, storeSectionOpen, twelfths, visibleRecordViewSections,
 } from './record-layout-utils'
 
 function section(name: string, extra: Partial<QTableSection> = {}): QTableSection {
@@ -38,6 +38,21 @@ describe('record view layout from metadata', () => {
     const sections = recordViewSections(table({ sections: [section('identity'), section('details', { fieldNames: ['a'], alternatives: { RECORD_VIEW: alternative, RECORD_EDIT: section('x') } })] }))
     expect(sections.map((s) => s.label)).toEqual(['identity', 'Details For Viewing'])
     expect(sections[1].fieldNames).toEqual(['b'])
+  })
+
+  it('uses the alternative before deciding visibility and tier', () => {
+    const sections = visibleRecordViewSections(table({
+      fields: { publicName: { name: 'publicName', isHidden: false }, secret: { name: 'secret', isHidden: true } } as unknown as QTableMetaData['fields'],
+      sections: [
+        section('hiddenBase', { isHidden: true, fieldNames: ['secret'], alternatives: {
+          RECORD_VIEW: section('identity', { tier: 'T1', fieldNames: ['publicName'] }),
+        } }),
+        section('visibleBase', { fieldNames: ['publicName'], alternatives: {
+          RECORD_VIEW: section('hiddenView', { hidden: true, fieldNames: ['publicName'] }),
+        } }),
+      ],
+    }))
+    expect(sections.map(({ name, tier }) => ({ name, tier }))).toEqual([{ name: 'identity', tier: 'T1' }])
   })
 
   it('opens a collapsible section from storage first, then initiallyOpen; others are always open', () => {
@@ -81,5 +96,9 @@ describe('record view layout from metadata', () => {
     expect(twelfths(undefined)).toBeUndefined()
     expect(gridSpanClasses(4)).toBe('col-span-12 min-w-0 lg:col-span-4')
     expect(gridSpanClasses(99)).toBe('col-span-12 min-w-0 lg:col-span-12')
+    expect(recordSectionGridSpan(section('fields', { gridColumns: 6 }))).toBe('col-span-12 min-w-0 lg:col-span-6')
+    expect(recordSectionGridSpan(section('widget', { gridColumns: 4, widgetName: 'summary' }), {
+      summary: { name: 'summary', label: 'Summary', hasPermission: true, gridColumns: 3 },
+    })).toBe('col-span-12 min-w-0 lg:col-span-3')
   })
 })

@@ -22,6 +22,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QProcessMetaData, QTableMetaData } from '@/types'
+import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
 import { RecordViewHeader } from './RecordViewHeader'
 
 const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
@@ -36,10 +37,11 @@ const table = {
   capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'],
 } as unknown as QTableMetaData
 
-function renderHeader(processes?: QProcessMetaData[]) {
+function renderHeader(processes?: QProcessMetaData[], actionsPlacement?: RecordViewActionsPlacement) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RecordViewHeader
+        actionsPlacement={actionsPlacement}
         tableMetaData={table}
         record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
         t1Fields={[]}
@@ -166,6 +168,14 @@ describe('RecordViewHeader layout', () => {
     // A full-width row on phones, beside the title from md up when it fits
     expect(document.querySelector('[data-qqq-id="record-view-controls"]')).toHaveClass('w-full', 'flex-wrap', 'md:w-auto')
   })
+
+  it('places desktop actions beside the title when metadata requests inline placement', () => {
+    renderHeader(undefined, 'INLINE_WITH_PAGE_TITLE')
+    const title = screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })
+    const actions = document.querySelector('[data-qqq-id="record-view-desktop-actions"]')
+    expect(title.parentElement).toContainElement(actions as HTMLElement)
+    expect(document.querySelector('[data-qqq-id="record-view-controls"]')).not.toContainElement(actions as HTMLElement)
+  })
 })
 
 describe('RecordViewHeader audit history', () => {
@@ -193,7 +203,8 @@ describe('RecordViewHeader Material CSS hooks (QRun-IO/qqq#731)', () => {
     renderHeader()
     const wrapper = document.querySelector('[data-qqq-id="record-view-header-person"]')
     expect(wrapper).toContainElement(document.querySelector('[data-qqq-id="record-view-header"]') as HTMLElement)
-    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"]')).toHaveTextContent('MS')
+    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"] [data-qqq-icon="none"]')).toBeInTheDocument()
+    expect(wrapper).toHaveTextContent('Viewing Person:')
     expect(screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })).toHaveAttribute('data-qqq-id', 'record-view-title-person')
   })
 })

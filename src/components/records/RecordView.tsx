@@ -24,7 +24,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo } fro
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
-import type { QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
+import type { QInstance, QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
@@ -34,41 +34,18 @@ import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
 import { scrollIntoViewWhenRendered } from '@/lib/utils/scroll-when-rendered'
 import { recordHashAction } from '@/lib/utils/material-links'
+import { recordViewActionsPlacement, showRecordSidebar, visibleRecordViewSections } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
 import { FieldValue } from './FieldValue'
 import { FieldLabel } from './FieldLabel'
 import { RecordViewHeader } from './RecordViewHeader'
 import { RecordViewTabs } from './RecordViewTabs'
+import { RecordViewSidebar } from './RecordViewSidebar'
 import { associationWidgetBinding, type AssociationTableState } from '@/lib/utils/association-utils'
 import { AssociatedRecords } from './AssociatedRecords'
 import { RecordViewAssociated } from './RecordViewAssociated'
 import { SaveWarningBanner } from './SaveWarningBanner'
-
-/**
- * Returns true if a section has at least one visible field or a widget.
- *
- * @param section - The section descriptor containing field names and an optional widget name.
- * @param table - The parent table metadata used to look up field visibility flags.
- * @returns `true` when the section contributes at least one renderable item.
- */
-function sectionHasContent(section: { fieldNames: string[]; widgetName?: string }, table: QTableMetaData): boolean {
-  if (section.widgetName) return true
-  return section.fieldNames.some((fn) => {
-    const f = table.fields[fn]
-    return f && !f.isHidden
-  })
-}
-
-/**
- * Whether a section is hidden (`isHidden`, or v1 metadata's `hidden`).
- *
- * @param section - Section metadata.
- * @returns `true` when the section must not render.
- */
-function isSectionHidden(section: QTableSection): boolean {
-  return Boolean(section.isHidden || section.hidden)
-}
 
 // ---------------------------------------------------------------------------
 // RecordViewContext — shared data for the record detail subtree
@@ -118,6 +95,8 @@ export function useRecordViewContext(): RecordViewContextValue {
  * All rendering is driven by metadata — no field names are hardcoded.
  */
 interface RecordViewProps {
+  /** Instance metadata can override the table's action placement. */
+  instance?: QInstance
   /** Table metadata that describes sections, fields, and relationships. */
   tableMetaData: QTableMetaData
   /** The record to display; `undefined` while loading or after a non-error empty state. */
@@ -165,6 +144,7 @@ interface RecordViewProps {
  *   rendered by {@link RecordViewContent}.
  */
 export function RecordView({
+  instance,
   tableMetaData,
   record,
   isLoading = false,
@@ -321,9 +301,7 @@ export function RecordView({
   if (!record) return null
 
   // Separate sections into tiers, excluding sections with no renderable content
-  const visibleSections = tableMetaData.sections.filter(
-    (s) => !isSectionHidden(s) && sectionHasContent(s, tableMetaData)
-  )
+  const visibleSections = visibleRecordViewSections(tableMetaData)
   const primarySections = visibleSections.filter((s) => !s.tier || s.tier === 'T1' || s.tier === 'basic')
   const secondarySections = visibleSections.filter((s) => s.tier === 'T2' || s.tier === 'advanced')
   const tertiarySections = visibleSections.filter((s) => s.tier === 'T3')
@@ -355,6 +333,7 @@ export function RecordView({
 
   return (
     <RecordViewContent
+      instance={instance}
       tableMetaData={tableMetaData}
       record={record}
       hideActions={hideActions}
@@ -396,6 +375,7 @@ export function RecordView({
  *   prop drilling.
  */
 function RecordViewContent({
+  instance,
   tableMetaData,
   record,
   hideActions,
@@ -413,6 +393,7 @@ function RecordViewContent({
   onRefetch,
   auditSource,
 }: {
+  instance?: QInstance
   tableMetaData: QTableMetaData
   record: QRecord
   hideActions: boolean
@@ -505,7 +486,25 @@ function RecordViewContent({
   // CQ-MED-4: primarySections already captures all sections without an explicit tier
   // (via the `!s.tier` predicate), so the `|| visibleSections` fallback is redundant.
   const t1Sections = primarySections
+  const orderedSections = visibleRecordViewSections(tableMetaData)
+  const hasSidebar = showRecordSidebar(tableMetaData) && orderedSections.length > 0
   const parentPk = record.values[tableMetaData.primaryKeyField]
+
+  /**
+   * Opens the section's tab when needed, then scrolls to its rendered content.
+   * @param section - The section selected in the sidebar.
+   */
+  const navigateToSection = (section: QTableSection) => {
+    const isPrimary = primarySections.includes(section)
+    if (viewMode === 'tabs' && !isPrimary) {
+      const destination = secondarySections.includes(section) ? 'overview' : `section-${section.name}`
+      if (destination !== activeTab) setActiveTab(destination)
+    }
+    const target = isPrimary && !section.widgetName
+      ? '[data-qqq-id="record-view-header"]'
+      : `[data-qqq-id="record-section-${CSS.escape(section.name)}"], [data-qqq-id="section-widget-${CSS.escape(section.widgetName ?? '')}"]`
+    scrollIntoViewWhenRendered(target)
+  }
 
   // Build navigateFrom for outgoing record links — tells target page where to return.
   // Include current from/fromLabel so the back chain is preserved at unlimited depth:
@@ -571,8 +570,13 @@ function RecordViewContent({
           Back to {fromLabel || tableMetaData.label}
         </Link>
 
+        <div className={cn(hasSidebar && 'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6')}>
+          {hasSidebar && <RecordViewSidebar sections={orderedSections} onNavigate={navigateToSection} />}
+          <div className="min-w-0 space-y-5">
+
         {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
         <RecordViewHeader
+          actionsPlacement={recordViewActionsPlacement(instance, tableMetaData)}
           tableMetaData={tableMetaData}
           record={record}
           t1Fields={t1Fields}
@@ -719,6 +723,8 @@ function RecordViewContent({
           </div>
         )}
 
+          </div>
+        </div>
       </div>
       </div>
     </RecordViewContext.Provider>

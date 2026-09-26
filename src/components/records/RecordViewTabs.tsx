@@ -25,6 +25,7 @@ import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
 import { PHONE_MEDIA_QUERY, useMediaQuery } from '@/lib/hooks/use-media-query'
 import { cn } from '@/lib/utils/cn'
+import { recordSectionGridSpan } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
 import { RecordViewAssociated } from './RecordViewAssociated'
@@ -175,8 +176,7 @@ export function RecordViewTabs({
         {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
         {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
-        {/* Material's record-sidebar hook (QRun-IO/qqq#731): Next's section navigation is this tab bar */}
-        <div data-qqq-id="record-sidebar">
+        <div data-qqq-id="record-tabs-container">
           <div
             className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
             role="tablist"
@@ -202,10 +202,10 @@ export function RecordViewTabs({
           </div>
         </div>
 
-        {/* Tab content: Overview — all T2 sections in 2-column card grid */}
+        {/* Tab content: Overview — Material's 12-column card widths */}
         {activeTab === 'overview' && (
           <div
-            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            className="grid grid-cols-12 gap-6"
             role="tabpanel"
             data-qqq-id="record-tab-panel-overview"
           >
@@ -213,8 +213,8 @@ export function RecordViewTabs({
               <div
                 key={section.name}
                 className={cn(
-                  'rounded-xl border border-border bg-card p-6 shadow-sm',
-                  (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
+                  'min-w-0 rounded-xl border border-border bg-card p-6 shadow-sm',
+                  recordSectionGridSpan(section, widgetMetaDataMap)
                 )}
               >
                 <RecordViewSection
@@ -225,7 +225,6 @@ export function RecordViewTabs({
                   widgetMetaDataMap={widgetMetaDataMap}
                   allTables={allTables}
                   navigateFrom={navigateFrom}
-                  stacked
                 />
               </div>
             ))}
@@ -240,16 +239,18 @@ export function RecordViewTabs({
               role="tabpanel"
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                />
+              <div className="grid grid-cols-12 gap-6">
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap))}>
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                  />
+                </div>
               </div>
             </div>
           )
@@ -263,16 +264,18 @@ export function RecordViewTabs({
               role="tabpanel"
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                />
+              <div className="grid grid-cols-12 gap-6">
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap))}>
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                  />
+                </div>
               </div>
             </div>
           )

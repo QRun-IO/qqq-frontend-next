@@ -26,6 +26,7 @@ import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData, QTableMenu } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
+import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
@@ -46,27 +47,7 @@ import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
 import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
 import { GotoRecordButton } from './GotoRecordDialog'
-
-/**
- * Extracts initials from a display label: first letter of each of the first
- * two words ('John Smith' → 'JS'), first two chars for a single word
- * (including CJK and other non-Latin scripts), or '?' for empty/whitespace-only input.
- *
- * Used to populate the 56 × 56 px avatar circle in the record view header.
- *
- * @param label - The display label to abbreviate (e.g. `record.recordLabel`).
- * @returns A one-or-two character uppercase string suitable for an avatar,
- *   or `'?'` when the label is empty or whitespace-only.
- */
-function getInitials(label: string): string {
-  const trimmed = label.trim()
-  if (!trimmed) return '?'
-  const words = trimmed.split(/\s+/).filter(Boolean)
-  if (words.length >= 2) {
-    return ((words[0][0] ?? '') + (words[1][0] ?? '')).toUpperCase() || '?'
-  }
-  return trimmed.slice(0, 2).toUpperCase() || '?'
-}
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 /**
  * The default phone sheet already offers CRUD and process shortcuts; keep the remaining
@@ -115,6 +96,8 @@ function PhoneRecordMenuItems({ entries, onAction }: { entries: RecordMenuEntry[
  * Props for the {@link RecordViewHeader} component.
  */
 interface RecordViewHeaderProps {
+  /** Places desktop record actions beside the title or in the identity controls. */
+  actionsPlacement?: RecordViewActionsPlacement
   /** Table metadata used for label, primary key field, and field lookups. */
   tableMetaData: QTableMetaData
   /** The record being displayed. */
@@ -146,7 +129,7 @@ interface RecordViewHeaderProps {
 /**
  * Renders the header block of the record detail page.
  *
- * Displays a 56 × 56 px avatar (initials), the record label as an `<h1>`,
+ * Displays a 56 × 56 px table-icon avatar, the record label as an `<h1>`,
  * a compact T1 field grid with hover-card links for possibleValueSource fields,
  * a card/list view-mode radio toggle, and the action bar (desktop) or bottom-
  * sheet trigger (mobile). The mobile bottom sheet mounts a
@@ -158,6 +141,7 @@ interface RecordViewHeaderProps {
  *   bottom-sheet overlay and delete dialog.
  */
 export function RecordViewHeader({
+  actionsPlacement = 'IN_IDENTITY_SECTION',
   tableMetaData,
   record,
   t1Fields,
@@ -299,23 +283,29 @@ export function RecordViewHeader({
     a: Boolean(auditSource) && (() => setAuditOpen(true)),
   })
 
+  const desktopActions = !hideActions && (
+    <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2" data-qqq-id="record-view-desktop-actions">
+      {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
+      {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
+        actionEntries={actionEntries} resolveMenu={resolveMenu} onAction={onAction} />}
+    </div>
+  )
+
   return (
     <div className="contents" data-qqq-id={`record-view-header-${sanitizeQqqId(tableMetaData.name)}`}>
     <div className="flex flex-wrap items-start gap-4" data-qqq-id="record-view-header">
       <div
-        className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
+        className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[var(--qqq-accent-color)] text-[var(--qqq-primary-contrast-text)]"
         aria-hidden="true"
         data-qqq-id={`record-view-avatar-${sanitizeQqqId(tableMetaData.name)}`}
       >
-        {getInitials(
-          record.recordLabel ||
-          `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`
-        )}
+        <MetadataIcon icon={tableMetaData.icon} kind="table" className="h-6 w-6" />
       </div>
       {/* The title keeps at least 14rem; when the controls do not fit beside it (phones, tablets
           with the sidebar open) they wrap onto their own row instead of squeezing the title. */}
       <div className="min-w-0 flex-1 basis-56">
-        <div className="flex items-center gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Viewing {tableMetaData.label}:</p>
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl" data-qqq-id={`record-view-title-${sanitizeQqqId(tableMetaData.name)}`}>
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
@@ -338,6 +328,7 @@ export function RecordViewHeader({
               : <ClipboardCopy className="h-4 w-4" aria-hidden="true" />
             }
           </button>
+          {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
         </div>
         {/* T1 fields as a compact grid under the name */}
         {t1Fields.length > 0 && (
@@ -431,11 +422,7 @@ export function RecordViewHeader({
         {!hideActions && (
           <>
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
-            <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
-              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
-                actionEntries={actionEntries} resolveMenu={resolveMenu} onAction={onAction} />}
-            </div>
+            {actionsPlacement === 'IN_IDENTITY_SECTION' && desktopActions}
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
             <div className="flex items-center gap-2 md:hidden">
