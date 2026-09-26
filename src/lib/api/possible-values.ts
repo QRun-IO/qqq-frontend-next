@@ -52,6 +52,13 @@ export interface PossibleValuesRequest {
    * return a different, context-appropriate subset.
    */
   useCase?: string
+  /**
+   * The current values of the form (or process screen) the field is on. Sent as the
+   * `values` map of the v1 JSON body, which the backend reads to resolve
+   * `${input.fieldName}` variables in the field's `possibleValueSourceFilter`.
+   * Distinct from `values`/`ids`, which look choices up by identity.
+   */
+  formValues?: Record<string, unknown>
 }
 
 /** Validate the native envelope before exposing options to a picker. */
@@ -62,7 +69,7 @@ const possibleValuesResponse = z.union([z.object({
 /**
  * Search a possible-value source through its v1 route (`POST`, JSON body).
  * @param url - v1 route relative to the API base URL.
- * @param request - Search text, identifiers and field context.
+ * @param request - Search text, identifiers, form values and field context.
  * @returns Validated native options; rejects HTTP and response-format failures.
  */
 async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
@@ -73,6 +80,7 @@ async function loadPossibleValues(url: string, request: PossibleValuesRequest): 
   if (ids) body.ids = ids.split(',')
   else if (request.labels) body.labels = request.labels.split(',')
   if (useCase) body.useCase = useCase
+  if (request.formValues) body.values = request.formValues
   const result = await apiClient.post<unknown>(url, body)
   return possibleValuesResponse.parse(result).options
 }

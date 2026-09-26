@@ -53,6 +53,19 @@ describe('v1 possible-value contracts', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/possibleValues/source', { labels: ['Red', 'Green'] })
   })
 
+  it('posts form values as the v1 values map that ${input.field} filters read, beside search and ids', async () => {
+    const options = [{ id: 3, label: 'Carrot' }]
+    vi.mocked(apiClient.post).mockResolvedValue({ options })
+    const formValues = { categoryId: 2, note: 'a&b=c', itemId: null }
+    expect(await fetchTablePossibleValues('order', 'itemId', { searchTerm: 'Ca', ids: '3', formValues })).toEqual(options)
+    expect(apiClient.post).toHaveBeenCalledWith('/table/order/possibleValues/itemId', { searchTerm: 'Ca', ids: ['3'], values: formValues })
+  })
+
+  it('posts empty form values for a process field as an empty values map', async () => {
+    await fetchProcessPossibleValues('prcPick', 'itemId', { formValues: {} })
+    expect(apiClient.post).toHaveBeenCalledWith('/processes/prcPick/possibleValues/itemId', { values: {} })
+  })
+
   it('accepts the native NON_EMPTY serialization of an empty option list', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({})
     expect(await fetchPossibleValues('source')).toEqual([])

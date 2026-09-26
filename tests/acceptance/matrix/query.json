@@ -835,6 +835,119 @@
       "required": true
     },
     {
+      "id": "QRY-067",
+      "feature": "Go To opens a record by its primary key or a configured unique key (Material gotoFieldNames)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/GotoRecordDialog.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardTableMetaData.java"
+      ],
+      "fixture": "QueryFixtures.java qryBin (gotoFieldNames [[code], [aisle, shelf]]), qryLocker (GET without QUERY), qryItem (no Go To)",
+      "scenarios": [
+        "v1 table metadata carries supplementalMetaData.materialDashboard.gotoFieldNames (API)",
+        "Go To... on the query toolbar and the record view header offers the primary key, then each key, labelled by field labels",
+        "primary key, single-field and two-field keys each open the one matching record (EQUALS query, id from SQL)",
+        "no match shows \"Record not found.\"; a partial key matching two bins shows \"More than 1 record was found...\" (counts from SQL)",
+        "Enter in an input submits its option; Escape closes and returns focus to the Go To button",
+        "a table with GET but no QUERY capability opens Go To automatically and it cannot be dismissed"
+      ],
+      "negative": [
+        "a table without gotoFieldNames has no Go To button on its query or record screen",
+        "no navigation on no match or several matches"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-068",
+      "feature": "Default grid columns follow the table sections (section order, each field once), not the metadata field order (Material bySection order)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/utils/DataGridUtils.tsx:145-262 (setupGridColumns bySection)",
+        "src/lib/utils/query-columns.ts fieldsInSectionOrder, getQueryColumns"
+      ],
+      "fixture": "QueryFixtures.java qryOrdered (qry_item rows; fields declared price, quantity, code, id, name; sections identity [id, name, code], details [price], stock [quantity])",
+      "scenarios": [
+        "Headers read Id, Name, Code, Price, Quantity",
+        "Rows equal SQL select ordered by id desc"
+      ],
+      "negative": [
+        "The metadata field-map order (price first) is not used"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-069",
+      "feature": "Pagination numbers are locale formatted in the shown range and the total",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/CustomPaginationComponent.tsx:93-112",
+        "src/components/query/Pagination.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryManyRow (1,234 rows)",
+      "scenarios": [
+        "Page 5 at 250 per page reads Showing 1,001–1,234 of 1,234",
+        "The page shows exactly the last 234 ids by SQL"
+      ],
+      "negative": [
+        "No unformatted range such as 1001–1234"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-070",
+      "feature": "Query screen keyboard shortcuts n (new record), r (refresh the query), f (open the filter builder)",
+      "source": [
+        "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx (keyboard shortcuts)",
+        "src/lib/hooks/use-page-shortcuts.ts",
+        "src/components/query/RecordQuery.tsx"
+      ],
+      "fixture": "sample person",
+      "scenarios": [
+        "r sends a new query request and shows a value changed through the API (SQL confirms the change)",
+        "f opens the Advanced Filters panel and a second f keeps it open",
+        "n opens the create form"
+      ],
+      "negative": [
+        "keys typed in quick search are text (no filter panel, no navigation)",
+        "viewer persona: n does nothing (f still works); the backend refuses the insert (403, SQL unchanged)"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-071",
+      "feature": "Processes launched from a variant table run with the chosen variant (tableVariant on init and every step) and return to the query",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx:1852-1856,2026-2030 (tableVariant from qqq.tableVariant.<table>)",
+        "src/components/process/ProcessRun.tsx",
+        "src/lib/api/processes.ts processInit/processStep",
+        "src/lib/utils/table-variant.ts"
+      ],
+      "fixture": "QueryFixtures.java qryStock (memory backend keyed by qryStore variants)",
+      "scenarios": [
+        "Bulk Delete of the South store's full query result counts its one record",
+        "Every init and step request carries tableVariant {type: qryStore, id: 2}",
+        "Return comes back to the variant query, which is empty for South while North keeps its two rows"
+      ],
+      "negative": [
+        "Without the variant the backend could not read the variant table's records"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
       "id": "REL-001",
       "feature": "Possible-value cells show the related record label and link to it",
       "source": [

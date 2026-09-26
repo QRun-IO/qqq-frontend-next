@@ -28,6 +28,8 @@ import { Pencil, Copy, Trash2, MoreVertical, Play } from 'lucide-react'
 import type { QTableMetaData, QRecord, QProcessMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { processRunHref } from '@/lib/utils/material-links'
+import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
@@ -57,15 +59,15 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
+  // a process run from here comes back to this record, as Material's modal does
+  const recordPath = `/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}`
 
   const canEdit = canEditRecords(tableMetaData)
   const canDelete = canDeleteRecords(tableMetaData)
   const canInsert = canInsertRecords(tableMetaData)
 
-  // Filter to visible, permitted processes that accept single records
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
-  )
+  // Visible, permitted table processes and the processes added to every screen, that accept single records
+  const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
 
   const hasProcesses = availableProcesses.length > 0
 
@@ -231,9 +233,7 @@ export function RecordActions({ tableMetaData, record, processes, className }: R
                     <DropdownMenuPrimitive.Item
                       key={process.name}
                       onSelect={() =>
-                        router.push(
-                          `/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`
-                        )
+                        router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(process, tableMetaData.name) }))
                       }
                       data-qqq-id={`record-action-${process.name}`}
                       className={cn(

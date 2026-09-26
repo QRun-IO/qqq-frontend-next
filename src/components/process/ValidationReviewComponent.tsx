@@ -96,7 +96,7 @@ function PreviewRecord({ record, fields, layoutTable }: { record: QRecord; field
  * @returns The review panel.
  */
 export function ValidationReviewComponent({ index }: ValidationReviewComponentProps) {
-  const { step, values, form, processName, processUUID, sourceTableMetaData, previewTableMetaData, setOverrideOnLastStep } = useProcessStep()
+  const { step, values, form, processName, processUUID, sourceTableMetaData, previewTableMetaData, setOverrideOnLastStep, tableVariant } = useProcessStep()
   const [previewIndex, setPreviewIndex] = useState(0)
   const radioName = useId()
   const validationSummary = readSummaryLines(values.validationSummary)
@@ -116,7 +116,7 @@ export function ValidationReviewComponent({ index }: ValidationReviewComponentPr
 
   const previewQuery = useQuery({
     queryKey: ['qqq', 'processPreviewRecords', processName, processUUID, step.name],
-    queryFn: () => processRecords(processName, processUUID!, 0, PREVIEW_LIMIT),
+    queryFn: () => processRecords(processName, processUUID!, 0, PREVIEW_LIMIT, tableVariant),
     enabled: Boolean(processUUID) && Boolean(step.recordListFields?.length),
     retry: false,
   })

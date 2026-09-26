@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
 import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
@@ -67,6 +67,18 @@ interface PossibleValueSelectProps {
 }
 
 /**
+ * The form's values without the field's own, whose change must not reload its choices.
+ * @param values - Every value of the form.
+ * @param name - The field's form name.
+ * @returns The other fields' values.
+ */
+function otherFieldValues(values: Record<string, unknown> | undefined, name: string): Record<string, unknown> {
+  const others = { ...values }
+  delete others[name]
+  return others
+}
+
+/**
  * Async combobox for QQQ fields that reference a possible-value source.
  *
  * On open, fetches an initial list of options from the backend. As the user
@@ -76,6 +88,10 @@ interface PossibleValueSelectProps {
  * selected. Integrates with React Hook Form via `Controller` — the stored
  * form value is `option.id` (not the display label); the label is only used
  * for rendering the selected state in the trigger button.
+ *
+ * Every request carries the form's current values, as Material does, so a `possibleValueSourceFilter` using `${input.otherField}` offers
+ * only the choices that match what the form holds now; an open list reloads when
+ * another field's value changes.
  *
  * @param props - See {@link PossibleValueSelectProps}.
  * @returns The rendered labeled combobox with a searchable dropdown listbox.
@@ -109,6 +125,9 @@ export function PossibleValueSelect({
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestSequence = useRef(0)
+  const formValues = useWatch({ control }) as Record<string, unknown> | undefined
+  // What every request carries for the field's filter: the form's current values.
+  const scope = useMemo(() => ({ formValues: formValues ?? {} }), [formValues])
 
   /**
    * Fetches possible values for the given search term from the appropriate
@@ -123,7 +142,7 @@ export function PossibleValueSelect({
       setIsLoading(true)
       setLoadFailed(false)
       try {
-        const request = { searchTerm: term || undefined }
+        const request = { searchTerm: term || undefined, ...scope }
         let results: QPossibleValue[]
         if (context.type === 'table') {
           results = await fetchTablePossibleValues(context.tableName, fieldName, request)
@@ -142,7 +161,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName, possibleValueSourceName]
+    [context, fieldName, possibleValueSourceName, scope]
   )
 
   /**
@@ -165,6 +184,12 @@ export function PossibleValueSelect({
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A dependent filter follows the other fields: reload an open list when one changes.
+  const otherValuesKey = JSON.stringify(otherFieldValues(formValues, name))
+  useEffect(() => {
+    if (isOpen) fetchOptions(searchTerm)
+  }, [otherValuesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // A value set without its label (e.g. a create-form default) is looked up by id.
   const watchedValue = useWatch({ control, name })
   const contextKey = JSON.stringify(context)
@@ -172,7 +197,7 @@ export function PossibleValueSelect({
     const held = watchedValue === null || watchedValue === undefined || watchedValue === '' ? '' : String(watchedValue)
     if (!held || initialLabel || (selectedOption && String(selectedOption.id) === held)) return
     let cancelled = false
-    const request = { ids: held }
+    const request = { ids: held, ...scope }
     const lookup = context.type === 'table'
       ? fetchTablePossibleValues(context.tableName, fieldName, request)
       : context.type === 'process'

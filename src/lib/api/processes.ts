@@ -52,6 +52,8 @@ export interface ProcessInitRequest {
   filterJSON?: string
   /** Name of the table the process runs against (bulk processes read it in their first step). */
   tableName?: string
+  /** JSON of the table's selected backend variant (`{type, id}`), sent on init and every step as Material does. */
+  tableVariant?: string
   /** Milliseconds the server waits before the request continues as an async job. */
   stepTimeoutMillis?: number
   /** Files to upload with the init request. */
@@ -73,6 +75,8 @@ export interface ProcessStepRequest {
   isStepBack?: boolean
   /** Milliseconds the server waits before the request continues as an async job. */
   stepTimeoutMillis?: number
+  /** JSON of the table's selected backend variant, as on init. */
+  tableVariant?: string
 }
 
 /** A process step finished; the frontend moves to `nextStep` (or completes without one). */
@@ -297,6 +301,8 @@ export async function processInit(
     if (request.recordsParam === 'filterJSON') fields.filterJSON = String(values.filterJSON = request.filterJSON ?? '{}')
   }
   if (request.tableName) values.tableName = request.tableName
+  // v1 scopes the run's backend to this variant from the field; processes also see it as a value, as before.
+  if (request.tableVariant) fields.tableVariant = values.tableVariant = request.tableVariant
   try {
     const body = await apiClient.post<unknown>(
       `/processes/${encodeURIComponent(processName)}/init`,
@@ -329,7 +335,12 @@ export async function processStep(
   try {
     const body = await apiClient.post<unknown>(
       `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/step/${encodeURIComponent(stepName)}`,
-      buildFormData(request.values ?? {}, request.files, request.stepTimeoutMillis),
+      buildFormData(
+        { ...(request.values ?? {}), ...(request.tableVariant ? { tableVariant: request.tableVariant } : {}) },
+        request.files,
+        request.stepTimeoutMillis,
+        request.tableVariant ? { tableVariant: request.tableVariant } : {}
+      ),
       {
         headers: { 'Content-Type': 'multipart/form-data' },
         params: request.isStepBack ? { isStepBack: 'true' } : undefined,
@@ -371,21 +382,23 @@ export async function processStatus(
  * @param processUUID - UUID identifying this process run instance.
  * @param skip - Number of records to skip (zero-based offset for pagination).
  * @param limit - Maximum number of records to return in this page.
+ * @param tableVariant - JSON of the table variant the run uses, when its table has variants.
  * @returns An object containing the total record count and the current page of records.
  */
 export async function processRecords(
   processName: string,
   processUUID: string,
   skip = 0,
-  limit = 50
+  limit = 50,
+  tableVariant?: string
 ): Promise<ProcessRecordsResponse> {
-  const body = await apiClient.get<ProcessRecordsResponse>(
+  const body = await apiClient.get<Partial<ProcessRecordsResponse>>(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
-    { params: { skip, limit } }
+    { params: { skip, limit, ...(tableVariant ? { tableVariant } : {}) } }
   )
-  // v1 omits an empty records list
-  const records = body && body.records === undefined && typeof body.totalRecords === 'number' ? [] : body?.records
-  if (!body || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
+  // v1 sends an empty list for a run with no records; an omitted list reads the same way
+  const records = body && typeof body === 'object' && body.records === undefined ? [] : body?.records
+  if (!body || typeof body !== 'object' || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
   }
   return { totalRecords: body.totalRecords, records }

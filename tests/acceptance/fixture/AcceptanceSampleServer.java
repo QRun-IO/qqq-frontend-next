@@ -14,6 +14,7 @@
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -156,6 +157,10 @@ public class AcceptanceSampleServer
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
+         /////////////////////////////////////////////////////////////////////
+         // after WidgetsFixtures.prime, which recreates the scripts tables //
+         /////////////////////////////////////////////////////////////////////
+         RecordsFixtures.primeScripts(connection);
          PerformanceFixtures.prime(connection);
       }
    }
@@ -201,7 +206,11 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    static Set<String> permissionsFor(String persona)
    {
-      Collection<AvailablePermission> all = PermissionsHelper.getAllAvailablePermissions(instance);
+      Collection<AvailablePermission> all = new ArrayList<>(PermissionsHelper.getAllAvailablePermissions(instance));
+      for(String process : WidgetsFixtures.GRANTED_HIDDEN_PROCESSES)
+      {
+         all.add(new AvailablePermission().withName(process + ".hasAccess").withObjectName(process).withObjectType("Process").withPermissionType("hasAccess"));
+      }
       Predicate<AvailablePermission> keep = switch(persona)
       {
          case "viewer" -> permission -> !"Process".equals(permission.getObjectType())

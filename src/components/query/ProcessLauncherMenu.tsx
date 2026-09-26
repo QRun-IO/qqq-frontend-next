@@ -17,8 +17,9 @@
 /**
  * @file ProcessLauncherMenu — the query screen's Actions menu (Material's QueryScreenActionMenu):
  * Bulk Load/Edit/Edit With File/Delete when the table's capabilities, the user's permissions and
- * the `{table}.bulk*` processes allow them, then the table's own processes. Launching is
- * delegated to the caller, which passes the current selection to the process.
+ * the `{table}.bulk*` processes allow them, then the table's own processes, then the processes
+ * the instance adds to every query screen. Launching is delegated to the caller, which passes
+ * the current selection to the process.
  */
 
 'use client'
@@ -45,7 +46,7 @@ interface ProcessLauncherMenuProps {
   tableMetaData: QTableMetaData
   /** Every process in the instance (bulk processes are hidden, so they come from here). */
   allProcesses: Record<string, QProcessMetaData>
-  /** The table's visible processes. */
+  /** The table's visible processes, then the processes added to every screen (other tables' or none). */
   processes: QProcessMetaData[]
   /** How many records the current selection covers. */
   selectionCount: number
@@ -65,12 +66,14 @@ interface MenuEntry {
 }
 
 /**
- * Builds the menu entries: permitted bulk actions, then table processes sorted by label.
+ * Builds the menu entries: permitted bulk actions, then table processes sorted by label, then
+ * (as in Material, after a divider and in their configured order) the processes added to every
+ * screen, which may be hidden from navigation.
  *
  * @param props - The menu props.
- * @returns Bulk entries and process entries.
+ * @returns Bulk entries, table process entries and all-screens process entries.
  */
-export function buildActionEntries({ tableMetaData, allProcesses, processes, selectionCount }: Omit<ProcessLauncherMenuProps, 'onLaunch' | 'onBlocked'>): { bulk: MenuEntry[]; table: MenuEntry[] } {
+export function buildActionEntries({ tableMetaData, allProcesses, processes, selectionCount }: Omit<ProcessLauncherMenuProps, 'onLaunch' | 'onBlocked'>): { bulk: MenuEntry[]; table: MenuEntry[]; added: MenuEntry[] } {
   const bulk: MenuEntry[] = []
   for (const action of BULK_ACTIONS) {
     const process = allProcesses[`${tableMetaData.name}.${action.suffix}`]
@@ -84,19 +87,23 @@ export function buildActionEntries({ tableMetaData, allProcesses, processes, sel
       blockedMessage: action.needsSelection && selectionCount === 0 ? `No records were selected to ${action.label}.` : undefined,
     })
   }
+  const processEntry = (process: QProcessMetaData): MenuEntry => {
+    let blockedMessage: string | undefined
+    const min = process.minInputRecords
+    const max = process.maxInputRecords
+    if (min != null && min > 0 && selectionCount === 0) blockedMessage = `No records were selected for the process: ${process.label}`
+    else if (min != null && selectionCount < min) blockedMessage = `Too few records were selected for the process: ${process.label}.  A minimum of ${min} is required.`
+    else if (max != null && selectionCount > max) blockedMessage = `Too many records were selected for the process: ${process.label}.  A maximum of ${max} is allowed.`
+    return { key: process.name, label: process.label, process, Icon: Play, blockedMessage }
+  }
   const table = processes
-    .filter((p) => !p.isHidden && p.hasPermission !== false)
+    .filter((p) => p.tableName === tableMetaData.name && !p.isHidden && p.hasPermission !== false)
     .sort((a, b) => a.label.localeCompare(b.label))
-    .map((process): MenuEntry => {
-      let blockedMessage: string | undefined
-      const min = process.minInputRecords
-      const max = process.maxInputRecords
-      if (min != null && min > 0 && selectionCount === 0) blockedMessage = `No records were selected for the process: ${process.label}`
-      else if (min != null && selectionCount < min) blockedMessage = `Too few records were selected for the process: ${process.label}.  A minimum of ${min} is required.`
-      else if (max != null && selectionCount > max) blockedMessage = `Too many records were selected for the process: ${process.label}.  A maximum of ${max} is allowed.`
-      return { key: process.name, label: process.label, process, Icon: Play, blockedMessage }
-    })
-  return { bulk, table }
+    .map(processEntry)
+  const added = processes
+    .filter((p) => p.tableName !== tableMetaData.name && p.hasPermission !== false && !bulk.some((entry) => entry.process.name === p.name))
+    .map(processEntry)
+  return { bulk, table, added }
 }
 
 /**
@@ -131,8 +138,8 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
     return () => document.removeEventListener('keydown', handler)
   }, [isOpen])
 
-  const { bulk, table } = buildActionEntries(props)
-  if (bulk.length === 0 && table.length === 0) return null
+  const { bulk, table, added } = buildActionEntries(props)
+  if (bulk.length === 0 && table.length === 0 && added.length === 0) return null
 
   const choose = (entry: MenuEntry) => {
     setIsOpen(false)
@@ -177,6 +184,8 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
             {bulk.map(item)}
             {bulk.length > 0 && table.length > 0 && <div role="separator" className="my-1 border-t border-border" />}
             {table.map(item)}
+            {added.length > 0 && bulk.length + table.length > 0 && <div role="separator" className="my-1 border-t border-border" />}
+            {added.map(item)}
           </div>
         </div>
       )}

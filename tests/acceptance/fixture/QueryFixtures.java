@@ -47,12 +47,14 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.ExposedJoin;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Tier;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
 import com.kingsrook.qqq.backend.core.model.metadata.variants.BackendVariantsConfig;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryBackendModule;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryModuleBackendVariantSetting;
 import com.kingsrook.qqq.backend.core.processes.implementations.columnstats.ColumnStatsStep;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardTableMetaData;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 
 
@@ -68,6 +70,8 @@ import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
  ** - qryLedger: a queryable table with count, export and writes disabled.
  ** - qryHousehold / qryMember: canonical, aliased and composite (non primary
  **   key) associations, bound to childRecordList and rowBuilder widgets.
+ ** - qryBin: Material "Go To" keys (code; aisle + shelf); qryLocker: readable by
+ **   key (GET) but not queryable, so its query screen opens Go To.
  *******************************************************************************/
 final class QueryFixtures
 {
@@ -114,6 +118,31 @@ final class QueryFixtures
             List.of("quantity", "price", "receivedDate", "checkedAt", "isActive", "ownerId", "speciesId", "notes", "photo")))
          .withExposedJoin(new ExposedJoin().withJoinTable(SampleMetaDataProvider.TABLE_NAME_PERSON).withJoinPath(List.of("qryItemJoinPerson")))
          .withExposedJoin(new ExposedJoin().withJoinTable("qryItemNote").withJoinPath(List.of("qryItemJoinItemNote")))));
+      //////////////////////////////////////////////////////////////////////////////////////////////
+      // default grid column order (Material): fields declared out of order, sections decide (#714) //
+      //////////////////////////////////////////////////////////////////////////////////////////////
+      QTableMetaData ordered = new QTableMetaData().withName("qryOrdered").withLabel("Ordered Item").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withField(new QFieldMetaData("price", QFieldType.DECIMAL))
+         .withField(new QFieldMetaData("quantity", QFieldType.INTEGER))
+         .withField(new QFieldMetaData("code", QFieldType.STRING))
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))
+         .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "code")))
+         .withSection(new QFieldSection("details", "Details", new QIcon("dataset"), Tier.T2, List.of("price")))
+         .withSection(new QFieldSection("stock", "Stock", new QIcon("inventory"), Tier.T2, List.of("quantity")));
+      ordered.setBackendDetails(new RDBMSTableBackendDetails().withTableName("qry_item"));
+      QInstanceEnricher.setInferredFieldBackendNames(ordered);
+      qInstance.addTable(ordered);
+
+      ////////////////////////////////////////////////////////////////////////////
+      // more than a thousand rows: pagination numbers are locale formatted (#714) //
+      ////////////////////////////////////////////////////////////////////////////
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryManyRow").withLabel("Many Row").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("name")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))));
+
       qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryItemNote").withLabel("Item Note").withBackendName(rdbms)
          .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("note")
          .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
@@ -191,6 +220,28 @@ final class QueryFixtures
       household.withSection(new QFieldSection().withName("companions").withLabel("Companions").withTier(Tier.T2).withWidgetName("qryCompanionPanel"));
       household.withSection(new QFieldSection().withName("reviewSchedule").withLabel("Review Schedule").withTier(Tier.T2).withWidgetName("qryReviewEditor"));
 
+      //////////////////////////////////////////////////////////////////////////////
+      // Material "Go To": the primary key plus two unique keys (code; aisle+shelf) //
+      //////////////////////////////////////////////////////////////////////////////
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryBin").withLabel("Storage Bin").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("contents")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("code", QFieldType.STRING).withLabel("Bin Code").withIsRequired(true))
+         .withField(new QFieldMetaData("aisle", QFieldType.STRING).withIsRequired(true))
+         .withField(new QFieldMetaData("shelf", QFieldType.STRING).withIsRequired(true))
+         .withField(new QFieldMetaData("contents", QFieldType.STRING))
+         .withUniqueKey(new UniqueKey("code"))
+         .withUniqueKey(new UniqueKey("aisle", "shelf"))
+         .withSupplementalMetaData(new MaterialDashboardTableMetaData().withGotoFieldNames(List.of(List.of("code"), List.of("aisle", "shelf"))))));
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryLocker").withLabel("Locker").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("holder")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("code", QFieldType.STRING).withLabel("Locker Code").withIsRequired(true))
+         .withField(new QFieldMetaData("holder", QFieldType.STRING))
+         .withUniqueKey(new UniqueKey("code"))
+         .withoutCapabilities(Capability.TABLE_QUERY)
+         .withSupplementalMetaData(new MaterialDashboardTableMetaData().withGotoFieldNames(List.of(List.of("code"))))));
+
       ////////////////////////////////////////////////////////////////////////////////////
       // a readable parent whose associated table is denied to noPets with DISABLED: the //
       // child stays listed in metadata (readPermission false), so its panel is kept.    //
@@ -226,6 +277,9 @@ final class QueryFixtures
          for(String sql : List.of(
             "DROP TABLE IF EXISTS qry_item_note",
             "DROP TABLE IF EXISTS qry_item",
+            "DROP TABLE IF EXISTS qry_many_row",
+            "CREATE TABLE qry_many_row (id INT PRIMARY KEY, name VARCHAR(40) NOT NULL)",
+            "INSERT INTO qry_many_row (id, name) SELECT X, CONCAT('Row ', X) FROM SYSTEM_RANGE(1, 1234)",
             """
                CREATE TABLE qry_item (id INT PRIMARY KEY, name VARCHAR(80) NOT NULL, code VARCHAR(40), quantity INT, price DECIMAL(12, 2),
                received_date DATE, checked_at TIMESTAMP, is_active BOOLEAN, owner_id INT, species_id INT, notes VARCHAR(1000), photo BLOB)""",
@@ -268,6 +322,13 @@ final class QueryFixtures
                (1, 'Ari', 1, 'CH', DATE '2026-04-01'), (2, 'Bo', 1, 'MH', DATE '2026-03-01'),
                (3, 'Cy', 2, 'CH', DATE '2026-04-01'), (4, 'Di', 2, 'MH', DATE '2025-01-01')""",
             "ALTER TABLE qry_member ALTER COLUMN id RESTART WITH 100",
+
+            "DROP TABLE IF EXISTS qry_bin",
+            "CREATE TABLE qry_bin (id INT PRIMARY KEY, code VARCHAR(20) NOT NULL, aisle VARCHAR(10) NOT NULL, shelf VARCHAR(10) NOT NULL, contents VARCHAR(80))",
+            "INSERT INTO qry_bin VALUES (1, 'B-100', 'A', '1', 'Bolts'), (2, 'B-200', 'A', '2', 'Nuts'), (3, 'B-300', 'B', '1', 'Washers'), (4, 'B-400', 'C', '1', 'Screws')",
+            "DROP TABLE IF EXISTS qry_locker",
+            "CREATE TABLE qry_locker (id INT PRIMARY KEY, code VARCHAR(20) NOT NULL, holder VARCHAR(80))",
+            "INSERT INTO qry_locker VALUES (1, 'L-01', 'Ari Locker'), (2, 'L-02', 'Bo Locker')",
 
             "DROP TABLE IF EXISTS qry_shelter_pet",
             "DROP TABLE IF EXISTS qry_shelter",

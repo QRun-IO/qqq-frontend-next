@@ -54,6 +54,8 @@ export interface ProcessStepScreenProps {
   values: Record<string, unknown>
   backStep: string | null
   isWorking: boolean
+  /** JSON of the table variant the run uses, for record requests made by components. */
+  tableVariant?: string
   tableMetaData?: QTableMetaData
   sourceTableMetaData?: QTableMetaData
   previewTableMetaData?: QTableMetaData
@@ -111,7 +113,7 @@ function StepHelp({ step }: { step: QFrontendStepMetaData }) {
  * @returns The screen.
  */
 export function ProcessStepScreen({
-  processName, processMetaData, processUUID, step, steps, values, backStep, isWorking,
+  processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
   tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
   onSubmit, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
@@ -198,7 +200,7 @@ export function ProcessStepScreen({
 
   const context: ProcessStepContextValue = {
     processName, processUUID, processMetaData, tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
-    step, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep, setStepLabel,
+    step, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep, setStepLabel, tableVariant,
   }
 
   const index = steps.findIndex((candidate) => candidate.name === step.name)

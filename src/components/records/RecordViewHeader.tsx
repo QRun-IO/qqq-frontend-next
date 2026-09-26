@@ -20,13 +20,19 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { queryKeys } from '@/lib/query-client'
+import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
+import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 
 import { RecordActions } from './RecordActions'
 import { FieldLabel } from './FieldLabel'
@@ -34,6 +40,8 @@ import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
+import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
+import { GotoRecordButton } from './GotoRecordDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -82,6 +90,8 @@ interface RecordViewHeaderProps {
   auditSource?: AuditSource
   /** Widget metadata, for WIDGET-adorned T1 fields. */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Reloads the record and its children (after a child is created from a link). */
+  onRecordChanged?: () => void
 }
 
 /**
@@ -110,8 +120,10 @@ export function RecordViewHeader({
   navigateFrom,
   auditSource = null,
   widgetMetaDataMap,
+  onRecordChanged,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
@@ -150,9 +162,33 @@ export function RecordViewHeader({
   const canInsert = canInsertRecords(tableMetaData)
   const canDelete = canDeleteRecords(tableMetaData)
 
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
-  )
+  const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
+
+  // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
+  const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
+  const recordPath = `${tablePath}/${encodeURIComponent(String(primaryKey))}`
+  // Material hash links on a record view: #audit, #/launchProcess={process}, #/createChild={table}/defaultValues=...
+  const [hash, clearHash] = useLocationHash()
+  const hashAction = useMemo(() => recordHashAction(hash), [hash])
+  const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
+  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table;
+  // those are always in this screen's list, so a process missing from it (a hidden table process) names no table
+  const hashProcess = hashAction?.type === 'launchProcess' ? processes?.find((process) => process.name === hashAction.processName) : undefined
+  const hashLaunchTable = hashProcess ? launchTableName(hashProcess, tableMetaData.name) : undefined
+  useEffect(() => {
+    if (!hashAction) return
+    if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)
+    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath, tableName: hashLaunchTable }))
+    else if (hashAction.type === 'createChild') setCreateChild(hashAction)
+  }, [hashAction, auditSource, router, primaryKey, recordPath, hashLaunchTable])
+
+  usePageShortcuts({
+    n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
+    e: !hideActions && canEdit && (() => router.push(`${recordPath}/edit`)),
+    c: !hideActions && canInsert && (() => router.push(`${recordPath}/copy`)),
+    d: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
+    a: Boolean(auditSource) && (() => setAuditOpen(true)),
+  })
 
   return (
     <div className="flex items-start gap-4">
@@ -249,6 +285,17 @@ export function RecordViewHeader({
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+
+        {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
+        <GotoRecordButton
+          tableMetaData={tableMetaData}
+          className={cn(
+            'inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm font-medium',
+            'text-foreground bg-card hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'transition-colors duration-150'
+          )}
+        />
 
         {auditSource && (
           <button
@@ -391,7 +438,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(`/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`)
+                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(process, tableMetaData.name) }))
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
@@ -446,11 +493,29 @@ export function RecordViewHeader({
       {auditSource && (
         <AuditHistoryDialog
           open={auditOpen}
-          onOpenChange={setAuditOpen}
+          onOpenChange={(open) => {
+            setAuditOpen(open)
+            if (!open && hashAction?.type === 'audit') clearHash()
+          }}
           source={auditSource}
           tableMetaData={tableMetaData}
           primaryKey={primaryKey}
           recordLabel={record.recordLabel || String(primaryKey)}
+        />
+      )}
+
+      {createChild && (
+        <CreateChildFromLinkDialog
+          tableName={createChild.tableName}
+          presets={createChild}
+          onClose={() => {
+            setCreateChild(null)
+            clearHash()
+          }}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.widgets() })
+            onRecordChanged?.()
+          }}
         />
       )}
 

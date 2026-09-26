@@ -178,10 +178,14 @@ export function QqqComposite({ widgetMetaData, data, actionCallback }: QqqCompos
   if (!isPlainObject(data)) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('composite', 'data')} />
   }
+  // A single leaf block (Material's `block` widget, a table `block` cell) renders as that block.
+  const leafType = typeof data.blockTypeName === 'string' && data.blockTypeName !== 'COMPOSITE' && !('blocks' in data) ? data.blockTypeName : null
   return (
     <NestedCompositeContext.Provider value={renderNested}>
       <div data-qqq-id={`composite-${widgetName}`}>
-        <CompositeContainer data={data} widgetName={widgetName} actionCallback={actionCallback} />
+        {leafType
+          ? <QqqBlock block={data as QqqBlockData} widgetName={widgetName} actionCallback={actionCallback} />
+          : <CompositeContainer data={data} widgetName={widgetName} actionCallback={actionCallback} />}
       </div>
     </NestedCompositeContext.Provider>
   )

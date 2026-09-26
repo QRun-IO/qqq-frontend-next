@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { createContext, useCallback, useContext, useMemo } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
@@ -30,6 +30,8 @@ import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { recordHashAction } from '@/lib/utils/material-links'
 
 import { RecordViewSection } from './RecordViewSection'
 import { FieldValue } from './FieldValue'
@@ -478,6 +480,21 @@ function RecordViewContent({
     updateUrlParam('view', mode, 'tabs')
   }, [updateUrlParam])
 
+  // Material section anchors (#sectionName): show that section's tab and scroll to it.
+  const [hash] = useLocationHash()
+  useEffect(() => {
+    const action = recordHashAction(hash)
+    if (action?.type !== 'section') return
+    const tabId = `section-${action.name}`
+    if (viewMode === 'tabs' && tabs.some((tab) => tab.id === tabId)) setActiveTab(tabId)
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector(`[data-qqq-id="record-section-${CSS.escape(action.name)}"]`)?.scrollIntoView({ block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+    // only a new hash moves the view; tab and mode changes must not re-apply it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash])
+
   // CQ-MED-4: primarySections already captures all sections without an explicit tier
   // (via the `!s.tier` predicate), so the `|| visibleSections` fallback is redundant.
   const t1Sections = primarySections
@@ -569,6 +586,7 @@ function RecordViewContent({
           navigateFrom={navigateFrom}
           auditSource={auditSource}
           widgetMetaDataMap={widgetMetaDataMap}
+          onRecordChanged={onRefetch}
         />
 
         {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (

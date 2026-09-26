@@ -93,8 +93,62 @@ describe('PossibleValueSelect — initial value label', () => {
     mockFetchProcess.mockResolvedValue([{ id: 2, label: 'Bob' }])
     render(<Wrapper context={{ type: 'process', processName: 'prcWizard' }} defaultValue={2} />)
     expect(await screen.findByText('Bob')).toBeInTheDocument()
-    expect(mockFetchProcess).toHaveBeenCalledWith('prcWizard', 'person', { ids: '2' })
+    expect(mockFetchProcess).toHaveBeenCalledWith('prcWizard', 'person', { ids: '2', formValues: { testField: 2 } })
     expect(screen.getByRole('combobox', { name: 'Person' })).not.toHaveTextContent(/^2$/)
+  })
+})
+
+/** Harness with a source field the select's filter reads; exposes the form's setter. */
+function DependentWrapper({ onForm, context = { type: 'table' as const, tableName: 'order' } }: {
+  onForm: (setValue: (name: string, value: unknown) => void) => void
+  context?: { type: 'table'; tableName: string } | { type: 'process'; processName: string }
+}) {
+  const { control, setValue } = useForm<Record<string, unknown>>({ defaultValues: { categoryId: 1, itemId: null } })
+  onForm((name, value) => setValue(name, value))
+  return <PossibleValueSelect id="test-item" label="Item" name="itemId" control={control} fieldName="itemId" context={context} />
+}
+
+describe('PossibleValueSelect — dependent filters (form values)', () => {
+  const byCategory = (request?: { formValues?: Record<string, unknown> }) =>
+    Promise.resolve(request?.formValues?.categoryId === 2 ? [{ id: 3, label: 'Carrot' }] : [{ id: 1, label: 'Apple' }])
+
+  it('sends the form values with the search and reloads an open list when the source field changes', async () => {
+    const user = userEvent.setup()
+    mockFetchTable.mockImplementation((_table, _field, request) => byCategory(request))
+    let setValue!: (name: string, value: unknown) => void
+    render(<DependentWrapper onForm={(setter) => { setValue = setter }} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    expect(await screen.findByRole('option', { name: 'Apple' })).toBeVisible()
+    expect(mockFetchTable).toHaveBeenLastCalledWith('order', 'itemId', { formValues: { categoryId: 1, itemId: null } })
+
+    act(() => setValue('categoryId', 2))
+    expect(await screen.findByRole('option', { name: 'Carrot' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: 'Apple' })).not.toBeInTheDocument()
+    expect(mockFetchTable).toHaveBeenLastCalledWith('order', 'itemId', { formValues: { categoryId: 2, itemId: null } })
+  })
+
+  it('does not reload its choices when only its own value changes', async () => {
+    const user = userEvent.setup()
+    mockFetchTable.mockImplementation((_table, _field, request) => byCategory(request))
+    render(<DependentWrapper onForm={() => {}} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    await user.click(await screen.findByRole('option', { name: 'Apple' }))
+    expect(screen.getByRole('combobox', { name: 'Item' })).toHaveTextContent('Apple')
+    expect(mockFetchTable).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends the form values with a process field search and a label lookup', async () => {
+    const user = userEvent.setup()
+    mockFetchProcess.mockImplementation((_process, _field, request) => byCategory(request))
+    let setValue!: (name: string, value: unknown) => void
+    render(<DependentWrapper onForm={(setter) => { setValue = setter }} context={{ type: 'process', processName: 'prcPick' }} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    expect(await screen.findByRole('option', { name: 'Apple' })).toBeVisible()
+    expect(mockFetchProcess).toHaveBeenLastCalledWith('prcPick', 'itemId', { formValues: { categoryId: 1, itemId: null } })
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+
+    act(() => setValue('itemId', 3))
+    await waitFor(() => expect(mockFetchProcess).toHaveBeenLastCalledWith('prcPick', 'itemId', { ids: '3', formValues: { categoryId: 1, itemId: 3 } }))
   })
 })
 
@@ -369,7 +423,7 @@ describe('PossibleValueSelect — search', () => {
     await waitFor(
       () => {
         // Should have been called with the search term after the debounce fires
-        expect(mockFetchTable).toHaveBeenCalledWith('person', 'person', { searchTerm: 'Al' })
+        expect(mockFetchTable).toHaveBeenCalledWith('person', 'person', { searchTerm: 'Al', formValues: { testField: null } })
       },
       { timeout: 2000 }
     )
@@ -394,7 +448,7 @@ describe('PossibleValueSelect — error state', () => {
     expect(screen.getByRole('option', { name: 'Bob' })).toBeVisible()
     expect(screen.queryByRole('option', { name: 'Alice' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo' })
+    expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo', formValues: { testField: null } })
   })
 
   it('distinguishes a failed request from empty choices and retries on reopen', async () => {

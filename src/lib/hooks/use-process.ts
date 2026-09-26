@@ -313,7 +313,7 @@ export function useProcess(
     if (!processUUID || !currentStep || phase !== 'step') return
     const generation = generationRef.current
     setState((previous) => ({ ...previous, phase: 'working', progress: { message: 'Working...', updatedAt: new Date() } }))
-    void run(() => processStep(processName, processUUID, currentStep.name, { values, files }), generation)
+    void run(() => processStep(processName, processUUID, currentStep.name, { values, files, tableVariant: initialRequestRef.current?.tableVariant }), generation)
   }, [processName, run])
 
   const back = useCallback(() => {
@@ -321,7 +321,7 @@ export function useProcess(
     if (!processUUID || !backStep || phase !== 'step') return
     const generation = generationRef.current
     setState((previous) => ({ ...previous, phase: 'working', progress: { message: 'Working...', updatedAt: new Date() } }))
-    void run(() => processStep(processName, processUUID, backStep, { isStepBack: true }), generation)
+    void run(() => processStep(processName, processUUID, backStep, { isStepBack: true, tableVariant: initialRequestRef.current?.tableVariant }), generation)
   }, [processName, run])
 
   const cancel = useCallback(async () => {

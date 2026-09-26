@@ -21,7 +21,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 
 import type { QWidgetMetaData } from '@/types'
-import { ChildRecordListWidget, childColumns, nextViewAllHref } from './ChildRecordListWidget'
+import { ChildRecordListWidget, addChildHref, childColumns, nextViewAllHref } from './ChildRecordListWidget'
 import type { ChildRecordListPayload, ChildTableMetaData } from './ChildRecordListWidget'
 
 const meta: QWidgetMetaData = { name: 'accWidgetHostJoinChild', label: 'Owned Children', type: 'childRecordList', hasPermission: true }
@@ -117,6 +117,15 @@ describe('ChildRecordListWidget', () => {
     }
     expect(childColumns(table).map((field) => field.name)).toEqual(['id', 'format'])
     expect(childColumns(table, [], ['format']).map((field) => field.name)).toEqual(['format'])
+  })
+
+  it('adds a child the Material way: join defaults locked, over the record or on the create page', () => {
+    const add: ChildRecordListPayload = { ...payload, canAddChildRecord: true, defaultValuesForNewChildRecords: { hostId: 1 },
+      defaultValuesForNewChildRecordsFromParentFields: { name: 'title' } }
+    const presets = `/defaultValues=${encodeURIComponent('{"hostId":1,"name":"Host one"}')}/disabledFields=${encodeURIComponent('{"hostId":1,"name":1}')}`
+    expect(addChildHref(add, 'accWidgetHostChild', { id: 1, title: 'Host one' })).toBe(`#/createChild=accWidgetHostChild${presets}`)
+    expect(addChildHref({ ...add, disabledFieldsForNewChildRecords: ['hostId'], defaultValuesForNewChildRecordsFromParentFields: undefined }, 'accWidgetHostChild', undefined))
+      .toBe(`/app/accWidgetHostChild/create#/defaultValues=${encodeURIComponent('{"hostId":1}')}/disabledFields=${encodeURIComponent('{"hostId":1}')}`)
   })
 
   it('maps Material view-all paths to the Next record query route', () => {

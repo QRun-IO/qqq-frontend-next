@@ -41,6 +41,7 @@ import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
+import { safeReturnTo } from '@/lib/auth/return-to'
 // Direct module imports, not the component barrels: the widgets barrel re-exports the chart
 // widgets, which pulled Recharts into this route's first load although WidgetRenderer loads
 // charts lazily (QRun-IO/qqq#710).
@@ -210,6 +211,9 @@ export default function SlugPage() {
       initialRequest.recordsParam = 'filterJSON'
       initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
     }
+    // a process added to every screen (no table of its own) runs over the launching table
+    const launchTable = searchParams.get('tableName')
+    if (!process.tableName && launchTable && metaData.tables?.[launchTable]) initialRequest.tableName = launchTable
     ////////////////////////////////////////////////////////////////////////
     // links may preset process inputs, as in the Material dashboard:     //
     // ?defaultProcessValues={"name":"value"}                             //
@@ -221,7 +225,10 @@ export default function SlugPage() {
     } catch {
       initialValues = undefined
     }
-    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} />
+    // a launch from a record or query screen returns there (Material closes its modal over that screen)
+    const rawReturnTo = searchParams.get('returnTo')
+    const returnTo = rawReturnTo ? safeReturnTo(rawReturnTo, undefined, '') || undefined : undefined
+    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} returnTo={returnTo} />
   }
 
   // Process loading state (process found but metadata not yet available)

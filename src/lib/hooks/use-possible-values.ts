@@ -40,6 +40,11 @@ export interface UsePossibleValuesOptions {
   context: PossibleValueContext
   searchTerm?: string
   initialIds?: (string | number)[]
+  /**
+   * Current values of the form the field is on, for `${input.fieldName}` filters.
+   * Part of the query key, so the options refresh when one of them changes.
+   */
+  formValues?: Record<string, unknown>
   enabled?: boolean
   debounceMs?: number
 }
@@ -62,7 +67,8 @@ export interface UsePossibleValuesResult {
  *
  * @param options - Configuration including field name, context, optional external search
  *   term (pass `undefined` to use the hook's internal state), optional pre-selected IDs
- *   to pre-load labels, and optional `enabled` flag.
+ *   to pre-load labels, the form's current values (sent for dependent filters and part
+ *   of the query key), and optional `enabled` flag.
  * @returns `{ options, isLoading, isError, searchTerm, setSearchTerm }` —
  *   `options` is a `QPossibleValue[]` (id + label pairs, empty array while loading or on error);
  *   watch `isLoading` to show a spinner while the network request is in flight;
@@ -73,6 +79,7 @@ export function usePossibleValues({
   context,
   searchTerm: externalSearchTerm,
   initialIds,
+  formValues,
   enabled = true,
 }: Omit<UsePossibleValuesOptions, 'debounceMs'>): UsePossibleValuesResult {
   const [internalSearchTerm, setInternalSearchTerm] = useState(externalSearchTerm ?? '')
@@ -83,6 +90,7 @@ export function usePossibleValues({
     const request = {
       searchTerm: activeTerm || undefined,
       ids: initialIds?.join(',') || undefined,
+      formValues,
     }
 
     if (context.type === 'table') {
@@ -96,8 +104,8 @@ export function usePossibleValues({
 
   const queryKey =
     context.type === 'table'
-      ? queryKeys.tablePossibleValues(context.tableName, fieldName, activeTerm)
-      : [...queryKeys.possibleValues(), context.type, fieldName, activeTerm]
+      ? queryKeys.tablePossibleValues(context.tableName, fieldName, activeTerm, formValues)
+      : [...queryKeys.possibleValues(), context.type, fieldName, activeTerm, ...(formValues ? [formValues] : [])]
 
   const { data, isLoading, isError } = useQuery({
     queryKey,

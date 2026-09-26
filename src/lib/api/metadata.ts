@@ -54,7 +54,13 @@ export async function loadMetaData(): Promise<QInstance> {
   if (result.reports !== undefined && (typeof result.reports !== 'object' || result.reports === null || Array.isArray(result.reports))) {
     throw new Error('Invalid report metadata response')
   }
-  return { ...result, reports: result.reports ?? {} }
+  // V1 publishes only allow-listed supplemental instance metadata (the Material dashboard's
+  // processes for every screen, filtered to processes the user may see).
+  const supplemental = result.supplementalInstanceMetaData
+  if (supplemental !== undefined && supplemental !== null && (typeof supplemental !== 'object' || Array.isArray(supplemental))) {
+    throw new Error('Invalid supplemental metadata response')
+  }
+  return { ...result, reports: result.reports ?? {}, supplementalInstanceMetaData: supplemental ?? undefined }
 }
 
 /**

@@ -179,7 +179,12 @@ export interface QTableMetaData {
   helpContent?: QHelpContent
   /** Table help content by slot name, as the backend declares it. */
   helpContents?: Record<string, QHelpContent[]>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`),
+   * as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy (non-v1) routes' key. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
   shareableTableMetaData?: Record<string, unknown>
@@ -326,6 +331,8 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  supplementalAppMetaData?: Record<string, unknown>
 }
 
 /**
@@ -542,6 +549,8 @@ export interface QReportMetaData {
   hasPermission: boolean
   /** Process that runs this report (e.g. the basic report process). */
   processName?: string
+  /** Table whose records the report reads, when it has one. */
+  tableName?: string
   /** Material Icons name for navigation. */
   iconName?: string
 }

@@ -69,6 +69,27 @@ describe('Metadata API', () => {
     expect(apiClient.get).toHaveBeenCalledTimes(2)
   })
 
+  it('reads the allow-listed supplemental instance metadata from the v1 response alone', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    const materialDashboard = { processNamesToAddToAllQueryAndViewScreens: ['tagRecords'] }
+    const instance = { apps: {}, tables: {}, processes: {}, appTree: [], widgets: {}, reports: {}, supplementalInstanceMetaData: { materialDashboard } }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(instance)
+    expect(await loadMetaData()).toEqual(instance)
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ ...instance, supplementalInstanceMetaData: null })
+    expect((await loadMetaData()).supplementalInstanceMetaData).toBeUndefined()
+    expect(apiClient.get).toHaveBeenCalledTimes(2)
+    // only the v1 route: no base-URL override to the unversioned /metaData
+    expect(apiClient.get).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ baseURL: expect.anything() }))
+  })
+
+  it('rejects a supplemental instance metadata value that is not a map', async () => {
+    const { default: apiClient } = await import('./client')
+    const { loadMetaData } = await import('./metadata')
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ apps: {}, tables: {}, processes: {}, appTree: [], widgets: {}, supplementalInstanceMetaData: ['not', 'a', 'map'] })
+    await expect(loadMetaData()).rejects.toThrow('Invalid supplemental metadata response')
+  })
+
   it('rejects an invalid reports map', async () => {
     const { default: apiClient } = await import('./client')
     const { loadMetaData } = await import('./metadata')

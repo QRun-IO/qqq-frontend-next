@@ -621,6 +621,77 @@
         "#539"
       ],
       "required": true
+    },
+    {
+      "id": "NAV-034",
+      "feature": "Material table-scoped URLs: /app/{table}/{process} opens the table process (or an instance process); /app/{table}/{id}/{process} runs it for that record and returns to it",
+      "source": [
+        "material-dashboard src/App.tsx (table process routes), src/qqq/pages/records/view/RecordView.tsx (record process routes)",
+        "src/lib/utils/material-links.ts (tableProcessForSegment, processRunHref)",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx",
+        "src/app/(dashboard)/app/[slug]/[recordId]/[action]/page.tsx",
+        "src/components/layout/RouteRedirect.tsx"
+      ],
+      "fixture": "sample person.bulkEdit, clonePeople (table processes), prcQuickTask (ProcessesFixtures, instance process)",
+      "scenarios": [
+        "/app/person/person.bulkEdit?recordsParam=recordIds&recordIds=1,2 replaces itself with the run (init sends 1,2; Back returns to the table)",
+        "/app/person/prcQuickTask opens the instance process with returnTo the table",
+        "/app/person/1/clonePeople runs for record 1 (init and SQL clone) and Return lands on the record",
+        "/app/person/2/bulkEdit resolves the table process by suffix; Cancel returns to the record"
+      ],
+      "negative": [
+        "/app/person/1/noSuchProcess shows the in-shell not-found state and starts no process",
+        "report URLs (/app/{table}/{report}) are not covered: the backend frontend report metadata (QFrontendReportMetaData) has no tableName, so no report can match (#732)"
+      ],
+      "issues": [
+        "#714",
+        "#732"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-035",
+      "feature": "Process runs launched from a record view or a filtered query return there (Return and Cancel honor returnTo)",
+      "source": [
+        "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx and RecordView.tsx (process modal over the screen)",
+        "src/components/records/RecordActions.tsx, src/components/query/RecordQuery.tsx (launchProcess returnTo)",
+        "src/components/process/ProcessRun.tsx, src/app/(dashboard)/app/[slug]/page.tsx (safeReturnTo)"
+      ],
+      "fixture": "sample person, clonePeople, person.bulkEdit",
+      "scenarios": [
+        "record Actions > Clone People runs for the record and Return lands on the record",
+        "Bulk Edit from /app/person?filter=isEmployed: returnTo is the launching path and query; after the edit (SQL) Return restores the same filter and the filtered rows"
+      ],
+      "negative": [
+        "the unmatched record (Morgan) stays out of the returned grid"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-036",
+      "feature": "Material app settings (MaterialDashboardAppMetaData): showAppLabelOnHomeScreen and includeTableCountsOnHomeScreen turned off hide the home-screen title and the table counts",
+      "source": [
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardAppMetaData.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/apps/Home.tsx:81-88,176-187,307-314",
+        "qqq-middleware-javalin v1 AppMetaData.getSupplementalAppMetaData",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "NavigationFixtures.java navQuietHome app (navQuietItem table) with MaterialDashboardAppMetaData(false, false)",
+      "scenarios": [
+        "v1 metaData carries supplementalAppMetaData.materialDashboard for the app",
+        "The app home has no visible title (a screen-reader-only h1 remains) and the table entry shows no count",
+        "No count request is made for the table"
+      ],
+      "negative": [
+        "Apps without the settings keep their title and counts (Material defaults)"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
     }
   ]
 }

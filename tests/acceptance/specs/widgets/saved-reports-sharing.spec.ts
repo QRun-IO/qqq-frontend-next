@@ -87,37 +87,49 @@ test('[RPT-010] a saved report renders to a CSV with its saved columns and rows'
   expect(rows.slice(1)).toEqual(species.map((record) => [String(record.values.possibleValueId), record.values.possibleValueLabel]))
 })
 
-/** Opens the scheduled-report create form from the saved report's Schedules section and fills it, except the schedule. */
+/**
+ * Opens the scheduled-report create form from the saved report's Schedules section and fills it,
+ * except the schedule. As in Material, "Add new" opens the child create form over the saved report
+ * (a `#/createChild=` link) with the Saved Report preset to this report and locked (QRun-IO/qqq#714).
+ */
 async function openScheduleForm(page: Page) {
   await open(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await byId(page, 'child-record-add-scheduledReportJoinSavedReport').click()
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
-  const form = page.locator('form')
-  await form.getByLabel(/^Saved Report/).click()
-  await page.getByRole('option', { name: 'Pet Species Report' }).click()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\/defaultValues=/)
+  const dialog = page.locator('[data-qqq-id="dialog-create-child-scheduledReport"]')
+  await expect(dialog.getByRole('heading', { name: 'Add Scheduled Report' })).toBeVisible()
+  // the saved report stays underneath the modal dialog (hidden from assistive technology while it is open)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pet Species Report', includeHidden: true })).toBeVisible()
+  const savedReport = dialog.getByRole('combobox', { name: 'Saved Report' })
+  await expect(savedReport).toBeDisabled()
+  await expect(savedReport).toHaveText('Pet Species Report')
   // Is Active defaults to on from its metadata default (#649 records); make sure it ends checked
-  await form.getByRole('checkbox', { name: 'Is Active' }).check()
-  await form.getByLabel(/^Format/).click()
+  await dialog.getByRole('checkbox', { name: 'Is Active' }).check()
+  await dialog.getByLabel(/^Format/).click()
   await page.getByRole('option', { name: /^CSV/ }).click()
-  await form.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')
-  await form.getByLabel(/^Subject/).fill('Owned schedule')
-  await form.getByLabel(/^Cron Time Zone/).click()
+  await dialog.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')
+  await dialog.getByLabel(/^Subject/).fill('Owned schedule')
+  await dialog.getByLabel(/^Cron Time Zone/).click()
   await page.getByRole('option', { name: /^UTC$/ }).first().click()
-  return form
+  return dialog
 }
 
-/** Fills the scheduled-report create form, typing the expression in the schedule editor's Advanced mode, and saves. */
+/** Fills the scheduled-report create form, typing the expression in the schedule editor's Advanced mode, and creates it. */
 async function fillSchedule(page: Page, cronExpression: string) {
-  const form = await openScheduleForm(page)
+  const dialog = await openScheduleForm(page)
   await byId(page, 'cron-mode-advanced-scheduledReportCronWidget').click()
-  await form.getByLabel(/^Cron Expression/).fill(cronExpression)
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await dialog.getByLabel(/^Cron Expression/).fill(cronExpression)
+  const insert = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/scheduledReport')
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+  // the locked Saved Report is always submitted with its preset value
+  expect(/name="savedReportId"\r\n\r\n([^\r]*)/.exec((await insert).postData() ?? '')?.[1]).toBe('1')
+  return dialog
 }
 
 test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the live description is the one QQQ stores', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await openScheduleForm(page)
+  const dialog = await openScheduleForm(page)
   const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
   const live = byId(page, 'cron-editor-description-scheduledReportCronWidget')
   await expect(editor.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
@@ -151,23 +163,30 @@ test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the 
 
   await editor.getByRole('button', { name: 'Advanced' }).click()
   await expect(editor.getByLabel(/^Cron Expression/)).toHaveValue('0 30 9 ? * MON,FRI')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/\d+\/?$/)
-  const id = /\/scheduledReport\/(\d+)/.exec(page.url())![1]
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  // scheduled reports live in the sample memory backend (no SQL table): read them back over the API
+  const records = (await (await backend.api.get('/data/scheduledReport')).json()).records as Array<{ values: { id: number } }>
+  expect(records).toHaveLength(1)
+  const id = records[0].values.id
   const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
   expect(saved.values).toMatchObject({ cronExpression: '0 30 9 ? * MON,FRI', cronDescription: 'Every week, on Monday and Friday, at 9:30 am', cronTimeZoneId: 'UTC' })
+  await open(page, `/app/scheduledReport/${id}`)
   await expectLoaded(page, 'scheduledReportCronWidget')
   await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every week, on Monday and Friday, at 9:30 am')
 })
 
 test('[WID-064] a schedule is required: saving without one shows the error in the editor and nothing is saved', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await openScheduleForm(page)
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  const dialog = await openScheduleForm(page)
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
   const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
   await expect(editor.getByRole('alert')).toHaveText('Cron Expression is required')
   await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
+  // the create form stays open over the saved report
+  await expect(dialog).toBeVisible()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\//)
   expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
@@ -189,12 +208,19 @@ test('[RPT-019] the render report input step shows only its fields, without a st
 
 test('[RPT-012] a scheduled report is created for a saved report and shows its schedule', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await fillSchedule(page, '0 0 9 * * ?')
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/\d+\/?$/)
-  const id = /\/scheduledReport\/(\d+)/.exec(page.url())![1]
+  const dialog = await fillSchedule(page, '0 0 9 * * ?')
+  // the dialog closes over the saved report, the link's hash is cleared and the child list reloads
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  // scheduled reports live in the sample memory backend (no SQL table): read them back over the API
+  const records = (await (await backend.api.get('/data/scheduledReport')).json()).records as Array<{ values: { id: number } }>
+  expect(records).toHaveLength(1)
+  const id = records[0].values.id
   const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
   expect(saved.values).toMatchObject({ savedReportId: 1, isActive: true, toAddresses: 'owned-schedule@example.com', subject: 'Owned schedule',
     cronExpression: '0 0 9 * * ?', cronDescription: 'Every day, at 9:00 am', cronTimeZoneId: 'UTC' })
+  await expect(byId(page, `child-record-row-scheduledReportJoinSavedReport-${id}`)).toBeVisible()
+  await open(page, `/app/scheduledReport/${id}`)
   await expectLoaded(page, 'scheduledReportCronWidget')
   await expect(byId(page, 'cron-expression-scheduledReportCronWidget')).toHaveText('0 0 9 * * ?')
   await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every day, at 9:00 am')
@@ -206,10 +232,12 @@ test('[RPT-012] a scheduled report is created for a saved report and shows its s
 test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved', async ({ page, backend, diagnostics }) => {
   diagnostics.allow('/qqq/v1/table/scheduledReport 400')
   diagnostics.allow('Failed to load resource: the server responded with a status of 400')
-  await fillSchedule(page, 'not a cron')
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
-  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
+  const dialog = await fillSchedule(page, 'not a cron')
   await expect(page.getByRole('alert').filter({ hasText: /Cron Expression \[not a cron\] is not valid/ }).first()).toBeVisible()
+  // the form stays open over the saved report with the entered values
+  await expect(dialog.getByLabel(/^Cron Expression/)).toHaveValue('not a cron')
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\//)
+  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
 test('[RPT-013] the owner shares a saved report read-only with a user', async ({ page, backend, diagnostics }) => {

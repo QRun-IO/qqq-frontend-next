@@ -63,6 +63,9 @@ export interface DynamicFormProps {
   /** When `true`, all fields are rendered in a disabled, read-only state. */
   disabled?: boolean
 
+  /** Fields rendered disabled with their preset value (Material `disabledFields`). */
+  disabledFieldNames?: string[]
+
   /**
    * Map of field names to a boolean indicating whether that field has been
    * modified from its default value.  When `true` for a field, the field
@@ -166,6 +169,7 @@ export function DynamicForm({
   fieldNamesToInclude,
   possibleValueContext,
   disabled = false,
+  disabledFieldNames,
   dirtyFields,
   record,
   showReadOnlyFields = false,
@@ -313,7 +317,7 @@ export function DynamicForm({
                         register={register}
                         control={control}
                         errors={errors}
-                        disabled={disabled}
+                        disabled={disabled || Boolean(disabledFieldNames?.includes(f.name))}
                         isDirty={dirtyFields?.[f.name] === true}
                         possibleValueContext={possibleValueContext}
                         record={record}
@@ -351,7 +355,7 @@ export function DynamicForm({
               register={register}
               control={control}
               errors={errors}
-              disabled={disabled}
+              disabled={disabled || Boolean(disabledFieldNames?.includes(f.name))}
               isDirty={dirtyFields?.[f.name] === true}
               possibleValueContext={possibleValueContext}
               record={record}

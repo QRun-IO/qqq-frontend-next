@@ -95,6 +95,9 @@ export interface EntityFormProps {
   /** Declared relationship fields merged after ordinary input validation on insert. */
   fixedValues?: Record<string, string | number | boolean>
 
+  /** Fields shown disabled with their default value (Material link `disabledFields`). */
+  disabledFieldNames?: string[]
+
   /** Restricts the form to only these fields; when omitted all editable non-hidden fields are shown. */
   fieldNamesToInclude?: string[]
 
@@ -139,6 +142,7 @@ export function EntityForm({
   onCancel,
   defaultValues: propDefaultValues,
   fixedValues,
+  disabledFieldNames,
   fieldNamesToInclude,
   possibleValueContext,
   widgets,
@@ -442,6 +446,7 @@ export function EntityForm({
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
         disabled={disabled || isSaving || Boolean(defaultsError)}
+        disabledFieldNames={disabledFieldNames}
         dirtyFields={dirtyFields as Record<string, boolean>}
         record={record}
         showReadOnlyFields={isEdit}

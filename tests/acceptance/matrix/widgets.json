@@ -1220,17 +1220,21 @@
       "feature": "scheduled report: create a schedule for a saved report and view its cron schedule",
       "source": [
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ScheduledReportTableCustomizer.java",
-        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java"
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java",
+        "src/components/widgets/ChildRecordListWidget.tsx",
+        "src/components/records/CreateChildFromLinkDialog.tsx"
       ],
       "fixture": "scheduledReport (memory) for savedReport 1",
       "scenarios": [
-        "schedule persisted with cron description; record view shows the schedule widget"
+        "schedule persisted with cron description; record view shows the schedule widget",
+        "Add new on the saved report opens the Add Scheduled Report dialog over it with Saved Report preset and locked (Material #/createChild=); Create submits savedReportId=1, closes the dialog and reloads the child list"
       ],
       "negative": [
         "invalid cron expression rejected with message"
       ],
       "issues": [
-        "#673"
+        "#673",
+        "#714"
       ],
       "required": true
     },
@@ -1399,6 +1403,27 @@
       "issues": [
         "QRun-IO/qqq#699",
         "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-067",
+      "feature": "a widget whose payload is a single leaf block (Material block widget) renders that block",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:831-844",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
+        "src/components/widgets/blocks/QqqComposite.tsx"
+      ],
+      "fixture": "WidgetsFixtures.java accLeafBlock (COMPOSITE widget whose renderer returns a TextBlockData)",
+      "scenarios": [
+        "The backend payload is the TEXT block itself (blockTypeName TEXT, no blocks list)",
+        "The widget shows the block's text as a TEXT block"
+      ],
+      "negative": [
+        "No empty COMPOSITE container is rendered in its place"
+      ],
+      "issues": [
+        714
       ],
       "required": true
     },

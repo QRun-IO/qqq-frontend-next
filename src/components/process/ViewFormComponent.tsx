@@ -35,16 +35,23 @@ export interface ViewFormComponentProps {
   index: number
 }
 
+/** Where a view field's label lookup runs: the process and the screen's values. */
+interface ViewFieldScope {
+  processName: string
+  /** The screen's field values, sent as the form values a `${input.fieldName}` filter reads. */
+  values: Record<string, unknown>
+}
+
 /**
  * One "Label: value" line, resolving possible-value labels through the process's field.
- * @param props - The field and its raw value.
+ * @param props - The field, its raw value and the screen it is on.
  * @returns The rendered line.
  */
-function ViewField({ field, value, processName }: { field: QFieldMetaData; value: unknown; processName: string }) {
+function ViewField({ field, value, scope: { processName, values } }: { field: QFieldMetaData; value: unknown; scope: ViewFieldScope }) {
   const hasValue = value !== null && value !== undefined && value !== ''
   const { data: label } = useQuery({
-    queryKey: ['qqq', 'processViewValueLabel', processName, field.name, String(value)],
-    queryFn: async () => (await fetchProcessPossibleValues(processName, field.name, { ids: String(value) }))[0]?.label ?? null,
+    queryKey: ['qqq', 'processViewValueLabel', processName, field.name, String(value), values],
+    queryFn: async () => (await fetchProcessPossibleValues(processName, field.name, { ids: String(value), formValues: values }))[0]?.label ?? null,
     enabled: Boolean(field.possibleValueSourceName) && hasValue,
     staleTime: 60_000,
   })
@@ -74,10 +81,12 @@ export function ViewFormComponent({ index }: ViewFormComponentProps) {
   const { step, values, processName } = useProcessStep()
   const fields = (step.viewFields ?? []).filter((field) => !field.isHidden)
   if (fields.length === 0) return null
+  // As Material does for a screen's choices, send the values of the screen's own fields.
+  const screenValues = Object.fromEntries([...(step.viewFields ?? []), ...(step.formFields ?? [])].map((field) => [field.name, values[field.name] ?? null]))
   return (
     <div className="space-y-0.5" data-qqq-id={`process-view-form-${index}`}>
       {fields.map((field) => (
-        <ViewField key={field.name} field={field} value={values[field.name]} processName={processName} />
+        <ViewField key={field.name} field={field} value={values[field.name]} scope={{ processName, values: screenValues }} />
       ))}
     </div>
   )

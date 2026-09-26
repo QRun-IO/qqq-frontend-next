@@ -38,7 +38,7 @@ test('[REC-045] possible-value editors show stored labels, look up defaults and 
 
   await expect(page.getByRole('heading', { level: 1, name: 'Lab: Keyboard Pick' })).toBeVisible()
   const id = recordIdFromUrl(page, 'recordLab')
-  const post = multipartFields(writes.find((request) => request.method() === 'POST')!)
+  const post = multipartFields(writes.find((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/recordLab')!)
   expect(post.ownerId).toBe('3')
   expect(post.status).toBe('DRAFT')
   expect(await sqlOne(backend, `select owner_id, status from record_lab where id = ${id}`)).toEqual({ owner_id: '3', status: 'DRAFT' })

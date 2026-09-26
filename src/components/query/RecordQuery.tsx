@@ -41,7 +41,12 @@ import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
+import { launchTableName } from '@/lib/utils/process-utils'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+
+import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
 import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
@@ -54,26 +59,6 @@ import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
-
-/** localStorage key root for a table's selected variant (the same key Material uses). */
-export const TABLE_VARIANT_STORAGE_KEY_ROOT = 'qqq.tableVariant'
-
-/**
- * Reads a table's stored variant.
- *
- * @param tableName - Backend table name.
- * @returns The stored variant, or null.
- */
-function readStoredVariant(tableName: string): TableVariant | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`)
-    const parsed = raw ? (JSON.parse(raw) as TableVariant) : null
-    return parsed && parsed.id !== undefined && typeof parsed.type === 'string' ? parsed : null
-  } catch {
-    return null
-  }
-}
 
 /**
  * Props for the RecordQuery component.
@@ -114,8 +99,8 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   // ------------------------------------------------------------------
   // Variants (tables whose backend uses variants): stored per table, as in Material
   // ------------------------------------------------------------------
-  const [tableVariant, setTableVariant] = useState<TableVariant | null>(() => (tableMetaData.usesVariants ? readStoredVariant(tableName) : null))
-  const [variantPickerOpen, setVariantPickerOpen] = useState(() => Boolean(tableMetaData.usesVariants) && readStoredVariant(tableName) === null)
+  const [tableVariant, setTableVariant] = useState<TableVariant | null>(() => (tableMetaData.usesVariants ? readStoredTableVariant(tableName) : null))
+  const [variantPickerOpen, setVariantPickerOpen] = useState(() => Boolean(tableMetaData.usesVariants) && readStoredTableVariant(tableName) === null)
   const chooseVariant = (variant: TableVariant) => {
     try {
       localStorage.setItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`, JSON.stringify(variant))
@@ -259,14 +244,27 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
       params.set('recordsParam', 'recordIds')
       params.set('recordIds', rq.selection.selectedRecordIds.join(','))
     }
-    const queryString = params.toString()
-    router.push(`/app/${encodeURIComponent(process.name)}${queryString ? `?${queryString}` : ''}`)
-  }, [router, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
+    // a process added to every screen reads the selection from this table
+    const forTable = launchTableName(process, tableName)
+    if (forTable) params.set('tableName', forTable)
+    // the run comes back to this query (filter, sort and page kept), as Material's modal does
+    params.set('returnTo', `${window.location.pathname}${window.location.search}`)
+    router.push(`/app/${encodeURIComponent(process.name)}?${params.toString()}`)
+  }, [router, tableName, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
   const handleFilterToggle = useCallback(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)
     else rq.filter.toggleFilterPanel()
   }, [rq])
+
+  // Material query-screen shortcuts: n new record, r refresh the query, f open the filter builder.
+  usePageShortcuts({
+    n: canCreate && (() => router.push(`/app/${encodeURIComponent(tableName)}/create`)),
+    r: handleRefresh,
+    f: () => {
+      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+    },
+  }, Boolean(tableMetaData.readPermission))
 
   const pageRowCount = rq.data.records.length
   const allPageRowsSelected = pageRowCount > 0 && rq.selection.selectionMode === 'rows' && rq.selection.selectedRecordIds.length > 0
@@ -475,6 +473,11 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           filter={rq.filter.baseFilter}
           onClose={() => setStatsColumn(null)}
         />
+      )}
+
+      {/* A table that can be read by key but not queried: Material opens Go To, and it cannot be dismissed */}
+      {!rq.data.canQuery && hasCapability(tableMetaData, 'TABLE_GET') && (!tableMetaData.usesVariants || (tableVariant && !variantPickerOpen)) && (
+        <GotoRecordDialog open mayClose={false} tableMetaData={tableMetaData} tableVariant={tableVariant} onClose={() => undefined} />
       )}
 
       {tableMetaData.usesVariants && (

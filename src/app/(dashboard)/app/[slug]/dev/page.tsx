@@ -15,7 +15,8 @@
  */
 
 /**
- * @file TableDeveloperView page — shows raw table metadata as formatted JSON for debugging field definitions and permissions.
+ * @file TableDeveloperView page — table metadata statistics and raw JSON, plus the
+ * "API Docs & Playground" for the application APIs that expose the table.
  */
 
 'use client'
@@ -25,9 +26,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Code, ChevronDown, ChevronUp } from 'lucide-react'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
+import { useMetaData } from '@/lib/hooks/use-metadata'
 import { useQContext } from '@/lib/context/q-context'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
+import { TableApiDocs } from '@/components/records/TableApiDocs'
 
 /**
  * Renders a developer debug view for a QQQ table, showing summary statistics
@@ -35,6 +38,7 @@ import { queryKeys } from '@/lib/query-client'
  *
  * @returns A composed page that assembles:
  *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
+ *   - The `<TableApiDocs>` section (API and version selectors with the embedded RapiDoc reference)
  *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */
@@ -43,22 +47,24 @@ export default function TableDeveloperViewPage() {
   const { setPageHeader } = useQContext()
   const slug = params.slug
 
-  useEffect(() => {
-    setPageHeader(`Developer View: ${slug}`)
-  }, [slug, setPageHeader])
-
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.tableMetadata(slug),
     queryFn: () => loadTableMetaData(slug),
     staleTime: 1000 * 60 * 5,
   })
+  const { data: instance } = useMetaData()
+  const tableLabel = data?.label || slug
+
+  useEffect(() => {
+    setPageHeader(`${tableLabel} Developer Mode`)
+  }, [tableLabel, setPageHeader])
 
   return (
     <div className="space-y-6" data-qqq-id={`table-dev-${slug}`}>
       <div className="flex items-center gap-3">
         <Code className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-2xl font-semibold text-foreground">
-          Table Developer View: <span className="font-mono text-primary">{slug}</span>
+          Table Developer View: <span className="text-primary">{tableLabel}</span>
         </h2>
       </div>
 
@@ -100,6 +106,8 @@ export default function TableDeveloperViewPage() {
             />
             <MetaStat label="Primary Key" value={data.primaryKeyField ?? '—'} />
           </div>
+
+          <TableApiDocs tableName={data.name || slug} primaryColor={instance?.branding?.accentColor} />
 
           {/* Raw JSON */}
           <JsonBlock label="Full Table Metadata" value={data} defaultOpen={false} />
