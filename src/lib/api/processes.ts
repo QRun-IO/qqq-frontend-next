@@ -383,7 +383,7 @@ export async function processRecords(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
     { params: { skip, limit } }
   )
-  // v1 omits an empty records list
+  // v1 sends an empty list for a run with no records; an omitted list reads the same way
   const records = body && body.records === undefined && typeof body.totalRecords === 'number' ? [] : body?.records
   if (!body || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
