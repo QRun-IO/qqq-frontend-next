@@ -892,6 +892,31 @@
         "QRun-IO/qqq#714"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-049",
+      "feature": "Dependent possible values on a process screen: the choices follow the screen's other values",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/components/process/EditFormComponent.tsx",
+        "src/components/process/ViewFormComponent.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq-middleware-javalin QJavalinProcessHandler.possibleValues"
+      ],
+      "fixture": "prcSpecimenPick specimenId (prcSpecimen source filtered on category = ${input.category})",
+      "scenarios": [
+        "every search posts the screen values as the form-encoded values JSON",
+        "choices narrow to the chosen Category and change when it changes",
+        "the chosen id is recorded (SQL) and its label shows on the result screen"
+      ],
+      "negative": [
+        "Category empty: the unset variable makes no matches for a form, shown as No options found",
+        "the backend refuses an out-of-filter id lookup and returns only the filtered choices"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
     }
   ]
 }

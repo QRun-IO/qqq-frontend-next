@@ -121,6 +121,7 @@ public final class ProcessesFixtures
    static final String PROCESS_LOOP        = "prcLoop";
    static final String PROCESS_QUICK       = "prcQuickTask";
    static final String PROCESS_TAG         = "prcTagRecords";
+   static final String PROCESS_PICK        = "prcSpecimenPick";
 
    static final AtomicInteger FLAKY_CALLS = new AtomicInteger();
 
@@ -179,6 +180,9 @@ public final class ProcessesFixtures
          new QPossibleValue<>("short", "Short route"), new QPossibleValue<>("long", "Long route"))));
       instance.addPossibleValueSource(enumSource("prcFailureMode", "Failure Mode", List.of(
          new QPossibleValue<>("userFacing", "User-facing failure"), new QPossibleValue<>("internal", "Internal failure"))));
+      instance.addPossibleValueSource(enumSource("prcSpecimenCategory", "Specimen Category", List.of(
+         new QPossibleValue<>("Mineral", "Mineral"), new QPossibleValue<>("Plant", "Plant"), new QPossibleValue<>("Fungus", "Fungus"))));
+      instance.addPossibleValueSource(QPossibleValueSource.newForTable(TABLE_SPECIMEN));
 
       instance.addWidget(new QWidgetMetaData()
          .withName(WIDGET_HTML)
@@ -203,6 +207,7 @@ public final class ProcessesFixtures
       instance.addProcess(defineManyRows());
       instance.addProcess(defineScanner());
       instance.addProcess(defineLoop());
+      instance.addProcess(definePick());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
          .withLabel("Quick Task")
@@ -220,7 +225,7 @@ public final class ProcessesFixtures
 
       List<QAppChildMetaData> children = new ArrayList<>();
       children.add(instance.getTable(TABLE_SPECIMEN));
-      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK))
+      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK, PROCESS_PICK))
       {
          children.add(instance.getProcess(processName));
       }
@@ -253,7 +258,7 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, label VARCHAR(250), table_name VARCHAR(250), user_id VARCHAR(250), mapping_json TEXT, is_bulk_edit BOOLEAN)");
          statement.execute("CREATE TABLE shared_saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, saved_bulk_load_profile_id INTEGER, user_id VARCHAR(250), scope VARCHAR(30), UNIQUE(saved_bulk_load_profile_id, user_id))");
 
-         for(String table : List.of("prc_lab_run", "prc_route_log", "prc_progress_log", "prc_cancel_log", "prc_decision_log", "prc_drive_log"))
+         for(String table : List.of("prc_lab_run", "prc_route_log", "prc_progress_log", "prc_cancel_log", "prc_decision_log", "prc_drive_log", "prc_pick_log"))
          {
             statement.execute("DROP TABLE IF EXISTS " + table);
          }
@@ -265,6 +270,7 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE prc_drive_log (id INT AUTO_INCREMENT PRIMARY KEY, note VARCHAR(200), folder_id VARCHAR(200))");
          statement.execute("DROP TABLE IF EXISTS prc_tag_log");
          statement.execute("CREATE TABLE prc_tag_log (id INT AUTO_INCREMENT PRIMARY KEY, table_name VARCHAR(80), record_id VARCHAR(80))");
+         statement.execute("CREATE TABLE prc_pick_log (id INT AUTO_INCREMENT PRIMARY KEY, category VARCHAR(80), specimen_id INT)");
       }
    }
 
@@ -368,6 +374,35 @@ public final class ProcessesFixtures
             .withViewField(new QFieldMetaData("route", QFieldType.STRING).withLabel("Route").withPossibleValueSourceName("prcRoute"))
             .withViewField(new QFieldMetaData("routeNote", QFieldType.STRING).withLabel("Route Note"))
             .withViewField(new QFieldMetaData("detail", QFieldType.STRING).withLabel("Detail")));
+   }
+
+
+
+   /*******************************************************************************
+    ** A screen whose Specimen choices are filtered to its Category through
+    ** ${input.category} (the screen's values sent with the possible-value search),
+    ** a step that records the pick, and a result screen (PRC-049).
+    *******************************************************************************/
+   private static QProcessMetaData definePick()
+   {
+      return new QProcessMetaData()
+         .withName(PROCESS_PICK)
+         .withLabel("Specimen Pick")
+         .withIcon(new QIcon().withName("checklist"))
+         .withStep(new QFrontendStepMetaData()
+            .withName("pick")
+            .withLabel("Pick a Specimen")
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"))
+            .withFormField(new QFieldMetaData("specimenId", QFieldType.INTEGER).withLabel("Specimen").withIsRequired(true).withPossibleValueSourceName(TABLE_SPECIMEN)
+               .withPossibleValueSourceFilter(new QQueryFilter(new QFilterCriteria("category", QCriteriaOperator.EQUALS, "${input.category}")))))
+         .withStep(backend("recordPick", RecordPickStep.class))
+         .withStep(new QFrontendStepMetaData()
+            .withName("picked")
+            .withLabel("Specimen Picked")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"))
+            .withViewField(new QFieldMetaData("specimenId", QFieldType.INTEGER).withLabel("Specimen").withPossibleValueSourceName(TABLE_SPECIMEN)));
    }
 
 
@@ -793,6 +828,17 @@ public final class ProcessesFixtures
       public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
       {
          insert("INSERT INTO prc_route_log (route, note, detail) VALUES (?, ?, ?)", input.getValueString("route"), input.getValueString("routeNote"), input.getValueString("detail"));
+      }
+   }
+
+
+
+   public static class RecordPickStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         insert("INSERT INTO prc_pick_log (category, specimen_id) VALUES (?, ?)", input.getValueString("category"), input.getValueInteger("specimenId"));
       }
    }
 

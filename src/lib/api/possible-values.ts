@@ -52,6 +52,13 @@ export interface PossibleValuesRequest {
    * return a different, context-appropriate subset.
    */
   useCase?: string
+  /**
+   * The current values of the form (or process screen) the field is on. Sent as the
+   * form-encoded `values` JSON body of a POST, which the backend reads to resolve
+   * `${input.fieldName}` variables in the field's `possibleValueSourceFilter`.
+   * Distinct from `values`/`ids`, which look choices up by identity.
+   */
+  formValues?: Record<string, unknown>
 }
 
 /** Validate the native envelope before exposing options to a picker. */
@@ -60,18 +67,26 @@ const possibleValuesResponse = z.union([z.object({
 }), z.object({}).strict().transform(() => ({ options: [] }))])
 
 /**
- * Search parameters are query parameters on all registered legacy PVS routes.
+ * Search parameters are query parameters on all registered legacy PVS routes. Form
+ * values go in a form-encoded `values` body, so a request carrying them is a POST
+ * (the routes accept GET and POST), as Material's `QController.possibleValues` sends it.
  * @param url - Registered legacy route relative to the application prefix.
- * @param request - Search text, identifiers and field context.
+ * @param request - Search text, identifiers, form values and field context.
  * @returns Validated native options; rejects HTTP and response-format failures.
  */
 async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
-  const { values, ...params } = request
+  const { values, formValues, ...params } = request
   if (values && !params.ids) params.ids = values
-  const result = await apiClient.get<unknown>(url, {
+  const config = {
     baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
     params,
-  })
+  }
+  const result = formValues
+    ? await apiClient.post<unknown>(url, new URLSearchParams({ values: JSON.stringify(formValues) }), {
+      ...config,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    : await apiClient.get<unknown>(url, config)
   return possibleValuesResponse.parse(result).options
 }
 

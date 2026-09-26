@@ -1028,6 +1028,33 @@
         "#714"
       ],
       "required": true
+    },
+    {
+      "id": "REC-052",
+      "feature": "Dependent possible values: a field whose filter uses ${input.otherField} offers only the choices matching the form's current values",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/api/possible-values.ts",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/DynamicSelect.tsx",
+        "qqq-frontend-core/src/controllers/QController.ts (possibleValues)",
+        "qqq-middleware-javalin QJavalinImplementation.finishPossibleValuesRequest"
+      ],
+      "fixture": "recPvPick itemId (recPvItem source filtered on categoryId = ${input.categoryId})",
+      "scenarios": [
+        "every search posts the form values as the form-encoded values JSON",
+        "create: choices narrow to the chosen Category and change when it changes",
+        "edit: the stored Item label shows, a new Category changes the choices",
+        "the chosen id persists (SQL) and the record view shows its label"
+      ],
+      "negative": [
+        "Category empty: the unset variable makes no matches for a form, shown as No options found",
+        "an item outside the filter is not offered, even when searched by name",
+        "the backend refuses an out-of-filter id lookup and returns only the filtered choices"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
     }
   ]
 }

@@ -23,6 +23,9 @@ import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRe
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.model.actions.tables.QueryOrGetInputInterface;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetOutput;
 import com.kingsrook.qqq.backend.core.model.audits.AuditsMetaDataProvider;
@@ -61,6 +64,9 @@ import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
  ** unique key, field-level audits (with the standard audit tables and the
  ** GetAuditsForRecord process) and two file fields (a heavy BLOB named by a
  ** companion field, and a BLOB named by a format).
+ **
+ ** Lab Pick (REC-052) has an Item field whose table possible value source is
+ ** filtered on ${input.categoryId}: its choices follow the pick's Category.
  *******************************************************************************/
 final class RecordsFixtures
 {
@@ -68,6 +74,9 @@ final class RecordsFixtures
    static final String TABLE_NAME      = "recordLab";
    static final String STATUS_PVS_NAME = "recordLabStatus";
    static final String WIDGET_NAME     = "recordLabSummary";
+   static final String CATEGORY_TABLE  = "recPvCategory";
+   static final String ITEM_TABLE      = "recPvItem";
+   static final String PICK_TABLE      = "recPvPick";
 
 
 
@@ -173,11 +182,46 @@ final class RecordsFixtures
       useSnakeCaseNames(table);
       instance.addTable(table);
 
+      defineDependentPicks(instance);
+
       instance.addApp(new QAppMetaData()
          .withName(APP_NAME)
          .withLabel("Records Lab")
          .withIcon(new QIcon("biotech"))
          .withChild(instance.getTable(TABLE_NAME)));
+   }
+
+
+
+   /*******************************************************************************
+    ** Categories, items in a category, and picks whose Item choices are filtered
+    ** to the pick's Category through ${input.categoryId} (the other form values
+    ** sent with a possible-value search).
+    *******************************************************************************/
+   private static void defineDependentPicks(QInstance instance)
+   {
+      for(QTableMetaData table : List.of(
+         new QTableMetaData().withName(CATEGORY_TABLE).withLabel("Lab Category")
+            .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true).withMaxLength(60)),
+         new QTableMetaData().withName(ITEM_TABLE).withLabel("Lab Item")
+            .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true).withMaxLength(60))
+            .withField(new QFieldMetaData("categoryId", QFieldType.INTEGER).withLabel("Category").withPossibleValueSourceName(CATEGORY_TABLE)),
+         new QTableMetaData().withName(PICK_TABLE).withLabel("Lab Pick")
+            .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true).withMaxLength(60))
+            .withField(new QFieldMetaData("categoryId", QFieldType.INTEGER).withLabel("Category").withPossibleValueSourceName(CATEGORY_TABLE))
+            .withField(new QFieldMetaData("itemId", QFieldType.INTEGER).withLabel("Item").withPossibleValueSourceName(ITEM_TABLE)
+               .withPossibleValueSourceFilter(new QQueryFilter(new QFilterCriteria("categoryId", QCriteriaOperator.EQUALS, "${input.categoryId}"))))))
+      {
+         table.withBackendName(SampleMetaDataProvider.RDBMS_BACKEND_NAME)
+            .withPrimaryKeyField("id")
+            .withRecordLabelFormat("%s")
+            .withRecordLabelFields("name")
+            .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false));
+         useSnakeCaseNames(table);
+         instance.addTable(table);
+      }
+      instance.addPossibleValueSource(QPossibleValueSource.newForTable(CATEGORY_TABLE));
+      instance.addPossibleValueSource(QPossibleValueSource.newForTable(ITEM_TABLE));
    }
 
 
@@ -207,6 +251,16 @@ final class RecordsFixtures
             "DROP TABLE IF EXISTS audit_user",
             "DROP TABLE IF EXISTS audit_table",
             "DROP TABLE IF EXISTS record_lab",
+            "DROP TABLE IF EXISTS rec_pv_pick",
+            "DROP TABLE IF EXISTS rec_pv_item",
+            "DROP TABLE IF EXISTS rec_pv_category",
+            "CREATE TABLE rec_pv_category (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(60) NOT NULL)",
+            "CREATE TABLE rec_pv_item (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(60) NOT NULL, category_id INTEGER)",
+            "CREATE TABLE rec_pv_pick (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(60) NOT NULL, category_id INTEGER, item_id INTEGER)",
+            "INSERT INTO rec_pv_category (id, name) VALUES (1, 'Fruit'), (2, 'Vegetable')",
+            "INSERT INTO rec_pv_item (id, name, category_id) VALUES (1, 'Apple', 1), (2, 'Banana', 1), (3, 'Carrot', 2), (4, 'Leek', 2)",
+            "INSERT INTO rec_pv_pick (id, name, category_id, item_id) VALUES (1, 'Lunch', 1, 2)",
+            "ALTER TABLE rec_pv_pick ALTER COLUMN id RESTART WITH 100",
             """
                CREATE TABLE audit_table (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(250) NOT NULL UNIQUE, label VARCHAR(250),
                   create_date TIMESTAMP, modify_date TIMESTAMP)""",

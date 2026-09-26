@@ -34,6 +34,7 @@ vi.mock('@/lib/api/possible-values', () => ({
   fetchPossibleValues: vi.fn().mockResolvedValue([]),
 }))
 
+import { fetchProcessPossibleValues } from '@/lib/api/possible-values'
 import { ProcessStepScreen, type ProcessStepScreenProps } from './ProcessStepScreen'
 
 /**
@@ -107,6 +108,23 @@ describe('ProcessStepScreen', () => {
     expect(await screen.findByRole('cell', { name: 'Seven' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'f.txt' })).toHaveAttribute('href', '/download/f.txt?filePath=%2Ftmp%2Ff.txt')
     expect(screen.getAllByRole('button', { name: /^(Next|Submit)$/ })).toHaveLength(1)
+  })
+
+  it('sends the screen values with a filtered choice search and with a view label lookup', async () => {
+    const user = userEvent.setup()
+    const pick: QFrontendStepMetaData = {
+      name: 'pick', label: 'Pick', components: [{ type: 'VIEW_FORM' }, { type: 'EDIT_FORM' }],
+      viewFields: [field('color', 'Color', { possibleValueSourceName: 'colors' })],
+      formFields: [field('category', 'Category'), field('color', 'Color', { possibleValueSourceName: 'colors' })],
+    }
+    renderScreen({ step: pick, values: { category: 'warm', color: 'green', records: [{ id: 1 }] } })
+    expect(await screen.findByText('Green')).toBeInTheDocument()
+    expect(fetchProcessPossibleValues).toHaveBeenCalledWith('lab', 'color', { ids: 'green', formValues: { category: 'warm', color: 'green' } })
+    vi.mocked(fetchProcessPossibleValues).mockClear()
+    await user.click(screen.getByRole('combobox', { name: /Color/ }))
+    await waitFor(() => expect(fetchProcessPossibleValues).toHaveBeenCalledWith('lab', 'color', expect.objectContaining({
+      formValues: expect.objectContaining({ category: 'warm', color: 'green' }),
+    })))
   })
 
   it('validates required inputs and submits only the screen values', async () => {

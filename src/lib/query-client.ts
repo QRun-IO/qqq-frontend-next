@@ -317,10 +317,11 @@ export const queryKeys = {
    * @param tableName - Backend table name.
    * @param fieldName - Field whose enum/possible values are being fetched.
    * @param searchTerm - Optional type-ahead search string.
+   * @param formValues - Optional current form values a dependent filter reads.
    * @returns The possible values query key tuple.
    */
-  tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string) =>
-    [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm] as const,
+  tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string, formValues?: Record<string, unknown>) =>
+    [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm, ...(formValues ? [formValues] : [])] as const,
 
   // Audits
   /**

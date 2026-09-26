@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const defaults = vi.hoisted(() => ({ baseURL: 'https://sample.invalid/prefix/qqq/v1/' }))
-vi.mock('./client', () => ({ default: { get: vi.fn(), getInstance: () => ({ defaults }) } }))
+vi.mock('./client', () => ({ default: { get: vi.fn(), post: vi.fn(), getInstance: () => ({ defaults }) } }))
 import apiClient from './client'
 import { fetchPossibleValues, fetchProcessPossibleValues, fetchTablePossibleValues } from './possible-values'
 
@@ -51,6 +51,31 @@ describe('Native possible-value contracts', () => {
     defaults.baseURL = 'https://sample.invalid/custom'
     await fetchPossibleValues('source', { values: '1', ids: '2' })
     expect(apiClient.get).toHaveBeenCalledWith('/possibleValues/source', { baseURL: 'https://sample.invalid/custom', params: { ids: '2' } })
+  })
+
+  it('posts form values as the form-encoded values JSON that ${input.field} filters read, keeping search and ids as query parameters', async () => {
+    const options = [{ id: 3, label: 'Carrot' }]
+    vi.mocked(apiClient.post).mockResolvedValue({ options })
+    const formValues = { categoryId: 2, note: 'a&b=c', itemId: null }
+    expect(await fetchTablePossibleValues('order', 'itemId', { searchTerm: 'Ca', ids: '3', formValues })).toEqual(options)
+    expect(apiClient.get).not.toHaveBeenCalled()
+    const [url, body, config] = vi.mocked(apiClient.post).mock.calls[0]
+    expect(url).toBe('/data/order/possibleValues/itemId')
+    expect(body).toBeInstanceOf(URLSearchParams)
+    expect(JSON.parse((body as URLSearchParams).get('values')!)).toEqual(formValues)
+    expect([...(body as URLSearchParams).keys()]).toEqual(['values'])
+    expect(config).toEqual({
+      baseURL: 'https://sample.invalid/prefix',
+      params: { searchTerm: 'Ca', ids: '3' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+  })
+
+  it('posts empty form values for a process field as an empty values object', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ options: [] })
+    await fetchProcessPossibleValues('prcPick', 'itemId', { formValues: {} })
+    expect(apiClient.post).toHaveBeenCalledWith('/processes/prcPick/possibleValues/itemId', expect.any(URLSearchParams), expect.objectContaining({ params: {} }))
+    expect((vi.mocked(apiClient.post).mock.calls[0][1] as URLSearchParams).get('values')).toBe('{}')
   })
 
   it('accepts the native NON_EMPTY serialization of an empty option list', async () => {
