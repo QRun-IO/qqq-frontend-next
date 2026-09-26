@@ -176,14 +176,14 @@ export async function setupApiMocks(page: Page): Promise<void> {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ records: [] }) })
   })
 
-  // Legacy record writes; specific Get handler below passes other methods here.
-  await page.route('**/data/person**', (route) => {
+  // v1 record writes ({ record }); the specific Get handler below passes other methods here.
+  await page.route(/\/qqq\/v1\/table\/person(\/\d+)?(\?|$)/, (route) => {
     const method = route.request().method()
     if (method === 'POST') {
       // Insert — return new record with id 99
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ records: [{ ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 99 } }] }),
+        body: JSON.stringify({ record: { ...PERSON_RECORD_1, values: { ...PERSON_RECORD_1.values, id: 99 } } }),
       })
       return
     }
@@ -191,10 +191,10 @@ export async function setupApiMocks(page: Page): Promise<void> {
       // Update — return the updated record
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ records: [{
+        body: JSON.stringify({ record: {
           ...PERSON_RECORD_1,
           values: { ...PERSON_RECORD_1.values, firstName: 'Alice Updated' },
-        }] }),
+        } }),
       })
       return
     }
@@ -222,16 +222,16 @@ export async function setupApiMocks(page: Page): Promise<void> {
 
   // ── SPECIFIC routes (registered last = highest priority, checked first) ────
   //
-  // Legacy Get has its own namespace; the missing-record override is registered last.
-  await page.route('**/data/person/*', (route) => {
+  // v1 Get ({ record }); the missing-record override is registered last.
+  await page.route(/\/qqq\/v1\/table\/person\/\d+(\?|$)/, (route) => {
     if (route.request().method() !== 'GET') return route.fallback()
     const url = route.request().url()
-    const idMatch = /\/data\/person\/(\d+)/.exec(url)
+    const idMatch = /\/table\/person\/(\d+)/.exec(url)
     if (idMatch) {
       const id = parseInt(idMatch[1], 10)
       const record = PERSON_RECORDS.find((r) => r.values.id === id)
       if (record) {
-        route.fulfill({ contentType: 'application/json', body: JSON.stringify(record) })
+        route.fulfill({ contentType: 'application/json', body: JSON.stringify({ record }) })
       } else {
         route.fulfill({
           status: 404,
@@ -245,7 +245,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
   })
 
   // Person record 99999 → 404 (must be after per-record handler = higher priority)
-  await page.route('**/data/person/99999**', (route) => {
+  await page.route(/\/qqq\/v1\/table\/person\/99999(\?|$)/, (route) => {
     route.fulfill({
       status: 404,
       contentType: 'application/json',
@@ -272,10 +272,10 @@ export async function setupApiMocks(page: Page): Promise<void> {
   // ── Process routes (registered after person routes = higher priority) ──────
 
   // Process job status — polling endpoint
-  await page.route('**/qqq/v1/processes/*/status/**', (route) => {
+  await page.route('**/qqq/v1/processes/*/*/status/**', (route) => {
     const url = route.request().url()
-    const processMatch = /\/processes\/([^/]+)\/status\/([^/?]+)/.exec(url)
-    const processUUID = processMatch?.[2] ?? 'mock-uuid'
+    const processMatch = /\/processes\/[^/]+\/([^/]+)\/status\//.exec(url)
+    const processUUID = processMatch?.[1] ?? 'mock-uuid'
     route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -294,10 +294,10 @@ export async function setupApiMocks(page: Page): Promise<void> {
   })
 
   // Process step submission
-  await page.route('**/qqq/v1/processes/*/step/**', (route) => {
+  await page.route('**/qqq/v1/processes/*/*/step/**', (route) => {
     const url = route.request().url()
-    const processMatch = /\/processes\/([^/]+)\/step\/([^/?]+)/.exec(url)
-    const processUUID = processMatch?.[2] ?? 'mock-uuid'
+    const processMatch = /\/processes\/[^/]+\/([^/]+)\/step\//.exec(url)
+    const processUUID = processMatch?.[1] ?? 'mock-uuid'
     route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -347,24 +347,13 @@ export async function setupApiMocks(page: Page): Promise<void> {
     })
   })
 
-  // Registered-route process metadata and lifecycle (the Next process runtime uses
-  // /metaData/process and /processes/... beside /qqq/v1, like the Material dashboard)
-  await page.route(/\/metaData\/process\/[^/?]+/, (route) => {
-    const url = new URL(route.request().url())
-    if (url.pathname.startsWith('/qqq/v1/')) return route.fallback()
-    const processName = decodeURIComponent(url.pathname.split('/').pop() ?? '')
+  // v1 process metadata: the process itself (must be after the generic /metaData** handler)
+  await page.route('**/qqq/v1/metaData/process/**', (route) => {
+    const processName = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '')
     const process = (METADATA.processes as Record<string, unknown>)[processName]
     route.fulfill(process
-      ? { contentType: 'application/json', body: JSON.stringify({ process }) }
+      ? { contentType: 'application/json', body: JSON.stringify(process) }
       : { status: 404, contentType: 'application/json', body: JSON.stringify({ error: `Process '${processName}' not found` }) })
-  })
-  await page.route(/^[^?]*\/processes\/[^/]+\/init/, (route) => {
-    if (new URL(route.request().url()).pathname.startsWith('/qqq/v1/')) return route.fallback()
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ processUUID: 'mock-uuid', nextStep: 'input', values: {} }) })
-  })
-  await page.route(/^[^?]*\/processes\/[^/]+\/[^/]+\/step\//, (route) => {
-    if (new URL(route.request().url()).pathname.startsWith('/qqq/v1/')) return route.fallback()
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ processUUID: 'mock-uuid', nextStep: 'result', values: { processResults: [] } }) })
   })
 
   // Per-table metadata (must be before generic /metaData** handler)
