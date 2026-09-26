@@ -27,6 +27,7 @@ import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
+import { formFieldColumnClasses } from '@/lib/utils/form-layout'
 
 import { CronScheduleEditor } from './CronScheduleEditor'
 import { DynamicFormField } from './DynamicFormField'
@@ -92,6 +93,9 @@ export interface DynamicFormProps {
   /** Optional heading rendered above the field grid. */
   formLabel?: string
 
+  /** Leave out the section headings (the record form's header card shows its T1 fields under the form title). */
+  hideSectionLabels?: boolean
+
   /**
    * Widget metadata by name. A section housing a widget shown on record edit
    * screens (`includeOnRecordEditScreen`, e.g. the cron schedule) renders the
@@ -130,6 +134,16 @@ export function editScreenWidgetFieldNames(section: QTableSection, widgets: Reco
   return names.length > 0 ? names : undefined
 }
 
+/**
+ * The element id of a form section, for the section sidebar's scroll targets.
+ *
+ * @param sectionName - Section name from metadata.
+ * @returns The id.
+ */
+export function formSectionElementId(sectionName: string): string {
+  return `form-section-${sectionName}`
+}
+
 /** A `cronUI` widget shown on record edit screens, and the record fields it edits. */
 interface EditScreenCronWidget {
   widgetName: string
@@ -151,6 +165,57 @@ function editScreenCronWidget(section: QTableSection, widgets: Record<string, QW
   if (defaults.includeOnRecordEditScreen !== true) return undefined
   const name = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined)
   return { widgetName: widget.name, expressionFieldName: name(defaults.cronExpressionFieldName), timeZoneFieldName: name(defaults.timeZoneFieldName) }
+}
+
+/** A section of a table form with the fields it renders. */
+export interface RenderableFormSection {
+  /** The section (with a widget section's edited fields in place of its own). */
+  section: QTableSection
+  /** Fields the form renders in it. */
+  fields: QFieldMetaData[]
+}
+
+/** Options that decide which fields a table form renders. */
+export interface RenderableFormSectionOptions {
+  /** Sections to lay out instead of the table's. */
+  sections?: QTableSection[]
+  /** Allow-list of field names. */
+  fieldNamesToInclude?: string[]
+  /** Whether non-editable fields are shown read-only (the edit screen). */
+  showReadOnlyFields?: boolean
+  /** Whether the whole form is disabled (non-editable fields are then shown too). */
+  disabled?: boolean
+  /** Widget metadata by name, for widget sections edited on record screens. */
+  widgets?: Record<string, QWidgetMetaData>
+}
+
+/**
+ * The sections a table form renders, in order, each with the fields it shows; sections that are
+ * hidden or would render no field are left out. The record form's section sidebar lists these.
+ *
+ * @param tableMetaData - Table metadata.
+ * @param options - See {@link RenderableFormSectionOptions}.
+ * @returns The renderable sections.
+ */
+export function renderableFormSections(tableMetaData: QTableMetaData, options: RenderableFormSectionOptions = {}): RenderableFormSection[] {
+  const { sections, fieldNamesToInclude, showReadOnlyFields = false, disabled = false, widgets } = options
+  return (sections ?? tableMetaData.sections ?? [])
+    .filter((section) => !section.isHidden && !section.hidden)
+    .map((section) => {
+      const widgetFieldNames = editScreenWidgetFieldNames(section, widgets)
+      const resolved = widgetFieldNames ? { ...section, fieldNames: widgetFieldNames } : section
+      const fields = (resolved.fieldNames ?? [])
+        .map((fn) => tableMetaData.fields[fn])
+        .filter((f): f is QFieldMetaData => {
+          if (!f) return false
+          if (f.isHidden) return false
+          if (!f.isEditable && !showReadOnlyFields && !disabled) return false
+          if (fieldNamesToInclude && !fieldNamesToInclude.includes(f.name)) return false
+          return true
+        })
+      return { section: resolved, fields }
+    })
+    .filter((entry) => entry.fields.length > 0)
 }
 
 /**
@@ -188,6 +253,7 @@ export function DynamicForm({
   helpRoles,
   enforceMaxLength = true,
   formLabel,
+  hideSectionLabels = false,
   widgets,
   renderWidgetSection,
   onFieldBlur,
@@ -256,27 +322,24 @@ export function DynamicForm({
   }
 
   if (hasSections && tableMetaData) {
-    const resolvedSections = (sections ?? tableMetaData.sections).map((section) => {
-      const widgetFieldNames = editScreenWidgetFieldNames(section, widgets)
-      return widgetFieldNames ? { ...section, fieldNames: widgetFieldNames } : section
-    })
+    const renderable = renderableFormSections(tableMetaData, { sections, fieldNamesToInclude, showReadOnlyFields, disabled, widgets })
     return (
       <div className={cn('space-y-6', className)} data-qqq-id="dynamic-form">
         {formLabel && (
           <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
         )}
-        {resolvedSections
-          .filter((s) => !s.isHidden && !s.hidden)
-          .map((section) => {
-            const widgetContent = widgetSectionContent.get(section.name)
+        {(sections ?? tableMetaData.sections)
+          .filter((section) => !section.isHidden && !section.hidden)
+          .map((originalSection) => {
+            const widgetContent = widgetSectionContent.get(originalSection.name)
             if (widgetContent !== undefined) {
               return (
-                <div key={section.name} className="space-y-4" data-qqq-id={`form-section-${section.name}`}>
-                  {section.label && (
+                <div key={originalSection.name} id={hideSectionLabels ? undefined : formSectionElementId(originalSection.name)} tabIndex={hideSectionLabels ? undefined : -1} className="scroll-mt-24 space-y-4 focus:outline-none" data-qqq-id={`form-section-${originalSection.name}`}>
+                  {originalSection.label && !hideSectionLabels && (
                     <div className="border-b border-border pb-2">
                       <h4 className="flex items-center text-sm font-medium text-muted-foreground">
-                        <SectionIcon section={section} />
-                        {section.label}
+                        <SectionIcon section={originalSection} />
+                        {originalSection.label}
                       </h4>
                     </div>
                   )}
@@ -284,19 +347,9 @@ export function DynamicForm({
                 </div>
               )
             }
-            const sectionFields = (section.fieldNames ?? [])
-              .map((fn) => tableMetaData.fields[fn])
-              .filter((f): f is QFieldMetaData => {
-                if (!f) return false
-                if (f.isHidden) return false
-                if (!f.isEditable && !showReadOnlyFields && !disabled) return false
-                if (fieldNamesToInclude && !fieldNamesToInclude.includes(f.name)) return false
-                return true
-              })
-
-            if (sectionFields.length === 0) return null
-
-            const gridCols = section.gridColumns ?? 2
+            const entry = renderable.find(({ section }) => section.name === originalSection.name)
+            if (!entry) return null
+            const { section, fields: sectionFields } = entry
             const cron = editScreenCronWidget(section, widgets)
             const cronField = cron && sectionFields.find((f) => f.name === cron.expressionFieldName && f.isEditable)
             const gridFields = cronField ? sectionFields.filter((f) => f !== cronField) : sectionFields
@@ -304,10 +357,12 @@ export function DynamicForm({
             return (
               <div
                 key={section.name}
-                className="space-y-4"
+                id={hideSectionLabels ? undefined : formSectionElementId(section.name)}
+                tabIndex={hideSectionLabels ? undefined : -1}
+                className="scroll-mt-24 space-y-4 focus:outline-none"
                 data-qqq-id={`form-section-${section.name}`}
               >
-                {section.label && (
+                {section.label && !hideSectionLabels && (
                   <div className="border-b border-border pb-2">
                     <h4 className="flex items-center text-sm font-medium text-muted-foreground">
                       <SectionIcon section={section} />
@@ -336,23 +391,10 @@ export function DynamicForm({
                     )}
                   />
                 )}
-                <div
-                  className={cn(
-                    'grid gap-4',
-                    gridCols === 1 ? 'grid-cols-1' :
-                    gridCols === 2 ? 'grid-cols-1 sm:grid-cols-2' :
-                    gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-                    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                  )}
-                >
+                {/* a 12-column grid: full width on phones, half from sm, the field's gridColumns from lg (Material) */}
+                <div className="grid grid-cols-12 gap-4">
                   {gridFields.map((f) => (
-                    <div
-                      key={f.name}
-                      className={cn(
-                        f.gridColumns === 1 ? 'col-span-1' :
-                        f.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
-                      )}
-                    >
+                    <div key={f.name} className={formFieldColumnClasses(f)} data-qqq-id={`form-field-cell-${f.name}`}>
                       <DynamicFormField
                         field={f}
                         register={register}
@@ -384,15 +426,9 @@ export function DynamicForm({
       {formLabel && (
         <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
       )}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-12 gap-4">
         {resolvedFields.map((f) => (
-          <div
-            key={f.name}
-            className={cn(
-              f.gridColumns === 1 ? 'col-span-1' :
-              f.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
-            )}
-          >
+          <div key={f.name} className={formFieldColumnClasses(f)} data-qqq-id={`form-field-cell-${f.name}`}>
             <DynamicFormField
               field={f}
               register={register}

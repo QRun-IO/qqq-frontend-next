@@ -56,7 +56,7 @@ import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
  *   - A permission-error banner when the user lacks `editPermission`
  *   - A destructive error panel when the record cannot be fetched
  *   - `<EntityForm>` in edit mode (pre-populated with the existing record values)
- *     wrapped in a centered `max-w-4xl` container
+ *     wrapped in a centered `max-w-6xl` container
  */
 export default function EntityEditPage() {
   const params = useRouteParams<{ slug: string; recordId: string }>()
@@ -127,7 +127,7 @@ export default function EntityEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
+    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
       <EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} />
     </div>
   )

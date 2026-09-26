@@ -190,6 +190,18 @@ export function withTrailingSlash(href: string): string {
 }
 
 /**
+ * Converts a Material create-child path into the record-view hash action.
+ *
+ * @param tableName - Parent table.
+ * @param recordId - Parent record primary key.
+ * @param childTableName - Table to create a child record in.
+ * @returns The record URL with its create-child action.
+ */
+export function createChildLinkHref(tableName: string, recordId: string, childTableName: string): string {
+  return `/app/${encodeURIComponent(tableName)}/${encodeURIComponent(recordId)}/#/createChild=${encodeURIComponent(childTableName)}`
+}
+
+/**
  * The process-run URL for a Material-style launch, returning to `returnTo` afterwards.
  *
  * @param processName - Process to run.

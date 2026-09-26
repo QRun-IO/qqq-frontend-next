@@ -31,6 +31,7 @@ import { HANDLES_OWN_ERRORS } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { forgetDeletedRecord } from '@/lib/utils/record-cache'
+import { isWarningMessage } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 
@@ -66,21 +67,36 @@ export function DeleteConfirmDialog({
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
   const recordLabel = record.recordLabel || `${tableMetaData.label} #${primaryKey}`
 
+  /**
+   * Reports the deletion and leaves the record, with the backend's warning when it gave one.
+   *
+   * @param warning - A "warning..." message the delete returned, if any.
+   */
+  async function finishDelete(warning?: string) {
+    // #541: never refetch the deleted record while its view is still mounted.
+    await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
+    toast.success(`${recordLabel} deleted successfully.`)
+    if (warning) toast.warning(warning, { duration: 10_000 })
+    onDeleted()
+  }
+
   const deleteMutation = useMutation({
     mutationFn: () => deleteRecord(tableMetaData.name, primaryKey),
     meta: HANDLES_OWN_ERRORS,
-    onSuccess: async () => {
-      // #541: never refetch the deleted record while its view is still mounted.
-      await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
-      toast.success(`${recordLabel} deleted successfully.`)
-      onDeleted()
-    },
-    onError: (err: Error) => {
-      toast.error(`Failed to delete: ${getErrorMessage(err)}`)
+    onSuccess: () => finishDelete(),
+    onError: async (err: Error) => {
+      const message = getErrorMessage(err)
+      // Material: a delete error starting with "warning" is a success with that warning
+      if (isWarningMessage(message)) {
+        await finishDelete(message)
+        return
+      }
+      toast.error(`Failed to delete: ${message}`)
     },
   })
 
-  const mutationError = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
+  const failureMessage = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
+  const mutationError = failureMessage && !isWarningMessage(failureMessage) ? failureMessage : null
   const restoreFocus = useRestoreFocus(true)
 
   return (

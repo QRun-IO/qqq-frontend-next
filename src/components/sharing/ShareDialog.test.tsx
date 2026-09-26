@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/lib/api/sharing', async (importOriginal) => {
@@ -62,8 +62,8 @@ describe('ShareButton', () => {
     await within(dialog).findByRole('heading', { name: 'Current Shares (0)' })
     const share = within(dialog).getByRole('button', { name: 'Share' })
     expect(share).toBeDisabled()
-    await waitFor(() => expect(within(dialog).getAllByRole('option').map((option) => option.textContent)).toContain('Bob'))
-    await user.selectOptions(within(dialog).getByLabelText('User or Group'), 'user:sample:bob')
+    await user.click(within(dialog).getByRole('combobox', { name: 'User or Group' }))
+    await user.click(await within(dialog).findByRole('option', { name: 'Bob' }))
     await user.selectOptions(within(dialog).getByLabelText('Scope'), 'READ_WRITE')
     vi.mocked(getSharedRecords).mockResolvedValue([{ shareId: 9, scopeId: 'READ_WRITE', audienceType: 'user', audienceId: 'sample:bob', audienceLabel: 'Bob' }])
     await user.click(share)
@@ -81,8 +81,8 @@ describe('ShareButton', () => {
     render(<ShareButton tableMetaData={table} record={record('sample:alice')} />)
     await user.click(screen.getByRole('button', { name: 'Share' }))
     const dialog = await screen.findByRole('dialog')
-    await waitFor(() => expect(within(dialog).getAllByRole('option').map((option) => option.textContent)).toContain('Casey'))
-    await user.selectOptions(within(dialog).getByLabelText('User or Group'), 'user:sample:casey')
+    await user.click(within(dialog).getByRole('combobox', { name: 'User or Group' }))
+    await user.click(await within(dialog).findByRole('option', { name: 'Casey' }))
     await user.click(within(dialog).getByRole('button', { name: 'Share' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Error sharing record: You are not the owner of this record')
   })

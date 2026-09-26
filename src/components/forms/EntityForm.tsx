@@ -27,7 +27,7 @@ import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save, X } from 'lucide-react'
+import { AlertTriangle, Loader2, Save, X } from 'lucide-react'
 
 import type { QTableMetaData, QTableSection, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
@@ -43,12 +43,19 @@ import { applyAdjustedDefinitions, fieldFormAdjusters, hasTableOnLoadAdjuster, t
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
+import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
-import { DynamicForm } from './DynamicForm'
+import { DynamicForm, formSectionElementId, renderableFormSections } from './DynamicForm'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
+import { FormSectionSidebar } from './FormSectionSidebar'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
+
+/** How long a save's warning stays on screen when it is shown as a toast. */
+const WARNING_TOAST_MILLIS = 10_000
 
 /**
  * Props for the {@link EntityForm} component.
@@ -561,15 +568,22 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     onSuccess: (savedRecord) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
       toast.success(`${tableMetaData.label} created successfully.`)
+      const warning = firstRecordWarning(savedRecord)
       if (onSuccess) {
+        if (warning) toast.warning(warning, { duration: WARNING_TOAST_MILLIS })
         onSuccess(savedRecord)
       } else {
-        const pk = savedRecord.values[tableMetaData.primaryKeyField]
+        const pk = savedRecord.values[tableMetaData.primaryKeyField] as string | number
+        // the record view shows the save's warning once, after this redirect (Material: navigation state)
+        if (warning) rememberSaveWarning(tableMetaData.name, pk, warning)
         router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
       }
     },
     onError: (err: Error) => {
-      toast.error(`Failed to create ${tableMetaData.label}: ${getErrorMessage(err)}`)
+      const message = getErrorMessage(err)
+      // a "warning..." refusal is reported as a warning on the form, not as a failure
+      if (isWarningMessage(message)) toast.warning(message, { duration: WARNING_TOAST_MILLIS })
+      else toast.error(`Failed to create ${tableMetaData.label}: ${message}`)
     },
   })
 
@@ -587,22 +601,46 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
       const pk = savedRecord.values[tableMetaData.primaryKeyField] as string | number
-      queryClient.invalidateQueries({ queryKey: queryKeys.tableRecord(tableMetaData.name, pk) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
-      toast.success(`${tableMetaData.label} saved successfully.`)
-      if (onSuccess) {
-        onSuccess(savedRecord)
-      } else {
-        router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
-      }
+      finishUpdate(pk, firstRecordWarning(savedRecord), () => onSuccess?.(savedRecord))
     },
     onError: (err: Error) => {
-      toast.error(`Failed to save ${tableMetaData.label}: ${getErrorMessage(err)}`)
+      const message = getErrorMessage(err)
+      // Material: a save error starting with "warning" is a success with that warning, back on the view
+      if (isWarningMessage(message) && record && !onSuccess) {
+        finishUpdate(record.values[tableMetaData.primaryKeyField] as string | number, message)
+        return
+      }
+      if (isWarningMessage(message)) toast.warning(message, { duration: WARNING_TOAST_MILLIS })
+      else toast.error(`Failed to save ${tableMetaData.label}: ${message}`)
     },
   })
 
+  /**
+   * Reports a finished update and returns to the record view, carrying the save's warning.
+   *
+   * @param pk - The record's primary key.
+   * @param warning - The save's warning, if any.
+   * @param callback - The caller's success handler, when it handles the navigation.
+   */
+  function finishUpdate(pk: string | number, warning: string | undefined, callback?: () => void) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.tableRecord(tableMetaData.name, pk) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableMetaData.name) })
+    toast.success(`${tableMetaData.label} saved successfully.`)
+    if (onSuccess && callback) {
+      if (warning) toast.warning(warning, { duration: WARNING_TOAST_MILLIS })
+      callback()
+    } else {
+      if (warning) rememberSaveWarning(tableMetaData.name, pk, warning)
+      router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(pk))}`)
+    }
+  }
+
   const activeMutation = isEdit ? updateMutation : insertMutation
-  const mutationError = activeMutation.error as Error | null
+  const failure = activeMutation.error as Error | null
+  const failureMessage = failure ? getErrorMessage(failure, 'An error occurred while saving.') : null
+  // a "warning..." refusal that did not return to the view is shown as a warning, not an error
+  const mutationWarning = failureMessage && isWarningMessage(failureMessage) ? failureMessage : null
+  const mutationError = mutationWarning ? null : failure
   const isSaving = isSubmitting || activeMutation.isPending
   const formDisabledMessage = prepared.disabledMessage
 
@@ -672,14 +710,32 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     guardedNavigate(doCancel)
   }
 
-  // Determine heading
+  // Heading, as in Material: "Creating New X", "Edit X: <record label>", "Copy X: <record label>"
+  const recordLabel = record ? (record.recordLabel || String(record.values[tableMetaData.primaryKeyField] ?? '')) : ''
   const heading = overrideHeading ?? (
     isEdit
-      ? `Edit ${tableMetaData.label}`
+      ? `Edit ${tableMetaData.label}: ${recordLabel}`
       : isCopy
-        ? `Copy ${tableMetaData.label}`
-        : `Create ${tableMetaData.label}`
+        ? `Copy ${tableMetaData.label}: ${recordLabel}`
+        : `Creating New ${tableMetaData.label}`
   )
+  const formMode = isEdit ? 'edit' : isCopy ? 'copy' : 'create'
+
+  // Page forms show the first T1 section's fields in the header card, under the title, and a
+  // sidebar of the form's sections (Material EntityForm); modal forms keep a plain layout.
+  const fieldSections = renderableFormSections(formTable, {
+    fieldNamesToInclude, showReadOnlyFields: isEdit, disabled: disabled || Boolean(defaultsError) || Boolean(formDisabledMessage), widgets,
+  })
+  const formSections = isModal ? [] : (formTable.sections ?? []).flatMap((section) => {
+    const fieldSection = fieldSections.find((entry) => entry.section.name === section.name)
+    if (fieldSection) return [fieldSection]
+    const widget = section.widgetName ? widgets?.[section.widgetName] : undefined
+    return !isCopy && !section.isHidden && !section.hidden && widget && widget.hasPermission !== false && isEditableFormWidget(widget)
+      ? [{ section, fields: [] }]
+      : []
+  })
+  const headerSection = formSections.find(({ section }) => section.tier === 'T1')?.section
+  const bodySections = headerSection ? (formTable.sections ?? []).filter((section) => section.name !== headerSection.name) : undefined
 
   // Possible value context — default to table context
   const pvContext: PossibleValueContext = possibleValueContext ?? {
@@ -763,14 +819,55 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const formContent = (
     <form
       onSubmit={onFormSubmit}
+      onKeyDown={(event) => {
+        // Enter in a single-line input does not save the record (Material): only the Save button does
+        if (isImplicitSubmitKey(event.nativeEvent)) event.preventDefault()
+      }}
       noValidate
-      className={cn('flex flex-col gap-6', className)}
+      className={cn('flex min-w-0 flex-col gap-6', className)}
       data-qqq-id={`entity-form-${tableMetaData.name}`}
     >
-      {/* Heading — only if not modal */}
+      {/* Header card — only if not modal: table icon, title and the first T1 section's fields */}
       {!isModal && (
-        <div className="border-b border-border pb-4">
-          <h2 className="text-xl font-semibold text-foreground">{heading}</h2>
+        <div
+          id={headerSection ? formSectionElementId(headerSection.name) : undefined}
+          tabIndex={headerSection ? -1 : undefined}
+          className="scroll-mt-24 rounded-xl border border-border bg-card p-4 shadow-sm focus:outline-none sm:p-6"
+          data-qqq-id={`form-header-${formMode}`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              data-qqq-id="form-avatar"
+            >
+              <MetadataIcon icon={tableMetaData.icon} kind="table" className="h-5 w-5" />
+            </span>
+            <h2 className="min-w-0 break-words text-xl font-semibold text-foreground">{heading}</h2>
+          </div>
+          {headerSection && (
+            <DynamicForm
+              register={register}
+              control={control}
+              errors={errors}
+              tableMetaData={formTable}
+              sections={[headerSection]}
+              hideSectionLabels
+              fieldNamesToInclude={fieldNamesToInclude}
+              possibleValueContext={pvContext}
+              disabled={formLocked}
+              disabledFieldNames={disabledNames}
+              dirtyFields={dirtyFields as Record<string, boolean>}
+              record={record}
+              showReadOnlyFields={isEdit}
+              helpRoles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES}
+              enforceMaxLength={false}
+              widgets={widgets}
+              renderWidgetSection={renderWidgetSection}
+              onFieldBlur={onFieldBlur}
+              displayValueOverrides={displayOverrides}
+              className="mt-4"
+            />
+          )}
         </div>
       )}
 
@@ -795,6 +892,16 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
           {defaultsError || copyAssociations?.error || (mutationError ? getErrorMessage(mutationError, 'An error occurred while saving.') : 'An error occurred while saving.')}
         </div>
       )}
+      {mutationWarning && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300"
+          data-qqq-id="entity-form-warning"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{mutationWarning}</span>
+        </div>
+      )}
 
       {widgetErrors.length > 0 && (
         <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive" data-qqq-id={`entity-form-widget-errors-${tableMetaData.name}`}>
@@ -813,6 +920,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         control={control}
         errors={errors}
         tableMetaData={formTable}
+        sections={bodySections}
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
         disabled={formLocked}
@@ -870,7 +978,15 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
           <div className="p-6">{formContent}</div>
         </div>
       ) : (
-        formContent
+        <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6">
+          {/* the section sidebar on large screens; phones and tablets scroll one column */}
+          <FormSectionSidebar
+            sections={formSections.map(({ section }) => section)}
+            label={`${tableMetaData.label} form sections`}
+            className="hidden lg:block"
+          />
+          {formContent}
+        </div>
       )}
 
       {/* Unsaved changes confirmation dialog */}

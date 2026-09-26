@@ -24,6 +24,7 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { transformInputValue } from '@/lib/utils/form-layout'
 
 /**
  * Props for the {@link TextField} component.
@@ -49,6 +50,8 @@ interface TextFieldProps {
   'data-qqq-id'?: string
   /** Id of help text that describes this control. */
   describedBy?: string
+  /** Changes the value as the user types (a field's TO_UPPER_CASE / TO_LOWER_CASE behavior), keeping the caret. */
+  transform?: (value: string) => string
 }
 
 /**
@@ -71,7 +74,14 @@ export function TextField({
   required = false,
   'data-qqq-id': dataQqqId,
   describedBy,
+  transform,
 }: TextFieldProps) {
+  const onChange: UseFormRegisterReturn['onChange'] = transform
+    ? (event) => {
+        transformInputValue(event.target as HTMLInputElement, transform)
+        return registration.onChange(event)
+      }
+    : registration.onChange
   return (
     <div className="flex flex-col gap-1">
       <label
@@ -86,6 +96,7 @@ export function TextField({
         id={id}
         type="text"
         {...registration}
+        onChange={onChange}
         disabled={disabled}
         placeholder={placeholder}
         maxLength={maxLength}

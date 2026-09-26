@@ -259,7 +259,7 @@ function recordFormData(values: Record<string, unknown>): FormData {
   return formData
 }
 
-const WriteRecordResponseSchema = z.object({ record: QRecordSchema })
+const WriteRecordResponseSchema = z.object({ record: QRecordSchema, warnings: z.array(z.string()).nullish() })
 const DeleteRecordResponseSchema = z.object({
   deletedRecordCount: z.number(),
   errors: z.array(z.string()).nullish(),
@@ -289,6 +289,9 @@ function savedRecord(response: unknown, tableName: string): QRecord {
   }
   const record = parsed.data.record
   checkRecordErrors(record)
+  // the envelope repeats the record's warnings; keep them when the record omits its own
+  const warnings = parsed.data.warnings
+  if (!record.warnings?.length && warnings?.length) return { ...record, warnings }
   return record
 }
 

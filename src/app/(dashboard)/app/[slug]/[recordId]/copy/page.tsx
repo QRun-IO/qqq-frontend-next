@@ -51,7 +51,7 @@ import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
  *   - A permission-error banner when the user lacks `insertPermission`
  *   - A destructive error panel when the source record cannot be fetched
  *   - `<EntityForm>` in copy mode (`isCopy=true`, pre-populated with source values)
- *     wrapped in a centered `max-w-4xl` container; submitting creates a new record
+ *     wrapped in a centered `max-w-6xl` container; submitting creates a new record
  */
 export default function EntityCopyPage() {
   const params = useRouteParams<{ slug: string; recordId: string }>()
@@ -168,7 +168,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   }
 
   return (
-    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-copy-${slug}-${recordId}`}>
+    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-copy-${slug}-${recordId}`}>
       <fieldset className="mb-4 flex flex-wrap gap-4">
         <legend className="mb-2 font-medium">Copy scope</legend>
         <label className="flex items-center gap-2"><input type="radio" name="copy-mode" checked={mode === 'base'} onChange={() => setMode('base')} data-qqq-id="copy-mode-base" />Base copy</label>

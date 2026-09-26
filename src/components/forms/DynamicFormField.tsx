@@ -36,6 +36,7 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
+import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
 import { selectHelpContent } from '@/lib/utils/help-utils'
 import { HelpContent } from '@/components/records/HelpContent'
 
@@ -388,6 +389,7 @@ export function DynamicFormField({
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -498,6 +500,7 @@ export function DynamicFormField({
               minValue={field.minValue}
               maxValue={field.maxValue}
               describedBy={helpDescribedBy}
+              {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -520,6 +523,7 @@ export function DynamicFormField({
               minValue={field.minValue}
               maxValue={field.maxValue}
               describedBy={helpDescribedBy}
+              {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -664,6 +668,7 @@ export function DynamicFormField({
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}

@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { QInstance, QTableMetaData } from '@/types'
 import {
-  formPresetsFromHash, lockedPresetValues, parseHashParams, processRunHref, withTrailingSlash, recordHashAction, tableProcessForSegment, tableReportForSegment,
+  createChildLinkHref, formPresetsFromHash, lockedPresetValues, parseHashParams, processRunHref, withTrailingSlash, recordHashAction, tableProcessForSegment, tableReportForSegment,
 } from './material-links'
 
 // The exact shape AbstractHTMLWidgetRenderer.linkTableCreateChild builds.
@@ -54,6 +54,14 @@ describe('recordHashAction', () => {
     expect(recordHashAction('#employment')).toEqual({ type: 'section', name: 'employment' })
     expect(recordHashAction('')).toBeNull()
     expect(recordHashAction('#/unknown=1')).toBeNull()
+  })
+})
+
+describe('createChildLinkHref', () => {
+  it('encodes path and hash segments while keeping the static-export route slash', () => {
+    const href = createChildLinkHref('parent table', 'a/b', 'child table')
+    expect(href).toBe('/app/parent%20table/a%2Fb/#/createChild=child%20table')
+    expect(recordHashAction(href.slice(href.indexOf('#')))).toEqual({ type: 'createChild', tableName: 'child table', defaultValues: {}, disabledFields: [] })
   })
 })
 

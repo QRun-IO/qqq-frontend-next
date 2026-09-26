@@ -42,6 +42,7 @@ import { RecordViewTabs } from './RecordViewTabs'
 import { associationWidgetBinding, type AssociationTableState } from '@/lib/utils/association-utils'
 import { AssociatedRecords } from './AssociatedRecords'
 import { RecordViewAssociated } from './RecordViewAssociated'
+import { SaveWarningBanner } from './SaveWarningBanner'
 
 /**
  * Returns true if a section has at least one visible field or a widget.
@@ -611,6 +612,8 @@ function RecordViewContent({
             </ul>
           </div>
         )}
+        {/* The warning of the save that led here (Material: create/update navigation state) */}
+        <SaveWarningBanner tableName={tableMetaData.name} primaryKey={parentPk as string | number} />
         {(record.warnings?.length ?? 0) > 0 && (
           <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
             <ul className="list-inside list-disc space-y-1">

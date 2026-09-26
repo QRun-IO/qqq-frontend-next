@@ -51,7 +51,7 @@ import { formPresetsFromHash, lockedPresetValues, type HashFormPresets } from '@
  * @returns A composed page that renders one of:
  *   - A full-screen spinner while metadata resolves
  *   - A permission-error banner when the user lacks `insertPermission`
- *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-4xl` container
+ *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-6xl` container
  */
 export default function EntityCreatePage() {
   const params = useRouteParams<{ slug: string }>()
@@ -108,7 +108,7 @@ export default function EntityCreatePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-create-${slug}`}>
+    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-create-${slug}`}>
       <EntityForm
         tableMetaData={tableMetaData}
         widgets={metaData?.widgets}
