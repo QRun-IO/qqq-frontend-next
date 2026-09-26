@@ -15,16 +15,19 @@
  */
 
 /**
- * @file EsbTriggerRow — one table row for a process triggered by an ESB destination.
+ * @file EsbTriggerRow — one table row for a process triggered by an ESB destination, with its
+ * management actions.
  */
 
 import React from 'react'
 import Link from 'next/link'
 
-import type { EsbTrigger, EsbTriggerMode, EsbTriggerState } from '@/types'
+import type { EsbPermissions, EsbTrigger, EsbTriggerMode, EsbTriggerState } from '@/types'
 import { CHIP_COLOR_CLASSES, type ChipColor } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
+import { EsbTriggerActions, deadLetterQueue } from './EsbActions'
 import { EsbCounters } from './EsbCounters'
+import { EsbBrowseButton } from './EsbMessageList'
 
 /** Label and chip color for each trigger state. */
 const STATES: Record<EsbTriggerState, { label: string; color: ChipColor }> = {
@@ -38,15 +41,24 @@ const STATES: Record<EsbTriggerState, { label: string; color: ChipColor }> = {
 const MODES: Record<EsbTriggerMode, string> = { SINGLE: 'Single', BATCH: 'Batch' }
 
 /**
- * Renders a trigger as a row of five cells: the process (linked, with its mode, concurrency
- * and attempts), the destination it consumes, its state, its counters, and the number of
- * messages in its dead-letter queue (`—` when the broker cannot report it).
+ * Renders a trigger as a row of six cells: the process (linked, with its mode, concurrency
+ * and attempts), the destination it consumes, its state, its counters, the number of
+ * messages in its dead-letter queue (`—` when the broker cannot report it), and its actions:
+ * pause or resume, restart and replay when permitted, and browsing its dead letters.
  *
  * @param props - Component props.
  * @param props.trigger - The trigger to show.
- * @returns A `<tr>` for a table with Process, Destination, State, Counters and Dead letters columns.
+ * @param props.permissions - The current user's ESB permissions.
+ * @returns A `<tr>` for a table with Process, Destination, State, Counters, Dead letters and
+ *   Actions columns.
  */
-export function EsbTriggerRow({ trigger }: { trigger: EsbTrigger }) {
+export function EsbTriggerRow({
+  trigger,
+  permissions,
+}: {
+  trigger: EsbTrigger
+  permissions: EsbPermissions
+}) {
   const state = STATES[trigger.state] ?? { label: trigger.state, color: 'default' }
   const attempts = `${trigger.maxAttempts} ${trigger.maxAttempts === 1 ? 'attempt' : 'attempts'}`
 
@@ -82,6 +94,17 @@ export function EsbTriggerRow({ trigger }: { trigger: EsbTrigger }) {
       </td>
       <td className="px-2 py-2 tabular-nums text-foreground">
         {trigger.deadLetter.messageCount ?? '—'}
+      </td>
+      <td className="space-y-1 px-2 py-2">
+        <EsbTriggerActions trigger={trigger} permissions={permissions} />
+        <EsbBrowseButton
+          label="Browse dead letters"
+          ariaLabel={`Browse dead letters for ${trigger.processLabel}`}
+          title={`Dead letters for ${trigger.processLabel}`}
+          source={{ kind: 'deadLetters', triggerName: trigger.name }}
+          queue={deadLetterQueue(trigger)}
+          permissions={permissions}
+        />
       </td>
     </tr>
   )
