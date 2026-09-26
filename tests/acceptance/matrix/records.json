@@ -1215,6 +1215,28 @@
         "QRun-IO/qqq#708"
       ],
       "required": true
+    },
+    {
+      "id": "REC-060",
+      "feature": "Material table and field form adjusters and field rules operate against the real QQQ sample server",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/lib/api/form-adjuster.ts",
+        "src/lib/utils/form-adjuster-utils.ts"
+      ],
+      "fixture": "FormAdjusterFixtures.java adjusterLab table with a table onLoad adjuster, name onChange adjuster and clear-target field rule",
+      "scenarios": [
+        "v1 table and field metadata expose the Material supplemental adjuster settings",
+        "the table onLoad route supplies a note before render",
+        "the name onChange route changes a field label and clears its value; the field rule clears status"
+      ],
+      "negative": [
+        "a backend lock message disables Save for a preset name"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#720"
+      ],
+      "required": true
     }
   ]
 }

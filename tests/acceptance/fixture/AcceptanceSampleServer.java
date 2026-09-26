@@ -106,6 +106,7 @@ public class AcceptanceSampleServer
             defined.getAuthentication().setCustomizer(new QCodeReference(PersonaCustomizer.class));
             NavigationFixtures.define(defined);
             RecordsFixtures.define(defined);
+            FormAdjusterFixtures.define(defined);
             QueryFixtures.define(defined);
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
@@ -226,6 +227,7 @@ public class AcceptanceSampleServer
          }
          NavigationFixtures.prime(connection);
          RecordsFixtures.prime(connection);
+         FormAdjusterFixtures.prime(connection);
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
