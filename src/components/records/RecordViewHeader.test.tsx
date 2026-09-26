@@ -119,7 +119,7 @@ describe('RecordViewHeader phone action sheet', () => {
     </QueryClientProvider>)
     await user.click(screen.getByRole('button', { name: 'Record actions' }))
     await user.click(screen.getByRole('button', { name: 'Tag Records' }))
-    expect(push).toHaveBeenCalledWith('/app/tagRecords?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5')
+    expect(push).toHaveBeenCalledWith('/app/tagRecords/?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5')
   })
 })
 
