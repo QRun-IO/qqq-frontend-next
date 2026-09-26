@@ -111,11 +111,18 @@ test.describe('dialogs and focus', () => {
       await expect(menuItem.or(sheetItem).first()).toBeVisible()
       const inMenu = await menuItem.isVisible()
       const deleteItem = inMenu ? menuItem : sheetItem
-      for (let presses = 0; presses < 12 && !(await deleteItem.evaluate((element) => element === document.activeElement)); presses++) {
-        await page.keyboard.press(inMenu ? 'ArrowDown' : tabKey(page))
+      if (inMenu) {
+        await page.keyboard.press('Home')
+        for (const label of ['New', 'Copy', 'Edit', 'Delete']) {
+          const item = page.getByRole('menuitem', { name: label, exact: true })
+          await expect(item).toBeFocused()
+          if (label !== 'Delete') await page.keyboard.press('ArrowDown')
+        }
+      } else {
+        await tabTo(page, deleteItem, 20)
       }
       await expect(deleteItem).toBeFocused()
-      await page.keyboard.press('Enter')
+      await deleteItem.press('Enter')
     }
     await tabTo(page, trigger)
     await chooseDelete()
