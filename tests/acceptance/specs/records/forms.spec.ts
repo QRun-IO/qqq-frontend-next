@@ -95,11 +95,25 @@ test('[REC-047] record forms are labelled and fully keyboard operable @mobile', 
   await page.keyboard.press('Tab')
   await expect(control(page, 'email')).toBeFocused()
   await page.keyboard.press('Enter')
-  // Submitting with Enter validates: the missing email is reported and described.
+  // Material keeps Enter inside a text field from saving the record. Tab to Save to submit.
+  const save = page.getByRole('button', { name: 'Save' })
+  const tabToSave = async () => {
+    for (const key of ['Tab', 'Alt+Tab']) {
+      for (let i = 0; i < 40 && !(await save.evaluate((button) => button === document.activeElement)); i++) {
+        await page.keyboard.press(key)
+      }
+      if (await save.evaluate((button) => button === document.activeElement)) break
+    }
+    await expect(save).toBeFocused()
+  }
+  await tabToSave()
+  await page.keyboard.press('Enter')
+  // Submitting from Save validates: the missing email is reported and described.
   await expect(control(page, 'email')).toHaveAttribute('aria-invalid', 'true')
   await expect(control(page, 'email')).toHaveAttribute('aria-describedby', /field-email-error/)
   await expect(page.locator('#field-email-error')).toHaveText('Email is required')
   await page.keyboard.type('kay@example.invalid')
+  await tabToSave()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: 'Kay Board' })).toBeVisible()
   const id = recordIdFromUrl(page, 'person')

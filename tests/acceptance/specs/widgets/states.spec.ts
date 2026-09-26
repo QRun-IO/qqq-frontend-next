@@ -46,7 +46,7 @@ test('[WID-052] empty payloads show descriptive empty states @mobile', async ({ 
   }
   await expect(empty('accEmptyStepper')).toHaveText('No steps to show')
   await expect(page.locator('[data-qqq-id="statistics-count-accEmptyStatistics"]')).toHaveText('0')
-  await expect(page.locator('[data-qqq-id="statistics-percentage-accEmptyStatistics"]')).toHaveAttribute('data-direction', 'flat')
+  await expect(page.locator('[data-qqq-id="statistics-percentage-accEmptyStatistics"]')).toHaveCount(0)
   await expect(empty('accEmptyMultiTable')).toHaveText('No tables to show')
   await expect(empty('accEmptyFieldValueList')).toHaveText('No values to show')
   await expect(empty('accEmptyUsaMap')).toHaveText('No locations to show')

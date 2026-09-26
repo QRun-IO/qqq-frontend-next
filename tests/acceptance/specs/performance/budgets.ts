@@ -18,7 +18,7 @@
 import { test } from '../../support/fixtures'
 
 export const PERFORMANCE_BUDGET = {
-  /** Navigation to a 10,000-row, 40-column table until its first page (25 rows) is shown. Idle: <= 0.6 s. */
+  /** Navigation to a 10,000-row, 40-column table until its first page (50 rows) is shown. Idle: <= 0.6 s. */
   firstPageMs: 5_000,
   /** A page size change or page turn on that table until the new 250-row page is shown. Idle: <= 1.2 s. */
   pageMs: 10_000,

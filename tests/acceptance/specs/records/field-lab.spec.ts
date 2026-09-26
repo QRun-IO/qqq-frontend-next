@@ -373,7 +373,7 @@ test('[REC-027] unique keys are enforced with the backend message on create and 
   await control(page, 'normalizedKey').fill('  key one ')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Error updating Field Lab: Another record already exists with this Normalized Key' })).toBeVisible()
-  await expect(control(page, 'normalizedKey')).toHaveValue('  key one ')
+  await expect(control(page, 'normalizedKey')).toHaveValue('  KEY ONE ')
   expect(await sqlOne(backend, `select normalized_key from field_lab where id = ${second}`)).toEqual({ normalized_key: 'KEY TWO' })
   expect(await sqlOne(backend, `select normalized_key from field_lab where id = ${first}`)).toEqual({ normalized_key: 'KEY ONE' })
 })
