@@ -30,7 +30,7 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
-import { RecordQuery } from '@/components/query'
+import { RecordQuery } from '@/components/query/RecordQuery'
 
 /**
  * Saved view route: resolves the table and renders its query screen with the view applied.

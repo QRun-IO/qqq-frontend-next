@@ -384,8 +384,8 @@ export const tableHandlers = [
     return HttpResponse.json({ records })
   }),
 
-  // Legacy GET /data/:tableName/:primaryKey
-  http.get(`/data/:tableName/:primaryKey`, ({ params, request }) => {
+  // v1 GET /table/:tableName/:primaryKey — { record }
+  http.get(`${BASE}/table/:tableName/:primaryKey`, ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -445,15 +445,15 @@ export const tableHandlers = [
       }
 
       if (Object.keys(associatedRecords).length > 0) {
-        return HttpResponse.json({ ...record, associatedRecords })
+        return HttpResponse.json({ record: { ...record, associatedRecords } })
       }
     }
 
-    return HttpResponse.json(record)
+    return HttpResponse.json({ record })
   }),
 
-  // Legacy POST /data/:tableName — insert
-  http.post('/data/:tableName', async ({ params, request }) => {
+  // v1 POST /table/:tableName — insert, { record }
+  http.post(`${BASE}/table/:tableName`, async ({ params, request }) => {
     const { tableName } = params as { tableName: string }
     const records = store[tableName]
 
@@ -487,11 +487,11 @@ export const tableHandlers = [
 
     records.push(newRecord)
 
-    return HttpResponse.json({ records: [newRecord] })
+    return HttpResponse.json({ record: newRecord })
   }),
 
-  // Legacy PUT /data/:tableName/:primaryKey — update
-  http.put('/data/:tableName/:primaryKey', async ({ params, request }) => {
+  // v1 PATCH /table/:tableName/:primaryKey — update, { record }
+  http.patch(`${BASE}/table/:tableName/:primaryKey`, async ({ params, request }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 
@@ -526,11 +526,11 @@ export const tableHandlers = [
 
     records[idx] = updated
 
-    return HttpResponse.json({ records: [updated] })
+    return HttpResponse.json({ record: updated })
   }),
 
-  // Legacy DELETE /data/:tableName/:primaryKey
-  http.delete('/data/:tableName/:primaryKey', ({ params }) => {
+  // v1 DELETE /table/:tableName/:primaryKey
+  http.delete(`${BASE}/table/:tableName/:primaryKey`, ({ params }) => {
     const { tableName, primaryKey } = params as { tableName: string; primaryKey: string }
     const records = store[tableName]
 

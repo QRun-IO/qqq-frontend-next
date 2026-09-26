@@ -54,7 +54,7 @@ export interface SavedBulkLoadProfilesProps {
 }
 
 const buttonClass = 'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11'
 
 /**
  * Render the saved bulk load profile controls.

@@ -97,7 +97,7 @@ const CHART_VARIANTS: Record<string, QqqChartVariant> = {
 interface WidgetRendererProps {
   /** Widget metadata; `type` is the primary discriminator. */
   widgetMetaData: QWidgetMetaData
-  /** The widget payload from `GET /widget/{name}`. */
+  /** The widget payload from `POST /qqq/v1/widget/{name}`. */
   data: unknown
   /** Record context for record-view widgets. */
   recordContext?: WidgetRecordContext

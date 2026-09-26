@@ -866,6 +866,106 @@
       "negative": [],
       "issues": [],
       "required": true
+    },
+    {
+      "id": "PRC-048",
+      "feature": "Process-field possible values load and search through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "the process combobox loads its options from the v1 process route",
+        "the chosen value reaches the process and persists",
+        "a v1 search returns the exact match"
+      ],
+      "negative": [
+        "an unknown process field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-049",
+      "feature": "Processes run on the v1 process routes (upload, step, back step, records, metadata)",
+      "source": [
+        "src/lib/api/processes.ts",
+        "src/lib/api/metadata.ts",
+        "src/lib/hooks/use-process.ts"
+      ],
+      "fixture": "person.bulkInsert, prcComponents",
+      "scenarios": [
+        "a bulk load uploads its file, maps, reviews, steps back (isStepBack=true) and inserts through /qqq/v1/processes/... and /qqq/v1/metaData/process/...",
+        "the inserted row is in the database",
+        "this session can cancel its own run"
+      ],
+      "negative": [
+        "an unsafe upload filename is 400 before anything is stored",
+        "an unknown run is refused",
+        "(another session's run is refused 403 by records and cancel - backend unit tests)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406",
+        "QRun-IO/qqq#543"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-050",
+      "feature": "Processes the instance adds to every query and record screen (Material processNamesToAddToAllQueryAndViewScreens)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/App.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/query/QueryScreenActionMenu.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardInstanceMetaData.java",
+        "tests/acceptance/fixture/ProcessesFixtures.java"
+      ],
+      "fixture": "ProcessesFixtures.java prcTagRecords (no table, in no app) named by MaterialDashboardInstanceMetaData; a metadata customizer lists it only for the sample user casey, so other areas keep their menus; person, qryBin",
+      "scenarios": [
+        "v1 /metaData names the process in supplementalInstanceMetaData.materialDashboard (the only supplemental entry v1 publishes; the unversioned route's javalin server configuration stays off v1); casey receives it with no table and in no app (API)",
+        "the person query Actions menu lists it last, after a divider, and runs it on the selected rows with tableName=person (SQL)",
+        "the record actions menu of qryBin (no processes of its own) runs it on that record (SQL)",
+        "the phone record action sheet runs it on that record (SQL)"
+      ],
+      "negative": [
+        "a user whose metadata omits it (alice): not offered on query or record screens and its run page is not found (no SQL rows)",
+        "noProcesses persona: absent from the metadata, not offered on query or record screens, and the backend refuses it (403, no SQL rows)",
+        "a user whose metadata omits the process gets an empty v1 processNamesToAddToAllQueryAndViewScreens list (no hidden process names); the v1 and unversioned init routes refuse the process for a user without permission"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-051",
+      "feature": "Dependent possible values on a process screen: the choices follow the screen's other values",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/components/process/EditFormComponent.tsx",
+        "src/components/process/ViewFormComponent.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx",
+        "qqq-middleware-javalin QJavalinProcessHandler.possibleValues"
+      ],
+      "fixture": "prcSpecimenPick specimenId (prcSpecimen source filtered on category = ${input.category})",
+      "scenarios": [
+        "every search posts the screen values as the values map of the v1 JSON body",
+        "choices narrow to the chosen Category and change when it changes",
+        "the chosen id is recorded (SQL) and its label shows on the result screen"
+      ],
+      "negative": [
+        "Category empty: the unset variable makes no matches for a form, shown as No options found",
+        "the backend refuses an out-of-filter id lookup and returns only the filtered choices"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
     }
   ]
 }

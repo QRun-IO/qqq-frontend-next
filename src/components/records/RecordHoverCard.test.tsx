@@ -23,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { server } from '@/mocks/node'
+import { recordGet } from '@/mocks/v1-record'
 import { RecordHoverCard } from './RecordHoverCard'
 
 function renderPreview() {
@@ -49,7 +50,7 @@ describe('RecordHoverCard with lightweight registry metadata', () => {
         requests.push('metadata')
         return HttpResponse.json(qInstance.tables.person)
       }),
-      http.get('/data/person/1', ({ request }) => {
+      recordGet('/table/person/1', ({ request }) => {
         requests.push(new URL(request.url).searchParams.get('includeAssociations') ?? '')
         return HttpResponse.json({ tableName: 'person', values: { id: 1, firstName: 'Avery' }, recordLabel: 'Avery Sample' })
       }),
@@ -68,7 +69,7 @@ describe('RecordHoverCard with lightweight registry metadata', () => {
     server.use(
       http.get('/qqq/v1/metaData/table/person', () => failure === 'metadata'
         ? HttpResponse.json({ error: 'Denied' }, { status: 403 }) : HttpResponse.json(qInstance.tables.person)),
-      http.get('/data/person/1', () => {
+      recordGet('/table/person/1', () => {
         recordRequests++
         return HttpResponse.json({ error: 'Denied' }, { status: 403 })
       }),

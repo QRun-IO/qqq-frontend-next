@@ -6,12 +6,13 @@
  */
 
 import { expect, open, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess, recordRows, run, viewValue } from './process-helpers'
+import { listCell } from '../security/support/ui'
+import { advance, expectRunTouchReady, expectScreen, openProcess, recordRows, run, viewValue } from './process-helpers'
 
 const NOBODY = { criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Nobody'] }], booleanOperator: 'AND' }
 
 test.describe('Record selection', () => {
-  test('[PRC-002] a filter selection with no criteria runs on every record', async ({ page, backend, diagnostics }) => {
+  test('[PRC-002] a filter selection with no criteria runs on every record @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'greetInteractive', { filter: { criteria: [] } })
     await expectScreen(page, 'setup', 'Setup')
@@ -23,12 +24,26 @@ test.describe('Record selection', () => {
     await expect.poll(async () => (await recordRows(results)).map((row) => row[1])).toEqual(people.map((person) => person.first_name))
   })
 
-  test('[PRC-003] a selection that matches no records runs with zero records', async ({ page, diagnostics }) => {
+  test('[PRC-003] a selection that matches no records runs with zero records @mobile', async ({ page, diagnostics }) => {
     void diagnostics
+    // every error notification the run shows is recorded (they close by themselves)
+    await page.addInitScript(() => {
+      const shown: string[] = []
+      Object.assign(window, { __qqqErrorToasts: shown })
+      new MutationObserver(() => {
+        document.querySelectorAll('[data-sonner-toast][data-type="error"]').forEach((toast) => { shown.push(toast.textContent ?? '') })
+      }).observe(document, { childList: true, subtree: true })
+    })
+    // the v1 records route answers a run without records with a zero total and no records
+    const previews = page.waitForResponse((response) => /^\/qqq\/v1\/processes\/clonePeople\/[^/]+\/records$/.test(new URL(response.url()).pathname))
     await openProcess(page, 'clonePeople', { filter: NOBODY })
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 0 Person records.')
     await expect(review.getByText('No record previews are available at this time.')).toBeVisible()
+    const preview = (await (await previews).json()) as { records?: unknown[], totalRecords?: number }
+    expect(preview.totalRecords).toBe(0)
+    // an empty list may be sent or omitted; either way no record is previewed
+    expect(preview.records ?? []).toEqual([])
     await advance(page, 'Next')
     const validated = await expectScreen(page, 'review', 'Review')
     await expect(validated.locator('[data-qqq-id="process-validation-complete"]')).toHaveText('Validation complete on 0 Person records.')
@@ -36,6 +51,8 @@ test.describe('Record selection', () => {
     await advance(page, 'Submit')
     const result = await expectScreen(page, 'result', 'Result')
     await expect(result.locator('[data-qqq-id="process-summary-record-count"]')).toHaveText('0 Person records were processed.')
+    // an empty preview is not an error
+    expect(await page.evaluate(() => (window as unknown as { __qqqErrorToasts: string[] }).__qqqErrorToasts)).toEqual([])
 
     // a record-list step with no input records is refused by the backend
     await openProcess(page, 'greetInteractive', { filter: NOBODY })
@@ -56,11 +73,11 @@ test.describe('Record selection', () => {
     await expect(page.locator('[data-qqq-id="process-error-message"]')).toHaveText('Missing input records.')
   })
 
-  test('[PRC-005] a process launched from selected table rows receives them', async ({ page, diagnostics }) => {
+  test('[PRC-005] a process launched from selected table rows receives them @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
-    const grid = page.getByRole('grid', { name: 'Person records' })
-    await expect(grid.getByRole('gridcell', { name: 'Blair', exact: true })).toBeVisible()
+    // the grid on wide screens, cards on a phone: both offer the row checkboxes and the Actions menu
+    await expect(listCell(page, 'Person', 'Blair')).toBeVisible()
     await page.getByRole('checkbox', { name: 'Select Avery Sample' }).check()
     await page.getByRole('checkbox', { name: 'Select Casey Sample' }).check()
     await page.getByRole('button', { name: 'Actions', exact: true }).click()
@@ -72,7 +89,7 @@ test.describe('Record selection', () => {
     await expect.poll(() => recordRows(results)).toEqual([['1', 'Avery', 'Yo Avery null'], ['3', 'Casey', 'Yo Casey null']])
   })
 
-  test('[PRC-006] minimum and maximum input records are enforced', async ({ page, backend, diagnostics }) => {
+  test('[PRC-006] minimum and maximum input records are enforced @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const inits: string[] = []
     page.on('request', (request) => { if (request.url().includes('/processes/prcBounds/init')) inits.push(request.url()) })
@@ -88,6 +105,7 @@ test.describe('Record selection', () => {
     await expect(viewValue(picked, 'selectedCount')).toHaveText('2')
     await expect(viewValue(picked, 'selectedNames')).toHaveText('Alpha, Gamma')
     await expect.poll(() => recordRows(picked)).toEqual([['1', 'Alpha'], ['3', 'Gamma']])
+    await expectRunTouchReady(page, 'prcBounds')
 
     // a filter selection cannot be counted in the browser; the backend refuses it
     await openProcess(page, 'prcBounds', { filter: { criteria: [] } })
@@ -96,7 +114,7 @@ test.describe('Record selection', () => {
     expect((await tooFew.json()).userFacingError).toBe('Too few records were selected for this process.  At least 1 must be selected.')
   })
 
-  test('[PRC-025] record lists page through the process records', async ({ page, diagnostics }) => {
+  test('[PRC-025] record lists page through the process records @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcManyRows')
     const rows = await expectScreen(page, 'rows', 'Rows')
@@ -110,6 +128,7 @@ test.describe('Record selection', () => {
     await expect(range).toHaveText('21–23 of 23')
     await expect.poll(async () => (await recordRows(rows)).map((row) => row[1])).toEqual(['Row 21', 'Row 22', 'Row 23'])
     await expect(rows.getByRole('button', { name: 'Next page of records' })).toBeDisabled()
+    await expectRunTouchReady(page, 'prcManyRows')
     await rows.getByRole('button', { name: 'Previous page of records' }).click()
     await expect(range).toHaveText('11–20 of 23')
     await rows.getByLabel('Rows per page').selectOption('25')
@@ -117,7 +136,7 @@ test.describe('Record selection', () => {
     await expect.poll(async () => (await recordRows(rows)).length).toBe(23)
   })
 
-  test('[PRC-043] default process values from the link preset inputs', async ({ page, diagnostics }) => {
+  test('[PRC-043] default process values from the link preset inputs @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'sleepInteractive', undefined, { defaultProcessValues: JSON.stringify({ sleepMillis: 3500 }) })
     await expectScreen(page, 'screen0', 'Screen 0')

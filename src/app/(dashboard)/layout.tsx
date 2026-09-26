@@ -22,7 +22,7 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
@@ -31,7 +31,9 @@ import { useQContext, QContextProvider } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
+import { applyBrandingTheme } from '@/lib/theme/apply-branding'
 import { queryKeys } from '@/lib/query-client'
+import { searchableTables } from '@/lib/utils/record-search'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -64,6 +66,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const helpButtonRef = useRef<HTMLButtonElement>(null)
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
@@ -89,6 +93,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Generate sidebar routes and path map from app tree
   const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
 
+  // Tables the backend record search covers for this user (none: search stays local)
+  const searchTables = useMemo(() => searchableTables(metaData), [metaData])
+
   // Sync pathToLabelMap to QContext
   useEffect(() => {
     if (Object.keys(pathToLabelMap).length > 0) {
@@ -100,46 +107,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (metaData?.branding) {
       setBranding(metaData.branding)
-
-      // MED-3: validate color format before applying to CSS custom properties
-      const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
-      if (metaData.branding.accentColor && ACCENT_COLOR_RE.test(metaData.branding.accentColor)) {
-        setAccentColor(metaData.branding.accentColor)
-        document.documentElement.style.setProperty(
-          '--qqq-accent-color',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--color-primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--ring',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--qqq-sidebar-active-bg',
-          metaData.branding.accentColor
-        )
-      }
-
-      if (metaData.branding.accentColorLight && ACCENT_COLOR_RE.test(metaData.branding.accentColorLight)) {
-        document.documentElement.style.setProperty('--qqq-accent-color-light', metaData.branding.accentColorLight)
-      }
-
-      // Favicon and touch icon from branding (as Material Dashboard does)
-      if (metaData.branding.icon) {
-        for (const selector of ["link[rel~='icon']", "link[rel~='apple-touch-icon']"]) {
-          const linkEl = document.querySelector(selector)
-          if (linkEl instanceof HTMLLinkElement) {
-            linkEl.href = metaData.branding.icon
-          }
-        }
-      }
+      // accent colors (validated, MED-3) and the favicon
+      const accentColor = applyBrandingTheme(metaData.branding)
+      if (accentColor) setAccentColor(accentColor)
     }
   }, [metaData?.branding, setBranding, setAccentColor])
 
@@ -228,7 +198,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setCommandOpen(false)
       setSearchOpen(false)
       setHelpOpen(false)
-      setSidebarOpen(false)
+      // The navigation drawer is a modal dialog and handles its own Escape
     }
 
     // Single-key shortcuts — only when not focused in a text field
@@ -293,7 +263,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Skip to main content — accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:inline-flex focus:items-center pointer-coarse:focus:min-h-11 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           data-qqq-id="skip-to-content"
         >
           Skip to main content
@@ -318,6 +288,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           userEmail={user?.email}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          returnFocusRef={menuButtonRef}
           data-qqq-id="sidebar-mobile"
         />
 
@@ -327,11 +298,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <Header
             appName={metaData?.branding?.appName}
             onMenuOpen={() => setSidebarOpen(true)}
+            menuOpen={sidebarOpen}
+            menuButtonRef={menuButtonRef}
             onSearchOpen={() => setSearchOpen(true)}
             onHelpOpen={() => setHelpOpen(true)}
+            helpButtonRef={helpButtonRef}
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
             navTargets={navTargets}
+            searchTables={searchTables}
           />
 
           {/* Page content */}
@@ -359,10 +334,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} />
 
       {/* Search Dialog */}
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} />
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
 
       {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} />
     </div>
   )
 }

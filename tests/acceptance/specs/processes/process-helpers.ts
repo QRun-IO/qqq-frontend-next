@@ -7,6 +7,7 @@
 
 import type { Locator, Page } from '@playwright/test'
 import { expect, open } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 
 /** Record-selection parameters for a process URL. */
 export type Selection = { recordIds: (string | number)[] } | { filter: Record<string, unknown> } | undefined
@@ -110,4 +111,14 @@ export async function choosePossibleValue(page: Page, label: string, option: str
   const combobox = page.getByRole('combobox', { name: label })
   await combobox.click()
   await page.getByRole('option', { name: option, exact: true }).click()
+}
+
+/**
+ * Assert the run fits a phone or tablet: the page does not scroll sideways and, on a touch
+ * screen, every control in the run is at least a 44 x 44 px target (QRun-IO/qqq#708).
+ * @param page - The page.
+ * @param processName - Process name.
+ */
+export async function expectRunTouchReady(page: Page, processName: string) {
+  await expectTouchReady(page, run(page, processName))
 }

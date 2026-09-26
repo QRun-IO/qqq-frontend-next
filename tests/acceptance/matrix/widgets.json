@@ -1220,17 +1220,21 @@
       "feature": "scheduled report: create a schedule for a saved report and view its cron schedule",
       "source": [
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ScheduledReportTableCustomizer.java",
-        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java"
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java",
+        "src/components/widgets/ChildRecordListWidget.tsx",
+        "src/components/records/CreateChildFromLinkDialog.tsx"
       ],
       "fixture": "scheduledReport (memory) for savedReport 1",
       "scenarios": [
-        "schedule persisted with cron description; record view shows the schedule widget"
+        "schedule persisted with cron description; record view shows the schedule widget",
+        "Add new on the saved report opens the Add Scheduled Report dialog over it with Saved Report preset and locked (Material #/createChild=); Create submits savedReportId=1, closes the dialog and reloads the child list"
       ],
       "negative": [
         "invalid cron expression rejected with message"
       ],
       "issues": [
-        "#673"
+        "#673",
+        "#714"
       ],
       "required": true
     },
@@ -1334,6 +1338,135 @@
       "negative": [],
       "issues": [
         "#665"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-064",
+      "feature": "cronUI schedule editor on record forms: Basic days/hours/minutes, Advanced expression, live description, validation, time zone",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/CronUIWidget.tsx",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/scheduler/CronDescriber.java",
+        "src/components/forms/CronScheduleEditor.tsx",
+        "src/lib/utils/cron-utils.ts"
+      ],
+      "fixture": "scheduledReport (memory) for savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron",
+      "scenarios": [
+        "Basic mode builds weekdays, hours and minutes; the live description equals the cronDescription QQQ stores",
+        "Advanced mode edits the stored expression; the live description equals the backend widget description; expression and time zone persist (SQL)",
+        "an expression Basic mode cannot show opens Advanced with Basic disabled and the reason"
+      ],
+      "negative": [
+        "an out-of-range expression shows the error live and marks the input invalid",
+        "saving without a schedule shows the required error in the editor, focuses it, and saves nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#702"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-065",
+      "feature": "record view mounts only the active layout, so each section widget mounts and loads once",
+      "source": [
+        "src/components/records/RecordViewTabs.tsx",
+        "src/lib/hooks/use-media-query.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost",
+      "scenarios": [
+        "desktop tabs: every section widget is in the DOM once and requested once; no accordion is mounted",
+        "phone accordion: only open sections mount; each widget is requested once, on opening"
+      ],
+      "negative": [
+        "the desktop tab layout is not mounted at phone width"
+      ],
+      "issues": [
+        "QRun-IO/qqq#706"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-066",
+      "feature": "Widget metadata and widget data come from the v1 API",
+      "source": [
+        "src/lib/api/metadata.ts",
+        "src/lib/api/widgets.ts"
+      ],
+      "fixture": "widgetPermissions (accHealthy, accDenied), accPersonReport",
+      "scenarios": [
+        "v1 /metaData lists permitted widgets with hasPermission and the reports map",
+        "the dashboard renders its widgets from POST /qqq/v1/widget/{name} and makes no legacy metadata or widget request"
+      ],
+      "negative": [
+        "a denied widget is absent from v1 metadata, never requested, and refused (403) by POST /qqq/v1/widget without rendering"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-067",
+      "feature": "a widget whose payload is a single leaf block (Material block widget) renders that block",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:831-844",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
+        "src/components/widgets/blocks/QqqComposite.tsx"
+      ],
+      "fixture": "WidgetsFixtures.java accLeafBlock (COMPOSITE widget whose renderer returns a TextBlockData)",
+      "scenarios": [
+        "The backend payload is the TEXT block itself (blockTypeName TEXT, no blocks list)",
+        "The widget shows the block's text as a TEXT block"
+      ],
+      "negative": [
+        "No empty COMPOSITE container is rendered in its place"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-019",
+      "feature": "render report input step shows only its fields; a report without variables adds no no-fields message",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ReportValuesDynamicFormWidgetRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/DynamicFormWidget.tsx",
+        "src/components/widgets/DynamicFormWidget.tsx"
+      ],
+      "fixture": "savedReport 1 (Pet Species Report, no variables)",
+      "scenarios": [
+        "Report Format, Email To and Email Subject are shown; the values widget renders nothing"
+      ],
+      "negative": [
+        "no \"No fields\" text on the input step"
+      ],
+      "issues": [
+        "QRun-IO/qqq#707"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-020",
+      "feature": "Report files download from the v1 download and report routes",
+      "source": [
+        "src/lib/api/reports.ts",
+        "src/lib/api/processes.ts",
+        "src/components/reports/ReportRun.tsx"
+      ],
+      "fixture": "accPersonReport, accStreamedReport, accRestrictedReport",
+      "scenarios": [
+        "a process report links its file at /qqq/v1/download/... and the file has every row",
+        "a report without a process streams from /qqq/v1/reports/{name}?format=csv with every row"
+      ],
+      "negative": [
+        "an unregistered server file or storage reference is refused (403)",
+        "a restricted report is 403, an unknown one 404, a missing format 400"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
       ],
       "required": true
     }

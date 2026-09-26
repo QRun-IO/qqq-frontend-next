@@ -27,6 +27,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 
 import type { QTableMetaData, QProcessMetaData, QInstance } from '@/types'
 import type { TableVariant } from '@/lib/api/tables'
@@ -34,6 +35,7 @@ import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { countActiveCriteria, emptyFilter } from '@/lib/utils/filter-utils'
+import { withTrailingSlash } from '@/lib/utils/material-links'
 import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -41,7 +43,12 @@ import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
+import { launchTableName } from '@/lib/utils/process-utils'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+
+import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
 import { FilterBuilder } from './FilterBuilder'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
@@ -54,26 +61,6 @@ import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
-
-/** localStorage key root for a table's selected variant (the same key Material uses). */
-export const TABLE_VARIANT_STORAGE_KEY_ROOT = 'qqq.tableVariant'
-
-/**
- * Reads a table's stored variant.
- *
- * @param tableName - Backend table name.
- * @returns The stored variant, or null.
- */
-function readStoredVariant(tableName: string): TableVariant | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`)
-    const parsed = raw ? (JSON.parse(raw) as TableVariant) : null
-    return parsed && parsed.id !== undefined && typeof parsed.type === 'string' ? parsed : null
-  } catch {
-    return null
-  }
-}
 
 /**
  * Props for the RecordQuery component.
@@ -107,6 +94,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const safeFromPath = fromPath && isSafeRedirectPath(fromPath) ? fromPath : null
   const queryClient = useQueryClient()
   const quickSearchRef = useRef<HTMLInputElement>(null)
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
   const { preferences } = useUserPreferences()
   const { userId } = useQContext()
   const allProcesses = useMemo(() => metaData?.processes ?? {}, [metaData])
@@ -114,8 +102,8 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   // ------------------------------------------------------------------
   // Variants (tables whose backend uses variants): stored per table, as in Material
   // ------------------------------------------------------------------
-  const [tableVariant, setTableVariant] = useState<TableVariant | null>(() => (tableMetaData.usesVariants ? readStoredVariant(tableName) : null))
-  const [variantPickerOpen, setVariantPickerOpen] = useState(() => Boolean(tableMetaData.usesVariants) && readStoredVariant(tableName) === null)
+  const [tableVariant, setTableVariant] = useState<TableVariant | null>(() => (tableMetaData.usesVariants ? readStoredTableVariant(tableName) : null))
+  const [variantPickerOpen, setVariantPickerOpen] = useState(() => Boolean(tableMetaData.usesVariants) && readStoredTableVariant(tableName) === null)
   const chooseVariant = (variant: TableVariant) => {
     try {
       localStorage.setItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${tableName}`, JSON.stringify(variant))
@@ -220,16 +208,37 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const activeFilterCount = countActiveCriteria(rq.filter.userFilter)
 
   // View mode: grid vs card — default from user preferences; mobile override after mount
-  const [viewMode, setViewMode] = useState<ViewMode>(preferences.tableDefaultViewMode)
+  // A chosen view mode is remembered per table, so returning from a record keeps the table view on a phone.
+  const viewModeKey = `qqq-${tableName}-view-mode`
+  const [viewMode, setViewModeState] = useState<ViewMode>(preferences.tableDefaultViewMode)
+  const [viewModeReady, setViewModeReady] = useState(false)
   useEffect(() => {
-    if (window.innerWidth < 768) setViewMode('card')
-  }, [])
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(viewModeKey)
+    } catch {
+      // persistence is best-effort
+    }
+    if (stored === 'grid' || stored === 'card') setViewModeState(stored)
+    else if (window.innerWidth < 768) setViewModeState('card')
+    setViewModeReady(true)
+  }, [viewModeKey])
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode)
+    try {
+      localStorage.setItem(viewModeKey, mode)
+    } catch {
+      // persistence is best-effort
+    }
+  }, [viewModeKey])
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [alertMessage, setAlertMessage] = useState<string | null>(null)
   const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
   // Column statistics need the table's QUERY_STATS capability and the columnStats process
   const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
+  // Stable, so the grid's memoized rows are not re-rendered by a new handler each render
+  const openColumnStats = useCallback((name: string, label: string) => setStatsColumn({ name, label }), [])
 
   const canCreate = canInsertRecords(tableMetaData)
   const distinct = rq.pagination.distinctCount !== null
@@ -257,14 +266,27 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
       params.set('recordsParam', 'recordIds')
       params.set('recordIds', rq.selection.selectedRecordIds.join(','))
     }
-    const queryString = params.toString()
-    router.push(`/app/${encodeURIComponent(process.name)}${queryString ? `?${queryString}` : ''}`)
-  }, [router, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
+    // a process added to every screen reads the selection from this table
+    const forTable = launchTableName(process, tableName)
+    if (forTable) params.set('tableName', forTable)
+    // the run comes back to this query (filter, sort and page kept), as Material's modal does
+    params.set('returnTo', `${window.location.pathname}${window.location.search}`)
+    router.push(withTrailingSlash(`/app/${encodeURIComponent(process.name)}?${params.toString()}`))
+  }, [router, tableName, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
   const handleFilterToggle = useCallback(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)
     else rq.filter.toggleFilterPanel()
   }, [rq])
+
+  // Material query-screen shortcuts: n new record, r refresh the query, f open the filter builder.
+  usePageShortcuts({
+    n: canCreate && (() => router.push(`/app/${encodeURIComponent(tableName)}/create`)),
+    r: handleRefresh,
+    f: () => {
+      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+    },
+  }, Boolean(tableMetaData.readPermission))
 
   const pageRowCount = rq.data.records.length
   const allPageRowsSelected = pageRowCount > 0 && rq.selection.selectionMode === 'rows' && rq.selection.selectedRecordIds.length > 0
@@ -286,7 +308,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   }
 
   return (
-    <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`}>
+    <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`} data-view-mode={viewModeReady ? viewMode : undefined}>
       {safeFromPath && (
         <Link href={safeFromPath} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground" data-qqq-id="link-back-to-source">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -317,6 +339,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         handleCreateRecord={() => router.push(`/app/${tableName}/create`)}
         localSearchTerm={localSearchTerm}
         quickSearchRef={quickSearchRef}
+        filterButtonRef={filterButtonRef}
         handleSearchChange={handleSearchChange}
         setLocalSearchTerm={setLocalSearchTerm}
         clearQuickSearch={() => rq.filter.setQuickSearch('')}
@@ -385,23 +408,30 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         </div>
       )}
 
-      {mobileFilterOpen && (
-        <div className="md:hidden" data-qqq-id="mobile-filter-sheet">
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMobileFilterOpen(false)} aria-hidden="true" />
-          <div className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl border-t border-border bg-card shadow-sm" role="dialog" aria-modal="true" aria-label="Filter panel">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="text-base font-semibold text-foreground">Advanced Filters</span>
-              <button type="button" onClick={() => setMobileFilterOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Close filter panel" data-qqq-id="mobile-filter-close">
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-muted-foreground/30" aria-hidden="true" />
-            <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={() => setMobileFilterOpen(false)} />
+      {/* Phone filter sheet: a modal dialog (focus moves in, Escape closes, focus returns to Filter) */}
+      <DialogPrimitive.Root open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+        <DialogPrimitive.Portal>
+          <div className="md:hidden" data-qqq-id="mobile-filter-sheet">
+            <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40" />
+            <DialogPrimitive.Content aria-describedby={undefined}
+              onCloseAutoFocus={(e) => { e.preventDefault(); filterButtonRef.current?.focus() }}
+              className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85dvh] flex-col rounded-t-xl border-t border-border bg-card shadow-sm focus:outline-none">
+              <div className="absolute left-1/2 top-1.5 h-1 w-8 -translate-x-1/2 rounded-full bg-muted-foreground/30" aria-hidden="true" />
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+                <DialogPrimitive.Title className="text-base font-semibold text-foreground">Advanced Filters</DialogPrimitive.Title>
+                <DialogPrimitive.Close
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Close filter panel" data-qqq-id="mobile-filter-close">
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </DialogPrimitive.Close>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-qqq-id="mobile-filter-body">
+                <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={() => setMobileFilterOpen(false)} />
+              </div>
+            </DialogPrimitive.Content>
           </div>
-        </div>
-      )}
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       <RecordQueryBulkBar
         tableMetaData={tableMetaData}
@@ -449,7 +479,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           rowSelection={rq.selection.rowSelection}
           onRowSelectionChange={rq.selection.setRowSelection}
           isRowSelectedByQuery={isRowSelectedByQuery}
-          onColumnStats={canShowStats ? (name, label) => setStatsColumn({ name, label }) : undefined}
+          onColumnStats={canShowStats ? openColumnStats : undefined}
           columnVisibility={rq.columns.columnVisibility}
           columnOrder={rq.columns.columnOrder}
           columnWidths={rq.columns.columnWidths}
@@ -473,6 +503,11 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           filter={rq.filter.baseFilter}
           onClose={() => setStatsColumn(null)}
         />
+      )}
+
+      {/* A table that can be read by key but not queried: Material opens Go To, and it cannot be dismissed */}
+      {!rq.data.canQuery && hasCapability(tableMetaData, 'TABLE_GET') && (!tableMetaData.usesVariants || (tableVariant && !variantPickerOpen)) && (
+        <GotoRecordDialog open mayClose={false} tableMetaData={tableMetaData} tableVariant={tableVariant} onClose={() => undefined} />
       )}
 
       {tableMetaData.usesVariants && (

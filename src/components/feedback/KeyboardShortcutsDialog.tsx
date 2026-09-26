@@ -61,18 +61,19 @@ const shortcutSections: ShortcutSection[] = [
   {
     title: 'Table Query Page',
     shortcuts: [
-      { keys: ['n'], description: 'New Record' },
-      { keys: ['r'], description: 'Refresh' },
-      { keys: ['f'], description: 'Toggle Filters' },
+      { keys: ['n'], description: 'Create a New Record' },
+      { keys: ['r'], description: 'Refresh the Query' },
+      { keys: ['f'], description: 'Open the Filter Builder' },
     ],
   },
   {
     title: 'Record View Page',
     shortcuts: [
-      { keys: ['n'], description: 'New Record' },
-      { keys: ['e'], description: 'Edit' },
-      { keys: ['c'], description: 'Copy' },
-      { keys: ['d'], description: 'Delete' },
+      { keys: ['n'], description: 'Create a New Record' },
+      { keys: ['e'], description: 'Edit the current Record' },
+      { keys: ['c'], description: 'Copy the current Record' },
+      { keys: ['d'], description: 'Delete the current Record' },
+      { keys: ['a'], description: 'Audit the current Record' },
     ],
   },
 ]
@@ -105,6 +106,11 @@ interface KeyboardShortcutsDialogProps {
   open: boolean
   /** Called when the dialog should close. */
   onClose: () => void
+  /**
+   * The header help button: focus returns to it on close when nothing had focus when the dialog
+   * opened (Safari and iPad do not focus a tapped or clicked button).
+   */
+  returnFocusRef?: React.RefObject<HTMLElement | null>
 }
 
 /**
@@ -120,8 +126,20 @@ interface KeyboardShortcutsDialogProps {
  *   sections (max 60 vh), and a footer reminder. Each section groups related
  *   shortcuts under a heading with {@link Kbd} badges for each key combination.
  */
-export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {
+export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef }: KeyboardShortcutsDialogProps) {
   const restoreFocus = useRestoreFocus(open)
+  /**
+   * Returns focus to where it was, or else to the help button.
+   *
+   * @param event - Radix's close auto-focus event (prevented when focus is placed here).
+   */
+  const handleCloseAutoFocus = (event: Event) => {
+    restoreFocus(event)
+    const fallback = returnFocusRef?.current
+    if (event.defaultPrevented || !fallback?.isConnected) return
+    event.preventDefault()
+    fallback.focus()
+  }
   return (
     <Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <Dialog.Portal>
@@ -130,9 +148,10 @@ export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDial
           data-qqq-id="keyboard-shortcuts-overlay"
         />
         <Dialog.Content
-          onCloseAutoFocus={restoreFocus}
+          onCloseAutoFocus={handleCloseAutoFocus}
           className={cn(
-            'fixed left-1/2 top-1/2 z-[2001] w-full max-w-md -translate-x-1/2 -translate-y-1/2',
+            // a margin at the screen edges on phones (QRun-IO/qqq#708)
+            'fixed left-1/2 top-1/2 z-[2001] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2',
             'rounded-xl border border-border bg-card shadow-lg',
             'focus:outline-none'
           )}

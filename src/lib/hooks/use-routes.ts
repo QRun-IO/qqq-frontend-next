@@ -195,6 +195,23 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
 
   // A user with no permitted apps still gets the Dashboard entry (which explains the situation)
   const appRoutes = visit(metaData.appTree ?? [], [])
+
+  // Tables, processes and reports outside the app tree still open by direct link: name them by label too
+  const objects: Array<[QAppNodeType, Record<string, { label?: string }> | undefined]> = [
+    ['TABLE', metaData.tables], ['PROCESS', metaData.processes], ['REPORT', metaData.reports],
+  ]
+  for (const [type, byName] of objects) {
+    for (const [name, object] of Object.entries(byName ?? {})) {
+      const path = `/app/${name}`
+      if (pathToLabelMap[path] || !object?.label) continue
+      pathToLabelMap[path] = object.label
+      if (type === 'TABLE') {
+        pathToLabelMap[`${path}/create`] = `Create ${object.label}`
+        pathToLabelMap[`${path}/dev`] = 'Developer'
+        pathToLabelMap[`${path}/key`] = 'View by Key'
+      }
+    }
+  }
   const sidebarRoutes: SidebarRoute[] = [
     { name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' },
     ...appRoutes,

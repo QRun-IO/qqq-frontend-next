@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type APIRequestContext, type Page, type Response } from '@playwright/test'
-import { ACCEPTANCE_BACKEND_URL } from './ports'
+import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
 export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired'
@@ -19,8 +19,15 @@ export interface Diagnostics {
   pageErrors: string[]
   consoleErrors: string[]
   failedRequests: string[]
+  /**
+   * Content-Security-Policy violations the page reported (`securitypolicyviolation`
+   * events, in every frame and browser): `<directive> <blocked URI> at <source>:<line> <sample>`.
+   */
+  cspViolations: string[]
   /** WebKit reports of Next.js prefetches a document navigation cut off (ignored; see below). */
   interruptedFetches: string[]
+  /** Page requests to the unversioned (legacy) API routes; the UI must use /qqq/v1 only (QRun-IO/qqq#699). */
+  legacyRequests: string[]
   /** Substrings of expected console/request failures for negative scenarios. */
   allow: (pattern: string | RegExp) => void
 }
@@ -70,7 +77,27 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
   diagnostics: async ({ page }, use, testInfo) => {
     const allowed: (string | RegExp)[] = []
     const matches = (text: string) => allowed.some((pattern) => typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text))
-    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], interruptedFetches: [], allow: (pattern) => { allowed.push(pattern) } }
+    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], legacyRequests: [], allow: (pattern) => { allowed.push(pattern) } }
+    // The dashboard is served with a strict Content-Security-Policy (QRun-IO/qqq#695). Browsers
+    // report a blocked script, style, connection, frame or image as a `securitypolicyviolation`
+    // event (console messages for these differ per engine), so every frame forwards the events.
+    await page.exposeBinding('__qqqReportCspViolation', (_source, violation: Record<string, string | number>) => {
+      const sample = violation.sample ? ` "${String(violation.sample).slice(0, 80)}"` : ''
+      diagnostics.cspViolations.push(`${violation.directive} ${violation.blockedURI || '(inline)'} at ${violation.sourceFile || violation.documentURI}:${violation.lineNumber}${sample}`)
+    })
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (event) => {
+        const report = (window as unknown as { __qqqReportCspViolation?: (violation: Record<string, string | number>) => void }).__qqqReportCspViolation
+        void report?.({
+          directive: event.effectiveDirective || event.violatedDirective,
+          blockedURI: event.blockedURI,
+          sourceFile: event.sourceFile,
+          documentURI: event.documentURI,
+          lineNumber: event.lineNumber,
+          sample: event.sample,
+        })
+      }, true)
+    })
     // WebKit reports a Next.js prefetch or RSC payload fetch that a document navigation cuts off
     // as "<url> due to access control checks." although the server answers 200 - the equivalent
     // of Chromium's ERR_ABORTED (WebKit cancels these before Playwright sees a request). After the
@@ -81,6 +108,17 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     // navigation - still fails the test.
     const documentHosts = new Set<string>()
     const navigations: number[] = []
+    // The UI runs on the v1 API only (QRun-IO/qqq#699): any page request to an unversioned API
+    // route of a QQQ server fails the test (Node-side backend.api calls are not page requests).
+    const legacyRoute = /^\/(data|processes|widget|possibleValues|download|reports|metaData|manageSession|logout)(\/|$)/
+    // the sample and the security area's own QQQ server (specs/security/support/variant.ts)
+    const securityPort = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? ACCEPTANCE_BACKEND_PORT + 10)
+    const qqqHosts = new Set([ACCEPTANCE_UI_URL, ACCEPTANCE_BACKEND_URL, `http://127.0.0.1:${securityPort}`].map((url) => new URL(url).host))
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      // QQQ servers only: an identity provider's own /logout is not a QQQ route
+      if (qqqHosts.has(url.host) && legacyRoute.test(url.pathname)) diagnostics.legacyRequests.push(`${request.method()} ${url.pathname}`)
+    })
     page.on('request', (request) => {
       if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) return
       navigations.push(performance.now())
@@ -97,8 +135,24 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       if (target && nextRouteFetch(target)) reports.push({ text, at: performance.now(), push })
       else push()
     }
+    // Firefox logs "Image corrupt or truncated." for an intact image whose decode a navigation cut
+    // off (logging out while the logo decodes, for example). After the test, such a report is ignored
+    // only when the same browser, on the page's origin, decodes that image in full; an image that is
+    // really corrupt or truncated, or one that cannot be checked, still fails the test.
+    const truncatedImage = /^\[JavaScript Error: "Image corrupt or truncated\." \{file: "([^"]+)"/
+    const truncatedImages: { text: string; url: string }[] = []
     page.on('pageerror', (error) => report(error.message, () => diagnostics.pageErrors.push(error.message)))
-    page.on('console', (message) => { if (message.type() === 'error') report(message.text(), () => diagnostics.consoleErrors.push(message.text())) })
+    // The table developer view asks GET /qqq/v1/esb/table/{table} for its ESB section and treats a
+    // 404 as "nothing to show" (QRun-IO/qqq#739). The acceptance sample has no qqq-esb module, so
+    // that one 404, and the browser's console report of it, are expected; nothing else on the route is.
+    const esbTableProbe = (url: string) => /^\/qqq\/v1\/esb\/table\/[^/]+$/.test(new URL(url, 'http://local').pathname)
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return
+      if (/status of 404/.test(message.text()) && esbTableProbe(message.location().url || '/')) return
+      const image = truncatedImage.exec(message.text())?.[1]
+      if (image) truncatedImages.push({ text: message.text(), url: image })
+      else report(message.text(), () => diagnostics.consoleErrors.push(message.text()))
+    })
     page.on('requestfailed', (request) => {
       const failure = request.failure()?.errorText ?? ''
       // Navigation-cancelled background reads are not application failures.
@@ -114,17 +168,33 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       }
     }
     page.on('response', (response: Response) => {
+      if (response.status() === 404 && response.request().method() === 'GET' && esbTableProbe(response.url())) return
       if (response.status() >= 400) diagnostics.failedRequests.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`)
     })
     await use(diagnostics)
+    // One round trip delivers violation reports still queued in the page.
+    if (!page.isClosed()) await page.evaluate(() => 0).catch(() => undefined)
     classifyAccessControlReports()
+    for (const { text, url } of truncatedImages) {
+      const decodes = !page.isClosed() && new URL(url).origin === new URL(page.url()).origin && await page.evaluate((src) => new Promise<boolean>((resolve) => {
+        const image = new Image()
+        image.onload = () => { void image.decode().then(() => resolve(image.naturalWidth > 0), () => resolve(false)) }
+        image.onerror = () => resolve(false)
+        image.src = src
+      }), url).catch(() => false)
+      if (decodes) diagnostics.interruptedFetches.push(text)
+      else diagnostics.consoleErrors.push(text)
+    }
     const unexpected = [
       ...diagnostics.pageErrors.map((text) => `pageerror: ${text}`),
       ...diagnostics.consoleErrors.map((text) => `console: ${text}`),
       ...diagnostics.failedRequests.map((text) => `request: ${text}`),
-    ].filter((text) => !matches(text))
+      ...diagnostics.cspViolations.map((text) => `csp: ${text}`),
+    ].filter((text) => !matches(text)).concat(
+      // not subject to allow(): a negative scenario may expect a failure, never a legacy route
+      diagnostics.legacyRequests.map((text) => `legacy API route: ${text}`))
     await testInfo.attach('diagnostics.json', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' })
-    expect(unexpected, 'unexplained console errors or failed application requests').toEqual([])
+    expect(unexpected, 'unexplained console errors, failed application requests, Content-Security-Policy violations or legacy API routes').toEqual([])
   },
 })
 

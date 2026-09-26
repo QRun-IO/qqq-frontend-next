@@ -219,13 +219,24 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
 
   const isEmpty = widgetItems.length === 0 && resolvedSections.length === 0 && childApps.length === 0
 
+  // Material app settings (MaterialDashboardAppMetaData): both default to on
+  const homeSettings = appMetaData.supplementalAppMetaData?.materialDashboard as
+    { showAppLabelOnHomeScreen?: boolean; includeTableCountsOnHomeScreen?: boolean } | undefined
+  const showLabel = homeSettings?.showAppLabelOnHomeScreen !== false
+  const includeTableCounts = homeSettings?.includeTableCountsOnHomeScreen !== false
+
   return (
     <div className="space-y-6" data-qqq-id={`app-home-${name}`}>
       {/* App heading */}
-      <div className="flex items-center gap-3">
-        <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{label}</h1>
-      </div>
+      {showLabel ? (
+        <div className="flex items-center gap-3">
+          <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{label}</h1>
+        </div>
+      ) : (
+        // the page keeps its name for screen readers when the app hides its label
+        <h1 className="sr-only">{label}</h1>
+      )}
 
       {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}
       {widgetItems.length > 0 && (
@@ -252,7 +263,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
           </h2>
           <EntryGroup title="Actions" idPrefix="app-section-process" kind="process" entries={processes} />
           <EntryGroup title="Reports" idPrefix="app-section-report" kind="report" entries={reports} />
-          <EntryGroup title="Data" idPrefix="app-section-table" kind="table" entries={tables} instance={instance} />
+          <EntryGroup title="Data" idPrefix="app-section-table" kind="table" entries={tables} instance={includeTableCounts ? instance : undefined} />
         </section>
       ))}
 

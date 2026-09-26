@@ -108,7 +108,7 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, onV
   }
 
   return (
-    <div className="flex w-80 flex-col rounded-xl border border-border bg-card shadow-sm" data-qqq-id="column-config" role="dialog" aria-label="Configure columns"
+    <div className="flex w-80 max-w-[calc(100vw-16px)] flex-col rounded-xl border border-border bg-card shadow-sm" data-qqq-id="column-config" role="dialog" aria-label="Configure columns"
       style={maxHeight === undefined ? undefined : { maxHeight }}>
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
         <h3 className="text-base font-semibold text-foreground">Configure Columns</h3>

@@ -6,13 +6,14 @@
  */
 
 // The remaining authentication types on the sample, each on its own backend variant:
-// AUTH_0 against an owned Auth0-compatible provider, FULLY_ANONYMOUS, and TABLE_BASED
-// (unsupported by the admin dashboards, which must say so).
+// AUTH_0 against an owned Auth0-compatible provider and FULLY_ANONYMOUS. TABLE_BASED and
+// an unknown type are covered in table-based.spec.ts.
 import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
 import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
+import { parsePolicy } from './support/csp'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -44,7 +45,7 @@ const auth0Test = acceptanceTest.extend<{ auth0: FakeOidcProvider }, { auth0Prov
 })
 
 auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
-  auth0Test('[SEC-029] sign-in exchanges the code in the browser, the backend verifies the token, and logout ends the provider session', async ({ page, auth0, diagnostics, context }) => {
+  auth0Test('[SEC-029] sign-in exchanges the code in the browser, the backend verifies the token, and logout ends the provider session @mobile', async ({ page, auth0, diagnostics, context }) => {
     void diagnostics
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
@@ -78,7 +79,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   })
 
-  auth0Test('[SEC-033] an Auth0 session ended by logout cannot be replayed', async ({ page, auth0, diagnostics, context, playwright }) => {
+  auth0Test('[SEC-033] an Auth0 session ended by logout cannot be replayed @mobile', async ({ page, auth0, diagnostics, context, playwright }) => {
     void diagnostics
     void auth0
     await open(page, '/app/person')
@@ -95,13 +96,24 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await replay.dispose()
   })
 
-  auth0Test('[SEC-029] a provider denial is reported and nothing is exchanged', async ({ page, auth0, diagnostics }) => {
+  auth0Test('[SEC-029] a provider denial is reported and nothing is exchanged @mobile', async ({ page, auth0, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await page.getByRole('button', { name: 'Deny' }).click()
     await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in was denied by the identity provider.')
     expect(auth0.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
     expect(Number((await variantSql('select count(*) as n from user_session'))[0].n)).toBe(0)
+  })
+
+  auth0Test('[SEC-039] the policy allows the browser token exchange with the configured Auth0 domain only', async ({ page, auth0, diagnostics }) => {
+    const policy = parsePolicy((await page.request.get('/login')).headers()['content-security-policy'])
+    expect(policy['connect-src']).toEqual(["'self'", auth0.issuer])
+    await open(page, '/app/person')
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    // the browser itself called the token endpoint on the allowed origin
+    expect(auth0.requests.filter((request) => request.path === '/oauth/token')).toHaveLength(1)
+    expect(diagnostics.cspViolations).toEqual([])
   })
 })
 
@@ -114,7 +126,7 @@ const anonymousTest = acceptanceTest.extend<{ anonymous: void }>({
   },
 })
 
-anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logout stays signed out until Sign in', async ({ page, anonymous, diagnostics }) => {
+anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logout stays signed out until Sign in @mobile', async ({ page, anonymous, diagnostics }) => {
   void anonymous
   void diagnostics
   await open(page, '/app/person')
@@ -127,24 +139,4 @@ anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logo
   await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-})
-
-const tableBasedTest = acceptanceTest.extend<{ tableBased: void }>({
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  tableBased: async ({}, use) => {
-    await startVariant('TABLE_BASED')
-    await use()
-  },
-})
-
-tableBasedTest('[SEC-032] an unsupported authentication type is reported and nothing else is attempted', async ({ page, tableBased, diagnostics }) => {
-  void tableBased
-  void diagnostics
-  const reads = recordRequests(page)
-  const sessionCalls: string[] = []
-  page.on('request', (request) => { if (/manageSession/.test(request.url())) sessionCalls.push(request.url()) })
-  await open(page, '/app/person')
-  await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in failed: Unsupported authentication type: TABLE_BASED')
-  expect(reads).toEqual([])
-  expect(sessionCalls).toEqual([])
 })

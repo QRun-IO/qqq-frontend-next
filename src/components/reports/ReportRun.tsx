@@ -24,7 +24,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Download, FileBarChart } from 'lucide-react'
 
 import type { QFieldMetaData, QReportMetaData } from '@/types'
-import { legacyReportUrl, pollReport, startReport, submitReportInputs } from '@/lib/api/reports'
+import { pollReport, reportFileUrl, startReport, submitReportInputs } from '@/lib/api/reports'
 import type { ReportFormat, ReportRunState } from '@/lib/api/reports'
 import { cn } from '@/lib/utils/cn'
 
@@ -129,7 +129,7 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
   async function handleRun() {
     setMissing([])
     if (!processName) {
-      setState({ kind: 'done', processUUID: '', fileName: `${reportMetaData.label}.${format.toLowerCase()}`, downloadUrl: legacyReportUrl(reportName, format) })
+      setState({ kind: 'done', processUUID: '', fileName: `${reportMetaData.label}.${format.toLowerCase()}`, downloadUrl: reportFileUrl(reportName, format) })
       return
     }
     setBusy(true)
@@ -174,7 +174,7 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
                 onChange={(event) => { setFormat(event.target.value as ReportFormat); setState(null) }}
                 disabled={busy}
                 data-qqq-id={`report-format-select-${reportName}`}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
               >
                 {FORMAT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
@@ -262,7 +262,7 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
             href={state.downloadUrl}
             download={state.fileName}
             data-qqq-id={`report-download-link-${reportName}`}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:min-h-11"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             Download {state.fileName}

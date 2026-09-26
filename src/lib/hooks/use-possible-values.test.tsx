@@ -21,6 +21,13 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { usePossibleValues, useDebouncedSearch } from './use-possible-values'
+import { fetchProcessPossibleValues, fetchTablePossibleValues } from '@/lib/api/possible-values'
+
+vi.mock('@/lib/api/possible-values', () => ({
+  fetchTablePossibleValues: vi.fn().mockResolvedValue([]),
+  fetchProcessPossibleValues: vi.fn().mockResolvedValue([]),
+  fetchPossibleValues: vi.fn().mockResolvedValue([]),
+}))
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -32,6 +39,28 @@ function createWrapper() {
 }
 
 describe('usePossibleValues', () => {
+  it('sends the form values and refetches when they change (they are part of the query key)', async () => {
+    const byCategory = vi.mocked(fetchTablePossibleValues)
+    byCategory.mockImplementation((_table, _field, request) =>
+      Promise.resolve(request?.formValues?.categoryId === 2 ? [{ id: 3, label: 'Carrot' }] : [{ id: 1, label: 'Apple' }]))
+    const { result, rerender } = renderHook(
+      ({ categoryId }: { categoryId: number }) => usePossibleValues({ fieldName: 'itemId', context: { type: 'table', tableName: 'order' }, formValues: { categoryId } }),
+      { wrapper: createWrapper(), initialProps: { categoryId: 1 } }
+    )
+    await waitFor(() => expect(result.current.options).toEqual([{ id: 1, label: 'Apple' }]))
+    rerender({ categoryId: 2 })
+    await waitFor(() => expect(result.current.options).toEqual([{ id: 3, label: 'Carrot' }]))
+    expect(byCategory).toHaveBeenLastCalledWith('order', 'itemId', { searchTerm: undefined, ids: undefined, formValues: { categoryId: 2 } })
+  })
+
+  it('sends the form values with a process field request', async () => {
+    renderHook(
+      () => usePossibleValues({ fieldName: 'itemId', context: { type: 'process', processName: 'prcPick' }, formValues: { category: 'Plant' } }),
+      { wrapper: createWrapper() }
+    )
+    await waitFor(() => expect(fetchProcessPossibleValues).toHaveBeenCalledWith('prcPick', 'itemId', expect.objectContaining({ formValues: { category: 'Plant' } })))
+  })
+
   it('does not fetch when fieldName is empty', () => {
     const { result } = renderHook(
       () => usePossibleValues({ fieldName: '', context: { type: 'standalone' } }),

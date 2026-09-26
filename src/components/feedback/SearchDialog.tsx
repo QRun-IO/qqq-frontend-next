@@ -15,7 +15,8 @@
  */
 
 /**
- * @file SearchDialog — "/" key "jump to" dialog over pages and recently viewed records.
+ * @file SearchDialog — "/" key search dialog over pages and recently viewed records, plus
+ * records found by the backend record search when the metadata advertises searchable tables.
  */
 
 'use client'
@@ -25,10 +26,18 @@ import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, X } from 'lucide-react'
 
 import type { NavTarget } from '@/lib/hooks/use-routes'
+import { useRecordSearch } from '@/lib/hooks/use-record-search'
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
+import type { SearchableTable } from '@/lib/utils/record-search'
 import { NavigationSearchResults } from '@/components/layout/NavigationSearchResults'
+
+/** Records shown per table in the dialog. */
+const DIALOG_RECORDS_PER_TABLE = 5
+
+/** Stable empty default for `searchTables`. */
+const NO_SEARCH_TABLES: SearchableTable[] = []
 
 /**
  * Props for the SearchDialog component.
@@ -40,20 +49,23 @@ interface SearchDialogProps {
   onClose: () => void
   /** Navigable targets from the app tree. */
   navTargets: NavTarget[]
+  /** Tables the backend record search covers (empty: record search unavailable, never called). */
+  searchTables?: SearchableTable[]
 }
 
 /**
  * Modal search dialog triggered by the `/` keyboard shortcut.
  *
  * Lists recently viewed records until the user types, then matching pages
- * (apps, tables, processes, reports by label) and matching recent records.
+ * (apps, tables, processes, reports by label), records found by record search
+ * (when available) and matching recent records.
  * ArrowUp/Down move the selection, Enter opens it (or the search page when
  * nothing is selected), Escape closes.
  *
  * @param props - Component properties.
  * @returns The dialog overlay, or `null` when closed.
  */
-export function SearchDialog({ open, onClose, navTargets }: SearchDialogProps) {
+export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEARCH_TABLES }: SearchDialogProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -71,9 +83,10 @@ export function SearchDialog({ open, onClose, navTargets }: SearchDialogProps) {
     }
   }, [open])
 
+  const recordSearch = useRecordSearch(open ? searchTerm : '', searchTables, DIALOG_RECORDS_PER_TABLE)
   const items = useMemo(
-    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm),
-    [navTargets, recentRecords, searchTerm]
+    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm, 8, recordSearch.results),
+    [navTargets, recentRecords, searchTerm, recordSearch.results]
   )
 
   useEffect(() => {
@@ -157,10 +170,10 @@ export function SearchDialog({ open, onClose, navTargets }: SearchDialogProps) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Jump to a page or recent record..."
+            placeholder={recordSearch.available ? 'Search pages and records...' : 'Jump to a page or recent record...'}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
             autoFocus
-            aria-label="Search pages and recent records"
+            aria-label={recordSearch.available ? 'Search pages and records' : 'Search pages and recent records'}
             aria-expanded={true}
             aria-controls="search-dialog-results"
             aria-haspopup="listbox"
@@ -192,10 +205,11 @@ export function SearchDialog({ open, onClose, navTargets }: SearchDialogProps) {
             selectedIndex={selectedIndex}
             onSelect={handleNavigate}
             onHover={setSelectedIndex}
+            recordSearch={recordSearch}
           />
         ) : (
           <div id="search-dialog-results" className="px-4 py-8 text-center text-sm text-muted-foreground">
-            Type to find an app, table, process or recent record...
+            {recordSearch.available ? 'Type to find an app, table, process or record...' : 'Type to find an app, table, process or recent record...'}
           </div>
         )}
 

@@ -247,7 +247,7 @@ export function useProcess(
       pollTimerRef.current = null
       if (generation !== generationRef.current || !mountedRef.current) return
       try {
-        const response = await processStatus(processName, processUUID, jobUUID)
+        const response = await processStatus(processName, processUUID, jobUUID, initialRequestRef.current?.tableVariant)
         if (generation !== generationRef.current) return
         if (response.type === 'RUNNING') {
           setState((previous) => ({
@@ -313,7 +313,7 @@ export function useProcess(
     if (!processUUID || !currentStep || phase !== 'step') return
     const generation = generationRef.current
     setState((previous) => ({ ...previous, phase: 'working', progress: { message: 'Working...', updatedAt: new Date() } }))
-    void run(() => processStep(processName, processUUID, currentStep.name, { values, files }), generation)
+    void run(() => processStep(processName, processUUID, currentStep.name, { values, files, tableVariant: initialRequestRef.current?.tableVariant }), generation)
   }, [processName, run])
 
   const back = useCallback(() => {
@@ -321,7 +321,7 @@ export function useProcess(
     if (!processUUID || !backStep || phase !== 'step') return
     const generation = generationRef.current
     setState((previous) => ({ ...previous, phase: 'working', progress: { message: 'Working...', updatedAt: new Date() } }))
-    void run(() => processStep(processName, processUUID, backStep, { isStepBack: true }), generation)
+    void run(() => processStep(processName, processUUID, backStep, { isStepBack: true, tableVariant: initialRequestRef.current?.tableVariant }), generation)
   }, [processName, run])
 
   const cancel = useCallback(async () => {
@@ -331,7 +331,7 @@ export function useProcess(
     setState((previous) => ({ ...previous, phase: 'cancelled', jobUUID: null }))
     if (!processUUID) return
     try {
-      await processCancel(processName, processUUID)
+      await processCancel(processName, processUUID, initialRequestRef.current?.tableVariant)
     } catch {
       /////////////////////////////////////////////////////////////////////
       // the user is leaving either way; a failed cancel is not blocking //

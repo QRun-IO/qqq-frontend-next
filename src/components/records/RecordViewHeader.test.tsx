@@ -21,11 +21,14 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { QTableMetaData } from '@/types'
+import type { QProcessMetaData, QTableMetaData } from '@/types'
 import { RecordViewHeader } from './RecordViewHeader'
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
+vi.mock('@/lib/hooks/use-audit-records', () => ({
+  useAuditRecords: () => ({ auditRecords: [], isLoading: false, isError: false, error: null }),
+}))
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id', fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' } },
@@ -33,7 +36,7 @@ const table = {
   capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'],
 } as unknown as QTableMetaData
 
-function renderHeader() {
+function renderHeader(processes?: QProcessMetaData[]) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RecordViewHeader
@@ -44,6 +47,7 @@ function renderHeader() {
         setViewMode={vi.fn()}
         hideActions={false}
         navigateFrom={{ path: '/app/person', label: 'Person' }}
+        processes={processes}
       />
     </QueryClientProvider>
   )
@@ -63,6 +67,30 @@ describe('RecordViewHeader phone action sheet', () => {
     expect(trigger).toHaveFocus()
   })
 
+  it('keeps Tab and Shift+Tab inside the open sheet', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    const close = screen.getByRole('button', { name: 'Close actions menu' })
+    const remove = screen.getByRole('button', { name: 'Delete Person' })
+    expect(close).toHaveFocus()
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(remove).toHaveFocus()
+    await user.tab()
+    expect(close).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Edit Person' })).toHaveFocus()
+  })
+
+  it('scrolls a long action list inside the sheet', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    const sheet = screen.getByRole('dialog', { name: 'Record actions' })
+    expect(sheet).toHaveClass('max-h-[85vh]', 'flex-col')
+    expect(sheet.querySelector('[data-qqq-id="mobile-actions-list"]')).toHaveClass('overflow-y-auto', 'min-h-0')
+  })
+
   it('returns focus to the trigger when the delete dialog opened from the sheet closes', async () => {
     const user = userEvent.setup()
     renderHeader()
@@ -75,5 +103,70 @@ describe('RecordViewHeader phone action sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(trigger).toHaveFocus()
     expect(document.body).not.toHaveFocus()
+  })
+})
+
+describe('RecordViewHeader #/launchProcess= links', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.history.replaceState(null, '', '/app/person/5')
+  })
+
+  it('launches a table process missing from the screen list (hidden) without a tableName', async () => {
+    window.location.hash = '#/launchProcess=person.bulkEdit'
+    renderHeader([])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/person.bulkEdit/?recordsParam=recordIds&recordIds=5&returnTo=%2Fapp%2Fperson%2F5'))
+  })
+
+  it('names this table for a process added to every screen', async () => {
+    window.location.hash = '#/launchProcess=tagRecords'
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/tagRecords/?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5'))
+  })
+})
+
+describe('RecordViewHeader for a read-only user', () => {
+  it('offers no phone Actions trigger when there is nothing to do', () => {
+    const readOnly = { ...table, insertPermission: false, editPermission: false, deletePermission: false,
+      capabilities: ['TABLE_QUERY', 'TABLE_GET'] } as unknown as QTableMetaData
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RecordViewHeader tableMetaData={readOnly} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+          t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }} />
+      </QueryClientProvider>
+    )
+    expect(screen.queryByRole('button', { name: 'Record actions' })).not.toBeInTheDocument()
+  })
+})
+
+describe('RecordViewHeader layout', () => {
+  it('lets the controls wrap onto their own row instead of squeezing the title', () => {
+    renderHeader()
+    const header = document.querySelector('[data-qqq-id="record-view-header"]')
+    expect(header).toHaveClass('flex-wrap')
+    const title = screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })
+    expect(title.parentElement?.parentElement).toHaveClass('flex-1', 'basis-56', 'min-w-0')
+    // A full-width row on phones, beside the title from md up when it fits
+    expect(document.querySelector('[data-qqq-id="record-view-controls"]')).toHaveClass('w-full', 'flex-wrap', 'md:w-auto')
+  })
+})
+
+describe('RecordViewHeader audit history', () => {
+  it('returns focus to the Audit button when the dialog closes, even if the click did not focus it', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RecordViewHeader tableMetaData={table} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+          t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }}
+          auditSource="table" />
+      </QueryClientProvider>
+    )
+    const audit = screen.getByRole('button', { name: 'Audit history for Morgan Sample' })
+    // Safari does not focus a clicked button
+    audit.click()
+    expect(await screen.findByRole('dialog')).toHaveTextContent('No audits were found for this record.')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(audit).toHaveFocus())
   })
 })

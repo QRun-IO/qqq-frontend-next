@@ -6,6 +6,7 @@
  */
 
 import { expect, open, test, type Backend, type Persona } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { appNavigation, topLevelLinks, v1MetaData, waitForShell, type TreeNode, type V1MetaData } from './nav-helpers'
 
 /** Navigable (non-hidden) app-tree nodes in tree order, computed from backend metadata. */
@@ -30,7 +31,7 @@ async function widgetCount(backend: Backend, meta: V1MetaData, apps: TreeNode[])
 }
 
 test.describe('dashboard landing page', () => {
-  test('[NAV-017] counts, quick actions and application cards come from navigable, permitted metadata', async ({ page, backend, diagnostics }) => {
+  test('[NAV-017] counts, quick actions and application cards come from navigable, permitted metadata @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const nodes = navigable(meta)
     const tables = nodes.filter((node) => node.type === 'TABLE')
@@ -44,6 +45,7 @@ test.describe('dashboard landing page', () => {
     await expect(page.locator('[data-qqq-id="dashboard-stat-processes-value"]')).toHaveText(String(processes.length))
     await expect(page.locator('[data-qqq-id="dashboard-stat-apps-value"]')).toHaveText(String(apps.length))
     await expect(page.locator('[data-qqq-id="dashboard-stat-widgets-value"]')).toHaveText(String(await widgetCount(backend, meta, apps)))
+    await expectTouchReady(page, page.getByRole('main'))
 
     const actions = page.getByRole('region', { name: 'Quick Actions' }).getByRole('link')
     const creatable = tables.filter((node) => meta.tables[node.name].insertPermission && meta.tables[node.name].capabilities?.includes('TABLE_INSERT')).slice(0, 6)
@@ -75,7 +77,7 @@ test.describe('dashboard landing page', () => {
   test.describe('as a viewer', () => {
     test.use({ persona: 'viewer' })
 
-    test('[NAV-017] a viewer is offered no create or process quick actions', async ({ page, backend, diagnostics }) => {
+    test('[NAV-017] a viewer is offered no create or process quick actions @mobile', async ({ page, backend, diagnostics }) => {
       const meta = await v1MetaData(backend)
       expect(meta.tables.person.insertPermission).toBe(false)
       expect((await backend.api.post('/qqq/v1/processes/clonePeople/init', { data: {} })).status()).toBe(403)
@@ -92,7 +94,7 @@ test.describe('dashboard landing page', () => {
   test.describe('with no permitted apps', () => {
     test.use({ persona: 'noApps' })
 
-    test('[NAV-029] a user without app access sees the dashboard entry and the no-apps message', async ({ page, backend, diagnostics }) => {
+    test('[NAV-029] a user without app access sees the dashboard entry and the no-apps message @mobile', async ({ page, backend, diagnostics }) => {
       const meta = await v1MetaData(backend)
       // v1 omits empty collections
       expect(meta.appTree ?? []).toEqual([])

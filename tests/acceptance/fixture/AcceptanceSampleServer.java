@@ -14,6 +14,7 @@
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,6 +75,7 @@ public class AcceptanceSampleServer
             QueryFixtures.define(defined);
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
+            PerformanceFixtures.define(defined);
             instance = defined;
             return defined;
          }
@@ -114,6 +116,12 @@ public class AcceptanceSampleServer
             context.contentType("application/json").result(new JSONObject().put("rows", select(query)).toString());
          });
       });
+      //////////////////////////////////////////////////////////////////////////////////
+      // The dashboard's Content-Security-Policy (QRun-IO/qqq#695) allows only this    //
+      // origin; the application override hook adds the widgets fixture's loopback    //
+      // service, which stands in for QuickSight and serves an image and audio clip.  //
+      //////////////////////////////////////////////////////////////////////////////////
+      server.withNextDashboardSecurityHeadersCustomizer(WidgetsFixtures::allowFakeService);
       Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
       server.start();
       primeFixtures();
@@ -149,6 +157,11 @@ public class AcceptanceSampleServer
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
+         /////////////////////////////////////////////////////////////////////
+         // after WidgetsFixtures.prime, which recreates the scripts tables //
+         /////////////////////////////////////////////////////////////////////
+         RecordsFixtures.primeScripts(connection);
+         PerformanceFixtures.prime(connection);
       }
    }
 
@@ -193,7 +206,11 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    static Set<String> permissionsFor(String persona)
    {
-      Collection<AvailablePermission> all = PermissionsHelper.getAllAvailablePermissions(instance);
+      Collection<AvailablePermission> all = new ArrayList<>(PermissionsHelper.getAllAvailablePermissions(instance));
+      for(String process : WidgetsFixtures.GRANTED_HIDDEN_PROCESSES)
+      {
+         all.add(new AvailablePermission().withName(process + ".hasAccess").withObjectName(process).withObjectType("Process").withPermissionType("hasAccess"));
+      }
       Predicate<AvailablePermission> keep = switch(persona)
       {
          case "viewer" -> permission -> !"Process".equals(permission.getObjectType())

@@ -57,7 +57,7 @@ export function recordCellText(record: QRecord, field: QFieldMetaData): string {
  * @returns The paged record table.
  */
 export function RecordListComponent({ index }: RecordListComponentProps) {
-  const { step, processName, processUUID } = useProcessStep()
+  const { step, processName, processUUID, tableVariant } = useProcessStep()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
   const headingId = useId()
@@ -65,7 +65,7 @@ export function RecordListComponent({ index }: RecordListComponentProps) {
 
   const query = useQuery({
     queryKey: ['qqq', 'processRecords', processName, processUUID, step.name, page, pageSize],
-    queryFn: () => processRecords(processName, processUUID!, page * pageSize, pageSize),
+    queryFn: () => processRecords(processName, processUUID!, page * pageSize, pageSize, tableVariant),
     enabled: Boolean(processUUID),
     retry: false,
   })
@@ -125,7 +125,7 @@ export function RecordListComponent({ index }: RecordListComponentProps) {
               <select
                 value={pageSize}
                 onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}
-                className="rounded-md border border-border bg-card px-2 py-1 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="rounded-md border border-border bg-card px-2 py-1 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11"
                 data-qqq-id="select-process-record-page-size"
               >
                 {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}

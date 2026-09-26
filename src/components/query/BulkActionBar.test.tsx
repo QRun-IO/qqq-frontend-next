@@ -94,4 +94,20 @@ describe('buildActionEntries', () => {
     const many = buildActionEntries({ tableMetaData: table(), allProcesses, selectionCount: 2, processes: [process('clone', { label: 'Clone', maxInputRecords: 1 })] })
     expect(many.table[0].blockedMessage).toBe('Too many records were selected for the process: Clone.  A maximum of 1 is allowed.')
   })
+
+  it('lists processes added to every screen after the table\'s own, in order, hidden or not', () => {
+    const { table: own, added } = buildActionEntries({
+      tableMetaData: table(), allProcesses, selectionCount: 0,
+      processes: [
+        process('zeta', { label: 'Zeta' }),
+        process('alpha', { label: 'Alpha' }),
+        process('tag', { label: 'Tag Records', tableName: '', isHidden: true, minInputRecords: 1 }),
+        process('audit', { label: 'Audit Records', tableName: 'other' }),
+        process('denied', { label: 'Denied', tableName: '', hasPermission: false }),
+      ],
+    })
+    expect(own.map((e) => e.label)).toEqual(['Alpha', 'Zeta'])
+    expect(added.map((e) => e.label)).toEqual(['Tag Records', 'Audit Records'])
+    expect(added[0].blockedMessage).toBe('No records were selected for the process: Tag Records')
+  })
 })

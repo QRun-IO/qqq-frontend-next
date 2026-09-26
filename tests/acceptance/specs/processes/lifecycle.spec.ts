@@ -6,10 +6,11 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { advance, choosePossibleValue, expectScreen, openProcess, recordRows, run, viewValue } from './process-helpers'
+import { expectTouchReady } from '../../support/touch'
+import { advance, choosePossibleValue, expectRunTouchReady, expectScreen, openProcess, recordRows, run, viewValue } from './process-helpers'
 
 test.describe('Route Wizard', () => {
-  test('[PRC-017] the backend replaces the step list for the chosen route', async ({ page, backend, diagnostics }) => {
+  test('[PRC-017] the backend replaces the step list for the chosen route @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWizard')
     const wizard = page.locator('[data-qqq-id="step-wizard"]')
@@ -23,13 +24,14 @@ test.describe('Route Wizard', () => {
     await expect(wizard.locator('li')).toHaveCount(2)
     await expect(wizard).not.toContainText('Long Route Details')
     await expect(page.getByText('Step 2 of 2')).toBeVisible()
+    await expectRunTouchReady(page, 'prcWizard')
     await expect(viewValue(confirm, 'route')).toHaveText('Short route')
     await expect(viewValue(confirm, 'routeNote')).toHaveText('Quick trip')
     await expect(page.getByRole('button', { name: 'Return' })).toBeVisible()
     expect(await backend.sql('select route, note, detail from prc_route_log')).toEqual([{ route: 'short', note: 'Quick trip', detail: null }])
   })
 
-  test('[PRC-018] updated field metadata relabels and requires a later input', async ({ page, backend, diagnostics }) => {
+  test('[PRC-018] updated field metadata relabels and requires a later input @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWizard')
     await expectScreen(page, 'chooseRoute', 'Choose Route')
@@ -41,6 +43,7 @@ test.describe('Route Wizard', () => {
     await expect(detail).toHaveAttribute('aria-required', 'true')
     await advance(page, 'Submit')
     await expect(details.getByText('Long Route Detail is required')).toBeVisible()
+    await expectRunTouchReady(page, 'prcWizard')
     expect(await backend.sql('select count(*) as n from prc_route_log')).toEqual([{ n: '0' }])
     await detail.fill('Scenic coast')
     await advance(page, 'Submit')
@@ -49,7 +52,7 @@ test.describe('Route Wizard', () => {
     expect(await backend.sql('select route, detail from prc_route_log')).toEqual([{ route: 'long', detail: 'Scenic coast' }])
   })
 
-  test('[PRC-016] back is offered only where the backend names a back step', async ({ page, diagnostics }) => {
+  test('[PRC-016] back is offered only where the backend names a back step @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWizard')
     await expectScreen(page, 'chooseRoute', 'Choose Route')
@@ -73,7 +76,7 @@ test.describe('Route Wizard', () => {
 })
 
 test.describe('Progress Lab', () => {
-  test('[PRC-019] a long step reports progress while it runs, then continues', async ({ page, backend, diagnostics }) => {
+  test('[PRC-019] a long step reports progress while it runs, then continues @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcProgress')
     const configure = await expectScreen(page, 'configure', 'Configure')
@@ -89,19 +92,21 @@ test.describe('Progress Lab', () => {
     const progress = working.getByRole('progressbar', { name: 'Process progress' })
     await expect(progress).toHaveAttribute('aria-valuemax', '5')
     await expect(working.locator('[data-qqq-id="process-working-updated"]')).toHaveText(/^Updated at /)
+    await expectRunTouchReady(page, 'prcProgress')
 
     const finished = await expectScreen(page, 'finished', 'Finished')
     await expect(viewValue(finished, 'processedCount')).toHaveText('5')
     expect(await backend.sql('select item_count from prc_progress_log')).toEqual([{ item_count: '5' }])
   })
 
-  test('[PRC-020] cancelling from a screen and mid-job runs the cancel step and leaves', async ({ page, backend, diagnostics }) => {
+  test('[PRC-020] cancelling from a screen and mid-job runs the cancel step and leaves @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcProgress')
     await expectScreen(page, 'configure', 'Configure')
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Cancel Process?' })
     await expect(dialog).toBeVisible()
+    await expectTouchReady(page, dialog)
     await dialog.getByRole('button', { name: 'Stay on Page' }).click()
     await expect(dialog).toBeHidden()
     expect(await backend.sql('select count(*) as n from prc_cancel_log')).toEqual([{ n: '0' }])
@@ -126,7 +131,7 @@ test.describe('Progress Lab', () => {
 })
 
 test.describe('Failures and retry', () => {
-  test('[PRC-021] internal errors sit behind a detail toggle; user-facing errors show directly', async ({ page, diagnostics }) => {
+  test('[PRC-021] internal errors sit behind a detail toggle; user-facing errors show directly @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcFailures')
     await expectScreen(page, 'chooseFailure', 'Choose Failure')
@@ -138,6 +143,7 @@ test.describe('Failures and retry', () => {
     await expect(detail).toBeHidden()
     await error.getByRole('button', { name: 'Show detailed error message' }).click()
     await expect(detail).toHaveText('Error message: Lab internals failed at stage 7')
+    await expectRunTouchReady(page, 'prcFailures')
     await error.getByRole('button', { name: 'Hide detailed error message' }).click()
     await expect(detail).toBeHidden()
 
@@ -157,13 +163,14 @@ test.describe('Failures and retry', () => {
     await expect(thrown.locator('[data-qqq-id="process-error-detail"]')).toHaveText('Error message: I always throw.')
   })
 
-  test('[PRC-022] retry restarts the run with the original record selection', async ({ page, diagnostics }) => {
+  test('[PRC-022] retry restarts the run with the original record selection @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const inits: string[] = []
     page.on('request', (request) => { if (request.url().includes('/processes/prcFlaky/init')) inits.push(request.postData() ?? '') })
     await openProcess(page, 'prcFlaky', { recordIds: [2, 4] })
     const error = page.locator('[data-qqq-id="process-error-prcFlaky"]')
     await expect(error.locator('[data-qqq-id="process-error-message"]')).toHaveText('The lab loader is warming up. Please retry.')
+    await expectRunTouchReady(page, 'prcFlaky')
     await error.getByRole('button', { name: 'Retry' }).click()
     const loaded = await expectScreen(page, 'loaded', 'Loaded')
     await expect(viewValue(loaded, 'loadedNames')).toHaveText('Beta, Delta')
@@ -171,34 +178,36 @@ test.describe('Failures and retry', () => {
     expect(inits).toHaveLength(2)
     for (const body of inits) {
       expect(body).toContain('name="recordIds"\r\n\r\n2,4')
-      expect(body).toContain('name="tableName"\r\n\r\nprcSpecimen')
+      expect(body).toMatch(/name="values"\r\n\r\n[^\r]*"tableName":"prcSpecimen"/)
     }
   })
 })
 
 test.describe('Completion', () => {
-  test('[PRC-023] a noMoreSteps value ends a linear process early with Return', async ({ page, diagnostics }) => {
+  test('[PRC-023] a noMoreSteps value ends a linear process early with Return @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcEarlyFinish')
     const notice = await expectScreen(page, 'notice', 'Notice')
     await expect(viewValue(notice, 'notice')).toHaveText('This process stops here by design.')
     await expect(page.getByText('Step 1 of 2')).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveCount(0)
+    await expectRunTouchReady(page, 'prcEarlyFinish')
     await page.getByRole('button', { name: 'Return' }).click()
     await expect(page).toHaveURL(/\/app\/prcLab\/?$/)
   })
 
-  test('[PRC-047] a run with no screens completes with a completion screen', async ({ page, backend, diagnostics }) => {
+  test('[PRC-047] a run with no screens completes with a completion screen @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcQuickTask')
     const result = page.locator('[data-qqq-id="process-result-step"]')
     await expect(result.getByRole('heading', { name: 'Quick Task Complete' })).toBeVisible()
     await expect(result).toContainText('Process completed successfully.')
+    await expectRunTouchReady(page, 'prcQuickTask')
     await expect(page.locator('[data-qqq-id="process-run-prcQuickTask"]')).toHaveAttribute('data-process-phase', 'complete')
     expect(await backend.sql('select name, lab_count from prc_lab_run')).toEqual([{ name: 'quick', lab_count: '1' }])
   })
 
-  test('[PRC-023] Next becomes Submit on the step before the last screen', async ({ page, diagnostics }) => {
+  test('[PRC-023] Next becomes Submit on the step before the last screen @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWizard')
     await expectScreen(page, 'chooseRoute', 'Choose Route')

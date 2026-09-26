@@ -38,7 +38,7 @@ describe('Explicit fixed relationship submission', () => {
   beforeEach(() => vi.restoreAllMocks())
 
   it('validates fixed values and merges them last without mutating caller data', async () => {
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 7 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 7 } } })
     const fixed = { owner: 2 }
     renderForm(fixed)
     fireEvent.change(screen.getByLabelText(/Owner/), { target: { value: '99' } })
@@ -70,7 +70,7 @@ describe('Base copy starts a new record identity', () => {
     const nextSource: QRecord = { tableName: 'company', values: { code: 'other/key', name: 'Another' } }
     const sourceSnapshot = structuredClone(source)
     const nextSnapshot = structuredClone(nextSource)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { code: 'new/key' } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { code: 'new/key' } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     const view = (record: QRecord) => <QueryClientProvider client={client}>
@@ -101,7 +101,7 @@ describe('Base copy starts a new record identity', () => {
     const table = structuredClone(qInstance.tables.company)
     table.fields = { name: table.fields.name, id: { ...table.fields.id, isEditable: true, isRequired: false } }
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['id', 'name'] }]
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table}
@@ -122,7 +122,7 @@ describe('Base copy starts a new record identity', () => {
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'attachment'] }]
     const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', attachment: encoded, fileName: 'original.bin' } }
     const snapshot = structuredClone(source)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy onSuccess={onSuccess} /></QueryClientProvider>)
@@ -174,7 +174,7 @@ describe('Base copy starts a new record identity', () => {
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: Object.keys(table.fields) }]
     const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', unknownFlag: null, flag: false, note: null, amount: null, quantity: 0 } }
     const snapshot = structuredClone(source)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy onSuccess={onSuccess} /></QueryClientProvider>)
@@ -206,7 +206,7 @@ describe('Copy never submits native password masks', () => {
     }
     table.sections = []
     const source = { tableName: 'company', values: { id: 1, name: '********', secret: '********', revealed: 'available' } }
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 2 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 2 } } })
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy /></QueryClientProvider>)
     expect(screen.getByLabelText(/New secret/)).toHaveValue('')

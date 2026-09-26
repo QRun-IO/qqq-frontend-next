@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import type { QRecord, QTableMetaData } from '@/types'
 
@@ -69,5 +69,34 @@ describe('RecordCardView', () => {
     renderCards([{ values: { id: 1, firstName: 'Avery' }, displayValues: {}, recordLabel: 'Avery Sample' } as unknown as QRecord], true)
     expect(screen.getByRole('list', { name: 'Person records' })).toBeInTheDocument()
     expect(screen.getByText('Avery Sample')).toBeInTheDocument()
+  })
+
+  const records = [1, 2, 3].map((id) => ({ values: { id, firstName: `P${id}` }, displayValues: {}, recordLabel: `Person ${id}` })) as unknown as QRecord[]
+
+  it('wraps each checkbox in a label (its touch target) and selecting does not open the record (#708)', () => {
+    const onChange = vi.fn()
+    render(<RecordCardView tableName="person" tableMetaData={table} records={records} rowSelection={{}}
+      onRowSelectionChange={onChange} columnVisibility={{}} columnOrder={[]} />)
+    const box = screen.getByRole('checkbox', { name: 'Select Person 2' })
+    expect(box.closest('label')).not.toBeNull()
+    fireEvent.click(box.closest('label')!)
+    expect(onChange).toHaveBeenCalledWith({ 2: true })
+  })
+
+  it('shows cards covered by an all / first-N selection as checked; unchecking keeps the others (#708)', () => {
+    const onChange = vi.fn()
+    render(<RecordCardView tableName="person" tableMetaData={table} records={records} rowSelection={{}}
+      onRowSelectionChange={onChange} columnVisibility={{}} columnOrder={[]} isRowSelectedByQuery={(i) => i < 2} />)
+    expect(screen.getByRole('checkbox', { name: 'Select Person 1' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Select Person 2' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Select Person 3' })).not.toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Person 1' }))
+    expect(onChange).toHaveBeenCalledWith({ 2: true })
+  })
+
+  it('names each value by its field for layout-neutral lookups', () => {
+    render(<RecordCardView tableName="person" tableMetaData={table} records={records} rowSelection={{}}
+      onRowSelectionChange={vi.fn()} columnVisibility={{}} columnOrder={[]} />)
+    expect(document.querySelectorAll('[data-qqq-id="card-field-firstName"] dd')).toHaveLength(3)
   })
 })

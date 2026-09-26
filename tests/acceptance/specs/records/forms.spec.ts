@@ -10,7 +10,7 @@ import { VIEWER, control, fieldValue, multipartFields, openForm, openRecord, rec
 
 test.use(VIEWER)
 
-test('[REC-045] possible-value editors show stored labels, look up defaults and select by keyboard', async ({ page, backend, diagnostics }) => {
+test('[REC-045] possible-value editors show stored labels, look up defaults and select by keyboard @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // Edit shows labels of the stored ids, not the ids.
   await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
@@ -18,7 +18,7 @@ test('[REC-045] possible-value editors show stored labels, look up defaults and 
   await expect(control(page, 'ownerId')).toHaveText(/^Avery Sample/)
 
   // Create: the metadata default id is shown with its label.
-  const writes = recordRequests(page, '/data/recordLab')
+  const writes = recordRequests(page, '/qqq/v1/table/recordLab')
   await openForm(page, '/app/recordLab/create', 'Create Record Lab')
   await expect(control(page, 'status')).toHaveText(/^Draft/)
   await control(page, 'title').fill('Keyboard Pick')
@@ -38,7 +38,7 @@ test('[REC-045] possible-value editors show stored labels, look up defaults and 
 
   await expect(page.getByRole('heading', { level: 1, name: 'Lab: Keyboard Pick' })).toBeVisible()
   const id = recordIdFromUrl(page, 'recordLab')
-  const post = multipartFields(writes.find((request) => request.method() === 'POST')!)
+  const post = multipartFields(writes.find((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/recordLab')!)
   expect(post.ownerId).toBe('3')
   expect(post.status).toBe('DRAFT')
   expect(await sqlOne(backend, `select owner_id, status from record_lab where id = ${id}`)).toEqual({ owner_id: '3', status: 'DRAFT' })
@@ -48,7 +48,7 @@ test('[REC-045] possible-value editors show stored labels, look up defaults and 
 test.describe('read-only persona', () => {
   test.use({ persona: 'viewer' })
 
-  test('[REC-046] a read-only user has no write actions and the backend refuses writes', async ({ page, backend, diagnostics }) => {
+  test('[REC-046] a read-only user has no write actions and the backend refuses writes @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow('Failed to load resource: the server responded with a status of 403')
     const before = await sqlOne(backend, 'select first_name, email from person where id = 1')
     const count = await sqlCount(backend, 'select count(*) as n from person')
@@ -57,6 +57,8 @@ test.describe('read-only persona', () => {
       await expect(page.getByRole('button', { name: `${action} Person record` })).toHaveCount(0)
     }
     await expect(page.getByRole('button', { name: 'Record actions menu' })).toHaveCount(0)
+    // Phone: no Actions trigger opening an empty sheet either
+    await expect(page.getByRole('button', { name: 'Record actions', exact: true })).toHaveCount(0)
 
     await page.goto('/app/person/1/edit', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('alert').filter({ hasText: 'permission' })).toHaveText('You do not have permission to edit Person records.')
@@ -75,7 +77,7 @@ test.describe('read-only persona', () => {
   })
 })
 
-test('[REC-047] record forms are labelled and fully keyboard operable', async ({ page, backend, diagnostics }) => {
+test('[REC-047] record forms are labelled and fully keyboard operable @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openForm(page, '/app/person/create', 'Create Person')
   for (const [name, label] of [['firstName', 'First Name'], ['lastName', 'Last Name'], ['email', 'Email'], ['birthDate', 'Birth Date'],

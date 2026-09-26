@@ -20,7 +20,7 @@
 
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -135,6 +135,13 @@ export function buildDocumentTitle(crumbs: Breadcrumb[], pageTitle: string | und
 export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: BreadcrumbsProps) {
   const pathname = usePathname()
   const breadcrumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
+  const trailRef = useRef<HTMLElement>(null)
+
+  // On a touch screen a long trail scrolls sideways on its own; start at its end, the current page
+  useEffect(() => {
+    const trail = trailRef.current
+    if (trail && trail.scrollWidth > trail.clientWidth) trail.scrollLeft = trail.scrollWidth
+  }, [pathname, breadcrumbs.length])
 
   // Until metadata supplies labels, raw URL segments would flash in place of labels
   if (breadcrumbs.length === 0 || Object.keys(pathToLabelMap).length === 0) {
@@ -143,18 +150,19 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
 
   return (
     <nav
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+      ref={trailRef}
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm pointer-coarse:flex-nowrap pointer-coarse:overflow-x-auto"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
       {breadcrumbs.map((crumb, index) => (
         <React.Fragment key={crumb.path + index}>
           {index > 0 && (
-            <span className="text-muted-foreground/60" aria-hidden="true">/</span>
+            <span className="text-muted-foreground/60 pointer-coarse:flex-shrink-0" aria-hidden="true">/</span>
           )}
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="max-w-[12rem] truncate font-semibold text-foreground"
+              className="max-w-[12rem] truncate font-semibold text-foreground pointer-coarse:flex-shrink-0"
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >
@@ -163,7 +171,7 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
           ) : (
             <Link
               href={crumb.path}
-              className="max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0 pointer-coarse:py-3 pointer-coarse:text-center"
               data-qqq-id={`breadcrumb-link-${index}`}
             >
               {crumb.label}

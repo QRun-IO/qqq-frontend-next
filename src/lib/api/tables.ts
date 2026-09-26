@@ -18,7 +18,6 @@
  * @file Tables API — CRUD, query, count, global search, and audit endpoints for QQQ table records.
  */
 
-import { isAxiosError } from 'axios'
 import { z } from 'zod'
 
 import type { QRecord, QRecordInput, QQueryFilter, QueryJoin } from '@/types'
@@ -27,7 +26,7 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  GlobalSearchResponseSchema,
+  RecordSearchResponseSchema,
 } from './schemas'
 
 /**
@@ -52,8 +51,8 @@ export interface QueryRecordsRequest {
 }
 
 /**
- * One backend variant option, as returned by `GET /data/{tableName}/variants` and sent back
- * in query/count bodies (v1) or the `tableVariant` parameter (legacy routes).
+ * One backend variant option, as returned by `GET /qqq/v1/table/{tableName}/variants` and sent
+ * back as `tableVariant` in query, count, get and export requests.
  */
 export interface TableVariant {
   /** Variant record id. */
@@ -71,7 +70,8 @@ export interface TableVariant {
  * @returns The variant options.
  */
 export async function fetchTableVariants(tableName: string): Promise<TableVariant[]> {
-  const result = await apiClient.get<unknown>(`/data/${encodeURIComponent(tableName)}/variants`, { baseURL: legacyBaseURL() })
+  const body = await apiClient.get<{ variants?: unknown }>(`/table/${encodeURIComponent(tableName)}/variants`)
+  const result = body?.variants
   if (!Array.isArray(result)) throw new Error('Invalid variants response')
   return result.filter((v): v is TableVariant => Boolean(v) && typeof v === 'object' && 'id' in v && 'type' in v)
 }
@@ -80,8 +80,8 @@ export async function fetchTableVariants(tableName: string): Promise<TableVarian
 export type ExportFormat = 'csv' | 'xlsx' | 'json'
 
 /**
- * Exports records through the backend's streaming export route
- * (`POST /data/{tableName}/export/{filename}`), as the Material dashboard does.
+ * Exports records through the v1 streaming export route (`POST /table/{tableName}/export`,
+ * JSON body); the file name's extension selects the format.
  *
  * @param tableName - Exact backend table identifier.
  * @param filename - Download file name; its extension selects the format.
@@ -97,13 +97,11 @@ export async function exportRecords(
   filter: Partial<QQueryFilter>,
   tableVariant?: TableVariant
 ): Promise<Blob> {
-  const form = new URLSearchParams()
-  form.set('fields', fields.join(','))
-  form.set('filter', JSON.stringify(filter))
-  if (tableVariant) form.set('tableVariant', JSON.stringify({ type: tableVariant.type, id: tableVariant.id }))
-  return apiClient.post<Blob>(`/data/${encodeURIComponent(tableName)}/export/${encodeURIComponent(filename)}`, form, {
-    baseURL: legacyBaseURL(),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.') + 1) : undefined
+  const body: Record<string, unknown> = { filename, fieldNames: fields, filter }
+  if (extension) body.format = extension
+  if (tableVariant) body.tableVariant = { type: tableVariant.type, id: String(tableVariant.id) }
+  return apiClient.post<Blob>(`/table/${encodeURIComponent(tableName)}/export`, body, {
     responseType: 'blob',
     timeout: 5 * 60 * 1000,
   })
@@ -200,7 +198,7 @@ export async function countRecords(
 }
 
 /**
- * Fetches a single record through the legacy `GET /data/{tableName}/{primaryKey}` route.
+ * Fetches a single record through the v1 `GET /table/{tableName}/{primaryKey}` route.
  *
  * Optional flags control whether associations and joined-table data are included
  * in the response.
@@ -224,11 +222,10 @@ export async function getRecord(
     queryJoins?: string
   }
 ): Promise<QRecord> {
-  const baseURL = legacyBaseURL()
-  const result = await apiClient.get<QRecord>(`/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`, {
-    baseURL,
+  const body = await apiClient.get<{ record?: QRecord }>(`/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`, {
     params: options,
   })
+  const result = body?.record
   if (!result || typeof result !== 'object' || typeof result.tableName !== 'string' ||
     !result.values || typeof result.values !== 'object' || Array.isArray(result.values)) {
     throw new Error('Invalid record response')
@@ -237,15 +234,8 @@ export async function getRecord(
 }
 
 /**
- * Preserve the configured host and deployment prefix for legacy CRUD routes.
- * @returns The configured base URL without the V1 route suffix.
- */
-function legacyBaseURL() {
-  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
-}
-
-/**
- * Encode the legacy multipart field contract without coercing objects to unusable text.
+ * Encode the multipart record fields (the same contract on the v1 and legacy routes) without
+ * coercing objects to unusable text.
  * @param values - Declared field values to save.
  * @returns Multipart fields, preserving explicit clears and omitted values.
  */
@@ -256,7 +246,7 @@ function recordFormData(values: Record<string, unknown>): FormData {
     if (value instanceof File) {
       formData.append(key, value)
     } else if (value === null) {
-      // The legacy multipart endpoint treats an empty field as an explicit clear.
+      // The multipart record contract treats an empty field as an explicit clear.
       formData.append(key, '')
     } else if (Array.isArray(value)) {
       formData.append(key, JSON.stringify(value))
@@ -269,10 +259,10 @@ function recordFormData(values: Record<string, unknown>): FormData {
   return formData
 }
 
-const WriteRecordResponseSchema = z.object({ records: z.array(QRecordSchema).length(1) })
+const WriteRecordResponseSchema = z.object({ record: QRecordSchema })
 const DeleteRecordResponseSchema = z.object({
-  deletedRecordCount: z.literal(1),
-  recordsWithErrors: z.array(z.unknown()).length(0).nullish(),
+  deletedRecordCount: z.number(),
+  errors: z.array(z.string()).nullish(),
 })
 
 /**
@@ -287,23 +277,23 @@ function checkRecordErrors(record: QRecord): void {
 }
 
 /**
- * Validate the legacy write envelope and surface record errors.
+ * Validate the v1 write envelope (`{ record, warnings }`) and surface record errors.
  * @param response - Untrusted response body.
  * @param tableName - Expected backend table identifier.
  * @returns The single saved record.
  */
 function savedRecord(response: unknown, tableName: string): QRecord {
   const parsed = WriteRecordResponseSchema.safeParse(response)
-  if (!parsed.success || parsed.data.records[0].tableName !== tableName) {
+  if (!parsed.success || parsed.data.record.tableName !== tableName) {
     throw new Error('Invalid saved record response')
   }
-  const record = parsed.data.records[0]
+  const record = parsed.data.record
   checkRecordErrors(record)
   return record
 }
 
 /**
- * Creates a record through legacy `POST /data/{tableName}`.
+ * Creates a record through the v1 `POST /table/{tableName}` route (multipart).
  * Files remain binary, arrays are JSON, null clears a field and undefined is omitted.
  * Resolves only when exactly one valid record is returned without record errors.
  * @param tableName - Exact backend table identifier.
@@ -318,15 +308,15 @@ export async function insertRecord(
 ): Promise<QRecord> {
   const formData = recordFormData(values)
   if (associations !== undefined) formData.set('associations', JSON.stringify(await associationWireValues(associations)))
-  const response = await apiClient.post(`/data/${encodeURIComponent(tableName)}`, formData, {
-    baseURL: legacyBaseURL(),
+  const response = await apiClient.post(`/table/${encodeURIComponent(tableName)}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) },
   })
   return savedRecord(response, tableName)
 }
 
 /**
- * Updates a record through legacy PUT, using the same value rules as insert.
+ * Updates a record through the v1 `PATCH /table/{tableName}/{primaryKey}` route, using the
+ * same value rules as insert.
  * @param tableName - Exact backend table identifier.
  * @param primaryKey - Record identifier, encoded as one path segment.
  * @param values - Field values to change; undefined fields remain untouched.
@@ -337,16 +327,17 @@ export async function updateRecord(
   primaryKey: string | number,
   values: Record<string, unknown>
 ): Promise<QRecord> {
-  const response = await apiClient.put(
-    `/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
+  const response = await apiClient.patch(
+    `/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
     recordFormData(values),
-    { baseURL: legacyBaseURL(), headers: { 'Content-Type': 'multipart/form-data' } }
+    { headers: { 'Content-Type': 'multipart/form-data' } }
   )
   return savedRecord(response, tableName)
 }
 
 /**
- * Deletes a record through legacy DELETE and requires one confirmed deletion.
+ * Deletes a record through the v1 `DELETE /table/{tableName}/{primaryKey}` route and requires
+ * one confirmed deletion; the backend's reasons are the error when nothing was deleted.
  * @param tableName - Exact backend table identifier.
  * @param primaryKey - Record identifier, encoded as one path segment.
  * @returns The confirmed deletion count.
@@ -356,60 +347,58 @@ export async function deleteRecord(
   primaryKey: string | number
 ): Promise<DeleteRecordResponse> {
   const response = await apiClient.delete(
-    `/data/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
-    { baseURL: legacyBaseURL() }
+    `/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`
   )
   const parsed = DeleteRecordResponseSchema.safeParse(response)
-  if (!parsed.success) throw new Error('Invalid delete response: record deletion was not confirmed')
+  if (parsed.success && parsed.data.errors?.length) throw new Error(parsed.data.errors.join('; '))
+  if (!parsed.success || parsed.data.deletedRecordCount !== 1) throw new Error('Invalid delete response: record deletion was not confirmed')
   return { deletedCount: parsed.data.deletedRecordCount }
 }
 
 /**
- * Single result entry returned by the global search endpoint.
+ * One record matched by record search (`POST /search`).
  */
-export interface GlobalSearchResult {
-  /** Backend-registered name of the table containing this result. */
+export interface RecordSearchResult {
+  /** Backend-registered name of the table containing this record. */
   tableName: string
-  /** Human-readable label for the table. Omitted by some backends when the table has no display label configured. */
+  /** User-facing label of the table. */
   tableLabel?: string
   /** Primary key of the matching record, serialised as a string. */
   recordId: string
-  /** Human-readable label for the matching record. */
+  /** User-facing label of the matching record. */
   recordLabel: string
 }
 
+/** Options for {@link searchRecords}. */
+export interface RecordSearchOptions {
+  /** Tables to search; when omitted the backend searches every searchable table the user may read. */
+  tableNames?: string[]
+  /** Maximum records per table (the backend caps it). */
+  limitPerTable?: number
+}
+
 /**
- * Global search across tables. Posts to /search endpoint.
- * Falls back to empty results if the endpoint returns 404.
+ * Record search across tables: `POST /search` (QQQ v1). Call it only when the
+ * metadata advertises searchable tables (`searchFields`); a backend without the
+ * capability has no such endpoint, so every error is re-thrown.
  *
- * Sends `searchTerm` and an optional list of `tableNames` to scope the search.
- * A 404 response is swallowed and returns an empty array because the `/search`
- * endpoint is optional — backends that do not implement it return 404.
- * All other errors are re-thrown.
+ * The backend matches the term against each table's declared search fields,
+ * searches only the tables the session may read, and applies record security locks.
  *
- * @param searchTerm - Free-text query string to search for.
- * @param tableNames - Optional list of table names to restrict the search scope.
- * @returns Array of matching result entries, or an empty array when the endpoint is absent.
+ * @param searchTerm - Free-text search term (the backend trims it).
+ * @param options - Table scope and per-table limit.
+ * @returns Matching records, grouped by table in backend order.
+ * @throws When the request fails or the response is not a record search response.
  */
-export async function globalSearch(
-  searchTerm: string,
-  tableNames: string[] = []
-): Promise<GlobalSearchResult[]> {
-  try {
-    const result = await apiClient.post<GlobalSearchResult[]>('/search', {
-      searchTerm,
-      tableNames,
-    })
-    const parsed = GlobalSearchResponseSchema.safeParse(result)
-    if (!parsed.success) {
-      console.warn('[API] GlobalSearch response failed schema validation:', parsed.error.flatten())
-    }
-    return parsed.success ? parsed.data : result
-  } catch (err) {
-    // Only swallow 404 — the search endpoint is optional
-    if (isAxiosError(err) && err.response?.status === 404) return []
-    throw err
-  }
+export async function searchRecords(searchTerm: string, options: RecordSearchOptions = {}): Promise<RecordSearchResult[]> {
+  const result = await apiClient.post<unknown>('/search', {
+    searchTerm,
+    ...(options.tableNames ? { tableNames: options.tableNames } : {}),
+    ...(options.limitPerTable ? { limitPerTable: options.limitPerTable } : {}),
+  })
+  const parsed = RecordSearchResponseSchema.safeParse(result)
+  if (!parsed.success) throw new Error('Invalid record search response')
+  return parsed.data.results
 }
 
 /**

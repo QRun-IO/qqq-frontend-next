@@ -15,7 +15,7 @@ import type { QInstance, QTableMetaData, QRecord, QQueryFilter } from '@/types'
 | Type | Source file | Purpose |
 |------|-------------|---------|
 | `QInstance` | `metadata.ts` | Top-level descriptor returned by `/metaData/instance`; the single source of truth for all apps, tables, processes, reports, widgets, and branding. **Key fields:** `apps`, `tables`, `processes`, `widgets`, `branding`, `appTree`, `environmentValues` |
-| `QAuthenticationMetaData` | `metadata.ts` | Describes the auth provider type (`AUTH_0`, `OAUTH2`, `FULLY_ANONYMOUS`, `MOCK`) and the provider-specific values (client ID, base URL, audience) needed to boot the correct auth flow. |
+| `QAuthenticationMetaData` | `metadata.ts` | Describes the auth provider type (`AUTH_0`, `OAUTH2`, `TABLE_BASED`, `FULLY_ANONYMOUS`, `MOCK`), the provider-specific values (client ID, base URL, audience) needed to boot the correct auth flow, and the pre-sign-in `branding` (`QLoginBranding`) the login page shows. |
 | `QBrandingMetaData` | `metadata.ts` | Controls visual identity: company name, app name, logo URL, accent color, notification banners, and custom CSS injected via `data-qqq-id` selectors. |
 | `QThemeMetaData` | `metadata.ts` | Backend-supplied Tailwind CSS token overrides (`primaryColor`, `accentColor`, `mode`). Applied on top of the default theme by the theme provider. |
 | `Banner` | `metadata.ts` | A single notification banner (text, severity `info|warning|error`, optional color, dismissible flag) rendered at the top of the dashboard layout. |

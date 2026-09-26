@@ -45,18 +45,43 @@ export interface QueryColumn {
  */
 export function getQueryColumns(table: QTableMetaData): QueryColumn[] {
   const usable = (f: QFieldMetaData) => !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
-  const columns: QueryColumn[] = Object.values(table.fields)
+  const columns: QueryColumn[] = fieldsInSectionOrder(table)
     .filter(usable)
     .map((field) => ({ name: field.name, label: field.label, field, isJoin: false, group: `${table.label} Fields` }))
   for (const join of table.exposedJoins ?? []) {
     const joinTable = join.joinTable
     if (!joinTable?.fields || joinTable.readPermission === false) continue
     const joinLabel = join.label || joinTable.label
-    for (const field of Object.values(joinTable.fields).filter((f) => usable(f) && f.type !== 'BLOB')) {
+    for (const field of fieldsInSectionOrder(joinTable).filter((f) => usable(f) && f.type !== 'BLOB')) {
       columns.push({ name: `${joinTable.name}.${field.name}`, label: `${joinLabel}: ${field.label}`, field, isJoin: true, group: `${joinTable.label} Fields` })
     }
   }
   return columns
+}
+
+/**
+ * A table's fields in Material's default grid order: the fields of each section in section
+ * order, then any field no section lists, in metadata order.
+ *
+ * @param table - Table metadata (sections may be absent, e.g. for join tables).
+ * @returns The fields, each once.
+ */
+export function fieldsInSectionOrder(table: Pick<QTableMetaData, 'fields'> & { sections?: QTableMetaData['sections'] }): QFieldMetaData[] {
+  const ordered: QFieldMetaData[] = []
+  const seen = new Set<string>()
+  for (const section of table.sections ?? []) {
+    for (const name of section.fieldNames ?? []) {
+      const field = table.fields[name]
+      if (field && !seen.has(name)) {
+        seen.add(name)
+        ordered.push(field)
+      }
+    }
+  }
+  for (const field of Object.values(table.fields)) {
+    if (!seen.has(field.name)) ordered.push(field)
+  }
+  return ordered
 }
 
 /**

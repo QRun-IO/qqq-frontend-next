@@ -1,0 +1,29 @@
+{
+  "$comment": "Bundle budget for the static export, checked by scripts/perf-budget.mjs (QRun-IO/qqq#710). Sizes are KB gzip. '_' is the exported placeholder of a dynamic segment: /app/_ is /app/[slug] (app home, record query, process, report), /app/_/_ is the record view. The 2026-09-26 merge of ESB process management (#13) into Next UI 1.0 moved measured total JS from 706.6 to 736.2 KB and /app/_ first-load JS from 461.7 to 470.2 KB; the 750 and 475 KB caps retain narrow headroom for that combined product. Linux CI measured /app/_/_ at 455.7 KB, 0.7 KB above its previous cap; 460 KB leaves about 1% headroom. Raise a cap only with the reason in the commit.",
+  "firstLoadJsGzipKB": 330,
+  "routes": {
+    "/": 230,
+    "/404": 230,
+    "/404.html": 230,
+    "/_not-found": 230,
+    "/callback": 230,
+    "/login": 230,
+    "/token": 230,
+    "/app/_": 475,
+    "/app/_/_": 460,
+    "/app/_/_/copy": 375,
+    "/app/_/_/edit": 370,
+    "/app/_/create": 370,
+    "/app/_/savedView/_": 390
+  },
+  "cssGzipKB": 18,
+  "totalJsGzipKB": 750,
+  "largestChunkGzipKB": 100,
+  "lazyChunks": {
+    "rapidoc": {
+      "$comment": "RapiDoc (the table developer view's API docs, QRun-IO/qqq#714) loads only when that view opens: import('rapidoc') in TableApiDocs. Measured 204.5 KB gzip at 1.0; budget about 5% above.",
+      "marker": "customElements.define(\"rapi-doc\"",
+      "gzipKB": 215
+    }
+  }
+}

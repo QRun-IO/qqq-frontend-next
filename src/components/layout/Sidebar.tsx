@@ -23,6 +23,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   ChevronDown,
   ChevronRight,
@@ -115,8 +116,10 @@ export interface SidebarProps {
   userEmail?: string
   /** When provided the sidebar renders as a mobile drawer overlay; `true` = open. */
   open?: boolean
-  /** Called when the mobile drawer overlay should close (backdrop click or close button). */
+  /** Called when the mobile drawer overlay should close (backdrop click, close button, Escape or a chosen link). */
   onClose?: () => void
+  /** Element that gets focus back when the mobile drawer closes (the header menu button). */
+  returnFocusRef?: React.RefObject<HTMLElement | null>
 }
 
 /**
@@ -163,15 +166,16 @@ function SidebarBranding({ branding }: { branding?: QBrandingMetaData }) {
  * Hierarchical sidebar navigation panel.
  *
  * On desktop (`md+`) the sidebar is rendered as a static column. When `open`
- * is supplied it switches to a mobile drawer overlay with a backdrop. App
- * groups nest to any depth; every group containing the active route is
+ * is supplied it switches to a mobile drawer: a modal dialog with a backdrop
+ * that takes focus on open, keeps Tab inside, and closes on Escape, the close
+ * button, a backdrop tap or a chosen link, returning focus to `returnFocusRef`.
+ * App groups nest to any depth; every group containing the active route is
  * expanded, and the mobile drawer closes on route changes.
  *
  * @param props - Component properties.
  * @returns On desktop: a `hidden md:flex` wrapper containing the `<aside>`
- *   column. In mobile-drawer mode (when `open` prop is provided): `null` when
- *   `open` is `false`; a fixed full-screen overlay with a blurred backdrop
- *   and the `<aside>` panel when `open` is `true`.
+ *   column. In mobile-drawer mode (when `open` prop is provided): a Radix
+ *   dialog whose content (the `<aside>` panel) is mounted only while `open`.
  */
 export default function Sidebar({
   routes,
@@ -183,9 +187,11 @@ export default function Sidebar({
   userEmail,
   open,
   onClose,
+  returnFocusRef,
 }: SidebarProps) {
   const pathname = usePathname()
   const [openCollapses, setOpenCollapses] = React.useState<Record<string, boolean>>({})
+  const drawerRef = useRef<HTMLDivElement>(null)
 
   // Expand every group that contains the current route
   useEffect(() => {
@@ -275,26 +281,43 @@ export default function Sidebar({
     </aside>
   )
 
-  // Mobile drawer mode — render as fixed overlay
+  // Mobile drawer mode — a modal dialog: focus moves in and stays in, Escape closes it
   if (isMobileDrawer) {
-    if (!open) return null
     return (
-      <div
-        className="fixed inset-0 z-[var(--qqq-z-sidebar,100)] flex"
-        aria-expanded={open ?? false}
-        data-qqq-id="sidebar-mobile-drawer"
-      >
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/40"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-        {/* Drawer panel */}
-        <div className="relative flex h-full flex-col shadow-lg">
-          {asideEl}
-        </div>
-      </div>
+      <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) onClose?.() }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay
+            className="fixed inset-0 z-[var(--qqq-z-sidebar,100)] bg-black/40"
+            data-qqq-id="sidebar-mobile-backdrop"
+            // A tap on the backdrop closes the drawer, also where no outside pointer-down reaches the dialog (Firefox with touch)
+            onClick={onClose}
+          />
+          <DialogPrimitive.Content
+            className="fixed inset-y-0 left-0 z-[var(--qqq-z-sidebar,100)] flex h-full max-w-[85vw] flex-col shadow-lg focus:outline-none"
+            aria-describedby={undefined}
+            data-qqq-id="sidebar-mobile-drawer"
+            ref={drawerRef}
+            onEscapeKeyDown={(event) => {
+              // An open user menu takes Escape first; the drawer stays open
+              if (drawerRef.current?.querySelector('[data-qqq-id="sidebar-user-menu"]')) event.preventDefault()
+            }}
+            onCloseAutoFocus={(event) => {
+              const trigger = returnFocusRef?.current
+              if (trigger?.isConnected) {
+                event.preventDefault()
+                trigger.focus()
+              }
+            }}
+            onClick={(event) => {
+              // Choosing a link closes the drawer, also when it is the current page
+              if ((event.target as Element).closest('a[href]')) onClose?.()
+            }}
+          >
+            <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+            {asideEl}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     )
   }
 
@@ -397,7 +420,7 @@ function SidebarCollapseItem({ route, isOpen, pathname, openCollapses, onToggle,
         {/* App name — links to app home */}
         <Link
           href={route.path}
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg"
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg pointer-coarse:min-h-11"
           aria-current={isExactActive ? 'page' : undefined}
           data-qqq-id={`sidebar-collapse-${route.key}`}
         >
@@ -452,7 +475,7 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
     <li role="listitem">
       <Link
         href={route.path}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 ${
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
             : 'text-foreground/70 hover:bg-accent hover:text-foreground'

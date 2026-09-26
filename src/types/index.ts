@@ -38,6 +38,7 @@ export type {
   QInstance,
   QAuthenticationMetaData,
   QBrandingMetaData,
+  QLoginBranding,
   QThemeMetaData,
   QTableMetaData,
   QFieldMetaData,

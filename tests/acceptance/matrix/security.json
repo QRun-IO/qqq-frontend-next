@@ -401,10 +401,12 @@
         "in-app returnTo with query string is honoured"
       ],
       "negative": [
-        "absolute, protocol-relative, backslash and javascript: targets land on /app"
+        "absolute, protocol-relative, backslash and javascript: targets land on /app",
+        "paths that normalize to another origin (/.//host, /app/..//host, /app/../\\host) land on /app"
       ],
       "issues": [
-        "QRun-IO/qqq#669"
+        "QRun-IO/qqq#669",
+        "QRun-IO/qqq#696"
       ],
       "required": true
     },
@@ -544,18 +546,20 @@
     },
     {
       "id": "SEC-032",
-      "feature": "Unsupported authentication type (TABLE_BASED, also unsupported by Material) is reported, never silently treated as another type",
+      "feature": "Unsupported authentication type (a type this UI does not know, as a newer backend could declare) is reported, never silently treated as another type",
       "source": [
         "qqq-backend-core QAuthenticationType.java",
+        "src/lib/auth/auth-provider.tsx (establishSession)",
         "qqq-frontend-material-dashboard App.tsx (Unrecognized authenticationMetaData.type)"
       ],
-      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED",
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=UNSUPPORTED (v1 authentication metadata names type ACCEPTANCE_UNKNOWN; TABLE_BASED is supported since QRun-IO/qqq#700, see SEC-034..SEC-037)",
       "scenarios": [],
       "negative": [
-        "login shows \"Unsupported authentication type: TABLE_BASED\" and no data is requested"
+        "login shows \"Unsupported authentication type: ACCEPTANCE_UNKNOWN\" and no data or session is requested"
       ],
       "issues": [
-        "QRun-IO/qqq#669"
+        "QRun-IO/qqq#669",
+        "QRun-IO/qqq#700"
       ],
       "required": true
     },
@@ -577,6 +581,234 @@
       "issues": [
         "QRun-IO/qqq#674",
         "QRun-IO/qqq#675"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-034",
+      "feature": "TABLE_BASED sign-in: a deep link asks for username and password under the app branding, POST /qqq/v1/manageSession with Authorization: Basic creates a stored session, the session user is shown and a reload resumes it",
+      "source": [
+        "qqq-backend-core TableBasedAuthenticationModule.java",
+        "qqq-middleware-javalin specs/v1/ManageSessionSpecV1.java (Authorization: Basic)",
+        "src/lib/auth/auth-provider.tsx",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED + SecurityFixtures.defineTableBased/primeTableBased (users tess.table, ravi.rows)",
+      "scenarios": [
+        "login form shows the logo and app name before any session exists and reads no data",
+        "credentials travel once as Basic credentials (password with colons), never in the body or browser storage",
+        "lands on the requested page with rows; user menu shows Tess Table (table-based) / tess.table",
+        "one session row for the user, matching the sessionUUID cookie; reload keeps it"
+      ],
+      "negative": [
+        "without the session cookie the backend refuses a read (401)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#700"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-035",
+      "feature": "TABLE_BASED sign-in failure: a wrong password or unknown user is refused with one message, stores no session, and the form recovers",
+      "source": [
+        "qqq-backend-core TableBasedAuthenticationModule.java",
+        "qqq-middleware-javalin specs/v1/ManageSessionSpecV1.java (Authorization: Basic)",
+        "src/lib/auth/auth-provider.tsx",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED + SecurityFixtures.defineTableBased/primeTableBased (users tess.table, ravi.rows)",
+      "scenarios": [
+        "correct credentials after a refusal sign in to the requested page"
+      ],
+      "negative": [
+        "empty fields are named and nothing is sent",
+        "wrong password and unknown user both show \"Incorrect username or password.\"",
+        "no session row is stored and no data is read; the password field is cleared"
+      ],
+      "issues": [
+        "QRun-IO/qqq#700"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-036",
+      "feature": "TABLE_BASED session expiry: a session idle past the inactivity timeout gets a 401, the user signs in again and returns to the record they opened",
+      "source": [
+        "qqq-backend-core TableBasedAuthenticationModule.java (inactivityTimeoutSeconds)",
+        "src/lib/api/client.ts",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED + SecurityFixtures.defineTableBased/primeTableBased (users tess.table, ravi.rows) + /acceptance/expire-table-sessions",
+      "scenarios": [
+        "expired mid-use returns to the clicked record after signing in again"
+      ],
+      "negative": [
+        "the expired session is refused by the backend (\"Session is expired.\")"
+      ],
+      "issues": [
+        "QRun-IO/qqq#700"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-037",
+      "feature": "TABLE_BASED logout: POST /qqq/v1/logout deletes the stored session and clears both cookies, protected pages stay on the form, and the next user signs in as themselves",
+      "source": [
+        "qqq-backend-core TableBasedAuthenticationModule.java (logout)",
+        "qqq-middleware-javalin specs/v1/LogoutSpecV1.java",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED + SecurityFixtures.defineTableBased/primeTableBased (users tess.table, ravi.rows)",
+      "scenarios": [
+        "a different user signs in on the same browser and is shown as themselves"
+      ],
+      "negative": [
+        "the ended session cannot be replayed with either cookie (401)",
+        "after logout a protected page (full load) stays on the form and reads no data"
+      ],
+      "issues": [
+        "QRun-IO/qqq#700"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-038",
+      "feature": "Dashboard documents carry a strict Content-Security-Policy (script-src self plus the hash of each inline script, object-src none, base-uri/form-action self, frame-ancestors none), X-Frame-Options DENY, Referrer-Policy and Permissions-Policy",
+      "source": [
+        "qqq-middleware-javalin routeproviders/NextDashboardRouteProvider.java",
+        "qqq-middleware-javalin routeproviders/NextDashboardSecurityHeaders.java",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java (javalin mode)",
+      "scenarios": [
+        "login, token, app, list, record, edit and 404 documents send the policy and headers; the script-src hashes equal the hashes of the inline scripts in each served document",
+        "pages hydrate and navigate under the policy with no violation"
+      ],
+      "negative": [
+        "another web site framing the dashboard gets no content",
+        "an injected inline script and inline event handler do not run and are reported as violations"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-039",
+      "feature": "The policy allows the configured identity provider origin (OAUTH2 discovery, AUTH_0 browser token exchange) and no other connection target",
+      "source": [
+        "qqq-middleware-javalin routeproviders/NextDashboardRouteProvider.java (identityProviderOrigins)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2|AUTH_0",
+      "scenarios": [
+        "OAUTH2: connect-src is self plus the provider origin; sign-in completes with no violation",
+        "AUTH_0: connect-src is self plus the Auth0 domain; the browser token exchange completes with no violation"
+      ],
+      "negative": [
+        "a fetch to any other origin is refused and reported (connect-src)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-040",
+      "feature": "Application override hook and metadata-derived origins: the application adds its own origins (QApplicationJavalinServer.withNextDashboardSecurityHeadersCustomizer); QuickSight and custom component bundle origins come from widget metadata",
+      "source": [
+        "qqq-middleware-javalin QApplicationJavalinServer.java (withNextDashboardSecurityHeadersCustomizer)",
+        "tests/acceptance/fixture/WidgetsFixtures.java (allowFakeService)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java loopback service",
+      "scenarios": [
+        "the QuickSight embed, block image and audio from the loopback service and the custom component bundle load with no violation",
+        "the policy lists exactly the configured origins"
+      ],
+      "negative": [
+        "a frame from an origin the application did not configure is refused and reported (frame-src)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#695"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-041",
+      "feature": "The login page explains known sign-in error codes and never displays text taken from the link",
+      "source": [
+        "src/lib/auth/callback-errors.ts",
+        "src/app/(auth)/login/page.tsx"
+      ],
+      "fixture": "tests/acceptance/support/fake-oidc.ts + SecurityAcceptanceServer -Dqqq.security.auth=OAUTH2",
+      "scenarios": [
+        "access_denied and other known codes show their message; other well-formed codes show the code",
+        "Try again signs in through the provider"
+      ],
+      "negative": [
+        "free text in ?error= is replaced by a generic message"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-042",
+      "feature": "Rendered HTML (field values, widgets, process steps, help, banners) cannot add forms, form controls, style sheets or page-covering positioning",
+      "source": [
+        "src/lib/utils/sanitize-html.ts",
+        "src/components/records/FieldValue.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/RecordsFixtures.java fieldLab.htmlValue",
+      "scenarios": [
+        "formatting in a stored HTML value is kept; the stored value is unchanged in the database"
+      ],
+      "negative": [
+        "a stored form with a password input, a style element and a position:fixed overlay render as plain content"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-043",
+      "feature": "Per-user browser data (recently viewed records, stored identity) is bound to the signed-in identity",
+      "source": [
+        "src/lib/auth/auth-storage.ts (claimClientData)",
+        "src/lib/auth/auth-provider.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java personas and sample users",
+      "scenarios": [
+        "the same user keeps their recently viewed records across reloads"
+      ],
+      "negative": [
+        "a different user signing in on the same browser without a logout does not see the previous user's recent records"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-044",
+      "feature": "Session cookies (sessionUUID, sessionId) are SameSite=Lax for the whole site, and Secure when the request arrived over HTTPS",
+      "source": [
+        "qqq-middleware-javalin QJavalinImplementation.java (setSessionCookie)",
+        "backend branch feature/next-1.0-security-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java",
+      "scenarios": [
+        "manageSession and API responses set the cookies with Path=/ and SameSite=Lax; the browser stores them as Lax"
+      ],
+      "negative": [
+        "over plain HTTP the cookies are not Secure (sign-in keeps working); behind X-Forwarded-Proto https they are"
+      ],
+      "issues": [
+        "QRun-IO/qqq#696"
       ],
       "required": true
     },

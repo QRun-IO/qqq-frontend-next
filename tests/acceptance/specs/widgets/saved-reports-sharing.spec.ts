@@ -6,10 +6,12 @@
  */
 
 // Saved reports (setup widgets, rendering), scheduled reports, and record sharing.
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import type { Backend } from '../../support/fixtures'
-import { byId, downloadText, expectLoaded, parseCsv, sqlRows } from './widget-support'
+import { expectTouchReady } from '../../support/touch'
+import { listCell } from '../security/support/ui'
+import { byId, downloadText, expectLoaded, openRecord, parseCsv, recordAction, sqlRows } from './widget-support'
 
 async function openShare(page: Page, path: string) {
   await open(page, path)
@@ -17,7 +19,29 @@ async function openShare(page: Page, path: string) {
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('[data-qqq-id="share-status"]')).toHaveCount(0)
+  await expectTouchReady(page, dialog)
   return dialog
+}
+
+/**
+ * Asserts an open schedule editor popover fits the screen: inside the viewport, its body
+ * reachable (it scrolls inside when taller than the space), no sideways page scroll, and
+ * touch-sized choices on a touch screen.
+ */
+async function expectPopoverFits(page: Page, popover: Locator) {
+  const box = (await popover.boundingBox())!
+  const viewport = page.viewportSize()!
+  expect(box.x, 'popover left edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width, 'popover right edge on screen').toBeLessThanOrEqual(viewport.width + 1)
+  expect(box.y, 'popover top edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.y + box.height, 'popover bottom edge on screen').toBeLessThanOrEqual(viewport.height + 1)
+  // the choices do not overlap one another
+  const overlaps = await popover.locator('label').evaluateAll((labels) => {
+    const boxes = labels.map((label) => label.getBoundingClientRect())
+    return boxes.filter((a, i) => boxes.some((b, j) => j !== i && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5)).length
+  })
+  expect(overlaps, 'overlapping choices').toBe(0)
+  await expectTouchReady(page, popover)
 }
 
 /** Runs a sharing process directly with the test's session. */
@@ -26,54 +50,55 @@ async function shareViaApi(backend: Backend, processName: string, values: Record
   return { status: response.status(), body: await response.json() }
 }
 
-test('[WID-030] filter and columns setup shows the saved filter, sort and visible columns by label', async ({ page, backend, diagnostics }) => {
+test('[WID-030] filter and columns setup shows the saved filter, sort and visible columns by label @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [report] = await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 102')
   expect(JSON.parse(report.query_filter_json).criteria).toHaveLength(2)
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expectLoaded(page, 'reportSetupWidget')
   await expect(byId(page, 'filter-boolean-operator-reportSetupWidget-0')).toHaveText('Match all of:')
   await expect(byId(page, 'filter-criterion-reportSetupWidget-0-0')).toHaveText('First Name starts with A')
   await expect(byId(page, 'filter-criterion-reportSetupWidget-0-1')).toHaveText('Annual Salary greater than 1000')
   await expect(byId(page, 'filter-sort-reportSetupWidget')).toHaveText('Sorted by Last Name descending')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['Id', 'First Name', 'Last Name'])
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'reportSetupWidget')
   await expect(byId(page, 'filter-none-reportSetupWidget')).toHaveText('No filters')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['ID', 'Species'])
 })
 
-test('[WID-029] pivot table setup shows the saved rows, columns and values by label', async ({ page, diagnostics }) => {
+test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
   void diagnostics
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'pivot-rows-pivotTableSetupWidget')).toContainText('Last Name')
   await expect(byId(page, 'pivot-columns-pivotTableSetupWidget')).toContainText('Is Employed')
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Count of Id')
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Sum of Annual Salary')
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'widget-pivotTableSetup-pivotTableSetupWidget')).toContainText('This report does not use a pivot table.')
 })
 
-test('[RPT-009] a saved report record shows its full definition', async ({ page, backend, diagnostics }) => {
+test('[RPT-009] a saved report record shows its full definition @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [report] = await sqlRows(backend, 'select label, table_name from saved_report where id = 102')
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expect(page.getByRole('heading', { level: 1, name: report.label })).toBeVisible()
   await expectLoaded(page, 'reportSetupWidget')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveCount(3)
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Count of Id')
+  await expectTouchReady(page, byId(page, 'widget-reportSetupWidget'))
+  await expectTouchReady(page, byId(page, 'widget-pivotTableSetupWidget'))
 })
 
-test('[RPT-010] a saved report renders to a CSV with its saved columns and rows', async ({ page, backend, diagnostics }) => {
+test('[RPT-010] a saved report renders to a CSV with its saved columns and rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const species = (await (await backend.api.get('/data/petSpecies')).json()).records as Array<{ values: { possibleValueId: number; possibleValueLabel: string } }>
   expect(species.length).toBeGreaterThan(0)
-  await open(page, '/app/savedReport/1')
-  await page.getByRole('button', { name: 'Actions' }).click()
-  await page.getByRole('menuitem', { name: 'Render Report' }).click()
+  await openRecord(page, '/app/savedReport/1')
+  await recordAction(page, 'Render Report')
   await expect(page).toHaveURL(/\/app\/renderSavedReport/)
   await page.getByLabel(/Report Format/).click()
   await page.getByRole('option', { name: 'CSV' }).click()
@@ -87,53 +112,164 @@ test('[RPT-010] a saved report renders to a CSV with its saved columns and rows'
   expect(rows.slice(1)).toEqual(species.map((record) => [String(record.values.possibleValueId), record.values.possibleValueLabel]))
 })
 
-/** Opens the scheduled-report create form from the saved report's Schedules section and fills it. */
-async function fillSchedule(page: Page, cronExpression: string) {
-  await open(page, '/app/savedReport/1')
+/**
+ * Opens the scheduled-report create form from the saved report's Schedules section and fills it,
+ * except the schedule. As in Material, "Add new" opens the child create form over the saved report
+ * (a `#/createChild=` link) with the Saved Report preset to this report and locked (QRun-IO/qqq#714).
+ */
+async function openScheduleForm(page: Page) {
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await byId(page, 'child-record-add-scheduledReportJoinSavedReport').click()
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
-  const form = page.locator('form')
-  await form.getByLabel(/^Saved Report/).click()
-  await page.getByRole('option', { name: 'Pet Species Report' }).click()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\/defaultValues=/)
+  const dialog = page.locator('[data-qqq-id="dialog-create-child-scheduledReport"]')
+  await expect(dialog.getByRole('heading', { name: 'Add Scheduled Report' })).toBeVisible()
+  // the saved report stays underneath the modal dialog (hidden from assistive technology while it is open)
+  await expect(page.getByRole('heading', { level: 1, name: 'Pet Species Report', includeHidden: true })).toBeVisible()
+  const savedReport = dialog.getByRole('combobox', { name: 'Saved Report' })
+  await expect(savedReport).toBeDisabled()
+  await expect(savedReport).toHaveText('Pet Species Report')
   // Is Active defaults to on from its metadata default (#649 records); make sure it ends checked
-  await form.getByRole('checkbox', { name: 'Is Active' }).check()
-  await form.getByLabel(/^Format/).click()
+  await dialog.getByRole('checkbox', { name: 'Is Active' }).check()
+  await dialog.getByLabel(/^Format/).click()
   await page.getByRole('option', { name: /^CSV/ }).click()
-  await form.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')
-  await form.getByLabel(/^Subject/).fill('Owned schedule')
-  await form.getByLabel(/^Cron Time Zone/).click()
+  await dialog.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')
+  await dialog.getByLabel(/^Subject/).fill('Owned schedule')
+  await dialog.getByLabel(/^Cron Time Zone/).click()
   await page.getByRole('option', { name: /^UTC$/ }).first().click()
-  await form.getByLabel(/^Cron Expression/).fill(cronExpression)
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  return dialog
 }
 
-test('[RPT-012] a scheduled report is created for a saved report and shows its schedule', async ({ page, backend, diagnostics }) => {
+/** Fills the scheduled-report create form, typing the expression in the schedule editor's Advanced mode, and creates it. */
+async function fillSchedule(page: Page, cronExpression: string) {
+  const dialog = await openScheduleForm(page)
+  await byId(page, 'cron-mode-advanced-scheduledReportCronWidget').click()
+  await dialog.getByLabel(/^Cron Expression/).fill(cronExpression)
+  const insert = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/scheduledReport')
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+  // the locked Saved Report is always submitted with its preset value
+  expect(/name="savedReportId"\r\n\r\n([^\r]*)/.exec((await insert).postData() ?? '')?.[1]).toBe('1')
+  return dialog
+}
+
+test('[WID-064] the schedule editor builds a weekly schedule in Basic mode; the live description is the one QQQ stores @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await fillSchedule(page, '0 0 9 * * ?')
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/\d+\/?$/)
-  const id = /\/scheduledReport\/(\d+)/.exec(page.url())![1]
+  const dialog = await openScheduleForm(page)
+  const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
+  const live = byId(page, 'cron-editor-description-scheduledReportCronWidget')
+  await expect(editor.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Not set')
+  await expectTouchReady(page, editor)
+
+  await editor.getByRole('button', { name: /^Days/ }).click()
+  const days = page.getByRole('dialog', { name: 'Days' })
+  await days.getByRole('radio', { name: 'Selected Weekdays' }).check()
+  await days.getByRole('checkbox', { name: 'Monday' }).check()
+  await days.getByRole('checkbox', { name: 'Friday' }).check()
+  await expectPopoverFits(page, days)
+  await page.keyboard.press('Escape')
+  await expect(days).toBeHidden()
+  await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
+  await expect(editor.getByRole('button', { name: /^Days/ })).toHaveText('Mon, Fri')
+
+  // a new schedule starts at midnight, as in Material
+  await editor.getByRole('button', { name: /^Hours/ }).click()
+  const hours = page.getByRole('dialog', { name: 'Hours' })
+  await expect(hours.getByRole('checkbox', { name: '12am' })).toBeChecked()
+  await hours.getByRole('checkbox', { name: '9am' }).check()
+  await hours.getByRole('checkbox', { name: '12am' }).uncheck()
+  await expectPopoverFits(page, hours)
+  await page.keyboard.press('Escape')
+  await editor.getByRole('button', { name: /^Minutes/ }).click()
+  const minutes = page.getByRole('dialog', { name: 'Minutes' })
+  await minutes.getByRole('checkbox', { name: '30' }).check()
+  await minutes.getByRole('checkbox', { name: '00' }).uncheck()
+  await expectPopoverFits(page, minutes)
+  await page.keyboard.press('Escape')
+  await expect(editor.getByRole('button', { name: /^Hours/ })).toHaveText('9am')
+  await expect(editor.getByRole('button', { name: /^Minutes/ })).toHaveText('30')
+  await expect(live).toHaveText('Every week, on Monday and Friday, at 9:30 am')
+
+  await editor.getByRole('button', { name: 'Advanced' }).click()
+  await expect(editor.getByLabel(/^Cron Expression/)).toHaveValue('0 30 9 ? * MON,FRI')
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  // scheduled reports live in the sample memory backend (no SQL table): read them back over the API
+  const records = (await (await backend.api.get('/data/scheduledReport')).json()).records as Array<{ values: { id: number } }>
+  expect(records).toHaveLength(1)
+  const id = records[0].values.id
+  const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
+  expect(saved.values).toMatchObject({ cronExpression: '0 30 9 ? * MON,FRI', cronDescription: 'Every week, on Monday and Friday, at 9:30 am', cronTimeZoneId: 'UTC' })
+  await openRecord(page, `/app/scheduledReport/${id}`)
+  await expectLoaded(page, 'scheduledReportCronWidget')
+  await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every week, on Monday and Friday, at 9:30 am')
+})
+
+test('[WID-064] a schedule is required: saving without one shows the error in the editor and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const dialog = await openScheduleForm(page)
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+  const editor = byId(page, 'cron-editor-scheduledReportCronWidget')
+  await expect(editor.getByRole('alert')).toHaveText('Cron Expression is required')
+  await expect(editor.getByRole('button', { name: /^Days/ })).toBeFocused()
+  // the create form stays open over the saved report
+  await expect(dialog).toBeVisible()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\//)
+  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
+})
+
+test('[RPT-019] the render report input step shows only its fields, without a stray no-fields message @mobile', async ({ page, diagnostics }) => {
+  void diagnostics
+  await openRecord(page, '/app/savedReport/1')
+  await recordAction(page, 'Render Report')
+  await expect(page).toHaveURL(/\/app\/renderSavedReport/)
+  await expect(page.getByLabel(/^Report Format/)).toBeVisible()
+  await expect(page.getByLabel(/^Email To/)).toBeVisible()
+  await expect(page.getByLabel(/^Email Subject/)).toBeVisible()
+  // the report has no variables: its values widget loads and renders nothing
+  const values = page.locator('[data-qqq-id="process-widget-renderReportProcessValuesWidget"]')
+  await expect(values).toHaveCount(1)
+  await expect(values).toHaveText('')
+  await expect(page.getByText('No fields', { exact: true })).toHaveCount(0)
+  await expectTouchReady(page, page.locator('[data-qqq-id="process-run-renderSavedReport"]'))
+})
+
+test('[RPT-012] a scheduled report is created for a saved report and shows its schedule @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const dialog = await fillSchedule(page, '0 0 9 * * ?')
+  // the dialog closes over the saved report, the link's hash is cleared and the child list reloads
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  // scheduled reports live in the sample memory backend (no SQL table): read them back over the API
+  const records = (await (await backend.api.get('/data/scheduledReport')).json()).records as Array<{ values: { id: number } }>
+  expect(records).toHaveLength(1)
+  const id = records[0].values.id
   const saved = await (await backend.api.get(`/data/scheduledReport/${id}`)).json()
   expect(saved.values).toMatchObject({ savedReportId: 1, isActive: true, toAddresses: 'owned-schedule@example.com', subject: 'Owned schedule',
     cronExpression: '0 0 9 * * ?', cronDescription: 'Every day, at 9:00 am', cronTimeZoneId: 'UTC' })
+  await expect(byId(page, `child-record-row-scheduledReportJoinSavedReport-${id}`)).toBeVisible()
+  await openRecord(page, `/app/scheduledReport/${id}`)
   await expectLoaded(page, 'scheduledReportCronWidget')
   await expect(byId(page, 'cron-expression-scheduledReportCronWidget')).toHaveText('0 0 9 * * ?')
   await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every day, at 9:00 am')
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await expect(byId(page, `child-record-row-scheduledReportJoinSavedReport-${id}`)).toBeVisible()
 })
 
-test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/scheduledReport 400')
+test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
+  diagnostics.allow('/qqq/v1/table/scheduledReport 400')
   diagnostics.allow('Failed to load resource: the server responded with a status of 400')
-  await fillSchedule(page, 'not a cron')
-  await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
-  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
+  const dialog = await fillSchedule(page, 'not a cron')
   await expect(page.getByRole('alert').filter({ hasText: /Cron Expression \[not a cron\] is not valid/ }).first()).toBeVisible()
+  // the form stays open over the saved report with the entered values
+  await expect(dialog.getByLabel(/^Cron Expression/)).toHaveValue('not a cron')
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\//)
+  expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
-test('[RPT-013] the owner shares a saved report read-only with a user', async ({ page, backend, diagnostics }) => {
+test('[RPT-013] the owner shares a saved report read-only with a user @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const dialog = await openShare(page, '/app/savedReport/1')
   await expect(dialog.getByRole('heading', { name: 'Share Report: Pet Species Report' })).toBeVisible()
@@ -151,7 +287,7 @@ test('[RPT-013] the owner shares a saved report read-only with a user', async ({
   await expect(dialog).toBeHidden()
 })
 
-test('[RPT-014] the owner changes a share to read and edit', async ({ page, backend, diagnostics }) => {
+test('[RPT-014] the owner changes a share to read and edit @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await shareViaApi(backend, 'insertSharedRecord', { tableName: 'savedReport', recordId: 1, audienceType: 'user', audienceId: 'sample:bob', scopeId: 'READ_ONLY' })).status).toBe(200)
   const [share] = await sqlRows(backend, "select id from shared_saved_report where saved_report_id = 1 and user_id = 'sample:bob'")
@@ -161,7 +297,7 @@ test('[RPT-014] the owner changes a share to read and edit', async ({ page, back
   await expect(dialog.getByLabel('Scope for Bob')).toHaveValue('READ_WRITE')
 })
 
-test('[RPT-015] the owner removes a share', async ({ page, backend, diagnostics }) => {
+test('[RPT-015] the owner removes a share @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await shareViaApi(backend, 'insertSharedRecord', { tableName: 'savedReport', recordId: 1, audienceType: 'user', audienceId: 'sample:casey', scopeId: 'READ_ONLY' })
   const dialog = await openShare(page, '/app/savedReport/1')
@@ -172,7 +308,7 @@ test('[RPT-015] the owner removes a share', async ({ page, backend, diagnostics 
   expect(await sqlRows(backend, 'select id from shared_saved_report where saved_report_id = 1')).toEqual([])
 })
 
-test('[RPT-018] a saved view is shared through the same dialog', async ({ page, backend, diagnostics }) => {
+test('[RPT-018] a saved view is shared through the same dialog @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // other areas may seed shares on the same stock view (the query fixture shares it with bob)
   const sharesSql = 'select saved_view_id, user_id, scope from shared_saved_view order by id'
@@ -188,7 +324,7 @@ test('[RPT-018] a saved view is shared through the same dialog', async ({ page, 
   expect(await sqlRows(backend, sharesSql)).toEqual([...before, { saved_view_id: '1', user_id: 'sample:casey', scope: 'READ_WRITE' }])
 })
 
-test('[RPT-017] only the owner may share: the button is disabled for others and the server refuses', async ({ page, backend, diagnostics }) => {
+test('[RPT-017] only the owner may share: the button is disabled for others and the server refuses @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // alice can read casey's report through its read-only share, but does not own it
   await open(page, '/app/savedReport/101')
@@ -208,8 +344,8 @@ test('[RPT-017] only the owner may share: the button is disabled for others and 
 test.describe('as another user', () => {
   test.use({ user: 'bob' })
 
-  test('[RPT-016] an unshared report is invisible to another user until it is shared', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/savedReport/1 404')
+  test('[RPT-016] an unshared report is invisible to another user until it is shared @mobile', async ({ page, backend, diagnostics }) => {
+    diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('Failed to load resource: the server responded with a status of 404')
     const [report] = await sqlRows(backend, "select label from saved_report where id = 1 and user_id = 'sample:alice'")
@@ -224,7 +360,7 @@ test.describe('as another user', () => {
     await backend.setPersona('admin', 'bob')
     expect((await backend.api.get('/data/savedReport/1')).status()).toBe(200)
     await page.reload()
-    await expect(page.getByRole('grid', { name: 'Report records' }).getByRole('gridcell', { name: report.label, exact: true })).toBeVisible()
+    await expect(listCell(page, 'Report', report.label)).toBeVisible()
     await open(page, '/app/savedReport/1')
     await expect(page.getByRole('heading', { level: 1, name: report.label })).toBeVisible()
     expect(await sqlRows(backend, "select user_id from shared_saved_report where saved_report_id = 1")).toEqual([{ user_id: 'sample:bob' }])

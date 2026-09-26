@@ -20,7 +20,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
 /** Props accepted by {@link SafeHtml}. */
 interface SafeHtmlProps {
@@ -41,6 +41,6 @@ interface SafeHtmlProps {
  * @returns The element with sanitized inner HTML.
  */
 export function SafeHtml({ html, as = 'div', className, qqqId }: SafeHtmlProps) {
-  const clean = useMemo(() => DOMPurify.sanitize(html), [html])
+  const clean = useMemo(() => sanitizeHtml(html), [html])
   return React.createElement(as, { className, 'data-qqq-id': qqqId, dangerouslySetInnerHTML: { __html: clean } })
 }

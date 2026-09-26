@@ -444,7 +444,7 @@
     },
     {
       "id": "NAV-025",
-      "feature": "Header search, '/' search dialog and search page jump to navigation targets and recently viewed records without a backend search endpoint",
+      "feature": "Header search, '/' search dialog and search page jump to navigation targets and recently viewed records by label (matched locally, alongside record search when the backend offers it: NAV-030)",
       "source": [
         "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/app/(dashboard)/app/search/page.tsx",
         "qqq-middleware-javalin (no /search route)"
@@ -456,7 +456,7 @@
         "Enter without a selection opens /app/search?q= with the matches, surviving refresh"
       ],
       "negative": [
-        "no POST /qqq/v1/search request is made (regression: every keystroke produced a 404)"
+        "no search request fails (regression: every keystroke produced a 404 from a missing /search endpoint); with no searchable tables no request is made at all (NAV-032)"
       ],
       "issues": [
         "#653"
@@ -469,9 +469,9 @@
       "source": [
         "src/components/layout/Header.tsx, src/components/layout/Sidebar.tsx (drawer mode)"
       ],
-      "fixture": "stock sample, 390x844 viewport",
+      "fixture": "stock sample, 412x839 touch viewport",
       "scenarios": [
-        "hamburger opens the drawer; choosing a table navigates and closes it; close button closes it"
+        "hamburger opens the drawer; choosing a table navigates and closes it; close button and a backdrop tap close it; drawer controls are 44 px touch targets"
       ],
       "negative": [],
       "issues": [],
@@ -530,6 +530,211 @@
       ],
       "issues": [
         "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-030",
+      "feature": "Global search (header box, '/' dialog, search page) lists the records a backend record search (POST /qqq/v1/search over each table's searchFields) finds, after the matching pages, by record label with the table label; results open by keyboard and the search page survives refresh",
+      "source": [
+        "src/lib/hooks/use-record-search.ts, src/lib/utils/record-search.ts, src/lib/utils/navigation-search.ts",
+        "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/components/layout/NavigationSearchResults.tsx, src/app/(dashboard)/app/search/page.tsx",
+        "qqq-backend-core RecordSearchAction, QTableMetaData.searchFields; qqq-middleware-javalin RecordSearchSpecV1"
+      ],
+      "fixture": "stock sample + NavigationFixtures (search fields on person, pet, savedView)",
+      "scenarios": [
+        "'/' dialog: 'COCO' finds the pet Coco (label and table label), case-insensitively; ArrowDown and Enter open /app/pet/{id}",
+        "the request searches the readable searchable tables (person, pet, savedView) with a per-table limit of 5",
+        "header box: 'Sample' lists the matching people (database order, limit 5) after pages; Enter opens /app/search?q=Sample whose Records region lists every match (limit 25) before and after refresh; a link opens the record"
+      ],
+      "negative": [
+        "a one-character term is not sent (unit), and a recent record already found is not listed twice (unit)"
+      ],
+      "issues": [
+        "#701"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-031",
+      "feature": "Record search respects table read permissions and record security locks, in the UI and the API",
+      "source": [
+        "qqq-backend-core RecordSearchAction (PermissionsHelper READ, QueryAction record locks), QFrontendTableMetaData.searchFields",
+        "src/lib/utils/record-search.ts (searchableTables)"
+      ],
+      "fixture": "stock sample + NavigationFixtures + QueryFixtures (alice's saved view shared read-only with bob); noPets persona; sharing demo users",
+      "scenarios": [
+        "noPets: 'ey' lists the matching people only; the UI never asks for pets and the metadata advertises no pet search fields",
+        "admin: the backend returns the pets matching 'EY' for tableNames [pet]",
+        "alice finds her saved view 'Alice People View' with the saved view table label, in the UI and from the API",
+        "bob, with whom the view is shared read-only, finds it from the API (the lock admits shared readers)"
+      ],
+      "negative": [
+        "noPets: POST /qqq/v1/search with tableNames [pet] returns no results; an unscoped search returns no pets",
+        "casey (neither owner nor shared reader): the locked saved view is not found in the UI or from the API"
+      ],
+      "issues": [
+        "#701"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-032",
+      "feature": "Without searchable tables (the backend declares no searchFields) global search stays local and never calls a search endpoint",
+      "source": [
+        "src/lib/utils/record-search.ts (searchableTables), src/lib/hooks/use-record-search.ts",
+        "tests/acceptance/fixture/SecurityAcceptanceServer.java (stock sample + SecurityFixtures, no search fields)"
+      ],
+      "fixture": "security variant (stock sample + SecurityFixtures)",
+      "scenarios": [
+        "the variant's v1 metadata lists no table with searchFields",
+        "header box, '/' dialog and search page keep the local labels and matches, with no Records group or region"
+      ],
+      "negative": [
+        "no request to /qqq/v1/search or /search is made while typing, opening the dialog or loading the search page"
+      ],
+      "issues": [
+        "#701",
+        "#653"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-033",
+      "feature": "Login branding before sign-in: logo, app name, accent color, favicon and title from GET /qqq/v1/metaData/authentication (no session), never the banners",
+      "source": [
+        "qqq-middleware-javalin specs/v1/responses/AuthenticationMetaDataResponseV1.java, components/PublicBranding.java",
+        "src/app/(auth)/login/page.tsx",
+        "src/lib/theme/apply-branding.ts"
+      ],
+      "fixture": "sample branding (appName, logo /samples-logo.png, icon /kr-icon.png) + NavigationFixtures accentColor #1d4ed8 and three banners",
+      "scenarios": [
+        "unauthenticated authentication metadata carries exactly appName, logo, icon and accentColor",
+        "after logout and a fresh load the login card shows the loaded logo and QQQ Sample",
+        "primary color variables and the Sign in button use the accent; favicon /kr-icon.png; title Sign in | QQQ Sample"
+      ],
+      "negative": [
+        "no banner text in the unauthenticated response or on the login page"
+      ],
+      "issues": [
+        "QRun-IO/qqq#703",
+        "#539"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-034",
+      "feature": "Material table-scoped URLs: /app/{table}/{process} opens the table process (or an instance process); /app/{table}/{id}/{process} runs it for that record and returns to it",
+      "source": [
+        "material-dashboard src/App.tsx (table process routes), src/qqq/pages/records/view/RecordView.tsx (record process routes)",
+        "src/lib/utils/material-links.ts (tableProcessForSegment, processRunHref)",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx",
+        "src/app/(dashboard)/app/[slug]/[recordId]/[action]/page.tsx",
+        "src/components/layout/RouteRedirect.tsx"
+      ],
+      "fixture": "sample person.bulkEdit, clonePeople (table processes), prcQuickTask (ProcessesFixtures, instance process)",
+      "scenarios": [
+        "/app/person/person.bulkEdit?recordsParam=recordIds&recordIds=1,2 replaces itself with the run (init sends 1,2; Back returns to the table)",
+        "/app/person/prcQuickTask opens the instance process with returnTo the table",
+        "/app/person/1/clonePeople runs for record 1 (init and SQL clone) and Return lands on the record",
+        "/app/person/2/bulkEdit resolves the table process by suffix; Cancel returns to the record"
+      ],
+      "negative": [
+        "/app/person/1/noSuchProcess shows the in-shell not-found state and starts no process",
+        "report URLs (/app/{table}/{report}) are not covered: the backend frontend report metadata (QFrontendReportMetaData) has no tableName, so no report can match (#732)"
+      ],
+      "issues": [
+        "#714",
+        "#732"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-035",
+      "feature": "Process runs launched from a record view or a filtered query return there (Return and Cancel honor returnTo)",
+      "source": [
+        "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx and RecordView.tsx (process modal over the screen)",
+        "src/components/records/RecordActions.tsx, src/components/query/RecordQuery.tsx (launchProcess returnTo)",
+        "src/components/process/ProcessRun.tsx, src/app/(dashboard)/app/[slug]/page.tsx (safeReturnTo)"
+      ],
+      "fixture": "sample person, clonePeople, person.bulkEdit",
+      "scenarios": [
+        "record Actions > Clone People runs for the record and Return lands on the record",
+        "Bulk Edit from /app/person?filter=isEmployed: returnTo is the launching path and query; after the edit (SQL) Return restores the same filter and the filtered rows"
+      ],
+      "negative": [
+        "the unmatched record (Morgan) stays out of the returned grid"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-036",
+      "feature": "Material app settings (MaterialDashboardAppMetaData): showAppLabelOnHomeScreen and includeTableCountsOnHomeScreen turned off hide the home-screen title and the table counts",
+      "source": [
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardAppMetaData.java",
+        "qqq-frontend-material-dashboard/src/qqq/pages/apps/Home.tsx:81-88,176-187,307-314",
+        "qqq-middleware-javalin v1 AppMetaData.getSupplementalAppMetaData",
+        "src/components/widgets/AppHome.tsx"
+      ],
+      "fixture": "NavigationFixtures.java navQuietHome app (navQuietItem table) with MaterialDashboardAppMetaData(false, false)",
+      "scenarios": [
+        "v1 metaData carries supplementalAppMetaData.materialDashboard for the app",
+        "The app home has no visible title (a screen-reader-only h1 remains) and the table entry shows no count",
+        "No count request is made for the table"
+      ],
+      "negative": [
+        "Apps without the settings keep their title and counts (Material defaults)"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-037",
+      "feature": "Mobile navigation drawer is a keyboard-usable modal dialog: focus moves in on open, Tab stays inside, and Escape, the close button or a chosen link close it and return focus to the menu button",
+      "source": [
+        "src/components/layout/Sidebar.tsx (drawer mode, Radix Dialog)",
+        "src/components/layout/Header.tsx (menu button)",
+        "src/app/(dashboard)/layout.tsx"
+      ],
+      "fixture": "stock sample (Miscellaneous app), 412x839 touch viewport",
+      "scenarios": [
+        "Enter on the menu button opens the Navigation dialog with focus inside",
+        "Tab and Shift+Tab visit every drawer control and never reach the page behind",
+        "Escape, the close button and choosing Carrier close it; focus returns to the menu button; Carrier opens"
+      ],
+      "negative": [
+        "Tab never leaves the open drawer (QRun-IO/qqq#708: focus stayed on the menu button; Firefox could not reach the drawer)"
+      ],
+      "issues": [
+        "#708"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-038",
+      "feature": "Shell on phones and tablets: skip link, header controls, breadcrumbs, navigation entries, user menu, app homes and not-found links are 44 px touch targets, and the page never scrolls sideways",
+      "source": [
+        "src/app/(dashboard)/layout.tsx (skip link)",
+        "src/components/layout/Header.tsx, Breadcrumbs.tsx, Sidebar.tsx, NotFoundState.tsx",
+        "src/app/not-found.tsx",
+        "src/styles/globals.css (pointer: coarse)"
+      ],
+      "fixture": "stock sample + NavigationFixtures (navDeepItem three apps deep); mobile (Pixel 7) and tablet (iPad, desktop layout with touch) projects",
+      "scenarios": [
+        "skip link is the first Tab stop and 44 px tall when shown",
+        "header, breadcrumbs, sidebar or drawer entries and the user menu meet the 44 px target",
+        "no sideways page scroll with a four-level breadcrumb trail"
+      ],
+      "negative": [
+        "under a mouse (pointer: fine) the desktop sizes are unchanged"
+      ],
+      "issues": [
+        "#708"
       ],
       "required": true
     }

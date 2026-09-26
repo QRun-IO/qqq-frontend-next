@@ -14,9 +14,38 @@ export function grid(page: Page, tableLabel: string): Locator {
   return page.getByRole('grid', { name: `${tableLabel} records` })
 }
 
-/** Body cells of one grid column, in row order. */
+/**
+ * Body cells of one column, in row order: the grid cells, or on a phone the card values of that
+ * field (cards show the first visible fields; use `showTable` for the others).
+ */
 export function columnCells(page: Page, column: string): Locator {
-  return page.locator(`tbody td[data-qqq-id="grid-cell-${column}"]`)
+  return page.locator(`tbody td[data-qqq-id="grid-cell-${column}"], [role="listitem"][data-qqq-id^="record-card-"] [data-qqq-id="card-field-${column}"] dd`)
+}
+
+/** True when the viewport has the phone layout (card list, filter sheet). */
+export function isPhone(page: Page): boolean {
+  return (page.viewportSize()?.width ?? 1280) < 768
+}
+
+/**
+ * Shows the data grid: on a phone the list starts as cards, and the toolbar's Table view
+ * switches it to the grid (remembered per table). A no-op on wider viewports.
+ */
+export async function showTable(page: Page) {
+  if (!isPhone(page)) return
+  const query = page.locator('[data-qqq-id^="record-query-"][data-view-mode]')
+  await expect(query).toBeVisible()
+  if ((await query.getAttribute('data-view-mode')) === 'grid') return
+  await page.locator('[data-qqq-id="view-mode-grid"]').click()
+  await expect(query).toHaveAttribute('data-view-mode', 'grid')
+}
+
+/** Closes the phone filter sheet (a modal) so the list and toolbar can be used; no-op elsewhere. */
+export async function closeFilterSheet(page: Page) {
+  const sheet = page.getByRole('dialog', { name: 'Advanced Filters' })
+  if (!isPhone(page) || !(await sheet.isVisible())) return
+  await sheet.getByRole('button', { name: 'Close filter panel' }).click()
+  await expect(sheet).toHaveCount(0)
 }
 
 /** Asserts the exact, ordered values of a grid column (waits for the grid to settle). */
@@ -35,7 +64,7 @@ export async function sqlColumn(backend: Backend, query: string): Promise<string
   return rows.map((row) => String(Object.values(row)[0] ?? ''))
 }
 
-/** Opens the advanced filter panel. */
+/** Opens the advanced filter panel (the filter sheet on a phone). */
 export async function openFilter(page: Page) {
   const toggle = page.locator('[data-qqq-id="button-filter"]')
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()

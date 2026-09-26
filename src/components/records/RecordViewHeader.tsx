@@ -20,13 +20,19 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { queryKeys } from '@/lib/query-client'
+import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
+import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 
 import { RecordActions } from './RecordActions'
 import { FieldLabel } from './FieldLabel'
@@ -34,6 +40,8 @@ import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
+import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
+import { GotoRecordButton } from './GotoRecordDialog'
 
 /**
  * Extracts initials from a display label: first letter of each of the first
@@ -82,6 +90,8 @@ interface RecordViewHeaderProps {
   auditSource?: AuditSource
   /** Widget metadata, for WIDGET-adorned T1 fields. */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Reloads the record and its children (after a child is created from a link). */
+  onRecordChanged?: () => void
 }
 
 /**
@@ -110,14 +120,17 @@ export function RecordViewHeader({
   navigateFrom,
   auditSource = null,
   widgetMetaDataMap,
+  onRecordChanged,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
   const mobileActionsTrigger = useRef<HTMLButtonElement>(null)
   const mobileActionsClose = useRef<HTMLButtonElement>(null)
+  const auditTrigger = useRef<HTMLButtonElement>(null)
 
   /**
    * Closes the phone action sheet and returns focus to its trigger. The sheet's items unmount
@@ -127,6 +140,25 @@ export function RecordViewHeader({
   const closeMobileActions = () => {
     mobileActionsTrigger.current?.focus()
     setMobileActionsOpen(false)
+  }
+
+  /**
+   * Keeps Tab and Shift+Tab inside the open action sheet (a modal dialog), wrapping at either end.
+   *
+   * @param event - The keydown event of a Tab press inside the sheet.
+   */
+  const trapTab = (event: React.KeyboardEvent<HTMLElement>) => {
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }
 
   // Move focus into the action sheet when it opens, so keyboard and screen-reader users land in it.
@@ -150,12 +182,38 @@ export function RecordViewHeader({
   const canInsert = canInsertRecords(tableMetaData)
   const canDelete = canDeleteRecords(tableMetaData)
 
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
-  )
+  const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
+  // A read-only user gets no Actions trigger on a phone rather than one that opens an empty sheet
+  const hasMobileActions = canEdit || canInsert || canDelete || availableProcesses.length > 0
+
+  // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
+  const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
+  const recordPath = `${tablePath}/${encodeURIComponent(String(primaryKey))}`
+  // Material hash links on a record view: #audit, #/launchProcess={process}, #/createChild={table}/defaultValues=...
+  const [hash, clearHash] = useLocationHash()
+  const hashAction = useMemo(() => recordHashAction(hash), [hash])
+  const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
+  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table;
+  // those are always in this screen's list, so a process missing from it (a hidden table process) names no table
+  const hashProcess = hashAction?.type === 'launchProcess' ? processes?.find((process) => process.name === hashAction.processName) : undefined
+  const hashLaunchTable = hashProcess ? launchTableName(hashProcess, tableMetaData.name) : undefined
+  useEffect(() => {
+    if (!hashAction) return
+    if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)
+    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath, tableName: hashLaunchTable }))
+    else if (hashAction.type === 'createChild') setCreateChild(hashAction)
+  }, [hashAction, auditSource, router, primaryKey, recordPath, hashLaunchTable])
+
+  usePageShortcuts({
+    n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
+    e: !hideActions && canEdit && (() => router.push(`${recordPath}/edit`)),
+    c: !hideActions && canInsert && (() => router.push(`${recordPath}/copy`)),
+    d: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
+    a: Boolean(auditSource) && (() => setAuditOpen(true)),
+  })
 
   return (
-    <div className="flex items-start gap-4">
+    <div className="flex flex-wrap items-start gap-4" data-qqq-id="record-view-header">
       <div
         className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
         aria-hidden="true"
@@ -166,9 +224,11 @@ export function RecordViewHeader({
           `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`
         )}
       </div>
-      <div className="flex-1 min-w-0">
+      {/* The title keeps at least 14rem; when the controls do not fit beside it (phones, tablets
+          with the sidebar open) they wrap onto their own row instead of squeezing the title. */}
+      <div className="min-w-0 flex-1 basis-56">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
           {/* D-V-5: Copy record ID to clipboard */}
@@ -198,11 +258,11 @@ export function RecordViewHeader({
             data-qqq-id="record-primary-sections"
           >
             {t1Fields.map((field) => (
-              <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
+              <div key={field.name} className="flex min-w-0 flex-col" data-qqq-id={`record-field-${field.name}`}>
                 <dt className="text-xs text-muted-foreground">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
-                <dd className="text-sm">
+                <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -212,7 +272,7 @@ export function RecordViewHeader({
           </dl>
         )}
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto" data-qqq-id="record-view-controls">
         {/* View mode toggle */}
         <div
           className="flex rounded-lg border border-border bg-muted/50 p-0.5"
@@ -250,8 +310,20 @@ export function RecordViewHeader({
           </button>
         </div>
 
+        {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
+        <GotoRecordButton
+          tableMetaData={tableMetaData}
+          className={cn(
+            'inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm font-medium',
+            'text-foreground bg-card hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'transition-colors duration-150'
+          )}
+        />
+
         {auditSource && (
           <button
+            ref={auditTrigger}
             type="button"
             onClick={() => setAuditOpen(true)}
             data-qqq-id="button-audit"
@@ -271,15 +343,15 @@ export function RecordViewHeader({
         {!hideActions && (
           <>
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
-            <div className="hidden md:flex md:items-center md:gap-2">
+            <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
+              <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record} processes={processes} />
             </div>
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
             <div className="flex items-center gap-2 md:hidden">
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              <button
+              {hasMobileActions && <button
                 type="button"
                 ref={mobileActionsTrigger}
                 onClick={() => setMobileActionsOpen(true)}
@@ -296,14 +368,14 @@ export function RecordViewHeader({
               >
                 Actions
                 <MoreVertical className="h-4 w-4" aria-hidden="true" />
-              </button>
+              </button>}
             </div>
           </>
         )}
       </div>
 
       {/* Mobile actions bottom-sheet — MED-17 */}
-      {mobileActionsOpen && (
+      {mobileActionsOpen && hasMobileActions && (
         <div className="md:hidden" data-qqq-id="mobile-actions-sheet">
           {/* Backdrop */}
           <div
@@ -313,14 +385,17 @@ export function RecordViewHeader({
           />
           {/* Bottom sheet panel */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-xl border-t border-border bg-card shadow-lg"
+            className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-card shadow-lg"
             role="dialog"
             aria-modal="true"
             aria-label="Record actions"
+            data-qqq-id="mobile-actions-panel"
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 event.stopPropagation()
                 closeMobileActions()
+              } else if (event.key === 'Tab') {
+                trapTab(event)
               }
             }}
           >
@@ -343,7 +418,7 @@ export function RecordViewHeader({
               </button>
             </div>
 
-            <div className="flex flex-col py-2">
+            <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain py-2" data-qqq-id="mobile-actions-list">
               {/* Edit */}
               {canEdit && (
                 <button
@@ -391,7 +466,7 @@ export function RecordViewHeader({
                   type="button"
                   onClick={() => {
                     setMobileActionsOpen(false)
-                    router.push(`/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`)
+                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(process, tableMetaData.name) }))
                   }}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
@@ -446,11 +521,30 @@ export function RecordViewHeader({
       {auditSource && (
         <AuditHistoryDialog
           open={auditOpen}
-          onOpenChange={setAuditOpen}
+          onOpenChange={(open) => {
+            setAuditOpen(open)
+            if (!open && hashAction?.type === 'audit') clearHash()
+          }}
           source={auditSource}
           tableMetaData={tableMetaData}
           primaryKey={primaryKey}
           recordLabel={record.recordLabel || String(primaryKey)}
+          returnFocusRef={auditTrigger}
+        />
+      )}
+
+      {createChild && (
+        <CreateChildFromLinkDialog
+          tableName={createChild.tableName}
+          presets={createChild}
+          onClose={() => {
+            setCreateChild(null)
+            clearHash()
+          }}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.widgets() })
+            onRecordChanged?.()
+          }}
         />
       )}
 

@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { createContext, useCallback, useContext, useMemo } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
@@ -30,6 +30,9 @@ import { cn } from '@/lib/utils/cn'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { scrollIntoViewWhenRendered } from '@/lib/utils/scroll-when-rendered'
+import { recordHashAction } from '@/lib/utils/material-links'
 
 import { RecordViewSection } from './RecordViewSection'
 import { FieldValue } from './FieldValue'
@@ -478,6 +481,19 @@ function RecordViewContent({
     updateUrlParam('view', mode, 'tabs')
   }, [updateUrlParam])
 
+  // Material section anchors (#sectionName): show that section's tab and scroll to it.
+  const [hash] = useLocationHash()
+  useEffect(() => {
+    const action = recordHashAction(hash)
+    if (action?.type !== 'section') return
+    const tabId = `section-${action.name}`
+    if (viewMode === 'tabs' && tabs.some((tab) => tab.id === tabId)) setActiveTab(tabId)
+    // on a phone the section renders only once its accordion item opens, so wait for it
+    return scrollIntoViewWhenRendered(`[data-qqq-id="record-section-${CSS.escape(action.name)}"]`)
+    // only a new hash moves the view; tab and mode changes must not re-apply it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash])
+
   // CQ-MED-4: primarySections already captures all sections without an explicit tier
   // (via the `!s.tier` predicate), so the `|| visibleSections` fallback is redundant.
   const t1Sections = primarySections
@@ -549,7 +565,7 @@ function RecordViewContent({
         {/* Back link — returns to source page if navigated from another record, otherwise table list */}
         <Link
           href={safeFromPath || `/app/${tableMetaData.name}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pointer-coarse:min-h-11"
           data-qqq-id="link-back-to-table"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -569,6 +585,7 @@ function RecordViewContent({
           navigateFrom={navigateFrom}
           auditSource={auditSource}
           widgetMetaDataMap={widgetMetaDataMap}
+          onRecordChanged={onRefetch}
         />
 
         {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (

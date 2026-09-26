@@ -21,7 +21,7 @@
 import { http, HttpResponse } from 'msw'
 import type { QPossibleValue } from '@/types'
 
-const BASE = ''
+const BASE = '/qqq/v1'
 
 // ─── Static possible value sources ───────────────────────────────────────────
 
@@ -133,22 +133,21 @@ async function getDynamicPossibleValues(
 // ─── Handler factory ──────────────────────────────────────────────────────────
 
 /**
- * Creates an MSW GET handler for a possible-values URL pattern.
+ * Creates an MSW handler for a v1 possible-values route (`POST`, JSON body).
  *
  * Resolves values from static sources first, then from record-based dynamic
  * sources. Returns an empty array for unknown source names.
  *
  * @param urlPattern - The MSW URL pattern string to register (e.g. `/possibleValues/:fieldName`).
- * @returns An MSW `http.get` handler for the given pattern.
+ * @returns An MSW `http.post` handler for the given pattern.
  */
 function makePossibleValuesHandler(urlPattern: string) {
-  return http.get(urlPattern, async ({ params, request }) => {
+  return http.post(urlPattern, async ({ params, request }) => {
     const fieldName = (params as Record<string, string>)['fieldName'] ?? ''
-    const query = new URL(request.url).searchParams
+    const body = (await request.json().catch(() => ({}))) as { searchTerm?: string; ids?: unknown[] }
 
-    const searchTerm = query.get('searchTerm') ?? ''
-    const idsRaw = query.get('ids') ?? ''
-    const ids = idsRaw ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean) : []
+    const searchTerm = body.searchTerm ?? ''
+    const ids = Array.isArray(body.ids) ? body.ids.map((id) => String(id).trim()).filter(Boolean) : []
 
     // Check static sources first
     const staticSource = possibleValueSources[fieldName]
@@ -176,12 +175,12 @@ function makePossibleValuesHandler(urlPattern: string) {
 }
 
 export const possibleValuesHandlers = [
-  // GET /data/:tableName/possibleValues/:fieldName
-  makePossibleValuesHandler(`${BASE}/data/:tableName/possibleValues/:fieldName`),
+  // POST /table/:tableName/possibleValues/:fieldName
+  makePossibleValuesHandler(`${BASE}/table/:tableName/possibleValues/:fieldName`),
 
-  // GET /processes/:processName/possibleValues/:fieldName
+  // POST /processes/:processName/possibleValues/:fieldName
   makePossibleValuesHandler(`${BASE}/processes/:processName/possibleValues/:fieldName`),
 
-  // GET /possibleValues/:fieldName
+  // POST /possibleValues/:fieldName
   makePossibleValuesHandler(`${BASE}/possibleValues/:fieldName`),
 ]

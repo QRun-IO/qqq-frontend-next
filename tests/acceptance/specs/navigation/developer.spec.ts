@@ -22,7 +22,7 @@ function bundledReactVersion(): string {
 }
 
 test.describe('developer page', () => {
-  test('[NAV-027] shows the backend metadata counts and the running framework versions', async ({ page, backend, diagnostics }) => {
+  test('[NAV-027] shows the backend metadata counts and the running framework versions @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const full = await (await backend.api.get('/metaData')).json()
 

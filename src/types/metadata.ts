@@ -63,7 +63,7 @@ export interface QAuthenticationMetaData {
   /** Unique name for this authentication configuration. */
   name: string
   /** The authentication strategy this instance uses. */
-  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK'
+  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK' | 'TABLE_BASED'
   /** Provider-specific values (client ID, base URL, audience); absent for MOCK and FULLY_ANONYMOUS. */
   values?: {
     /** OAuth2 / Auth0 client ID registered with the identity provider. */
@@ -75,7 +75,18 @@ export interface QAuthenticationMetaData {
     /** Space-separated scopes to request from an OAUTH2 provider. */
     scopes?: string
   }
+  /**
+   * Branding that is safe to show before sign-in (QRun-IO/qqq#703): the login page's
+   * logo, app name and accent. Absent when the backend declares no branding or predates it.
+   */
+  branding?: QLoginBranding
 }
+
+/**
+ * The subset of {@link QBrandingMetaData} the backend exposes before a session exists.
+ * Banners and custom CSS are never included.
+ */
+export type QLoginBranding = Pick<QBrandingMetaData, 'companyName' | 'appName' | 'logo' | 'icon' | 'accentColor' | 'accentColorLight'>
 
 /**
  * Branding configuration that controls the visual identity of the application.
@@ -148,6 +159,12 @@ export interface QTableMetaData {
   capabilities: Capability[]
   /** Whether the current user may read records from this table. */
   readPermission: boolean
+  /**
+   * Fields that record search (`POST /search`) matches for this table. Present only
+   * when the backend supports record search, the table declares search fields and
+   * the user may read the table.
+   */
+  searchFields?: string[]
   /** Whether the current user may create new records in this table. */
   insertPermission: boolean
   /** Whether the current user may update existing records in this table. */
@@ -162,7 +179,12 @@ export interface QTableMetaData {
   helpContent?: QHelpContent
   /** Table help content by slot name, as the backend declares it. */
   helpContents?: Record<string, QHelpContent[]>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`),
+   * as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy (non-v1) routes' key. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
   shareableTableMetaData?: Record<string, unknown>
@@ -309,6 +331,8 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  supplementalAppMetaData?: Record<string, unknown>
 }
 
 /**
@@ -525,6 +549,8 @@ export interface QReportMetaData {
   hasPermission: boolean
   /** Process that runs this report (e.g. the basic report process). */
   processName?: string
+  /** Table whose records the report reads, when it has one. */
+  tableName?: string
   /** Material Icons name for navigation. */
   iconName?: string
 }

@@ -286,6 +286,13 @@ describe('QqqComposite', () => {
     expect(screen.getByText('Still here')).toBeInTheDocument()
   })
 
+  it('renders a single leaf block payload as that block (Material block widget and table cell)', () => {
+    const { container } = renderComposite({ blockTypeName: 'TEXT', values: { text: 'Leaf only' } } as unknown as QqqCompositeData, 'accLeafBlock')
+    expect(screen.getByText('Leaf only')).toBeInTheDocument()
+    expect(container.querySelector('[data-block-type="COMPOSITE"]')).toBeNull()
+    expect(container.querySelector('[data-block-type="TEXT"]')).toBeInTheDocument()
+  })
+
   it('renders a payload notice instead of throwing for malformed blocks', () => {
     renderComposite({ blocks: { invalidShape: true } as unknown as QqqCompositeData['blocks'] }, 'accMalformedComposite')
     expect(screen.getByRole('alert')).toHaveTextContent('The composite widget data is not in the expected format (blocks).')

@@ -95,6 +95,9 @@ export interface EntityFormProps {
   /** Declared relationship fields merged after ordinary input validation on insert. */
   fixedValues?: Record<string, string | number | boolean>
 
+  /** Fields shown disabled with their default value (Material link `disabledFields`). */
+  disabledFieldNames?: string[]
+
   /** Restricts the form to only these fields; when omitted all editable non-hidden fields are shown. */
   fieldNamesToInclude?: string[]
 
@@ -139,6 +142,7 @@ export function EntityForm({
   onCancel,
   defaultValues: propDefaultValues,
   fixedValues,
+  disabledFieldNames,
   fieldNamesToInclude,
   possibleValueContext,
   widgets,
@@ -183,6 +187,8 @@ export function EntityForm({
 
   // Latest dirty-field map for the update mutation (values that cannot round-trip are sent only when changed).
   const dirtyFieldsRef = useRef<Record<string, unknown>>({})
+  // Staying on the form after the unsaved-changes prompt returns focus to Cancel
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
   dirtyFieldsRef.current = dirtyFields as Record<string, unknown>
 
   // Reset when record changes (e.g., navigating between records)
@@ -442,6 +448,7 @@ export function EntityForm({
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
         disabled={disabled || isSaving || Boolean(defaultsError)}
+        disabledFieldNames={disabledFieldNames}
         dirtyFields={dirtyFields as Record<string, boolean>}
         record={record}
         showReadOnlyFields={isEdit}
@@ -462,6 +469,7 @@ export function EntityForm({
         data-qqq-id="entity-form-actions"
       >
         <button
+          ref={cancelButtonRef}
           type="button"
           onClick={handleCancel}
           disabled={isSaving}
@@ -515,6 +523,7 @@ export function EntityForm({
         open={showUnsavedDialog}
         onStay={handleCancelLeave}
         onLeave={handleConfirmLeave}
+        returnFocusRef={cancelButtonRef}
       />
     </>
   )

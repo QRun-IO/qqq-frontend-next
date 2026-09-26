@@ -36,6 +36,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
 import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
+import { readStoredTableVariant } from '@/lib/utils/table-variant'
 
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
@@ -55,6 +56,8 @@ export interface ProcessRunProps {
   initialValues?: Record<string, unknown>
   /** Record selection and other supported process initialization parameters. */
   initialRequest?: ProcessInitRequest
+  /** In-app path to leave to (the record or query that launched the run); defaults to {@link processReturnPath}. */
+  returnTo?: string
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
@@ -107,6 +110,16 @@ function appContaining(nodes: QAppTreeNode[] | undefined, processName: string): 
 }
 
 /**
+ * The variant stored for the process's table (the query screen's choice), as `{type, id}` JSON.
+ * @param tableName - The process's table.
+ * @returns The JSON, or undefined when the table has no stored variant.
+ */
+function storedVariantJson(tableName: string | undefined): string | undefined {
+  const variant = tableName ? readStoredTableVariant(tableName) : null
+  return variant ? JSON.stringify({ type: variant.type, id: variant.id }) : undefined
+}
+
+/**
  * Where the user returns to after a run: the process's table, else the app listing it.
  * @param process - Process metadata.
  * @param instance - Instance metadata.
@@ -129,6 +142,7 @@ export function ProcessRun({
   processMetaData,
   initialValues,
   initialRequest,
+  returnTo,
   className,
 }: ProcessRunProps) {
   const router = useRouter()
@@ -136,6 +150,7 @@ export function ProcessRun({
   const request = useMemo<ProcessInitRequest>(() => ({
     ...(initialRequest ?? {}),
     ...(processMetaData.tableName ? { tableName: processMetaData.tableName } : {}),
+    ...(storedVariantJson(processMetaData.tableName) ? { tableVariant: storedVariantJson(processMetaData.tableName) } : {}),
     ...(initialValues ? { values: { ...(initialRequest?.values ?? {}), ...initialValues } } : {}),
   }), [initialRequest, initialValues, processMetaData.tableName])
   const boundsMessage = useMemo(() => inputRecordBoundsMessage(processMetaData, request), [processMetaData, request])
@@ -165,7 +180,7 @@ export function ProcessRun({
     document.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
   }, [state.phase, state.screenInstance])
 
-  const leave = () => router.push(processReturnPath(processMetaData, instance))
+  const leave = () => router.push(returnTo ?? processReturnPath(processMetaData, instance))
   const cancelAndLeave = async () => {
     await cancel()
     leave()
@@ -288,6 +303,7 @@ export function ProcessRun({
         values={state.values}
         backStep={state.backStep}
         isWorking={false}
+        tableVariant={request.tableVariant}
         tableMetaData={tableMetaData}
         sourceTableMetaData={sourceTableMetaData}
         previewTableMetaData={previewTableMetaData}

@@ -21,12 +21,14 @@
 'use client'
 
 import React from 'react'
+import { Controller } from 'react-hook-form'
 import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
 import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 
+import { CronScheduleEditor } from './CronScheduleEditor'
 import { DynamicFormField } from './DynamicFormField'
 import { SectionIcon } from '@/components/layout/MetadataIcon'
 
@@ -60,6 +62,9 @@ export interface DynamicFormProps {
 
   /** When `true`, all fields are rendered in a disabled, read-only state. */
   disabled?: boolean
+
+  /** Fields rendered disabled with their preset value (Material `disabledFields`). */
+  disabledFieldNames?: string[]
 
   /**
    * Map of field names to a boolean indicating whether that field has been
@@ -107,12 +112,33 @@ export interface DynamicFormProps {
  * @returns The edited field names, or `undefined` when the section is not an editable widget section.
  */
 export function editScreenWidgetFieldNames(section: QTableSection, widgets: Record<string, QWidgetMetaData> | undefined): string[] | undefined {
+  const cron = editScreenCronWidget(section, widgets)
+  if (!cron) return undefined
+  const names = [cron.expressionFieldName, cron.timeZoneFieldName].filter((name): name is string => name !== undefined)
+  return names.length > 0 ? names : undefined
+}
+
+/** A `cronUI` widget shown on record edit screens, and the record fields it edits. */
+interface EditScreenCronWidget {
+  widgetName: string
+  expressionFieldName?: string
+  timeZoneFieldName?: string
+}
+
+/**
+ * The `cronUI` widget a section houses when it is shown on edit screens.
+ *
+ * @param section - A table section.
+ * @param widgets - Widget metadata by name.
+ * @returns The widget and its field names, or `undefined`.
+ */
+function editScreenCronWidget(section: QTableSection, widgets: Record<string, QWidgetMetaData> | undefined): EditScreenCronWidget | undefined {
   const widget = section.widgetName ? widgets?.[section.widgetName] : undefined
   if (!widget || widget.hasPermission === false || widget.type !== 'cronUI') return undefined
   const defaults = widget.defaultValues ?? {}
   if (defaults.includeOnRecordEditScreen !== true) return undefined
-  const names = [defaults.cronExpressionFieldName, defaults.timeZoneFieldName].filter((name): name is string => typeof name === 'string' && name !== '')
-  return names.length > 0 ? names : undefined
+  const name = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined)
+  return { widgetName: widget.name, expressionFieldName: name(defaults.cronExpressionFieldName), timeZoneFieldName: name(defaults.timeZoneFieldName) }
 }
 
 /**
@@ -143,6 +169,7 @@ export function DynamicForm({
   fieldNamesToInclude,
   possibleValueContext,
   disabled = false,
+  disabledFieldNames,
   dirtyFields,
   record,
   showReadOnlyFields = false,
@@ -229,6 +256,9 @@ export function DynamicForm({
             if (sectionFields.length === 0) return null
 
             const gridCols = section.gridColumns ?? 2
+            const cron = editScreenCronWidget(section, widgets)
+            const cronField = cron && sectionFields.find((f) => f.name === cron.expressionFieldName && f.isEditable)
+            const gridFields = cronField ? sectionFields.filter((f) => f !== cronField) : sectionFields
 
             return (
               <div
@@ -244,6 +274,27 @@ export function DynamicForm({
                     </h4>
                   </div>
                 )}
+                {cron && cronField && (
+                  <Controller
+                    name={cronField.name}
+                    control={control}
+                    defaultValue=""
+                    render={({ field, fieldState }) => (
+                      <CronScheduleEditor
+                        id={`field-${cronField.name}`}
+                        qqqId={cron.widgetName}
+                        label={cronField.label}
+                        value={typeof field.value === 'string' ? field.value : ''}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        focusRef={field.ref}
+                        required={cronField.isRequired}
+                        disabled={disabled}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                )}
                 <div
                   className={cn(
                     'grid gap-4',
@@ -253,7 +304,7 @@ export function DynamicForm({
                     'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
                   )}
                 >
-                  {sectionFields.map((f) => (
+                  {gridFields.map((f) => (
                     <div
                       key={f.name}
                       className={cn(
@@ -266,7 +317,7 @@ export function DynamicForm({
                         register={register}
                         control={control}
                         errors={errors}
-                        disabled={disabled}
+                        disabled={disabled || Boolean(disabledFieldNames?.includes(f.name))}
                         isDirty={dirtyFields?.[f.name] === true}
                         possibleValueContext={possibleValueContext}
                         record={record}
@@ -304,7 +355,7 @@ export function DynamicForm({
               register={register}
               control={control}
               errors={errors}
-              disabled={disabled}
+              disabled={disabled || Boolean(disabledFieldNames?.includes(f.name))}
               isDirty={dirtyFields?.[f.name] === true}
               possibleValueContext={possibleValueContext}
               record={record}

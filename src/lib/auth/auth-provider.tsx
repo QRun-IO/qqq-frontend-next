@@ -15,7 +15,7 @@
  */
 
 /**
- * @file AuthProvider — manages authentication state for AUTH_0, OAUTH2, FULLY_ANONYMOUS, and MOCK auth types.
+ * @file AuthProvider — manages authentication state for AUTH_0, OAUTH2, TABLE_BASED, FULLY_ANONYMOUS, and MOCK auth types.
  */
 'use client'
 
@@ -28,6 +28,10 @@
 //     client secret. Reloads resume the session from the `sessionUUID` cookie.
 //   AUTH_0 — same redirect; the callback exchanges the code with Auth0 as a public
 //     client and posts the access token to the backend.
+//   TABLE_BASED — the login page asks for a username and password, sent once as
+//     `Authorization: Basic` to `POST /qqq/v1/manageSession`; the backend checks them
+//     against its user table and stores a session row (QRun-IO/qqq#700). Reloads
+//     resume the session from the `sessionUUID` cookie like OAUTH2.
 // Explicit logout ends the backend session, clears per-user client data, and keeps
 // the tab signed out until the user signs in again. A 401 from any other call means
 // the session expired: the user is sent to /login?returnTo=<page>, which signs in
@@ -40,6 +44,7 @@ import type { QAuthenticationMetaData } from '@/types'
 import {
   clearAuthMetadataCache,
   createOAuth2Session,
+  createPasswordSession,
   getAuthenticationMetaData,
   logout as apiLogout,
   manageSession,
@@ -51,6 +56,7 @@ import apiClient from '@/lib/api/client'
 import { queryClient } from '@/lib/query-client'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import {
+  claimClientData,
   clearUserClientData,
   getStoredUser,
   isSignedOut as readSignedOut,
@@ -107,6 +113,14 @@ export interface AuthContextType {
    * @param returnTo - Validated in-app path to return to afterwards.
    */
   signIn: (returnTo: string) => Promise<void>
+  /**
+   * Signs in with a username and password (TABLE_BASED). Failures are reported
+   * through `authError`; the password is never stored.
+   *
+   * @param username - The username.
+   * @param password - The password.
+   */
+  signInWithPassword: (username: string, password: string) => Promise<void>
   /** Logs the user out, clears local state, and redirects to the login page. */
   logout: () => Promise<void>
   /**
@@ -141,6 +155,10 @@ export interface AuthProviderProps {
 }
 
 const ANONYMOUS_TYPES = new Set(['MOCK', 'FULLY_ANONYMOUS'])
+/** Types whose session is resumed from the `sessionUUID` cookie after a reload. */
+const RESUMABLE_TYPES = new Set(['OAUTH2', 'AUTH_0', 'TABLE_BASED'])
+/** Types that redirect to an identity provider to sign in and out. */
+const PROVIDER_TYPES = new Set(['OAUTH2', 'AUTH_0'])
 
 /** Expires the backend session cookies (`sessionUUID`, `sessionId`) on the root path. */
 function expireSessionCookies() {
@@ -208,20 +226,23 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   }, [])
 
   /**
-   * Creates (anonymous types) or resumes (OAUTH2 / AUTH_0) a session.
+   * Creates (anonymous types) or resumes (OAUTH2 / AUTH_0 / TABLE_BASED) a session.
    *
    * @param metadata - Authentication metadata.
    * @returns The user when a session exists, or null when the user must sign in.
    */
   const establishSession = useCallback(async (metadata: QAuthenticationMetaData): Promise<AuthUser | null> => {
     if (ANONYMOUS_TYPES.has(metadata.type)) {
-      return sessionUser(await manageSession('anonymous'), { name: 'Anonymous', email: 'anonymous@localhost' })
+      const anonymous = sessionUser(await manageSession('anonymous'), { name: 'Anonymous', email: 'anonymous@localhost' })
+      claimClientData(anonymous)
+      return anonymous
     }
-    if (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0') {
+    if (RESUMABLE_TYPES.has(metadata.type)) {
       const sessionUUID = readSessionUUIDCookie()
       if (!sessionUUID) return null
       try {
         const resumed = sessionUser(await resumeSession(sessionUUID), getStoredUser())
+        claimClientData(resumed)
         storeUser(resumed)
         return resumed
       } catch (error) {
@@ -308,9 +329,10 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     setIsLoading(true)
     try {
       const metadata = await loadMetadata()
-      if (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0') {
+      if (RESUMABLE_TYPES.has(metadata.type)) {
         const resumed = await establishSession(metadata)
-        if (resumed) {
+        if (resumed || metadata.type === 'TABLE_BASED') {
+          // TABLE_BASED without a session: the login page asks for credentials
           applySession(resumed)
           setIsLoading(false)
           return
@@ -328,10 +350,35 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     }
   }, [applySession, establishSession, loadMetadata])
 
+  const signInWithPassword = useCallback(async (username: string, password: string) => {
+    setAuthError(null)
+    try {
+      // A stale cookie from an earlier session would shadow the new one (the backend
+      // reads `sessionId` before `sessionUUID`), so none is sent with the credentials.
+      expireSessionCookies()
+      const signedIn = sessionUser(await createPasswordSession(username, password), { name: username, email: username })
+      const previous = getStoredUser()
+      if (previous && previous.email !== signedIn.email) {
+        // a different user on this browser: drop the previous user's cached pages and recents
+        clearUserClientData()
+        queryClient.clear()
+      }
+      storeUser(signedIn)
+      setSignedOut(false)
+      setSignedOutState(false)
+      resetReauthAttempts()
+      applySession(signedIn)
+    } catch (error) {
+      console.warn('[Auth] Password sign-in failed:', error instanceof Error ? error.message : error)
+      setAuthError(signInErrorMessage(error))
+      applySession(null)
+    }
+  }, [applySession])
+
   const handleLogout = useCallback(async () => {
     const metadata = authMetadata
     const loginPath = `/login?returnTo=${encodeURIComponent(currentReturnTo())}`
-    const providerLogout = Boolean(metadata && (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0'))
+    const providerLogout = Boolean(metadata && PROVIDER_TYPES.has(metadata.type))
     // Signed out first: protected pages unmount (no refetch with an ending session) and the
     // login page shows the signed-out state instead of signing in again. Provider logouts
     // leave the page for the identity provider instead, so no in-app navigation is started.
@@ -352,13 +399,13 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     clearUserClientData()
     clearAuthMetadataCache()
     queryClient.clear()
-    if (metadata && (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0')) {
-      // The backend keys provider sessions by these cookies; a stale `sessionId` left by
+    if (metadata && RESUMABLE_TYPES.has(metadata.type)) {
+      // The backend keys these sessions by these cookies; a stale `sessionId` left by
       // logout would otherwise shadow the next sign-in's session (QRun-IO/qqq#674).
       expireSessionCookies()
     }
 
-    if (metadata && (metadata.type === 'OAUTH2' || metadata.type === 'AUTH_0')) {
+    if (metadata && PROVIDER_TYPES.has(metadata.type)) {
       try {
         const endSession = await buildEndSessionUrl(metadata, `${window.location.origin}/login`)
         if (endSession) {
@@ -399,6 +446,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     }
     sessionStorage.removeItem(PKCE_STORAGE.redirectUri)
     const signedIn = sessionUser(response, fallback)
+    claimClientData(signedIn)
     storeUser(signedIn)
     setSignedOut(false)
     setSignedOutState(false)
@@ -417,6 +465,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         authError,
         isSignedOut: signedOut,
         signIn,
+        signInWithPassword,
         logout: handleLogout,
         handleOAuthCallback,
       }}

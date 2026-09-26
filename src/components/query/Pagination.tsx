@@ -124,7 +124,7 @@ export function Pagination({
             <>
               Showing{' '}
               <span className="font-medium text-foreground">
-                {startRecord}–{endRecord}
+                {startRecord.toLocaleString()}–{endRecord.toLocaleString()}
               </span>
               {!uncounted && (
                 <>

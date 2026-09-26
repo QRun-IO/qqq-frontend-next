@@ -318,10 +318,11 @@ export const queryKeys = {
    * @param tableName - Backend table name.
    * @param fieldName - Field whose enum/possible values are being fetched.
    * @param searchTerm - Optional type-ahead search string.
+   * @param formValues - Optional current form values a dependent filter reads.
    * @returns The possible values query key tuple.
    */
-  tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string) =>
-    [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm] as const,
+  tablePossibleValues: (tableName: string, fieldName: string, searchTerm?: string, formValues?: Record<string, unknown>) =>
+    [...queryKeys.possibleValues(), 'table', tableName, fieldName, searchTerm, ...(formValues ? [formValues] : [])] as const,
 
   // Audits
   /**
@@ -335,6 +336,68 @@ export const queryKeys = {
    */
   audits: (tableName: string, primaryKey: string | number) =>
     [...queryKeys.tableRecord(tableName, primaryKey), 'audits'] as const,
+
+  // Developer mode
+  /**
+   * Key for a record's developer data (record plus associated scripts).
+   *
+   * Scoped under the record key so invalidating the record also invalidates it.
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Primary key of the record.
+   * @returns The record developer query key tuple.
+   */
+  recordDeveloper: (tableName: string, primaryKey: string | number) =>
+    [...queryKeys.tableRecord(tableName, primaryKey), 'developer'] as const,
+  /**
+   * Key for the run logs of one revision of a record's associated script.
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Primary key of the record.
+   * @param fieldName - Associated-script field.
+   * @param scriptRevisionId - Revision whose logs are read.
+   * @returns The associated script logs query key tuple.
+   */
+  associatedScriptLogs: (tableName: string, primaryKey: string | number, fieldName: string, scriptRevisionId: string | number) =>
+    [...queryKeys.recordDeveloper(tableName, primaryKey), 'logs', fieldName, String(scriptRevisionId)] as const,
+  /**
+   * Key for the revisions of a script (scoped under the revision table's records).
+   *
+   * @param scriptId - Script id.
+   * @returns The script revisions query key tuple.
+   */
+  scriptRevisions: (scriptId: string | number) =>
+    [...queryKeys.tableRecords('scriptRevision'), 'script', String(scriptId)] as const,
+  /**
+   * Key for the files of one script revision.
+   *
+   * @param scriptRevisionId - Revision id.
+   * @returns The script revision files query key tuple.
+   */
+  scriptRevisionFiles: (scriptRevisionId: string | number) =>
+    [...queryKeys.tableRecords('scriptRevisionFile'), 'revision', String(scriptRevisionId)] as const,
+  /**
+   * Key for the pre-defined files of a script type.
+   *
+   * @param scriptTypeId - Script type id.
+   * @returns The script type file schema query key tuple.
+   */
+  scriptTypeFileSchemas: (scriptTypeId: string | number) =>
+    [...queryKeys.tableRecords('scriptTypeFileSchema'), 'scriptType', String(scriptTypeId)] as const,
+  /**
+   * Key for the application APIs that expose a table.
+   *
+   * @param tableName - Backend table name.
+   * @returns The table APIs query key tuple.
+   */
+  tableApis: (tableName: string) => [...queryKeys.all(), 'apis', 'table', tableName] as const,
+  /**
+   * Key for the versions of one application API.
+   *
+   * @param apiPath - The API's base path.
+   * @returns The API versions query key tuple.
+   */
+  apiVersions: (apiPath: string) => [...queryKeys.all(), 'apis', 'versions', apiPath] as const,
 
   // ESB
   /**
@@ -382,11 +445,13 @@ export const queryKeys = {
    */
   search: () => [...queryKeys.all(), 'search'] as const,
   /**
-   * Key for a global search result set.
+   * Key for a record search result set (`POST /search`).
    *
-   * @param searchTerm - The user's search string.
-   * @returns The global search query key tuple.
+   * @param searchTerm - The trimmed search term.
+   * @param tableNames - The searched tables.
+   * @param limitPerTable - Maximum records per table.
+   * @returns The record search query key tuple.
    */
-  globalSearch: (searchTerm: string) =>
-    [...queryKeys.search(), searchTerm] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number) =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable] as const,
 }

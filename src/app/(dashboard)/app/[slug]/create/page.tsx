@@ -28,7 +28,7 @@
  * - `slug` — the QQQ table name for which a new record should be created.
  */
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -38,6 +38,7 @@ import { queryKeys } from '@/lib/query-client'
 import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
+import { formPresetsFromHash, lockedPresetValues, type HashFormPresets } from '@/lib/utils/material-links'
 
 /**
  * Renders the record-creation form for the table identified by `slug`.
@@ -65,6 +66,12 @@ export default function EntityCreatePage() {
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
+  // Material links preset fields: /create#/defaultValues={json}/disabledFields={json}
+  const [presets, setPresets] = useState<HashFormPresets | null>(null)
+  useEffect(() => {
+    setPresets(formPresetsFromHash(window.location.hash))
+  }, [])
+
   useEffect(() => {
     setPageHeader(`Create ${tableMetaData?.label ?? slug}`)
     if (tableMetaData) {
@@ -76,7 +83,7 @@ export default function EntityCreatePage() {
     return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
   }
 
-  if (!tableMetaData) {
+  if (!tableMetaData || !presets) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -102,7 +109,13 @@ export default function EntityCreatePage() {
 
   return (
     <div className="mx-auto max-w-4xl" data-qqq-id={`entity-create-${slug}`}>
-      <EntityForm tableMetaData={tableMetaData} widgets={metaData?.widgets} />
+      <EntityForm
+        tableMetaData={tableMetaData}
+        widgets={metaData?.widgets}
+        defaultValues={presets.defaultValues}
+        disabledFieldNames={presets.disabledFields}
+        fixedValues={lockedPresetValues(tableMetaData, presets)}
+      />
     </div>
   )
 }

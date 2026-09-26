@@ -28,6 +28,7 @@ import type { WidgetComponentProps } from './widget-types'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { WidgetIcon } from './WidgetIcon'
+import { TOUCH_LINK } from './widget-utils'
 
 /** `StatisticsData` payload. */
 export interface QqqStatisticsPayload {
@@ -70,9 +71,9 @@ function formatCount(count: string | number | undefined, isCurrency?: boolean): 
  */
 export function WidgetLink({ href, children, className, qqqId }: { href: string; children: React.ReactNode; className?: string; qqqId?: string }) {
   if (href.startsWith('/')) {
-    return <Link href={href} prefetch={false} className={cn('underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</Link>
+    return <Link href={href} prefetch={false} className={cn(TOUCH_LINK, 'underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</Link>
   }
-  return <a href={href} target="_blank" rel="noopener noreferrer" className={cn('underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</a>
+  return <a href={href} target="_blank" rel="noopener noreferrer" className={cn(TOUCH_LINK, 'underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</a>
 }
 
 /**

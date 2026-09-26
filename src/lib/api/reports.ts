@@ -21,15 +21,15 @@
  * report process): init with `{ reportName, reportFormat }` runs the prepare step,
  * which either returns the report's input fields (next step `input`) or, with no
  * inputs, generates the file straight away (next step `accessReport`). Submitting
- * the input step generates the file. The generated file is served by the
- * `/download/{fileName}?filePath=...` route. Reports without a process use the
+ * the input step generates the file. The generated file is served by the v1
+ * `/download/{fileName}?filePath=...` route. Reports without a process use the v1
  * streaming route `GET /reports/{reportName}?format=...`.
  */
 
 import { AxiosError } from 'axios'
 
 import type { QFieldMetaData } from '@/types'
-import apiClient from './client'
+import { apiUrl } from './client'
 import { processInit, processStatus, processStep } from './processes'
 import type { ProcessResponse } from './processes'
 
@@ -44,15 +44,6 @@ export type ReportRunState =
   | { kind: 'error'; message: string }
 
 /**
- * Root URL of the non-versioned routes (`/download`, `/reports`).
- *
- * @returns Base URL without a trailing slash.
- */
-function rootUrl(): string {
-  return (apiClient.getInstance().defaults.baseURL ?? '').replace(/\/qqq\/v1\/?$/, '').replace(/\/$/, '')
-}
-
-/**
  * Download URL for a file the report process registered.
  *
  * @param fileName - Suggested file name (`downloadFileName`).
@@ -60,7 +51,7 @@ function rootUrl(): string {
  * @returns The download URL.
  */
 export function reportDownloadUrl(fileName: string, serverFilePath: string): string {
-  return `${rootUrl()}/download/${encodeURIComponent(fileName)}?${new URLSearchParams({ filePath: serverFilePath })}`
+  return apiUrl(`/download/${encodeURIComponent(fileName)}?${new URLSearchParams({ filePath: serverFilePath })}`)
 }
 
 /**
@@ -71,9 +62,9 @@ export function reportDownloadUrl(fileName: string, serverFilePath: string): str
  * @param inputs - Report input values sent as query parameters.
  * @returns The report URL.
  */
-export function legacyReportUrl(reportName: string, format: ReportFormat, inputs: Record<string, string> = {}): string {
+export function reportFileUrl(reportName: string, format: ReportFormat, inputs: Record<string, string> = {}): string {
   const params = new URLSearchParams({ ...inputs, format: format.toLowerCase() })
-  return `${rootUrl()}/reports/${encodeURIComponent(reportName)}?${params}`
+  return apiUrl(`/reports/${encodeURIComponent(reportName)}?${params}`)
 }
 
 /**

@@ -64,12 +64,21 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   - `backend.api` calls the backend over HTTP as the same session. Use it to prove
     server-side enforcement.
 - **Include the `diagnostics` fixture in every test.** It fails the test on page errors,
-  console errors and failed or ≥400 application requests. Negative scenarios whitelist
-  their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
+  console errors, failed or ≥400 application requests, and Content-Security-Policy
+  violations (every frame forwards `securitypolicyviolation` events; they are listed as
+  `cspViolations` in `diagnostics.json`). The dashboard is served with a strict policy
+  (QRun-IO/qqq#695, SEC-038 to SEC-040), so a feature that needs another origin must get it
+  from metadata or the application's `withNextDashboardSecurityHeadersCustomizer` hook
+  (see `WidgetsFixtures.allowFakeService`), never from a loosened test. Negative scenarios
+  whitelist their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
   a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under
   `interruptedFetches` in the attached `diagnostics.json`).
+- **v1 only.** The `diagnostics` fixture also fails a test whose page calls an unversioned API
+  route of a QQQ server (`/data`, `/processes`, `/widget`, `/possibleValues`, `/download`,
+  `/reports`, `/metaData`, `/manageSession`, `/logout` outside `/qqq/v1`; QRun-IO/qqq#699).
+  `allow()` does not waive it. Node-side `backend.api` calls may still exercise legacy routes.
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;

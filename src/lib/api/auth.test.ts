@@ -131,14 +131,14 @@ describe('Auth API', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { accessToken: 'token-1' })
   })
 
-  it('completes OAuth2 PKCE and resumes sessions through the unversioned manageSession', async () => {
+  it('completes OAuth2 PKCE and resumes sessions through the v1 manageSession', async () => {
     const { default: apiClient } = await import('./client')
     vi.mocked(apiClient.post).mockResolvedValue({ uuid: 'u' })
     const { createOAuth2Session, resumeSession } = await import('./auth')
     await createOAuth2Session({ code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
-    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' }, { baseURL: '' })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
     await resumeSession('session-1')
-    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1', uuid: 'session-1' }, { baseURL: '' })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1' })
   })
 
   it('reads the sessionUUID cookie', async () => {
@@ -148,5 +148,27 @@ describe('Auth API', () => {
     document.cookie = 'sessionUUID=abc-123'
     expect(readSessionUUIDCookie()).toBe('abc-123')
     document.cookie = 'sessionUUID=; Max-Age=0'
+  })
+
+  describe('TABLE_BASED password sign-in (QRun-IO/qqq#700)', () => {
+    it('encodes UTF-8 credentials and keeps colons in the password', async () => {
+      const { encodeBasicCredentials } = await import('./auth')
+      expect(encodeBasicCredentials('tess', 'pa:ss')).toBe(btoa('tess:pa:ss'))
+      // "é" is two UTF-8 bytes (0xC3 0xA9), not one Latin-1 byte
+      expect(atob(encodeBasicCredentials('josé', 'x'))).toBe('jos\u00c3\u00a9:x')
+    })
+
+    it('refuses a username with a colon', async () => {
+      const { encodeBasicCredentials } = await import('./auth')
+      expect(() => encodeBasicCredentials('a:b', 'x')).toThrow('A username cannot contain a colon.')
+    })
+
+    it('posts to v1 manageSession with an Authorization: Basic header and no credentials in the body', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({ uuid: 's-1', values: { user: { name: 'Tess Table' } } })
+      const { createPasswordSession } = await import('./auth')
+      await expect(createPasswordSession('tess', 'secret')).resolves.toEqual({ uuid: 's-1', values: { user: { name: 'Tess Table' } } })
+      expect(apiClient.post).toHaveBeenCalledWith('/manageSession', {}, { headers: { Authorization: `Basic ${btoa('tess:secret')}` } })
+    })
   })
 })
