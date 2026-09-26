@@ -34,7 +34,7 @@ test.describe('Record selection', () => {
       }).observe(document, { childList: true, subtree: true })
     })
     // the backend answers a run without records with `{"totalRecords":0}` (no empty list)
-    const previews = page.waitForResponse((response) => /^\/processes\/clonePeople\/[^/]+\/records$/.test(new URL(response.url()).pathname))
+    const previews = page.waitForResponse((response) => /^\/qqq\/v1\/processes\/clonePeople\/[^/]+\/records$/.test(new URL(response.url()).pathname))
     await openProcess(page, 'clonePeople', { filter: NOBODY })
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 0 Person records.')

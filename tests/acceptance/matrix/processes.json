@@ -866,6 +866,54 @@
       "negative": [],
       "issues": [],
       "required": true
+    },
+    {
+      "id": "PRC-048",
+      "feature": "Process-field possible values load and search through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "prcComponents",
+      "scenarios": [
+        "the process combobox loads its options from the v1 process route",
+        "the chosen value reaches the process and persists",
+        "a v1 search returns the exact match"
+      ],
+      "negative": [
+        "an unknown process field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-049",
+      "feature": "Processes run on the v1 process routes (upload, step, back step, records, metadata)",
+      "source": [
+        "src/lib/api/processes.ts",
+        "src/lib/api/metadata.ts",
+        "src/lib/hooks/use-process.ts"
+      ],
+      "fixture": "person.bulkInsert, prcComponents",
+      "scenarios": [
+        "a bulk load uploads its file, maps, reviews, steps back (isStepBack=true) and inserts through /qqq/v1/processes/... and /qqq/v1/metaData/process/...",
+        "the inserted row is in the database",
+        "this session can cancel its own run"
+      ],
+      "negative": [
+        "an unsafe upload filename is 400 before anything is stored",
+        "an unknown run is refused",
+        "(another session's run is refused 403 by records and cancel - backend unit tests)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406",
+        "QRun-IO/qqq#543"
+      ],
+      "required": true
     }
   ]
 }

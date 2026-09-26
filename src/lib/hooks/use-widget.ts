@@ -34,7 +34,7 @@ export interface UseWidgetOptions {
 }
 
 /**
- * Fetches runtime data for a named widget via `GET /widget/{widgetName}`.
+ * Fetches runtime data for a named widget via the v1 `POST /widget/{widgetName}` route.
  *
  * Results are cached for 5 minutes. When the parameters change (for example a
  * dropdown selection), the previous payload stays visible until the new one

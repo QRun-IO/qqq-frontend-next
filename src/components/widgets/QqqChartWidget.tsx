@@ -63,7 +63,7 @@ export type QqqChartVariant = 'bar' | 'horizontalBar' | 'stackedBar' | 'line' | 
 export interface QqqChartWidgetProps {
   /** Metadata of the widget; its name scopes `data-qqq-id`s and its label names the chart. */
   widgetMetaData: QWidgetMetaData
-  /** Canonical QQQ chart payload from `GET /widget/{name}`. */
+  /** Canonical QQQ chart payload from `POST /qqq/v1/widget/{name}`. */
   data: QqqChartPayload
   /** How to draw the payload, resolved from the widget type. */
   variant: QqqChartVariant

@@ -19,7 +19,7 @@ test.describe('Widget Lab', () => {
     await expect(widget).toContainText('Lab status for Casey Operator (linked)')
     expect(widgetRequests).toHaveLength(1)
     const url = new URL(widgetRequests[0])
-    expect(url.pathname).toBe('/widget/prcHtmlWidget')
+    expect(url.pathname).toBe('/qqq/v1/widget/prcHtmlWidget')
     expect(url.searchParams.get('operator')).toBe('Casey Operator')
     expect(url.searchParams.get('processUUID')).toMatch(/^[0-9a-f-]{36}$/)
   })

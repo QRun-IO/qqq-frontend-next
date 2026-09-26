@@ -204,7 +204,7 @@ test('[RPT-012] a scheduled report is created for a saved report and shows its s
 })
 
 test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/scheduledReport 400')
+  diagnostics.allow('/qqq/v1/table/scheduledReport 400')
   diagnostics.allow('Failed to load resource: the server responded with a status of 400')
   await fillSchedule(page, 'not a cron')
   await expect(page).toHaveURL(/\/app\/scheduledReport\/create\/?$/)
@@ -288,7 +288,7 @@ test.describe('as another user', () => {
   test.use({ user: 'bob' })
 
   test('[RPT-016] an unshared report is invisible to another user until it is shared', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/savedReport/1 404')
+    diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('Failed to load resource: the server responded with a status of 404')
     const [report] = await sqlRows(backend, "select label from saved_report where id = 1 and user_id = 'sample:alice'")

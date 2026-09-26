@@ -13,7 +13,7 @@ import {
 
 test.use(VIEWER)
 
-const FIELD_LAB_ERRORS = ['/data/fieldLab 400', 'Failed to load resource: the server responded with a status of 400']
+const FIELD_LAB_ERRORS = ['/qqq/v1/table/fieldLab 400', 'Failed to load resource: the server responded with a status of 400']
 
 /** Opens the Field Lab create form, fills text/number inputs by field name and saves. */
 async function createFieldLab(page: Page, values: Record<string, string>) {
@@ -45,9 +45,9 @@ test('[REC-014] STRING and TEXT editors round-trip single and multi-line text', 
 })
 
 test('[REC-015] INTEGER, LONG and DECIMAL editors keep exact values', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/fieldLab 500')
+  diagnostics.allow('/qqq/v1/table/fieldLab 500')
   diagnostics.allow('Failed to load resource: the server responded with a status of 500')
-  const writes = recordRequests(page, '/data/fieldLab')
+  const writes = recordRequests(page, '/qqq/v1/table/fieldLab')
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
   await expect(control(page, 'longValue')).toHaveAttribute('type', 'number')
   await control(page, 'name').fill('Numbers')
@@ -77,7 +77,7 @@ test('[REC-015] INTEGER, LONG and DECIMAL editors keep exact values', async ({ p
 
 test('[REC-016] BOOLEAN editor applies the metadata default and saves true and false', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  const writes = recordRequests(page, '/data/fieldLab')
+  const writes = recordRequests(page, '/qqq/v1/table/fieldLab')
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
   const toggle = page.getByRole('checkbox', { name: 'Boolean Value' })
   await expect(toggle).toHaveAttribute('aria-checked', 'true')
@@ -104,7 +104,7 @@ test('[REC-016] BOOLEAN editor applies the metadata default and saves true and f
   await control(page, 'name').fill('Still False')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Still False' })).toBeVisible()
-  expect(multipartFields(writes.filter((request) => request.method() === 'PUT')[0]).booleanValue).toBe('false')
+  expect(multipartFields(writes.filter((request) => request.method() === 'PATCH')[0]).booleanValue).toBe('false')
   expect((await sqlOne(backend, `select boolean_value from field_lab where id = ${falseId}`)).boolean_value).toBe('FALSE')
 })
 
@@ -135,7 +135,7 @@ test('[REC-017] DATE and TIME editors round-trip values and clearing', async ({ 
 
 test('[REC-018] DATE_TIME is entered and shown in the viewer zone and stored in UTC', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  const writes = recordRequests(page, '/data/fieldLab')
+  const writes = recordRequests(page, '/qqq/v1/table/fieldLab')
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
   await expect(control(page, 'dateTimeValue')).toHaveAttribute('type', 'datetime-local')
   await expect(page.locator('#field-dateTimeValue-tz-hint')).toHaveText('Your local time (America/New_York)')
@@ -154,7 +154,7 @@ test('[REC-018] DATE_TIME is entered and shown in the viewer zone and stored in 
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Instant Renamed' })).toBeVisible()
   // An unchanged date-time is not rewritten (it would lose sub-second precision).
-  const put = writes.filter((request) => request.method() === 'PUT')
+  const put = writes.filter((request) => request.method() === 'PATCH')
   expect(multipartFields(put[0])).not.toHaveProperty('dateTimeValue')
   expect((await sqlOne(backend, `select date_time_value from field_lab where id = ${id}`)).date_time_value).toBe('2024-07-04 13:15:00')
 
@@ -212,7 +212,7 @@ test('[REC-020] HTML field edits in the rich-text editor and renders sanitized',
 
 test('[REC-021] PASSWORD is masked on read and never overwritten by the mask', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  const writes = recordRequests(page, '/data/fieldLab')
+  const writes = recordRequests(page, '/qqq/v1/table/fieldLab')
   await createFieldLab(page, { name: 'Secret', passwordValue: 'secret-one' })
   await expect(page.getByRole('heading', { level: 1, name: 'Secret' })).toBeVisible()
   const id = recordIdFromUrl(page, 'fieldLab')
@@ -226,7 +226,7 @@ test('[REC-021] PASSWORD is masked on read and never overwritten by the mask', a
   await control(page, 'name').fill('Secret Renamed')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Secret Renamed' })).toBeVisible()
-  expect(multipartFields(writes.filter((request) => request.method() === 'PUT')[0])).not.toHaveProperty('passwordValue')
+  expect(multipartFields(writes.filter((request) => request.method() === 'PATCH')[0])).not.toHaveProperty('passwordValue')
   expect((await sqlOne(backend, `select password_value from field_lab where id = ${id}`)).password_value).toBe('secret-one')
 
   await openForm(page, `/app/fieldLab/${id}/edit`, 'Edit Field Lab')
@@ -340,7 +340,7 @@ test('[REC-026] numeric range policies reject or clip as declared', async ({ pag
 
 test('[REC-027] unique keys are enforced with the backend message on create and edit', async ({ page, backend, diagnostics }) => {
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
-  diagnostics.allow(/\/data\/fieldLab\/\d+ 400/)
+  diagnostics.allow(/\/qqq\/v1\/table\/fieldLab\/\d+ 400/)
   const first = await insertFieldLab(backend, { name: 'Unique One', normalizedKey: 'KEY ONE' })
   const second = await insertFieldLab(backend, { name: 'Unique Two', normalizedKey: 'KEY TWO' })
   const before = await sqlCount(backend, 'select count(*) as n from field_lab')

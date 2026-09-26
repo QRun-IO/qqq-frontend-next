@@ -73,7 +73,7 @@ describe('Record form regressions (#649)', () => {
 
   it('edit never re-sends a masked password, a LONG, an unchanged date-time or read-only values', async () => {
     const user = userEvent.setup()
-    const put = vi.spyOn(apiClient, 'put').mockResolvedValue({ records: [{ tableName: 'lab', values: { id: 7 } }] })
+    const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
     renderForm(stored)
     expect(screen.getByLabelText(/^Secret/)).toHaveValue('')
     expect(screen.getByLabelText(/^Id/)).toBeDisabled()
@@ -89,7 +89,7 @@ describe('Record form regressions (#649)', () => {
 
   it('sends a changed date-time as the UTC instant and a typed LONG exactly', async () => {
     const user = userEvent.setup()
-    const put = vi.spyOn(apiClient, 'put').mockResolvedValue({ records: [{ tableName: 'lab', values: { id: 7 } }] })
+    const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
     renderForm(stored)
     fireEvent.change(screen.getByLabelText(/^Big/), { target: { value: '9007199254740993' } })
     fireEvent.change(screen.getByLabelText(/^Stamp/), { target: { value: '2024-01-15T09:15' } })
@@ -137,7 +137,7 @@ describe('Record form regressions (#649)', () => {
       cronWidget: { name: 'cronWidget', label: 'Schedule', type: 'cronUI', hasPermission: true,
         defaultValues: { cronExpressionFieldName: 'cronExpression', timeZoneFieldName: 'cronTimeZoneId', includeOnRecordEditScreen: true } },
     } as unknown as Record<string, QWidgetMetaData>
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'schedule', values: { id: 1 }, displayValues: {} }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'schedule', values: { id: 1 }, displayValues: {} } })
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
     expect(screen.getByRole('heading', { name: 'Schedule' })).toBeVisible()

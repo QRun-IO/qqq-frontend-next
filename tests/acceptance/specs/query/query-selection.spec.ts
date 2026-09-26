@@ -13,7 +13,7 @@ import { expectColumn, sqlColumn } from './query-helpers'
 /** Waits for a process init on the registered process route and returns its multipart fields and JSON response. */
 async function processInit(page: Page, processName: string, launch: () => Promise<void>) {
   const [response] = await Promise.all([
-    page.waitForResponse((r: Response) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/processes/${processName}/init`),
+    page.waitForResponse((r: Response) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/qqq/v1/processes/${processName}/init`),
     launch(),
   ])
   const body = response.request().postData() ?? ''

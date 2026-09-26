@@ -18,17 +18,18 @@
  * @file Processes API — process lifecycle endpoints: init, step (forward and back),
  * status, records, cancel and file download.
  *
- * These use the registered process routes (`/processes/...` beside `/qqq/v1`), the
- * same contract the Material dashboard uses. They are the only routes that accept
- * uploaded files, step back to a `backStep`, and report `backStep`; the versioned
- * init and step specifications ignore uploads (QRun-IO/qqq#543) and have no back
- * operation. Responses are normalized into {@link ProcessResponse}.
+ * These use the v1 process routes (`/qqq/v1/processes/...`): init and step take a
+ * multipart body with the process values as one `values` JSON field (each value as the
+ * text the legacy form fields carried), uploaded files as file fields (QRun-IO/qqq#543)
+ * and `stepTimeoutMillis`; a step with `isStepBack=true` restarts at the process's
+ * `backStep`, which completed responses report. Responses are normalized into
+ * {@link ProcessResponse}.
  */
 
 import { AxiosError } from 'axios'
 
 import type { ProcessMetaDataAdjustment, QRecord } from '@/types'
-import apiClient from './client'
+import apiClient, { apiUrl } from './client'
 
 /** Files to upload with a process request, keyed by the form field name (e.g. `theFile`). */
 export type ProcessFiles = Record<string, File | File[]>
@@ -130,15 +131,7 @@ export interface ProcessRecordsResponse {
 }
 
 /**
- * Preserve the configured host and deployment prefix for the registered process routes.
- * @returns The configured base URL without the V1 route suffix.
- */
-function legacyBaseURL(): string | undefined {
-  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
-}
-
-/**
- * Serialize a process value the way the registered routes read it (one string per field).
+ * Serialize a process value as the text a legacy form field carried (one string per value).
  * @param value - A process value.
  * @returns The form-field text.
  */
@@ -149,24 +142,28 @@ function formValue(value: unknown): string {
 }
 
 /**
- * Build the multipart body for an init or step request.
- * @param values - Process values; `undefined` entries are omitted and `null` becomes an empty field.
+ * Build the v1 multipart body for an init or step request.
+ * @param values - Process values; `undefined` entries are omitted and `null` becomes an empty value.
  * @param files - Uploaded files by field name.
  * @param stepTimeoutMillis - Optional async threshold.
+ * @param fields - Other v1 form fields (e.g. `recordsParam`, `recordIds`, `filterJSON`).
  * @returns The form data to post.
  */
-function buildFormData(values: Record<string, unknown>, files?: ProcessFiles, stepTimeoutMillis?: number): FormData {
+function buildFormData(values: Record<string, unknown>, files?: ProcessFiles, stepTimeoutMillis?: number, fields: Record<string, string> = {}): FormData {
   const formData = new FormData()
+  const text: Record<string, string> = {}
   for (const [name, value] of Object.entries(values)) {
     if (value === undefined || value instanceof File) continue
-    formData.append(name, value === null ? '' : formValue(value))
+    text[name] = value === null ? '' : formValue(value)
   }
+  formData.append('values', JSON.stringify(text))
+  for (const [name, value] of Object.entries(fields)) formData.append(name, value)
   for (const [name, fileOrFiles] of Object.entries(files ?? {})) {
     for (const file of Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles]) {
       formData.append(name, file, file.name)
     }
   }
-  if (stepTimeoutMillis !== undefined) formData.append('_qStepTimeoutMillis', String(stepTimeoutMillis))
+  if (stepTimeoutMillis !== undefined) formData.append('stepTimeoutMillis', String(stepTimeoutMillis))
   return formData
 }
 
@@ -177,6 +174,27 @@ function buildFormData(values: Record<string, unknown>, files?: ProcessFiles, st
  */
 function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+/**
+ * The v1 routes send widget-block process values (e.g. a composite widget's data) as v1
+ * WidgetBlock objects (`blockType`, `subBlocks`); give them the block-data shape the block
+ * renderers read (`blockTypeName`, `blocks`, `type`), as the legacy routes sent them.
+ * @param value - A process value.
+ * @returns The value, with any widget block in block-data shape.
+ */
+export function blockDataFromV1(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const block = value as Record<string, unknown>
+  if ('tableName' in block || !('blockType' in block || 'blockTypeName' in block) || !('subBlocks' in block || 'values' in block || 'blockId' in block)) return value
+  const blockTypeName = String(block.blockTypeName ?? block.blockType ?? '')
+  const { subBlocks, ...rest } = block
+  return {
+    ...rest,
+    blockTypeName,
+    type: block.type ?? (blockTypeName === 'COMPOSITE' ? 'composite' : 'block'),
+    ...(Array.isArray(subBlocks) ? { blocks: subBlocks.map(blockDataFromV1) } : {}),
+  }
 }
 
 /**
@@ -206,7 +224,7 @@ export function normalizeProcessResponse(raw: unknown): ProcessResponse {
   }
   if (data.values !== undefined || typeof data.nextStep === 'string' || versionedType === 'COMPLETE') {
     const values = data.values && typeof data.values === 'object' && !Array.isArray(data.values)
-      ? data.values as Record<string, unknown> : {}
+      ? Object.fromEntries(Object.entries(data.values as Record<string, unknown>).map(([name, value]) => [name, blockDataFromV1(value)])) : {}
     const adjustment = data.processMetaDataAdjustment && typeof data.processMetaDataAdjustment === 'object'
       ? data.processMetaDataAdjustment as ProcessMetaDataAdjustment : undefined
     /////////////////////////////////////////////////////////////////////////////
@@ -260,7 +278,7 @@ function refusedResponse(error: unknown): ProcessErrorResponse {
 }
 
 /**
- * Initialises a new process execution via `POST /processes/{processName}/init`.
+ * Initialises a new process execution via the v1 `POST /processes/{processName}/init`.
  *
  * @param processName - Backend-registered name of the process to start.
  * @param request - Record selection, table name, input values and uploads.
@@ -271,17 +289,19 @@ export async function processInit(
   request: ProcessInitRequest = {}
 ): Promise<ProcessResponse> {
   const values: Record<string, unknown> = { ...(request.values ?? {}) }
+  const fields: Record<string, string> = {}
   if (request.recordsParam) {
-    values.recordsParam = request.recordsParam
-    if (request.recordsParam === 'recordIds') values.recordIds = request.recordIds ?? ''
-    if (request.recordsParam === 'filterJSON') values.filterJSON = request.filterJSON ?? '{}'
+    // v1 builds the initial-records filter from these fields; processes also see them as values, as before.
+    fields.recordsParam = values.recordsParam = request.recordsParam
+    if (request.recordsParam === 'recordIds') fields.recordIds = String(values.recordIds = request.recordIds ?? '')
+    if (request.recordsParam === 'filterJSON') fields.filterJSON = String(values.filterJSON = request.filterJSON ?? '{}')
   }
   if (request.tableName) values.tableName = request.tableName
   try {
     const body = await apiClient.post<unknown>(
       `/processes/${encodeURIComponent(processName)}/init`,
-      buildFormData(values, request.files, request.stepTimeoutMillis),
-      { baseURL: legacyBaseURL(), headers: { 'Content-Type': 'multipart/form-data' } }
+      buildFormData(values, request.files, request.stepTimeoutMillis, fields),
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     )
     return normalizeProcessResponse(body)
   } catch (error) {
@@ -290,7 +310,7 @@ export async function processInit(
 }
 
 /**
- * Submits a screen and continues the process via
+ * Submits a screen and continues the process via the v1
  * `POST /processes/{processName}/{processUUID}/step/{stepName}`, or restarts the
  * process at its back step when `isStepBack` is set.
  *
@@ -311,7 +331,6 @@ export async function processStep(
       `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/step/${encodeURIComponent(stepName)}`,
       buildFormData(request.values ?? {}, request.files, request.stepTimeoutMillis),
       {
-        baseURL: legacyBaseURL(),
         headers: { 'Content-Type': 'multipart/form-data' },
         params: request.isStepBack ? { isStepBack: 'true' } : undefined,
       }
@@ -323,7 +342,7 @@ export async function processStep(
 }
 
 /**
- * Polls an asynchronous process job via
+ * Polls an asynchronous process job via the v1
  * `GET /processes/{processName}/{processUUID}/status/{jobUUID}`.
  *
  * Network failures and 5xx responses are thrown so the caller can back off and retry.
@@ -339,15 +358,14 @@ export async function processStatus(
   jobUUID: string
 ): Promise<ProcessResponse> {
   const body = await apiClient.get<unknown>(
-    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/status/${encodeURIComponent(jobUUID)}`,
-    { baseURL: legacyBaseURL() }
+    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/status/${encodeURIComponent(jobUUID)}`
   )
   return normalizeProcessResponse(body)
 }
 
 /**
- * Retrieves a page of the records held in a process run's state via
- * `GET /processes/{processName}/{processUUID}/records`.
+ * Retrieves a page of the records held in a process run's state via the v1
+ * `GET /processes/{processName}/{processUUID}/records` (only the session that ran it may).
  *
  * @param processName - Backend-registered name of the process.
  * @param processUUID - UUID identifying this process run instance.
@@ -361,22 +379,20 @@ export async function processRecords(
   skip = 0,
   limit = 50
 ): Promise<ProcessRecordsResponse> {
-  const body = await apiClient.get<Partial<ProcessRecordsResponse>>(
+  const body = await apiClient.get<ProcessRecordsResponse>(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
-    {
-      baseURL: legacyBaseURL(),
-      params: { skip, limit },
-    }
+    { params: { skip, limit } }
   )
-  // The backend serializer omits empty lists, so a run with no records answers `{"totalRecords":0}`.
-  if (!body || typeof body.totalRecords !== 'number' || (body.records !== undefined && !Array.isArray(body.records))) {
+  // v1 omits an empty records list
+  const records = body && body.records === undefined && typeof body.totalRecords === 'number' ? [] : body?.records
+  if (!body || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
   }
-  return { ...body, totalRecords: body.totalRecords, records: body.records ?? [] }
+  return { totalRecords: body.totalRecords, records }
 }
 
 /**
- * Cancels a process run via `GET /processes/{processName}/{processUUID}/cancel`,
+ * Cancels a process run via the v1 `POST /processes/{processName}/{processUUID}/cancel`,
  * which runs the process's cancel step (if it declares one).
  *
  * @param processName - Backend-registered name of the process.
@@ -387,9 +403,8 @@ export async function processCancel(
   processName: string,
   processUUID: string
 ): Promise<boolean> {
-  await apiClient.get<unknown>(
-    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/cancel`,
-    { baseURL: legacyBaseURL() }
+  await apiClient.post<unknown>(
+    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/cancel`
   )
   return true
 }
@@ -471,5 +486,5 @@ export function processDownloadUrl(values: Record<string, unknown>): string | nu
   } else {
     return null
   }
-  return `${legacyBaseURL() ?? ''}/download/${encodeURIComponent(fileName)}?${params.toString()}`
+  return apiUrl(`/download/${encodeURIComponent(fileName)}?${params.toString()}`)
 }

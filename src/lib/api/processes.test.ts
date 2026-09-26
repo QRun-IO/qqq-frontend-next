@@ -26,9 +26,15 @@ vi.mock('./client', () => ({
     setUnauthorizedCallback: vi.fn(),
     getInstance: () => ({ defaults: { baseURL: 'https://sample.invalid/context/qqq/v1' } }),
   },
+  apiUrl: (path: string) => `https://sample.invalid/context/qqq/v1${path}`,
 }))
 
 const LEGACY = 'https://sample.invalid/context'
+
+/** The process values a v1 init/step body carries in its `values` JSON field. */
+function valuesOf(body: unknown): Record<string, string> {
+  return JSON.parse((body as FormData).get('values') as string)
+}
 
 /**
  * Build an Axios error with a response.
@@ -78,7 +84,7 @@ describe('Processes API', () => {
   })
 
   describe('processInit', () => {
-    it('posts each value as its own field to the registered init route', async () => {
+    it('posts the values as one v1 values field, with the selection fields and files', async () => {
       const { default: apiClient } = await import('./client')
       vi.mocked(apiClient.post).mockResolvedValue({ processUUID: 'p', values: {}, nextStep: 'setup' })
       const { processInit } = await import('./processes')
@@ -92,18 +98,12 @@ describe('Processes API', () => {
 
       const [url, body, config] = vi.mocked(apiClient.post).mock.calls[0]
       expect(url).toBe('/processes/my%20process/init')
-      expect(config).toEqual({ baseURL: LEGACY, headers: { 'Content-Type': 'multipart/form-data' } })
+      expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } })
       const form = body as FormData
       expect(form.get('recordsParam')).toBe('recordIds')
       expect(form.get('recordIds')).toBe('1,3')
-      expect(form.get('tableName')).toBe('person')
-      expect(form.get('greeting')).toBe('Hi')
-      expect(form.get('count')).toBe('3')
-      expect(form.get('flag')).toBe('true')
-      expect(form.get('nested')).toBe('{"a":1}')
-      expect(form.get('cleared')).toBe('')
-      expect(form.has('skipped')).toBe(false)
-      expect(form.has('values')).toBe(false)
+      expect(valuesOf(form)).toEqual({ recordsParam: 'recordIds', recordIds: '1,3', tableName: 'person', greeting: 'Hi', count: '3', flag: 'true', nested: '{"a":1}', cleared: '' })
+      expect(form.has('greeting')).toBe(false)
       expect((form.get('theFile') as File).name).toBe('people.csv')
       expect(result).toEqual({ type: 'COMPLETE', processUUID: 'p', values: {}, nextStep: 'setup', backStep: undefined, processMetaDataAdjustment: undefined })
     })
@@ -151,8 +151,8 @@ describe('Processes API', () => {
       await processStep('greet', 'uuid', 'setup', { values: { greetingPrefix: 'Hi' } })
       const [url, body, config] = vi.mocked(apiClient.post).mock.calls[0]
       expect(url).toBe('/processes/greet/uuid/step/setup')
-      expect((body as FormData).get('greetingPrefix')).toBe('Hi')
-      expect(config).toEqual({ baseURL: LEGACY, headers: { 'Content-Type': 'multipart/form-data' }, params: undefined })
+      expect(valuesOf(body)).toEqual({ greetingPrefix: 'Hi' })
+      expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' }, params: undefined })
     })
 
     it('steps back with isStepBack at the back step', async () => {
@@ -167,12 +167,12 @@ describe('Processes API', () => {
   })
 
   describe('processStatus', () => {
-    it('reads the registered status route and normalizes progress', async () => {
+    it('reads the v1 status route and normalizes progress', async () => {
       const { default: apiClient } = await import('./client')
       vi.mocked(apiClient.get).mockResolvedValue({ processUUID: 'p', jobStatus: { message: 'Processing', current: 5, total: 10 } })
       const { processStatus } = await import('./processes')
       await expect(processStatus('bulk', 'p', 'j')).resolves.toEqual({ type: 'RUNNING', processUUID: 'p', message: 'Processing', current: 5, total: 10 })
-      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulk/p/status/j', { baseURL: LEGACY })
+      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulk/p/status/j')
     })
   })
 
@@ -182,7 +182,7 @@ describe('Processes API', () => {
       vi.mocked(apiClient.get).mockResolvedValue({ totalRecords: 100, records: [] })
       const { processRecords } = await import('./processes')
       const result = await processRecords('bulkImport', 'proc-uuid', 10, 25)
-      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/records', { baseURL: LEGACY, params: { skip: 10, limit: 25 } })
+      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/records', { params: { skip: 10, limit: 25 } })
       expect(result.totalRecords).toBe(100)
     })
 
@@ -204,12 +204,12 @@ describe('Processes API', () => {
   })
 
   describe('processCancel', () => {
-    it('calls the registered cancel route', async () => {
+    it('posts to the v1 cancel route', async () => {
       const { default: apiClient } = await import('./client')
-      vi.mocked(apiClient.get).mockResolvedValue({})
+      vi.mocked(apiClient.post).mockResolvedValue({})
       const { processCancel } = await import('./processes')
       await expect(processCancel('bulkImport', 'proc-uuid')).resolves.toBe(true)
-      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/cancel', { baseURL: LEGACY })
+      expect(apiClient.post).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/cancel')
     })
   })
 
@@ -223,9 +223,8 @@ describe('Processes API', () => {
       await expect(querySavedBulkLoadProfiles('person', false)).resolves.toEqual([{ id: 3, label: 'CSV', tableName: 'person', mappingJson: '{}' }])
       const [url, body] = vi.mocked(apiClient.post).mock.calls[0]
       expect(url).toBe('/processes/querySavedBulkLoadProfile/init')
-      expect((body as FormData).get('tableName')).toBe('person')
-      expect((body as FormData).get('isBulkEdit')).toBe('false')
-      expect((body as FormData).get('_qStepTimeoutMillis')).toBe('60000')
+      expect(valuesOf(body)).toEqual({ tableName: 'person', isBulkEdit: 'false' })
+      expect((body as FormData).get('stepTimeoutMillis')).toBe('60000')
     })
 
     it('stores and deletes profiles and surfaces the backend refusal', async () => {
@@ -233,13 +232,13 @@ describe('Processes API', () => {
       const { storeSavedBulkLoadProfile, deleteSavedBulkLoadProfile } = await import('./processes')
       vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', values: { savedBulkLoadProfileList: [{ values: { id: 9, label: 'New', tableName: 'person', mappingJson: '{"version":"v1"}' } }] } })
       await expect(storeSavedBulkLoadProfile({ label: 'New', tableName: 'person', isBulkEdit: false, mappingJson: '{"version":"v1"}' })).resolves.toMatchObject({ id: 9 })
-      expect((vi.mocked(apiClient.post).mock.calls[0][1] as FormData).get('mappingJson')).toBe('{"version":"v1"}')
+      expect(valuesOf(vi.mocked(apiClient.post).mock.calls[0][1]).mappingJson).toBe('{"version":"v1"}')
       vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', error: 'dup', userFacingError: 'You already have a saved Bulk Load Profile on this table with this name.' })
       await expect(storeSavedBulkLoadProfile({ label: 'New', tableName: 'person', isBulkEdit: false, mappingJson: '{}' })).rejects.toThrow('You already have a saved Bulk Load Profile on this table with this name.')
       vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'p', values: {} })
       await deleteSavedBulkLoadProfile(9)
       expect(vi.mocked(apiClient.post).mock.calls[2][0]).toBe('/processes/deleteSavedBulkLoadProfile/init')
-      expect((vi.mocked(apiClient.post).mock.calls[2][1] as FormData).get('id')).toBe('9')
+      expect(valuesOf(vi.mocked(apiClient.post).mock.calls[2][1]).id).toBe('9')
     })
   })
 
@@ -247,11 +246,22 @@ describe('Processes API', () => {
     it('builds server-file and storage download links', async () => {
       const { processDownloadUrl } = await import('./processes')
       expect(processDownloadUrl({ downloadFileName: 'lab a.txt', serverFilePath: '/tmp/x y.txt' }))
-        .toBe(`${LEGACY}/download/lab%20a.txt?filePath=%2Ftmp%2Fx+y.txt`)
+        .toBe(`${LEGACY}/qqq/v1/download/lab%20a.txt?filePath=%2Ftmp%2Fx+y.txt`)
       expect(processDownloadUrl({ downloadFileName: 'r.csv', storageTableName: 'store', storageReference: 'a/b' }))
-        .toBe(`${LEGACY}/download/r.csv?storageTableName=store&storageReference=a%2Fb`)
+        .toBe(`${LEGACY}/qqq/v1/download/r.csv?storageTableName=store&storageReference=a%2Fb`)
       expect(processDownloadUrl({ downloadFileName: 'r.csv' })).toBeNull()
       expect(processDownloadUrl({ serverFilePath: '/tmp/x' })).toBeNull()
     })
+  })
+})
+
+describe('v1 widget-block process values', () => {
+  it('reads v1 WidgetBlock values in the block-data shape', async () => {
+    const { blockDataFromV1 } = await import('./processes')
+    expect(blockDataFromV1({ blockType: 'COMPOSITE', blockTypeName: 'COMPOSITE', subBlocks: [{ blockType: 'TEXT', values: { text: 'Hi' } }] }))
+      .toEqual({ blockType: 'COMPOSITE', blockTypeName: 'COMPOSITE', type: 'composite', blocks: [{ blockType: 'TEXT', blockTypeName: 'TEXT', type: 'block', values: { text: 'Hi' } }] })
+    const record = { tableName: 'person', values: { blockType: 'x' } }
+    expect(blockDataFromV1(record)).toBe(record)
+    expect(blockDataFromV1('text')).toBe('text')
   })
 })

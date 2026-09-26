@@ -54,8 +54,11 @@ describe('adornment-utils (backend value keys)', () => {
 
   it('uses the backend download URL and file name for FILE_DOWNLOAD values', () => {
     const file = field('attachment', [{ type: 'FILE_DOWNLOAD', values: { fileNameField: 'name' } }], { type: 'BLOB' })
-    expect(fileDownload(file, record({ attachment: '/data/lab/1/attachment/a.txt' }, { attachment: 'a.txt' }))).toEqual({ url: '/data/lab/1/attachment/a.txt', fileName: 'a.txt' })
-    expect(fileDownload(file, record({ attachment: '/data/lab/1/attachment/My%20Notes' }))).toEqual({ url: '/data/lab/1/attachment/My%20Notes', fileName: 'My Notes' })
+    expect(fileDownload(file, record({ attachment: '/data/lab/1/attachment/a.txt' }, { attachment: 'a.txt' }))).toEqual({ url: '/qqq/v1/table/lab/1/attachment/a.txt', fileName: 'a.txt' })
+    expect(fileDownload(file, record({ attachment: '/data/lab/1/attachment/My%20Notes' }))).toEqual({ url: '/qqq/v1/table/lab/1/attachment/My%20Notes', fileName: 'My Notes' })
+    // only backend field-download paths move to the v1 route; other URLs are kept
+    expect(fileDownload(file, record({ attachment: 'https://files.example/a.txt' }))?.url).toBe('https://files.example/a.txt')
+    expect(fileDownload(file, record({ attachment: '/data/lab/1/attachment/a.txt?v=2' }))?.url).toBe('/qqq/v1/table/lab/1/attachment/a.txt?v=2')
     expect(fileDownload(file, record({ attachment: null }))).toBeNull()
     expect(fileDownload(file, record({ attachment: 'aGVsbG8=' }))).toBeNull()
     const dynamic = field('report', [{ type: 'FILE_DOWNLOAD', values: { downloadUrlDynamic: true } }])

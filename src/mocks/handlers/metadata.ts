@@ -49,13 +49,13 @@ export const metadataHandlers = [
     return HttpResponse.json(process)
   }),
 
-  // GET /metaData/process/:processName on the registered route (wraps the process, as the backend does)
-  http.get('/metaData/process/:processName', ({ params }) => {
+  // GET /metaData/process/:processName on the v1 route (the process itself)
+  http.get(`${BASE}/metaData/process/:processName`, ({ params }) => {
     const { processName } = params as { processName: string }
     const process = qInstance.processes[processName]
     if (!process) {
       return HttpResponse.json({ error: `Process '${processName}' not found` }, { status: 404 })
     }
-    return HttpResponse.json({ process })
+    return HttpResponse.json(process)
   }),
 ]

@@ -977,6 +977,52 @@
         "QRun-IO/qqq#707"
       ],
       "required": true
+    },
+    {
+      "id": "REC-051",
+      "feature": "Table-field possible values search and resolve through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "recordLab",
+      "scenarios": [
+        "owner search sends a v1 POST with the search term and lists the exact match",
+        "ids and labels resolve to the exact option",
+        "the chosen owner persists"
+      ],
+      "negative": [
+        "a source table the persona cannot read is refused (403) by the v1 route",
+        "an unknown field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-050",
+      "feature": "Record create, view, edit and delete run on the v1 record routes",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/lib/hooks/use-record.ts",
+        "src/lib/utils/adornment-utils.ts"
+      ],
+      "fixture": "person, fieldLab, qryHousehold",
+      "scenarios": [
+        "the create/edit/delete flow sends POST, GET, PATCH and DELETE to /qqq/v1/table/... and persists each step",
+        "record-v1 associations are written and read back with includeAssociations"
+      ],
+      "negative": [
+        "a missing required field is a 400 with the backend message and nothing is written",
+        "a read-only persona is refused (403) insert, update and delete on v1 and the row is unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
     }
   ]
 }

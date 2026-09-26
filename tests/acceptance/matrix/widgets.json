@@ -1382,6 +1382,27 @@
       "required": true
     },
     {
+      "id": "WID-066",
+      "feature": "Widget metadata and widget data come from the v1 API",
+      "source": [
+        "src/lib/api/metadata.ts",
+        "src/lib/api/widgets.ts"
+      ],
+      "fixture": "widgetPermissions (accHealthy, accDenied), accPersonReport",
+      "scenarios": [
+        "v1 /metaData lists permitted widgets with hasPermission and the reports map",
+        "the dashboard renders its widgets from POST /qqq/v1/widget/{name} and makes no legacy metadata or widget request"
+      ],
+      "negative": [
+        "a denied widget is absent from v1 metadata, never requested, and refused (403) by POST /qqq/v1/widget without rendering"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
       "id": "RPT-019",
       "feature": "render report input step shows only its fields; a report without variables adds no no-fields message",
       "source": [
@@ -1398,6 +1419,29 @@
       ],
       "issues": [
         "QRun-IO/qqq#707"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-020",
+      "feature": "Report files download from the v1 download and report routes",
+      "source": [
+        "src/lib/api/reports.ts",
+        "src/lib/api/processes.ts",
+        "src/components/reports/ReportRun.tsx"
+      ],
+      "fixture": "accPersonReport, accStreamedReport, accRestrictedReport",
+      "scenarios": [
+        "a process report links its file at /qqq/v1/download/... and the file has every row",
+        "a report without a process streams from /qqq/v1/reports/{name}?format=csv with every row"
+      ],
+      "negative": [
+        "an unregistered server file or storage reference is refused (403)",
+        "a restricted report is 403, an unknown one 404, a missing format 400"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
       ],
       "required": true
     }

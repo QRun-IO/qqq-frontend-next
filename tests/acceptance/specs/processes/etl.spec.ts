@@ -159,9 +159,10 @@ test.describe('Bulk edit and delete', () => {
     await advance(page, 'Next')
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 2 Person records.')
-    const enabled = /name="bulkEditEnabledFields"\r\n\r\n([^\r]*)/.exec(steps[0])?.[1]
-    expect(enabled?.split(',').sort()).toEqual(['daysWorked', 'isEmployed'])
-    expect(steps[0]).not.toContain('name="firstName"')
+    // the v1 step sends the screen values in one `values` JSON field
+    const sent = JSON.parse(/name="values"\r\n\r\n([^\r]*)/.exec(steps[0])?.[1] ?? '{}') as Record<string, string>
+    expect(sent.bulkEditEnabledFields?.split(',').sort()).toEqual(['daysWorked', 'isEmployed'])
+    expect(sent).not.toHaveProperty('firstName')
     await review.getByRole('radio', { name: /Skip Validation/ }).check()
     await advance(page, 'Submit')
     await expectScreen(page, 'result', 'Result')

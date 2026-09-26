@@ -22,7 +22,7 @@ import { http, HttpResponse } from 'msw'
 import type { QJobComplete, QJobStarted } from '@/types'
 
 // Process lifecycle requests use the registered routes beside /qqq/v1 (see src/lib/api/processes.ts)
-const BASE = ''
+const BASE = '/qqq/v1'
 
 // Active process sessions (keyed by processUUID)
 interface ProcessSession {
@@ -317,8 +317,8 @@ export const processHandlers = [
     }
   ),
 
-  // GET /processes/:processName/:processUUID/cancel
-  http.get(
+  // POST /processes/:processName/:processUUID/cancel (v1)
+  http.post(
     `${BASE}/processes/:processName/:processUUID/cancel`,
     ({ params }) => {
       const { processUUID } = params as { processUUID: string }

@@ -126,7 +126,7 @@ export interface QqqChartPayload {
 export interface WidgetComponentProps<T> {
   /** Metadata for the widget being rendered. */
   widgetMetaData: QWidgetMetaData
-  /** The widget's payload from `GET /widget/{name}`. */
+  /** The widget's payload from `POST /qqq/v1/widget/{name}`. */
   data: T
   /** Record context when rendered inside a record view section. */
   recordContext?: WidgetRecordContext

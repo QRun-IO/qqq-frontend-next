@@ -24,7 +24,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Download, FileBarChart } from 'lucide-react'
 
 import type { QFieldMetaData, QReportMetaData } from '@/types'
-import { legacyReportUrl, pollReport, startReport, submitReportInputs } from '@/lib/api/reports'
+import { pollReport, reportFileUrl, startReport, submitReportInputs } from '@/lib/api/reports'
 import type { ReportFormat, ReportRunState } from '@/lib/api/reports'
 import { cn } from '@/lib/utils/cn'
 
@@ -129,7 +129,7 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
   async function handleRun() {
     setMissing([])
     if (!processName) {
-      setState({ kind: 'done', processUUID: '', fileName: `${reportMetaData.label}.${format.toLowerCase()}`, downloadUrl: legacyReportUrl(reportName, format) })
+      setState({ kind: 'done', processUUID: '', fileName: `${reportMetaData.label}.${format.toLowerCase()}`, downloadUrl: reportFileUrl(reportName, format) })
       return
     }
     setBusy(true)

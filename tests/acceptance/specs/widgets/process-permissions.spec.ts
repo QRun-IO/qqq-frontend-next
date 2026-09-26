@@ -29,7 +29,7 @@ test.describe('without process permission', () => {
   test.use({ persona: 'noProcesses' })
 
   test('[WID-061] a process widget is contained when the user may not run its process', async ({ page, backend, diagnostics }) => {
-    // process metadata comes from the registered /metaData/process route, which refuses the denied process
+    // process metadata comes from the v1 /metaData/process route, which refuses the denied process
     diagnostics.allow('/metaData/process/greetInteractive 403')
     diagnostics.allow('Failed to load resource: the server responded with a status of 403')
     expect((await backend.api.post('/qqq/v1/processes/greetInteractive/init', { multipart: { values: '{}' } })).status()).toBe(403)
@@ -69,7 +69,8 @@ test.describe('widget permission', () => {
       await expectLoaded(page, 'accHealthy')
       await expect(widget(page, 'accDenied')).toHaveCount(0)
       await expect(page.getByText('Restricted widget content')).toHaveCount(0)
-      expect(requested).not.toContain('/widget/accDenied')
+      expect(requested).not.toContain('/qqq/v1/widget/accDenied')
+      expect(requested).toContain('/qqq/v1/widget/accHealthy')
       // none of the denied attempts reached the renderer
       await backend.setPersona('admin')
       expect(await renders()).toBe(before + 1)

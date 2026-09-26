@@ -63,7 +63,7 @@ test('[REC-002] empty values show a placeholder; hidden fields and sections neve
 })
 
 test('[REC-003] a missing record shows Record Not Found and returns to its table', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/person/999 404')
+  diagnostics.allow('/qqq/v1/table/person/999 404')
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
   expect((await backend.sql('select id from person where id = 999'))).toHaveLength(0)
   await page.goto('/app/person/999', { waitUntil: 'domcontentloaded' })
@@ -76,7 +76,7 @@ test('[REC-003] a missing record shows Record Not Found and returns to its table
   await panel.getByRole('button', { name: 'Back to Person' }).click()
   await expect(page).toHaveURL(/\/app\/person\/?$/)
   await expect(page.getByRole('grid', { name: 'Person records' })).toBeVisible()
-  expect(diagnostics.failedRequests).toEqual(['GET /data/person/999 404'])
+  expect(diagnostics.failedRequests).toEqual(['GET /qqq/v1/table/person/999 404'])
 })
 
 test('[REC-004] tabs and list view expose every visible section', async ({ page, backend, diagnostics }) => {

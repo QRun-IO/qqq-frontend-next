@@ -58,8 +58,8 @@ describe('FieldValue adornments use the backend value keys', () => {
   it('offers open and download links for FILE_DOWNLOAD values', () => {
     const file = show(field('doc', [{ type: 'FILE_DOWNLOAD' }], { type: 'BLOB' }), { doc: '/data/lab/1/doc/a.txt' }, { doc: 'a.txt' })
     expect(file).toHaveTextContent('a.txt')
-    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveAttribute('href', '/data/lab/1/doc/a.txt')
-    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveAttribute('href', '/data/lab/1/doc/a.txt?download=1')
+    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt')
+    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt?download=1')
   })
 
   it('reveals REVEAL values on request', () => {

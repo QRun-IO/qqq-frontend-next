@@ -171,7 +171,7 @@ test.describe('Failures and retry', () => {
     expect(inits).toHaveLength(2)
     for (const body of inits) {
       expect(body).toContain('name="recordIds"\r\n\r\n2,4')
-      expect(body).toContain('name="tableName"\r\n\r\nprcSpecimen')
+      expect(body).toMatch(/name="values"\r\n\r\n[^\r]*"tableName":"prcSpecimen"/)
     }
   })
 })

@@ -157,7 +157,7 @@ test.describe('record security lock', () => {
     test.use({ user: 'bob' })
 
     test("[SEC-012] bob cannot list, open, change, delete or forge alice's notes", async ({ page, security, diagnostics }) => {
-      diagnostics.allow('/data/securityNote/1 404')
+      diagnostics.allow('/qqq/v1/table/securityNote/1 404')
       diagnostics.allow('status of 404')
       await open(page, '/app/securityNote')
         await expect(listCell(page, 'Security Note', 'Bob Memo')).toBeVisible()

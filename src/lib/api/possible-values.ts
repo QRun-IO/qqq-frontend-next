@@ -60,23 +60,25 @@ const possibleValuesResponse = z.union([z.object({
 }), z.object({}).strict().transform(() => ({ options: [] }))])
 
 /**
- * Search parameters are query parameters on all registered legacy PVS routes.
- * @param url - Registered legacy route relative to the application prefix.
+ * Search a possible-value source through its v1 route (`POST`, JSON body).
+ * @param url - v1 route relative to the API base URL.
  * @param request - Search text, identifiers and field context.
  * @returns Validated native options; rejects HTTP and response-format failures.
  */
 async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
-  const { values, ...params } = request
-  if (values && !params.ids) params.ids = values
-  const result = await apiClient.get<unknown>(url, {
-    baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
-    params,
-  })
+  const { searchTerm, useCase } = request
+  const ids = request.ids ?? request.values
+  const body: Record<string, unknown> = {}
+  if (searchTerm !== undefined) body.searchTerm = searchTerm
+  if (ids) body.ids = ids.split(',')
+  else if (request.labels) body.labels = request.labels.split(',')
+  if (useCase) body.useCase = useCase
+  const result = await apiClient.post<unknown>(url, body)
   return possibleValuesResponse.parse(result).options
 }
 
 /**
- * Load choices for a declared table field through its registered legacy route.
+ * Load choices for a declared table field through its v1 route.
  * @param tableName - Exact table identifier.
  * @param fieldName - Exact field identifier.
  * @param request - Search and identifier filters.
@@ -87,11 +89,11 @@ export async function fetchTablePossibleValues(
   fieldName: string,
   request: PossibleValuesRequest = {}
 ): Promise<QPossibleValue[]> {
-  return loadPossibleValues(`/data/${encodeURIComponent(tableName)}/possibleValues/${encodeURIComponent(fieldName)}`, request)
+  return loadPossibleValues(`/table/${encodeURIComponent(tableName)}/possibleValues/${encodeURIComponent(fieldName)}`, request)
 }
 
 /**
- * Load choices for a process field through its registered legacy route.
+ * Load choices for a process field through its v1 route.
  * @param processName - Exact process identifier.
  * @param fieldName - Exact field identifier.
  * @param request - Search and identifier filters.
@@ -106,7 +108,7 @@ export async function fetchProcessPossibleValues(
 }
 
 /**
- * Load choices from a named standalone source through its registered legacy route.
+ * Load choices from a named standalone source through its v1 route.
  * @param fieldName - Exact possible-value source identifier.
  * @param request - Search and identifier filters.
  * @returns Validated choices from the source.

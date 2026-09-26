@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type APIRequestContext, type Page, type Response } from '@playwright/test'
-import { ACCEPTANCE_BACKEND_URL } from './ports'
+import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
 export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired'
@@ -26,6 +26,8 @@ export interface Diagnostics {
   cspViolations: string[]
   /** WebKit reports of Next.js prefetches a document navigation cut off (ignored; see below). */
   interruptedFetches: string[]
+  /** Page requests to the unversioned (legacy) API routes; the UI must use /qqq/v1 only (QRun-IO/qqq#699). */
+  legacyRequests: string[]
   /** Substrings of expected console/request failures for negative scenarios. */
   allow: (pattern: string | RegExp) => void
 }
@@ -75,7 +77,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
   diagnostics: async ({ page }, use, testInfo) => {
     const allowed: (string | RegExp)[] = []
     const matches = (text: string) => allowed.some((pattern) => typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text))
-    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], allow: (pattern) => { allowed.push(pattern) } }
+    const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], legacyRequests: [], allow: (pattern) => { allowed.push(pattern) } }
     // The dashboard is served with a strict Content-Security-Policy (QRun-IO/qqq#695). Browsers
     // report a blocked script, style, connection, frame or image as a `securitypolicyviolation`
     // event (console messages for these differ per engine), so every frame forwards the events.
@@ -106,6 +108,17 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     // navigation - still fails the test.
     const documentHosts = new Set<string>()
     const navigations: number[] = []
+    // The UI runs on the v1 API only (QRun-IO/qqq#699): any page request to an unversioned API
+    // route of a QQQ server fails the test (Node-side backend.api calls are not page requests).
+    const legacyRoute = /^\/(data|processes|widget|possibleValues|download|reports|metaData|manageSession|logout)(\/|$)/
+    // the sample and the security area's own QQQ server (specs/security/support/variant.ts)
+    const securityPort = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? ACCEPTANCE_BACKEND_PORT + 10)
+    const qqqHosts = new Set([ACCEPTANCE_UI_URL, ACCEPTANCE_BACKEND_URL, `http://127.0.0.1:${securityPort}`].map((url) => new URL(url).host))
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      // QQQ servers only: an identity provider's own /logout is not a QQQ route
+      if (qqqHosts.has(url.host) && legacyRoute.test(url.pathname)) diagnostics.legacyRequests.push(`${request.method()} ${url.pathname}`)
+    })
     page.on('request', (request) => {
       if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) return
       navigations.push(performance.now())
@@ -150,9 +163,11 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       ...diagnostics.consoleErrors.map((text) => `console: ${text}`),
       ...diagnostics.failedRequests.map((text) => `request: ${text}`),
       ...diagnostics.cspViolations.map((text) => `csp: ${text}`),
-    ].filter((text) => !matches(text))
+    ].filter((text) => !matches(text)).concat(
+      // not subject to allow(): a negative scenario may expect a failure, never a legacy route
+      diagnostics.legacyRequests.map((text) => `legacy API route: ${text}`))
     await testInfo.attach('diagnostics.json', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' })
-    expect(unexpected, 'unexplained console errors, failed application requests or Content-Security-Policy violations').toEqual([])
+    expect(unexpected, 'unexplained console errors, failed application requests, Content-Security-Policy violations or legacy API routes').toEqual([])
   },
 })
 

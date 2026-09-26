@@ -18,7 +18,7 @@ test('[REC-045] possible-value editors show stored labels, look up defaults and 
   await expect(control(page, 'ownerId')).toHaveText(/^Avery Sample/)
 
   // Create: the metadata default id is shown with its label.
-  const writes = recordRequests(page, '/data/recordLab')
+  const writes = recordRequests(page, '/qqq/v1/table/recordLab')
   await openForm(page, '/app/recordLab/create', 'Create Record Lab')
   await expect(control(page, 'status')).toHaveText(/^Draft/)
   await control(page, 'title').fill('Keyboard Pick')

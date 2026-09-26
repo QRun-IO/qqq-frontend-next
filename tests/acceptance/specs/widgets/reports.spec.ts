@@ -118,7 +118,7 @@ test('[RPT-011] a report without a process streams from the report route', async
   await page.getByLabel('Output format').selectOption('CSV')
   await page.getByRole('button', { name: 'Run Report' }).click()
   const link = page.getByRole('link', { name: /^Download / })
-  await expect(link).toHaveAttribute('href', /\/reports\/accStreamedReport\?format=csv$/)
+  await expect(link).toHaveAttribute('href', /^\/qqq\/v1\/reports\/accStreamedReport\?format=csv$/)
   const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
   const rows = parseCsv(await downloadText(download))
   expect(rows[0]).toEqual(['Id', 'Name'])
