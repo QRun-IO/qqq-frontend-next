@@ -33,13 +33,16 @@ test.describe('Record selection', () => {
         document.querySelectorAll('[data-sonner-toast][data-type="error"]').forEach((toast) => { shown.push(toast.textContent ?? '') })
       }).observe(document, { childList: true, subtree: true })
     })
-    // the backend answers a run without records with `{"totalRecords":0}` (no empty list)
+    // the v1 records route answers a run without records with a zero total and no records
     const previews = page.waitForResponse((response) => /^\/qqq\/v1\/processes\/clonePeople\/[^/]+\/records$/.test(new URL(response.url()).pathname))
     await openProcess(page, 'clonePeople', { filter: NOBODY })
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 0 Person records.')
     await expect(review.getByText('No record previews are available at this time.')).toBeVisible()
-    expect(await (await previews).json()).toEqual({ totalRecords: 0 })
+    const preview = (await (await previews).json()) as { records?: unknown[], totalRecords?: number }
+    expect(preview.totalRecords).toBe(0)
+    // an empty list may be sent or omitted; either way no record is previewed
+    expect(preview.records ?? []).toEqual([])
     await advance(page, 'Next')
     const validated = await expectScreen(page, 'review', 'Review')
     await expect(validated.locator('[data-qqq-id="process-validation-complete"]')).toHaveText('Validation complete on 0 Person records.')

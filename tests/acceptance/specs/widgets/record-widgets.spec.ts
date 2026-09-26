@@ -122,13 +122,16 @@ test('[WID-032] script viewer marks the current revision and shows each revision
   await expect(files.first()).toContainText('return \'owned one\';')
 })
 
+/** The v1 widget data route prefix (the UI calls no unversioned route; the diagnostics fixture enforces it). */
+const WIDGET_ROUTE = '/qqq/v1/widget/'
+
 /** Records the widget data requests the page makes, by widget name. */
 function widgetRequests(page: Page): Map<string, number> {
   const counts = new Map<string, number>()
   page.on('request', (request) => {
     const { pathname } = new URL(request.url())
-    if (!pathname.startsWith('/widget/')) return
-    const name = decodeURIComponent(pathname.slice('/widget/'.length))
+    if (!pathname.startsWith(WIDGET_ROUTE)) return
+    const name = decodeURIComponent(pathname.slice(WIDGET_ROUTE.length))
     counts.set(name, (counts.get(name) ?? 0) + 1)
   })
   return counts

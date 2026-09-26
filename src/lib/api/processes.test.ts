@@ -201,6 +201,13 @@ describe('Processes API', () => {
       await expect(processRecords('p', 'u')).resolves.toEqual({ totalRecords: 0, records: [] })
     })
 
+    it('reads the v1 zero-record response, an empty list and a zero total, as an empty page', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ records: [], totalRecords: 0 })
+      const { processRecords } = await import('./processes')
+      await expect(processRecords('p', 'u')).resolves.toEqual({ totalRecords: 0, records: [] })
+    })
+
     it('rejects a non-object body, a non-number total or a non-array records value', async () => {
       const { default: apiClient } = await import('./client')
       const { processRecords } = await import('./processes')
