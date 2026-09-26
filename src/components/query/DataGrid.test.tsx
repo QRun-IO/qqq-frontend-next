@@ -117,3 +117,22 @@ describe('DataGrid Material CSS hooks (QRun-IO/qqq#731)', () => {
     expect(headers[1]).toContainElement(document.querySelector('[data-qqq-id="grid-header-name"]') as HTMLElement)
   })
 })
+
+describe('DataGrid compact headers (QRun-IO/qqq#728)', () => {
+  it('keeps narrow columns inside their sticky cell while offering statistics through the menu', () => {
+    render(grid({
+      onColumnStats: vi.fn(),
+      columnMenu: {
+        onHide: vi.fn(), onPin: vi.fn(),
+        onCopyPageValues: vi.fn(), onCopyFullQueryValues: vi.fn(),
+      },
+    }))
+    const id = document.querySelector('th[data-col="id"]') as HTMLTableCellElement
+    const name = document.querySelector('th[data-col="name"]') as HTMLTableCellElement
+    expect(id.querySelector('div.flex')).toHaveClass('overflow-hidden')
+    expect(screen.getByRole('button', { name: 'Id column menu' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Column statistics for Id' })).not.toBeInTheDocument()
+    expect(name.querySelector('div.flex')).toHaveClass('overflow-hidden')
+    expect(screen.getByRole('button', { name: 'Column statistics for Name' })).toBeInTheDocument()
+  })
+})

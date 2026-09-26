@@ -34,7 +34,10 @@ test('[QRY-022] column statistics aggregate the filtered rows, per value and ove
   await row.getByLabel('Filter value for Quantity').fill('5')
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item where quantity > 5 order by id desc'))
   await closeFilterSheet(page)
-  await grid(page, 'Query Item').getByRole('button', { name: 'Column statistics for Quantity' }).click()
+  // Quantity is a narrow Material-sized column. Its statistics action is in the column menu,
+  // keeping the sticky header from covering neighboring controls on touch screens.
+  await grid(page, 'Query Item').getByRole('button', { name: 'Quantity column menu' }).click()
+  await page.getByRole('menuitem', { name: 'Column statistics' }).click()
   const [stats] = await backend.sql('select count(quantity) as c, sum(quantity) as s, min(quantity) as mn, max(quantity) as mx from qry_item where quantity > 5')
   await expect(dialog.locator('[data-qqq-id="column-stats-stat-sum"]')).toHaveText(Number(stats.s).toLocaleString('en-US'))
   await expect(dialog.locator('[data-qqq-id="column-stats-stat-min"]')).toHaveText(String(stats.mn))

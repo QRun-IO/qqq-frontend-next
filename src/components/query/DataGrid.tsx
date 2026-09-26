@@ -41,6 +41,7 @@ import type { Density } from '@/lib/hooks/use-record-query'
 import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { MAX_GRID_VALUE_LENGTH } from '@/lib/constants'
 import { selectHelpContent, QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { cn } from '@/lib/utils/cn'
 import { arrangePinnedColumns, effectivePins, getQueryColumns, orderColumns, type ColumnPins, type QueryColumn } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 import { HelpContent } from '@/components/records/HelpContent'
@@ -357,17 +358,20 @@ export function DataGrid({
       const sortInfo = sortMap.get(column.name)
       const help = selectHelpContent(field.helpContents, QUERY_SCREEN_HELP_ROLES)
       const filtered = column.isQueryCriteria && filteredColumns?.has(column.name)
+      // Material keeps narrow numeric/date columns. Their extra header actions live in the
+      // column menu, so those actions cannot overflow a sticky cell and cover its neighbor.
+      const compactHeader = widthOf(column) < 160
 
       return {
         id: column.name,
         size: widthOf(column),
         enableSorting: column.isQueryCriteria,
         header: () => (
-          <div className="flex w-full items-center gap-1">
+          <div className="flex w-full min-w-0 items-center gap-1 overflow-hidden">
             {column.isQueryCriteria ? (
               <button
                 type="button"
-                className="flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
+                className={cn('flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring', filtered && 'text-primary')}
                 onClick={() => handleSortColumn(column.name)}
                 aria-label={`Sort by ${column.label}`}
                 data-qqq-id={`grid-header-${column.name}`}
@@ -387,8 +391,8 @@ export function DataGrid({
               // a virtual field the backend cannot sort or filter on (Material hides both)
               <span className="min-w-0 flex-1 truncate font-semibold" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
             )}
-            {help && <ColumnHelp column={column} help={help} />}
-            {filtered && (
+            {help && !compactHeader && <ColumnHelp column={column} help={help} />}
+            {filtered && !compactHeader && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onShowFilter?.(column.name) }}
@@ -400,7 +404,7 @@ export function DataGrid({
                 <Filter className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
-            {onColumnStats && (
+            {onColumnStats && !compactHeader && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onColumnStats(column.name, column.label) }}
