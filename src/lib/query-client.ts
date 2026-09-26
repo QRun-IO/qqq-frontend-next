@@ -350,6 +350,29 @@ export const queryKeys = {
    * @returns The table ESB query key tuple.
    */
   esbTable: (tableName: string) => [...queryKeys.esb(), 'table', tableName] as const,
+  /**
+   * Key for a process's ESB publications and triggers.
+   *
+   * @param processName - Backend process name.
+   * @returns The process ESB query key tuple.
+   */
+  esbProcess: (processName: string) => [...queryKeys.esb(), 'process', processName] as const,
+  /**
+   * Key for the ESB overview of every provider, destination and trigger.
+   *
+   * @returns The overview query key tuple.
+   */
+  esbOverview: () => [...queryKeys.esb(), 'overview'] as const,
+  /**
+   * Key for one page of messages browsed from a destination's queue or a trigger's dead letters.
+   *
+   * @param kind - `destination` or `deadLetters`.
+   * @param name - The destination or trigger name.
+   * @param offset - Messages skipped before the page.
+   * @returns The message page query key tuple.
+   */
+  esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
+    [...queryKeys.esb(), 'messages', kind, name, offset] as const,
 
   // Search
   /**
