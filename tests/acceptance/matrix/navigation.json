@@ -552,10 +552,11 @@
       ],
       "negative": [
         "/app/person/1/noSuchProcess shows the in-shell not-found state and starts no process",
-        "report URLs (/app/{table}/{report}) are not covered: the backend frontend report metadata (QFrontendReportMetaData) has no tableName, so no report can match"
+        "report URLs (/app/{table}/{report}) are not covered: the backend frontend report metadata (QFrontendReportMetaData) has no tableName, so no report can match (#732)"
       ],
       "issues": [
-        "#714"
+        "#714",
+        "#732"
       ],
       "required": true
     },

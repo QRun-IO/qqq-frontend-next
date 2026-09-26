@@ -17,13 +17,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---|---|---|---|---|---|
 | Shell and navigation | 69 | 2 | 11 | 22 | 7 | 111 |
-| Query | 65 | 0 | 30 | 33 | 3 | 131 |
-| Records | 83 | 1 | 16 | 30 | 8 | 138 |
-| Processes and reports | 94 | 2 | 20 | 10 | 2 | 128 |
-| Widgets and blocks | 126 | 0 | 35 | 71 | 4 | 236 |
+| Query | 66 | 0 | 30 | 32 | 3 | 131 |
+| Records | 84 | 1 | 16 | 29 | 8 | 138 |
+| Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
+| Widgets and blocks | 126 | 0 | 36 | 70 | 4 | 236 |
 | Supplemental metadata and theme | 1 | 0 | 5 | 36 | 9 | 51 |
-| **Total** | **438** | **5** | **117** | **202** | **33** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 46 | 5 | 26 | 38 | 12 | 127 |
+| **Total** | **439** | **5** | **119** | **199** | **33** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 47 | 5 | 27 | 36 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 
@@ -31,20 +31,21 @@ The overlay section repeats abilities from the area sections from the point of v
 
 These gaps were closed on `feature/next-1.0-parity` during the audit. The area tables below show them with their new status and rows.
 
-- Page keyboard shortcuts: query `n`/`r`/`f`, record `n`/`e`/`c`/`d`/`a`, suppressed in text entry and open overlays (REC-055, QRY-065).
+- Page keyboard shortcuts: query `n`/`r`/`f`, record `n`/`e`/`c`/`d`/`a`, suppressed in text entry and open overlays (QRY-065, REC-055).
 - Record-view hash links `#audit`, `#/launchProcess=`, `#/createChild=`, section anchors, and the create page's `#/defaultValues=` / `#/disabledFields=` presets (REC-050, REC-051).
-- Material table-scoped URLs `/app/{table}/{process}`, `/app/{table}/{report}` and `/app/{table}/{id}/{process}` resolve, and process runs return to the launching record or query (NAV-034, NAV-035). Material ran these processes as a modal over the screen; Next runs them as a full page that returns to the caller, so those rows are Done (different UX).
+- Material table-scoped URLs `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve, and process runs return to the launching record or query (NAV-034, NAV-035). Material ran these processes as a modal over the screen; Next runs them as a full page that returns to the caller, so those rows are Done (different UX). The table-scoped report URL `/app/{table}/{report}` stays Partial: the backend report metadata (QFrontendReportMetaData) has no tableName, so no report can match (#732).
 - The child record list "Add new" opens a create dialog over the parent with the join fields preset and locked (RPT-012).
 - The table variant is sent on process init, every process step and record requests (QRY-066).
 - Material app-home settings `showAppLabelOnHomeScreen` and `includeTableCountsOnHomeScreen` (NAV-036).
 - Single leaf-block widget payloads render (WID-066).
-- Go To record dialog from `gotoFieldNames` (QRY-067, in progress).
-- `processNamesToAddToAllQueryAndViewScreens` (PRC-048, in progress).
-- Dependent possible-value filters: other form values sent with possible-value searches (REC-052, and PRC-049 for process forms if feasible; in progress).
-- Table developer view API docs and playground with API and version selectors (REC-053, in progress).
-- Record developer view associated scripts: code, versions, edit and save a new version, test run, logs (REC-054, in progress).
+- Go To record dialog from `gotoFieldNames` on the query toolbar and the record view header, auto-opened and not closable for tables that can be read but not queried (QRY-067).
+- Processes the instance adds to every query and record screen (`processNamesToAddToAllQueryAndViewScreens`, PRC-048).
+- Dependent possible-value filters: the other form values are sent with possible-value searches on record forms (REC-052) and process screens (PRC-049).
+- Table developer view API docs and playground with API and version selectors (REC-053). The sample application has no qqq-middleware-api, so acceptance covers the no-API state (#738).
+- Record developer view associated scripts: code, versions, edit and save a new version, test run, logs, docs and script creation (REC-054).
+- A process run with no records no longer fails its validation review when the backend omits the empty records list (PRC-003).
 
-Rows NAV-034, NAV-035, REC-055, REC-050, REC-051 and QRY-065 are being added to the matrix on this branch; QRY-067, PRC-048, REC-052, REC-053, REC-054 and PRC-049 are in progress. Every other cited row exists in `tests/acceptance/matrix/*.json`.
+Every cited row exists in `tests/acceptance/matrix/*.json`.
 
 ## Shell and navigation
 
@@ -229,10 +230,10 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Export: disabled at 0 rows; visible cols in order; filename; POST export | material:src/qqq/components/query/ExportMenuItem.tsx:51-111 | src/components/query/ExportButton.tsx:runExport; src/lib/api/tables.ts:exportRecords | QRY-040, QRY-041, QRY-042 | Done: in-page blob download; no "Generating file… N records" tab |
 | Variant header "<variantTableLabel>: name" + change icon | material:src/qqq/pages/records/query/RecordQuery.tsx:716-726 | src/components/query/RecordQueryToolbar.tsx (variant chip) | QRY-060 | Partial: chip lacks "<variantTableLabel>:" prefix and settings icon; #717 |
 | Variant dialog; LS qqq.tableVariant.<t>; required before query | material:src/qqq/components/query/TableVariantDialog.tsx; material:src/qqq/pages/records/query/RecordQuery.tsx:1039,2963 | src/components/query/VariantPicker.tsx; src/components/query/RecordQuery.tsx:readStoredVariant | QRY-060, QRY-061 | Partial: Enter does not select; otherwise equivalent (same LS key); #717 |
-| "Go To…" dialog (PK + gotoFieldNames unique keys, Enter, not-found / more-than-1 errors, /key lookup) | material:src/qqq/components/misc/GotoRecordDialog.tsx:63-371; material:src/qqq/pages/records/query/RecordQuery.tsx:3193; material:src/main/java/.../model/metadata/MaterialDashboardTableMetaData.java:58 | src/components/records/GotoRecordDialog.tsx; src/lib/utils/goto-utils.ts (in progress) | QRY-067 | Done: in progress |
-| No QUERY but GET capability: auto-open non-closable Go To | material:src/qqq/pages/records/query/RecordQuery.tsx:2993-3018 | src/components/query/RecordQuery.tsx (query-not-supported) | none | Missing: GET-only tables do not auto-open Go To; #717 |
+| "Go To…" dialog (PK + gotoFieldNames unique keys, Enter, not-found / more-than-1 errors, /key lookup) | material:src/qqq/components/misc/GotoRecordDialog.tsx:63-371; material:src/qqq/pages/records/query/RecordQuery.tsx:3193; material:src/main/java/.../model/metadata/MaterialDashboardTableMetaData.java:58 | src/components/records/GotoRecordDialog.tsx; src/lib/utils/goto-utils.ts (query toolbar and record view header) | QRY-067 | Done |
+| No QUERY but GET capability: auto-open non-closable Go To | material:src/qqq/pages/records/query/RecordQuery.tsx:2993-3018 | src/components/query/RecordQuery.tsx; src/components/records/GotoRecordDialog.tsx (mayClose=false) | QRY-067 | Done |
 | Variant tables: Go To auto-opens with the variant picker sub-header, not closeable | material:src/qqq/pages/records/query/RecordQuery.tsx:3006-3016 | none (src/components/query/VariantPicker.tsx exists) | QRY-060 | Missing: no Go To plus variant picker combination; #717 |
-| Actions menu: bulk items gated; processes sorted by label w/ icons; extra processes; Developer Mode; "No actions" | material:src/qqq/components/query/QueryScreenActionMenu.tsx:73-160 | src/components/query/ProcessLauncherMenu.tsx:buildActionEntries | QRY-034, QRY-035, QRY-062, QRY-063, PRC-048 | Partial: generic processes in progress (PRC-048); no Developer Mode entry, generic icons; #717 |
+| Actions menu: bulk items gated; processes sorted by label w/ icons; extra processes; Developer Mode; "No actions" | material:src/qqq/components/query/QueryScreenActionMenu.tsx:73-160 | src/components/query/ProcessLauncherMenu.tsx:buildActionEntries | QRY-034, QRY-035, QRY-062, QRY-063, PRC-048 | Partial: no Developer Mode entry, generic icons; #717 |
 | Create New gated by insert capability + permission | material:src/qqq/pages/records/query/RecordQuery.tsx:3210 | src/components/query/RecordQueryToolbar.tsx (button-create) | QRY-035, QRY-062 | Done: labelled "Create" |
 | Bulk with no selection / missing-process alerts | material:src/qqq/pages/records/query/RecordQuery.tsx:1697-1753 | src/components/query/ProcessLauncherMenu.tsx:blockedMessage | QRY-031 | Done: missing process hides item |
 | Process min/maxInputRecords alerts | material:src/qqq/pages/records/query/RecordQuery.tsx:1759-1780 | src/components/query/ProcessLauncherMenu.tsx; src/components/process/ProcessRun.tsx:inputRecordBoundsMessage | PRC-006 | Done: query-menu path not acceptance-tested |
@@ -389,7 +390,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Success alert after create/update (location.state createSuccess/updateSuccess) | material:src/qqq/pages/records/view/RecordView.tsx:803 | src/components/forms/EntityForm.tsx toast.success | REC-006, REC-009 | Done: toast instead of an inline alert |
 | Save warning shown on view (record.warnings[0], or an error message starting "warning") | material:src/qqq/components/forms/EntityForm.tsx:1400,1423; material:src/qqq/pages/records/view/RecordView.tsx:811 | none (view shows GET-time record.warnings only; save warnings are dropped) | none | Missing: save warnings are dropped; #723 |
 | Edit / Delete buttons shown only with capability + permission | material:src/qqq/pages/records/view/RecordView.tsx:1318 | src/components/records/RecordActions.tsx (canEditRecords/canDeleteRecords) | SEC-004, SEC-005, SEC-014, REC-046 | Done |
-| Default actions menu (NEW, COPY, EDIT, DELETE / table processes / generic processes, DEVELOPER_MODE, AUDIT) | material:src/qqq/pages/records/view/RecordView.tsx:470 | src/components/records/RecordActions.tsx (Edit, Copy, processes, Delete) | SEC-006 | Partial: no New or Developer Mode items; Audit is a separate button; generic processes in progress (PRC-048); #723 |
+| Default actions menu (NEW, COPY, EDIT, DELETE / table processes / generic processes, DEVELOPER_MODE, AUDIT) | material:src/qqq/pages/records/view/RecordView.tsx:470 | src/components/records/RecordActions.tsx (Edit, Copy, processes, Delete) | SEC-006, PRC-048 | Partial: no New or Developer Mode items; Audit is a separate button; #723 |
 | Menu: NEW (insert capability + permission) | material:src/qqq/components/view/RecordViewMenus.tsx:191 | none (only the `n` shortcut, REC-055) | none | Missing: no New menu item; #723 |
 | Menu: COPY | material:src/qqq/components/view/RecordViewMenus.tsx:197 | src/components/records/RecordActions.tsx | REC-013, SEC-006 | Done |
 | Menu: EDIT | material:src/qqq/components/view/RecordViewMenus.tsx:203 | src/components/records/RecordActions.tsx | REC-009, SEC-004 | Done |
@@ -403,7 +404,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Menu item DOWNLOAD_FILE (fieldName; disabled when empty; BLOB via iframe, else window.open) | material:src/qqq/components/view/RecordViewMenus.tsx:166; material:src/qqq/pages/records/view/RecordView.tsx:907 | none | none | Missing: no backend menu items; #723 |
 | Menu SUB_MENU / SUB_LIST / DIVIDER (no duplicate dividers); per-item label/icon; processes not repeated | material:src/qqq/components/view/RecordViewMenus.tsx:151-190,370 | none | none | Missing: no backend menu structure; #723 |
 | Share button (shareableTableMetaData), disabled with "Only the owner of a X may share it." | material:src/qqq/pages/records/view/RecordView.tsx:960 | src/components/sharing/ShareDialog.tsx ShareButton | RPT-017 | Done |
-| "Go To..." button (GotoRecordDialog) in view actions | material:src/qqq/pages/records/view/RecordView.tsx:1110; material:src/qqq/components/misc/GotoRecordDialog.tsx:348 | none | none | Missing: query-screen dialog in progress (QRY-067), no record-view button; #723 |
+| "Go To..." button (GotoRecordDialog) in view actions | material:src/qqq/pages/records/view/RecordView.tsx:1110; material:src/qqq/components/misc/GotoRecordDialog.tsx:348 | src/components/records/RecordViewHeader.tsx; src/components/records/GotoRecordDialog.tsx:GotoRecordButton | QRY-067 | Done |
 | Keyboard `n` new, `e` edit, `c` copy, `d` delete (capability + permission) | material:src/qqq/pages/records/view/RecordView.tsx:262-296 | src/components/records/RecordViewHeader.tsx usePageShortcuts; src/lib/hooks/use-page-shortcuts.ts | REC-055 | Done |
 | Keyboard `a` audit (when the audit table exists) | material:src/qqq/pages/records/view/RecordView.tsx:297 | src/components/records/RecordViewHeader.tsx usePageShortcuts `a` | REC-055 | Done |
 | Shortcuts suppressed in text inputs, with meta/ctrl, and while menus/dialogs/modals are open | material:src/qqq/pages/records/view/RecordView.tsx:266 | src/lib/hooks/use-page-shortcuts.ts isTextEntryTarget/hasOpenOverlay | REC-055 | Done |
@@ -436,11 +437,11 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Share: remove a share (deleteSharedRecord) | material:src/qqq/components/sharing/ShareModal.tsx:301 | ShareDialog remove | RPT-015 | Done |
 | Share: status and error text (Loading/Saving/Deleting; "Error sharing record: ...") | material:src/qqq/components/sharing/ShareModal.tsx:257-320 | ShareDialog change() | none | Done |
 | Share modal ignores backdrop/Esc; "Done" button | material:src/qqq/components/sharing/ShareModal.tsx:133 | ShareDialog onInteractOutside prevented | none | Done |
-| Record developer view: raw record values as JSON (getRecordDeveloperMode) | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:104,168 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx (plain getRecord; field table + JSON + metadata JSON) | none | Partial: developer-mode endpoint not used; record developer view in progress (REC-054); #724 |
-| Record developer view: associated-script fields with ScriptViewer, or "No script has been created..." + Create Script | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx (in progress) | REC-054 | Done: in progress (parity stream) |
-| Table developer view: API + version selectors (apis.json, versions.json, remembered in localStorage) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,154 | src/app/(dashboard)/app/[slug]/dev/page.tsx (in progress) | REC-053 | Done: in progress (parity stream) |
-| Table developer view: RapiDoc API docs and playground (openapi.json, auth, try-it, spec download) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:244; material:src/qqq/pages/records/developer/RapiDocReact.tsx | src/app/(dashboard)/app/[slug]/dev/page.tsx (in progress) | REC-053 | Done: in progress (parity stream) |
-| "This table is not available in any APIs." | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:240 | src/app/(dashboard)/app/[slug]/dev/page.tsx (in progress) | REC-053 | Done: in progress (parity stream) |
+| Record developer view: raw record values as JSON (getRecordDeveloperMode) | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:104,168 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx (plain getRecord for values; the developer endpoint feeds the associated scripts) | REC-054 | Partial: raw values come from the plain record GET, not the developer-mode response; #724 |
+| Record developer view: associated-script fields with ScriptViewer, or "No script has been created..." + Create Script | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx; src/components/records/AssociatedScriptViewer.tsx | REC-054 | Done |
+| Table developer view: API + version selectors (apis.json, versions.json, remembered in localStorage) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,154 | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
+| Table developer view: RapiDoc API docs and playground (openapi.json, auth, try-it, spec download) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:244; material:src/qqq/pages/records/developer/RapiDocReact.tsx | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx (rapidoc) | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
+| "This table is not available in any APIs." | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:240 | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx | REC-053 | Done |
 | Create / edit / copy routes | material:src/App.tsx:312,352,359 | src/app/(dashboard)/app/[slug]/create/page.tsx; [recordId]/edit/page.tsx; [recordId]/copy/page.tsx | REC-006, REC-009, REC-013 | Done: Next adds full copy with associations (FullCopyDraft) |
 | Form titles "Creating New X" / "Edit X: <label>" / "Copy X: <label>" in a header card with avatar | material:src/qqq/components/forms/EntityForm.tsx:957,993,1740 | src/components/forms/EntityForm.tsx heading "Create/Edit/Copy X"; page header "Edit X #id" | REC-044 | Partial: record label missing from edit/copy headings; no header card or avatar; #723 |
 | Props overrideHeading / saveButtonLabel / saveButtonIcon / isModal / onSubmitCallback | material:src/qqq/components/forms/EntityForm.tsx:64 | EntityFormProps (overrideHeading, saveButtonLabel, isModal, onSuccess, onCancel) | REL-003 | Done: no saveButtonIcon (minor) |
@@ -471,7 +472,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | BLOB submit: URL string omitted, File sent, null clears | material:src/qqq/components/forms/EntityForm.tsx:1323 | EntityForm onlyWhenChanged + src/lib/api/tables.ts recordFormData | REC-035, REC-022 | Done |
 | DATE_TIME unchanged -> omitted; changed -> local converted to UTC | material:src/qqq/components/forms/EntityForm.tsx:1302 | EntityForm onlyWhenChanged; zod-from-metadata wireValuesFromForm | REC-018, REC-009 | Done |
 | Possible-value select: async search, spinner, "No matches found", keyboard | material:src/qqq/components/forms/DynamicSelect.tsx:194,479 | src/components/forms/PossibleValueSelect.tsx | REC-045 | Done |
-| Possible-value dependent filtering: other form values sent as `values` and useCase=form; options reload on open when other values changed | material:src/qqq/components/forms/DynamicSelect.tsx:194,271; material:src/qqq/components/forms/EntityForm.tsx:430 | src/components/forms/PossibleValueSelect.tsx; src/lib/api/possible-values.ts (in progress) | REC-052 | Done: in progress (parity stream) |
+| Possible-value dependent filtering: other form values sent as `values` and useCase=form; options reload on open when other values changed | material:src/qqq/components/forms/DynamicSelect.tsx:194,271; material:src/qqq/components/forms/EntityForm.tsx:430 | src/components/forms/PossibleValueSelect.tsx; src/lib/api/possible-values.ts; src/lib/hooks/use-possible-values.ts | REC-052 | Done |
 | inlinePossibleValueSource (enum inline) filtered client-side by label prefix | material:src/qqq/components/forms/DynamicFormUtils.ts:214; material:src/qqq/components/forms/DynamicSelect.tsx:177 | none | none | Missing: not rendered; whether the backend also sets possibleValueSourceName is unverified; #721 |
 | CHIP adornment styles possible-value options | material:src/qqq/components/forms/DynamicSelect.tsx:372 | none | none | Missing: minor; options not chip-styled; #721 |
 | Widget sub-validations merged into form validation (addSubValidations) | material:src/qqq/components/forms/EntityForm.tsx:629 | none | none | Missing: needed once form widgets exist; #722 |
@@ -509,11 +510,11 @@ Process and report launch, the step lifecycle, process form fields, step compone
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Table-scoped report route `{table}/{report}` | `material:src/App.tsx:445-455` | table-scoped `/app/{table}/{report}` resolves to the report page | NAV-034, NAV-035 | Done |
+| Table-scoped report route `{table}/{report}` | `material:src/App.tsx:445-455` | src/lib/utils/material-links.ts:tableReportForSegment (matches a report by tableName, which the backend does not send) | NAV-034 | Partial: the backend report metadata (QFrontendReportMetaData) has no tableName, so a table-scoped report URL cannot resolve; #732 |
 | Process runs as a modal over the query screen (`/table/process`), query stays behind | `material:src/App.tsx:369-381`; `material:src/qqq/pages/records/query/RecordQuery.tsx:1644-1670, 2790-2812, 3373-3378` | `src/components/query/RecordQuery.tsx:launchProcess` → full page `/app/{process}?recordsParam…` | PRC-005, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the query |
 | Process runs as a modal over a record view (`/table/id/process`) with `recordIds=[id]` | `material:src/App.tsx:383-388`; `material:src/qqq/pages/records/view/RecordView.tsx:362-375, 1016-1020, 1364-1368` | `src/components/records/RecordActions.tsx:234`, `src/components/records/RecordViewHeader.tsx:394` → `/app/{process}?recordIds=pk` | PRC-001, NAV-034, NAV-035 | Done (different UX): runs as a full page that returns to the record |
 | Deep links in Material's URL shapes (`…/table/process`, `…/table/:id/process`) | `material:src/App.tsx:376-388` | `/app/{table}/{process}` and `/app/{table}/{id}/{process}` resolve to the process | NAV-034, NAV-035 | Done |
-| Generic processes added to every query/view screen (`materialDashboard.processNamesToAddToAllQueryAndViewScreens`, deprecated `runRecordScript`) | `material:src/App.tsx:390-443`; `material:src/qqq/pages/records/view/RecordView.tsx:546-566` | `src/lib/utils/process-utils.ts:getProcessesForTable` adds the instance generic processes | PRC-048 | Done: in progress; deprecated runRecordScript fallback tracked on #732 |
+| Generic processes added to every query/view screen (`materialDashboard.processNamesToAddToAllQueryAndViewScreens`, deprecated `runRecordScript`) | `material:src/App.tsx:390-443`; `material:src/qqq/pages/records/view/RecordView.tsx:546-566` | src/lib/utils/process-utils.ts:getProcessesForTable, getRecordActionProcesses; src/lib/api/metadata.ts (supplementalInstanceMetaData) | PRC-048 | Done: deprecated runRecordScript fallback is Missing, tracked on #732 |
 | Closing a query modal goes up one path and refreshes the grid (`updateTable`) | `material:src/qqq/pages/records/query/RecordQuery.tsx:1676-1691` | `src/components/process/ProcessRun.tsx:processReturnPath` → launching query; records refetch (staleTime 0 in `src/lib/hooks/use-record-query.ts`) | PRC-023, NAV-034, NAV-035 | Done: returns to the launching query |
 | Closing a record modal returns to the record and reloads it | `material:src/qqq/pages/records/view/RecordView.tsx:1022-1041, 455-461` | `src/components/process/ProcessRun.tsx:processReturnPath` → launching record | NAV-034, NAV-035 | Done: returns to the launching record |
 | Backdrop click / Escape don't close a modal process | `material:src/qqq/pages/records/query/RecordQuery.tsx:1678-1681` | — | none | N/A: no modal in Next |
@@ -577,7 +578,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 |---|---|---|---|---|
 | Metadata validation (required etc.) | `material:src/qqq/pages/processes/ProcessRun.tsx:1293, 1396` | `src/components/process/ProcessStepScreen.tsx` zod schema | PRC-010 | Done |
 | Process PV fields; label shown for backend-set values | `material:src/qqq/pages/processes/ProcessRun.tsx:690-713, 1645-1672` | `src/components/forms/PossibleValueSelect.tsx` (process context, id lookup) | PRC-011 | Done |
-| PV dependent filters (`otherValues` sent with the search) | `material:src/qqq/pages/processes/ProcessRun.tsx:714-719, 1321-1334` | `src/lib/api/possible-values.ts:PossibleValuesRequest` sends other form values with the search (parity stream) | REC-052, PRC-049 | Done: in progress |
+| PV dependent filters (`otherValues` sent with the search) | `material:src/qqq/pages/processes/ProcessRun.tsx:714-719, 1321-1334` | src/components/process/ViewFormComponent.tsx; src/lib/api/possible-values.ts sends the other screen values with the search | REC-052, PRC-049 | Done |
 | File upload inputs sent multipart | `material:src/qqq/pages/processes/ProcessRun.tsx:2017-2024` | `src/components/process/ProcessStepScreen.tsx` files; `src/components/process/process-values.ts:isFileField`; `src/lib/api/processes.ts:buildFormData` | PRC-031 | Done |
 | Field-level help in process forms (`process:` help key) | `material:src/qqq/pages/processes/ProcessRun.tsx:950-953` | `src/components/forms/DynamicFormField.tsx` helpContents | none | Partial: `src/components/process/EditFormComponent.tsx` passes no helpRoles (effect unverified); #725 |
 
@@ -912,13 +913,13 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | API name and version line per revision | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:305, 327-332 | none | none | Missing: no API name or version; #724 |
 | Syntax-highlighted read-only code (Ace) | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:483-495 | src/components/widgets/ScriptViewerWidget.tsx:141-149 (`<pre>`) | WID-032 | Partial: No highlighting; #724 |
 | File selector for multi-file scripts, in schema order | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:130-153, 471-482 | src/components/widgets/ScriptViewerWidget.tsx:77-82 (files stacked) | WID-032 | Partial: No per-file select; order differs; #724 |
-| Logs tab with "View All" | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:345-393, 506-530; material:src/qqq/components/scripts/ScriptLogsView.tsx:45-80 | in progress on the record developer view (REC-054) | REC-054 | Done: in progress (parity stream) |
-| Test tab (inputs, run testScript, show outputs, exception, logs) | material:src/qqq/components/scripts/ScriptTestForm.tsx:90-310; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:532-543 | in progress on the record developer view (REC-054) | REC-054 | Done: in progress (parity stream) |
-| Docs tab (help text, sample code) | material:src/qqq/components/scripts/ScriptDocsForm.tsx:41-80 | none | none | Missing: no Docs tab; #724 |
-| "Edit", "Edit and Activate", "Create New Version" open the editor | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:373-388, 462-466, 554-562 | in progress on the record developer view (REC-054) | REC-054 | Done: in progress (parity stream) |
+| Logs tab with "View All" | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:345-393, 506-530; material:src/qqq/components/scripts/ScriptLogsView.tsx:45-80 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Partial: per-version logs on the record developer view; no View All link to the filtered script log table; #724 |
+| Test tab (inputs, run testScript, show outputs, exception, logs) | material:src/qqq/components/scripts/ScriptTestForm.tsx:90-310; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:532-543 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
+| Docs tab (help text, sample code) | material:src/qqq/components/scripts/ScriptDocsForm.tsx:41-80 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
+| "Edit", "Edit and Activate", "Create New Version" open the editor | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:373-388, 462-466, 554-562 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Editor: code per file, split panes, mode per file type, autocomplete, beforeunload guard, test and docs panes on unsaved code | material:src/qqq/components/scripts/ScriptEditor.tsx:162, 195, 383-513 | none (src/components/forms/ScriptEditor.tsx is a textarea for code-editor fields) | none | Missing: no script editor; #724 |
 | Editor: required API name and version selects | material:src/qqq/components/scripts/ScriptEditor.tsx:129-132, 251-255, 352-375 | none | none | Missing: no API name and version selects; #724 |
-| Editor: save with commit message (storeScriptRevision), then reload | material:src/qqq/components/scripts/ScriptEditor.tsx:249-310, 562; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:197-226 | in progress on the record developer view (REC-054) | REC-054 | Done: in progress (parity stream) |
+| Editor: save with commit message (storeScriptRevision), then reload | material:src/qqq/components/scripts/ScriptEditor.tsx:249-310, 562; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:197-226 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 
 ### L. FilterAndColumnsSetup
 
@@ -1093,8 +1094,8 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Backend VIEW_SCREEN_ACTIONS / VIEW_SCREEN_ADDITIONAL menus (RUN_PROCESS, DOWNLOAD_FILE, SUB_MENU, DIVIDER) | material:src/qqq/components/view/RecordViewMenus.tsx:48,151-190,268 | none | none | Missing: `table.menus` ignored; #723 |
 | DOWNLOAD_FILE menu item opens a new window | material:src/qqq/pages/records/view/RecordView.tsx:907-928 | none | none | Missing: no download-file menu item; #723 |
 | Developer Mode menu entry -> `/{table}/{id}/dev` | material:src/qqq/components/view/RecordViewMenus.tsx:215 | route src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx exists but nothing links to it | none | Missing: page reachable only by URL; #723 |
-| Record developer view: associated scripts, versions, edit, test, logs, success snackbar | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,157,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx (parity stream) | REC-054 | Done: in progress (parity stream) |
-| Table developer view: API docs and playground (RapiDoc, API and version selectors) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,244 | src/app/(dashboard)/app/[slug]/dev/page.tsx (parity stream) | REC-053 | Done: in progress (parity stream) |
+| Record developer view: associated scripts, versions, edit, test, logs, success snackbar | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,157,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx; src/components/records/AssociatedScriptViewer.tsx | REC-054 | Done |
+| Table developer view: API docs and playground (RapiDoc, API and version selectors) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,244 | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
 | Audit modal (menu item, `a` key, `#audit` hash) | material:src/qqq/pages/records/view/RecordView.tsx:297,430,1389; material:src/qqq/components/audits/AuditBody.tsx:413 | src/components/records/AuditHistoryDialog.tsx; src/components/records/RecordViewHeader.tsx (Audit button, `a`, #audit) | REC-042, REC-043, REC-055, REC-050 | Done: button instead of menu item; backdrop click also closes |
 | Audit modal sort toggle, date group headers, "Showing first N of M" | material:src/qqq/components/audits/AuditBody.tsx:66,340,374,401 | src/components/records/AuditHistoryDialog.tsx (flat list, newest first) | REC-042 | Partial: no sort toggle, date groups or truncation message; #723 |
 | Share modal (current shares, add, edit scope, remove; Esc/backdrop ignored; Done) | material:src/qqq/components/sharing/ShareModal.tsx:133,366 | src/components/sharing/ShareDialog.tsx | RPT-013, RPT-014, RPT-015, RPT-017, RPT-018 | Done |
@@ -1102,7 +1103,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Share audience autocomplete (searchable users and groups) | material:src/qqq/components/sharing/ShareModal.tsx:343,395 | src/components/sharing/ShareDialog.tsx (native select, first page of values) | RPT-013 | Partial: no search; #723 |
 | Share modal inline error alert | material:src/qqq/components/sharing/ShareModal.tsx:381 | src/components/sharing/ShareDialog.tsx | none | Done |
 | Delete confirmation dialog ("Confirm Deletion", No / Yes) | material:src/qqq/pages/records/view/RecordView.tsx:1335-1342 | src/components/records/DeleteConfirmDialog.tsx | REC-012, INT-003 | Done |
-| Go To button and dialog on the record view | material:src/qqq/pages/records/view/RecordView.tsx:1110 | none | none | Missing: no Go To on the record view; #723 |
+| Go To button and dialog on the record view | material:src/qqq/pages/records/view/RecordView.tsx:1110 | src/components/records/RecordViewHeader.tsx; src/components/records/GotoRecordDialog.tsx | QRY-067 | Done |
 | Process modal over a record (`/{table}/{id}/{process}`, `#/launchProcess=`, menu) | material:src/qqq/pages/records/view/RecordView.tsx:360-385,1365; material:src/App.tsx:383-388 | src/app/(dashboard)/app/[slug]/[recordId]/[action]/page.tsx; src/components/process/ProcessRun.tsx:processReturnPath | PRC-001, NAV-034, NAV-035, REC-050 | Done (different UX): runs as a full page that returns to the record |
 | Create-child modal (`#/createChild=`, child list "Add new", association "+ Add") | material:src/qqq/pages/records/view/RecordView.tsx:397-429,1374; material:src/qqq/components/widgets/Widget.tsx:253-285 | src/components/records/CreateChildFromLinkDialog.tsx; src/components/widgets/ChildRecordListWidget.tsx:addChildHref; src/components/records/AssociatedRecords.tsx:CreateChildRecordDialog | REC-051, RPT-012, REL-003, REL-008 | Done: create dialog over the parent with presets locked |
 | `/{table}/{id}/createChild/{child}` path opens the create modal | material:src/App.tsx:329-333; material:src/qqq/pages/records/view/RecordView.tsx:400 | none | none | Missing: path route not handled; #723 |
@@ -1129,8 +1130,8 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Bulk edit / bulk delete / bulk insert modals launched over the query | material:src/qqq/pages/records/query/RecordQuery.tsx:1697-1760,3374 | src/components/query/ProcessLauncherMenu.tsx; src/components/query/BulkActionBar.tsx -> process page | QRY-031, QRY-032, QRY-034, NAV-034, NAV-035 | Done (different UX): full page that returns to the query |
 | Selection menu (page, full query, subset, clear) | material:src/qqq/components/buttons/MenuButton.tsx:120; material:src/qqq/pages/records/query/RecordQuery.tsx:2601 | src/components/query/SelectionMenu.tsx | QRY-030 | Done |
 | Selection subset dialog | material:src/qqq/components/query/SelectionSubsetDialog.tsx:53 | src/components/query/SelectionMenu.tsx (dialog) | QRY-033 | Done |
-| Go To record dialog (PK and gotoFieldNames, Enter, not-found errors) | material:src/qqq/components/misc/GotoRecordDialog.tsx:63-371; material:src/qqq/pages/records/query/RecordQuery.tsx:3193 | src/components/records/GotoRecordDialog.tsx (in progress) | QRY-067 | Done: in progress |
-| Go To auto-opens, not closable, for GET-only and variant tables | material:src/qqq/pages/records/query/RecordQuery.tsx:2993-3018 | none | none | Missing: no auto-open Go To; #717 |
+| Go To record dialog (PK and gotoFieldNames, Enter, not-found errors) | material:src/qqq/components/misc/GotoRecordDialog.tsx:63-371; material:src/qqq/pages/records/query/RecordQuery.tsx:3193 | src/components/records/GotoRecordDialog.tsx; src/lib/utils/goto-utils.ts | QRY-067 | Done |
+| Go To auto-opens, not closable, for GET-only and variant tables | material:src/qqq/pages/records/query/RecordQuery.tsx:2993-3018 | src/components/query/RecordQuery.tsx; src/components/records/GotoRecordDialog.tsx (mayClose=false) | QRY-067 | Partial: GET-only tables auto-open a non-closable Go To (QRY-067); variant tables do not combine it with the variant picker; #717 |
 | Table variant dialog (required before querying) | material:src/qqq/components/query/TableVariantDialog.tsx:87 | src/components/query/VariantPicker.tsx | QRY-060, QRY-061, QRY-066 | Partial: Enter does not select; #717 |
 | Column menu (sort, hide, pin, filter, copy values, stats) | material:src/qqq/pages/records/query/RecordQuery.tsx:2307-2404 | src/components/query/DataGrid.tsx (header sort click, stats icon); src/components/query/ColumnConfig.tsx (hide) | QRY-003, QRY-004, QRY-022 | Partial: no column menu; no pin, filter-from-column or copy values; #716 |
 | Copy Values modal | material:src/qqq/pages/records/query/RecordQuery.tsx:3408-3440 (commented out) | none | none | N/A: dead code in Material |
@@ -1205,9 +1206,9 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | PivotTableSetup editor modal | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:776-807 | none | none | Missing: no editor modal; #722 |
 | RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | none | none | Missing: no modal editor; #722 |
 | CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | none | none | Missing: no cron builder; #702 |
-| Script editor modal (Edit, Edit and Activate, Create New Version) with commit-message dialog | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:556; material:src/qqq/components/scripts/ScriptEditor.tsx:555 | record developer view (parity stream) | REC-054 | Done: in progress (parity stream) |
+| Script editor modal (Edit, Edit and Activate, Create New Version) with commit-message dialog | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:556; material:src/qqq/components/scripts/ScriptEditor.tsx:555 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Script editor multi-file panes, API name/version selects, error snackbar | material:src/qqq/components/scripts/ScriptEditor.tsx:162,352-375,406 | none | none | Missing: single-file editing only; #724 |
-| Script viewer save success / failure snackbars | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:407,416 | record developer view (parity stream) | REC-054 | Done: in progress (parity stream) |
+| Script viewer save success / failure snackbars | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:407,416 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Data bag editor modal (JSON editor, Preview toggle, error snackbar) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:376; material:src/qqq/components/databags/DataBagDataEditor.tsx:133 | none | none | Missing: no data bag editor; #724 |
 | Data bag save success / failure snackbars | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:268,277 | none | none | Missing: no data bag save; #724 |
 
@@ -1233,13 +1234,13 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 row
 - #715 Next UI 1.0 parity: Query basic mode and quick filters: 15 rows
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 12 rows
-- #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 28 rows
+- #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 27 rows
 - #718 Next UI 1.0 parity: Query filter operators and value inputs: 5 rows
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 25 rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 13 rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 2 rows
 - #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 37 rows
-- #723 Next UI 1.0 parity: record view layout and menus: 38 rows
+- #723 Next UI 1.0 parity: record view layout and menus: 37 rows
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 11 rows
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 12 rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 16 rows
@@ -1248,5 +1249,5 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #729 Next UI 1.0 parity: command palette and recently viewed: 6 rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 8 rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 rows
-- #732 Next UI 1.0 parity: shell, auth and help small items: 19 rows
+- #732 Next UI 1.0 parity: shell, auth and help small items: 20 rows
 - #736 (title not recorded): 1 row
