@@ -20,9 +20,11 @@ import {
   clearUserClientData,
   getStoredSessionValues,
   getStoredUser,
+  hasSessionHint,
   isSignedOut,
   recordReauthAttempt,
   resetReauthAttempts,
+  setSessionHint,
   setSignedOut,
   storeSessionValues,
   storeUser,
@@ -74,6 +76,15 @@ describe('auth-storage', () => {
     expect(isSignedOut()).toBe(true)
     setSignedOut(false)
     expect(isSignedOut()).toBe(false)
+  })
+
+  it('remembers across tabs that a resumable session was established (QRun-IO/qqq#733)', () => {
+    expect(hasSessionHint()).toBe(false)
+    setSessionHint(true)
+    expect(hasSessionHint()).toBe(true)
+    expect(localStorage.getItem('qqq.sessionHint')).toBe('1')
+    setSessionHint(false)
+    expect(hasSessionHint()).toBe(false)
   })
 
   it('clears per-user browser data on sign-out (QRun-IO/qqq#669)', () => {

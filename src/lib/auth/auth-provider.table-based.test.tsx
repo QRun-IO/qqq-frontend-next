@@ -26,15 +26,14 @@ vi.mock('@/lib/api/auth', () => ({
   manageSession: vi.fn(),
   createPasswordSession: vi.fn(),
   resumeSession: vi.fn(),
-  readSessionUUIDCookie: vi.fn(() => null),
   logout: vi.fn(),
   clearAuthMetadataCache: vi.fn(),
 }))
 
-import { createPasswordSession, manageSession, readSessionUUIDCookie, resumeSession } from '@/lib/api/auth'
+import { createPasswordSession, logout, manageSession, resumeSession } from '@/lib/api/auth'
 import { AuthProvider } from './auth-provider'
 import { useAuth } from './use-auth'
-import { storeUser, getStoredUser } from './auth-storage'
+import { storeUser, getStoredUser, hasSessionHint, setSessionHint } from './auth-storage'
 
 let auth: ReturnType<typeof useAuth> | null = null
 
@@ -56,12 +55,15 @@ describe('AuthProvider with TABLE_BASED authentication', () => {
     vi.mocked(createPasswordSession).mockReset()
     vi.mocked(resumeSession).mockReset()
     vi.mocked(manageSession).mockReset()
-    vi.mocked(readSessionUUIDCookie).mockReturnValue(null)
+    vi.mocked(logout).mockReset()
     auth = null
   })
-  afterEach(() => localStorage.clear())
+  afterEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
 
-  it('without a session cookie waits for credentials and creates no session', async () => {
+  it('without an earlier sign-in waits for credentials and sends no session request', async () => {
     render(<AuthProvider><Probe /></AuthProvider>)
     expect(await screen.findByText('signed out: no error')).toBeInTheDocument()
     expect(manageSession).not.toHaveBeenCalled()
@@ -79,6 +81,25 @@ describe('AuthProvider with TABLE_BASED authentication', () => {
     expect(createPasswordSession).toHaveBeenCalledWith('tess.table', 'table:pass-2026')
     expect(screen.getByText('Tess Table <tess.table>')).toBeInTheDocument()
     expect(getStoredUser()).toEqual({ name: 'Tess Table', email: 'tess.table' })
+    expect(hasSessionHint()).toBe(true)
+  })
+
+  it('never reads or writes the session cookies, which are HttpOnly (QRun-IO/qqq#733)', async () => {
+    const read = vi.spyOn(Document.prototype, 'cookie', 'get')
+    const write = vi.spyOn(Document.prototype, 'cookie', 'set')
+    vi.mocked(createPasswordSession).mockResolvedValue({ uuid: 's-1', values: { user: { name: 'Tess Table', username: 'tess.table' } } })
+    vi.mocked(logout).mockResolvedValue(undefined)
+    render(<AuthProvider><Probe /></AuthProvider>)
+    await screen.findByText('signed out: no error')
+    await act(async () => { await auth?.signInWithPassword('tess.table', 'table:pass-2026') })
+    expect(screen.getByText('Tess Table <tess.table>')).toBeInTheDocument()
+    await act(async () => { await auth?.logout() })
+    expect(logout).toHaveBeenCalled()
+    expect(hasSessionHint()).toBe(false)
+    expect(read).not.toHaveBeenCalled()
+    expect(write).not.toHaveBeenCalled()
+    read.mockRestore()
+    write.mockRestore()
   })
 
   it('reports refused credentials and stays signed out', async () => {
@@ -89,19 +110,22 @@ describe('AuthProvider with TABLE_BASED authentication', () => {
     expect(screen.getByText('signed out: Sign-in was denied: Incorrect username or password.')).toBeInTheDocument()
   })
 
-  it('resumes the session from its sessionUUID cookie after a reload', async () => {
-    vi.mocked(readSessionUUIDCookie).mockReturnValue('s-2')
-    vi.mocked(resumeSession).mockResolvedValue({ uuid: 's-2', values: { user: { name: 'Tess Table', username: 'tess.table' } } })
+  it('after a sign-in, a reload resumes the session the backend reads from its cookie', async () => {
+    setSessionHint(true)
+    vi.mocked(resumeSession).mockResolvedValue({ values: { user: { name: 'Tess Table', username: 'tess.table' } } })
     render(<AuthProvider><Probe /></AuthProvider>)
     expect(await screen.findByText('Tess Table <tess.table>')).toBeInTheDocument()
-    expect(resumeSession).toHaveBeenCalledWith('s-2')
+    expect(resumeSession).toHaveBeenCalledWith()
   })
 
-  it('an ended session (401 on resume) asks for credentials again', async () => {
-    vi.mocked(readSessionUUIDCookie).mockReturnValue('s-3')
+  it('an ended session (401 on resume) asks for credentials again and stops resuming', async () => {
+    setSessionHint(true)
     vi.mocked(resumeSession).mockRejectedValue(refused('Session is expired.'))
     render(<AuthProvider><Probe /></AuthProvider>)
     expect(await screen.findByText('signed out: no error')).toBeInTheDocument()
+    expect(hasSessionHint()).toBe(false)
+    await act(async () => { await auth?.signIn('/app/person') })
+    expect(resumeSession).toHaveBeenCalledTimes(1)
   })
 
   it('a different user signing in drops the previous user\'s client data', async () => {

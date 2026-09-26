@@ -26,6 +26,7 @@ const USER_KEY = 'qqqUser'
 const REAUTH_KEY = 'qqq.reauthAttempts'
 const CLIENT_DATA_OWNER_KEY = 'qqq.clientDataOwner'
 const SESSION_VALUES_KEY = 'qqq.sessionValues'
+const SESSION_HINT_KEY = 'qqq.sessionHint'
 
 /** The displayed identity of the signed-in user. */
 export interface StoredUser {
@@ -66,6 +67,29 @@ export function isSignedOut(): boolean {
 export function setSignedOut(signedOut: boolean): void {
   if (signedOut) storage('session')?.setItem(SIGNED_OUT_KEY, '1')
   else storage('session')?.removeItem(SIGNED_OUT_KEY)
+}
+
+/**
+ * Whether this browser signed in to an OAUTH2, AUTH_0 or TABLE_BASED session that has
+ * not ended. The session cookie is HttpOnly (QRun-IO/qqq#733), so the UI cannot see it;
+ * it asks the backend to resume a session only when this is set, instead of sending a
+ * request that is refused on every signed-out visit. The cookie decides: a resume the
+ * backend refuses clears this.
+ *
+ * @returns True when a session may be resumed.
+ */
+export function hasSessionHint(): boolean {
+  return storage('local')?.getItem(SESSION_HINT_KEY) === '1'
+}
+
+/**
+ * Records that a resumable session was established, or that it ended.
+ *
+ * @param present - True after a sign-in or resume; false after logout or a refused session.
+ */
+export function setSessionHint(present: boolean): void {
+  if (present) storage('local')?.setItem(SESSION_HINT_KEY, '1')
+  else storage('local')?.removeItem(SESSION_HINT_KEY)
 }
 
 /**

@@ -25,13 +25,16 @@
 //     never a silent anonymous fallback.
 //   OAUTH2 — the login page redirects to the identity provider (PKCE); the /token
 //     callback posts code + verifier to the backend, which exchanges them using its
-//     client secret. Reloads resume the session from the `sessionUUID` cookie.
+//     client secret. Reloads resume the session with an empty `manageSession`, which
+//     the backend answers from the `sessionUUID` cookie.
 //   AUTH_0 — same redirect; the callback exchanges the code with Auth0 as a public
 //     client and posts the access token to the backend.
 //   TABLE_BASED — the login page asks for a username and password, sent once as
 //     `Authorization: Basic` to `POST /qqq/v1/manageSession`; the backend checks them
 //     against its user table and stores a session row (QRun-IO/qqq#700). Reloads
-//     resume the session from the `sessionUUID` cookie like OAUTH2.
+//     resume the session like OAUTH2.
+// The session cookies are HttpOnly and never read or written here (QRun-IO/qqq#733):
+// the backend sets them at sign-in, resumes from them, and expires them at logout.
 // Explicit logout ends the backend session, clears per-user client data, and keeps
 // the tab signed out until the user signs in again. A 401 from any other call means
 // the session expired: the user is sent to /login?returnTo=<page>, which signs in
@@ -48,7 +51,6 @@ import {
   getAuthenticationMetaData,
   logout as apiLogout,
   manageSession,
-  readSessionUUIDCookie,
   resumeSession,
   type SessionResponse,
 } from '@/lib/api/auth'
@@ -60,8 +62,10 @@ import {
   claimClientData,
   clearUserClientData,
   getStoredUser,
+  hasSessionHint,
   isSignedOut as readSignedOut,
   resetReauthAttempts,
+  setSessionHint,
   setSignedOut,
   storeSessionValues,
   storeUser,
@@ -157,17 +161,10 @@ export interface AuthProviderProps {
 }
 
 const ANONYMOUS_TYPES = new Set(['MOCK', 'FULLY_ANONYMOUS'])
-/** Types whose session is resumed from the `sessionUUID` cookie after a reload. */
+/** Types whose session the backend resumes from its `sessionUUID` cookie after a reload. */
 const RESUMABLE_TYPES = new Set(['OAUTH2', 'AUTH_0', 'TABLE_BASED'])
 /** Types that redirect to an identity provider to sign in and out. */
 const PROVIDER_TYPES = new Set(['OAUTH2', 'AUTH_0'])
-
-/** Expires the backend session cookies (`sessionUUID`, `sessionId`) on the root path. */
-function expireSessionCookies() {
-  for (const name of ['sessionUUID', 'sessionId']) {
-    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`
-  }
-}
 
 /**
  * A readable message for a failed sign-in.
@@ -242,17 +239,20 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       return anonymous
     }
     if (RESUMABLE_TYPES.has(metadata.type)) {
-      const sessionUUID = readSessionUUIDCookie()
-      if (!sessionUUID) return null
+      // only a browser that signed in asks: the HttpOnly cookie itself cannot be seen here
+      if (!hasSessionHint()) return null
       try {
-        const response = await resumeSession(sessionUUID)
+        const response = await resumeSession()
         const resumed = sessionUser(response, getStoredUser())
         claimClientData(resumed)
         storeUser(resumed)
         storeSessionValues(response.values)
         return resumed
       } catch (error) {
-        if (getErrorStatusCode(error) === 401) return null
+        if (getErrorStatusCode(error) === 401) {
+          setSessionHint(false)
+          return null
+        }
         throw error
       }
     }
@@ -278,6 +278,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     apiClient.setUnauthorizedCallback(() => {
       setIsAuthenticated(false)
       setUser(null)
+      setSessionHint(false)
       clearAuthMetadataCache()
       // Drop cached data once protected pages have unmounted, so nothing refetches with the dead session.
       setTimeout(() => queryClient.clear(), 0)
@@ -359,9 +360,8 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   const signInWithPassword = useCallback(async (username: string, password: string) => {
     setAuthError(null)
     try {
-      // A stale cookie from an earlier session would shadow the new one (the backend
-      // reads `sessionId` before `sessionUUID`), so none is sent with the credentials.
-      expireSessionCookies()
+      // The backend points both session cookies at the new session, so an earlier
+      // cookie cannot shadow it (QRun-IO/qqq#733).
       const response = await createPasswordSession(username, password)
       const signedIn = sessionUser(response, { name: username, email: username })
       const previous = getStoredUser()
@@ -372,6 +372,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       }
       storeUser(signedIn)
       storeSessionValues(response.values)
+      setSessionHint(true)
       setSignedOut(false)
       setSignedOutState(false)
       resetReauthAttempts()
@@ -392,15 +393,18 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     // leave the page for the identity provider instead, so no in-app navigation is started.
     redirectingToLogin.current = true
     setSignedOut(true)
+    setSessionHint(false)
     if (!providerLogout) {
       setSignedOutState(true)
       setIsAuthenticated(false)
       setUser(null)
     }
     try {
+      // the backend also expires both session cookies (QRun-IO/qqq#674)
       await apiLogout()
     } catch (error) {
-      // The local sign-out still happens; the backend session is left to expire.
+      // The local sign-out still happens; the backend session is left to expire, and the
+      // next sign-in replaces its cookies (QRun-IO/qqq#733).
       console.warn('[Auth] Backend logout failed:', error instanceof Error ? error.message : error)
     }
     resetReauthAttempts()
@@ -409,11 +413,6 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     analytics.reset()
     clearAuthMetadataCache()
     queryClient.clear()
-    if (metadata && RESUMABLE_TYPES.has(metadata.type)) {
-      // The backend keys these sessions by these cookies; a stale `sessionId` left by
-      // logout would otherwise shadow the next sign-in's session (QRun-IO/qqq#674).
-      expireSessionCookies()
-    }
 
     if (metadata && PROVIDER_TYPES.has(metadata.type)) {
       try {
@@ -459,6 +458,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     claimClientData(signedIn)
     storeUser(signedIn)
     storeSessionValues(response.values)
+    setSessionHint(true)
     setSignedOut(false)
     setSignedOutState(false)
     resetReauthAttempts()

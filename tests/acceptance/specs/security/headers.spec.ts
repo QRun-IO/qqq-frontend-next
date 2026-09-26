@@ -11,7 +11,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { ACCEPTANCE_BACKEND_URL } from '../../support/ports'
+import { ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from '../../support/ports'
 import { allowBlockedByPolicy, customComponentOrigins, inlineScriptHashes, parsePolicy, POLICY_DIRECTIVES } from './support/csp'
 import { allowExternalQuickSightWidget, listCell, navigation } from './support/ui'
 import { openRecord } from '../widgets/widget-support'
@@ -84,10 +84,10 @@ test.describe('dashboard security headers', () => {
     void backend
     // each engine reports the refused frame in its own words, some as a failed frame request
     diagnostics.allow(/frame-ancestors|X-Frame-Options/)
-    diagnostics.allow(`request: GET ${ACCEPTANCE_BACKEND_URL}/login `)
-    const otherSite = await serveOtherSite(`<!doctype html><title>Other site</title><h1>Other site</h1><iframe id="victim" src="${ACCEPTANCE_BACKEND_URL}/login"></iframe>`)
+    diagnostics.allow(`request: GET ${ACCEPTANCE_UI_URL}/login `)
+    const otherSite = await serveOtherSite(`<!doctype html><title>Other site</title><h1>Other site</h1><iframe id="victim" src="${ACCEPTANCE_UI_URL}/login"></iframe>`)
     try {
-      const framedRequest = page.waitForResponse((response) => response.url().startsWith(`${ACCEPTANCE_BACKEND_URL}/login`))
+      const framedRequest = page.waitForResponse((response) => response.url().startsWith(`${ACCEPTANCE_UI_URL}/login`))
       await page.goto(otherSite.url, { waitUntil: 'load' })
       await expect(page.getByRole('heading', { name: 'Other site' })).toBeVisible()
       // the dashboard answered, with the headers that forbid showing it in a frame

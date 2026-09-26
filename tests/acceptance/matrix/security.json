@@ -678,9 +678,10 @@
       "source": [
         "qqq-middleware-javalin routeproviders/NextDashboardRouteProvider.java",
         "qqq-middleware-javalin routeproviders/NextDashboardSecurityHeaders.java",
-        "backend branch feature/next-1.0-security-backend"
+        "backend branch feature/next-1.0-security-backend",
+        "standalone/security-headers.mjs (the standalone server, QRun-IO/qqq#734)"
       ],
-      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java (javalin mode)",
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java (javalin mode); with QQQ_ACCEPTANCE_MODE=standalone the container image server (standalone/qqq-server.mjs)",
       "scenarios": [
         "login, token, app, list, record, edit and 404 documents send the policy and headers; the script-src hashes equal the hashes of the inline scripts in each served document",
         "pages hydrate and navigate under the policy with no violation"
@@ -690,7 +691,8 @@
         "an injected inline script and inline event handler do not run and are reported as violations"
       ],
       "issues": [
-        "QRun-IO/qqq#695"
+        "QRun-IO/qqq#695",
+        "QRun-IO/qqq#734"
       ],
       "required": true
     },
@@ -720,7 +722,8 @@
       "source": [
         "qqq-middleware-javalin QApplicationJavalinServer.java (withNextDashboardSecurityHeadersCustomizer)",
         "tests/acceptance/fixture/WidgetsFixtures.java (allowFakeService)",
-        "backend branch feature/next-1.0-security-backend"
+        "backend branch feature/next-1.0-security-backend",
+        "standalone/security-headers.mjs (QQQ_DASHBOARD_CSP_SOURCES in standalone mode, QRun-IO/qqq#734)"
       ],
       "fixture": "tests/acceptance/fixture/WidgetsFixtures.java loopback service",
       "scenarios": [
@@ -731,7 +734,8 @@
         "a frame from an origin the application did not configure is refused and reported (frame-src)"
       ],
       "issues": [
-        "QRun-IO/qqq#695"
+        "QRun-IO/qqq#695",
+        "QRun-IO/qqq#734"
       ],
       "required": true
     },
@@ -809,6 +813,55 @@
       ],
       "issues": [
         "QRun-IO/qqq#696"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-048",
+      "feature": "Session cookies (sessionUUID, sessionId) are HttpOnly: script in the page cannot read them, and resuming a session from the cookie never hands its token to script",
+      "source": [
+        "qqq-middleware-javalin QJavalinImplementation.java (setSessionCookie, setSessionCookieHttpOnly)",
+        "qqq-middleware-javalin QApplicationJavalinServer.java (withSessionCookieHttpOnly, qqq.javalin.sessionCookieHttpOnly)",
+        "qqq-middleware-javalin specs/v1/ManageSessionSpecV1.java (resume from the cookie)",
+        "src/lib/api/auth.ts",
+        "src/lib/auth/auth-provider.tsx",
+        "backend branch feature/next-1.0-w2-secback-backend"
+      ],
+      "fixture": "tests/acceptance/fixture/AcceptanceSampleServer.java (MOCK); SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED and OAUTH2 with tests/acceptance/support/fake-oidc.ts",
+      "scenarios": [
+        "after sign-in (MOCK, TABLE_BASED, OAUTH2) the browser stores both cookies HttpOnly, naming the current session",
+        "a reload resumes the session through POST /qqq/v1/manageSession with an empty body; the response carries the session values and no uuid"
+      ],
+      "negative": [
+        "document.cookie never shows sessionUUID or sessionId",
+        "an in-page POST /qqq/v1/manageSession {} (what injected script could send) answers without the session token"
+      ],
+      "issues": [
+        "QRun-IO/qqq#733"
+      ],
+      "required": true
+    },
+    {
+      "id": "SEC-049",
+      "feature": "With HttpOnly session cookies the backend ends and replaces sessions: logout expires both cookies, an idle-expired or revoked session sends the user to sign in again, and a new password or OAuth2 sign-in points both cookies at the new session",
+      "source": [
+        "qqq-middleware-javalin specs/v1/ManageSessionSpecV1.java (a sign-in sets sessionId)",
+        "qqq-middleware-javalin specs/v1/LogoutSpecV1.java",
+        "src/lib/auth/auth-provider.tsx",
+        "src/lib/auth/auth-storage.ts (session hint)",
+        "backend branch feature/next-1.0-w2-secback-backend"
+      ],
+      "fixture": "SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED and OAUTH2 with tests/acceptance/support/fake-oidc.ts",
+      "scenarios": [
+        "TABLE_BASED: a first visit shows the form without a session request; an idle-expired session is refused, the form returns without a resume attempt, and signing in again returns to the record",
+        "OAUTH2: a session revoked on the server sends the user through the provider and back, with new HttpOnly cookies",
+        "logout: the server deletes the session and expires both cookies; a protected page stays signed out without a session request"
+      ],
+      "negative": [
+        "a logout that never reached the server leaves the earlier user's cookies; the next user's sign-in replaces both, and a reload keeps the new user"
+      ],
+      "issues": [
+        "QRun-IO/qqq#733"
       ],
       "required": true
     },

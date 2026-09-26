@@ -137,17 +137,19 @@ describe('Auth API', () => {
     const { createOAuth2Session, resumeSession } = await import('./auth')
     await createOAuth2Session({ code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
     expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { code: 'c', codeVerifier: 'v', redirectUri: 'https://app/token' })
-    await resumeSession('session-1')
-    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', { sessionUUID: 'session-1' })
+    await resumeSession()
+    expect(apiClient.post).toHaveBeenLastCalledWith('/manageSession', {})
   })
 
-  it('reads the sessionUUID cookie', async () => {
-    const { readSessionUUIDCookie } = await import('./auth')
-    document.cookie = 'other=1'
-    expect(readSessionUUIDCookie()).toBeNull()
-    document.cookie = 'sessionUUID=abc-123'
-    expect(readSessionUUIDCookie()).toBe('abc-123')
-    document.cookie = 'sessionUUID=; Max-Age=0'
+  it('resumes without reading the session cookie, which is HttpOnly (QRun-IO/qqq#733)', async () => {
+    const { default: apiClient } = await import('./client')
+    vi.mocked(apiClient.post).mockResolvedValue({ values: { user: { name: 'Alice' } } })
+    const cookie = vi.spyOn(Document.prototype, 'cookie', 'get')
+    const { resumeSession } = await import('./auth')
+    await expect(resumeSession()).resolves.toEqual({ values: { user: { name: 'Alice' } } })
+    expect(apiClient.post).toHaveBeenCalledWith('/manageSession', {})
+    expect(cookie).not.toHaveBeenCalled()
+    cookie.mockRestore()
   })
 
   describe('TABLE_BASED password sign-in (QRun-IO/qqq#700)', () => {

@@ -96,8 +96,11 @@ export function clearAuthMetadataCache(): void {
  * Shape of the response returned by `POST /manageSession`.
  */
 export interface SessionResponse {
-  /** Server-assigned session UUID, mirrored to the `sessionUUID` cookie. */
-  uuid: string
+  /**
+   * Server-assigned session UUID, mirrored to the `sessionUUID` cookie. Absent when the
+   * session was resumed from that cookie, which script cannot read (QRun-IO/qqq#733).
+   */
+  uuid?: string
   /** Session values for the frontend (e.g. `user: { name, email }`), when the backend sets any. */
   values?: Record<string, unknown>
 }
@@ -162,26 +165,14 @@ export async function createOAuth2Session(params: { code: string; codeVerifier: 
 }
 
 /**
- * Resumes an existing OAuth2/Auth0 session from its `sessionUUID` cookie value, via the v1
- * `POST /manageSession`.
+ * Resumes the OAUTH2, AUTH_0 or TABLE_BASED session this browser holds, via the v1
+ * `POST /manageSession` with an empty body: the backend reads the `sessionUUID` cookie
+ * itself. The cookie is HttpOnly, so the UI never reads it (QRun-IO/qqq#733).
  *
- * @param sessionUUID - The session UUID the backend issued at sign-in.
- * @returns The session UUID and its frontend values; rejects with 401 when it is no longer valid.
+ * @returns The session's frontend values; rejects with 401 when there is no valid session.
  */
-export async function resumeSession(sessionUUID: string): Promise<SessionResponse> {
-  return apiClient.post<SessionResponse>('/manageSession', { sessionUUID })
-}
-
-/**
- * Reads the `sessionUUID` cookie set by the backend at sign-in.
- *
- * @returns The cookie value, or null.
- */
-export function readSessionUUIDCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('sessionUUID='))
-  const value = match ? decodeURIComponent(match.slice('sessionUUID='.length)) : ''
-  return value || null
+export async function resumeSession(): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', {})
 }
 
 /**
