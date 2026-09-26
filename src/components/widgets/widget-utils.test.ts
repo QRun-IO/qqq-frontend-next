@@ -72,10 +72,10 @@ describe('dropdown selections', () => {
 
 describe('widgetColumnClasses', () => {
   it('maps gridColumns (twelfths) to spans, defaulting to full width', () => {
-    expect(widgetColumnClasses(4)).toBe('col-span-12 lg:col-span-4')
-    expect(widgetColumnClasses(12)).toBe('col-span-12 lg:col-span-12')
-    expect(widgetColumnClasses(undefined)).toBe('col-span-12 lg:col-span-12')
-    expect(widgetColumnClasses(40)).toBe('col-span-12 lg:col-span-12')
+    expect(widgetColumnClasses(4)).toBe('col-span-12 min-w-0 lg:col-span-4')
+    expect(widgetColumnClasses(12)).toBe('col-span-12 min-w-0 lg:col-span-12')
+    expect(widgetColumnClasses(undefined)).toBe('col-span-12 min-w-0 lg:col-span-12')
+    expect(widgetColumnClasses(40)).toBe('col-span-12 min-w-0 lg:col-span-12')
   })
 })
 

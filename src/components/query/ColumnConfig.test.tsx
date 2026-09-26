@@ -498,6 +498,13 @@ describe('ColumnConfig — viewport bound', () => {
     expect(columnConfigPosition({ bottom: 800, right: 1280 }, 1280, 720).maxHeight).toBe(0)
   })
 
+  it('keeps the panel inside a phone viewport when the button sits near the left edge (#708)', () => {
+    // 412 px phone, wrapped toolbar: the 320 px panel ends 8 px from the right edge instead of running off the left
+    expect(columnConfigPosition({ bottom: 200, right: 100 }, 412, 839)).toMatchObject({ top: 204, right: 84 })
+    // near the right edge the panel keeps the 8 px margin
+    expect(columnConfigPosition({ bottom: 200, right: 412 }, 412, 839).right).toBe(8)
+  })
+
   it('applies the height limit and keeps the column list as the shrinking scroll area', () => {
     render(
       <ColumnConfig

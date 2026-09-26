@@ -22,7 +22,7 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
@@ -66,6 +66,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
@@ -196,7 +197,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setCommandOpen(false)
       setSearchOpen(false)
       setHelpOpen(false)
-      setSidebarOpen(false)
+      // The navigation drawer is a modal dialog and handles its own Escape
     }
 
     // Single-key shortcuts — only when not focused in a text field
@@ -261,7 +262,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Skip to main content — accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:inline-flex focus:items-center pointer-coarse:focus:min-h-11 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           data-qqq-id="skip-to-content"
         >
           Skip to main content
@@ -286,6 +287,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           userEmail={user?.email}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          returnFocusRef={menuButtonRef}
           data-qqq-id="sidebar-mobile"
         />
 
@@ -295,6 +297,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <Header
             appName={metaData?.branding?.appName}
             onMenuOpen={() => setSidebarOpen(true)}
+            menuOpen={sidebarOpen}
+            menuButtonRef={menuButtonRef}
             onSearchOpen={() => setSearchOpen(true)}
             onHelpOpen={() => setHelpOpen(true)}
             pathToLabelMap={pathToLabelMap}

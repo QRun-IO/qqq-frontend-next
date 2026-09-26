@@ -7,7 +7,7 @@
 
 // Record list basics: columns, default sort, sorting, pagination, column configuration.
 import { expect, open, test } from '../../support/fixtures'
-import { columnCells, expectColumn, grid, nextQuery, sqlColumn } from './query-helpers'
+import { columnCells, expectColumn, grid, nextQuery, showTable, sqlColumn } from './query-helpers'
 
 test('[QRY-068] default columns follow the table sections, then fields no section lists (Material order)', async ({ page, backend, diagnostics }) => {
   void diagnostics
@@ -28,9 +28,10 @@ test('[QRY-069] pagination numbers are locale formatted in the range and the tot
   await expectColumn(page, 'id', (await sqlColumn(backend, 'select id from qry_many_row order by id desc')).slice(1000))
 })
 
-test('[QRY-001] the list renders metadata labels and every record, newest first', async ({ page, backend, diagnostics }) => {
+test('[QRY-001] the list renders metadata labels and every record, newest first @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const table = grid(page, 'Query Item')
   for (const label of ['Id', 'Name', 'Code', 'Quantity', 'Price', 'Received Date', 'Checked At', 'Is Active', 'Owner', 'Species', 'Notes']) {
     await expect(table.getByRole('button', { name: `Sort by ${label}`, exact: true })).toBeVisible()
@@ -50,7 +51,7 @@ test('[QRY-001] the list renders metadata labels and every record, newest first'
   await expect(page.locator('[data-qqq-id="pagination"]')).toContainText('Showing 1–8 of 8')
 })
 
-test('[QRY-002] paging through the carrier table, with page size and URL state', async ({ page, backend, diagnostics }) => {
+test('[QRY-002] paging through the carrier table, with page size and URL state @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const ids = await sqlColumn(backend, 'select id from carrier order by id desc')
   expect(ids).toHaveLength(11)
@@ -85,9 +86,10 @@ test('[QRY-002] paging through the carrier table, with page size and URL state',
   await expect(page.getByText('No records found', { exact: true })).toBeVisible()
 })
 
-test('[QRY-003] sorting by a column header cycles ascending, descending and the default', async ({ page, backend, diagnostics }) => {
+test('[QRY-003] sorting by a column header cycles ascending, descending and the default @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
   const header = grid(page, 'Query Item').getByRole('button', { name: 'Sort by Name', exact: true })
   const sent = nextQuery(page, 'qryItem')
@@ -97,7 +99,9 @@ test('[QRY-003] sorting by a column header cycles ascending, descending and the 
   await expect(page.locator('th[aria-sort="ascending"]')).toContainText('Name')
   await header.click()
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by name desc'))
-  // Sort survives a reload
+  // The sort is kept in the URL's filter, so it survives a reload
+  const urlSort = () => JSON.parse(Buffer.from(new URL(page.url()).searchParams.get('filter') ?? '', 'base64').toString('utf8') || '{}').orderBys
+  await expect.poll(urlSort).toEqual([{ fieldName: 'name', isAscending: false }])
   await page.reload()
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by name desc'))
   await grid(page, 'Query Item').getByRole('button', { name: 'Sort by Name', exact: true }).click()
@@ -107,9 +111,10 @@ test('[QRY-003] sorting by a column header cycles ascending, descending and the 
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by quantity asc nulls first'))
 })
 
-test('[QRY-004] column visibility and order persist per table', async ({ page, diagnostics }) => {
+test('[QRY-004] column visibility and order persist per table @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const table = grid(page, 'Query Item')
   await page.getByRole('button', { name: 'Configure columns' }).click()
   const config = page.getByRole('dialog', { name: 'Configure columns' })
@@ -130,6 +135,7 @@ test('[QRY-004] column visibility and order persist per table', async ({ page, d
   await expect(grid(page, 'Query Item').getByRole('button', { name: 'Sort by Notes' })).toHaveCount(0)
   // Other tables keep their own configuration
   await open(page, '/app/carrier')
+  await showTable(page)
   await expect(grid(page, 'Carrier').getByRole('button', { name: 'Sort by Name', exact: true })).toBeVisible()
   // Show all restores hidden base columns
   await open(page, '/app/qryItem')
@@ -138,9 +144,10 @@ test('[QRY-004] column visibility and order persist per table', async ({ page, d
   await expect(grid(page, 'Query Item').getByRole('button', { name: 'Sort by Notes' })).toBeVisible()
 })
 
-test('[QRY-005] column widths, density and card view', async ({ page, diagnostics }) => {
+test('[QRY-005] column widths, density and card view @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const header = grid(page, 'Query Item').locator('thead th').filter({ hasText: 'Name' })
   const before = (await header.boundingBox())!.width
   const handle = page.getByRole('separator', { name: 'Resize Name column' })
@@ -160,9 +167,10 @@ test('[QRY-005] column widths, density and card view', async ({ page, diagnostic
   await expect(columnCells(page, 'name').first()).toHaveText('Omega Part')
 })
 
-test('[QRY-006] opening a row and coming back keeps the query; refresh shows backend changes', async ({ page, backend, diagnostics }) => {
+test('[QRY-006] opening a row and coming back keeps the query; refresh shows backend changes @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem?pageSize=10')
+  await showTable(page)
   await page.getByLabel('Quick search Query Item').fill('Widget')
   const widgets = await sqlColumn(backend, "select name from qry_item where name like '%Widget%' or code like '%Widget%' or notes like '%Widget%' order by id desc")
   await expectColumn(page, 'name', widgets)
@@ -180,7 +188,7 @@ test('[QRY-006] opening a row and coming back keeps the query; refresh shows bac
   expect(await sqlColumn(backend, 'select name from qry_item where id = 5')).toEqual(['Epsilon Widget Max'])
 })
 
-test('[QRY-007] a failed query shows the error and a retry', async ({ page, diagnostics }) => {
+test('[QRY-007] a failed query shows the error and a retry @mobile', async ({ page, diagnostics }) => {
   diagnostics.allow('/qqq/v1/table/qryItem/query 500')
   diagnostics.allow('/qqq/v1/table/qryItem/count 500')
   diagnostics.allow('status of 500')

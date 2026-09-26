@@ -49,7 +49,7 @@ export function NotFoundState({ name }: NotFoundStateProps) {
       </p>
       <Link
         href="/app"
-        className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="inline-flex items-center rounded-md bg-primary px-4 py-2 pointer-coarse:min-h-11 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         data-qqq-id="link-not-found-dashboard"
       >
         Go to the dashboard

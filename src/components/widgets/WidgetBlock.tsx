@@ -207,7 +207,7 @@ export function WidgetBlock({
                 onDropdownChange?.(dropdown.paramName, option ?? null)
               }}
               aria-label={`Select ${dropdown.label}`}
-              className="max-w-[16rem] rounded border border-input bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="max-w-[16rem] rounded border border-input bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:h-11"
               data-qqq-id={`widget-dropdown-${name}-${dropdown.paramName}`}
             >
               <option value="">{dropdown.labelForNullValue ?? `Select ${dropdown.label}`}</option>

@@ -19,8 +19,10 @@ export async function navigation(page: Page): Promise<Locator> {
   const menuButton = page.locator('[data-qqq-id="button-mobile-menu"]')
   await expect(page.locator('[data-qqq-id="button-mobile-menu"]:visible, [data-qqq-id="sidebar-desktop"]:visible').first()).toBeVisible()
   if (await menuButton.isVisible()) {
-    await menuButton.click()
-    return page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+    const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
+    // an already open drawer covers the menu button: use it as it is
+    if (!(await drawer.isVisible())) await menuButton.click()
+    return drawer
   }
   return page.locator('[data-qqq-id="sidebar-desktop"]')
 }
@@ -76,9 +78,10 @@ export function allowExternalQuickSightWidget(diagnostics: { allow: (pattern: st
  */
 export function listCell(page: Page, tableLabel: string, text: string): Locator {
   const name = `${tableLabel} records`
-  const word = new RegExp(`(^|[^\\p{L}\\p{N}])${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'u')
+  // a card holds its title and field values in separate elements (their text runs together
+  // in the card's own text), so match the card that has an element with exactly this text
   return page.getByRole('grid', { name }).getByRole('gridcell', { name: text, exact: true })
-    .or(page.getByRole('list', { name }).getByRole('listitem').filter({ hasText: word }).first())
+    .or(page.getByRole('list', { name }).getByRole('listitem').filter({ has: page.getByText(text, { exact: true }) }).first())
 }
 
 /**

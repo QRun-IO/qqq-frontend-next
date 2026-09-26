@@ -8,7 +8,7 @@
 import { expect, open, test } from '../../support/fixtures'
 import { recordCollection, recordItems } from './nav-helpers'
 
-test('[NAV-001] direct table link lists the seeded people', async ({ page, backend, diagnostics }) => {
+test('[NAV-001] direct table link lists the seeded people @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person')
   const people = recordCollection(page, 'Person')

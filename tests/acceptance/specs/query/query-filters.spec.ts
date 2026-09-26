@@ -9,16 +9,17 @@
 import { expect, open, test } from '../../support/fixtures'
 import {
   addCondition, captureQueries, clearFilter, conditionRow, expectColumn, filterUrl, nextQuery, openFilter,
-  pickPossibleValues, setOperator, sqlColumn, typeTags, clearTags, closeValuePopup,
+  pickPossibleValues, setOperator, sqlColumn, typeTags, clearTags, closeValuePopup, closeFilterSheet, showTable,
 } from './query-helpers'
 
 const names = (backend: Parameters<typeof sqlColumn>[0], where: string) =>
   sqlColumn(backend, `select name from qry_item where ${where} order by id desc`)
 
 test.describe('filter operators', () => {
-  test('[QRY-010] text operators match the backend semantics for every Material option', async ({ page, backend, diagnostics }) => {
+  test('[QRY-010] text operators match the backend semantics for every Material option @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await expectColumn(page, 'name', await names(backend, '1 = 1'))
     await openFilter(page)
     const row = await addCondition(page, 'Code', 'equals')
@@ -58,9 +59,10 @@ test.describe('filter operators', () => {
     await expect(page.locator('[data-qqq-id="button-filter"]')).not.toContainText(/\d/)
   })
 
-  test('[QRY-011] number operators including ranges and lists', async ({ page, backend, diagnostics }) => {
+  test('[QRY-011] number operators including ranges and lists @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const row = await addCondition(page, 'Quantity', 'equals')
     const single: [string, string, string][] = [
@@ -104,9 +106,10 @@ test.describe('filter operators', () => {
     expect(JSON.stringify(body.filter)).toContain('"values":[7')
   })
 
-  test('[QRY-012] date operators and relative date expressions', async ({ page, backend, diagnostics }) => {
+  test('[QRY-012] date operators and relative date expressions @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const row = await addCondition(page, 'Received Date', 'equals')
     const input = row.getByLabel('Filter value for Received Date')
@@ -170,9 +173,11 @@ test.describe('filter operators', () => {
   test.describe('in another time zone', () => {
     test.use({ timezoneId: 'America/Chicago' })
 
-    test('[QRY-013] date-time operators convert local input to UTC and support relative values', async ({ page, backend, diagnostics }) => {
+    test('[QRY-013] date-time operators convert local input to UTC and support relative values @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       await open(page, '/app/qryItem')
+      await showTable(page)
+    await showTable(page)
       await openFilter(page)
       const row = await addCondition(page, 'Checked At', 'is before')
       const sent = nextQuery(page, 'qryItem')
@@ -207,9 +212,10 @@ test.describe('filter operators', () => {
     })
   })
 
-  test('[QRY-014] boolean, blob and long-text operators', async ({ page, backend, diagnostics }) => {
+  test('[QRY-014] boolean, blob and long-text operators @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const active = await addCondition(page, 'Is Active', 'equals yes')
     await expect(active.getByLabel(/^Filter value/)).toHaveCount(0)
@@ -234,9 +240,10 @@ test.describe('filter operators', () => {
     await expectColumn(page, 'name', await names(backend, "notes like '%ship%'"))
   })
 
-  test('[QRY-015] possible-value selectors for table and enum sources show labels and send ids', async ({ page, backend, diagnostics }) => {
+  test('[QRY-015] possible-value selectors for table and enum sources show labels and send ids @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const owner = await addCondition(page, 'Owner', 'equals')
     expect(await owner.getByLabel('Filter operator').locator('option').allTextContents())
@@ -274,9 +281,10 @@ test.describe('filter operators', () => {
     await expectColumn(page, 'name', await names(backend, 'species_id = 2'))
   })
 
-  test('[QRY-016] AND/OR and nested groups combine as declared', async ({ page, backend, diagnostics }) => {
+  test('[QRY-016] AND/OR and nested groups combine as declared @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const quantity = await addCondition(page, 'Quantity', 'greater than')
     await quantity.getByLabel('Filter value for Quantity').fill('20')
@@ -299,9 +307,10 @@ test.describe('filter operators', () => {
     await expectColumn(page, 'name', await names(backend, 'is_active = false'))
   })
 
-  test('[QRY-017] filters live in the URL: reload, back/forward and Material-style JSON links', async ({ page, backend, diagnostics }) => {
+  test('[QRY-017] filters live in the URL: reload, back/forward and Material-style JSON links @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     await openFilter(page)
     const row = await addCondition(page, 'Name', 'contains')
     await row.getByLabel('Filter value for Name').fill('Widget')
@@ -312,7 +321,7 @@ test.describe('filter operators', () => {
     await expectColumn(page, 'name', widgetNames)
     await expect(page.locator('[data-qqq-id="button-filter"]')).toContainText('1')
     await page.goto('/app/person', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('grid', { name: 'Person records' })).toBeVisible()
+    await expect(page.getByRole('grid', { name: 'Person records' }).or(page.getByRole('list', { name: 'Person records' }))).toBeVisible()
     await page.goBack()
     await expectColumn(page, 'name', widgetNames)
 
@@ -324,7 +333,7 @@ test.describe('filter operators', () => {
     await expectColumn(page, 'name', await names(backend, '1 = 1'))
   })
 
-  test('[QRY-018] backend-only operators from links render and filter correctly', async ({ page, backend, diagnostics }) => {
+  test('[QRY-018] backend-only operators from links render and filter correctly @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const cases: [string, unknown[], string, string][] = [
       ['LIKE', ['%Widget%'], 'is like', "name like '%Widget%'"],
@@ -335,20 +344,23 @@ test.describe('filter operators', () => {
     ]
     for (const [operator, values, label, where] of cases) {
       await open(page, filterUrl('qryItem', { criteria: [{ fieldName: 'name', operator, values }] }))
+      await showTable(page)
       await expectColumn(page, 'name', await names(backend, where))
       await openFilter(page)
       await expect(conditionRow(page, 0).getByLabel('Filter operator').locator('option:checked')).toHaveText(label)
     }
     await open(page, filterUrl('qryItem', { criteria: [{ fieldName: 'quantity', operator: 'IS_NULL_OR_IN', values: [0, 3] }] }))
+    await showTable(page)
     await expectColumn(page, 'name', await names(backend, 'quantity is null or quantity in (0, 3)'))
     await openFilter(page)
     await expect(conditionRow(page, 0).getByLabel('Filter operator').locator('option:checked')).toHaveText('is empty or any of')
     await expect(conditionRow(page, 0).locator('[data-qqq-id="filter-value-chip"]')).toHaveText(['0', '3'])
   })
 
-  test('[QRY-019] quick search combines with the advanced filter', async ({ page, backend, diagnostics }) => {
+  test('[QRY-019] quick search combines with the advanced filter @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/qryItem')
+    await showTable(page)
     const bodies = captureQueries(page, 'qryItem')
     await page.getByLabel('Quick search Query Item').fill('Widget')
     // Quick search ORs CONTAINS across the visible text columns
@@ -357,6 +369,7 @@ test.describe('filter operators', () => {
     const row = await addCondition(page, 'Is Active', 'equals yes')
     await expect(row).toBeVisible()
     await expectColumn(page, 'name', await names(backend, "is_active = true and (name like '%Widget%' or code like '%Widget%' or notes like '%Widget%')"))
+    await closeFilterSheet(page)
     await expect(page.getByLabel('Quick search Query Item')).toHaveValue('Widget')
     const last = bodies.at(-1) as { filter: { booleanOperator: string; subFilters: { booleanOperator: string }[] } }
     expect(last.filter.booleanOperator).toBe('AND')

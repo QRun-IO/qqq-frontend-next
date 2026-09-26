@@ -566,7 +566,7 @@ function RecordViewContent({
         {/* Back link — returns to source page if navigated from another record, otherwise table list */}
         <Link
           href={safeFromPath || `/app/${tableMetaData.name}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pointer-coarse:min-h-11"
           data-qqq-id="link-back-to-table"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />

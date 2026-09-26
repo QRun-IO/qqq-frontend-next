@@ -189,20 +189,21 @@ export function RecordViewSection({
         </div>
       )}
       {compact ? (
-        /* Compact list layout — label: value on each row */
+        /* Compact list layout — label: value on each row (label above value on phones).
+           Values wrap anywhere so a long URL or token stays inside the card. */
         <dl className="divide-y divide-border/40">
           {visibleFields.map((field) => {
             if (!field) return null
             return (
               <div
                 key={field.name}
-                className="flex items-baseline gap-4 py-1.5"
+                className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:items-baseline sm:gap-4"
                 data-qqq-id={`record-field-${field.name}`}
               >
-                <dt className="w-40 flex-shrink-0 text-sm text-muted-foreground">
+                <dt className="text-sm text-muted-foreground sm:w-40 sm:flex-shrink-0">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
-                <dd className="flex-1 text-sm text-foreground">
+                <dd className="min-w-0 flex-1 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -217,13 +218,13 @@ export function RecordViewSection({
             return (
               <div
                 key={field.name}
-                className="flex flex-col gap-0.5"
+                className="flex min-w-0 flex-col gap-0.5"
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm font-semibold text-foreground">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
-                <dd className="text-sm text-foreground">
+                <dd className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -250,7 +251,7 @@ export function RecordViewSection({
               <div
                 key={field.name}
                 className={cn(
-                  'flex flex-col gap-0.5',
+                  'flex min-w-0 flex-col gap-0.5',
                   field.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
                 )}
                 data-qqq-id={`record-field-${field.name}`}
@@ -258,7 +259,7 @@ export function RecordViewSection({
                 <dt className="text-sm font-semibold text-foreground">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
                 </dt>
-                <dd>
+                <dd className="min-w-0 [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>

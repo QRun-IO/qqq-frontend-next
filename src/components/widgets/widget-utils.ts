@@ -26,6 +26,12 @@ export const WIDGET_DROPDOWN_STORAGE_ROOT = 'qqq.widgets.dropdownData'
 /** Root of the local-storage keys that persist the selected tab of a tabbed parent widget. */
 export const WIDGET_SELECTED_TAB_STORAGE_ROOT = 'qqq.widgets.selectedTabs'
 
+/**
+ * Classes that make a widget link (a statistic, a block value, a stepper link) at least a
+ * 44 x 44 px target on touch screens (QRun-IO/qqq#708); mouse layouts are unchanged.
+ */
+export const TOUCH_LINK = 'pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center'
+
 /** A dropdown selection as persisted: the option id and its label. */
 export interface StoredDropdownSelection {
   id: string
@@ -179,7 +185,7 @@ const COLUMN_SPANS: Record<number, string> = {
  */
 export function widgetColumnClasses(gridColumns?: number): string {
   const span = gridColumns && gridColumns >= 1 && gridColumns <= 12 ? Math.round(gridColumns) : 12
-  return `col-span-12 ${COLUMN_SPANS[span]}`
+  return `col-span-12 min-w-0 ${COLUMN_SPANS[span]}`
 }
 
 /**

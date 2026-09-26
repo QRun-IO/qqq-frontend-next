@@ -15,7 +15,7 @@
  */
 
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QRecord, QTableMetaData } from '@/types'
@@ -86,5 +86,25 @@ describe('DataGrid row rendering (QRun-IO/qqq#710)', () => {
     rerender(grid({ records: [record(4, 'Di'), record(5, 'Ed')], columnVisibility: { name: false } }))
     expect(screen.queryByText('Di')).not.toBeInTheDocument()
     expect(cellRenders).toHaveBeenCalledTimes(2)
+  })
+})
+
+// Grid selection checkboxes: a label around each box is its touch target (QRun-IO/qqq#708).
+describe('DataGrid selection checkboxes', () => {
+  const labelled = [1, 2].map((id) => ({ ...record(id, `P${id}`), recordLabel: `Person ${id}` })) as unknown as QRecord[]
+
+  it('wraps the header and row checkboxes in labels', () => {
+    render(grid({ records: labelled, totalCount: 2 }))
+    expect(screen.getByRole('checkbox', { name: 'Select all rows on this page' }).closest('label')).not.toBeNull()
+    expect(screen.getByRole('checkbox', { name: 'Select Person 1' }).closest('label')).not.toBeNull()
+  })
+
+  it('selects a row from its label without opening the record', () => {
+    handlers.onRowSelectionChange.mockClear()
+    router.push.mockClear()
+    render(grid({ records: labelled, totalCount: 2 }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Person 2' }).closest('label')!)
+    expect(handlers.onRowSelectionChange).toHaveBeenCalled()
+    expect(router.push).not.toHaveBeenCalled()
   })
 })

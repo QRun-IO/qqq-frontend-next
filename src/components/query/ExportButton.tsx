@@ -22,7 +22,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { Download, ChevronDown } from 'lucide-react'
 
@@ -90,6 +90,18 @@ async function exportErrorMessage(error: unknown): Promise<string> {
  */
 export function ExportButton({ tableName, tableMetaData, exportFilter, columnNames, totalCount, tableVariant }: ExportButtonProps) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // Escape closes the menu and returns focus to its button
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
   const [exporting, setExporting] = useState(false)
   const allowed = hasCapability(tableMetaData, 'TABLE_EXPORT')
   const nothingToExport = totalCount === 0
@@ -121,7 +133,7 @@ export function ExportButton({ tableName, tableMetaData, exportFilter, columnNam
 
   return (
     <div className="relative" data-qqq-id="export-button">
-      <button
+      <button ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={exporting || !allowed}

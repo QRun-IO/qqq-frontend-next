@@ -196,17 +196,20 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
   // A user with no permitted apps still gets the Dashboard entry (which explains the situation)
   const appRoutes = visit(metaData.appTree ?? [], [])
 
-  // Tables, processes and reports outside the app tree (reached through links, such as a
-  // child record list's add button) still title their pages and breadcrumbs with their labels
-  const unlisted: Array<[Record<string, { label?: string }> | undefined, boolean]> = [
-    [metaData.tables, true], [metaData.processes, false], [metaData.reports, false],
+  // Tables, processes and reports outside the app tree still open by direct link: name them by label too
+  const objects: Array<[QAppNodeType, Record<string, { label?: string }> | undefined]> = [
+    ['TABLE', metaData.tables], ['PROCESS', metaData.processes], ['REPORT', metaData.reports],
   ]
-  for (const [objects, isTable] of unlisted) {
-    for (const [name, object] of Object.entries(objects ?? {})) {
+  for (const [type, byName] of objects) {
+    for (const [name, object] of Object.entries(byName ?? {})) {
       const path = `/app/${name}`
-      if (pathToLabelMap[path] !== undefined || !object.label) continue
+      if (pathToLabelMap[path] || !object?.label) continue
       pathToLabelMap[path] = object.label
-      if (isTable) pathToLabelMap[`${path}/create`] = `Create ${object.label}`
+      if (type === 'TABLE') {
+        pathToLabelMap[`${path}/create`] = `Create ${object.label}`
+        pathToLabelMap[`${path}/dev`] = 'Developer'
+        pathToLabelMap[`${path}/key`] = 'View by Key'
+      }
     }
   }
   const sidebarRoutes: SidebarRoute[] = [

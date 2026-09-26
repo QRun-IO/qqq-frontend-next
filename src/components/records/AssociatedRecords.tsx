@@ -139,6 +139,7 @@ export function AssociatedRecords({
               href={viewAllHref}
               className={cn(
                 'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
+                'pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center',
                 'focus:outline-none focus:underline'
               )}
               data-qqq-id={`button-view-all-association-${associationId}`}
@@ -243,6 +244,7 @@ export function AssociatedRecords({
                             href={recordHref}
                             className={cn(
                               'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
+                              'pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center',
                               'focus:outline-none focus:underline'
                             )}
                             data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}

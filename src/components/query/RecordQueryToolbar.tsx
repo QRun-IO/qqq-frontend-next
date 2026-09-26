@@ -203,6 +203,8 @@ export interface RecordQueryToolbarProps {
   localSearchTerm: string
   /** Ref forwarded to the quick-search input element. */
   quickSearchRef: React.RefObject<HTMLInputElement | null>
+  /** The Filter button, where focus returns when the phone filter sheet closes. */
+  filterButtonRef?: React.Ref<HTMLButtonElement>
   /** Callback for quick-search input changes (debounces propagation internally). */
   handleSearchChange: (value: string) => void
   /** Setter for the local search term (used by the clear button). */
@@ -281,6 +283,8 @@ export interface ColumnConfigPosition {
 /** Gap between the column-config button and its panel, and the panel's margin from the viewport bottom. */
 const COLUMN_CONFIG_GAP = 4
 const COLUMN_CONFIG_MARGIN = 8
+/** Width of the column configuration panel (w-80), capped to the viewport in ColumnConfig. */
+const COLUMN_CONFIG_WIDTH = 320
 
 /**
  * Place the column-config panel under its button, limited to the viewport height below it.
@@ -293,7 +297,10 @@ const COLUMN_CONFIG_MARGIN = 8
  */
 export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, viewportWidth: number, viewportHeight: number): ColumnConfigPosition {
   const top = button.bottom + COLUMN_CONFIG_GAP
-  return { top, right: viewportWidth - button.right, maxHeight: Math.max(0, viewportHeight - top - COLUMN_CONFIG_MARGIN) }
+  // Keep the whole panel on screen: on a phone the button may sit near the left edge (wrapped toolbar)
+  const widest = Math.max(COLUMN_CONFIG_MARGIN, viewportWidth - COLUMN_CONFIG_WIDTH - COLUMN_CONFIG_MARGIN)
+  const right = Math.min(Math.max(COLUMN_CONFIG_MARGIN, viewportWidth - button.right), widest)
+  return { top, right, maxHeight: Math.max(0, viewportHeight - top - COLUMN_CONFIG_MARGIN) }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -317,6 +324,7 @@ export function RecordQueryToolbar({
   handleCreateRecord,
   localSearchTerm,
   quickSearchRef,
+  filterButtonRef,
   handleSearchChange,
   setLocalSearchTerm,
   clearQuickSearch,
@@ -469,6 +477,7 @@ export function RecordQueryToolbar({
 
       {/* Advanced filter toggle — min 44px touch target (HIGH-5) */}
       <button
+        ref={filterButtonRef}
         type="button"
         onClick={handleFilterToggle}
         className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${

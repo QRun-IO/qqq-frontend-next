@@ -9,7 +9,9 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import type { Backend } from '../../support/fixtures'
-import { byId, downloadText, expectLoaded, parseCsv, sqlRows } from './widget-support'
+import { expectTouchReady } from '../../support/touch'
+import { listCell } from '../security/support/ui'
+import { byId, downloadText, expectLoaded, openRecord, parseCsv, recordAction, sqlRows } from './widget-support'
 
 async function openShare(page: Page, path: string) {
   await open(page, path)
@@ -17,6 +19,7 @@ async function openShare(page: Page, path: string) {
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await expect(dialog.locator('[data-qqq-id="share-status"]')).toHaveCount(0)
+  await expectTouchReady(page, dialog)
   return dialog
 }
 
@@ -26,54 +29,55 @@ async function shareViaApi(backend: Backend, processName: string, values: Record
   return { status: response.status(), body: await response.json() }
 }
 
-test('[WID-030] filter and columns setup shows the saved filter, sort and visible columns by label', async ({ page, backend, diagnostics }) => {
+test('[WID-030] filter and columns setup shows the saved filter, sort and visible columns by label @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [report] = await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 102')
   expect(JSON.parse(report.query_filter_json).criteria).toHaveLength(2)
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expectLoaded(page, 'reportSetupWidget')
   await expect(byId(page, 'filter-boolean-operator-reportSetupWidget-0')).toHaveText('Match all of:')
   await expect(byId(page, 'filter-criterion-reportSetupWidget-0-0')).toHaveText('First Name starts with A')
   await expect(byId(page, 'filter-criterion-reportSetupWidget-0-1')).toHaveText('Annual Salary greater than 1000')
   await expect(byId(page, 'filter-sort-reportSetupWidget')).toHaveText('Sorted by Last Name descending')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['Id', 'First Name', 'Last Name'])
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'reportSetupWidget')
   await expect(byId(page, 'filter-none-reportSetupWidget')).toHaveText('No filters')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['ID', 'Species'])
 })
 
-test('[WID-029] pivot table setup shows the saved rows, columns and values by label', async ({ page, diagnostics }) => {
+test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
   void diagnostics
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'pivot-rows-pivotTableSetupWidget')).toContainText('Last Name')
   await expect(byId(page, 'pivot-columns-pivotTableSetupWidget')).toContainText('Is Employed')
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Count of Id')
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Sum of Annual Salary')
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'widget-pivotTableSetup-pivotTableSetupWidget')).toContainText('This report does not use a pivot table.')
 })
 
-test('[RPT-009] a saved report record shows its full definition', async ({ page, backend, diagnostics }) => {
+test('[RPT-009] a saved report record shows its full definition @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [report] = await sqlRows(backend, 'select label, table_name from saved_report where id = 102')
-  await open(page, '/app/savedReport/102')
+  await openRecord(page, '/app/savedReport/102')
   await expect(page.getByRole('heading', { level: 1, name: report.label })).toBeVisible()
   await expectLoaded(page, 'reportSetupWidget')
   await expectLoaded(page, 'pivotTableSetupWidget')
   await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveCount(3)
   await expect(byId(page, 'pivot-values-pivotTableSetupWidget')).toContainText('Count of Id')
+  await expectTouchReady(page, byId(page, 'widget-reportSetupWidget'))
+  await expectTouchReady(page, byId(page, 'widget-pivotTableSetupWidget'))
 })
 
-test('[RPT-010] a saved report renders to a CSV with its saved columns and rows', async ({ page, backend, diagnostics }) => {
+test('[RPT-010] a saved report renders to a CSV with its saved columns and rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const species = (await (await backend.api.get('/data/petSpecies')).json()).records as Array<{ values: { possibleValueId: number; possibleValueLabel: string } }>
   expect(species.length).toBeGreaterThan(0)
-  await open(page, '/app/savedReport/1')
-  await page.getByRole('button', { name: 'Actions' }).click()
-  await page.getByRole('menuitem', { name: 'Render Report' }).click()
+  await openRecord(page, '/app/savedReport/1')
+  await recordAction(page, 'Render Report')
   await expect(page).toHaveURL(/\/app\/renderSavedReport/)
   await page.getByLabel(/Report Format/).click()
   await page.getByRole('option', { name: 'CSV' }).click()
@@ -93,7 +97,7 @@ test('[RPT-010] a saved report renders to a CSV with its saved columns and rows'
  * (a `#/createChild=` link) with the Saved Report preset to this report and locked (QRun-IO/qqq#714).
  */
 async function openScheduleForm(page: Page) {
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await byId(page, 'child-record-add-scheduledReportJoinSavedReport').click()
   await expect(page).toHaveURL(/\/app\/savedReport\/1\/?#\/createChild=scheduledReport\/defaultValues=/)
@@ -206,7 +210,7 @@ test('[RPT-019] the render report input step shows only its fields, without a st
   await expect(page.getByText('No fields', { exact: true })).toHaveCount(0)
 })
 
-test('[RPT-012] a scheduled report is created for a saved report and shows its schedule', async ({ page, backend, diagnostics }) => {
+test('[RPT-012] a scheduled report is created for a saved report and shows its schedule @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const dialog = await fillSchedule(page, '0 0 9 * * ?')
   // the dialog closes over the saved report, the link's hash is cleared and the child list reloads
@@ -220,16 +224,16 @@ test('[RPT-012] a scheduled report is created for a saved report and shows its s
   expect(saved.values).toMatchObject({ savedReportId: 1, isActive: true, toAddresses: 'owned-schedule@example.com', subject: 'Owned schedule',
     cronExpression: '0 0 9 * * ?', cronDescription: 'Every day, at 9:00 am', cronTimeZoneId: 'UTC' })
   await expect(byId(page, `child-record-row-scheduledReportJoinSavedReport-${id}`)).toBeVisible()
-  await open(page, `/app/scheduledReport/${id}`)
+  await openRecord(page, `/app/scheduledReport/${id}`)
   await expectLoaded(page, 'scheduledReportCronWidget')
   await expect(byId(page, 'cron-expression-scheduledReportCronWidget')).toHaveText('0 0 9 * * ?')
   await expect(byId(page, 'cron-description-scheduledReportCronWidget')).toHaveText('Every day, at 9:00 am')
-  await open(page, '/app/savedReport/1')
+  await openRecord(page, '/app/savedReport/1')
   await expectLoaded(page, 'scheduledReportJoinSavedReport')
   await expect(byId(page, `child-record-row-scheduledReportJoinSavedReport-${id}`)).toBeVisible()
 })
 
-test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved', async ({ page, backend, diagnostics }) => {
+test('[RPT-012] an invalid cron expression is rejected with the backend message and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
   diagnostics.allow('/qqq/v1/table/scheduledReport 400')
   diagnostics.allow('Failed to load resource: the server responded with a status of 400')
   const dialog = await fillSchedule(page, 'not a cron')
@@ -240,7 +244,7 @@ test('[RPT-012] an invalid cron expression is rejected with the backend message 
   expect((await (await backend.api.get('/data/scheduledReport')).json()).records ?? []).toEqual([])
 })
 
-test('[RPT-013] the owner shares a saved report read-only with a user', async ({ page, backend, diagnostics }) => {
+test('[RPT-013] the owner shares a saved report read-only with a user @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const dialog = await openShare(page, '/app/savedReport/1')
   await expect(dialog.getByRole('heading', { name: 'Share Report: Pet Species Report' })).toBeVisible()
@@ -258,7 +262,7 @@ test('[RPT-013] the owner shares a saved report read-only with a user', async ({
   await expect(dialog).toBeHidden()
 })
 
-test('[RPT-014] the owner changes a share to read and edit', async ({ page, backend, diagnostics }) => {
+test('[RPT-014] the owner changes a share to read and edit @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await shareViaApi(backend, 'insertSharedRecord', { tableName: 'savedReport', recordId: 1, audienceType: 'user', audienceId: 'sample:bob', scopeId: 'READ_ONLY' })).status).toBe(200)
   const [share] = await sqlRows(backend, "select id from shared_saved_report where saved_report_id = 1 and user_id = 'sample:bob'")
@@ -268,7 +272,7 @@ test('[RPT-014] the owner changes a share to read and edit', async ({ page, back
   await expect(dialog.getByLabel('Scope for Bob')).toHaveValue('READ_WRITE')
 })
 
-test('[RPT-015] the owner removes a share', async ({ page, backend, diagnostics }) => {
+test('[RPT-015] the owner removes a share @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await shareViaApi(backend, 'insertSharedRecord', { tableName: 'savedReport', recordId: 1, audienceType: 'user', audienceId: 'sample:casey', scopeId: 'READ_ONLY' })
   const dialog = await openShare(page, '/app/savedReport/1')
@@ -279,7 +283,7 @@ test('[RPT-015] the owner removes a share', async ({ page, backend, diagnostics 
   expect(await sqlRows(backend, 'select id from shared_saved_report where saved_report_id = 1')).toEqual([])
 })
 
-test('[RPT-018] a saved view is shared through the same dialog', async ({ page, backend, diagnostics }) => {
+test('[RPT-018] a saved view is shared through the same dialog @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // other areas may seed shares on the same stock view (the query fixture shares it with bob)
   const sharesSql = 'select saved_view_id, user_id, scope from shared_saved_view order by id'
@@ -295,7 +299,7 @@ test('[RPT-018] a saved view is shared through the same dialog', async ({ page, 
   expect(await sqlRows(backend, sharesSql)).toEqual([...before, { saved_view_id: '1', user_id: 'sample:casey', scope: 'READ_WRITE' }])
 })
 
-test('[RPT-017] only the owner may share: the button is disabled for others and the server refuses', async ({ page, backend, diagnostics }) => {
+test('[RPT-017] only the owner may share: the button is disabled for others and the server refuses @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // alice can read casey's report through its read-only share, but does not own it
   await open(page, '/app/savedReport/101')
@@ -315,7 +319,7 @@ test('[RPT-017] only the owner may share: the button is disabled for others and 
 test.describe('as another user', () => {
   test.use({ user: 'bob' })
 
-  test('[RPT-016] an unshared report is invisible to another user until it is shared', async ({ page, backend, diagnostics }) => {
+  test('[RPT-016] an unshared report is invisible to another user until it is shared @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('/qqq/v1/table/savedReport/1 404')
     diagnostics.allow('Failed to load resource: the server responded with a status of 404')
@@ -331,7 +335,7 @@ test.describe('as another user', () => {
     await backend.setPersona('admin', 'bob')
     expect((await backend.api.get('/data/savedReport/1')).status()).toBe(200)
     await page.reload()
-    await expect(page.getByRole('grid', { name: 'Report records' }).getByRole('gridcell', { name: report.label, exact: true })).toBeVisible()
+    await expect(listCell(page, 'Report', report.label)).toBeVisible()
     await open(page, '/app/savedReport/1')
     await expect(page.getByRole('heading', { level: 1, name: report.label })).toBeVisible()
     expect(await sqlRows(backend, "select user_id from shared_saved_report where saved_report_id = 1")).toEqual([{ user_id: 'sample:bob' }])

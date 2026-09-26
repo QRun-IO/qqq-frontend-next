@@ -6,10 +6,10 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess, viewValue } from './process-helpers'
+import { advance, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
 
 test.describe('Widget Lab', () => {
-  test('[PRC-035] a named widget is fetched with the process UUID and values', async ({ page, diagnostics }) => {
+  test('[PRC-035] a named widget is fetched with the process UUID and values @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const widgetRequests: string[] = []
     page.on('request', (request) => { if (request.url().includes('/widget/')) widgetRequests.push(request.url()) })
@@ -17,6 +17,7 @@ test.describe('Widget Lab', () => {
     const interact = await expectScreen(page, 'interact', 'Interact')
     const widget = interact.getByRole('region', { name: 'Lab Status Widget' })
     await expect(widget).toContainText('Lab status for Casey Operator (linked)')
+    await expectRunTouchReady(page, 'prcWidgets')
     expect(widgetRequests).toHaveLength(1)
     const url = new URL(widgetRequests[0])
     expect(url.pathname).toBe('/qqq/v1/widget/prcHtmlWidget')
@@ -24,7 +25,7 @@ test.describe('Widget Lab', () => {
     expect(url.searchParams.get('processUUID')).toMatch(/^[0-9a-f-]{36}$/)
   })
 
-  test('[PRC-036] a named composite widget renders the data seeded in process values', async ({ page, diagnostics }) => {
+  test('[PRC-036] a named composite widget renders the data seeded in process values @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const widgetRequests: string[] = []
     page.on('request', (request) => { if (request.url().includes('/widget/prcCompositeWidget')) widgetRequests.push(request.url()) })
@@ -36,7 +37,7 @@ test.describe('Widget Lab', () => {
     expect(widgetRequests).toEqual([])
   })
 
-  test('[PRC-037] ad hoc widget blocks interpolate, hide conditionals and submit actions', async ({ page, backend, diagnostics }) => {
+  test('[PRC-037] ad hoc widget blocks interpolate, hide conditionals and submit actions @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWidgets')
     const interact = await expectScreen(page, 'interact', 'Interact')
@@ -44,6 +45,7 @@ test.describe('Widget Lab', () => {
     await expect(adhoc).toContainText('Scan or choose for Casey Operator')
     await expect(adhoc).not.toContainText('Secret block that must stay hidden')
     await expect(adhoc.getByPlaceholder('Scan a code')).toBeVisible()
+    await expectRunTouchReady(page, 'prcWidgets')
     await adhoc.getByRole('button', { name: 'Approve' }).click()
     const decided = await expectScreen(page, 'decided', 'Decided')
     await expect(viewValue(decided, 'decision')).toHaveText('approve')
@@ -64,7 +66,7 @@ test.describe('Widget Lab', () => {
 })
 
 test.describe('Drive Export', () => {
-  test('[PRC-038] a Google Drive folder step still collects and submits its other inputs', async ({ page, backend, diagnostics }) => {
+  test('[PRC-038] a Google Drive folder step still collects and submits its other inputs @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcDrive')
     const pick = await expectScreen(page, 'pickFolder', 'Pick Folder')
@@ -75,6 +77,7 @@ test.describe('Drive Export', () => {
     await expect(pick.locator('[data-qqq-id="process-google-drive-note"]')).toHaveText('Google Drive folder selection is not configured for this application.')
     await advance(page, 'Submit')
     await expect(pick.getByText('Export Note is required')).toBeVisible()
+    await expectRunTouchReady(page, 'prcDrive')
     await pick.getByLabel('Export Note').fill('Quarterly export')
     await advance(page, 'Submit')
     const exported = await expectScreen(page, 'exported', 'Exported')

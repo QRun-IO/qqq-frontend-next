@@ -45,7 +45,7 @@ const auth0Test = acceptanceTest.extend<{ auth0: FakeOidcProvider }, { auth0Prov
 })
 
 auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
-  auth0Test('[SEC-029] sign-in exchanges the code in the browser, the backend verifies the token, and logout ends the provider session', async ({ page, auth0, diagnostics, context }) => {
+  auth0Test('[SEC-029] sign-in exchanges the code in the browser, the backend verifies the token, and logout ends the provider session @mobile', async ({ page, auth0, diagnostics, context }) => {
     void diagnostics
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
@@ -79,7 +79,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
   })
 
-  auth0Test('[SEC-033] an Auth0 session ended by logout cannot be replayed', async ({ page, auth0, diagnostics, context, playwright }) => {
+  auth0Test('[SEC-033] an Auth0 session ended by logout cannot be replayed @mobile', async ({ page, auth0, diagnostics, context, playwright }) => {
     void diagnostics
     void auth0
     await open(page, '/app/person')
@@ -96,7 +96,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await replay.dispose()
   })
 
-  auth0Test('[SEC-029] a provider denial is reported and nothing is exchanged', async ({ page, auth0, diagnostics }) => {
+  auth0Test('[SEC-029] a provider denial is reported and nothing is exchanged @mobile', async ({ page, auth0, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await page.getByRole('button', { name: 'Deny' }).click()
@@ -126,7 +126,7 @@ const anonymousTest = acceptanceTest.extend<{ anonymous: void }>({
   },
 })
 
-anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logout stays signed out until Sign in', async ({ page, anonymous, diagnostics }) => {
+anonymousTest('[SEC-031] FULLY_ANONYMOUS loads data as Anonymous, and after logout stays signed out until Sign in @mobile', async ({ page, anonymous, diagnostics }) => {
   void anonymous
   void diagnostics
   await open(page, '/app/person')

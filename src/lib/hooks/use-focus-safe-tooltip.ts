@@ -12,10 +12,14 @@
  * Tooltip closes on any scroll that contains its trigger, so keyboard users never
  * saw the tooltip. Closes requested right after focus, while the trigger still has
  * focus, are ignored; blur and Escape always close.
+ *
+ * Touch screens have no hover, and Radix closes a tooltip on every click of its trigger, so a
+ * tap (touch or pen pointer) toggles the tooltip instead (QRun-IO/qqq#708). Mouse clicks keep
+ * the Radix behavior.
  */
 
 import { useCallback, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
 
 /** How long after focus a Radix-initiated close is treated as the focus scroll. */
 export const FOCUS_SCROLL_GRACE_MS = 500
@@ -32,6 +36,10 @@ export interface FocusSafeTooltip {
   onBlur: () => void
   /** `Tooltip.Trigger` onKeyDown (Escape closes). */
   onKeyDown: (event: KeyboardEvent) => void
+  /** `Tooltip.Trigger` onPointerDown: remembers the pointer type and open state of a tap. */
+  onPointerDown: (event: PointerEvent) => void
+  /** `Tooltip.Trigger` onClick: a touch or pen tap toggles the tooltip. */
+  onClick: (event: MouseEvent) => void
 }
 
 /**
@@ -43,6 +51,7 @@ export interface FocusSafeTooltip {
 export function useFocusSafeTooltip(now: () => number = Date.now): FocusSafeTooltip {
   const [open, setOpen] = useState(false)
   const focusedAt = useRef<number | null>(null)
+  const tap = useRef<{ touch: boolean; wasOpen: boolean }>({ touch: false, wasOpen: false })
 
   const onOpenChange = useCallback((next: boolean) => {
     if (!next && focusedAt.current !== null && now() - focusedAt.current < FOCUS_SCROLL_GRACE_MS) return
@@ -63,5 +72,17 @@ export function useFocusSafeTooltip(now: () => number = Date.now): FocusSafeTool
     }
   }, [])
 
-  return { open, onOpenChange, onFocus, onBlur, onKeyDown }
+  const onPointerDown = useCallback((event: PointerEvent) => {
+    tap.current = { touch: event.pointerType === 'touch' || event.pointerType === 'pen', wasOpen: open }
+  }, [open])
+  const onClick = useCallback((event: MouseEvent) => {
+    if (!tap.current.touch) return
+    const next = !tap.current.wasOpen
+    tap.current = { touch: false, wasOpen: false }
+    // Keep Radix from closing on the click; the tap opens a closed tooltip and closes an open one.
+    event.preventDefault()
+    if (!next) focusedAt.current = null
+    setOpen(next)
+  }, [])
+  return { open, onOpenChange, onFocus, onBlur, onKeyDown, onPointerDown, onClick }
 }

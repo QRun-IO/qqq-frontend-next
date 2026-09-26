@@ -17,7 +17,7 @@ const grid = (page: Page, label: string) => page.getByRole('grid', { name: `${la
 const denied = (page: Page) => page.locator('[data-qqq-id="permission-denied"]')
 
 test.describe('disabled table (DenyBehavior.DISABLED)', () => {
-  test('[SEC-002] admin lists the ledger; noPets sees it listed but every link explains the denial and loads nothing', async ({ page, security, diagnostics }) => {
+  test('[SEC-002] admin lists the ledger; noPets sees it listed but every link explains the denial and loads nothing @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityLedger')
     await expect(listCell(page, 'Security Ledger', 'Opening Balance')).toBeVisible()
@@ -48,7 +48,7 @@ test.describe('disabled table (DenyBehavior.DISABLED)', () => {
 })
 
 test.describe('disabled process (DenyBehavior.DISABLED)', () => {
-  test('[SEC-008] admin runs the audit and it writes one row', async ({ page, security, diagnostics }) => {
+  test('[SEC-008] admin runs the audit and it writes one row @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityAudit')
     await expect(page.getByText('Audit by sample:alice')).toBeVisible()
@@ -58,7 +58,7 @@ test.describe('disabled process (DenyBehavior.DISABLED)', () => {
   test.describe('viewer', () => {
     test.use({ persona: 'viewer' })
 
-    test('[SEC-008] the audit is shown disabled, its link never starts it and the backend refuses it', async ({ page, security, diagnostics }) => {
+    test('[SEC-008] the audit is shown disabled, its link never starts it and the backend refuses it @mobile', async ({ page, security, diagnostics }) => {
       void diagnostics
       const reads = recordRequests(page)
       await open(page, '/app/securityApp')
@@ -79,7 +79,7 @@ test.describe('disabled process (DenyBehavior.DISABLED)', () => {
 })
 
 test.describe('widget restrictions', () => {
-  test('[SEC-009] admin sees every security widget with its content', async ({ page, security, diagnostics }) => {
+  test('[SEC-009] admin sees every security widget with its content @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     void security
     await open(page, '/app/securityApp')
@@ -91,7 +91,7 @@ test.describe('widget restrictions', () => {
   test.describe('noPets', () => {
     test.use({ persona: 'noPets' })
 
-    test('[SEC-009] hidden widgets are absent, disabled widgets explain the denial and load no data', async ({ page, security, diagnostics }) => {
+    test('[SEC-009] hidden widgets are absent, disabled widgets explain the denial and load no data @mobile', async ({ page, security, diagnostics }) => {
       void diagnostics
       const reads = recordRequests(page)
       await open(page, '/app/securityApp')
@@ -110,7 +110,7 @@ test.describe('widget restrictions', () => {
 })
 
 test.describe('app restrictions', () => {
-  test('[SEC-010] admin sees both pet apps; noPets loses the hidden one and keeps the disabled one gated', async ({ page, security, diagnostics }) => {
+  test('[SEC-010] admin sees both pet apps; noPets loses the hidden one and keeps the disabled one gated @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityApp')
     let nav = await navigation(page)
@@ -136,7 +136,7 @@ test.describe('app restrictions', () => {
 })
 
 test.describe('record security lock', () => {
-  test('[SEC-012] alice sees and edits only her notes', async ({ page, security, diagnostics }) => {
+  test('[SEC-012] alice sees and edits only her notes @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityNote')
     await expect(listCell(page, 'Security Note', 'Alice Plan')).toBeVisible()
@@ -192,7 +192,7 @@ test.describe('protected fields', () => {
   // heavy values may be fetched for a single record, never by list queries
   const HEAVY = ['heavy-payload-9c2e', Buffer.from('heavy-payload-9c2e').toString('base64')]
 
-  test('[SEC-013] hidden, password and heavy values never reach the list or record view', async ({ page, security, diagnostics }) => {
+  test('[SEC-013] hidden, password and heavy values never reach the list or record view @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     const bodies: { url: string; body: string }[] = []
     page.on('response', async (response) => {
@@ -236,7 +236,7 @@ test.describe('protected fields', () => {
     expect(record.values.revealCode).toBe('reveal-5678')
   })
 
-  test('[SEC-013] editing another field keeps the stored password, hidden and heavy values', async ({ page, security, diagnostics }) => {
+  test('[SEC-013] editing another field keeps the stored password, hidden and heavy values @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityVault/1/edit')
     const label = page.getByRole('textbox', { name: 'Label' })
@@ -254,7 +254,7 @@ test.describe('protected fields', () => {
 })
 
 test.describe('capability restrictions', () => {
-  test('[SEC-014] a table without insert/update/delete capabilities offers none of them and refuses them', async ({ page, security, diagnostics }) => {
+  test('[SEC-014] a table without insert/update/delete capabilities offers none of them and refuses them @mobile', async ({ page, security, diagnostics }) => {
     void diagnostics
     await open(page, '/app/securityArchive')
     await expect(listCell(page, 'Security Archive', 'Archived Contract')).toBeVisible()

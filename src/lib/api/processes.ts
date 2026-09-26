@@ -387,7 +387,8 @@ export async function processStatus(
  * @param skip - Number of records to skip (zero-based offset for pagination).
  * @param limit - Maximum number of records to return in this page.
  * @param tableVariant - JSON of the table variant the run uses, when its table has variants.
- * @returns An object containing the total record count and the current page of records.
+ * @returns An object containing the total record count and the current page of records
+ *   (an empty page when a run with no input records has no `records` list).
  */
 export async function processRecords(
   processName: string,
@@ -400,8 +401,9 @@ export async function processRecords(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
     { params: { skip, limit, ...(tableVariant ? { tableVariant } : {}) } }
   )
-  // v1 sends an empty list for a run with no records; an omitted list reads the same way
-  const records = body && typeof body === 'object' && body.records === undefined ? [] : body?.records
+  // v1 sends an empty list for a run with no records; an omitted (null) list reads the same way,
+  // but only when the run has no records
+  const records = body && typeof body === 'object' && body.records == null && body.totalRecords === 0 ? [] : body?.records
   if (!body || typeof body !== 'object' || !Array.isArray(records) || typeof body.totalRecords !== 'number') {
     throw new Error('Invalid process records response')
   }

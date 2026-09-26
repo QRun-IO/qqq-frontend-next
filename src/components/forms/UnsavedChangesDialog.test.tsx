@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
@@ -148,5 +148,38 @@ describe('UnsavedChangesDialog — accessibility', () => {
       <UnsavedChangesDialog open={true} onStay={vi.fn()} onLeave={vi.fn()} />
     )
     expect(document.querySelector('[data-qqq-id="unsaved-changes-leave"]')).toBeInTheDocument()
+  })
+})
+
+describe('UnsavedChangesDialog — focus on stay', () => {
+  function Harness() {
+    const [open, setOpen] = React.useState(false)
+    const cancel = React.useRef<HTMLButtonElement>(null)
+    return (
+      <>
+        <input aria-label="First Name" />
+        <button ref={cancel} type="button" onClick={() => setOpen(true)}>Cancel</button>
+        <UnsavedChangesDialog open={open} onStay={() => setOpen(false)} onLeave={vi.fn()} returnFocusRef={cancel} />
+      </>
+    )
+  }
+
+  it('moves focus to Stay when it opens', async () => {
+    render(<Harness />)
+    screen.getByRole('button', { name: 'Cancel' }).click()
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Stay' })).toHaveFocus())
+  })
+
+  it('returns focus to the button that opened it, even when that button never had focus', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('textbox', { name: 'First Name' }))
+    // Safari does not focus a clicked button: open the dialog with focus left in the field
+    screen.getByRole('button', { name: 'Cancel' }).click()
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus())
   })
 })

@@ -18,7 +18,7 @@ test.beforeEach(async ({ page, diagnostics }) => {
   await expectLoaded(page, 'accHealthy')
 })
 
-test('[WID-051] a failing renderer shows its backend message with retry while neighbors render', async ({ page, backend }) => {
+test('[WID-051] a failing renderer shows its backend message with retry while neighbors render @mobile', async ({ page, backend }) => {
   const api = await backend.api.get('/widget/accError')
   expect(api.status()).toBe(500)
   expect((await api.json()).error).toBe('QException (Owned widget renderer failure)')
@@ -34,7 +34,7 @@ test('[WID-051] a failing renderer shows its backend message with retry while ne
   await expect(error).toBeVisible()
 })
 
-test('[WID-052] empty payloads show descriptive empty states', async ({ page }) => {
+test('[WID-052] empty payloads show descriptive empty states @mobile', async ({ page }) => {
   const empty = (name: string) => page.locator(`[data-qqq-id="widget-empty-${name}"]`)
   await expectLoaded(page, 'accEmptyTable')
   await expect(empty('accEmptyTable')).toHaveText('No owned rows')
@@ -59,7 +59,7 @@ test('[WID-052] empty payloads show descriptive empty states', async ({ page }) 
   await expect(widget(page, 'accEmptyAlert')).toHaveCount(0)
 })
 
-test('[WID-053] malformed payloads are contained with a format notice', async ({ page }) => {
+test('[WID-053] malformed payloads are contained with a format notice @mobile', async ({ page }) => {
   const notices: Array<[string, string]> = [
     ['accMalformedChart', 'The chart widget data is not in the expected format'],
     ['accMalformedTable', 'The table widget data is not in the expected format (columns/rows).'],

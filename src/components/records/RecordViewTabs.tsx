@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
 import { PHONE_MEDIA_QUERY, useMediaQuery } from '@/lib/hooks/use-media-query'
@@ -83,14 +83,21 @@ function AccordionSection({
   id,
   label,
   defaultOpen = false,
+  openOnPhone = false,
   children,
 }: {
   id: string
   label: string
   defaultOpen?: boolean
+  /** Opens the section on a phone, where the URL's tab names it. */
+  openOnPhone?: boolean
   children: React.ReactNode
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  // On a phone (accordion layout) a deep link (?tab=...) naming this section opens it
+  useEffect(() => {
+    if (openOnPhone && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)')?.matches) setIsOpen(true)
+  }, [openOnPhone])
   const panelId = `accordion-panel-${id}`
   const triggerId = `accordion-trigger-${id}`
 
@@ -167,8 +174,9 @@ export function RecordViewTabs({
       <>
         {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
+        {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
         <div
-          className="flex rounded-xl border border-border bg-muted/50 p-1"
+          className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
           role="tablist"
           data-qqq-id="record-view-tabs"
         >
@@ -179,7 +187,7 @@ export function RecordViewTabs({
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                'flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                 activeTab === tab.id
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -288,6 +296,7 @@ export function RecordViewTabs({
             id={`section-${section.name}`}
             label={section.label}
             defaultOpen={idx === 0}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -308,7 +317,7 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={false}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -324,7 +333,7 @@ export function RecordViewTabs({
 
         {/* Unbound named associations */}
         {associations.map((association) => (
-          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name}>
+          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name} openOnPhone={activeTab === 'related'}>
             {renderAssociation(association.name)}
           </AccordionSection>
         ))}

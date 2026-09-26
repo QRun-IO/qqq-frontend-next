@@ -242,6 +242,7 @@ export function RecordQueryContent({
                   columnVisibility={columnVisibility}
                   columnOrder={columnOrder}
                   isLoading={isLoading}
+                  isRowSelectedByQuery={isRowSelectedByQuery}
                 />
               </div>
             )}

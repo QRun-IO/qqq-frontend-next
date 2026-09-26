@@ -6,11 +6,12 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { VIEWER, control, fieldValue, openForm, openRecord, sqlOne } from './helpers'
+import { showTable } from '../query/query-helpers'
+import { VIEWER, control, expandOnPhone, fieldValue, openForm, openRecord, showSection, shown, sqlOne } from './helpers'
 
 test.use(VIEWER)
 
-test('[REC-028] LINK adornments open the referenced record or the URL', async ({ page, backend, diagnostics }) => {
+test('[REC-028] LINK adornments open the referenced record or the URL @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect(await sqlOne(backend, 'select owner_id, website from record_lab where id = 1')).toEqual({ owner_id: '1', website: 'https://example.invalid/alpha' })
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
@@ -35,7 +36,7 @@ test('[REC-028] LINK adornments open the referenced record or the URL', async ({
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0)
 })
 
-test('[REC-029] CHIP adornments color and label values by their stored value', async ({ page, backend, diagnostics }) => {
+test('[REC-029] CHIP adornments color and label values by their stored value @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   const active = fieldValue(page, 'status')
@@ -56,9 +57,10 @@ test('[REC-029] CHIP adornments color and label values by their stored value', a
   await expect(fieldValue(page, 'status')).toHaveAttribute('data-chip-color', 'default')
 })
 
-test('[REC-030] SIZE adornment sets the query grid column width', async ({ page, diagnostics }) => {
+test('[REC-030] SIZE adornment sets the query grid column width @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await page.goto('/app/recordLab', { waitUntil: 'domcontentloaded' })
+  await showTable(page)
   const grid = page.getByRole('grid', { name: 'Record Lab records' })
   await expect(grid.getByRole('gridcell', { name: 'ALPHA-01', exact: true })).toBeVisible()
   const header = (label: string) => grid.getByRole('columnheader').filter({ hasText: label }).first()
@@ -66,9 +68,10 @@ test('[REC-030] SIZE adornment sets the query grid column width', async ({ page,
   expect(await header('Website').evaluate((element) => element.getBoundingClientRect().width)).toBe(150)
 })
 
-test('[REC-031] CODE_EDITOR shows formatted code and edits it with a code editor', async ({ page, backend, diagnostics }) => {
+test('[REC-031] CODE_EDITOR shows formatted code and edits it with a code editor @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
+  await expandOnPhone(page, 'Presentation')
   const code = fieldValue(page, 'config')
   await expect(code).toHaveAttribute('data-language-mode', 'json')
   await expect(code.locator('code')).toHaveText('{"enabled":true,"limit":3}')
@@ -89,15 +92,17 @@ test('[REC-031] CODE_EDITOR shows formatted code and edits it with a code editor
   // Formatting invalid JSON reports the problem instead of changing the text.
   expect((await backend.api.put('/data/recordLab/2', { multipart: { config: '{not json' } })).status()).toBe(200)
   await openRecord(page, 'recordLab', 2, 'Lab: Beta')
+  await expandOnPhone(page, 'Presentation')
   await page.getByRole('button', { name: 'Format JSON' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Error formatting code:' })).toBeVisible()
   await expect(fieldValue(page, 'config').locator('code')).toHaveText('{not json')
 })
 
-test('[REC-032] RENDER_HTML renders markup and drops scripts', async ({ page, backend, diagnostics }) => {
+test('[REC-032] RENDER_HTML renders markup and drops scripts @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await sqlOne(backend, 'select html_note from record_lab where id = 1')).html_note).toContain('<script>')
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
+  await expandOnPhone(page, 'Presentation')
   const note = fieldValue(page, 'htmlNote')
   await expect(note.locator('i')).toHaveText('Italic')
   await expect(note).toHaveText('Italic note')
@@ -105,10 +110,11 @@ test('[REC-032] RENDER_HTML renders markup and drops scripts', async ({ page, ba
   expect(await page.evaluate(() => (window as unknown as { recordLabXss?: boolean }).recordLabXss)).toBeUndefined()
 })
 
-test('[REC-033] REVEAL masks the value until the user reveals it', async ({ page, backend, diagnostics }) => {
+test('[REC-033] REVEAL masks the value until the user reveals it @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await sqlOne(backend, 'select api_token from record_lab where id = 1')).api_token).toBe('tok-alpha-123')
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
+  await expandOnPhone(page, 'Presentation')
   const token = fieldValue(page, 'apiToken')
   await expect(token).toHaveText('••••••••')
   await expect(page.getByText('tok-alpha-123')).toHaveCount(0)
@@ -123,19 +129,19 @@ test('[REC-033] REVEAL masks the value until the user reveals it', async ({ page
   await expect(control(page, 'apiToken')).toHaveValue('tok-alpha-123')
 })
 
-test('[REC-034] FILE_DOWNLOAD links to the stored file under its declared name', async ({ page, backend, diagnostics }) => {
+test('[REC-034] FILE_DOWNLOAD links to the stored file under its declared name @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
-  await page.getByRole('tab', { name: 'Files' }).click()
+  await showSection(page, 'Files')
   const attachment = fieldValue(page, 'attachment')
   await expect(attachment).toContainText('alpha.txt')
-  await expect(page.locator('[data-qqq-id="field-value-attachment-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt')
-  await expect(page.locator('[data-qqq-id="field-value-attachment-download"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt?download=1')
+  await expect(shown(page, '[data-qqq-id="field-value-attachment-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt')
+  await expect(shown(page, '[data-qqq-id="field-value-attachment-download"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/attachment/alpha.txt?download=1')
   await expect(fieldValue(page, 'notesFile')).toContainText('Record 1 Notes')
-  await expect(page.locator('[data-qqq-id="field-value-notesFile-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/notesFile/Record%201%20Notes')
+  await expect(shown(page, '[data-qqq-id="field-value-notesFile-open"]')).toHaveAttribute('href', '/qqq/v1/table/recordLab/1/notesFile/Record%201%20Notes')
 
   const downloadPromise = page.waitForEvent('download')
-  await page.locator('[data-qqq-id="field-value-attachment-download"]').click()
+  await shown(page, '[data-qqq-id="field-value-attachment-download"]').click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('alpha.txt')
   const chunks: Buffer[] = []
@@ -150,12 +156,12 @@ test('[REC-034] FILE_DOWNLOAD links to the stored file under its declared name',
 
   // A record without files shows no download link.
   await openRecord(page, 'recordLab', 2, 'Lab: Beta')
-  await page.getByRole('tab', { name: 'Files' }).click()
+  await showSection(page, 'Files')
   await expect(fieldValue(page, 'attachment')).toHaveText('—')
   await expect(page.locator('[data-qqq-id="field-value-attachment-download"]')).toHaveCount(0)
 })
 
-test('[REC-035] FILE_UPLOAD replaces and removes stored files in either format', async ({ page, backend, diagnostics }) => {
+test('[REC-035] FILE_UPLOAD replaces and removes stored files in either format @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
   await expect(page.locator('[data-qqq-id="attachment"]')).toHaveAttribute('data-upload-format', 'dragAndDrop')
@@ -178,15 +184,16 @@ test('[REC-035] FILE_UPLOAD replaces and removes stored files in either format',
   expect(Buffer.from(row.attachment!, 'base64').toString('utf8')).toBe('replaced bytes')
   expect(row.attachment_name).toBe('replacement.txt')
   expect(row.notes_file).toBeNull()
-  await page.getByRole('tab', { name: 'Files' }).click()
+  await showSection(page, 'Files')
   await expect(fieldValue(page, 'attachment')).toContainText('replacement.txt')
   await expect(fieldValue(page, 'notesFile')).toHaveText('—')
 })
 
-test('[REC-036] TOOLTIP shows its text on hover and keyboard focus', async ({ page, diagnostics }) => {
+test('[REC-036] TOOLTIP shows its text on hover and keyboard focus @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
-  const trigger = page.locator('[data-qqq-id="field-value-tooltip-trigger-hint"]')
+  await expandOnPhone(page, 'Presentation')
+  const trigger = shown(page, '[data-qqq-id="field-value-tooltip-trigger-hint"]')
   await expect(trigger).toContainText('Check twice')
   await trigger.focus()
   await expect(page.getByRole('tooltip')).toHaveText('Hints are advisory only.')
@@ -197,9 +204,10 @@ test('[REC-036] TOOLTIP shows its text on hover and keyboard focus', async ({ pa
   await expect(page.getByRole('tooltip')).toHaveText('Hints are advisory only.')
 })
 
-test('[REC-037] WIDGET adornment renders the field value as its widget', async ({ page, diagnostics }) => {
+test('[REC-037] WIDGET adornment renders the field value as its widget @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
+  await expandOnPhone(page, 'Presentation')
   const summary = fieldValue(page, 'summaryWidget')
   await expect(summary.locator('p.record-lab-summary')).toHaveText('Summary for Alpha')
   await expect(page.getByText('RawHTML@')).toHaveCount(0)
@@ -208,10 +216,11 @@ test('[REC-037] WIDGET adornment renders the field value as its widget', async (
   await expect(control(page, 'summaryWidget')).toHaveCount(0)
 })
 
-test('[REC-038] ERROR adornment highlights the value', async ({ page, backend, diagnostics }) => {
+test('[REC-038] ERROR adornment highlights the value @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await sqlOne(backend, 'select problem from record_lab where id = 1')).problem).toBe('Needs review')
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
+  await expandOnPhone(page, 'Presentation')
   const problem = fieldValue(page, 'problem')
   await expect(problem).toHaveText('Needs review')
   await expect(problem).toHaveAttribute('role', 'note')

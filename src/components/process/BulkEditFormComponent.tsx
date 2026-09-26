@@ -109,22 +109,25 @@ export function BulkEditFormComponent({ index }: BulkEditFormComponentProps) {
           <div className="space-y-4">
             {group.fields.map((field) => (
               <div key={field.name} className="flex items-start gap-3" data-qqq-id={`process-bulk-edit-field-${field.name}`}>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  aria-checked={Boolean(enabled[field.name])}
-                  aria-label={`Edit ${field.label}`}
-                  checked={Boolean(enabled[field.name])}
-                  disabled={isWorking}
-                  onChange={(event) => {
-                    const checked = event.target.checked
-                    setEnabled((previous) => ({ ...previous, [field.name]: checked }))
-                    if (!checked) form.clearErrors(field.name)
-                    setError(null)
-                  }}
-                  className="mt-8 h-4 w-4"
-                  data-qqq-id={`switch-bulk-edit-${field.name}`}
-                />
+                {/* the label is the switch's hit area: 44 px on touch screens (QRun-IO/qqq#708) */}
+                <label className="mt-8 flex shrink-0 items-center justify-center pointer-coarse:mt-5">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-checked={Boolean(enabled[field.name])}
+                    aria-label={`Edit ${field.label}`}
+                    checked={Boolean(enabled[field.name])}
+                    disabled={isWorking}
+                    onChange={(event) => {
+                      const checked = event.target.checked
+                      setEnabled((previous) => ({ ...previous, [field.name]: checked }))
+                      if (!checked) form.clearErrors(field.name)
+                      setError(null)
+                    }}
+                    className="h-4 w-4"
+                    data-qqq-id={`switch-bulk-edit-${field.name}`}
+                  />
+                </label>
                 <div className="flex-1">
                   <DynamicFormField
                     field={{ ...field, isRequired: Boolean(enabled[field.name] && field.isRequired) }}

@@ -7,7 +7,8 @@
 
 // The stock sample's widget dashboard and greetings app: every sample widget renders its real payload.
 import { expect, open, test } from '../../support/fixtures'
-import { chartTable, expectLoaded, widget, widgetPayload } from './widget-support'
+import { expectNoHorizontalScroll, expectTouchReady } from '../../support/touch'
+import { chartTable, expectLoaded, isLargeLayout, widget, widgetPayload } from './widget-support'
 
 const DASHBOARD = '/app/SampleWidgetsDashboard'
 
@@ -17,7 +18,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Sample Widgets Dashboard' })).toBeVisible()
   })
 
-  test('[WID-040] widgets render in declared order sized by gridColumns in twelfths', async ({ page, backend, diagnostics }) => {
+  test('[WID-040] widgets render in declared order sized by gridColumns in twelfths @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
     const declared: string[] = meta.apps.SampleWidgetsDashboard.widgets
@@ -27,13 +28,24 @@ test.describe('sample widgets dashboard', () => {
     const full = await page.locator('[data-qqq-id="widget-grid"]').boundingBox()
     const composite = await page.locator('[data-qqq-id="widget-grid-item-SampleBigNumberBlocksWidget"]').boundingBox()
     const third = await page.locator('[data-qqq-id="widget-grid-item-SampleMultiStatisticsWidget"]').boundingBox()
-    // gridColumns 12 spans the grid; gridColumns 4 takes a third of it (less the gaps).
+    // gridColumns 12 spans the grid
     expect(Math.round(composite!.width)).toBe(Math.round(full!.width))
-    expect(third!.width / full!.width).toBeGreaterThan(0.3)
-    expect(third!.width / full!.width).toBeLessThan(0.34)
+    if (await isLargeLayout(page)) {
+      // gridColumns 4 takes a third of it (less the gaps)
+      expect(third!.width / full!.width).toBeGreaterThan(0.3)
+      expect(third!.width / full!.width).toBeLessThan(0.34)
+    } else {
+      // on phones and tablets every widget takes the full width, one per row, in declared order
+      const boxes = await items.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON() as DOMRect))
+      for (const [index, box] of boxes.entries()) {
+        expect(Math.round(box.width), `${declared[index]} spans the grid`).toBe(Math.round(full!.width))
+        if (index > 0) expect(box.top, `${declared[index]} sits below ${declared[index - 1]}`).toBeGreaterThanOrEqual(boxes[index - 1].bottom)
+      }
+      await expectTouchReady(page, page.locator('[data-qqq-id="widget-grid"]'))
+    }
   })
 
-  test('[WID-023] composite big-number blocks render values, up/down context, links and tooltips', async ({ page, diagnostics }) => {
+  test('[WID-023] composite big-number blocks render values, up/down context, links and tooltips @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'SampleBigNumberBlocksWidget')
     const card = widget(page, 'SampleBigNumberBlocksWidget')
@@ -59,7 +71,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(page.getByRole('tooltip').filter({ hasText: 'This number has a customized color' })).toBeVisible()
   })
 
-  test('[WID-012] multi statistics shows every group, subheader and statistic value', async ({ page, backend, diagnostics }) => {
+  test('[WID-012] multi statistics shows every group, subheader and statistic value @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleMultiStatisticsWidget')
     await expectLoaded(page, 'SampleMultiStatisticsWidget')
@@ -75,7 +87,7 @@ test.describe('sample widgets dashboard', () => {
     }
   })
 
-  test('[WID-014] pie chart draws a colored slice per label with legend values and subheader', async ({ page, backend, diagnostics }) => {
+  test('[WID-014] pie chart draws a colored slice per label with legend values and subheader @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SamplePieChartWidget')
     await expectLoaded(page, 'SamplePieChartWidget')
@@ -95,7 +107,7 @@ test.describe('sample widgets dashboard', () => {
     expect(await chartTable(page, 'SamplePieChartWidget')).toEqual(labels.map((label: string, i: number) => [label, String(datasets[0].data[i])]))
   })
 
-  test('[WID-016] statistics shows the count, context and a colored percentage change', async ({ page, backend, diagnostics }) => {
+  test('[WID-016] statistics shows the count, context and a colored percentage change @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleStatisticsWidget')
     await expectLoaded(page, 'SampleStatisticsWidget')
@@ -110,7 +122,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(change.getByRole('link', { name: '-10%' })).toHaveAttribute('href', payload.percentageURL)
   })
 
-  test('[WID-019] table widget renders headers, rows, alignment and the fixed totals row', async ({ page, backend, diagnostics }) => {
+  test('[WID-019] table widget renders headers, rows, alignment and the fixed totals row @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleTableWidget')
     await expectLoaded(page, 'SampleTableWidget')
@@ -122,9 +134,15 @@ test.describe('sample widgets dashboard', () => {
     const total = payload.rows.at(-1)
     await expect(page.locator('[data-qqq-id="table-total-row-SampleTableWidget"]')).toHaveText(accessors.map((key: string) => total[key]).join(''))
     await expect(table.locator('tbody tr').first().locator('td').nth(1)).toHaveClass(/text-right/)
+    // a table wider than its card scrolls inside the card, never the page
+    await expectNoHorizontalScroll(page)
+    const card = await widget(page, 'SampleTableWidget').boundingBox()
+    const scroller = await table.locator('xpath=..').boundingBox()
+    expect(scroller!.x + scroller!.width).toBeLessThanOrEqual(card!.x + card!.width + 1)
+    expect(await table.locator('xpath=..').evaluate((node) => getComputedStyle(node).overflowX)).toBe('auto')
   })
 
-  test('[WID-017] stacked bar chart stacks each dataset with its colors and legend', async ({ page, backend, diagnostics }) => {
+  test('[WID-017] stacked bar chart stacks each dataset with its colors and legend @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleStackedBarChartWidget')
     await expectLoaded(page, 'SampleStackedBarChartWidget')
@@ -139,7 +157,7 @@ test.describe('sample widgets dashboard', () => {
     expect(new Set(xs).size).toBe(labels.length)
   })
 
-  test('[WID-018] stepper marks completed, current and upcoming steps with the current link', async ({ page, backend, diagnostics }) => {
+  test('[WID-018] stepper marks completed, current and upcoming steps with the current link @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleStepperWidget')
     await expectLoaded(page, 'SampleStepperWidget')
@@ -152,7 +170,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(steps.nth(0).getByRole('link')).toHaveCount(0)
   })
 
-  test('[WID-008] no-code HTML widget renders the sanitized user-defined markup', async ({ page, diagnostics }) => {
+  test('[WID-008] no-code HTML widget renders the sanitized user-defined markup @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'SampleHTMLWidget')
     const html = page.locator('[data-qqq-id="html-widget-SampleHTMLWidget"]')
@@ -163,7 +181,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(html.locator('div').first()).toHaveCSS('text-align', 'center')
   })
 
-  test('[WID-010] small line chart shows title, HTML description and one point per month', async ({ page, backend, diagnostics }) => {
+  test('[WID-010] small line chart shows title, HTML description and one point per month @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleSmallLineChartWidget')
     await expectLoaded(page, 'SampleSmallLineChartWidget')
@@ -176,7 +194,7 @@ test.describe('sample widgets dashboard', () => {
     expect(await points.evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute('data-value'))))).toEqual(payload.chartData.datasets[0].data)
   })
 
-  test('[WID-009] line chart draws one line with a point per label and the description', async ({ page, backend, diagnostics }) => {
+  test('[WID-009] line chart draws one line with a point per label and the description @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleLineChartWidget')
     await expectLoaded(page, 'SampleLineChartWidget')
@@ -188,7 +206,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(card.locator('[data-qqq-id="chart-description-SampleLineChartWidget"]')).toContainText('over the last five months')
   })
 
-  test('[WID-002] bar chart draws one bar per label in its backend color', async ({ page, backend, diagnostics }) => {
+  test('[WID-002] bar chart draws one bar per label in its backend color @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'SampleBarChartWidget')
     await expectLoaded(page, 'SampleBarChartWidget')
@@ -200,7 +218,7 @@ test.describe('sample widgets dashboard', () => {
     await expect(card.locator('svg[role="img"]')).toHaveAttribute('aria-label', 'Bar Chart chart')
   })
 
-  test('[WID-042] header icons render with their metadata names, roles and colors', async ({ page, diagnostics }) => {
+  test('[WID-042] header icons render with their metadata names, roles and colors @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'SampleBarChartWidget')
     const right = page.locator('[data-qqq-id="widget-icon-topRightInsideCard-SampleBarChartWidget"]')
@@ -216,7 +234,7 @@ test.describe('sample widgets dashboard', () => {
     expect((await right.boundingBox())!.x).toBeGreaterThan(barLabel!.x)
   })
 
-  test('[WID-043] the widget label shows its metadata tooltip on hover and focus', async ({ page, diagnostics }) => {
+  test('[WID-043] the widget label shows its metadata tooltip on hover and focus @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'SampleBarChartWidget')
     const label = page.locator('[data-qqq-id="widget-label-SampleBarChartWidget"]')
@@ -236,9 +254,31 @@ test.describe('sample widgets dashboard', () => {
     await page.keyboard.press('Escape')
     await expect(tooltip).toBeHidden()
   })
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
+
+    test('[WID-043] a tap on the widget label shows its tooltip inside the screen and a tap elsewhere hides it @mobile', async ({ page, diagnostics }) => {
+      void diagnostics
+      await expectLoaded(page, 'SampleBarChartWidget')
+      const trigger = page.locator('[data-qqq-id="widget-label-SampleBarChartWidget"]').locator('xpath=..')
+      const tooltip = page.locator('[data-qqq-id="widget-tooltip-SampleBarChartWidget"]')
+      const target = await trigger.boundingBox()
+      expect(Math.min(target!.width, target!.height), 'the label is a 44 px touch target').toBeGreaterThanOrEqual(44)
+      await trigger.tap()
+      await expect(tooltip).toBeVisible()
+      await expect(tooltip).toHaveText('This is a sample of a bar chart')
+      const box = await tooltip.boundingBox()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(412)
+      await expectTouchReady(page, page.locator('[data-qqq-id="widget-grid"]'))
+      await page.getByRole('heading', { level: 1, name: 'Sample Widgets Dashboard' }).tap()
+      await expect(tooltip).toBeHidden()
+    })
+  })
 })
 
-test('[WID-003] an untyped widget whose renderer emits chart data renders as a bar chart', async ({ page, backend, diagnostics }) => {
+test('[WID-003] an untyped widget whose renderer emits chart data renders as a bar chart @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
   expect(meta.widgets.PersonsByCreateDateBarChart.type).toBeUndefined()
@@ -255,7 +295,7 @@ test('[WID-003] an untyped widget whose renderer emits chart data renders as a b
   await expect(card.locator('.recharts-bar-rectangle path')).toHaveCount(payload.chartData.datasets[0].data.filter((value: number) => value !== 0).length)
 })
 
-test('[WID-015] QuickSight chart embeds the URL the real renderer obtained from the owned provider endpoint', async ({ page, backend, diagnostics }) => {
+test('[WID-015] QuickSight chart embeds the URL the real renderer obtained from the owned provider endpoint @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const payload = await widgetPayload(backend.api, 'QuickSightChartRenderer')
   expect(payload.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/owned-embed\.html$/)

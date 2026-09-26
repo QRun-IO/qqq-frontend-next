@@ -8,7 +8,8 @@
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
-import { advance, choosePossibleValue, expectScreen, openProcess, viewValue } from './process-helpers'
+import { expectTouchTargets } from '../../support/touch'
+import { advance, choosePossibleValue, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
 
 const PROCESS = 'prcComponents'
 
@@ -27,7 +28,7 @@ async function fillMixed(page: Page, name: string, count: string) {
 }
 
 test.describe('Component Lab', () => {
-  test('[PRC-007] every declared component renders on one screen in declared order', async ({ page, diagnostics }) => {
+  test('[PRC-007] every declared component renders on one screen in declared order @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
@@ -43,9 +44,10 @@ test.describe('Component Lab', () => {
     // one shared action bar
     await expect(page.locator('[data-qqq-id="process-actions"]')).toHaveCount(1)
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveCount(1)
+    await expectRunTouchReady(page, PROCESS)
   })
 
-  test('[PRC-008] help text keeps line breaks and preview text toggles the full text', async ({ page, diagnostics }) => {
+  test('[PRC-008] help text keeps line breaks and preview text toggles the full text @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
@@ -57,18 +59,19 @@ test.describe('Component Lab', () => {
     await toggle.click()
     await expect(mixed.getByText('Wear goggles.')).toBeVisible()
     await expect(mixed.getByText('Label every sample.')).toBeVisible()
+    await expectRunTouchReady(page, PROCESS)
     await mixed.getByRole('button', { name: 'Hide lab safety notes' }).click()
     await expect(mixed.getByText('Wear goggles.')).toBeHidden()
   })
 
-  test('[PRC-015] step help content for process screens is shown', async ({ page, diagnostics }) => {
+  test('[PRC-015] step help content for process screens is shown @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
     await expect(mixed.locator('[data-qqq-id="process-step-help"]')).toHaveText('Complete every section before continuing.')
   })
 
-  test('[PRC-012] view form shows labels with values produced by the backend', async ({ page, diagnostics }) => {
+  test('[PRC-012] view form shows labels with values produced by the backend @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
@@ -76,7 +79,7 @@ test.describe('Component Lab', () => {
     await expect(viewValue(mixed, 'labStatus')).toHaveText('Ready')
   })
 
-  test('[PRC-013] HTML component renders the step html value sanitized', async ({ page, diagnostics }) => {
+  test('[PRC-013] HTML component renders the step html value sanitized @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     const mixed = await expectScreen(page, 'mixed', 'Mixed Components')
@@ -104,12 +107,13 @@ test.describe('Component Lab', () => {
     expect(await backend.sql('select name, lab_count, color from prc_lab_run')).toEqual([{ name: 'Nova', lab_count: '12', color: 'green' }])
   })
 
-  test('[PRC-011] process possible-value fields load options and show labels', async ({ page, backend, diagnostics }) => {
+  test('[PRC-011] process possible-value fields load options and show labels @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await expectScreen(page, 'mixed', 'Mixed Components')
     await page.getByRole('combobox', { name: 'Lab Color' }).click()
     await expect(page.getByRole('listbox', { name: 'Lab Color options' }).getByRole('option')).toHaveText(['Red', 'Green', 'Blue'])
+    await expectTouchTargets(page.getByRole('listbox', { name: 'Lab Color options' }))
     await page.getByRole('option', { name: 'Blue', exact: true }).click()
     await page.getByLabel('Lab Name').fill('Iris')
     await advance(page, 'Next')
@@ -120,7 +124,7 @@ test.describe('Component Lab', () => {
     expect((await options.json()).options.map((option: { label: string }) => option.label)).toEqual(['Green'])
   })
 
-  test('[PRC-010] required inputs are enforced by the screen and by the backend', async ({ page, backend, diagnostics }) => {
+  test('[PRC-010] required inputs are enforced by the screen and by the backend @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const steps: string[] = []
     page.on('request', (request) => { if (request.url().includes(`/processes/${PROCESS}/`) && request.url().includes('/step/')) steps.push(request.url()) })
@@ -129,6 +133,7 @@ test.describe('Component Lab', () => {
     await advance(page, 'Next')
     await expect(mixed.getByText('Lab Name is required')).toBeVisible()
     await expect(mixed.getByLabel('Lab Name')).toHaveAttribute('aria-invalid', 'true')
+    await expectRunTouchReady(page, PROCESS)
     expect(steps).toEqual([])
     await expect(page.locator('[data-qqq-id="process-step-heading"]')).toHaveText('Mixed Components')
 
@@ -138,7 +143,7 @@ test.describe('Component Lab', () => {
     expect(await backend.sql('select count(*) as n from prc_lab_run')).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-021] a user-facing step error is shown directly', async ({ page, backend, diagnostics }) => {
+  test('[PRC-021] a user-facing step error is shown directly @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await fillMixed(page, 'Negative', '-1')
@@ -147,16 +152,18 @@ test.describe('Component Lab', () => {
     await expect(error).toContainText('An error occurred while running the process: Component Lab')
     await expect(error.locator('[data-qqq-id="process-error-message"]')).toHaveText('Sample count must not be negative.')
     await expect(error.getByRole('button', { name: 'Show detailed error message' })).toHaveCount(0)
+    await expectRunTouchReady(page, PROCESS)
     expect(await backend.sql('select count(*) as n from prc_lab_run')).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-014] download form delivers the generated file and the route refuses other files', async ({ page, backend, diagnostics }) => {
+  test('[PRC-014] download form delivers the generated file and the route refuses other files @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await fillMixed(page, 'Nova', '12')
     const review = await expectScreen(page, 'review', 'Review Lab')
     const link = review.getByRole('link', { name: 'lab-Nova.txt' })
     await expect(link).toBeVisible()
+    await expectRunTouchReady(page, PROCESS)
     const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
     expect(download.suggestedFilename()).toBe('lab-Nova.txt')
     expect(readFileSync(await download.path(), 'utf8')).toBe('name=Nova\ncount=12\ncolor=green\n')
@@ -165,7 +172,7 @@ test.describe('Component Lab', () => {
     expect(refused.status()).toBe(403)
   })
 
-  test('[PRC-016] back returns to the back step with the entered values', async ({ page, backend, diagnostics }) => {
+  test('[PRC-016] back returns to the back step with the entered values @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await fillMixed(page, 'Nova', '12')
@@ -182,7 +189,7 @@ test.describe('Component Lab', () => {
     expect(await backend.sql('select name from prc_lab_run order by id')).toEqual([{ name: 'Nova' }, { name: 'Nova Two' }])
   })
 
-  test('[PRC-023] the last screen offers only Return, which leaves to the app', async ({ page, diagnostics }) => {
+  test('[PRC-023] the last screen offers only Return, which leaves to the app @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await fillMixed(page, 'Nova', '12')
@@ -192,11 +199,12 @@ test.describe('Component Lab', () => {
     await expect(viewValue(done, 'finalMessage')).toHaveText('Lab Nova is complete')
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveCount(0)
     await expect(page.locator('[data-qqq-id="button-cancel"]')).toHaveCount(0)
+    await expectRunTouchReady(page, PROCESS)
     await page.getByRole('button', { name: 'Return' }).click()
     await expect(page).toHaveURL(/\/app\/prcLab\/?$/)
   })
 
-  test('[PRC-024] the linear stepper names every step and marks progress', async ({ page, diagnostics }) => {
+  test('[PRC-024] the linear stepper names every step and marks progress @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, PROCESS)
     await expectScreen(page, 'mixed', 'Mixed Components')
@@ -210,5 +218,6 @@ test.describe('Component Lab', () => {
     await expect(page.getByText('Step 2 of 3')).toBeVisible()
     await expect(wizard.locator('[aria-current="step"]')).toHaveCount(1)
     await expect(wizard.locator('[data-qqq-id="step-wizard-step-review"] [aria-current="step"]')).toHaveCount(1)
+    await expectRunTouchReady(page, PROCESS)
   })
 })

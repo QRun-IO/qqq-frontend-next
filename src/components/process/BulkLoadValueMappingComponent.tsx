@@ -39,7 +39,7 @@ export interface BulkLoadValueMappingComponentProps {
   index: number
 }
 
-const inputClass = 'w-full max-w-xs rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50'
+const inputClass = 'w-full max-w-xs rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11'
 
 /**
  * Render a BULK_LOAD_VALUE_MAPPING_FORM component.

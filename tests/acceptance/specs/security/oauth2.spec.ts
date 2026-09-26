@@ -47,7 +47,7 @@ async function signInAtProvider(page: Page, account = 'Dana Owner (OIDC)') {
 }
 
 test.describe('OAUTH2 with PKCE', () => {
-  test('[SEC-025] sign-in goes through the provider with PKCE, creates a backend session and survives reload', async ({ page, idp, diagnostics }) => {
+  test('[SEC-025] sign-in goes through the provider with PKCE, creates a backend session and survives reload @mobile', async ({ page, idp, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await expect(page).toHaveURL(new RegExp(`^${idp.issuer}/authorize\\?`))
@@ -82,7 +82,7 @@ test.describe('OAUTH2 with PKCE', () => {
     expect(await sessions()).toBe(1)
   })
 
-  test('[SEC-026] a provider denial is reported and creates no session', async ({ page, idp, diagnostics }) => {
+  test('[SEC-026] a provider denial is reported and creates no session @mobile', async ({ page, idp, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
@@ -96,7 +96,7 @@ test.describe('OAUTH2 with PKCE', () => {
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
   })
 
-  test('[SEC-026] a callback with a forged state is rejected before any token exchange', async ({ page, idp, diagnostics }) => {
+  test('[SEC-026] a callback with a forged state is rejected before any token exchange @mobile', async ({ page, idp, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await expect(page.getByRole('heading', { name: 'QRun Test Identity Provider' })).toBeVisible()
@@ -106,7 +106,7 @@ test.describe('OAUTH2 with PKCE', () => {
     expect(await sessions()).toBe(0)
   })
 
-  test('[SEC-026] a rejected code exchange is reported and creates no session', async ({ page, idp, diagnostics }) => {
+  test('[SEC-026] a rejected code exchange is reported and creates no session @mobile', async ({ page, idp, diagnostics }) => {
     diagnostics.allow('/manageSession 401')
     diagnostics.allow('status of 401')
     idp.failNextTokenExchange()
@@ -118,7 +118,7 @@ test.describe('OAUTH2 with PKCE', () => {
     await expect(page.getByRole('grid')).toHaveCount(0)
   })
 
-  test('[SEC-027] logout deletes the backend session, ends the provider session and requires a new provider sign-in', async ({ page, idp, diagnostics }) => {
+  test('[SEC-027] logout deletes the backend session, ends the provider session and requires a new provider sign-in @mobile', async ({ page, idp, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await signInAtProvider(page)
@@ -146,7 +146,7 @@ test.describe('OAUTH2 with PKCE', () => {
     expect(await variantSql('select user_id from user_session')).toEqual([{ user_id: 'oidc|eli' }])
   })
 
-  test('[SEC-028] a session revoked on the server sends the user through the provider and back to the page', async ({ page, idp, diagnostics, context, playwright }) => {
+  test('[SEC-028] a session revoked on the server sends the user through the provider and back to the page @mobile', async ({ page, idp, diagnostics, context, playwright }) => {
     diagnostics.allow(/ 401$/)
     diagnostics.allow('status of 401')
     await open(page, '/app/person')
@@ -168,7 +168,7 @@ test.describe('OAUTH2 with PKCE', () => {
     expect(await sessions()).toBe(1)
   })
 
-  test('[SEC-033] v1 logout expires every session cookie the server issued', async ({ page, idp, diagnostics, context, playwright }) => {
+  test('[SEC-033] v1 logout expires every session cookie the server issued @mobile', async ({ page, idp, diagnostics, context, playwright }) => {
     void diagnostics
     void idp
     await open(page, '/app/person')

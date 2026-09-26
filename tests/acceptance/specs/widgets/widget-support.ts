@@ -44,6 +44,52 @@ export async function expectLoaded(page: Page, name: string) {
   await expect(widget(page, name)).toHaveAttribute('aria-busy', 'false')
 }
 
+/** Whether the page shows the phone layout (below Tailwind's `md` breakpoint, 768 px). */
+export async function isPhoneLayout(page: Page): Promise<boolean> {
+  return page.evaluate(() => matchMedia('(max-width: 767.98px)').matches)
+}
+
+/** Whether the page shows the desktop dashboard grid (Tailwind's `lg` breakpoint, 1024 px). */
+export async function isLargeLayout(page: Page): Promise<boolean> {
+  return page.evaluate(() => matchMedia('(min-width: 1024px)').matches)
+}
+
+/**
+ * Opens a record view and shows every section: on a phone the sections are an accordion with
+ * only the first one open, so widgets in the others render once their section is expanded.
+ */
+export async function openRecord(page: Page, path: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' })
+  await showRecordSections(page)
+}
+
+/** Shows every section of the record view on screen (expands the phone accordion; see {@link openRecord}). */
+export async function showRecordSections(page: Page) {
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  if (!(await isPhoneLayout(page))) return
+  const accordion = page.locator('[data-qqq-id="record-view-accordion"]')
+  await expect(accordion).toBeVisible()
+  const closed = accordion.locator('[data-qqq-id^="accordion-trigger-"][aria-expanded="false"]')
+  for (let count = await closed.count(); count > 0; count = await closed.count()) {
+    await closed.first().click()
+    await expect(closed).toHaveCount(count - 1)
+  }
+}
+
+/**
+ * Runs one of a record's actions: from the Actions menu on wider screens, from the record
+ * actions sheet on a phone.
+ */
+export async function recordAction(page: Page, label: string) {
+  if (await isPhoneLayout(page)) {
+    await page.locator('[data-qqq-id="button-mobile-actions"]').click()
+    await page.getByRole('dialog', { name: 'Record actions' }).getByRole('button', { name: label }).click()
+    return
+  }
+  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name: label }).click()
+}
+
 /** The backend's own payload for a widget, read with the test's session. */
 export async function widgetPayload(api: APIRequestContext, name: string, params: Record<string, string> = {}) {
   const query = new URLSearchParams(params).toString()

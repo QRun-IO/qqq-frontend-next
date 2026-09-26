@@ -15,15 +15,38 @@
  */
 
 /**
- * @file Toast — re-exports the `Toaster` component from sonner for placement in the providers tree.
+ * @file Toast — the application's sonner `Toaster`, placed once in the providers tree.
  */
 
 'use client'
 
+import React from 'react'
+import { Toaster } from 'sonner'
+
 /**
- * Re-exports `Toaster` from sonner for global toast notification support.
- *
- * Add `<Toaster />` once in the root providers to enable toast notifications.
- * Trigger toasts with `toast()`, `toast.success()`, or `toast.error()` from `sonner`.
+ * Where toasts appear. Primary actions sit at the bottom right on every viewport
+ * (form Save and Cancel, process Back, Next and Submit, a phone's sticky action bar
+ * and action sheets), so toasts appear at the top center instead: a toast that slid
+ * in over Save took the tap meant for it, and one that stayed under a resting
+ * pointer never timed out.
  */
-export { Toaster } from 'sonner'
+export const TOASTER_POSITION = 'top-center' as const
+
+/**
+ * The global toast container. Trigger toasts with `toast()`, `toast.success()` or
+ * `toast.error()` from `sonner`.
+ *
+ * @returns The configured sonner `Toaster`.
+ */
+export function AppToaster() {
+  return (
+    <Toaster
+      position={TOASTER_POSITION}
+      richColors
+      closeButton
+      toastOptions={{ duration: 4000 }}
+      aria-live="polite"
+      data-qqq-id="toast-container"
+    />
+  )
+}

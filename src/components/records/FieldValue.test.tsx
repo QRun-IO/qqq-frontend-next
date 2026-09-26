@@ -95,3 +95,21 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(show(field('empty'), { empty: null })).toHaveTextContent('—')
   })
 })
+
+describe('FieldValue links on touch screens', () => {
+  const TOUCH = ['pointer-coarse:inline-flex', 'pointer-coarse:min-h-11', 'pointer-coarse:items-center']
+
+  it('gives record, URL, email and file links a 44 px touch target', () => {
+    expect(show(field('owner', [{ type: 'LINK', values: { toRecordFromTable: 'person' } }]), { owner: 3 }, { owner: 'Casey Sample' })).toHaveClass(...TOUCH)
+    expect(show(field('site', [{ type: 'LINK', values: { target: '_blank' } }]), { site: 'https://example.invalid' })).toHaveClass(...TOUCH)
+    expect(show(field('home'), { home: 'https://example.invalid/home' })).toHaveClass(...TOUCH)
+    expect(show(field('email'), { email: 'kay@example.invalid' })).toHaveClass(...TOUCH)
+    show(field('doc', [{ type: 'FILE_DOWNLOAD' }], { type: 'BLOB' }), { doc: '/data/lab/1/doc/a.txt' }, { doc: 'a.txt' })
+    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveClass(...TOUCH)
+    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveClass(...TOUCH)
+  })
+
+  it('leaves plain text values unchanged', () => {
+    expect(show(field('name'), { name: 'Plain' })).not.toHaveClass('pointer-coarse:min-h-11')
+  })
+})
