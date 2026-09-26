@@ -8,7 +8,7 @@
 // Backend saved views (querySavedView / storeSavedView / deleteSavedView), owned and shared.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { addCondition, expectColumn, grid, openFilter, sqlColumn } from './query-helpers'
+import { addCondition, closeFilterSheet, expectColumn, grid, openFilter, showTable, sqlColumn } from './query-helpers'
 
 const ALICE_VIEW = 'Alice People View'
 
@@ -26,7 +26,7 @@ async function savedViewRow(backend: Parameters<typeof sqlColumn>[0], label: str
   return { id: String(row.id), label: row.label, table_name: row.table_name, user_id: row.user_id, view: JSON.parse(String(row.view_json)) }
 }
 
-test('[QRY-050] your saved views are listed and open on their own route', async ({ page, backend, diagnostics }) => {
+test('[QRY-050] your saved views are listed and open on their own route @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const seed = await savedViewRow(backend, ALICE_VIEW)
   expect(seed?.user_id).toBe('sample:alice')
@@ -51,12 +51,14 @@ test('[QRY-050] your saved views are listed and open on their own route', async 
   await expectColumn(page, 'firstName', await sqlColumn(backend, 'select first_name from person order by id desc'))
 })
 
-test('[QRY-051] saving a new view stores the filter, sort, columns and page size', async ({ page, backend, diagnostics }) => {
+test('[QRY-051] saving a new view stores the filter, sort, columns and page size @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person')
   await openFilter(page)
   const row = await addCondition(page, 'Last Name', 'contains')
   await row.getByLabel('Filter value for Last Name').fill('Sam')
+  await closeFilterSheet(page)
+  await showTable(page)
   await grid(page, 'Person').getByRole('button', { name: 'Sort by First Name', exact: true }).click()
   await page.getByRole('button', { name: 'Configure columns' }).click()
   await page.getByRole('dialog', { name: 'Configure columns' }).getByRole('button', { name: 'Hide column Email' }).click()
@@ -76,6 +78,8 @@ test('[QRY-051] saving a new view stores the filter, sort, columns and page size
   expect(stored!.view.rowsPerPage).toBe(10)
   const email = stored!.view.queryColumns.columns.find((c: { name: string }) => c.name === 'email')
   expect(email.isVisible).toBe(false)
+  // The saved view's own route has opened (leaving before it settles aborts the next navigation in Firefox)
+  await expect(page.locator('[data-qqq-id="button-saved-views"]')).toContainText('Sample People')
   // Reopening the stored view from a fresh start restores it
   await open(page, '/app/person')
   await (await openViews(page)).getByRole('menuitem', { name: 'Sample People' }).click()
@@ -84,7 +88,7 @@ test('[QRY-051] saving a new view stores the filter, sort, columns and page size
   await expect(page.getByLabel('Rows per page')).toHaveValue('10')
 })
 
-test('[QRY-052] update, rename and delete your view', async ({ page, backend, diagnostics }) => {
+test('[QRY-052] update, rename and delete your view @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const seed = await savedViewRow(backend, ALICE_VIEW)
   await open(page, `/app/person/savedView/${seed!.id}`)
@@ -94,6 +98,7 @@ test('[QRY-052] update, rename and delete your view', async ({ page, backend, di
   await page.locator('[data-qqq-id="filter-row-0-0"]').getByLabel('Filter operator').selectOption({ label: 'starts with' })
   await page.locator('[data-qqq-id="filter-row-0-0"]').getByLabel('Filter value for First Name').fill('B')
   await expectColumn(page, 'firstName', ['Blair'])
+  await closeFilterSheet(page)
   await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toContainText('1 Unsaved Change')
   await page.locator('[data-qqq-id="saved-view-save-changes"]').click()
   await page.getByRole('dialog', { name: 'Update Existing View' }).getByRole('button', { name: 'Save' }).click()
@@ -121,12 +126,13 @@ test('[QRY-052] update, rename and delete your view', async ({ page, backend, di
   await expect((await openViews(page)).getByRole('group', { name: 'Your Saved Views' })).toHaveText('You do not have any saved views for this table.')
 })
 
-test('[QRY-053] duplicate names and unknown views are reported without changes', async ({ page, backend, diagnostics }) => {
+test('[QRY-053] duplicate names and unknown views are reported without changes @mobile', async ({ page, backend, diagnostics }) => {
   diagnostics.allow('The requested view was not found.')
   await open(page, '/app/person')
   await openFilter(page)
   const row = await addCondition(page, 'First Name', 'equals')
   await row.getByLabel('Filter value for First Name').fill('Casey')
+  await closeFilterSheet(page)
   await page.getByRole('button', { name: 'Save View As...' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save View As' })
   await dialog.getByLabel('Enter a name for this view').fill(ALICE_VIEW)
@@ -142,7 +148,7 @@ test('[QRY-053] duplicate names and unknown views are reported without changes',
 test.describe('as bob', () => {
   test.use({ user: 'bob' })
 
-  test('[QRY-054] a view shared with you opens read-only and the backend refuses changes', async ({ page, backend, diagnostics }) => {
+  test('[QRY-054] a view shared with you opens read-only and the backend refuses changes @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const seed = await savedViewRow(backend, ALICE_VIEW)
     await open(page, '/app/person')

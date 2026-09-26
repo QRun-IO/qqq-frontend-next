@@ -71,8 +71,18 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
     }
+    // Escape closes the menu and returns focus to its button
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      containerRef.current?.querySelector<HTMLElement>('[aria-expanded]')?.focus()
+    }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
   if (!savedViews.isAvailable) return null

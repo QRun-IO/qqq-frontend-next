@@ -81,7 +81,8 @@ export function FieldLabel({
   return (
     <TooltipPrimitive.Provider delayDuration={300}>
       <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
+        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
+          onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
           <span
             className={cn(className, 'cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4')}
             data-qqq-id={dataQqqId}

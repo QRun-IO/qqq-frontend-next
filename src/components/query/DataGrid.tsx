@@ -223,7 +223,9 @@ export function DataGrid({
       id: '_select',
       size: 44,
       enableSorting: false,
+      // A label around each box is its touch target (44 px on coarse pointers, globals.css)
       header: ({ table }) => (
+        <label className="inline-flex cursor-pointer items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={isRowSelectedByQuery ? records.length > 0 && records.every((_, i) => isRowSelectedByQuery(i)) : table.getIsAllRowsSelected()}
@@ -236,8 +238,10 @@ export function DataGrid({
           data-qqq-id="grid-select-all"
           onClick={(e) => e.stopPropagation()}
         />
+        </label>
       ),
       cell: ({ row }) => (
+        <label className="inline-flex cursor-pointer items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
@@ -249,6 +253,7 @@ export function DataGrid({
           data-qqq-id={`grid-select-row-${row.index}`}
           onClick={(e) => e.stopPropagation()}
         />
+        </label>
       ),
     }
 

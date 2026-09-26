@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import { expect, open, test } from '../../support/fixtures'
 import { captureQueries, expectColumn, sqlColumn } from './query-helpers'
 
-test('[QRY-060] a variant table asks for a variant, queries with it and remembers it', async ({ page, backend, diagnostics }) => {
+test('[QRY-060] a variant table asks for a variant, queries with it and remembers it @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const queries = captureQueries(page, 'qryStock')
   await open(page, '/app/qryStock')
@@ -54,7 +54,7 @@ test('[QRY-060] a variant table asks for a variant, queries with it and remember
   await expect(page.getByText('No records found', { exact: true })).toBeVisible()
 })
 
-test('[QRY-061] dismissing the variant prompt queries nothing; the backend requires a variant', async ({ page, backend, diagnostics }) => {
+test('[QRY-061] dismissing the variant prompt queries nothing; the backend requires a variant @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const queries = captureQueries(page, 'qryStock')
   await open(page, '/app/qryStock')
@@ -69,7 +69,7 @@ test('[QRY-061] dismissing the variant prompt queries nothing; the backend requi
   await expectColumn(page, 'sku', ['N-PEAR', 'N-APPLE'])
 })
 
-test('[QRY-062] a table without count, export or write capabilities offers none of them', async ({ page, backend, diagnostics }) => {
+test('[QRY-062] a table without count, export or write capabilities offers none of them @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const counts = captureQueries(page, 'qryLedger', 'count')
   await open(page, '/app/qryLedger')
@@ -86,7 +86,7 @@ test('[QRY-062] a table without count, export or write capabilities offers none 
   expect(await sqlColumn(backend, "select count(*) from qry_ledger where entry = 'Sneaky'")).toEqual(['0'])
 })
 
-test('[QRY-064] the backend refuses count and export for a table without those capabilities', async ({ backend, diagnostics }) => {
+test('[QRY-064] the backend refuses count and export for a table without those capabilities @mobile', async ({ backend, diagnostics }) => {
   void diagnostics
   const count = await backend.api.post('/qqq/v1/table/qryLedger/count', { data: { filter: {} } })
   expect(count.status()).toBe(403)
@@ -100,7 +100,7 @@ test('[QRY-064] the backend refuses count and export for a table without those c
   expect(query.status()).toBe(200)
 })
 
-test('[QRY-063] the enum-backed Pet Species table is read-only', async ({ page, backend, diagnostics }) => {
+test('[QRY-063] the enum-backed Pet Species table is read-only @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/petSpecies')
   await expectColumn(page, 'possibleValueLabel', ['Cat', 'Dog'])

@@ -6,11 +6,11 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { VIEWER, control, openForm, openRecord, recordAction, recordRequests, sqlCount } from './helpers'
+import { VIEWER, control, expandOnPhone, openForm, openRecord, recordAction, recordRequests, shown, sqlCount } from './helpers'
 
 test.use(VIEWER)
 
-test('[REC-039] field help follows the screen roles and renders each format', async ({ page, diagnostics }) => {
+test('[REC-039] field help follows the screen roles and renders each format @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   // View screen: READ_SCREENS text on the title label, VIEW_SCREEN HTML on the website label.
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
@@ -39,20 +39,27 @@ test('[REC-039] field help follows the screen roles and renders each format', as
   await openForm(page, '/app/recordLab/create', 'Create Record Lab')
   await expect(page.locator('#field-help-content-ownerId')).toHaveText('Pick the person who owns this record.')
   await expect(page.locator('#field-help-content-website')).toHaveText('Include the https:// prefix.')
-  await page.locator('[data-qqq-id="field-help-website"]').focus()
-  await expect(page.getByRole('tooltip')).toContainText('Include the https:// prefix.')
+  if ((page.viewportSize()?.width ?? 1280) < 640) {
+    // Below the sm breakpoint the help is printed under the field instead of behind an icon.
+    await expect(page.locator('[data-qqq-id="field-help-text-website"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="field-help-website"]')).toBeHidden()
+  } else {
+    await page.locator('[data-qqq-id="field-help-website"]').focus()
+    await expect(page.getByRole('tooltip')).toContainText('Include the https:// prefix.')
+  }
 })
 
-test('[REC-040] section help appears under the section heading', async ({ page, diagnostics }) => {
+test('[REC-040] section help appears under the section heading @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
-  const help = page.locator('[data-qqq-id="section-help-presentation"]').first()
+  await expandOnPhone(page, 'Presentation')
+  const help = shown(page, '[data-qqq-id="section-help-presentation"]').first()
   await expect(help).toHaveText('These fields show each adornment.')
   await expect(help.locator('b')).toHaveText('adornment')
   await expect(page.locator('[data-qqq-id="section-help-links"]')).toHaveCount(0)
 })
 
-test('[REC-041] table help content slots are delivered in table metadata', async ({ backend, diagnostics }) => {
+test('[REC-041] table help content slots are delivered in table metadata @mobile', async ({ backend, diagnostics }) => {
   void diagnostics
   const response = await backend.api.get('/qqq/v1/metaData/table/recordLab')
   expect(response.status()).toBe(200)
@@ -61,7 +68,7 @@ test('[REC-041] table help content slots are delivered in table metadata', async
     contentAsHtml: 'Record Lab exercises every record screen feature.' }] })
 })
 
-test('[REC-042] audit history lists who changed what, newest first', async ({ page, backend, diagnostics }) => {
+test('[REC-042] audit history lists who changed what, newest first @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect(await sqlCount(backend, 'select count(*) as n from audit')).toBe(0)
   const processRuns = recordRequests(page, '/qqq/v1/processes/GetAuditsForRecord')
@@ -112,7 +119,7 @@ test('[REC-042] audit history lists who changed what, newest first', async ({ pa
 test.describe('without process permission', () => {
   test.use({ persona: 'noProcesses' })
 
-  test('[REC-043] audit history reads the audit table when the audit process is not permitted', async ({ page, backend, diagnostics }) => {
+  test('[REC-043] audit history reads the audit table when the audit process is not permitted @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const updated = await backend.api.put('/data/recordLab/2', { multipart: { hint: 'First hint' } })
     expect(updated.status()).toBe(200)
@@ -130,7 +137,7 @@ test.describe('without process permission', () => {
   })
 })
 
-test('[REC-044] the record label format titles the record, its dialogs and its audit', async ({ page, diagnostics }) => {
+test('[REC-044] the record label format titles the record, its dialogs and its audit @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'recordLab', 2, 'Lab: Beta')
   await expect(page.locator('[data-qqq-id="link-back-to-table"]')).toHaveText('Back to Record Lab')

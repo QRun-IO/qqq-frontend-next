@@ -8,7 +8,7 @@
 // Record selection (page, all matching, first N) and launching processes with it.
 import type { Page, Response } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { expectColumn, sqlColumn } from './query-helpers'
+import { expectColumn, showTable, sqlColumn } from './query-helpers'
 
 /** Waits for a process init on the registered process route and returns its multipart fields and JSON response. */
 async function processInit(page: Page, processName: string, launch: () => Promise<void>) {
@@ -21,9 +21,10 @@ async function processInit(page: Page, processName: string, launch: () => Promis
   return { status: response.status(), json: await response.json() as { values?: Record<string, unknown>; nextStep?: string }, field }
 }
 
-test('[QRY-030] the selection menu selects the page, the full query result or the first N', async ({ page, backend, diagnostics }) => {
+test('[QRY-030] the selection menu selects the page, the full query result or the first N @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const ids = await sqlColumn(backend, 'select id from qry_item order by id desc')
   await expectColumn(page, 'id', ids)
   const banner = page.locator('[data-qqq-id="bulk-selection-text"]')
@@ -66,9 +67,10 @@ test('[QRY-030] the selection menu selects the page, the full query result or th
   await expect(banner).toHaveText('2 records are selected.')
 })
 
-test('[QRY-031] Bulk Edit launches with the checked record ids', async ({ page, backend, diagnostics }) => {
+test('[QRY-031] Bulk Edit launches with the checked record ids @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const ids = await sqlColumn(backend, 'select id from qry_item order by id desc')
   await expectColumn(page, 'id', ids)
   // Without a selection, Bulk Edit explains why nothing happens (Material)
@@ -92,7 +94,7 @@ test('[QRY-031] Bulk Edit launches with the checked record ids', async ({ page, 
   expect(sent.values.map(String).sort()).toEqual([ids[0], ids[1]].sort())
 })
 
-test('[QRY-032] Bulk Delete of the full query result sends the whole filter, not the current page', async ({ page, backend, diagnostics }) => {
+test('[QRY-032] Bulk Delete of the full query result sends the whole filter, not the current page @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/carrier?pageSize=10&page=2')
   const total = Number((await backend.sql('select count(*) as n from carrier'))[0].n)
@@ -113,7 +115,7 @@ test('[QRY-032] Bulk Delete of the full query result sends the whole filter, not
   expect(Number((await backend.sql('select count(*) as n from carrier'))[0].n)).toBe(total)
 })
 
-test('[QRY-033] a first-N selection under a filter launches with that limit', async ({ page, backend, diagnostics }) => {
+test('[QRY-033] a first-N selection under a filter launches with that limit @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, `/app/carrier?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'company_code', operator: 'EQUALS', values: ['UPS'] }] }))}`)
   const ups = await sqlColumn(backend, "select id from carrier where company_code = 'UPS' order by id desc")
@@ -131,9 +133,10 @@ test('[QRY-033] a first-N selection under a filter launches with that limit', as
   expect(init.json.values?.recordCount).toBe(2)
 })
 
-test('[QRY-034] the Actions menu offers bulk load and table processes with the selection', async ({ page, backend, diagnostics }) => {
+test('[QRY-034] the Actions menu offers bulk load and table processes with the selection @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person')
+  await showTable(page)
   const ids = await sqlColumn(backend, 'select id from person order by id desc')
   await expectColumn(page, 'id', ids)
   await page.getByRole('button', { name: 'Actions' }).click()
@@ -142,6 +145,7 @@ test('[QRY-034] the Actions menu offers bulk load and table processes with the s
   await menu.getByRole('menuitem', { name: 'Bulk Load' }).click()
   await expect(page).toHaveURL(/\/app\/person\.bulkInsert\/?$/)
   await page.goBack()
+  await showTable(page)
   await expectColumn(page, 'id', ids)
   await page.locator('[data-qqq-id="grid-select-row-0"]').check()
   const init = await processInit(page, 'clonePeople', async () => {
@@ -154,9 +158,10 @@ test('[QRY-034] the Actions menu offers bulk load and table processes with the s
 test.describe('as a viewer', () => {
   test.use({ persona: 'viewer' })
 
-  test('[QRY-035] viewers get no create, bulk or process actions, and the backend refuses them', async ({ page, backend, diagnostics }) => {
+  test('[QRY-035] viewers get no create, bulk or process actions, and the backend refuses them @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
+    await showTable(page)
     await expectColumn(page, 'id', await sqlColumn(backend, 'select id from person order by id desc'))
     await expect(page.getByRole('button', { name: /Create new/ })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0)

@@ -957,6 +957,48 @@
         "QRun-IO/qqq#673"
       ],
       "required": true
+    },
+    {
+      "id": "REC-049",
+      "feature": "Record view on phones and tablets: the title stays readable, the header controls wrap onto their own row, and the phone action sheet fits, scrolls and keeps focus",
+      "source": [
+        "qqq-frontend-next/src/components/records/RecordViewHeader.tsx",
+        "qqq-frontend-next/src/components/records/RecordView.tsx",
+        "qqq-frontend-next/src/components/records/FieldValue.tsx"
+      ],
+      "fixture": "recordLab 1 (Lab: Alpha); phone (412 px touch), tablet (810 px touch) and desktop viewports",
+      "scenarios": [
+        "The title stays on one line and never overlaps the view toggle, Audit or record actions; neither the page nor its main region scrolls sideways",
+        "The back link, value links and header controls are touch-sized (44 x 44 px) under a coarse pointer",
+        "The phone Actions sheet fits the screen, takes focus, keeps Tab and Shift+Tab inside, closes by Escape or a backdrop tap with focus back on its trigger, and runs Edit"
+      ],
+      "negative": [
+        "A read-only user gets no phone Actions trigger (asserted in REC-046)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#708"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-050",
+      "feature": "Record forms on phones and tablets: every editor type fits without sideways scrolling, controls are touch-sized, possible-value lists open on screen and the phone action bar stays reachable",
+      "source": [
+        "qqq-frontend-next/src/components/forms/EntityForm.tsx",
+        "qqq-frontend-next/src/components/forms/DynamicFormField.tsx",
+        "qqq-frontend-next/src/components/forms/PossibleValueSelect.tsx",
+        "qqq-frontend-next/src/components/forms/field-types/FileUploadField.tsx"
+      ],
+      "fixture": "fieldLab create (every field type), recordLab 1 edit (possible values, code editor, password reveal, file uploads)",
+      "scenarios": [
+        "Create Field Lab: no sideways scroll, every control at least 44 x 44 px by touch; on a phone Save stays on screen; boolean, date, time, text and rich text values persist",
+        "Edit Record Lab: the owner list opens inside the screen with touch-sized options; the picked owner persists"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#708"
+      ],
+      "required": true
     }
   ]
 }

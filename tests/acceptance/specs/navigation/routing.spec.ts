@@ -7,7 +7,8 @@
 
 import type { Page } from '@playwright/test'
 import { expect, open, test, type Backend } from '../../support/fixtures'
-import { allowQuickSight, appNavigation, expectBreadcrumbs, expectRecords, recordCollection, recordItems, waitForShell } from './nav-helpers'
+import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets } from '../../support/touch'
+import { allowQuickSight, appNavigation, expectBreadcrumbs, expectRecords, findNode, recordCollection, recordItems, v1MetaData, waitForShell } from './nav-helpers'
 
 /** Record label the backend computes for a person, read through the API independently of the UI. */
 async function personLabel(backend: Backend, id: number): Promise<string> {
@@ -27,7 +28,7 @@ async function expectNotFound(page: Page, name: string) {
 }
 
 test.describe('routing', () => {
-  test('[NAV-014] breadcrumbs show the full app hierarchy and each crumb navigates', async ({ page, backend, diagnostics }) => {
+  test('[NAV-014] breadcrumbs show the full app hierarchy and each crumb navigates @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     await open(page, '/app/person')
     await expectBreadcrumbs(page, ['People App', 'Greetings App', 'Person'])
@@ -42,6 +43,9 @@ test.describe('routing', () => {
     await expectBreadcrumbs(page, ['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item', '2', 'Edit'])
     const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
     await expect(trail.locator('[aria-current="page"]')).toHaveText('Edit')
+    // Six crumbs on a phone: the trail scrolls sideways on its own, the page does not, and each crumb is a touch target
+    await expectNoHorizontalScroll(page)
+    await expectTouchTargets(trail)
     await trail.getByRole('link', { name: 'Nav Level Two' }).click()
     await expect(page).toHaveURL(/\/app\/navLevelTwo\/?$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Nav Level Two' })).toBeVisible()
@@ -58,7 +62,20 @@ test.describe('routing', () => {
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0)
   })
 
-  test('[NAV-015] the document title names the page, its enclosing apps and the application', async ({ page, backend, diagnostics }) => {
+  test('[NAV-014] a table outside the app tree is named by its label in the breadcrumb and the title @mobile', async ({ page, backend, diagnostics }) => {
+    const meta = await v1MetaData(backend)
+    expect(findNode(meta.appTree, 'scriptType'), 'scriptType is not in the app tree').toBeUndefined()
+    const response = await backend.api.get('/qqq/v1/metaData/table/scriptType')
+    expect(response.status()).toBe(200)
+    const label: string = (await response.json()).label
+    expect(label).not.toBe('scriptType')
+    await open(page, '/app/scriptType')
+    await waitForShell(page)
+    await expectBreadcrumbs(page, [label])
+    await expect(page).toHaveTitle(`${label} | QQQ Sample`)
+  })
+
+  test('[NAV-015] the document title names the page, its enclosing apps and the application @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app')
     await expect(page).toHaveTitle('Dashboard | QQQ Sample')
     await open(page, '/app/person')
@@ -71,7 +88,7 @@ test.describe('routing', () => {
     await expect(page).toHaveTitle('Not Found | QQQ Sample')
   })
 
-  test('[NAV-016] the site root replaces itself with the dashboard', async ({ page, backend, diagnostics }) => {
+  test('[NAV-016] the site root replaces itself with the dashboard @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/person')
     await waitForShell(page)
     await open(page, '/')
@@ -82,7 +99,7 @@ test.describe('routing', () => {
     await expect(recordCollection(page, 'Person')).toBeVisible()
   })
 
-  test('[NAV-018] hard-loaded links open every route shape with the shell, sidebar state and breadcrumbs', async ({ page, backend, diagnostics }) => {
+  test('[NAV-018] hard-loaded links open every route shape with the shell, sidebar state and breadcrumbs @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     const [view] = await backend.sql("select id from saved_view where table_name = 'person' order by id")
     expect(view, 'the sharing fixture seeds a person saved view').toBeTruthy()
@@ -108,7 +125,7 @@ test.describe('routing', () => {
     }
   })
 
-  test('[NAV-019] refresh keeps the route, its query string and the content', async ({ page, backend, diagnostics }) => {
+  test('[NAV-019] refresh keeps the route, its query string and the content @mobile', async ({ page, backend, diagnostics }) => {
     const total = Number((await backend.sql('select count(*) as n from carrier'))[0].n)
     expect(total).toBeGreaterThan(10)
     await open(page, '/app/carrier?page=2&pageSize=10')
@@ -132,7 +149,7 @@ test.describe('routing', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Nav Level One' })).toBeVisible()
   })
 
-  test('[NAV-020] back and forward traverse the navigation history with the right content', async ({ page, backend, diagnostics }) => {
+  test('[NAV-020] back and forward traverse the navigation history with the right content @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app')
     await waitForShell(page)
     await page.locator('[data-qqq-id="dashboard-app-miscellaneous"]').click()
@@ -160,16 +177,17 @@ test.describe('routing', () => {
     await expectBreadcrumbs(page, ['Miscellaneous', 'Carrier'])
   })
 
-  test('[NAV-021] an unknown /app name shows the not-found state with a way back', async ({ page, backend, diagnostics }) => {
+  test('[NAV-021] an unknown /app name shows the not-found state with a way back @mobile', async ({ page, backend, diagnostics }) => {
     expect((await backend.api.get('/qqq/v1/metaData/table/noSuchThing')).status()).toBe(404)
     await open(page, '/app/noSuchThing')
     await expectNotFound(page, 'noSuchThing')
+    await expectTouchTargets(page.locator('[data-qqq-id="not-found-state"]'))
     await page.getByRole('link', { name: 'Go to the dashboard' }).click()
     await expect(page).toHaveURL(/\/app\/?$/)
     await expect(page).toHaveTitle('Dashboard | QQQ Sample')
   })
 
-  test('[NAV-006] direct links to hidden objects the user may not access show not-found; the backend denies them', async ({ page, backend, diagnostics }) => {
+  test('[NAV-006] direct links to hidden objects the user may not access show not-found; the backend denies them @mobile', async ({ page, backend, diagnostics }) => {
     expect((await backend.api.get('/qqq/v1/metaData/table/city')).status()).toBe(404)
     expect((await backend.api.get('/qqq/v1/metaData/process/greet')).status()).toBe(403)
     expect((await backend.api.post('/qqq/v1/processes/greet/init', { data: {} })).status()).toBe(403)
@@ -179,7 +197,7 @@ test.describe('routing', () => {
     await expectNotFound(page, 'greet')
   })
 
-  test('[NAV-007] a hidden table the user may access opens by direct link', async ({ page, backend, diagnostics }) => {
+  test('[NAV-007] a hidden table the user may access opens by direct link @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/navHiddenNote')
     const rows = await backend.sql('select title from nav_hidden_note order by id')
     await expectRecords(page, 'Nav Hidden Note', rows.map((row) => row.title!))
@@ -188,7 +206,7 @@ test.describe('routing', () => {
     await expect(nav.getByRole('link', { name: 'Nav Hidden Note', exact: true })).toHaveCount(0)
   })
 
-  test('[NAV-022] unknown deeper and top-level paths return the 404 page with a working home link', async ({ page, backend, diagnostics }) => {
+  test('[NAV-022] unknown deeper and top-level paths return the 404 page with a working home link @mobile', async ({ page, backend, diagnostics }) => {
     for (const path of ['/app/person/1/no/such', '/no-such-page']) {
       diagnostics.allow(`GET ${path} 404`)
       diagnostics.allow(/Failed to load resource: the server responded with a status of 404/)
@@ -196,6 +214,7 @@ test.describe('routing', () => {
       expect(response?.status()).toBe(404)
       await expect(page.getByRole('heading', { level: 1, name: '404' })).toBeVisible()
       await expect(page.getByText('Page not found')).toBeVisible()
+      await expectTouchReady(page)
     }
     await page.getByRole('link', { name: 'Go Home' }).click()
     await expect(page).toHaveURL(/\/app\/?$/)

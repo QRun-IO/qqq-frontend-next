@@ -9,7 +9,7 @@ import { expect, open, test } from '../../support/fixtures'
 import { appNavigation, v1MetaData, waitForShell } from './nav-helpers'
 
 test.describe('branding', () => {
-  test('[NAV-012] sidebar logo, favicon and accent color come from branding; partial branding raises no warning', async ({ page, backend, diagnostics }) => {
+  test('[NAV-012] sidebar logo, favicon and accent color come from branding; partial branding raises no warning @mobile', async ({ page, backend, diagnostics }) => {
     const warnings: string[] = []
     page.on('console', (message) => { if (message.type() === 'warning') warnings.push(message.text()) })
 
@@ -43,13 +43,13 @@ test.describe('branding', () => {
     expect(warnings.filter((text) => /schema validation/i.test(text))).toEqual([])
   })
 
-  test('[NAV-013] banners render in their slots with message, severity and colors from metadata', async ({ page, backend, diagnostics }) => {
+  test('[NAV-013] banners render in their slots with message, severity and colors from metadata @mobile', async ({ page, backend, diagnostics }) => {
     const banners = (await v1MetaData(backend)).branding?.banners as Record<string, Record<string, unknown>>
     expect(Object.keys(banners).sort()).toEqual(['QFMD_SIDE_NAV_UNDER_LOGO', 'QFMD_TOP_OF_BODY', 'QFMD_TOP_OF_SITE'])
 
     for (const path of ['/app', '/app/person']) {
       await open(page, path)
-      await appNavigation(page)
+      await waitForShell(page)
 
       const site = page.getByRole('region', { name: 'Site banner' })
       await expect(site).toHaveText(String(banners.QFMD_TOP_OF_SITE.messageText))
@@ -65,6 +65,8 @@ test.describe('branding', () => {
       await expect(body.locator('b')).toHaveText('read the docs')
       await expect(body).toHaveAttribute('data-severity', 'warning')
 
+      // The side-nav banner lives in the navigation (the drawer on a phone, a modal that hides the page)
+      await appNavigation(page)
       const side = page.getByRole('complementary', { name: 'Main navigation' }).getByRole('region', { name: 'Navigation banner' })
       await expect(side).toHaveText('NAV FIXTURE')
       await expect(side).toHaveCSS('color', 'rgb(255, 255, 255)')

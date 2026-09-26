@@ -108,7 +108,8 @@ function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { fiel
       <span className="hidden sm:inline-flex">
         <TooltipPrimitive.Provider delayDuration={300}>
           <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
+            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
+              onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
               <button
                 type="button"
                 tabIndex={0}
