@@ -31,6 +31,7 @@ import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { scrollIntoViewWhenRendered } from '@/lib/utils/scroll-when-rendered'
 import { recordHashAction } from '@/lib/utils/material-links'
 
 import { RecordViewSection } from './RecordViewSection'
@@ -487,10 +488,8 @@ function RecordViewContent({
     if (action?.type !== 'section') return
     const tabId = `section-${action.name}`
     if (viewMode === 'tabs' && tabs.some((tab) => tab.id === tabId)) setActiveTab(tabId)
-    const frame = window.requestAnimationFrame(() => {
-      document.querySelector(`[data-qqq-id="record-section-${CSS.escape(action.name)}"]`)?.scrollIntoView({ block: 'start' })
-    })
-    return () => window.cancelAnimationFrame(frame)
+    // on a phone the section renders only once its accordion item opens, so wait for it
+    return scrollIntoViewWhenRendered(`[data-qqq-id="record-section-${CSS.escape(action.name)}"]`)
     // only a new hash moves the view; tab and mode changes must not re-apply it
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hash])
