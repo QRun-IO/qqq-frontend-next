@@ -420,7 +420,7 @@ function SidebarCollapseItem({ route, isOpen, pathname, openCollapses, onToggle,
         {/* App name — links to app home */}
         <Link
           href={route.path}
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg"
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-l-lg pointer-coarse:min-h-11"
           aria-current={isExactActive ? 'page' : undefined}
           data-qqq-id={`sidebar-collapse-${route.key}`}
         >
@@ -475,7 +475,7 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
     <li role="listitem">
       <Link
         href={route.path}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 ${
           isActive
             ? 'bg-primary text-primary-foreground shadow-sm'
             : 'text-foreground/70 hover:bg-accent hover:text-foreground'

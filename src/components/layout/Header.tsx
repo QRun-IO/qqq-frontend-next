@@ -76,8 +76,8 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
       style={{ height: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + breadcrumbs */}
-      <div className="flex items-center gap-3">
+      {/* Left: mobile menu + breadcrumbs (the trail scrolls sideways on its own when it is too long) */}
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
           ref={menuButtonRef}
@@ -95,7 +95,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
       </div>
 
       {/* Right section: search + help + notifications */}
-      <div className="flex items-center gap-3">
+      <div className="ml-3 flex flex-shrink-0 items-center gap-3">
         {/* Mobile search icon — only visible below md breakpoint */}
         <button
           onClick={onSearchOpen}

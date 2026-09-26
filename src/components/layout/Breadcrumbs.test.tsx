@@ -119,6 +119,24 @@ describe('Breadcrumbs', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('gives links a touch-sized hit area on coarse pointers and lets the trail scroll instead of wrapping', () => {
+    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toHaveClass('pointer-coarse:flex-nowrap', 'pointer-coarse:overflow-x-auto')
+    expect(screen.getByRole('link', { name: 'People App' })).toHaveClass('pointer-coarse:py-3', 'pointer-coarse:min-w-11')
+  })
+
+  it('starts a trail that overflows at its end, where the current page is', () => {
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
+    try {
+      render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
+    } finally {
+      scrollWidth.mockRestore()
+      clientWidth.mockRestore()
+    }
+  })
+
   it('renders nothing on the dashboard root', () => {
     currentPathname = '/app'
     const { container } = render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
