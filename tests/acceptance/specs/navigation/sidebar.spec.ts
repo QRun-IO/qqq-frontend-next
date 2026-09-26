@@ -192,7 +192,7 @@ test.describe('sidebar', () => {
     await expect(page.getByRole('heading', { name: 'Nav Deep Item Report' })).toBeVisible()
     await expect(page).toHaveTitle('Nav Deep Item Report | Nav Level Three | Nav Level Two | Nav Level One | QQQ Sample')
     const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
-    await expect(trail.locator('a, [aria-current="page"]')).toHaveText(['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item Report'])
+    await expect(trail.locator('a:not([data-qqq-id="breadcrumb-home"]), [aria-current="page"]')).toHaveText(['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item Report'])
     await expect((await appNavigation(page)).getByRole('link', { name: 'Nav Deep Item Report', exact: true })).toHaveAttribute('aria-current', 'page')
   })
 })

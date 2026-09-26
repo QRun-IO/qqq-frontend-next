@@ -22,7 +22,7 @@
 // QContext — application-wide UI state provider
 // Equivalent to the QContext in the reference implementation
 
-import React, { createContext, type ReactNode, useCallback, useContext, useState } from 'react'
+import React, { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 
 import type { QTableMetaData, QProcessMetaData, QBrandingMetaData } from '@/types'
 import { recordAnalytics, type AnalyticsModel } from '@/lib/analytics'
@@ -98,7 +98,10 @@ export interface QContextType {
   keyboardHelpOpen: boolean
   /** Shows or hides the keyboard shortcut help overlay. */
   setKeyboardHelpOpen: (open: boolean) => void
-  /** Reserved flag for a secondary help mode; currently always `false`. */
+  /**
+   * Material's help-authoring mode: on when the dashboard was opened with `?helpHelp`; every
+   * help slot then shows its key (see `selectSlotHelpContent`).
+   */
   helpHelpActive: boolean
 
   // User
@@ -159,6 +162,11 @@ export function QContextProvider({ children }: { children: ReactNode }) {
   const [pathToLabelMap, setPathToLabelMap] = useState<Record<string, string>>({})
   const [branding, setBranding] = useState<QBrandingMetaData | null>(defaultBranding)
   const [userId, setUserId] = useState<string | undefined>(undefined)
+  // Read once from the URL the dashboard opened with (as Material does), after hydration
+  const [helpHelpActive, setHelpHelpActive] = useState(false)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('helpHelp')) setHelpHelpActive(true)
+  }, [])
 
   /**
    * Pushes a modal identifier onto the modal stack.
@@ -232,7 +240,7 @@ export function QContextProvider({ children }: { children: ReactNode }) {
         clearModalStack,
         keyboardHelpOpen,
         setKeyboardHelpOpen,
-        helpHelpActive: false,
+        helpHelpActive,
         pathToLabelMap,
         setPathToLabelMap,
         userId,
@@ -262,4 +270,14 @@ export function useQContext(): QContextType {
     throw new Error('useQContext must be used within QContextProvider')
   }
   return context
+}
+
+/**
+ * Whether Material's help-authoring mode (`?helpHelp`) is on. Safe outside a
+ * {@link QContextProvider} (then `false`), so help slots can render anywhere.
+ *
+ * @returns Whether help slots show their keys.
+ */
+export function useHelpHelpActive(): boolean {
+  return useContext(QContext)?.helpHelpActive ?? false
 }

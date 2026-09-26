@@ -25,7 +25,8 @@ import React from 'react'
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
-import { selectHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
 
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
@@ -77,6 +78,7 @@ export function RecordViewSection({
   stacked = false,
   className,
 }: RecordViewSectionProps) {
+  const helpHelpActive = useHelpHelpActive()
   if (section.isHidden || section.hidden) return null
 
   // If this section has a widgetName, render a widget instead of the field list
@@ -156,7 +158,7 @@ export function RecordViewSection({
   const visibleFields = section.fieldNames
     .map((fn) => tableMetaData.fields[fn])
     .filter((f) => f && !f.isHidden)
-  const sectionHelp = selectHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES)
+  const sectionHelp = selectSlotHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES, `table:${tableMetaData.name};section:${section.name}`, helpHelpActive)
 
   if (visibleFields.length === 0) return null
 
@@ -201,7 +203,7 @@ export function RecordViewSection({
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm text-muted-foreground sm:w-40 sm:flex-shrink-0">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 flex-1 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
@@ -222,7 +224,7 @@ export function RecordViewSection({
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm font-semibold text-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
@@ -257,7 +259,7 @@ export function RecordViewSection({
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm font-semibold text-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />

@@ -23,9 +23,14 @@ import React, { createContext, useContext, useId } from 'react'
 import Link from 'next/link'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
+import type { QHelpContent } from '@/types'
+import { useHelpHelpActive } from '@/lib/context/q-context'
+import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
+import { HelpContent } from '@/components/records/HelpContent'
 import type { QqqBlockData, QqqBlockLink, QqqBlockTooltip, QqqCompositeData } from '../widget-types'
 import { isPlainObject } from '../widget-types'
-import { TOUCH_LINK } from '../widget-utils'
+import { TOUCH_LINK, widgetSlotHelp } from '../widget-utils'
+import { WidgetMetaDataContext } from '../widget-context'
 
 /**
  * Renders a nested composite (used for tooltips whose content is a composite).
@@ -74,17 +79,33 @@ function tooltipSide(placement: unknown): 'top' | 'right' | 'bottom' | 'left' {
 }
 
 /**
+ * The help-content slot key of a block slot, as Material's `BlockElementWrapper` builds it:
+ * `{blockId},{slot}` for a block with an id, else the slot name.
+ *
+ * @param block - The block.
+ * @param slot - The slot name.
+ * @returns The key within the widget's help content.
+ */
+export function blockHelpSlot(block: QqqBlockData, slot: string): string {
+  return typeof block.blockId === 'string' && block.blockId ? `${block.blockId},${slot}` : slot
+}
+
+/**
  * Wraps slot content with its link (internal paths use `next/link`, other URLs a
  * plain anchor) and its tooltip. The tooltip text is always the element's
  * accessible description (a hidden element referenced by `aria-describedby`) and
  * is shown visually in a Radix tooltip (`role="tooltip"`) on hover or focus. A
- * tooltip with `blockData` renders that composite as the tooltip content.
+ * tooltip with `blockData` renders that composite as the tooltip content. A slot
+ * without a tooltip falls back to the widget's help content for the slot (see
+ * {@link blockHelpSlot}), as in Material.
  *
  * @param props - See {@link BlockSlotProps}.
  * @returns The slot content, wrapped as needed.
  */
 export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotProps) {
   const renderNested = useContext(NestedCompositeContext)
+  const widgetMetaData = useContext(WidgetMetaDataContext)
+  const helpHelpActive = useHelpHelpActive()
   const descriptionId = useId()
   const { link, tooltip } = resolveSlot(block, slot)
   const slotAttribute = slot || 'block'
@@ -93,9 +114,10 @@ export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotPro
   const target = typeof link?.target === 'string' && link.target ? link.target : undefined
   const title = typeof tooltip?.title === 'string' && tooltip.title ? tooltip.title : undefined
   const nested = tooltip && isPlainObject(tooltip.blockData) ? tooltip.blockData : undefined
-  const hasTooltip = Boolean(title || (nested && renderNested))
+  const help = !tooltip && slot && widgetMetaData ? widgetSlotHelp(widgetMetaData, blockHelpSlot(block, slot), WIDGET_HELP_ROLES, helpHelpActive) as QHelpContent | undefined : undefined
+  const hasTooltip = Boolean(title || help || (nested && renderNested))
 
-  const describedBy = hasTooltip && title ? descriptionId : undefined
+  const describedBy = hasTooltip && (title || help) ? descriptionId : undefined
   let content: React.ReactElement
   if (href) {
     const linkProps = {
@@ -123,6 +145,7 @@ export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotPro
   return (
     <>
       {title && <span id={descriptionId} hidden>{title}</span>}
+      {!title && help && <span id={descriptionId} hidden><HelpContent helpContent={help} /></span>}
       <TooltipPrimitive.Provider delayDuration={200}>
         <TooltipPrimitive.Root>
           <TooltipPrimitive.Trigger asChild>{content}</TooltipPrimitive.Trigger>
@@ -132,7 +155,9 @@ export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotPro
               sideOffset={4}
               className="z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground shadow-md"
             >
-              {nested && renderNested ? <div className="w-[200px]">{renderNested(nested)}</div> : title}
+              {nested && renderNested
+                ? <div className="w-[200px]">{renderNested(nested)}</div>
+                : title ?? (help && <HelpContent helpContent={help} data-qqq-id={`block-help-${blockHelpSlot(block, slot)}`} />)}
               <TooltipPrimitive.Arrow className="fill-border" />
             </TooltipPrimitive.Content>
           </TooltipPrimitive.Portal>

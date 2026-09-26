@@ -38,6 +38,7 @@ import { recordAnalytics } from '@/lib/analytics'
 import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
+import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -99,6 +100,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Generate sidebar routes and path map from app tree
   const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
+
+  // Every route change starts at the top of the page (Material App scrolls to 0 on each pathname)
+  useEffect(() => {
+    scrollPageToTop()
+  }, [pathname])
 
   // Tables the backend record search covers for this user (none: search stays local)
   const searchTables = useMemo(() => searchableTables(metaData), [metaData])
@@ -295,6 +301,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             menuOpen={sidebarOpen}
             menuButtonRef={menuButtonRef}
             onSearchOpen={() => setSearchOpen(true)}
+            onCommandOpen={() => setCommandOpen(true)}
             onHelpOpen={() => setHelpOpen(true)}
             helpButtonRef={helpButtonRef}
             pathToLabelMap={pathToLabelMap}
@@ -326,7 +333,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Command Palette */}
-      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} />
+      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} metaData={metaData} />
 
       {/* Search Dialog */}
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />

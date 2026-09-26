@@ -227,6 +227,8 @@ final class WidgetsFixtures
       defineRecordWidgets(qInstance);
       defineReports(qInstance);
       repointSampleQuickSight(qInstance);
+      WidgetTableChartFixtures.define(qInstance);
+      WidgetChromeFixtures.define(qInstance);
    }
 
 
@@ -279,6 +281,7 @@ final class WidgetsFixtures
          createScriptTables(statement);
       }
       primeScripts();
+      WidgetChromeFixtures.prime(connection);
    }
 
 
@@ -681,6 +684,16 @@ final class WidgetsFixtures
       {
          headers.withSources("frame-src", fakeBase).withSources("img-src", fakeBase).withSources("media-src", fakeBase);
       }
+   }
+
+
+
+   /*******************************************************************************
+    ** Base URL of the loopback fake service (images for other fixture classes).
+    *******************************************************************************/
+   static String fakeServiceBase()
+   {
+      return (fakeBase);
    }
 
 

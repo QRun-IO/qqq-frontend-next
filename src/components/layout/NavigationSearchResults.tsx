@@ -126,6 +126,9 @@ export function NavigationSearchResults({ id, items, term, selectedIndex, onSele
                 >
                   {item.kind === 'page' ? (
                     <MetadataIcon icon={item.icon} kind={item.nodeType ? ICON_KIND[item.nodeType] : 'app'} className="text-muted-foreground" />
+                  ) : item.kind === 'record' ? (
+                    // the record's table icon, as in Material's recently viewed menu
+                    <MetadataIcon icon={item.icon} kind="table" className="text-muted-foreground" />
                   ) : (
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[0.6rem] font-medium text-primary" aria-hidden="true">
                       {item.label.charAt(0).toUpperCase()}

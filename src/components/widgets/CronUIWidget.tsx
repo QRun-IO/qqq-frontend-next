@@ -23,8 +23,10 @@
 
 import React from 'react'
 
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { formatPlainValue, recordDisplayValue, recordValue } from './record-widget-utils'
 import type { WidgetComponentProps } from './widget-types'
+import { WidgetSlotHelp } from './WidgetSlotHelp'
 
 /** Payload of the `cronUI` widget (`CronUIWidgetData`). */
 export interface CronUIWidgetPayload {
@@ -77,6 +79,8 @@ export function CronUIWidget({ widgetMetaData, data, recordContext }: WidgetComp
   }
   return (
     <div className="space-y-2" data-qqq-id={`widget-cronUI-${widgetName}`}>
+      {/* the "top" help slot, as Material's cron widget shows it on view screens */}
+      <WidgetSlotHelp widgetMetaData={widgetMetaData} slot="top" roles={VIEW_SCREEN_HELP_ROLES} className="text-sm text-muted-foreground" />
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
         {expression && (
           <>

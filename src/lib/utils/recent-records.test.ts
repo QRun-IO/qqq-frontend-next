@@ -17,7 +17,7 @@
 // Tests for recent-records localStorage tracker
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getRecentRecords, addRecentRecord, clearRecentRecords } from './recent-records'
+import { getRecentRecords, addRecentRecord, clearRecentRecords, removeRecentRecord, recentRecordsFromMaterialHistory, MATERIAL_HISTORY_KEY } from './recent-records'
 
 const STORAGE_KEY = 'qqq-recent-records'
 
@@ -121,5 +121,57 @@ describe('clearRecentRecords', () => {
 
   it('does not throw when storage is already empty', () => {
     expect(() => clearRecentRecords()).not.toThrow()
+  })
+})
+
+describe('removeRecentRecord', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('removes only the named record', () => {
+    addRecentRecord(makeRecord({ path: '/app/person/1', recordId: '1' }))
+    addRecentRecord(makeRecord({ path: '/app/person/2', recordId: '2' }))
+    removeRecentRecord('person', 2)
+    expect(getRecentRecords().map((record) => record.recordId)).toEqual(['1'])
+    removeRecentRecord('pet', '1')
+    expect(getRecentRecords().map((record) => record.recordId)).toEqual(['1'])
+  })
+})
+
+describe('Material history import', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  const history = JSON.stringify({
+    entries: [
+      { iconName: 'person', label: 'Person: Avery Sample', path: '/peopleApp/person/1', date: '2026-01-01T00:00:00.000Z' },
+      { iconName: 'pets', label: 'Pet: Rex', path: '/peopleApp/pets/pet/7', date: '2026-01-02T00:00:00.000Z' },
+      { label: 'Broken', path: '/only' },
+    ],
+  })
+
+  it('converts entries to recent records, newest first', () => {
+    expect(recentRecordsFromMaterialHistory(history)).toEqual([
+      { tableName: 'pet', tableLabel: 'Pet', tableIcon: { name: 'pets' }, recordId: '7', recordLabel: 'Rex', path: '/app/pet/7', viewedAt: Date.parse('2026-01-02T00:00:00.000Z') },
+      { tableName: 'person', tableLabel: 'Person', tableIcon: { name: 'person' }, recordId: '1', recordLabel: 'Avery Sample', path: '/app/person/1', viewedAt: Date.parse('2026-01-01T00:00:00.000Z') },
+    ])
+    expect(recentRecordsFromMaterialHistory('not json')).toEqual([])
+    expect(recentRecordsFromMaterialHistory(null)).toEqual([])
+  })
+
+  it('imports the Material history once when there are no recent records', () => {
+    localStorage.setItem(MATERIAL_HISTORY_KEY, history)
+    expect(getRecentRecords().map((record) => record.path)).toEqual(['/app/pet/7', '/app/person/1'])
+    clearRecentRecords()
+    expect(getRecentRecords()).toEqual([])
+  })
+
+  it('keeps existing recent records instead of importing', () => {
+    addRecentRecord(makeRecord({ path: '/app/person/3', recordId: '3' }))
+    localStorage.removeItem('qqq-recent-records-migrated')
+    localStorage.setItem(MATERIAL_HISTORY_KEY, history)
+    expect(getRecentRecords().map((record) => record.recordId)).toEqual(['3'])
   })
 })

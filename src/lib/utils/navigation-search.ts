@@ -41,7 +41,7 @@ export interface NavigationSearchItem {
   label: string
   /** Secondary context: enclosing apps for pages, table label for records. */
   context: string
-  /** Metadata icon (pages only). */
+  /** Metadata icon: the node's for pages, the table's for recently viewed records. */
   icon?: QIcon
   /** App-tree node type (pages only). */
   nodeType?: QAppNodeType
@@ -129,6 +129,7 @@ export function buildNavigationSearchItems(
       path: record.path,
       label: record.recordLabel,
       context: record.tableLabel,
+      icon: record.tableIcon,
     }))
   return [...pages, ...results, ...recent]
 }

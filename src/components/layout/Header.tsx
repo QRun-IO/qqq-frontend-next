@@ -21,7 +21,7 @@
 'use client'
 
 import React, { useRef, useState } from 'react'
-import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
+import { Bell, Command, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
@@ -43,6 +43,8 @@ export interface HeaderProps {
   menuButtonRef?: React.Ref<HTMLButtonElement>
   /** Called when the mobile search icon button is clicked to open the search dialog. */
   onSearchOpen?: () => void
+  /** Called when the command palette button is clicked (Material's navbar search icon opens its palette). */
+  onCommandOpen?: () => void
   /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
   onHelpOpen?: () => void
   /** Ref to the keyboard shortcuts help button, so the help dialog can return focus to it when it closes. */
@@ -73,7 +75,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
   const [notificationCount] = useState(0)
   // toasts appear below the header, never over its controls
   const headerRef = useRef<HTMLElement>(null)
@@ -118,6 +120,20 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
 
         {/* Global search — hidden on mobile */}
         <GlobalSearch navTargets={navTargets} searchTables={searchTables} className="hidden md:block" />
+
+        {/* Command palette (Material's navbar search icon opens its "." menu) */}
+        {onCommandOpen && (
+          <button
+            type="button"
+            onClick={onCommandOpen}
+            className="flex items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Open command palette (.)"
+            aria-haspopup="dialog"
+            data-qqq-id="button-command-palette"
+          >
+            <Command className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+          </button>
+        )}
 
         {/* Keyboard shortcuts hint */}
         <button

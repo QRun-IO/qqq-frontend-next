@@ -25,11 +25,13 @@ import React from 'react'
 
 import type { QTableMetaData } from '@/types'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { WidgetPayloadNotice } from './WidgetNotice'
 import { formatPlainValue, parseJsonValue, recordValue, resolveFieldLabel } from './record-widget-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import type { WidgetComponentProps } from './widget-types'
+import { WidgetSlotHelp } from './WidgetSlotHelp'
 
 /** Payload of the `filterAndColumnsSetup` widget (`FilterAndColumnsSetupData`). */
 export interface FilterAndColumnsSetupPayload {
@@ -292,6 +294,8 @@ export function FilterAndColumnsSetupWidget({ widgetMetaData, data, recordContex
 
   return (
     <div className="space-y-4" data-qqq-id={`widget-filterAndColumnsSetup-${widgetName}`}>
+      {/* Material's "sectionSubhead" help slot, above the filter and columns */}
+      <WidgetSlotHelp widgetMetaData={widgetMetaData} slot="sectionSubhead" roles={VIEW_SCREEN_HELP_ROLES} className="text-sm text-muted-foreground" />
       {tableName && isError && (
         <WidgetPayloadNotice widgetName={widgetName} message={`Field labels for ${tableName} could not be loaded.`} />
       )}

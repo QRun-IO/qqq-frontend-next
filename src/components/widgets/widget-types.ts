@@ -94,6 +94,8 @@ export interface QqqChartDataset {
   urls?: Array<string | null>
   /** Series color. */
   color?: string
+  /** Series fill of a stacked bar dataset (Material StackedBarChart); used when `color` is absent. */
+  backgroundColor?: string
 }
 
 /** Canonical `ChartData` / `LineChartData` / `PieChartData` payload. */

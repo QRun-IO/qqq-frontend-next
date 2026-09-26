@@ -90,7 +90,8 @@ export function groupChildLinks(nav: Locator, appName: string): Locator {
 /** Asserts the breadcrumb trail (links and current page), retrying until it matches. */
 export async function expectBreadcrumbs(page: Page, labels: string[]) {
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
-  await expect(trail.locator('a, [aria-current="page"]')).toHaveText(labels)
+  // the leading home crumb (an icon link to the dashboard, NAV-044) is not a labelled crumb
+  await expect(trail.locator('a:not([data-qqq-id="breadcrumb-home"]), [aria-current="page"]')).toHaveText(labels)
 }
 
 /**

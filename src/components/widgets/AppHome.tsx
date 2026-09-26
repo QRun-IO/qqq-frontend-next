@@ -31,8 +31,9 @@ import { isHiddenNode } from '@/lib/hooks/use-routes'
 import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permissions'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
 import { ConnectedWidget } from './ConnectedWidget'
-import { widgetColumnClasses } from './widget-utils'
+import { WIDGET_ANCHOR, widgetColumnClasses } from './widget-utils'
 
 /** Props accepted by the AppHome component. */
 interface AppHomeProps {
@@ -197,6 +198,8 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
     const meta = widgetRegistry[wName]
     return meta ? [meta] : []
   })
+  // #widgetName deep links scroll to that widget (Material grid items have id=widgetName)
+  useWidgetAnchor(widgetItems.map((meta) => meta.name))
 
   // Apps without explicit sections list their leaf children as one section
   const sections: QAppSection[] = appMetaData.sections ?? (children.some((child) => child.type !== 'APP')
@@ -245,7 +248,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
       {widgetItems.length > 0 && (
         <section aria-label="Dashboard widgets" className="grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
           {widgetItems.map((meta) => (
-            <div key={meta.name} className={widgetColumnClasses(meta.gridColumns)} data-qqq-id={`widget-grid-item-${meta.name}`}>
+            <div key={meta.name} id={meta.name} className={`${widgetColumnClasses(meta.gridColumns, meta.defaultValues)} ${WIDGET_ANCHOR}`} data-qqq-id={`widget-grid-item-${meta.name}`}>
               <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
             </div>
           ))}

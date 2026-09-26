@@ -61,6 +61,7 @@ export function EditFormComponent({ component, index }: EditFormComponentProps) 
     fieldNamesToInclude: includeFieldNames,
     disabled: isWorking,
     helpRoles: PROCESS_SCREEN_HELP_ROLES,
+    helpKeyPrefix: `process:${processName};`,
   }
 
   const body = (

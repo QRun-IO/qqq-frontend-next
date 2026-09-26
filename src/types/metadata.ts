@@ -58,6 +58,13 @@ export interface QInstance {
    * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}).
    */
   supplementalInstanceMetaData?: Record<string, unknown>
+  /** Optional theme overrides for colors and display mode. */
+  theme?: QThemeMetaData
+  /**
+   * Material dashboard path redirects from the backend (`from` path, or `from/*`, to `to` path),
+   * e.g. from a table under an app the user may not open to the same table under one they may.
+   */
+  redirects?: Record<string, string>
 }
 
 /**
@@ -118,6 +125,13 @@ export interface QBrandingMetaData {
   accentColorLight?: string
   /** Banners keyed by display slot (for example `QFMD_TOP_OF_SITE`). */
   banners?: Record<string, Banner>
+  /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
+  customCss?: string
+  /**
+   * Gravatar default-image setting (the `d` parameter, e.g. `identicon` or `mp`). When declared,
+   * the user entry shows the user's Gravatar, as the Material dashboard does.
+   */
+  gravatarDefault?: string
 }
 
 /**
@@ -582,6 +596,20 @@ export interface QWidgetDropdown {
   labelForNullValue?: string
   /** Preferred control width in pixels. */
   width?: number
+  /** Material icon name shown at the start of the control. */
+  startIconName?: string
+  /** Shows previous/next arrows beside the control (a day either way for a date picker). */
+  allowBackAndForth?: boolean
+  /** Swaps the directions of the previous/next arrows. */
+  backAndForthInverted?: boolean
+  /** Hides the control's clear button. */
+  disableClearable?: boolean
+}
+
+/** Whether a widget can be collapsed, and whether it starts open (`CollapsibleMetaData`). */
+export interface QWidgetCollapsible {
+  isCollapsible?: boolean
+  initiallyOpen?: boolean
 }
 
 /** An icon placed in a widget header, keyed by role (e.g. `topRightInsideCard`). */
@@ -643,6 +671,10 @@ export interface QWidgetMetaData {
   minHeight?: string
   /** Static footer HTML declared in metadata. */
   footerHTML?: string
+  /** Material icon name shown as the widget's main 64 px icon tile. */
+  icon?: string
+  /** Collapsible behavior (the header toggles the body; the state is remembered). */
+  collapsible?: QWidgetCollapsible
 }
 
 /**

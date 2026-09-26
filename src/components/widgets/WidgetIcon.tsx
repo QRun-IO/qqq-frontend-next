@@ -26,6 +26,9 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { materialIconComponent } from '@/lib/utils/material-icons'
+import { cn } from '@/lib/utils/cn'
+
 /** Material icon names used by QQQ widgets, mapped to the closest Lucide glyph. */
 const ICONS: Record<string, LucideIcon> = {
   add_alert: BellPlus,
@@ -70,6 +73,17 @@ interface WidgetIconProps {
 }
 
 /**
+ * The glyph for a Material Icons name: the widget map first, then the shared metadata
+ * icon map (any name QQQ metadata uses), else a neutral circle.
+ *
+ * @param name - Material Icons name.
+ * @returns The Lucide glyph.
+ */
+export function widgetGlyph(name: string): LucideIcon {
+  return ICONS[name] ?? materialIconComponent(name) ?? Circle
+}
+
+/**
  * Renders the icon named by QQQ metadata. The glyph is decorative; the Material
  * name is exposed on `data-icon-name` so styling and tests can target it.
  *
@@ -77,7 +91,7 @@ interface WidgetIconProps {
  * @returns An `aria-hidden` span wrapping the glyph.
  */
 export function WidgetIcon({ name, color, className, qqqId, style }: WidgetIconProps) {
-  const Glyph = ICONS[name] ?? Circle
+  const Glyph = widgetGlyph(name)
   return (
     <span
       aria-hidden="true"
@@ -86,7 +100,59 @@ export function WidgetIcon({ name, color, className, qqqId, style }: WidgetIconP
       data-qqq-id={qqqId}
       style={{ color, display: 'inline-flex', alignItems: 'center', ...style }}
     >
-      <Glyph className="h-full w-full" style={{ width: '1em', height: '1em' }} />
+      {React.createElement(Glyph, { className: 'h-full w-full', style: { width: '1em', height: '1em' } })}
+    </span>
+  )
+}
+
+/** Props accepted by {@link WidgetIconTile}. */
+interface WidgetIconTileProps {
+  /** Material Icons name (ignored when `path` is set). */
+  name?: string
+  /** Image path drawn instead of a named icon. */
+  path?: string
+  /** Tile color from metadata; the theme's info (else primary) color when absent. */
+  color?: string
+  /** Tile size classes (default a 1.75 rem header tile). */
+  className?: string
+  /** `data-qqq-id` for the tile. */
+  qqqId?: string
+}
+
+/**
+ * A white glyph (or a 16 px image) on a rounded tile in the icon's color, as Material
+ * Dashboard draws widget header icons and the main widget icon. An image that fails to
+ * load is hidden, leaving the colored tile.
+ *
+ * @param props - See {@link WidgetIconTileProps}.
+ * @returns An `aria-hidden` tile.
+ */
+export function WidgetIconTile({ name, path, color, className, qqqId }: WidgetIconTileProps) {
+  const background = color || 'var(--qqq-info-color, var(--color-primary))'
+  if (path) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn('inline-flex flex-shrink-0 items-center justify-center rounded', className ?? 'h-7 w-7')}
+        style={{ backgroundColor: background }}
+        data-qqq-id={qqqId}
+        data-icon-path={path}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- metadata icon paths are arbitrary backend assets */}
+        <img src={path} alt="" width={16} height={16} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+      </span>
+    )
+  }
+  const Glyph = widgetGlyph(name ?? '')
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('inline-flex flex-shrink-0 items-center justify-center rounded text-white', className ?? 'h-7 w-7 text-base')}
+      style={{ backgroundColor: background, color: '#ffffff' }}
+      data-qqq-id={qqqId}
+      data-icon-name={name}
+    >
+      {React.createElement(Glyph, { style: { width: '1em', height: '1em' } })}
     </span>
   )
 }

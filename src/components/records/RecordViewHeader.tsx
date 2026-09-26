@@ -348,7 +348,7 @@ export function RecordViewHeader({
             {t1Fields.map((field) => (
               <div key={field.name} className="flex min-w-0 flex-col" data-qqq-id={`record-field-${field.name}`}>
                 <dt className="text-xs text-muted-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />

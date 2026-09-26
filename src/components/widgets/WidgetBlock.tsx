@@ -18,37 +18,53 @@
  * @file WidgetBlock — standard chrome for every dashboard and record widget.
  *
  * Renders the widget card (or plain container when `isCard` is false) with its
- * header — label (or the payload's label override), sublabel, icons, tooltip,
- * help, dropdown controls, export and reload buttons — and a body that shows a
- * loading skeleton, the error state, the permission message, the "please select"
- * message for required dropdowns, or the widget content; then the footer HTML.
+ * header — main icon tile, label (or the payload's label override, as the page title
+ * for a parent widget that asks for it), sublabel, header icon tiles, tooltip, help,
+ * dropdown controls, export and reload buttons, and the collapse toggle of a
+ * collapsible widget — and a body that shows a loading skeleton, the error state, the
+ * permission message, the "please select" message for required dropdowns, or the
+ * widget content; then the footer HTML.
  */
 'use client'
 
-import React from 'react'
-import { AlertCircle, Download, HelpCircle, RefreshCw } from 'lucide-react'
+import React, { useId, useRef, useState } from 'react'
+import { AlertCircle, ChevronDown, ChevronUp, Download, HelpCircle, RefreshCw } from 'lucide-react'
 
-import type { QWidgetHelpContent, QWidgetMetaData } from '@/types'
+import type { QHelpContent, QWidgetMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { useHelpHelpActive } from '@/lib/context/q-context'
+import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
+import { HelpContent } from '@/components/records/HelpContent'
 import { HoverTooltip } from './HoverTooltip'
 import { SafeHtml } from './SafeHtml'
+import { WidgetDropdownMenu } from './WidgetDropdownMenu'
+import type { WidgetDropdownControl } from './WidgetDropdownMenu'
 import { WidgetErrorBoundary } from './WidgetErrorBoundary'
-import { WidgetIcon } from './WidgetIcon'
+import { WidgetIconTile } from './WidgetIcon'
+import { WidgetMetaDataContext } from './widget-context'
+import { widgetSlotHelp } from './widget-utils'
 
-/** One dropdown control resolved from the widget payload and metadata. */
-export interface WidgetDropdownControl {
-  /** Query parameter the selection is sent under. */
-  paramName: string
-  /** Dropdown label (the control is labelled `Select <label>`). */
-  label: string
-  /** Control kind. */
-  type: 'POSSIBLE_VALUE_SOURCE' | 'DATE_PICKER'
-  /** Options for possible-value dropdowns. */
-  options: Array<{ id: string; label: string }>
-  /** Currently selected option id or ISO date, or null. */
-  value: string | null
-  /** Label of an explicit "no selection" option. */
-  labelForNullValue?: string
+export type { WidgetDropdownControl } from './WidgetDropdownMenu'
+
+/** Local-storage key root of a collapsible widget's open state (shared with Material). */
+export const WIDGET_COLLAPSIBLE_STORAGE_ROOT = 'qqq.widget.collapsibleOpenState'
+
+/**
+ * Whether a collapsible widget starts open: its remembered state, else `initiallyOpen`
+ * (Material `getInitialCollapsibleOpenState`). A widget that is not collapsible is open.
+ *
+ * @param widgetMetaData - Widget metadata.
+ * @returns The initial open state.
+ */
+export function initialCollapsibleOpenState(widgetMetaData: QWidgetMetaData): boolean {
+  if (!widgetMetaData.collapsible?.isCollapsible) return true
+  try {
+    const stored = window.localStorage.getItem(`${WIDGET_COLLAPSIBLE_STORAGE_ROOT}.${widgetMetaData.name}`)
+    if (stored !== null) return stored === 'true'
+  } catch {
+    // storage unavailable: use the metadata default
+  }
+  return widgetMetaData.collapsible.initiallyOpen === true
 }
 
 /** Common payload fields every QQQ widget may carry. */
@@ -58,6 +74,8 @@ export interface WidgetChromeData {
   footerHTML?: string
   hasPermission?: boolean
   dropdownNeedsSelectedText?: string
+  /** A parent widget whose label is the page title (Material `isLabelPageTitle`). */
+  isLabelPageTitle?: boolean
 }
 
 /** Props accepted by the WidgetBlock container component. */
@@ -95,20 +113,6 @@ interface WidgetBlockProps {
 }
 
 /**
- * Normalizes the two help-content shapes (a single `{content}` or the full-route
- * slot map) to the `label` slot's HTML/text entries.
- *
- * @param helpContent - Metadata help content.
- * @returns Help entries for the label slot.
- */
-function labelHelp(helpContent: QWidgetMetaData['helpContent']): QWidgetHelpContent[] {
-  if (!helpContent) return []
-  if ('content' in helpContent && typeof helpContent.content === 'string') return [{ content: helpContent.content, format: 'TEXT' }]
-  const slot = (helpContent as Record<string, QWidgetHelpContent[]>).label
-  return Array.isArray(slot) ? slot.filter((entry) => typeof entry?.content === 'string') : []
-}
-
-/**
  * Renders the widget chrome around `children`.
  *
  * @param props - See {@link WidgetBlockProps}.
@@ -119,55 +123,109 @@ export function WidgetBlock({
   exportMessage, dropdowns, onDropdownChange, children, className, bare = false, hideReload = false,
 }: WidgetBlockProps) {
   const { name } = widgetMetaData
-  const label = data?.label ?? widgetMetaData.label
+  const bodyId = useId()
   const isCard = widgetMetaData.isCard !== false
-  const help = labelHelp(widgetMetaData.helpContent)
+  const helpHelpActive = useHelpHelpActive()
+  const help = widgetSlotHelp(widgetMetaData, 'label', WIDGET_HELP_ROLES, helpHelpActive) as QHelpContent | undefined
   const footer = data?.footerHTML ?? widgetMetaData.footerHTML
   const topLeft = widgetMetaData.icons?.topLeftInsideCard
   const topRight = widgetMetaData.icons?.topRightInsideCard
   const deniedByData = data?.hasPermission === false
 
+  // Collapsible widgets (Material `collapsible`): the header toggles the body; the state is remembered.
+  const isCollapsible = widgetMetaData.collapsible?.isCollapsible === true
+  const [open, setOpen] = useState(() => initialCollapsibleOpenState(widgetMetaData))
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    try {
+      window.localStorage.setItem(`${WIDGET_COLLAPSIBLE_STORAGE_ROOT}.${name}`, String(next))
+    } catch {
+      // storage is a convenience
+    }
+  }
+
+  // A parent widget may use its label as the page title, and keeps the last label it showed
+  // while a reload briefly has none (Material `isLabelPageTitle`).
+  const isParentWidget = widgetMetaData.type === 'parentWidget'
+  const lastLabel = useRef<{ label: string; asTitle: boolean } | null>(null)
+  let label = data?.label ?? widgetMetaData.label
+  if (label && label !== lastLabel.current?.label) lastLabel.current = { label, asTitle: data?.isLabelPageTitle === true }
+  if (!label && isParentWidget && lastLabel.current?.asTitle) label = lastLabel.current.label
+  const labelAsTitle = isParentWidget && (data?.isLabelPageTitle === true || (lastLabel.current?.asTitle === true && label === lastLabel.current.label))
+
   const body = (
-    <WidgetErrorBoundary widgetName={name}>
-      {isLoading ? (
-        <WidgetSkeleton />
-      ) : isError ? (
-        <WidgetErrorState error={error} onReload={onReload} widgetName={name} />
-      ) : deniedByData ? (
-        <p className="py-4 text-center text-sm text-muted-foreground" data-qqq-id={`widget-no-permission-${name}`}>
-          You do not have permission to view this data.
-        </p>
-      ) : data?.dropdownNeedsSelectedText ? (
-        <p className="py-2 text-right text-sm text-muted-foreground" data-qqq-id={`widget-needs-selection-${name}`}>
-          {data.dropdownNeedsSelectedText}
-        </p>
-      ) : (
-        children
-      )}
-    </WidgetErrorBoundary>
+    <WidgetMetaDataContext.Provider value={widgetMetaData}>
+      <WidgetErrorBoundary widgetName={name}>
+        {isLoading ? (
+          <WidgetSkeleton />
+        ) : isError ? (
+          <WidgetErrorState error={error} onReload={onReload} widgetName={name} />
+        ) : deniedByData ? (
+          <p className="py-4 text-center text-sm text-muted-foreground" data-qqq-id={`widget-no-permission-${name}`}>
+            You do not have permission to view this data.
+          </p>
+        ) : data?.dropdownNeedsSelectedText ? (
+          <p className="py-2 text-right text-sm text-muted-foreground" data-qqq-id={`widget-needs-selection-${name}`}>
+            {data.dropdownNeedsSelectedText}
+          </p>
+        ) : (
+          children
+        )}
+      </WidgetErrorBoundary>
+    </WidgetMetaDataContext.Provider>
   )
 
   if (bare) {
     return <div data-qqq-id={`widget-content-${name}`}>{body}</div>
   }
 
-  const labelElement = label ? (
+  const labelElement = label ? (labelAsTitle ? (
+    <h2 className="text-2xl font-bold tracking-tight text-card-foreground" data-qqq-id={`widget-label-${name}`} data-page-title="true">{label}</h2>
+  ) : (
     <h3 className="text-base font-semibold text-card-foreground" data-qqq-id={`widget-label-${name}`}>{label}</h3>
-  ) : null
+  )) : null
+
+  /**
+   * A click on the header bar (not on one of its controls) toggles a collapsible widget,
+   * as in Material; the chevron button is the keyboard and screen-reader control.
+   *
+   * @param event - The click.
+   */
+  const onHeaderClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isCollapsible) return
+    const target = event.target as HTMLElement
+    if (target.closest('button, a, input, select, textarea, [role="combobox"], [role="listbox"]')) return
+    toggle()
+  }
 
   return (
     <section
-      className={cn('flex h-full flex-col', isCard ? 'rounded-xl border border-border bg-card shadow-sm' : 'bg-transparent', className)}
+      className={cn(
+        'flex flex-col',
+        open && 'h-full',
+        isCard ? 'rounded-xl border border-border bg-card shadow-sm' : 'bg-transparent',
+        widgetMetaData.icon && 'mt-6',
+        className,
+      )}
       data-qqq-id={`widget-${name}`}
       data-widget-type={widgetMetaData.type}
+      data-collapsed={isCollapsible ? String(!open) : undefined}
       aria-label={label || widgetMetaData.name}
       aria-busy={isLoading || isFetching}
-      style={widgetMetaData.minHeight ? { minHeight: widgetMetaData.minHeight } : undefined}
+      style={widgetMetaData.minHeight && open ? { minHeight: widgetMetaData.minHeight } : undefined}
     >
-      <div className={cn('flex flex-wrap items-start justify-between gap-2', isCard ? 'px-5 pt-4' : 'pb-2')}>
+      <div
+        className={cn('flex flex-wrap items-start justify-between gap-2', isCard ? 'px-5 pt-4' : 'pb-2', isCard && !open && 'pb-4', isCollapsible && 'cursor-pointer')}
+        onClick={onHeaderClick}
+        data-qqq-id={`widget-header-${name}`}
+      >
         <div className="flex min-w-0 items-center gap-2">
-          {topLeft?.name && (
-            <WidgetIcon name={topLeft.name} color={topLeft.color} className="h-7 w-7 rounded p-1 text-lg" qqqId={`widget-icon-topLeftInsideCard-${name}`} />
+          {widgetMetaData.icon && (
+            <WidgetIconTile name={widgetMetaData.icon} className="-mt-9 mr-2 h-16 w-16 rounded-lg text-2xl shadow-md" qqqId={`widget-main-icon-${name}`} />
+          )}
+          {open && (topLeft?.name || topLeft?.path) && (
+            <WidgetIconTile name={topLeft.name} path={topLeft.path} color={topLeft.color} qqqId={`widget-icon-topLeftInsideCard-${name}`} />
           )}
           <div className="min-w-0">
             {labelElement && (widgetMetaData.tooltip
@@ -177,47 +235,24 @@ export function WidgetBlock({
               <p className="text-xs text-muted-foreground" data-qqq-id={`widget-sublabel-${name}`}>{data.sublabel}</p>
             )}
           </div>
-          {help.length > 0 && (
-            <HoverTooltip
-              qqqId={`widget-help-${name}`}
-              content={help.map((entry, index) => entry.format === 'HTML'
-                ? <SafeHtml key={index} html={entry.content ?? ''} as="span" />
-                : <span key={index}>{entry.content}</span>)}
-            >
+          {help && (
+            <HoverTooltip qqqId={`widget-help-${name}`} content={<HelpContent helpContent={help} />}>
               <HelpCircle className="h-4 w-4 text-muted-foreground" aria-label={`Help for ${label}`} data-qqq-id={`button-widget-help-${name}`} />
             </HoverTooltip>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {dropdowns?.map((dropdown) => dropdown.type === 'DATE_PICKER' ? (
-            <input
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          {open && dropdowns?.map((dropdown) => (
+            <WidgetDropdownMenu
               key={dropdown.paramName}
-              type="date"
-              value={dropdown.value ?? ''}
-              onChange={(event) => onDropdownChange?.(dropdown.paramName, event.target.value ? { id: event.target.value, label: event.target.value } : null)}
-              aria-label={`Select ${dropdown.label}`}
-              className="rounded border border-input bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              data-qqq-id={`widget-dropdown-${name}-${dropdown.paramName}`}
+              widgetName={name}
+              control={dropdown}
+              onChange={(selection) => onDropdownChange?.(dropdown.paramName, selection)}
             />
-          ) : (
-            <select
-              key={dropdown.paramName}
-              value={dropdown.value ?? ''}
-              onChange={(event) => {
-                const option = dropdown.options.find((candidate) => candidate.id === event.target.value)
-                onDropdownChange?.(dropdown.paramName, option ?? null)
-              }}
-              aria-label={`Select ${dropdown.label}`}
-              className="max-w-[16rem] rounded border border-input bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:h-11"
-              data-qqq-id={`widget-dropdown-${name}-${dropdown.paramName}`}
-            >
-              <option value="">{dropdown.labelForNullValue ?? `Select ${dropdown.label}`}</option>
-              {dropdown.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
           ))}
 
-          {widgetMetaData.showExportButton && onExport && (
+          {open && widgetMetaData.showExportButton && onExport && (
             <button
               type="button"
               onClick={onExport}
@@ -229,7 +264,7 @@ export function WidgetBlock({
             </button>
           )}
 
-          {widgetMetaData.showReloadButton && onReload && !hideReload && (
+          {open && widgetMetaData.showReloadButton && onReload && !hideReload && (
             <button
               type="button"
               onClick={onReload}
@@ -242,21 +277,35 @@ export function WidgetBlock({
             </button>
           )}
 
-          {topRight?.name && (
-            <WidgetIcon name={topRight.name} color={topRight.color} className="h-7 w-7 rounded p-1 text-lg" qqqId={`widget-icon-topRightInsideCard-${name}`} />
+          {open && (topRight?.name || topRight?.path) && (
+            <WidgetIconTile name={topRight.name} path={topRight.path} color={topRight.color} qqqId={`widget-icon-topRightInsideCard-${name}`} />
+          )}
+
+          {isCollapsible && (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              aria-controls={bodyId}
+              aria-label={`${open ? 'Collapse' : 'Expand'} ${label || name}`}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+              data-qqq-id={`button-widget-collapse-${name}`}
+            >
+              {open ? <ChevronUp className="h-6 w-6" aria-hidden="true" /> : <ChevronDown className="h-6 w-6" aria-hidden="true" />}
+            </button>
           )}
         </div>
       </div>
 
-      {exportMessage && (
+      {open && exportMessage && (
         <p role="status" className="px-5 pt-2 text-sm text-muted-foreground" data-qqq-id={`widget-export-message-${name}`}>{exportMessage}</p>
       )}
 
-      <div className={cn('flex-1', isCard ? 'p-5 pt-3' : 'pt-1')} data-qqq-id={`widget-content-${name}`}>
-        {body}
+      <div id={bodyId} className={cn('flex-1', isCard ? 'p-5 pt-3' : 'pt-1')} hidden={!open} data-qqq-id={`widget-content-${name}`}>
+        {open && body}
       </div>
 
-      {footer && !isError && (
+      {open && footer && !isError && (
         <SafeHtml html={footer} className={cn('text-sm text-muted-foreground', isCard ? 'px-5 pb-4' : 'pt-2')} qqqId={`widget-footer-${name}`} />
       )}
     </section>

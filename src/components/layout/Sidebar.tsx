@@ -37,6 +37,7 @@ import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
+import { gravatarUrl } from '@/lib/utils/gravatar'
 import { UserPreferencesDialog } from './UserPreferencesDialog'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
@@ -279,6 +280,7 @@ export default function Sidebar({
             userName={userName}
             userEmail={userEmail}
             logout={logout}
+            gravatarDefault={branding?.gravatarDefault}
           />
         )}
       </div>
@@ -520,12 +522,20 @@ function UserFooter({
   userName,
   userEmail,
   logout,
+  gravatarDefault,
 }: {
   userName?: string
   userEmail?: string
   logout?: () => void
+  gravatarDefault?: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  // Material shows the user's Gravatar; here only when the branding declares gravatarDefault, so
+  // no email hash goes to a third party unless the application opts in. A failed image keeps the initial.
+  const avatarUrl = gravatarDefault ? gravatarUrl(userEmail, gravatarDefault) : undefined
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  // Material names a user without a name "Anonymous"
+  const displayName = userName || 'Anonymous'
   const [prefsOpen, setPrefsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -618,20 +628,30 @@ function UserFooter({
           data-qqq-id="sidebar-user-button"
           data-qqq-sidenav-item-type="user-profile"
         >
-          {/* Avatar circle */}
-          <div
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
-            aria-hidden="true"
-            data-qqq-id="sidebar-user-avatar"
-          >
-            {userName ? userName.charAt(0).toUpperCase() : userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
-          </div>
+          {/* Avatar: the Gravatar when the branding enables it, else the initial */}
+          {avatarUrl && !avatarFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Gravatar images are external, sized by the service
+            <img
+              src={avatarUrl}
+              alt=""
+              aria-hidden="true"
+              onError={() => setAvatarFailed(true)}
+              className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
+              data-qqq-id="sidebar-user-avatar"
+            />
+          ) : (
+            <div
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground"
+              aria-hidden="true"
+              data-qqq-id="sidebar-user-avatar"
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex min-w-0 flex-1 flex-col">
-            {userName && (
-              <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
-                {userName}
-              </span>
-            )}
+            <span className="truncate text-sm font-medium text-foreground" data-qqq-id="sidebar-user-name">
+              {displayName}
+            </span>
             {userEmail && (
               <span className="truncate text-xs text-muted-foreground" data-qqq-id="sidebar-user-email">
                 {userEmail}

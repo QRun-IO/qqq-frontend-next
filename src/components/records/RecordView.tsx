@@ -720,7 +720,7 @@ function RecordViewContent({
                 .map((field) => (
                   <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
                     <dt className="text-sm font-semibold text-foreground">
-                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                     </dt>
                     <dd>
                       <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />

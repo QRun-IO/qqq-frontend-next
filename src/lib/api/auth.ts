@@ -38,6 +38,9 @@ const AUTH_METADATA_CACHE_KEY = `qqqAuthMetadata:${process.env.NEXT_PUBLIC_API_B
  */
 const AUTH_METADATA_TTL = 600000 // 10 minutes (down from 1 hour)
 
+/** URL query flag that clears the cached authentication metadata (Material `index.tsx`). */
+export const CLEAR_AUTH_METADATA_FLAG = 'clearAuthenticationMetaDataLocalStorage'
+
 /**
  * Fetches authentication metadata from `GET /metaData/authentication`.
  *
@@ -50,6 +53,9 @@ const AUTH_METADATA_TTL = 600000 // 10 minutes (down from 1 hour)
 export async function getAuthenticationMetaData(): Promise<QAuthenticationMetaData> {
   // Check localStorage cache (only in browser)
   if (typeof window !== 'undefined') {
+    // Material's ?clearAuthenticationMetaDataLocalStorage flag drops the cached copy (for example
+    // right after the instance changed its authentication), so the metadata is read again
+    if (new URLSearchParams(window.location.search).has(CLEAR_AUTH_METADATA_FLAG)) clearAuthMetadataCache()
     const cached = localStorage.getItem(AUTH_METADATA_CACHE_KEY)
     if (cached) {
       try {

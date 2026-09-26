@@ -1428,6 +1428,70 @@
       "required": true
     },
     {
+      "id": "WID-068",
+      "feature": "table widget Material extras: typed cells (numbers with separators, html, htmlAndTooltip, image, composite), hidden helper columns, fr widths, sub-rows, sticky header, column-header help, paging (10 by default, numbered pages, jump-to-page, entries-per-page), export built from columns and rows, and a multi-table widget with an export button and footer per table",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/DataTable.tsx:64-557",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/TableWidget.tsx:55-177",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/cells/ImageCell.tsx:35-58",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:594-606",
+        "src/components/widgets/QqqTableWidget.tsx",
+        "src/components/widgets/table-widget-utils.ts",
+        "src/components/widgets/ConnectedWidget.tsx"
+      ],
+      "fixture": "WidgetTableChartFixtures.java widgetTableCharts/accTableCells, accTablePaging, accMultiTableExtras",
+      "scenarios": [
+        "Default cells show numbers with thousands separators; html cells render sanitized markup; an htmlAndTooltip cell shows the row's tooltip HTML on hover, focus or tap; an image cell shows the row's image, label and total; a composite cell renders its blocks",
+        "Columns of type hidden (tooltip, image helpers) are not shown",
+        "fr widths share the width left by fixed widths (2fr is twice 1fr; a 180px column keeps 180px)",
+        "A row with sub-rows expands and collapses them (nested rows are shaded; a sub-row expands its own sub-rows)",
+        "The columnHeader=name help slot shows its HTML help on the Name header",
+        "Without rowsPerPage 10 of 40 rows show, with numbered page buttons; the entries-per-page select (5-25) changes the page size; more than six pages become a jump-to-page input; the header stays at the top while the fixed-height body scrolls",
+        "Export without csvData downloads the Material CSV of every column (hidden ones too), quoted, with link text and without icon glyph text",
+        "Each table of a multi-table widget has its own label, export button (csvData or columns and rows) and footer; the widget itself has no export button"
+      ],
+      "negative": [
+        "Icon glyph text (open_in_new) never reaches the CSV",
+        "Collapsed sub-rows are not rendered",
+        "A sub-table's footer is not shown under another sub-table"
+      ],
+      "issues": [
+        728
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-069",
+      "feature": "chart widget Material extras: theme color names, legend toggles, single-series legends (horizontal bars, line badges), full pie with percent tooltip, stacked backgroundColor, stacked tooltip and right integer axis, rotating category labels, small line y ticks and grid, bar chart As of line",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/piechart/PieChartConfigs.ts:28-121",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/StackedBarChart.tsx:67-161",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/barchart/HorizontalBarChart.tsx:40-42",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/linechart/DefaultLineChart.tsx:154-165",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/linechart/LineChartConfigs.ts:43-99",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/barchart/BarChart.tsx:150-178",
+        "src/components/widgets/QqqChartWidget.tsx"
+      ],
+      "fixture": "WidgetTableChartFixtures.java widgetTableCharts/accPieNamed, accStackedExtras, accLineBadges, accHorizontalLegend, accSmallLineTicks, accBarAsOf",
+      "scenarios": [
+        "Pie slices named info and success fill with the Material theme colors; the pie is full (no inner radius)",
+        "Hovering a slice shows its label, value and percent of the total",
+        "Clicking a legend entry hides that slice or series and clicking again shows it",
+        "Stacked datasets fill from their singular backgroundColor (a theme name or a CSS color); the tooltip names only the hovered dataset; the y axis sits on the right with whole-number ticks; long category labels turn",
+        "A single-series horizontal bar chart has a legend; a line chart names its series in badges above the chart",
+        "A small line chart shows y-axis values and a horizontal grid",
+        "A barChart widget ends with an As of line naming today's date"
+      ],
+      "negative": [
+        "A hidden series draws no bars or points",
+        "No y-axis tick of the stacked chart is fractional"
+      ],
+      "issues": [
+        728
+      ],
+      "required": true
+    },
+    {
       "id": "RPT-019",
       "feature": "render report input step shows only its fields; a report without variables adds no no-fields message",
       "source": [

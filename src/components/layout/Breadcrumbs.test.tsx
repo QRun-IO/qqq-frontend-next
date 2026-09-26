@@ -26,7 +26,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
-import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle } from './Breadcrumbs'
+import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle, humanizeSegment } from './Breadcrumbs'
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
 const pathToLabelMap: Record<string, string> = {
@@ -79,8 +79,20 @@ describe('buildBreadcrumbs', () => {
     expect(buildBreadcrumbs('/login', pathToLabelMap, ancestorAppMap)).toEqual([])
   })
 
-  it('falls back to the decoded segment for unknown names', () => {
-    expect(buildBreadcrumbs('/app/no%20such', {}, {})).toEqual([{ path: '/app/no%20such', label: 'no such' }])
+  it('humanizes unknown names the way Material does', () => {
+    expect(buildBreadcrumbs('/app/no%20such', {}, {})).toEqual([{ path: '/app/no%20such', label: 'No such' }])
+    expect(buildBreadcrumbs('/app/navNoSuchThing', {}, {})[0].label).toBe('Nav No Such Thing')
+    expect(humanizeSegment('personUSA')).toBe('Person USA')
+    expect(humanizeSegment('USAPerson')).toBe('USA Person')
+    expect(humanizeSegment('person.bulk_edit-now')).toBe('Person bulk edit now')
+  })
+
+  it('names a table-scoped process or report by its label, keeps record ids and humanizes other segments', () => {
+    const map = { ...pathToLabelMap, '/app/person.bulkEdit': 'Person Bulk Edit', '/app/personReport': 'Person Report' }
+    expect(buildBreadcrumbs('/app/person/person.bulkEdit', map, ancestorAppMap).at(-1)).toEqual({ path: '/app/person/person.bulkEdit', label: 'Person Bulk Edit' })
+    expect(buildBreadcrumbs('/app/person/personReport', map, ancestorAppMap).at(-1)?.label).toBe('Person Report')
+    expect(buildBreadcrumbs('/app/person/7/person.bulkEdit', map, ancestorAppMap).slice(-2).map((crumb) => crumb.label)).toEqual(['7', 'Person Bulk Edit'])
+    expect(buildBreadcrumbs('/app/person/ab-cd/unknownAction', map, ancestorAppMap).slice(-2).map((crumb) => crumb.label)).toEqual(['ab-cd', 'Unknown Action'])
   })
 })
 
@@ -112,6 +124,9 @@ describe('Breadcrumbs', () => {
     expect(screen.getByRole('link', { name: 'People App' })).toHaveAttribute('href', '/app/peopleApp')
     expect(screen.getByRole('link', { name: 'Greetings App' })).toHaveAttribute('href', '/app/greetingsApp')
     expect(screen.getByText('Person')).toHaveAttribute('aria-current', 'page')
+    // Material's home crumb leads the trail
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/app')
+    expect(nav.querySelector('a')).toHaveAttribute('data-qqq-id', 'breadcrumb-home')
   })
 
   it('renders nothing until metadata supplies labels (no flash of raw URL segments)', () => {

@@ -299,29 +299,64 @@ export function BigNumberBlock({ block, widgetName }: LeafBlockProps) {
   )
 }
 
+/** The control an INPUT_FIELD block draws for its field. */
+export type InputFieldControl = 'number' | 'datetime-local' | 'date' | 'time' | 'password' | 'file' | 'checkbox' | 'code' | 'text'
+
 /**
- * HTML input type for a QQQ field type.
+ * The control for a block's field, by type and adornment, as Material's
+ * `DynamicFormUtils.getDynamicField` chooses it: numbers, date-times, dates, times,
+ * passwords, files (BLOB), checkboxes (BOOLEAN), a code editor (CODE_EDITOR adornment),
+ * and text for everything else (STRING, TEXT, HTML).
  *
- * @param fieldType - The field's QQQ type.
- * @returns The input `type` attribute.
+ * @param field - The serialized field metadata.
+ * @returns The control to draw.
  */
-function inputType(fieldType: unknown): string {
-  switch (fieldType) {
+export function inputFieldControl(field: Record<string, unknown>): InputFieldControl {
+  const adornments = Array.isArray(field.adornments) ? field.adornments : []
+  if (adornments.some((adornment) => isPlainObject(adornment) && adornment.type === 'CODE_EDITOR')) return 'code'
+  switch (field.type) {
     case 'INTEGER':
     case 'LONG':
     case 'DECIMAL':
       return 'number'
+    case 'DATE_TIME':
+      return 'datetime-local'
     case 'DATE':
       return 'date'
+    case 'TIME':
+      return 'time'
     case 'PASSWORD':
       return 'password'
+    case 'BLOB':
+      return 'file'
+    case 'BOOLEAN':
+      return 'checkbox'
     default:
       return 'text'
   }
 }
 
 /**
- * INPUT_FIELD: a labeled text input for `values.fieldMetaData`. With
+ * The initial value of a block's control: the seeded `values.value`, adapted to what
+ * the control accepts (`yyyy-MM-ddTHH:mm` for a date-time, `yyyy-MM-dd` for a date).
+ *
+ * @param control - The control.
+ * @param value - The seeded value.
+ * @returns The control's initial text.
+ */
+function initialInputValue(control: InputFieldControl, value: unknown): string {
+  const seeded = text(value) ?? ''
+  if (control === 'datetime-local') return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(seeded) ? seeded.slice(0, 16) : ''
+  if (control === 'date') return /^\d{4}-\d{2}-\d{2}/.test(seeded) ? seeded.slice(0, 10) : ''
+  return seeded
+}
+
+/** Classes shared by the text-like controls. */
+const INPUT_CLASSES = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
+
+/**
+ * INPUT_FIELD: a labeled control for `values.fieldMetaData`, typed by the field as in
+ * Material (see {@link inputFieldControl}) and seeded from `values.value`. With
  * `submitOnEnter`, Enter calls the action callback with `{ [fieldName]: value }`
  * (not when the field is required and blank); an input of `->code` calls it with
  * `{ actionCode: code }` instead.
@@ -335,11 +370,14 @@ export function InputFieldBlock({ block, widgetName, actionCallback }: LeafBlock
   const fieldName = text(field.name) ?? 'input'
   const label = text(field.label) ?? fieldName
   const required = field.isRequired === true
-  const [value, setValue] = useState(text(values.value) ?? '')
+  const control = inputFieldControl(field)
+  const [value, setValue] = useState(() => initialInputValue(control, values.value))
+  const [checked, setChecked] = useState(() => values.value === true || values.value === 'true')
   const inputId = `block-input-${widgetName}-${fieldName}`
+  const qqqId = `block-input-field-${widgetName}-${fieldName}`
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter' || values.submitOnEnter !== true) return
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || values.submitOnEnter !== true || control === 'code') return
     event.preventDefault()
     const entered = event.currentTarget.value.trim()
     if (entered.startsWith('->') && actionCallback) {
@@ -350,6 +388,47 @@ export function InputFieldBlock({ block, widgetName, actionCallback }: LeafBlock
     actionCallback?.(block, { [fieldName]: entered })
   }
 
+  const common = {
+    id: inputId,
+    name: fieldName,
+    autoFocus: values.autoFocus === true,
+    'aria-required': required,
+    required,
+    'data-qqq-id': qqqId,
+    'data-control': control,
+  }
+
+  let input: React.ReactNode
+  if (control === 'checkbox') {
+    input = (
+      // the wrapping label is the checkbox's touch target on coarse pointers
+      <label className="inline-flex items-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+        <input {...common} type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)}
+          className="h-4 w-4 rounded border-input accent-primary focus:outline-none focus:ring-2 focus:ring-ring" />
+      </label>
+    )
+  } else if (control === 'code') {
+    input = (
+      <textarea {...common} value={value} rows={4} spellCheck={false} placeholder={text(values.placeholder)}
+        onChange={(event) => setValue(event.target.value)} onKeyDown={onKeyDown} className={cn(INPUT_CLASSES, 'font-mono')} />
+    )
+  } else if (control === 'file') {
+    input = <input {...common} type="file" className={INPUT_CLASSES} />
+  } else {
+    input = (
+      <input
+        {...common}
+        type={control}
+        value={value}
+        step={control === 'number' && field.type === 'DECIMAL' ? 'any' : undefined}
+        placeholder={text(values.placeholder)}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={onKeyDown}
+        className={INPUT_CLASSES}
+      />
+    )
+  }
+
   return (
     <div {...rootAttributes(block, widgetName)} className="mt-2">
       <BlockSlot block={block} slot="">
@@ -358,20 +437,7 @@ export function InputFieldBlock({ block, widgetName, actionCallback }: LeafBlock
             <label htmlFor={inputId}>{label}</label>
             {required && <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>}
           </span>
-          <input
-            id={inputId}
-            name={fieldName}
-            type={inputType(field.type)}
-            value={value}
-            placeholder={text(values.placeholder)}
-            autoFocus={values.autoFocus === true}
-            aria-required={required}
-            required={required}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={onKeyDown}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id={`block-input-field-${widgetName}-${fieldName}`}
-          />
+          {input}
         </span>
       </BlockSlot>
     </div>
@@ -392,6 +458,8 @@ export function ButtonBlock({ block, widgetName, actionCallback }: LeafBlockProp
   const color = blockColor(styles.color)
   const start = iconName(values.startIcon)
   const end = iconName(values.endIcon)
+  // the action code names the button; a button that only drives a modal is named by its control code
+  const buttonCode = text(values.actionCode) || text(values.controlCode)
   const variant = format === 'outlined' ? 'border bg-transparent' : format === 'text' ? 'border-0 bg-transparent' : 'border-0 text-white'
   const variantStyle: React.CSSProperties = format === 'outlined'
     ? { borderColor: color ?? 'currentColor', color }
@@ -405,7 +473,7 @@ export function ButtonBlock({ block, widgetName, actionCallback }: LeafBlockProp
           onClick={() => actionCallback?.(block, { ...values })}
           className={cn('inline-flex w-full items-center justify-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring', variant)}
           style={variantStyle}
-          data-qqq-id={`button-block-${widgetName}${text(values.actionCode) ? `-${text(values.actionCode)}` : ''}`}
+          data-qqq-id={`button-block-${widgetName}${buttonCode ? `-${buttonCode}` : ''}`}
         >
           {start && <WidgetIcon name={start} />}
           {text(values.label) ?? 'Button'}

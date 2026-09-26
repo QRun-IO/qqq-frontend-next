@@ -178,7 +178,8 @@ export default function SearchResultsPage() {
           <ul className="divide-y divide-border">
             {records.map((item) => (
               <li key={item.path}>
-                <Link href={item.path} className="flex items-center gap-3 px-6 py-3 text-sm transition-colors hover:bg-accent">
+                <Link href={item.path} className="flex items-center gap-3 px-6 py-3 text-sm transition-colors hover:bg-accent" data-qqq-id={`search-recent-${item.path.replace(/\//g, '-')}`}>
+                  <MetadataIcon icon={item.icon} kind="table" className="text-muted-foreground" />
                   <span className="font-medium text-foreground">{item.label}</span>
                   <span className="text-xs text-muted-foreground">{item.context}</span>
                 </Link>

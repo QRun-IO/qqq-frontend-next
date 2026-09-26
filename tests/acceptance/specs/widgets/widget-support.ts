@@ -193,3 +193,36 @@ export function parseCsv(text: string): string[][] {
   if (cell !== '' || row.length) { row.push(cell); rows.push(row) }
   return rows
 }
+
+/** A widget header dropdown (Material's searchable combobox), by its label. */
+export function dropdown(scope: Locator, label: string): Locator {
+  return scope.getByRole('combobox', { name: `Select ${label}` })
+}
+
+/** Opens a widget dropdown and returns its option labels, then closes it again. */
+export async function dropdownOptions(page: Page, scope: Locator, label: string): Promise<string[]> {
+  await dropdown(scope, label).click()
+  const options = page.getByRole('listbox', { name: `${label} options` }).getByRole('option')
+  await expect(options.first()).toBeVisible()
+  const labels = await options.allTextContents()
+  await dropdown(scope, label).press('Escape')
+  await expect(page.getByRole('listbox', { name: `${label} options` })).toHaveCount(0)
+  return labels
+}
+
+/** Chooses an option of a widget dropdown by its label (open, then click or tap the option). */
+export async function chooseOption(page: Page, scope: Locator, label: string, option: string) {
+  await dropdown(scope, label).click()
+  await page.getByRole('listbox', { name: `${label} options` }).getByRole('option', { name: option, exact: true }).click()
+  await expect(page.getByRole('listbox', { name: `${label} options` })).toHaveCount(0)
+}
+
+/** A day as the dashboard sends a date-picker selection: the browser's `toLocaleDateString()` (Material). */
+export async function localeDay(page: Page, year: number, month: number, day: number): Promise<string> {
+  return page.evaluate(([y, m, d]) => new Date(y, m - 1, d).toLocaleDateString(), [year, month, day])
+}
+
+/** The decoded value of one query parameter of a request URL. */
+export function requestParam(url: string, name: string): string | null {
+  return new URL(url).searchParams.get(name)
+}

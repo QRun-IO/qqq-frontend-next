@@ -40,6 +40,7 @@ import {
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { HighlightedCode } from '@/components/scripts/HighlightedCode'
+import { SeededWidget } from '@/components/widgets/ConnectedWidget'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -131,7 +132,19 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       </span>
     }
     if (rawValue === null || rawValue === undefined) return <EmptyValue fieldName={field.name} className={className} />
-    return <div className={className} data-qqq-id={dataQqqId}><WidgetRenderer widgetMetaData={widgetMetaData} data={rawValue} /></div>
+    // the full widget chrome (label, tooltip, help, icons, reload, export), as Material's FieldValueAsWidget
+    const primaryKey = tableMetaData ? record.values[tableMetaData.primaryKeyField] : undefined
+    const hasKey = primaryKey !== null && primaryKey !== undefined
+    return (
+      <div className={className} data-qqq-id={dataQqqId}>
+        <SeededWidget
+          widgetMetaData={widgetMetaData}
+          data={rawValue}
+          params={tableMetaData && hasKey ? { id: String(primaryKey), tableName: tableMetaData.name } : undefined}
+          recordContext={tableMetaData ? { tableName: tableMetaData.name, recordId: hasKey ? String(primaryKey) : undefined, record, tableMetaData } : undefined}
+        />
+      </div>
+    )
   }
 
   if (value === null || value === undefined || value === '') {

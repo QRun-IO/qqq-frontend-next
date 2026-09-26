@@ -92,6 +92,18 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(rendered.querySelector('b')).toHaveTextContent('Hi')
   })
 
+  it('renders a WIDGET value in the full widget chrome (label, tooltip, icons, export) as Material does', () => {
+    const widget = {
+      name: 'summary', label: 'Owned Summary', type: 'html', hasPermission: true, tooltip: 'Owned tip', showExportButton: true,
+      icons: { topRightInsideCard: { name: 'star', color: 'rgb(143, 0, 216)' } },
+    } as unknown as QWidgetMetaData
+    const rendered = show(field('summary', [{ type: 'WIDGET', values: { widgetName: 'summary' } }]), { summary: { type: 'html', html: '<b>Hi</b>', csvData: [['A'], ['1']] } }, {}, { summary: widget })
+    expect(rendered.querySelector('b')).toHaveTextContent('Hi')
+    expect(screen.getByRole('heading', { name: 'Owned Summary' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export Owned Summary' })).toBeInTheDocument()
+    expect(rendered.querySelector('[data-qqq-id="widget-icon-topRightInsideCard-summary"]')).toHaveAttribute('data-icon-name', 'star')
+  })
+
   it('reports a WIDGET adornment whose widget is not in the metadata', () => {
     show(field('missing', [{ type: 'WIDGET', values: { widgetName: 'nope' } }]), { missing: {} })
     expect(screen.getByRole('alert')).toHaveTextContent('Error: Could not load widget [nope]')

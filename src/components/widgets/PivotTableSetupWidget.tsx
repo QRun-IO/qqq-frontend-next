@@ -23,10 +23,12 @@
 import React from 'react'
 
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { WidgetPayloadNotice } from './WidgetNotice'
 import { parseJsonValue, recordValue, resolveFieldLabel } from './record-widget-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import type { WidgetComponentProps } from './widget-types'
+import { WidgetSlotHelp } from './WidgetSlotHelp'
 
 /** Payload of the `pivotTableSetup` widget (the default widget renderer's echo). */
 export interface PivotTableSetupPayload {
@@ -122,10 +124,14 @@ export function PivotTableSetupWidget({ widgetMetaData, recordContext }: WidgetC
   )
 
   return (
-    <dl className="space-y-3" data-qqq-id={`widget-pivotTableSetup-${widgetName}`}>
+    <div className="space-y-3" data-qqq-id={`widget-pivotTableSetup-${widgetName}`}>
+      {/* Material's "sectionSubhead" help slot, above the pivot table definition */}
+      <WidgetSlotHelp widgetMetaData={widgetMetaData} slot="sectionSubhead" roles={VIEW_SCREEN_HELP_ROLES} className="text-sm text-muted-foreground" />
+      <dl className="space-y-3" data-qqq-id={`pivot-definition-${widgetName}`}>
       {part('Rows', 'rows', rows.map((row) => label(row.fieldName)))}
       {part('Columns', 'columns', columns.map((column) => label(column.fieldName)))}
       {part('Values', 'values', values.map((value) => `${PIVOT_FUNCTION_LABELS[value.function ?? ''] ?? value.function ?? ''} of ${label(value.fieldName)}`.trim()))}
-    </dl>
+      </dl>
+    </div>
   )
 }

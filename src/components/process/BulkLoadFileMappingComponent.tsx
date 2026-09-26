@@ -32,7 +32,8 @@ import { AlertTriangle, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData } from '@/types'
 import { fetchProcessPossibleValues } from '@/lib/api/possible-values'
-import { selectHelpContent } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
+import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
 
 import { PossibleValueSelect } from '@/components/forms/PossibleValueSelect'
 import { HelpContent } from '@/components/records/HelpContent'
@@ -60,7 +61,6 @@ const LAYOUTS = [
   { id: 'WIDE', label: 'Wide' },
 ]
 
-const PROCESS_HELP_ROLES = ['PROCESS_SCREEN', 'ALL_SCREENS'] as const
 const DUPLICATE_HEADER_TOOLTIP = 'This column header is a duplicate. Only the first occurrence of it will be used.'
 
 const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11'
@@ -75,8 +75,10 @@ type FieldPatch = Partial<Pick<BulkLoadField, 'valueType' | 'columnIndex' | 'hea
  * @returns The help text, or `null` when the field has none.
  */
 function StepFieldHelp({ step, fieldName, id }: { step: QFrontendStepMetaData; fieldName: string; id: string }) {
+  const { processName } = useProcessStep()
+  const helpHelpActive = useHelpHelpActive()
   const field = step.formFields?.find((candidate) => candidate.name === fieldName)
-  const help = selectHelpContent(field?.helpContents, PROCESS_HELP_ROLES)
+  const help = selectSlotHelpContent(field?.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};field:${fieldName}`, helpHelpActive)
   if (!help) return null
   return (
     <p className="mt-1 text-sm text-muted-foreground" data-qqq-id={`bulk-load-help-${fieldName}`}>
@@ -89,10 +91,12 @@ function StepFieldHelp({ step, fieldName, id }: { step: QFrontendStepMetaData; f
  * Whether a step field has help for process screens (for `aria-describedby`).
  * @param step - The step.
  * @param fieldName - Field name.
+ * @param processName - Name used in the help-authoring key.
+ * @param helpHelpActive - Whether help-authoring mode is active.
  * @returns `true` when help is shown.
  */
-function hasStepFieldHelp(step: QFrontendStepMetaData, fieldName: string): boolean {
-  return Boolean(selectHelpContent(step.formFields?.find((candidate) => candidate.name === fieldName)?.helpContents, PROCESS_HELP_ROLES))
+function hasStepFieldHelp(step: QFrontendStepMetaData, fieldName: string, processName: string, helpHelpActive: boolean): boolean {
+  return Boolean(selectSlotHelpContent(step.formFields?.find((candidate) => candidate.name === fieldName)?.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};field:${fieldName}`, helpHelpActive))
 }
 
 /**
@@ -336,6 +340,7 @@ function FilePreview({ file, mapping }: { file: FileDescription; mapping: BulkLo
  */
 export function BulkLoadFileMappingComponent({ index }: BulkLoadFileMappingComponentProps) {
   const { values, isWorking, processName, tableMetaData, setStepLabel, step } = useProcessStep()
+  const helpHelpActive = useHelpHelpActive()
   const tableStructure = readTableStructure(values.tableStructure)
   const file = useMemo(() => new FileDescription(values.headerValues, values.headerLetters, values.bodyValuesPreview), [values.headerValues, values.headerLetters, values.bodyValuesPreview])
   const [mapping, setMapping] = useState<BulkLoadMapping | null>(() => tableStructure
@@ -419,7 +424,7 @@ export function BulkLoadFileMappingComponent({ index }: BulkLoadFileMappingCompo
   const unmappedKeys = mapping.unmappedKeyFieldLabels()
   const keyFieldsError = errors.keyFields || (unmappedKeys.length > 0 ? `The following key fields are not mapped: ${unmappedKeys.join(', ')}` : '')
   const keyFieldsLabel = step.formFields?.find((field) => field.name === 'tableKeyFields')?.label ?? 'Key Fields'
-  const describedBy = (fieldName: string, errorId?: string) => [hasStepFieldHelp(step, fieldName) ? `${helpId}-${fieldName}` : '', errorId ?? ''].filter(Boolean).join(' ') || undefined
+  const describedBy = (fieldName: string, errorId?: string) => [hasStepFieldHelp(step, fieldName, processName, helpHelpActive) ? `${helpId}-${fieldName}` : '', errorId ?? ''].filter(Boolean).join(' ') || undefined
 
   return (
     <div className="space-y-6" data-qqq-id={`process-bulk-load-file-mapping-${index}`}>

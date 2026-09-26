@@ -17,12 +17,39 @@
 // Tests for ChildRecordListWidget
 
 import React from 'react'
-import { describe, it, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { fireEvent, render as renderUi, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-import type { QWidgetMetaData } from '@/types'
-import { ChildRecordListWidget, addChildHref, childColumns, nextViewAllHref } from './ChildRecordListWidget'
+const instance = vi.hoisted(() => ({ value: { tables: {} as Record<string, unknown>, widgets: {} } }))
+vi.mock('@/lib/api/metadata', () => ({ loadMetaData: vi.fn(async () => instance.value) }))
+const downloads = vi.hoisted(() => ({ calls: [] as Array<[string, string]> }))
+vi.mock('./widget-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./widget-utils')>()),
+  downloadText: (fileName: string, text: string) => { downloads.calls.push([fileName, text]) },
+}))
+
+import type { QRecord, QWidgetMetaData } from '@/types'
+import {
+  ChildRecordListWidget, addChildHref, childColumns, childExportTitle, childRecordsCsv, listColumns, nextViewAllHref, shownColumns,
+} from './ChildRecordListWidget'
 import type { ChildRecordListPayload, ChildTableMetaData } from './ChildRecordListWidget'
+
+/**
+ * Renders with a query client (the widget reads the cached instance metadata).
+ *
+ * @param ui - Element to render.
+ * @returns The render result.
+ */
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderUi(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
+beforeEach(() => {
+  instance.value = { tables: {}, widgets: {} }
+  downloads.calls = []
+})
 
 const meta: QWidgetMetaData = { name: 'accWidgetHostJoinChild', label: 'Owned Children', type: 'childRecordList', hasPermission: true }
 
@@ -131,5 +158,119 @@ describe('ChildRecordListWidget', () => {
   it('maps Material view-all paths to the Next record query route', () => {
     expect(nextViewAllHref('/app/path/table?filter=x', 'table')).toBe('/app/table?filter=x')
     expect(nextViewAllHref('/app/path/table', 'table')).toBe('/app/table')
+  })
+})
+
+/** A child table with typed fields and an exposed join (the WID-072 fixture shape). */
+const typedChild: ChildTableMetaData = {
+  name: 'accExtraChild',
+  label: 'Extra Child',
+  primaryKeyField: 'id',
+  fields: {
+    id: { name: 'id', label: 'Id', type: 'INTEGER' },
+    hostId: { name: 'hostId', label: 'Host', type: 'INTEGER', possibleValueSourceName: 'accExtraHost' },
+    name: { name: 'name', label: 'Name', type: 'STRING' },
+    isActive: { name: 'isActive', label: 'Active', type: 'BOOLEAN' },
+    tagId: { name: 'tagId', label: 'Tag', type: 'INTEGER', possibleValueSourceName: 'accExtraTag' },
+  },
+  sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'hostId', 'name', 'isActive', 'tagId'] }],
+  exposedJoins: [{
+    label: 'Owned Tag',
+    joinTable: { name: 'accExtraTag', label: 'Extra Tag', primaryKeyField: 'id', fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' }, code: { name: 'code', label: 'Code', type: 'STRING' } },
+      sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'code'] }] },
+  }],
+}
+
+const typedRecords: QRecord[] = [
+  { tableName: 'accExtraChild', values: { id: 11, hostId: 1, name: 'Owned "quoted" child', isActive: true, tagId: 5, 'accExtraTag.id': 5, 'accExtraTag.code': 'OWN-5' },
+    displayValues: { hostId: 'Owned host', tagId: 'Owned tag five', isActive: 'Yes' } },
+  { tableName: 'accExtraChild', values: { id: 12, hostId: 1, name: 'Second child', isActive: false, tagId: null, 'accExtraTag.id': null, 'accExtraTag.code': null },
+    displayValues: { hostId: 'Owned host', isActive: 'No' } },
+]
+
+const typedPayload: ChildRecordListPayload = {
+  type: 'childRecordList',
+  queryOutput: { records: typedRecords },
+  childFrontendTableMetaData: typedChild,
+  totalRows: 5,
+  viewAllLink: '/extras/accExtraChild?filter=x',
+  canAddChildRecord: true,
+  defaultValuesForNewChildRecords: { hostId: 1 },
+  includeExposedJoinTables: ['accExtraTag'],
+  omitFieldNames: [],
+}
+
+const readable = (name: string) => name === 'accExtraTag'
+
+describe('ChildRecordListWidget Material parity (WID-072)', () => {
+  it('builds child and readable join columns, and hides the parent key only on screen', () => {
+    const all = listColumns(typedChild, typedPayload, readable)
+    expect(all.map((column) => [column.name, column.label])).toEqual([
+      ['id', 'Id'], ['hostId', 'Host'], ['name', 'Name'], ['isActive', 'Active'], ['tagId', 'Tag'],
+      ['accExtraTag.id', 'Owned Tag: Id'], ['accExtraTag.code', 'Owned Tag: Code'],
+    ])
+    expect(shownColumns(all, typedPayload).map((column) => column.name)).toEqual(['id', 'name', 'isActive', 'tagId', 'accExtraTag.id', 'accExtraTag.code'])
+    // a join the widget did not query, or the user may not read, adds nothing
+    expect(listColumns(typedChild, { ...typedPayload, includeExposedJoinTables: [] }, readable).map((column) => column.name)).not.toContain('accExtraTag.code')
+    expect(listColumns(typedChild, typedPayload, () => false).map((column) => column.name)).not.toContain('accExtraTag.code')
+    // omit and only apply to join columns too
+    expect(listColumns(typedChild, { ...typedPayload, omitFieldNames: ['accExtraTag.id'] }, readable).map((column) => column.name)).not.toContain('accExtraTag.id')
+    expect(listColumns(typedChild, { ...typedPayload, onlyIncludeFieldNames: ['id', 'accExtraTag.code'] }, readable).map((column) => column.name)).toEqual(['id', 'accExtraTag.code'])
+  })
+
+  it('writes the CSV Material writes: every cell quoted, display values first, the parent key included', () => {
+    const csv = childRecordsCsv(listColumns(typedChild, typedPayload, readable), typedRecords)
+    expect(csv).toBe(
+      '"Id","Host","Name","Active","Tag","Owned Tag: Id","Owned Tag: Code"\n'
+      + '"11","Owned host","Owned ""quoted"" child","Yes","Owned tag five","5","OWN-5"\n'
+      + '"12","Owned host","Second child","No","","",""\n'
+    )
+    expect(childExportTitle(2, 5, true)).toBe('Export these 2 records.\nClick View All to export all records.')
+    expect(childExportTitle(2, 5, false)).toBe('Export these 2 records.')
+    expect(childExportTitle(2, 2, true)).toBe('Export')
+  })
+
+  it('renders typed cells with possible-value links, join columns and a row click that opens the child', async () => {
+    instance.value = { tables: { accExtraChild: { name: 'accExtraChild', label: 'Extra Child' }, accExtraTag: { name: 'accExtraTag', label: 'Extra Tag', readPermission: true } }, widgets: {} }
+    const meta: QWidgetMetaData = { name: 'accExtraChildren', label: 'Owned Extra Children', type: 'childRecordList', hasPermission: true, showExportButton: true }
+    const { container } = render(<ChildRecordListWidget widgetMetaData={meta} data={typedPayload} />)
+    const table = screen.getByRole('table', { name: 'Owned Extra Children' })
+    await waitFor(() => expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Id', 'Name', 'Active', 'Tag', 'Owned Tag: Id', 'Owned Tag: Code']))
+    const row = container.querySelector('[data-qqq-id="child-record-row-accExtraChildren-11"]') as HTMLElement
+    expect(within(row).getByRole('link', { name: 'Owned tag five' })).toHaveAttribute('href', '/app/accExtraTag/5')
+    expect(row.querySelector('[data-qqq-id="child-record-cell-accExtraChildren-isActive"]')).toHaveTextContent('Yes')
+    expect(row.querySelector('[data-qqq-id="child-record-cell-accExtraChildren-accExtraTag.code"]')).toHaveTextContent('OWN-5')
+    // a click anywhere on the row follows its record link; clicks on other links keep their own target
+    const recordLink = within(row).getByRole('link', { name: '11' })
+    const followed = vi.fn((event: Event) => event.preventDefault())
+    recordLink.addEventListener('click', followed)
+    fireEvent.click(row.querySelector('[data-qqq-id="child-record-cell-accExtraChildren-name"]') as HTMLElement)
+    expect(followed).toHaveBeenCalledTimes(1)
+    const tagLink = within(row).getByRole('link', { name: 'Owned tag five' })
+    tagLink.addEventListener('click', (event) => event.preventDefault())
+    fireEvent.click(tagLink)
+    expect(followed).toHaveBeenCalledTimes(1)
+  })
+
+  it('exports the shown rows with every column from the Export button', async () => {
+    instance.value = { tables: { accExtraTag: { name: 'accExtraTag', label: 'Extra Tag' } }, widgets: {} }
+    const meta: QWidgetMetaData = { name: 'accExtraChildren', label: 'Owned Extra Children', type: 'childRecordList', hasPermission: true, showExportButton: true }
+    render(<ChildRecordListWidget widgetMetaData={meta} data={typedPayload} />)
+    const button = screen.getByRole('button', { name: 'Export these 2 records. Click View All to export all records.' })
+    await waitFor(() => expect(screen.getAllByRole('columnheader')).toHaveLength(6))
+    fireEvent.click(button)
+    expect(downloads.calls).toHaveLength(1)
+    expect(downloads.calls[0][0]).toMatch(/^Owned Extra Children \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    expect(downloads.calls[0][1].split('\n')[0]).toBe('"Id","Host","Name","Active","Tag","Owned Tag: Id","Owned Tag: Code"')
+  })
+
+  it('offers no Export without showExportButton and disables it without rows; no row click when disabled', () => {
+    const meta: QWidgetMetaData = { name: 'accExtraChildren', label: 'Owned Extra Children', type: 'childRecordList', hasPermission: true }
+    const { rerender, container } = render(<ChildRecordListWidget widgetMetaData={meta} data={{ ...typedPayload, disableRowClick: true }} />)
+    expect(screen.queryByRole('button', { name: /Export/ })).not.toBeInTheDocument()
+    expect(container.querySelector('[data-row-link]')).toBeNull()
+    const client = new QueryClient()
+    rerender(<QueryClientProvider client={client}><ChildRecordListWidget widgetMetaData={{ ...meta, showExportButton: true }} data={{ ...typedPayload, queryOutput: { records: [] } }} /></QueryClientProvider>)
+    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
   })
 })

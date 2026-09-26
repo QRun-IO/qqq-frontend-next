@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 // Override next/navigation for this file so we can control pathname per test
@@ -33,6 +33,7 @@ vi.mock('next/navigation', () => ({
 import Sidebar from './Sidebar'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
+import { md5Hex } from '@/lib/utils/gravatar'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -457,5 +458,24 @@ describe('Sidebar', () => {
       await userEvent.setup().click(profile as HTMLElement)
       expect(screen.getByRole('menuitem', { name: 'Log Out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
     })
+  })
+
+  // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
+
+  it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
+    render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)
+    expect(document.querySelector('[data-qqq-id="sidebar-user-name"]')).toHaveTextContent('Anonymous')
+    expect(document.querySelector('[data-qqq-id="sidebar-user-email"]')).toHaveTextContent('ann@example.com')
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')?.tagName).toBe('DIV')
+    expect(document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')).toBeNull()
+  })
+
+  it('shows the Gravatar when the branding declares gravatarDefault, and the initial if it fails', () => {
+    const branding: QBrandingMetaData = { companyName: '', companyUrl: '', appName: 'QQQ', gravatarDefault: 'identicon' }
+    render(<Sidebar routes={leafRoutes} branding={branding} userName="Avery" userEmail="avery@example.com" logout={vi.fn()} />)
+    const avatar = document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')!
+    expect(avatar).toHaveAttribute('src', `https://www.gravatar.com/avatar/${md5Hex('avery@example.com')}?d=identicon`)
+    fireEvent.error(avatar)
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
   })
 })

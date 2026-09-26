@@ -53,6 +53,7 @@ import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/ut
 import { launchTableName } from '@/lib/utils/process-utils'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 import { recordAnalytics } from '@/lib/analytics'
+import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
@@ -432,6 +433,15 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen(true)
     else if (!rq.filter.filterPanelOpen) rq.filter.toggleFilterPanel()
   }, [rq, setMobileFilterOpen])
+
+  // A new page or page size starts at the top of the page (Material RecordQuery)
+  const pageKey = `${rq.pagination.pageNum}:${rq.pagination.pageSize}`
+  const shownPageKey = useRef(pageKey)
+  useEffect(() => {
+    if (shownPageKey.current === pageKey) return
+    shownPageKey.current = pageKey
+    scrollPageToTop()
+  }, [pageKey])
   const handleFilterToggle = useCallback(() => {
     if (rq.filter.filterMode === 'basic') {
       openAdvancedFilters()

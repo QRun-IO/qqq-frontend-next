@@ -33,8 +33,9 @@ import React, { useEffect } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
-import { addRecentRecord } from '@/lib/utils/recent-records'
+import { addRecentRecord, removeRecentRecord } from '@/lib/utils/recent-records'
 import { recordAnalytics } from '@/lib/analytics'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
@@ -141,9 +142,16 @@ export default function RecordViewPage() {
         recordId: String(record.values[tableMetaData.primaryKeyField]),
         recordLabel: record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`,
         path: `/app/${tableMetaData.name}/${record.values[tableMetaData.primaryKeyField]}`,
+        tableIcon: tableMetaData.icon,
       })
     }
   }, [record, tableMetaData])
+
+  // A record that no longer exists (404) or may no longer be viewed (403) leaves the recents (Material HistoryUtils)
+  const recordStatus = isError ? getErrorStatusCode(error) : undefined
+  useEffect(() => {
+    if (recordStatus === 404 || recordStatus === 403) removeRecentRecord(slug, recordId)
+  }, [recordStatus, slug, recordId])
 
   if (metaData && scopedProcess) {
     const search = typeof window === 'undefined' ? '' : window.location.search

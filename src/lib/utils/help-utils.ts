@@ -46,3 +46,50 @@ export function selectHelpContent(helpContents: QHelpContent[] | undefined, role
   }
   return entries.find((entry) => !entry.roles || entry.roles.length === 0)
 }
+
+/** Roles of widget help slots, most specific first (Material widgets use the view screen's). */
+export const WIDGET_HELP_ROLES = VIEW_SCREEN_HELP_ROLES
+/** Roles of process screens (steps and bulk-load mapping fields), most specific first. */
+export const PROCESS_SCREEN_HELP_ROLES = ['PROCESS_SCREEN', 'ALL_SCREENS'] as const
+
+/**
+ * Escapes text for inclusion in HTML help content.
+ *
+ * @param text - Plain text.
+ * @returns The text with HTML special characters escaped.
+ */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)
+}
+
+/**
+ * Picks the help content for a help slot, as {@link selectHelpContent} does, and in Material's
+ * help-authoring mode (`?helpHelp`, QContext `helpHelpActive`) appends the slot's key (for
+ * example `[table:person;field:email]`), returning an entry for every slot, even one without
+ * content, so help authors can see where help may be declared.
+ *
+ * Keys follow Material's `helpContentKey`: `table:{t};field:{f}`, `table:{t};section:{s}`,
+ * `process:{p};step:{s}`, `process:{p};field:{f}`, `widget:{w};slot:{s}`, `app:{a};slot:{s}`
+ * and `instanceLevel:true;slot:{s}`.
+ *
+ * @param helpContents - The declared entries (field, section or slot).
+ * @param roles - The screen's roles, most specific first.
+ * @param helpKey - The slot's key.
+ * @param helpHelpActive - Whether help-authoring mode is on.
+ * @returns The entry to show, or `undefined` when none applies and the mode is off.
+ */
+export function selectSlotHelpContent(
+  helpContents: QHelpContent[] | undefined,
+  roles: readonly string[],
+  helpKey: string | undefined,
+  helpHelpActive: boolean
+): QHelpContent | undefined {
+  const selected = selectHelpContent(helpContents, roles)
+  if (!helpHelpActive) return selected
+  const suffix = `[${helpKey ?? '?'}]`
+  if (!selected) return { content: suffix, format: 'TEXT' }
+  const format = selected.format ?? 'TEXT'
+  if (format === 'HTML') return { ...selected, content: `${selected.content} ${escapeHtml(suffix)}` }
+  if (format === 'MARKDOWN') return { ...selected, content: `${selected.content} ${suffix}`, contentAsHtml: `${selected.contentAsHtml ?? ''} ${escapeHtml(suffix)}` }
+  return { ...selected, content: `${selected.content} ${suffix}` }
+}

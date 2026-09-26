@@ -949,6 +949,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         record={record}
         showReadOnlyFields={isEdit}
         helpRoles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES}
+        helpKeyPrefix={`table:${tableMetaData.name};`}
         enforceMaxLength={false}
         widgets={widgets}
         renderWidgetSection={renderWidgetSection}

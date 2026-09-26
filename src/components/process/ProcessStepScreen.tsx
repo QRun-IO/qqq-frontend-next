@@ -27,7 +27,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
@@ -35,6 +34,9 @@ import type { ProcessFiles } from '@/lib/api/processes'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
+import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
+import { HelpContent } from '@/components/records/HelpContent'
 
 import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
@@ -141,19 +143,20 @@ function sameFields(a: QFieldMetaData[], b: QFieldMetaData[]): boolean {
 }
 
 /**
- * Step help text for process screens (roles PROCESS_SCREEN or ALL_SCREENS, or none).
- * @param step - The screen.
+ * Step help text for process screens: the entry for the PROCESS_SCREEN or ALL_SCREENS role (or
+ * one without roles), in its format; in help-authoring mode with the `process:{p};step:{s}` key.
+ * @param props - Component properties.
+ * @param props.step - The screen.
+ * @param props.processName - The process, for the help key.
  * @returns The help element, or `null`.
  */
-function StepHelp({ step }: { step: QFrontendStepMetaData }) {
-  const contents = (step.helpContents ?? []).filter((help) => help.content && (!help.roles?.length || help.roles.some((role) => role === 'PROCESS_SCREEN' || role === 'ALL_SCREENS')))
-  if (contents.length === 0) return null
+function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processName: string }) {
+  const help = selectSlotHelpContent(step.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};step:${step.name}`, useHelpHelpActive())
+  if (!help) return null
   return (
-    <div className="space-y-1 text-sm text-muted-foreground" data-qqq-id="process-step-help">
-      {contents.map((help, index) => help.format === 'HTML'
-        ? <div key={index} dangerouslySetInnerHTML={{ __html: sanitizeHtml(help.content ?? '') }} />
-        : <p key={index}>{help.content}</p>)}
-    </div>
+    <p className="text-sm text-muted-foreground" data-qqq-id="process-step-help">
+      <HelpContent helpContent={help} />
+    </p>
   )
 }
 
@@ -311,7 +314,7 @@ export function ProcessStepScreen({
           )}
         </div>
         <div className="space-y-6 p-6">
-          <StepHelp step={step} />
+          <StepHelp step={step} processName={processName} />
           <ProcessCompositeHost>
             {components.map((component, componentIndex) => (
               <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>

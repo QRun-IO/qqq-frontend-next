@@ -19,7 +19,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { QWidgetMetaData } from '@/types'
-import { normalizeQqqChart, QqqChartWidget } from './QqqChartWidget'
+import { needsRotatedLabels, normalizeQqqChart, QqqChartWidget, resolveChartColor, THEME_CHART_COLORS } from './QqqChartWidget'
 import type { QqqChartVariant } from './QqqChartWidget'
 import type { QqqChartPayload } from './widget-types'
 
@@ -187,7 +187,12 @@ describe('QqqChartWidget', () => {
     expect(canvas.style.height).toBe('140px')
     expect(container.querySelector('[data-qqq-id="chart-title-SampleSmallLineChartWidget"]')?.textContent).toBe('Small Line Chart')
     expect(container.querySelectorAll('circle.qqq-chart-point')).toHaveLength(5)
-    expect(container.querySelector('.recharts-cartesian-grid')).toBeNull()
+    // Material's small line chart keeps its y ticks and a dashed horizontal grid, without vertical lines
+    expect(container.querySelector('.recharts-cartesian-grid-horizontal')).not.toBeNull()
+    expect(container.querySelector('.recharts-cartesian-grid-vertical')).toBeNull()
+    expect(container.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick').length).toBeGreaterThan(1)
+    // a single-series small line chart has no legend (Material)
+    expect(container.querySelector('[data-qqq-id="chart-legend-SampleSmallLineChartWidget"]')).toBeNull()
   })
 
   it('draws a pie with slice colors, a value legend and the subheader', () => {
@@ -263,5 +268,86 @@ describe('QqqChartWidget', () => {
   it('shows a contained notice instead of throwing for malformed payloads', () => {
     draw('bar', { type: 'chart', chartData: { invalidShape: true } as unknown as QqqChartPayload['chartData'] }, 'accMalformedChart')
     expect(screen.getByRole('alert')).toHaveTextContent('The chart widget data is not in the expected format (chartData.labels).')
+  })
+})
+
+describe('QqqChartWidget Material chart extras (#728)', () => {
+  it('resolves Material theme color names and passes other colors through', () => {
+    expect(resolveChartColor('info')).toBe(THEME_CHART_COLORS.info)
+    expect(resolveChartColor('success')).toBe('#43A047')
+    expect(resolveChartColor('#123456')).toBe('#123456')
+    expect(resolveChartColor('rebeccapurple')).toBe('rebeccapurple')
+    expect(resolveChartColor(null)).toBeNull()
+  })
+
+  it('fills pie slices from theme color names and draws a full pie', () => {
+    const { container } = draw('pie', {
+      chartData: { labels: ['A', 'B', 'C'], datasets: [{ label: 'S', data: [1, 2, 3], backgroundColors: ['info', 'success', '#ABCDEF'] }] },
+    }, 'named')
+    const sectors = Array.from(container.querySelectorAll('.recharts-pie-sector path'))
+    expect(sectors.map((sector) => sector.getAttribute('fill'))).toEqual(['#0062FF', '#43A047', '#ABCDEF'])
+    // a full pie: each sector closes at the center (480 x 240 canvas), there is no inner arc
+    for (const sector of sectors) expect(sector.getAttribute('d')?.replace(/\s+/g, ' ')).toMatch(/L 240,120 Z$/)
+  })
+
+  it('toggles a pie slice from its legend button', () => {
+    const { container } = draw('pie', {
+      chartData: { labels: ['A', 'B', 'C'], datasets: [{ label: 'S', data: [1, 2, 3], backgroundColors: ['#FF0000', '#00FF00', '#0000FF'] }] },
+    }, 'togglePie')
+    const legendButton = screen.getByRole('button', { name: 'B: 2' })
+    expect(legendButton).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(legendButton)
+    expect(legendButton).toHaveAttribute('aria-pressed', 'false')
+    expect(legendButton).toHaveAttribute('data-hidden', 'true')
+    expect(Array.from(container.querySelectorAll('.recharts-pie-sector path')).map((sector) => sector.getAttribute('fill'))).toEqual(['#FF0000', '#0000FF'])
+    fireEvent.click(legendButton)
+    expect(container.querySelectorAll('.recharts-pie-sector path')).toHaveLength(3)
+    // the data table keeps every value
+    expect(tableRows('togglePie')).toEqual([['A', '1'], ['B', '2'], ['C', '3']])
+  })
+
+  it('uses the singular backgroundColor of stacked datasets, shows a legend for one series and hides a series by legend', () => {
+    const { container } = draw('stackedBar', {
+      chartData: { labels: ['North', 'South'], datasets: [{ label: 'Owned first', data: [3, 4], backgroundColor: 'warning' }] },
+    }, 'singular')
+    expect(Array.from(container.querySelectorAll('.recharts-bar-rectangle path')).map((bar) => bar.getAttribute('fill'))).toEqual(['#FB8C00', '#FB8C00'])
+    const legend = container.querySelector('[data-qqq-id="chart-legend-singular"]') as HTMLElement
+    expect(legend.textContent).toBe('Owned first')
+    // whole-number ticks on the right
+    const yAxis = container.querySelector('.recharts-yAxis') as SVGGElement
+    expect(yAxis.querySelector('.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick')).not.toBeNull()
+    const ticks = Array.from(yAxis.querySelectorAll('.recharts-cartesian-axis-tick-value')).map((tick) => tick.textContent ?? '')
+    expect(ticks.every((tick) => /^-?[\d,]+$/.test(tick))).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Owned first' }))
+    expect(container.querySelectorAll('.recharts-bar-rectangle path')).toHaveLength(0)
+  })
+
+  it('always shows a horizontal bar legend and a line chart names its series above the chart', () => {
+    const hbar = draw('horizontalBar', { chartData: { labels: ['A'], datasets: [{ label: 'Only series', data: [5] }] } }, 'hbar')
+    expect(hbar.container.querySelector('[data-qqq-id="chart-legend-hbar"]')?.textContent).toBe('Only series')
+    hbar.unmount()
+    const line = draw('line', { chartData: { labels: ['A', 'B'], datasets: [{ label: 'Units', data: [1, 2] }] } }, 'badges')
+    const legend = line.container.querySelector('[data-qqq-id="chart-legend-badges"]') as HTMLElement
+    const canvas = line.container.querySelector('[data-qqq-id="chart-canvas-badges"]') as HTMLElement
+    expect(legend.textContent).toBe('Units')
+    // the badges come before the drawing
+    expect(legend.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Units' }))
+    expect(line.container.querySelectorAll('circle.qqq-chart-point')).toHaveLength(0)
+  })
+
+  it('ends a barChart widget with the As of date line', () => {
+    render(<QqqChartWidget widgetMetaData={{ name: 'asOf', label: 'As Of', hasPermission: true, type: 'barChart' }} data={sampleBar} variant="bar" />)
+    const line = document.querySelector('[data-qqq-id="chart-as-of-asOf"]') as HTMLElement
+    expect(line.textContent).toBe(`As of ${new Date().toDateString()}`)
+    // other bar charts (the untyped chart output) have none
+    draw('bar', sampleBar, 'untyped')
+    expect(document.querySelector('[data-qqq-id="chart-as-of-untyped"]')).toBeNull()
+  })
+
+  it('rotates category labels only when they do not fit', () => {
+    expect(needsRotatedLabels(['Jan', 'Feb'], 400)).toBe(false)
+    expect(needsRotatedLabels(Array.from({ length: 12 }, (_, i) => `A long category ${i}`), 400)).toBe(true)
+    expect(needsRotatedLabels([], 400)).toBe(false)
   })
 })

@@ -26,7 +26,8 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import type { QFieldMetaData } from '@/types'
 import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
-import { selectHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from './HelpContent'
 
 interface FieldLabelProps {
@@ -42,6 +43,8 @@ interface FieldLabelProps {
   id?: string
   /** Screen roles used to choose the help entry, most specific first (defaults to the view screen). */
   helpRoles?: readonly string[]
+  /** Help slot key shown in help-authoring mode (`?helpHelp`), e.g. `table:person;field:email`. */
+  helpKey?: string
 }
 
 /**
@@ -62,8 +65,9 @@ export function FieldLabel({
   'data-qqq-id': dataQqqId,
   id,
   helpRoles = VIEW_SCREEN_HELP_ROLES,
+  helpKey,
 }: FieldLabelProps) {
-  const helpContent = selectHelpContent(field.helpContents, helpRoles)
+  const helpContent = selectSlotHelpContent(field.helpContents, helpRoles, helpKey, useHelpHelpActive())
   const tooltipState = useFocusSafeTooltip()
 
   if (!helpContent) {

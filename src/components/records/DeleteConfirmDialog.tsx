@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { forgetDeletedRecord } from '@/lib/utils/record-cache'
 import { isWarningMessage } from '@/lib/utils/save-warning'
+import { removeRecentRecord } from '@/lib/utils/recent-records'
 import { toast } from '@/lib/hooks/use-toast'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 
@@ -76,6 +77,7 @@ export function DeleteConfirmDialog({
   async function finishDelete(warning?: string) {
     // #541: never refetch the deleted record while its view is still mounted.
     await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
+    removeRecentRecord(tableMetaData.name, primaryKey)
     toast.success(`${recordLabel} deleted successfully.`)
     if (warning) toast.warning(warning, { duration: 10_000 })
     onDeleted()

@@ -37,7 +37,8 @@ import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
-import { selectHelpContent } from '@/lib/utils/help-utils'
+import { selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from '@/components/records/HelpContent'
 
 import { TextField } from './field-types/TextField'
@@ -57,6 +58,8 @@ import { ScriptEditor, scriptEditorLanguage } from './ScriptEditor'
 interface DynamicFormFieldProps {
   /** Metadata describing the field to render. */
   field: QFieldMetaData
+  /** Help slot key shown in help-authoring mode (`?helpHelp`), e.g. `table:person;field:email`. */
+  helpKey?: string
   /** Distinguishes inputs when multiple draft records render the same field. */
   idPrefix?: string
   /** React Hook Form register function from the parent `useForm` instance. */
@@ -184,7 +187,6 @@ function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { fiel
  * @returns The children, optionally wrapped in an aria-describedby container.
  */
 function FieldWithHelp({
-  field,
   helpId,
   children,
 }: {
@@ -192,16 +194,15 @@ function FieldWithHelp({
   children: React.ReactNode
   helpId?: string
 }) {
-  const hasHelp = field.helpContents && field.helpContents.length > 0 && field.helpContents[0]?.content
-
-  if (!hasHelp) {
+  // helpId is set exactly when help applies (in help-authoring mode, for every field)
+  if (!helpId) {
     return <>{children}</>
   }
 
   return (
     <div
       className="relative"
-      aria-describedby={helpId ?? `field-help-content-${field.name}`}
+      aria-describedby={helpId}
     >
       {children}
     </div>
@@ -266,7 +267,9 @@ export function DynamicFormField({
   enforceMaxLength = true,
   onFieldBlur,
   displayValueOverrides,
+  helpKey,
 }: DynamicFormFieldProps) {
+  const helpHelpActive = useHelpHelpActive()
   if (field.isHidden) return null
   if (!field.isEditable && !disabled && !showReadOnly) return null
 
@@ -276,7 +279,7 @@ export function DynamicFormField({
   const dataQqqId = field.name
 
   const roles = helpRoles ?? (possibleValueContext?.type === 'process' ? PROCESS_SCREEN_ROLES : ALL_SCREEN_ROLES)
-  const helpContent = selectHelpContent(field.helpContents, roles)
+  const helpContent = selectSlotHelpContent(field.helpContents, roles, helpKey ?? `field:${field.name}`, helpHelpActive)
   const hasHelp = Boolean(helpContent)
   const helpDescribedBy = hasHelp ? `${idPrefix ? `${idPrefix}-` : ''}field-help-content-${field.name}` : undefined
   // Text-like inputs: a form adjuster runs when the input loses focus (Material's blur handler).

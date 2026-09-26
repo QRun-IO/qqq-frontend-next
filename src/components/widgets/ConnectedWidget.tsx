@@ -37,9 +37,11 @@ import { WidgetBlock } from './WidgetBlock'
 import type { WidgetChromeData, WidgetDropdownControl } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
 import {
-  downloadText, dropdownStorageKey, plainText, storedDropdownParams, widgetCsvToString, widgetExportFileName,
-  writeStoredSelection,
+  CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, storedDropdownParams, widgetCsvToString,
+  widgetExportFileName, writeStoredSelection,
 } from './widget-utils'
+import { tableExportCsv } from './table-widget-utils'
+import type { TableWidgetColumn } from './table-widget-utils'
 
 /** Props accepted by the ConnectedWidget component. */
 interface ConnectedWidgetProps {
@@ -105,24 +107,29 @@ function resolveDropdowns(data: DropdownPayload | undefined, widgetMetaData: QWi
       options,
       value: selections[name] ?? null,
       labelForNullValue: meta?.labelForNullValue,
+      hasDefault: Array.isArray(data?.dropdownDefaultValueList) && data.dropdownDefaultValueList[index] !== undefined && data.dropdownDefaultValueList[index] !== null,
+      width: meta?.width,
+      startIconName: meta?.startIconName,
+      allowBackAndForth: meta?.allowBackAndForth,
+      backAndForthInverted: meta?.backAndForthInverted,
+      disableClearable: meta?.disableClearable,
     }]
   })
 }
 
 /**
- * CSV rows for export: the payload's `csvData`, else a table payload's columns and rows.
+ * CSV text for export: the payload's `csvData`, else (a table payload) the CSV the Material
+ * table widget builds from its columns and rows, without icon glyphs or button text.
  *
  * @param data - Widget payload.
- * @returns Rows of cells, or null when there is nothing to export.
+ * @returns CSV text, or null when there is nothing to export.
  */
-function exportRows(data: DropdownPayload | undefined): unknown[][] | null {
-  if (Array.isArray(data?.csvData) && data.csvData.every((row) => Array.isArray(row))) return data.csvData as unknown[][]
+function exportCsv(data: DropdownPayload | undefined): string | null {
+  if (Array.isArray(data?.csvData) && data.csvData.every((row) => Array.isArray(row))) return widgetCsvToString(data.csvData as unknown[][])
   if (Array.isArray(data?.columns) && Array.isArray(data?.rows) && data.rows.length > 0) {
-    const columns = data.columns.filter((column): column is { header?: string; accessor?: string } => Boolean(column) && typeof column === 'object')
-    return [
-      columns.map((column) => column.header ?? column.accessor ?? ''),
-      ...data.rows.map((row) => columns.map((column) => plainText((row as Record<string, unknown>)?.[column.accessor ?? '']))),
-    ]
+    const columns = data.columns.filter((column): column is TableWidgetColumn => Boolean(column) && typeof column === 'object')
+    const rows = data.rows.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+    return tableExportCsv(columns, rows)
   }
   return null
 }
@@ -168,7 +175,9 @@ export function ConnectedWidget({
         if (meta?.type === 'DATE_PICKER') return
         const ids = (Array.isArray(lists[index]) ? lists[index] : []).map((option: { id?: unknown }) => String(option?.id))
         const selected = current[name]
-        if (selected && !ids.includes(selected)) {
+        // a custom timeframe range (custom,<start>,<end>) is offered by the timeframe's custom option
+        const offered = selected && (ids.includes(selected) || (name === TIMEFRAME_DROPDOWN && ids.includes(CUSTOM_TIMEFRAME) && selected.startsWith(`${CUSTOM_TIMEFRAME},`)))
+        if (selected && !offered) {
           next = { ...next, [name]: null }
           if (widgetMetaData.storeDropdownSelections) writeStoredSelection(dropdownStorageKey(widgetMetaData.name, name), null)
         } else if ((selected === undefined) && defaults[index] !== undefined && defaults[index] !== null && ids.includes(String(defaults[index]))) {
@@ -187,13 +196,13 @@ export function ConnectedWidget({
   }, [widgetMetaData.name, widgetMetaData.storeDropdownSelections])
 
   const handleExport = useCallback(() => {
-    const rows = exportRows(payload)
-    if (!rows) {
+    const csv = exportCsv(payload)
+    if (csv === null) {
       setExportMessage('There is no data available to export.')
       return
     }
     setExportMessage(null)
-    downloadText(widgetExportFileName(typeof payload?.label === 'string' ? payload.label : widgetMetaData.label), widgetCsvToString(rows))
+    downloadText(widgetExportFileName(typeof payload?.label === 'string' ? payload.label : widgetMetaData.label), csv)
   }, [payload, widgetMetaData.label])
 
   const handleReload = useCallback(() => { void refetch() }, [refetch])
@@ -239,7 +248,8 @@ export function ConnectedWidget({
       isError={isError}
       error={error}
       onReload={handleReload}
-      onExport={handleExport}
+      // each table of a multi-table widget has its own export button (Material parity)
+      onExport={payload?.type === 'multiTable' ? undefined : handleExport}
       exportMessage={exportMessage}
       dropdowns={dropdowns}
       onDropdownChange={handleDropdownChange}
@@ -260,6 +270,67 @@ export function ConnectedWidget({
           onWidgetData={onWidgetData}
         />
       )}
+    </WidgetBlock>
+  )
+}
+
+/** Props accepted by {@link SeededWidget}. */
+interface SeededWidgetProps {
+  /** Widget metadata. */
+  widgetMetaData: QWidgetMetaData
+  /** The payload the widget starts with (for example a WIDGET-adorned field's value). */
+  data: unknown
+  /** Request parameters for a reload (the hosting record's `id` and `tableName`). */
+  params?: Record<string, string | number | boolean>
+  /** Record context when rendered inside a record view. */
+  recordContext?: WidgetRecordContext
+  /** Extra classes for the widget container. */
+  className?: string
+}
+
+/**
+ * Renders a widget from a payload it already has, in the full widget chrome (label, tooltip,
+ * help, icons, footer, export and reload), as Material renders a WIDGET field adornment
+ * (`initialWidgetDataList`). Reload fetches the widget from the backend and shows that data.
+ *
+ * @param props - See {@link SeededWidgetProps}.
+ * @returns The widget.
+ */
+export function SeededWidget({ widgetMetaData, data, params, recordContext, className }: SeededWidgetProps) {
+  const [reloaded, setReloaded] = useState(false)
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
+  const query = useWidget(widgetMetaData.name, params, { enabled: reloaded && canViewWidget(widgetMetaData) })
+  const payload = (reloaded && query.data ? query.data : data) as (WidgetData & DropdownPayload) | undefined
+  const { refetch } = query
+
+  const handleReload = useCallback(() => {
+    if (reloaded) void refetch()
+    else setReloaded(true)
+  }, [reloaded, refetch])
+
+  const handleExport = useCallback(() => {
+    const csv = exportCsv(payload)
+    if (csv === null) {
+      setExportMessage('There is no data available to export.')
+      return
+    }
+    setExportMessage(null)
+    downloadText(widgetExportFileName(typeof payload?.label === 'string' ? payload.label : widgetMetaData.label), csv)
+  }, [payload, widgetMetaData.label])
+
+  return (
+    <WidgetBlock
+      widgetMetaData={widgetMetaData}
+      data={payload as WidgetChromeData | undefined}
+      isFetching={query.isFetching}
+      isError={reloaded && query.isError}
+      error={query.error}
+      onReload={handleReload}
+      onExport={handleExport}
+      exportMessage={exportMessage}
+      className={className}
+    >
+      {payload && <WidgetRenderer widgetMetaData={widgetMetaData} data={payload} recordContext={recordContext} onReload={handleReload} />}
     </WidgetBlock>
   )
 }

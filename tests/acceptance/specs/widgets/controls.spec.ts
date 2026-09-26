@@ -9,7 +9,9 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
-import { downloadText, expectLoaded, widget, widgetBody } from './widget-support'
+import {
+  chooseOption, downloadText, dropdown, dropdownOptions, expectLoaded, localeDay, requestParam, widget, widgetBody,
+} from './widget-support'
 
 const EXPECTED_CSV = '"Label","Value"\n"A,""B""",7\n"Beta","0"\n'
 const CHOICE_KEY = 'qqq.widgets.dropdownData.accControls.accChoice'
@@ -33,14 +35,16 @@ test('[WID-049] required dropdowns wait with the backend message, then children 
   await openControls(page)
   await expect(page.locator('[data-qqq-id="widget-needs-selection-accControls"]')).toHaveText('Please select a Choice and Day from the dropdowns above.')
   await expect(widget(page, 'accControlValues')).toHaveCount(0)
-  const choice = widget(page, 'accControls').getByLabel('Select Choice')
-  expect(await choice.locator('option').allTextContents()).toEqual(['Select Choice', 'Alpha', 'Beta'])
+  const controls = widget(page, 'accControls')
+  await expect(dropdown(controls, 'Choice')).toHaveAttribute('placeholder', 'Select Choice')
+  expect(await dropdownOptions(page, controls, 'Choice')).toEqual(['Alpha', 'Beta'])
   const request = page.waitForRequest((candidate) => candidate.url().includes('/widget/accControls?') && candidate.url().includes('accChoice=beta'))
-  await choice.selectOption('beta')
+  await chooseOption(page, controls, 'Choice', 'Beta')
   await request
   await expect(page.locator('[data-qqq-id="widget-needs-selection-accControls"]')).toHaveText('Please select a Day from the dropdown above.')
-  await widget(page, 'accControls').getByLabel('Select Day').fill('2026-09-24')
-  await expect(widgetBody(page, 'accControlValues')).toContainText('choice=beta; day=2026-09-24; renders=')
+  await controls.getByLabel('Select Day').fill('2026-09-24')
+  // Material sends the day's toLocaleDateString()
+  await expect(widgetBody(page, 'accControlValues')).toContainText(`choice=beta; day=${await localeDay(page, 2026, 9, 24)}; renders=`)
 })
 
 test('[WID-048] a DATE_PICKER dropdown sends the chosen date to the renderer @mobile', async ({ page, diagnostics }) => {
@@ -48,33 +52,36 @@ test('[WID-048] a DATE_PICKER dropdown sends the chosen date to the renderer @mo
   await openControls(page)
   const day = widget(page, 'accControls').getByLabel('Select Day')
   await expect(day).toHaveAttribute('type', 'date')
-  await widget(page, 'accControls').getByLabel('Select Choice').selectOption('alpha')
-  const request = page.waitForRequest((candidate) => candidate.url().includes('/widget/accControlValues?') && candidate.url().includes('accDate=2025-12-31'))
+  await chooseOption(page, widget(page, 'accControls'), 'Choice', 'Alpha')
+  // Material sends the day's toLocaleDateString() (for example 12/31/2025 in en-US)
+  const sent = await localeDay(page, 2025, 12, 31)
+  const request = page.waitForRequest((candidate) => candidate.url().includes('/widget/accControlValues?') && requestParam(candidate.url(), 'accDate') === sent)
   await day.fill('2025-12-31')
   await request
-  await expect(widgetBody(page, 'accControlValues')).toContainText('choice=alpha; day=2025-12-31')
+  await expect(widgetBody(page, 'accControlValues')).toContainText(`choice=alpha; day=${sent}`)
 })
 
 test('[WID-050] stored dropdown selections persist across reload and stale stored options are dropped @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openControls(page)
-  await widget(page, 'accControls').getByLabel('Select Choice').selectOption('beta')
+  const day = await localeDay(page, 2026, 1, 15)
+  await chooseOption(page, widget(page, 'accControls'), 'Choice', 'Beta')
   await widget(page, 'accControls').getByLabel('Select Day').fill('2026-01-15')
-  await expect(widgetBody(page, 'accControlValues')).toContainText('choice=beta; day=2026-01-15')
+  await expect(widgetBody(page, 'accControlValues')).toContainText(`choice=beta; day=${day}`)
   expect(JSON.parse(await page.evaluate((key) => localStorage.getItem(key), CHOICE_KEY) ?? 'null')).toEqual({ id: 'beta', label: 'Beta' })
-  expect(JSON.parse(await page.evaluate((key) => localStorage.getItem(key), DATE_KEY) ?? 'null')).toMatchObject({ id: '2026-01-15' })
+  expect(JSON.parse(await page.evaluate((key) => localStorage.getItem(key), DATE_KEY) ?? 'null')).toMatchObject({ id: day })
   // the first request after reload already carries the stored selections
   const first = page.waitForRequest((candidate) => candidate.url().includes('/widget/accControls'))
   await page.reload()
   expect((await first).url()).toContain('accChoice=beta')
-  await expect(widget(page, 'accControls').getByLabel('Select Choice')).toHaveValue('beta')
+  await expect(dropdown(widget(page, 'accControls'), 'Choice')).toHaveValue('Beta')
   await expect(widget(page, 'accControls').getByLabel('Select Day')).toHaveValue('2026-01-15')
-  await expect(widgetBody(page, 'accControlValues')).toContainText('choice=beta; day=2026-01-15')
+  await expect(widgetBody(page, 'accControlValues')).toContainText(`choice=beta; day=${day}`)
   // a stored option the backend no longer offers is not selected (and is forgotten)
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ id: 'removed', label: 'Old choice' })), CHOICE_KEY)
   await page.reload()
   await expectLoaded(page, 'accControls')
-  await expect(widget(page, 'accControls').getByLabel('Select Choice')).toHaveValue('')
+  await expect(dropdown(widget(page, 'accControls'), 'Choice')).toHaveValue('')
   await expect(page.locator('[data-qqq-id="widget-needs-selection-accControls"]')).toHaveText('Please select a Choice from the dropdown above.')
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), CHOICE_KEY)).toBeNull()
 })
@@ -85,15 +92,15 @@ test('[WID-047] a payload PVS dropdown sends the selection, clears it, and does 
   await expectLoaded(page, 'accDropdownHtml')
   const body = widgetBody(page, 'accDropdownHtml')
   await expect(body).toHaveText('dropdown choice=(none)')
-  const select = widget(page, 'accDropdownHtml').getByLabel('Select Choice')
-  expect(await select.locator('option').allTextContents()).toEqual(['Select Choice', 'Alpha', 'Beta'])
+  const host = widget(page, 'accDropdownHtml')
+  expect(await dropdownOptions(page, host, 'Choice')).toEqual(['Alpha', 'Beta'])
   const request = page.waitForRequest((candidate) => candidate.url().includes('/widget/accDropdownHtml?accChoice=alpha'))
-  await select.selectOption('alpha')
+  await chooseOption(page, host, 'Choice', 'Alpha')
   await request
   await expect(body).toHaveText('dropdown choice=alpha')
-  await select.selectOption('')
+  await host.getByRole('button', { name: 'Clear Choice' }).click()
   await expect(body).toHaveText('dropdown choice=(none)')
-  await select.selectOption('beta')
+  await chooseOption(page, host, 'Choice', 'Beta')
   await expect(body).toHaveText('dropdown choice=beta')
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes('accDropdownHtml')))).toEqual([])
   await page.reload()
@@ -173,9 +180,9 @@ test.describe('on a phone', () => {
     await openControls(page)
     const controls = widget(page, 'accControls')
     await expectTouchReady(page, controls)
-    await controls.getByLabel('Select Choice').selectOption('alpha')
+    await chooseOption(page, controls, 'Choice', 'Alpha')
     await controls.getByLabel('Select Day').fill('2025-12-31')
-    await expect(widgetBody(page, 'accControlValues')).toContainText('choice=alpha; day=2025-12-31')
+    await expect(widgetBody(page, 'accControlValues')).toContainText(`choice=alpha; day=${await localeDay(page, 2025, 12, 31)}`)
     await expectLoaded(page, 'accReload')
     const body = widgetBody(page, 'accReload')
     const before = renders(await body.textContent())

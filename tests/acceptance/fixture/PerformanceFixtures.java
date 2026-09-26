@@ -355,7 +355,11 @@ final class PerformanceFixtures
                }
                rows.add(row);
             }
-            data = new TableData("Table " + n, columns, rows);
+            ///////////////////////////////////////////////////////////////////////////////
+            // all 100 rows on one page (a table widget shows 10 per page unless the     //
+            // payload sets rowsPerPage, as in Material - QRun-IO/qqq#728)               //
+            ///////////////////////////////////////////////////////////////////////////////
+            data = new TableData("Table " + n, columns, rows).withRowsPerPage(100);
          }
          else
          {

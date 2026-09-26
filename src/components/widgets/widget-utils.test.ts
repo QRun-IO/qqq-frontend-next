@@ -62,10 +62,12 @@ describe('dropdown selections', () => {
       dropdowns: [{ name: 'c', label: 'Choice', possibleValueSourceName: 'accChoice' }, { name: 'accDate', label: 'Day', type: 'DATE_PICKER' }],
     }
     writeStoredSelection(dropdownStorageKey('accControls', 'accChoice'), { id: 'beta' })
+    // a date stored by an earlier version (ISO) is sent in Material's toLocaleDateString format
     writeStoredSelection(dropdownStorageKey('accControls', 'accDate'), { id: '2026-01-15' })
-    expect(storedDropdownParams(parent)).toEqual({ accChoice: 'beta', accDate: '2026-01-15' })
+    const day = new Date(2026, 0, 15).toLocaleDateString()
+    expect(storedDropdownParams(parent)).toEqual({ accChoice: 'beta', accDate: day })
     const child: QWidgetMetaData = { name: 'accControlValues', label: 'Values', hasPermission: true }
-    expect(storedDropdownParams(child, parent)).toEqual({ accChoice: 'beta', accDate: '2026-01-15' })
+    expect(storedDropdownParams(child, parent)).toEqual({ accChoice: 'beta', accDate: day })
     expect(storedDropdownParams({ ...parent, storeDropdownSelections: false })).toEqual({})
   })
 })

@@ -20,11 +20,13 @@
  */
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
 import type { QWidgetMetaData } from '@/types'
+import { QContext } from '@/lib/context/q-context'
+import type { QContextType } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { useProcessMetaData } from '@/lib/hooks/use-metadata'
 import { queryKeys } from '@/lib/query-client'
@@ -32,8 +34,10 @@ import { cn } from '@/lib/utils/cn'
 import type { WidgetComponentProps } from './widget-types'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import { ConnectedWidget } from './ConnectedWidget'
+import { exposeReactGlobals, qfmdBridge } from './qfmd-bridge'
+import type { QfmdBridge } from './qfmd-bridge'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
-import { WIDGET_SELECTED_TAB_STORAGE_ROOT, widgetColumnClasses } from './widget-utils'
+import { WIDGET_ANCHOR, WIDGET_SELECTED_TAB_STORAGE_ROOT, widgetColumnClasses } from './widget-utils'
 import { ProcessRun } from '@/components/process/ProcessRun'
 
 /** `ParentWidgetData` payload. */
@@ -150,7 +154,7 @@ export function QqqParentWidget({ widgetMetaData, data, widgetRegistry, childPar
   return (
     <div className="grid grid-cols-12 gap-4" data-qqq-id={`parent-widget-${widgetMetaData.name}`} data-layout="GRID">
       {children.map((child) => (
-        <div key={child.name} className={widgetColumnClasses(child.gridColumns)}>
+        <div key={child.name} id={child.name} className={`${widgetColumnClasses(child.gridColumns, child.defaultValues)} ${WIDGET_ANCHOR}`}>
           <ConnectedWidget
             widgetMetaData={child}
             params={childParams}
@@ -234,14 +238,16 @@ function loadBundle(url: string): Promise<void> {
 /** Props passed to a dynamically loaded component (same contract as Material). */
 interface DynamicComponentProps {
   props: Record<string, unknown>
-  qContext: Record<string, unknown>
-  qfmdBridge: Record<string, unknown>
+  qContext: Partial<QContextType>
+  qfmdBridge: QfmdBridge
 }
 
 /**
  * Renders a QQQ `customComponent`: loads the bundle at the widget's
  * `componentSourceUrl` default value and renders `window[componentName][componentName]`
- * with `{ props: { widgetMetaData, widgetData, record } }`.
+ * with Material's contract: `{ props: { widgetMetaData, widgetData, record } }`, the live
+ * `qContext` (this dashboard's QContext value) and the `qfmdBridge` (see `qfmd-bridge.tsx`).
+ * React and ReactDOM are exposed as `window.React` / `window.ReactDOM` before the bundle loads.
  *
  * @param props - Widget props.
  * @returns The custom component, a loading placeholder, or a contained error.
@@ -250,6 +256,8 @@ export function QqqCustomComponentWidget({ widgetMetaData, data, recordContext }
   const componentName = String(widgetMetaData.defaultValues?.componentName ?? '')
   const sourceUrl = String(widgetMetaData.defaultValues?.componentSourceUrl ?? '')
   const [state, setState] = useState<{ component?: React.ComponentType<DynamicComponentProps>; failed?: boolean }>({})
+  // the live context (absent outside the dashboard shell, e.g. in isolated renders)
+  const qContext = useContext(QContext)
 
   useEffect(() => {
     let active = true
@@ -257,6 +265,7 @@ export function QqqCustomComponentWidget({ widgetMetaData, data, recordContext }
       setState({ failed: true })
       return
     }
+    exposeReactGlobals()
     loadBundle(sourceUrl).then(() => {
       const holder = (window as unknown as Record<string, Record<string, unknown> | undefined>)[componentName]
       const component = holder?.[componentName]
@@ -275,7 +284,7 @@ export function QqqCustomComponentWidget({ widgetMetaData, data, recordContext }
   const sx = widgetMetaData.defaultValues?.sx
   return (
     <div data-qqq-id={`custom-component-${widgetMetaData.name}`} style={isPlainObject(sx) ? (sx as React.CSSProperties) : undefined}>
-      <Component props={{ widgetMetaData, widgetData: data, record: recordContext?.record }} qContext={{}} qfmdBridge={{}} />
+      <Component props={{ widgetMetaData, widgetData: data, record: recordContext?.record }} qContext={qContext ?? {}} qfmdBridge={qfmdBridge} />
     </div>
   )
 }

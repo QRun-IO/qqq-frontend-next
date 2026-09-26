@@ -99,6 +99,22 @@ describe('Auth API', () => {
     expect(apiClient.get).toHaveBeenCalled()
   })
 
+  it('re-fetches a valid cached copy when the URL carries ?clearAuthenticationMetaDataLocalStorage (Material)', async () => {
+    const { default: apiClient } = await import('./client')
+    const freshMetadata = { name: 'fresh-auth', type: 'MOCK' as const, values: {} }
+    vi.mocked(apiClient.get).mockResolvedValue(freshMetadata)
+    localStorage.setItem('qqqAuthMetadata:/qqq/v1', JSON.stringify({ data: { name: 'stale', type: 'OAUTH2', values: {} }, timestamp: Date.now() }))
+    window.history.replaceState(null, '', '/app?clearAuthenticationMetaDataLocalStorage')
+    try {
+      const { getAuthenticationMetaData } = await import('./auth')
+      expect(await getAuthenticationMetaData()).toEqual(freshMetadata)
+      expect(apiClient.get).toHaveBeenCalledWith('/metaData/authentication')
+      expect(JSON.parse(localStorage.getItem('qqqAuthMetadata:/qqq/v1')!).data).toEqual(freshMetadata)
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
   it('clearAuthMetadataCache should remove the cache entry', async () => {
     localStorage.setItem('qqqAuthMetadata:/qqq/v1', JSON.stringify({ data: {}, timestamp: Date.now() }))
 

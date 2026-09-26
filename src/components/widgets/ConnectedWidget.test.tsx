@@ -73,24 +73,31 @@ describe('ConnectedWidget', () => {
     const user = userEvent.setup()
     renderWidget()
     expect(await screen.findByText('Please select a Choice and Day')).toBeInTheDocument()
-    const choice = screen.getByLabelText('Select Choice')
-    expect(Array.from((choice as HTMLSelectElement).options).map((option) => option.textContent)).toEqual(['Select Choice', 'Alpha', 'Beta'])
-    await user.selectOptions(choice, 'beta')
+    const choice = screen.getByRole('combobox', { name: 'Select Choice' })
+    expect(choice).toHaveAttribute('placeholder', 'Select Choice')
+    await user.click(choice)
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Alpha', 'Beta'])
+    await user.click(screen.getByRole('option', { name: 'Beta' }))
     await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta' }))
+    expect(choice).toHaveValue('Beta')
     expect(JSON.parse(localStorage.getItem('qqq.widgets.dropdownData.accControls.accChoice')!)).toEqual({ id: 'beta', label: 'Beta' })
     const day = screen.getByLabelText('Select Day')
     expect(day).toHaveAttribute('type', 'date')
     await user.type(day, '2026-09-24')
-    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta', accDate: '2026-09-24' }))
-    expect(await screen.findByText('choice=beta; day=2026-09-24')).toBeInTheDocument()
+    // Material sends the day's toLocaleDateString()
+    const sent = new Date(2026, 8, 24).toLocaleDateString()
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta', accDate: sent }))
+    expect(await screen.findByText(`choice=beta; day=${sent}`)).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('qqq.widgets.dropdownData.accControls.accDate')!)).toEqual({ id: sent, label: sent })
   })
 
   it('starts from stored selections and drops a stored option the payload no longer offers', async () => {
     localStorage.setItem('qqq.widgets.dropdownData.accControls.accDate', JSON.stringify({ id: '2026-01-15' }))
     localStorage.setItem('qqq.widgets.dropdownData.accControls.accChoice', JSON.stringify({ id: 'removed' }))
     renderWidget()
-    expect(fetchMock).toHaveBeenCalledWith('accControls', { accChoice: 'removed', accDate: '2026-01-15' })
-    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accDate: '2026-01-15' }))
+    const day = new Date(2026, 0, 15).toLocaleDateString()
+    expect(fetchMock).toHaveBeenCalledWith('accControls', { accChoice: 'removed', accDate: day })
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accDate: day }))
     expect(screen.getByLabelText('Select Choice')).toHaveValue('')
     expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-15')
     expect(localStorage.getItem('qqq.widgets.dropdownData.accControls.accChoice')).toBeNull()
@@ -121,6 +128,40 @@ describe('ConnectedWidget', () => {
     expect(screen.getByRole('status')).toHaveTextContent('There is no data available to export.')
     expect(click).toHaveBeenCalledTimes(1)
     click.mockRestore()
+  })
+
+  it('exports a table without csvData from its columns and rows, without icon text (Material TableWidget)', async () => {
+    const user = userEvent.setup()
+    const create = vi.fn(() => 'blob:owned')
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    fetchMock.mockImplementation(async () => ({
+      type: 'table',
+      columns: [{ type: 'html', header: 'Name', accessor: 'name' }, { type: 'default', header: 'Count', accessor: 'count' }],
+      rows: [{ name: '<a href="/app/person/1">Darin<span class="material-icons-round MuiIcon-root">open_in_new</span></a>', count: 1234 }],
+    }))
+    renderWidget({ name: 'accTable', label: 'Owned Table', type: 'table', hasPermission: true, showExportButton: true })
+    await screen.findByText('Darin')
+    await user.click(screen.getByRole('button', { name: 'Export Owned Table' }))
+    const blob = (create.mock.calls[0] as unknown as [Blob])[0]
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.readAsText(blob)
+    })
+    expect(text).toBe('"Name","Count"\n"Darin","1234"\n')
+    click.mockRestore()
+  })
+
+  it('leaves export to each table of a multi-table widget', async () => {
+    fetchMock.mockImplementation(async () => ({
+      type: 'multiTable',
+      tableDataList: [{ label: 'First', columns: [{ header: 'Name', accessor: 'name' }], rows: [{ name: 'One' }] }],
+    }))
+    renderWidget({ name: 'accMulti', label: 'Owned Multi', type: 'multiTable', hasPermission: true, showExportButton: true })
+    await screen.findByText('One')
+    expect(screen.queryByRole('button', { name: 'Export Owned Multi' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Export First' })).toBeInTheDocument()
   })
 
   it('shows the backend error message with a retry, without throwing', async () => {

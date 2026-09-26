@@ -336,6 +336,87 @@ describe('QqqComposite', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Nested tooltip text')
   })
 
+  it('opens and closes a modal composite from button control codes and tells the host when it closes (WID-072)', () => {
+    const data: QqqCompositeData = {
+      blockTypeName: 'COMPOSITE', layout: 'FLEX_COLUMN',
+      blocks: [
+        { blockTypeName: 'BUTTON', values: { label: 'Open owned details', controlCode: 'showModal:ownedModal' } },
+        { blockTypeName: 'BUTTON', values: { label: 'Toggle owned details', controlCode: 'toggleModal:ownedModal' } },
+        {
+          blockTypeName: 'COMPOSITE', blockId: 'ownedModal', modalMode: 'MODAL',
+          blocks: [
+            { blockTypeName: 'TEXT', values: { text: 'Owned modal content' } },
+            { blockTypeName: 'BUTTON', values: { label: 'Close owned details', controlCode: 'hideModal:ownedModal' } },
+          ],
+        },
+      ],
+    }
+    const { actionCallback } = renderComposite(data, 'accModalComposite')
+    // closed until a control code opens it
+    expect(screen.queryByText('Owned modal content')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open owned details' }))
+    const dialog = screen.getByRole('dialog', { name: 'accModalComposite' })
+    expect(within(dialog).getByText('Owned modal content')).toBeInTheDocument()
+    expect(actionCallback).toHaveBeenLastCalledWith(expect.objectContaining({ blockTypeName: 'BUTTON' }), { label: 'Open owned details', controlCode: 'showModal:ownedModal' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close owned details' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle owned details' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Escape closes it and sends the host hideModal, as Material's modal onClose does
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(actionCallback).toHaveBeenLastCalledWith({ blockTypeName: 'BUTTON', values: {} }, { controlCode: 'hideModal:ownedModal' })
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle owned details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens a modal composite initially when the host values say so, and never one without a block id', () => {
+    const data: QqqCompositeData = {
+      blocks: [
+        { blockTypeName: 'COMPOSITE', blockId: 'seeded', modalMode: 'MODAL', blocks: [{ blockTypeName: 'TEXT', values: { text: 'Seeded open' } }] },
+        { blockTypeName: 'COMPOSITE', modalMode: 'MODAL', blocks: [{ blockTypeName: 'TEXT', values: { text: 'No id' } }] },
+      ],
+    }
+    render(<QqqComposite widgetMetaData={meta('accSeeded')} data={data} values={{ seeded: true }} />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Seeded open')
+    expect(screen.queryByText('No id')).toBeNull()
+  })
+
+  it('draws each INPUT_FIELD type with its Material control and seeded value (WID-072)', () => {
+    const field = (name: string, type: string, extra: Record<string, unknown> = {}) =>
+      ({ blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name, label: `Owned ${name}`, type, ...extra }, ...('value' in extra ? { value: extra.value } : {}) } })
+    const data: QqqCompositeData = {
+      blocks: [
+        field('text', 'STRING', { value: 'seeded text' }), field('count', 'INTEGER', { value: 7 }), field('amount', 'DECIMAL'), field('longId', 'LONG'),
+        field('day', 'DATE', { value: '2026-03-04' }), field('stamp', 'DATE_TIME', { value: '2026-03-04T05:06:07Z' }), field('clock', 'TIME'),
+        field('secret', 'PASSWORD'), field('flag', 'BOOLEAN', { value: true }), field('file', 'BLOB'), field('body', 'TEXT'), field('markup', 'HTML'),
+        field('script', 'STRING', { adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }] }),
+      ],
+    }
+    renderComposite(data)
+    const control = (label: string) => screen.getByLabelText(label)
+    expect(control('Owned text')).toHaveAttribute('type', 'text')
+    expect(control('Owned text')).toHaveValue('seeded text')
+    expect(control('Owned count')).toHaveAttribute('type', 'number')
+    expect(control('Owned count')).toHaveValue(7)
+    expect(control('Owned amount')).toHaveAttribute('step', 'any')
+    expect(control('Owned longId')).toHaveAttribute('type', 'number')
+    expect(control('Owned day')).toHaveAttribute('type', 'date')
+    expect(control('Owned day')).toHaveValue('2026-03-04')
+    expect(control('Owned stamp')).toHaveAttribute('type', 'datetime-local')
+    expect(control('Owned stamp')).toHaveValue('2026-03-04T05:06')
+    expect(control('Owned clock')).toHaveAttribute('type', 'time')
+    expect(control('Owned secret')).toHaveAttribute('type', 'password')
+    expect(control('Owned flag')).toHaveAttribute('type', 'checkbox')
+    expect(control('Owned flag')).toBeChecked()
+    expect(control('Owned file')).toHaveAttribute('type', 'file')
+    expect(control('Owned body')).toHaveAttribute('type', 'text')
+    expect(control('Owned markup')).toHaveAttribute('type', 'text')
+    expect(control('Owned script').tagName).toBe('TEXTAREA')
+    expect(control('Owned script')).toHaveAttribute('data-control', 'code')
+  })
+
   it('maps standard and hex color names', () => {
     expect(blockColor('success')).toBe('#2BA83F')
     expect(blockColor('WARNING')).toBe('#FBA132')
