@@ -108,43 +108,46 @@ The gate also fails any configured project that ran no tests.
 
 ## Results
 
-Recorded 2026-09-25 on macOS (Darwin 27), sample `4.1.0-SNAPSHOT` with the #649 backend
-changes including QRun-IO/qqq#674 and #675, Next static export of
-`feature/GH-649-next-acceptance` with all six areas integrated (navigation, records, query,
-processes, widgets, security), one run of the full gate with the four projects:
+Recorded 2026-09-26 on macOS (Darwin 27) for the Next UI 1.0 integration (QRun-IO/qqq#713):
+the sample from the qqq `feature/next-1.0` backend (`a55c71a2d`, with the v1 supplemental
+metadata, developer-mode and table-variant process routes of #714) and the Next static export
+of `feature/next-1.0` (`e3bea6e`: the batch 1-3 streams, Material parity #714 and phone and
+tablet coverage #708), built from a clean `.next`. One run of the full gate with the five
+projects:
 
-Tests passed / run, per spec area and project (the mobile project runs the `@mobile` tests only):
+Tests passed / run, per spec area and project (the touch projects run the `@mobile` tests only):
 
-| Area | chromium | firefox | webkit | mobile |
-|---|---|---|---|---|
-| navigation | 41/41 | 41/41 | 41/41 | 1/1 |
-| processes | 50/50 | 50/50 | 50/50 | 3/3 |
-| query | 50/50 | 50/50 | 50/50 | — |
-| records | 48/48 | 48/48 | 48/48 | — |
-| security | 57/57 | 57/57 | 57/57 | 9/9 |
-| widgets | 80/80 | 80/80 | 80/80 | — |
-| **total** | **326/326** | **326/326** | **326/326** | **13/13** |
+| Area | chromium | firefox | webkit | mobile | tablet |
+|---|---|---|---|---|---|
+| navigation | 59/59 | 59/59 | 59/59 | 56/56 | 56/56 |
+| performance | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| processes | 61/61 | 61/61 | 61/61 | 54/54 | 54/54 |
+| query | 68/68 | 68/68 | 68/68 | 68/68 | 68/68 |
+| records | 90/90 | 90/90 | 90/90 | 84/84 | 84/84 |
+| security | 73/73 | 73/73 | 73/73 | 67/67 | 67/67 |
+| widgets | 93/93 | 93/93 | 93/93 | 91/91 | 91/91 |
+| **total** | **449/449** | **449/449** | **449/449** | **425/425** | **425/425** |
 
-`—`: the area has no `@mobile` test; the phone list, record and form behavior is proven by
-the interaction tests (INT-003, INT-007, INT-008, INT-009) in the security area.
-
-Gate (`test-results/acceptance/gate.json`, 991 tests, 18.1 min, retries 0, commit `2c5eb2d`):
+Gate (`test-results/acceptance/gate.json`, 2,197 tests, 44.3 min, retries 0, commit `e3bea6e`):
 
 ```json
 {
-  "summary": { "passed": 289, "failed": 0, "missing": 0, "excluded": 3 },
+  "summary": { "passed": 347, "failed": 0, "missing": 0, "excluded": 3,
+    "phone": { "covered": 347, "desktopOnly": 0, "uncovered": 0 } },
   "byProject": {
-    "chromium": { "passed": 326, "failed": 0, "skipped": 0, "flaky": 0 },
-    "firefox": { "passed": 326, "failed": 0, "skipped": 0, "flaky": 0 },
-    "webkit": { "passed": 326, "failed": 0, "skipped": 0, "flaky": 0 },
-    "mobile": { "passed": 13, "failed": 0, "skipped": 0, "flaky": 0 }
+    "chromium": { "passed": 449, "failed": 0, "skipped": 0, "flaky": 0 },
+    "firefox": { "passed": 449, "failed": 0, "skipped": 0, "flaky": 0 },
+    "webkit": { "passed": 449, "failed": 0, "skipped": 0, "flaky": 0 },
+    "mobile": { "passed": 425, "failed": 0, "skipped": 0, "flaky": 0 },
+    "tablet": { "passed": 425, "failed": 0, "skipped": 0, "flaky": 0 }
   },
   "problems": []
 }
 ```
 
-Every required row passes in every project that runs it. PRC-039, WID-033 and SEC-030 are
-`required: false` pending approval and are reported as excluded.
+Every required row passes in every desktop project and in both touch projects; no row is
+`desktopOnly`. PRC-039, WID-033 and SEC-030 are `required: false` pending approval and are
+reported as excluded.
 
 ## Differences found between engines
 
