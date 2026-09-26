@@ -63,7 +63,7 @@ async function cancelRun(page: Page) {
 }
 
 test.describe('Material table-scoped URLs', () => {
-  test('[NAV-030] /app/{table}/{process} opens the table process or an instance process, replacing the history entry', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] /app/{table}/{process} opens the table process or an instance process, replacing the history entry', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const meta = await v1MetaData(backend)
     expect(meta.processes['person.bulkEdit']?.label).toBe('Person Bulk Edit')
@@ -87,7 +87,7 @@ test.describe('Material table-scoped URLs', () => {
     await expect(page.locator('[data-qqq-id="process-run-prcQuickTask"]')).toBeVisible()
   })
 
-  test('[NAV-030] /app/{table}/{id}/{process} runs the process for that record and Return comes back to the record', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] /app/{table}/{id}/{process} runs the process for that record and Return comes back to the record', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const init = nextInit(page, 'clonePeople')
     await open(page, '/app/person/1/clonePeople')
@@ -110,7 +110,7 @@ test.describe('Material table-scoped URLs', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
   })
 
-  test('[NAV-030] an unknown segment after a record id shows the not-found state and starts nothing', async ({ page, backend, diagnostics }) => {
+  test('[NAV-034] an unknown segment after a record id shows the not-found state and starts nothing', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect((await v1MetaData(backend)).processes.noSuchProcess).toBeUndefined()
     const inits: string[] = []
@@ -126,7 +126,7 @@ test.describe('Material table-scoped URLs', () => {
 })
 
 test.describe('process runs return to where they were launched', () => {
-  test('[NAV-031] a process launched from a record view returns to the record', async ({ page, backend, diagnostics }) => {
+  test('[NAV-035] a process launched from a record view returns to the record', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/2')
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
@@ -142,7 +142,7 @@ test.describe('process runs return to where they were launched', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Blair Sample' })).toBeVisible()
   })
 
-  test('[NAV-031] a process launched from a filtered query returns to the same filter and rows', async ({ page, backend, diagnostics }) => {
+  test('[NAV-035] a process launched from a filtered query returns to the same filter and rows', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const filter = { criteria: [{ fieldName: 'isEmployed', operator: 'EQUALS', values: [true] }] }
     const employed = (await backend.sql('select first_name from person where is_employed = true order by id')).map((row) => row.first_name!)

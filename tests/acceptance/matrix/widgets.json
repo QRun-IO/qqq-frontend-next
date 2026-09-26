@@ -1029,7 +1029,7 @@
       "required": true
     },
     {
-      "id": "WID-064",
+      "id": "WID-066",
       "feature": "a widget whose payload is a single leaf block (Material block widget) renders that block",
       "source": [
         "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:831-844",

@@ -196,7 +196,7 @@ test.describe('app home', () => {
     expect(order).toEqual(declared.map((name) => `widget-grid-item-${name}`))
   })
 
-  test('[NAV-032] Material app settings hide the home-screen label and the table counts', async ({ page, backend, diagnostics }) => {
+  test('[NAV-036] Material app settings hide the home-screen label and the table counts', async ({ page, backend, diagnostics }) => {
     void diagnostics
     // the backend delivers MaterialDashboardAppMetaData with the app (v1 supplementalAppMetaData)
     const meta = await v1MetaData(backend)

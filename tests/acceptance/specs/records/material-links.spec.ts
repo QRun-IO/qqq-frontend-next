@@ -32,7 +32,7 @@ async function choose(page: Page, scope: ReturnType<Page['locator']>, label: str
   await page.getByRole('option', { name: option, exact: true }).click()
 }
 
-test('[REC-049] record view shortcuts n, e, c, d and a open create, edit, copy, delete and audit', async ({ page, backend, diagnostics }) => {
+test('[REC-055] record view shortcuts n, e, c, d and a open create, edit, copy, delete and audit', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openRecord(page, 'person', 1, 'Avery Sample')
   await page.keyboard.press('e')
@@ -77,7 +77,7 @@ test('[REC-049] record view shortcuts n, e, c, d and a open create, edit, copy, 
   expect(await sqlCount(backend, 'select count(*) as n from person where id = 5')).toBe(0)
 })
 
-test('[REC-049] the keyboard help lists the record view shortcuts in Material wording and blocks them while open', async ({ page, backend, diagnostics }) => {
+test('[REC-055] the keyboard help lists the record view shortcuts in Material wording and blocks them while open', async ({ page, backend, diagnostics }) => {
   void diagnostics
   void backend
   await openRecord(page, 'person', 1, 'Avery Sample')
@@ -98,7 +98,7 @@ test('[REC-049] the keyboard help lists the record view shortcuts in Material wo
   await expect(page.locator('[data-qqq-id="keyboard-shortcuts-dialog"]')).toHaveCount(0)
 })
 
-test('[REC-049] keys typed in a text input are text, not shortcuts', async ({ page, backend, diagnostics }) => {
+test('[REC-055] keys typed in a text input are text, not shortcuts', async ({ page, backend, diagnostics }) => {
   void diagnostics
   void backend
   await openRecord(page, 'person', 1, 'Avery Sample')
@@ -114,7 +114,7 @@ test('[REC-049] keys typed in a text input are text, not shortcuts', async ({ pa
 test.describe('read-only persona', () => {
   test.use({ persona: 'viewer' })
 
-  test('[REC-049] a read-only user gets no create, edit, copy or delete shortcut and the backend refuses those writes', async ({ page, backend, diagnostics }) => {
+  test('[REC-055] a read-only user gets no create, edit, copy or delete shortcut and the backend refuses those writes', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openRecord(page, 'person', 1, 'Avery Sample')
     for (const key of ['n', 'e', 'c', 'd']) await page.keyboard.press(key)

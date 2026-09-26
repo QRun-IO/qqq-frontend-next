@@ -534,7 +534,7 @@
       "required": true
     },
     {
-      "id": "NAV-030",
+      "id": "NAV-034",
       "feature": "Material table-scoped URLs: /app/{table}/{process} opens the table process (or an instance process); /app/{table}/{id}/{process} runs it for that record and returns to it",
       "source": [
         "material-dashboard src/App.tsx (table process routes), src/qqq/pages/records/view/RecordView.tsx (record process routes)",
@@ -560,7 +560,7 @@
       "required": true
     },
     {
-      "id": "NAV-031",
+      "id": "NAV-035",
       "feature": "Process runs launched from a record view or a filtered query return there (Return and Cancel honor returnTo)",
       "source": [
         "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx and RecordView.tsx (process modal over the screen)",
@@ -581,7 +581,7 @@
       "required": true
     },
     {
-      "id": "NAV-032",
+      "id": "NAV-036",
       "feature": "Material app settings (MaterialDashboardAppMetaData): showAppLabelOnHomeScreen and includeTableCountsOnHomeScreen turned off hide the home-screen title and the table counts",
       "source": [
         "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardAppMetaData.java",
