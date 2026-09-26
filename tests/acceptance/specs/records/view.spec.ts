@@ -6,7 +6,7 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { expectTouchReady } from '../../support/touch'
+import { expectTouchReady, expectTouchTargets } from '../../support/touch'
 import { recordCollection } from '../navigation/nav-helpers'
 import { VIEWER, expandOnPhone, expectNoSidewaysScroll, fieldValue, isPhone, openRecord, showSection, sqlOne, toasts } from './helpers'
 
@@ -110,7 +110,7 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
   await expect(fieldValue(page, 'boundedValue')).toHaveText('12.50')
 })
 
-test('[REC-049] pages of a table outside the app tree use its label in the document title and breadcrumbs', async ({ page, backend, diagnostics }) => {
+test('[REC-049] pages of a table outside the app tree use its label in the document title and breadcrumbs @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   type Node = { name: string; children?: Node[] }
   const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
@@ -125,6 +125,9 @@ test('[REC-049] pages of a table outside the app tree use its label in the docum
   await expect(page).toHaveTitle(`Create ${label} | ${label} | QQQ Sample`)
   await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
   await expect(breadcrumbs).not.toContainText('scheduledReport')
+  // The label crumbs fit a phone and are tappable (no sideways scroll, 44 px targets on touch)
+  await expectNoSidewaysScroll(page)
+  await expectTouchTargets(breadcrumbs)
 
   const created = await backend.api.post('/data/scheduledReport', { multipart: {
     savedReportId: '1', isActive: 'true', format: 'CSV', toAddresses: 'owned-title@example.com', subject: 'Owned title', cronExpression: '0 0 9 * * ?', cronTimeZoneId: 'UTC',
@@ -138,6 +141,12 @@ test('[REC-049] pages of a table outside the app tree use its label in the docum
   expect(recordLabel).toContain('Pet Species Report')
   await expect(page).toHaveTitle(`${recordLabel} | ${label} | QQQ Sample`)
   await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
+  await expectNoSidewaysScroll(page)
+  await expectTouchTargets(breadcrumbs)
+  // The crumb opens the table's list by tap or click, still under its label
+  await breadcrumbs.getByRole('link', { name: label }).click()
+  await expect(page).toHaveURL(/\/app\/scheduledReport\/?$/)
+  await expect(page).toHaveTitle(`${label} | QQQ Sample`)
 })
 
 test('[REC-004] every visible section opens by touch on phones and tablets @mobile', async ({ page, backend, diagnostics }) => {

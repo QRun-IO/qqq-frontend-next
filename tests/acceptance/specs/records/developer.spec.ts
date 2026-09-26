@@ -7,7 +7,8 @@
 
 import type { Locator, Page, Request } from '@playwright/test'
 import { expect, open, test, type Backend, type Diagnostics } from '../../support/fixtures'
-import { VIEWER, multipartFields, recordRequests, sqlCount, sqlOne, toasts } from './helpers'
+import { expectTouchTargets } from '../../support/touch'
+import { VIEWER, expectNoSidewaysScroll, multipartFields, recordRequests, sqlCount, sqlOne, toasts } from './helpers'
 
 test.use(VIEWER)
 
@@ -61,6 +62,16 @@ function allowMissingApiCatalog(diagnostics: Diagnostics) {
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
 }
 
+/** Asserts a dialog lies fully inside the viewport (phones and tablets included). */
+async function expectInViewport(page: Page, region: Locator) {
+  const box = (await region.boundingBox())!
+  const viewport = page.viewportSize()!
+  expect(box.x, 'left edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.y, 'top edge on screen').toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width, 'right edge on screen').toBeLessThanOrEqual(viewport.width + 1)
+  expect(box.y + box.height, 'bottom edge on screen').toBeLessThanOrEqual(viewport.height + 1)
+}
+
 /** Opens a Script Lab record's developer view and waits for its associated-script card. */
 async function openScriptLab(page: Page, id: number) {
   await open(page, `/app/scriptLab/${id}/dev`)
@@ -99,7 +110,7 @@ async function revisions(backend: Backend) {
 }
 
 test.describe('table developer view', () => {
-  test('[REC-053] keeps the metadata sections and shows API Docs & Playground with no application APIs', async ({ page, backend, diagnostics }) => {
+  test('[REC-053] keeps the metadata sections and shows API Docs & Playground with no application APIs @mobile', async ({ page, backend, diagnostics }) => {
     allowMissingApiCatalog(diagnostics)
     const table = await (await backend.api.get('/qqq/v1/metaData/table/person')).json()
     expect((await backend.api.get('/apis.json?tableName=person')).status()).toBe(404)
@@ -107,6 +118,8 @@ test.describe('table developer view', () => {
 
     await open(page, '/app/person/dev')
     await expect(page.getByRole('heading', { level: 2, name: `Table Developer View: ${table.label}` })).toBeVisible()
+    await expectNoSidewaysScroll(page)
+    await expectTouchTargets(page.locator('#main-content'))
     const stat = (label: string) => page.locator('p', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::p')
     await expect(stat('Fields')).toHaveText(String(Object.keys(table.fields).length))
     await expect(stat('Sections')).toHaveText(String(table.sections.length))
@@ -129,6 +142,8 @@ test.describe('table developer view', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await toggle.click()
     const json = JSON.parse(await byId(page, 'json-output').innerText())
+    // the long metadata scrolls inside its own block, not the page
+    await expectNoSidewaysScroll(page)
     expect(json.name).toBe('person')
     expect(json.label).toBe(table.label)
     expect(Object.keys(json.fields).sort()).toEqual(Object.keys(table.fields).sort())
@@ -140,7 +155,7 @@ test.describe('table developer view', () => {
   test.describe('as a viewer', () => {
     test.use({ persona: 'viewer' })
 
-    test('[REC-053] a viewer sees the same empty state and cannot fetch any table spec', async ({ page, backend, diagnostics }) => {
+    test('[REC-053] a viewer sees the same empty state and cannot fetch any table spec @mobile', async ({ page, backend, diagnostics }) => {
       allowMissingApiCatalog(diagnostics)
       const table = await (await backend.api.get('/qqq/v1/metaData/table/person')).json()
       expect([table.insertPermission, table.editPermission, table.deletePermission]).toEqual([false, false, false])
@@ -168,7 +183,7 @@ test.describe('table developer view', () => {
 })
 
 test.describe('record developer view: associated scripts', () => {
-  test('[REC-054] versions list marks CURRENT and shows each version\'s code from script_revision_file', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] versions list marks CURRENT and shows each version\'s code from script_revision_file @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect((await sqlOne(backend, `select current_script_revision_id from script where id = ${SCRIPT_ID}`)).current_script_revision_id).toBe('102')
     expect(await revisions(backend)).toEqual([
@@ -181,6 +196,8 @@ test.describe('record developer view: associated scripts', () => {
 
     await openScriptLab(page, 1)
     await expect(card(page).getByRole('tab')).toHaveText(['Code', 'Logs', 'Test', 'Docs'])
+    await expectNoSidewaysScroll(page)
+    await expectTouchTargets(card(page))
     await expect(card(page).getByRole('tab', { name: 'Code' })).toHaveAttribute('aria-selected', 'true')
     await expect(versions(page)).toHaveCount(2)
     await expect(versions(page).nth(0)).toHaveAttribute('data-qqq-id', 'script-version-102')
@@ -205,7 +222,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(editButton(page)).toHaveText('Edit and Activate')
   })
 
-  test('[REC-054] saving a new version stores a script_revision with its file and makes it current', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] saving a new version stores a script_revision with its file and makes it current @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect(await sqlCount(backend, `select count(*) as n from script_revision where script_id = ${SCRIPT_ID}`)).toBe(2)
     const stores = recordRequests(page, '/qqq/v1/processes/storeScriptRevision/init')
@@ -219,6 +236,8 @@ test.describe('record developer view: associated scripts', () => {
     await expect(dialog.getByRole('heading', { name: 'Editing Code for Script: Alpha Greeting' })).toBeVisible()
     const editor = dialog.getByLabel('Script.js', { exact: true })
     await expect(editor).toHaveValue(await revisionCode(backend, 102))
+    await expectInViewport(page, dialog)
+    await expectTouchTargets(dialog)
     await editor.fill(newCode)
     await dialog.getByLabel('Commit message').fill('Acceptance greeting')
     await byId(page, `button-save-script-${FIELD}`).click()
@@ -262,7 +281,7 @@ test.describe('record developer view: associated scripts', () => {
     await assertNewCurrent()
   })
 
-  test('[REC-054] Edit and Activate on an older version stores its code as the new current version', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] Edit and Activate on an older version stores its code as the new current version @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const firstCode = await revisionCode(backend, 101)
     await openScriptLab(page, 1)
@@ -288,7 +307,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(code(page)).toHaveText(firstCode)
   })
 
-  test('[REC-054] test run output and log lines equal the backend testScript response', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] test run output and log lines equal the backend testScript response @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const currentCode = await revisionCode(backend, 102)
     const tests = recordRequests(page, '/qqq/v1/processes/testScript/init')
@@ -323,10 +342,12 @@ test.describe('record developer view: associated scripts', () => {
     const expectedLines = body.values.scriptLogLines.map((line: { values: { text: string } }) => line.values.text)
     expect(expectedLines).toEqual(['Tested with Ada'])
     await expect(lines.locator('tbody tr td:nth-child(2)')).toHaveText(expectedLines)
+    await expectNoSidewaysScroll(page)
+    await expectTouchTargets(card(page))
     expect(await lines.locator('tbody tr td:nth-child(1)').first().innerText()).toMatch(DATE_TIME)
   })
 
-  test('[REC-054] a failing test run shows the error the backend returns', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] a failing test run shows the error the backend returns @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     // The fixture's tester fails code that throws; make such code the current version.
     const failingCode = "throw new Error('no greeting');"
@@ -351,7 +372,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(byId(page, `script-test-output-${FIELD}-greeting`)).not.toContainText('Hello')
   })
 
-  test('[REC-054] logs list the script_log rows of the selected version with their lines', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] logs list the script_log rows of the selected version with their lines @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const logs = await backend.sql('select id, start_timestamp, run_time_millis, had_error, input, output, error from script_log where script_revision_id = 102 order by id desc')
     expect(logs).toEqual([
@@ -383,6 +404,9 @@ test.describe('record developer view: associated scripts', () => {
       ])
     }
 
+    // the six-column log table scrolls inside the card, not the page
+    await expectNoSidewaysScroll(page)
+
     // Version 1 has no logs.
     await byId(page, 'script-version-101').click()
     await expect(card(page).getByRole('heading', { level: 4, name: 'Script Logs (Version 1)' })).toBeVisible()
@@ -390,7 +414,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(table).toHaveCount(0)
   })
 
-  test('[REC-054] docs show the script type help text and sample code', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] docs show the script type help text and sample code @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const type = await sqlOne(backend, 'select name, help_text, sample_code from script_type where id = 101')
     expect(type.name).toBe('Greeting Script Type')
@@ -403,7 +427,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(byId(page, `script-docs-example-${FIELD}`)).toHaveText(type.sample_code!)
   })
 
-  test('[REC-054] Create Script creates the record\'s associated script with its first version', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] Create Script creates the record\'s associated script with its first version @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect((await sqlOne(backend, 'select greeting_script_id from script_lab where id = 2')).greeting_script_id).toBeNull()
     const scriptsBefore = await sqlCount(backend, 'select count(*) as n from script')
@@ -439,7 +463,7 @@ test.describe('record developer view: associated scripts', () => {
     await expect(card(page).getByText('No script has been created in this field for this record at this time.')).toHaveCount(0)
   })
 
-  test('[REC-054] a table without associated scripts shows none', async ({ page, backend, diagnostics }) => {
+  test('[REC-054] a table without associated scripts shows none @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const response = await backend.api.get('/qqq/v1/table/recordLab/1/developer')
     expect(response.status()).toBe(200)
@@ -461,7 +485,7 @@ test.describe('record developer view: associated scripts', () => {
   test.describe('as a viewer', () => {
     test.use({ persona: 'viewer' })
 
-    test('[REC-054] a viewer is offered no Edit or Test and the backend refuses storing and testing revisions', async ({ page, backend, diagnostics }) => {
+    test('[REC-054] a viewer is offered no Edit or Test and the backend refuses storing and testing revisions @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       const metaData = await (await backend.api.get('/qqq/v1/metaData')).json()
       expect(metaData.processes).not.toHaveProperty('storeScriptRevision')
@@ -489,7 +513,7 @@ test.describe('record developer view: associated scripts', () => {
       expect(await sqlCount(backend, "select count(*) as n from script_revision_file where contents = 'return ''viewer'''")).toBe(0)
     })
 
-    test('[REC-054] a viewer is offered no Create Script and the backend refuses creating one', async ({ page, backend, diagnostics }) => {
+    test('[REC-054] a viewer is offered no Create Script and the backend refuses creating one @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       const table = await (await backend.api.get('/qqq/v1/metaData/table/scriptLab')).json()
       expect(table.editPermission).toBe(false)

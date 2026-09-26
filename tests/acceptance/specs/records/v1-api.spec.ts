@@ -7,6 +7,7 @@
 
 import type { Page, Request } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
+import { expectTouchTargets } from '../../support/touch'
 import { VIEWER, control, fieldValue, multipartFields, openForm, openRecord, recordAction, recordIdFromUrl, sqlCount, sqlOne } from './helpers'
 
 test.use(VIEWER)
@@ -18,7 +19,7 @@ function requestsMatching(page: Page, pattern: RegExp): Request[] {
   return requests
 }
 
-test('[REC-051] table-field possible values search and resolve through the v1 API', async ({ page, backend, diagnostics }) => {
+test('[REC-051] table-field possible values search and resolve through the v1 API @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const lookups = requestsMatching(page, /\/possibleValues\//)
   await openForm(page, '/app/recordLab/1/edit', 'Edit Record Lab')
@@ -26,6 +27,7 @@ test('[REC-051] table-field possible values search and resolve through the v1 AP
   await control(page, 'ownerId').click()
   await page.getByRole('textbox', { name: 'Search Owner options' }).fill('Casey')
   await expect(page.getByRole('listbox', { name: 'Owner options' }).getByRole('option')).toHaveText(['Casey Sample'])
+  await expectTouchTargets(page.getByRole('listbox', { name: 'Owner options' }))
   await page.getByRole('option', { name: 'Casey Sample', exact: true }).click()
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(fieldValue(page, 'ownerId')).toHaveText('Casey Sample')
@@ -58,7 +60,7 @@ test.describe('persona without pet access', () => {
   })
 })
 
-test('[REC-050] create, view, edit and delete run on the v1 record routes', async ({ page, backend, diagnostics }) => {
+test('[REC-050] create, view, edit and delete run on the v1 record routes @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const records = requestsMatching(page, /^\/(qqq\/v1\/table|data)\/person(\/|$)/)
   await openForm(page, '/app/person/create', 'Create Person')

@@ -7,6 +7,7 @@
 
 import type { APIResponse, Page, Request } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
+import { expectTouchReady, expectTouchTargets } from '../../support/touch'
 import { VIEWER, control, fieldValue, openForm, recordIdFromUrl, recordRequests, sqlOne } from './helpers'
 
 test.use(VIEWER)
@@ -48,7 +49,7 @@ async function labels(response: APIResponse): Promise<string[]> {
   return (body.options ?? []).map((option) => option.label)
 }
 
-test('[REC-052] create: Item choices follow the chosen Category and the chosen id is saved', async ({ page, backend, diagnostics }) => {
+test('[REC-052] create: Item choices follow the chosen Category and the chosen id is saved @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const searches = recordRequests(page, ITEM_SEARCH)
   await openForm(page, '/app/recPvPick/create', 'Create Lab Pick')
@@ -63,6 +64,9 @@ test('[REC-052] create: Item choices follow the chosen Category and the chosen i
   await choose(page, 'categoryId', 'Category', 'Fruit')
   await toggle(page, 'itemId')
   await expect(itemList(page).getByRole('option')).toHaveText(['Apple', 'Banana'])
+  // On a touch screen the filtered choices are tappable and the form does not scroll sideways
+  await expectTouchTargets(itemList(page))
+  await expectTouchReady(page, page.locator('[data-qqq-id="entity-form-recPvPick"]'))
   await toggle(page, 'itemId')
 
   // Changing the source field changes the dependent field's choices.
@@ -95,7 +99,7 @@ test('[REC-052] create: Item choices follow the chosen Category and the chosen i
   await expect(fieldValue(page, 'itemId')).toHaveText('Carrot')
 })
 
-test('[REC-052] edit: the stored Item is shown, a new Category changes the choices and the new id persists', async ({ page, backend, diagnostics }) => {
+test('[REC-052] edit: the stored Item is shown, a new Category changes the choices and the new id persists @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await openForm(page, '/app/recPvPick/1/edit', 'Edit Lab Pick')
   await expect(control(page, 'categoryId')).toHaveText(/^Fruit/)
