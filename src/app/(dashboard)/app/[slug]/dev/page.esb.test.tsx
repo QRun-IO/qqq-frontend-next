@@ -118,6 +118,26 @@ describe('TableDeveloperViewPage ESB section', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('shows the process Developer view with its ESB triggers for a process slug', async () => {
+    params.slug = 'fulfillOrder'
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'Process Developer View: fulfillOrder' })
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Enterprise Service Bus' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Triggers' })).toBeInTheDocument()
+    expect(screen.queryByText('Fields')).not.toBeInTheDocument()
+  })
+
+  it('keeps the table Developer view for a table slug', async () => {
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'Table Developer View: Orders' })
+    ).toBeInTheDocument()
+  })
+
   it('omits the section without a toast when a backend without the ESB module answers with its SPA page', async () => {
     server.use(
       http.get('/qqq/v1/esb/table/order', () =>

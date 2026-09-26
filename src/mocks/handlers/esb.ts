@@ -15,12 +15,19 @@
  */
 
 /**
- * @file MSW handlers for the ESB endpoints (`GET /qqq/v1/esb/table/:tableName`).
+ * @file MSW handlers for the ESB endpoints (`GET /qqq/v1/esb/table/:tableName`,
+ * `/process/:processName`, `/overview`, `/messages/:destination` and `/deadLetters/:trigger`).
  */
 
 import { http, HttpResponse } from 'msw'
-import type { EsbTableResponse } from '@/types'
-import { orderEsb } from '../fixtures/esb'
+import type { EsbMessagePage, EsbProcessResponse, EsbTableResponse } from '@/types'
+import {
+  esbOverview,
+  fulfillOrderDeadLetters,
+  fulfillOrderEsb,
+  orderEsb,
+  orderFulfillmentMessages,
+} from '../fixtures/esb'
 
 const BASE = '/qqq/v1'
 
@@ -28,17 +35,46 @@ const esbTables: Record<string, EsbTableResponse> = {
   order: orderEsb,
 }
 
+const esbProcesses: Record<string, EsbProcessResponse> = {
+  fulfillOrder: fulfillOrderEsb,
+}
+
+const esbMessages: Record<string, EsbMessagePage> = {
+  orderFulfillment: orderFulfillmentMessages,
+}
+
+const esbDeadLetters: Record<string, EsbMessagePage> = {
+  'fulfillOrder.orderFulfillment': fulfillOrderDeadLetters,
+}
+
+/**
+ * Answers with the entry for `name`, or a 404 as the backend does for objects without ESB metadata.
+ *
+ * @param entries - Fixture responses by name.
+ * @param name - The requested name.
+ * @param kind - What `name` names, for the error message.
+ * @returns The fixture as JSON, or a 404 response.
+ */
+function esbResponse<T extends object>(entries: Record<string, T>, name: string, kind: string) {
+  const data = entries[name]
+  if (!data) {
+    return HttpResponse.json({ error: `${kind} '${name}' has no ESB metadata` }, { status: 404 })
+  }
+  return HttpResponse.json(data)
+}
+
 export const esbHandlers = [
-  // GET /esb/table/:tableName — 404 for tables without ESB metadata, as the backend answers
-  http.get(`${BASE}/esb/table/:tableName`, ({ params }) => {
-    const { tableName } = params as { tableName: string }
-    const data = esbTables[tableName]
-    if (!data) {
-      return HttpResponse.json(
-        { error: `Table '${tableName}' has no ESB metadata` },
-        { status: 404 }
-      )
-    }
-    return HttpResponse.json(data)
-  }),
+  http.get(`${BASE}/esb/table/:tableName`, ({ params }) =>
+    esbResponse(esbTables, String(params.tableName), 'Table')
+  ),
+  http.get(`${BASE}/esb/process/:processName`, ({ params }) =>
+    esbResponse(esbProcesses, String(params.processName), 'Process')
+  ),
+  http.get(`${BASE}/esb/overview`, () => HttpResponse.json(esbOverview)),
+  http.get(`${BASE}/esb/messages/:destination`, ({ params }) =>
+    esbResponse(esbMessages, String(params.destination), 'Destination')
+  ),
+  http.get(`${BASE}/esb/deadLetters/:trigger`, ({ params }) =>
+    esbResponse(esbDeadLetters, String(params.trigger), 'Trigger')
+  ),
 ]

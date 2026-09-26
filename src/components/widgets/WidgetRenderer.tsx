@@ -25,7 +25,7 @@
  * pieChart, quickSightChart, statistics, stackedBarChart, stepper, table, usaMap,
  * process, parentWidget, composite, childRecordList, customComponent, cronUI,
  * dynamicForm, dataBagViewer, pivotTableSetup, filterAndColumnsSetup, rowBuilder,
- * scriptViewer — plus the demo shapes (recordGrid, quickLinks, processSummary,
+ * scriptViewer, and the ESB module's ESB_OVERVIEW — plus the demo shapes (recordGrid, quickLinks, processSummary,
  * block, parent) used by the mocked development API.
  *
  * Chart components are loaded lazily so Recharts is split out of the initial bundle.
@@ -72,6 +72,7 @@ import { FilterAndColumnsSetupWidget } from './FilterAndColumnsSetupWidget'
 import { PivotTableSetupWidget } from './PivotTableSetupWidget'
 import { RowBuilderWidget } from './RowBuilderWidget'
 import { ScriptViewerWidget } from './ScriptViewerWidget'
+import { EsbOverviewWidget } from './EsbOverviewWidget'
 
 const QqqChartWidget = lazy(() => import('./QqqChartWidget').then((m) => ({ default: m.QqqChartWidget })))
 const BarChartWidget = lazy(() => import('./BarChartWidget').then((m) => ({ default: m.BarChartWidget })))
@@ -204,6 +205,8 @@ export function WidgetRenderer({ widgetMetaData, data, recordContext, actionCall
       return <RowBuilderWidget {...common} data={data} />
     case 'scriptViewer':
       return <ScriptViewerWidget {...common} data={data} />
+    case 'ESB_OVERVIEW':
+      return <EsbOverviewWidget widgetMetaData={widgetMetaData} />
     case 'recordGrid':
       return <RecordGridWidget data={data as unknown as RecordGridWidgetPayload} widgetName={name} />
     case 'quickLinks':
