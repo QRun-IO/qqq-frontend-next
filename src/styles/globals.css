@@ -100,8 +100,12 @@
     min-width: 44px;
   }
   /* WebKit (iPad) sizes a native menulist select by its font and ignores min-height, so a
-   * touch select draws its own arrow and takes the 44 px box like every other control. */
+   * touch select draws its own arrow and takes the 44 px box like every other control.
+   * Safari also ignores min-height on a select with an author border but honors height;
+   * :where() keeps this at zero specificity, so a class height still wins (and min-height
+   * still lifts it to 44 px). */
   :where(select:not([multiple], [size])) {
+    height: 44px;
     -webkit-appearance: none;
     appearance: none;
     padding-right: 1.75rem;
