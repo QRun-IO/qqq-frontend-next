@@ -302,7 +302,9 @@ final class WidgetsFixtures
          "CREATE TABLE script_type_file_schema (" + id + ", script_type_id INTEGER, name VARCHAR(100), file_type VARCHAR(50))",
          "CREATE TABLE script (" + id + ", name VARCHAR(100), script_type_id INTEGER, table_name VARCHAR(100), max_batch_size INTEGER, "
             + "current_script_revision_id INTEGER)",
-         "CREATE TABLE script_revision (" + id + ", script_id INTEGER, sequence_no INTEGER, commit_message VARCHAR(250), author VARCHAR(100))",
+         // api_name and api_version: the sample serves its own API (QRun-IO/qqq#738), so the scripts model has these fields
+         "CREATE TABLE script_revision (" + id + ", script_id INTEGER, sequence_no INTEGER, commit_message VARCHAR(250), author VARCHAR(100), "
+            + "api_name VARCHAR(100), api_version VARCHAR(50))",
          "CREATE TABLE script_revision_file (" + id + ", script_revision_id INTEGER, file_name VARCHAR(100), contents TEXT)",
          "CREATE TABLE script_log (" + id + ", script_id INTEGER, script_revision_id INTEGER, start_timestamp TIMESTAMP, end_timestamp TIMESTAMP, "
             + "run_time_millis INTEGER, had_error BOOLEAN, input TEXT, output TEXT, error TEXT)",
