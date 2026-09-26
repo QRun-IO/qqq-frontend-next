@@ -361,17 +361,18 @@ export async function processRecords(
   skip = 0,
   limit = 50
 ): Promise<ProcessRecordsResponse> {
-  const body = await apiClient.get<ProcessRecordsResponse>(
+  const body = await apiClient.get<Partial<ProcessRecordsResponse>>(
     `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/records`,
     {
       baseURL: legacyBaseURL(),
       params: { skip, limit },
     }
   )
-  if (!body || !Array.isArray(body.records) || typeof body.totalRecords !== 'number') {
+  // The backend serializer omits empty lists, so a run with no records answers `{"totalRecords":0}`.
+  if (!body || typeof body.totalRecords !== 'number' || (body.records !== undefined && !Array.isArray(body.records))) {
     throw new Error('Invalid process records response')
   }
-  return body
+  return { ...body, totalRecords: body.totalRecords, records: body.records ?? [] }
 }
 
 /**

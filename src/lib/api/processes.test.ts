@@ -186,10 +186,19 @@ describe('Processes API', () => {
       expect(result.totalRecords).toBe(100)
     })
 
+    it('reads a run with no records, whose empty list the backend omits, as an empty page', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ totalRecords: 0 })
+      const { processRecords } = await import('./processes')
+      await expect(processRecords('p', 'u')).resolves.toEqual({ totalRecords: 0, records: [] })
+    })
+
     it('rejects a malformed records response', async () => {
       const { default: apiClient } = await import('./client')
       vi.mocked(apiClient.get).mockResolvedValue({ error: 'Could not find process results.' })
       const { processRecords } = await import('./processes')
+      await expect(processRecords('p', 'u')).rejects.toThrow('Invalid process records response')
+      vi.mocked(apiClient.get).mockResolvedValue({ totalRecords: 1, records: 'x' })
       await expect(processRecords('p', 'u')).rejects.toThrow('Invalid process records response')
     })
   })

@@ -25,10 +25,21 @@ test.describe('Record selection', () => {
 
   test('[PRC-003] a selection that matches no records runs with zero records', async ({ page, diagnostics }) => {
     void diagnostics
+    // every error notification the run shows is recorded (they close by themselves)
+    await page.addInitScript(() => {
+      const shown: string[] = []
+      Object.assign(window, { __qqqErrorToasts: shown })
+      new MutationObserver(() => {
+        document.querySelectorAll('[data-sonner-toast][data-type="error"]').forEach((toast) => { shown.push(toast.textContent ?? '') })
+      }).observe(document, { childList: true, subtree: true })
+    })
+    // the backend answers a run without records with `{"totalRecords":0}` (no empty list)
+    const previews = page.waitForResponse((response) => /^\/processes\/clonePeople\/[^/]+\/records$/.test(new URL(response.url()).pathname))
     await openProcess(page, 'clonePeople', { filter: NOBODY })
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 0 Person records.')
     await expect(review.getByText('No record previews are available at this time.')).toBeVisible()
+    expect(await (await previews).json()).toEqual({ totalRecords: 0 })
     await advance(page, 'Next')
     const validated = await expectScreen(page, 'review', 'Review')
     await expect(validated.locator('[data-qqq-id="process-validation-complete"]')).toHaveText('Validation complete on 0 Person records.')
@@ -36,6 +47,8 @@ test.describe('Record selection', () => {
     await advance(page, 'Submit')
     const result = await expectScreen(page, 'result', 'Result')
     await expect(result.locator('[data-qqq-id="process-summary-record-count"]')).toHaveText('0 Person records were processed.')
+    // an empty preview is not an error
+    expect(await page.evaluate(() => (window as unknown as { __qqqErrorToasts: string[] }).__qqqErrorToasts)).toEqual([])
 
     // a record-list step with no input records is refused by the backend
     await openProcess(page, 'greetInteractive', { filter: NOBODY })
