@@ -385,6 +385,32 @@ export const queryKeys = {
   scriptTypeFileSchemas: (scriptTypeId: string | number) =>
     [...queryKeys.tableRecords('scriptTypeFileSchema'), 'scriptType', String(scriptTypeId)] as const,
   /**
+   * Key for the run logs of one script revision, read from the script log table.
+   *
+   * @param scriptRevisionId - Revision id.
+   * @returns The script logs query key tuple.
+   */
+  scriptLogs: (scriptRevisionId: string | number) =>
+    [...queryKeys.tableRecords('scriptLog'), 'revision', String(scriptRevisionId)] as const,
+  /**
+   * Key for how a script type is tested (its tester's input and output fields).
+   *
+   * @param scriptTypeId - Script type id.
+   * @returns The script test details query key tuple.
+   */
+  scriptTestDetails: (scriptTypeId: string | number) =>
+    [...queryKeys.all(), 'scriptTestDetails', String(scriptTypeId)] as const,
+  /**
+   * Key for the choices of one field of a table, loaded once (small enum sources such as
+   * the script revision's API name and version).
+   *
+   * @param tableName - Backend table name.
+   * @param fieldName - Field name.
+   * @returns The field choices query key tuple.
+   */
+  fieldChoices: (tableName: string, fieldName: string) =>
+    [...queryKeys.all(), 'fieldChoices', tableName, fieldName] as const,
+  /**
    * Key for the application APIs that expose a table.
    *
    * @param tableName - Backend table name.

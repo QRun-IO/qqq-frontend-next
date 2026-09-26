@@ -40,6 +40,10 @@ vi.mock('@/lib/api/tables', async (importOriginal) => ({
 }))
 
 vi.mock('@/lib/api/developer', () => ({
+  SCRIPT_LOG_TABLE: 'scriptLog',
+  scriptLogsFilter: (id: number) => ({ criteria: [{ fieldName: 'scriptRevisionId', operator: 'EQUALS', values: [id] }] }),
+  loadScriptTestDetails: vi.fn(),
+  queryScriptLogs: vi.fn(async () => []),
   getRecordDeveloperData: vi.fn(),
   getAssociatedScriptLogs: vi.fn(),
   queryScriptRevisionFiles: vi.fn(async () => []),
@@ -128,6 +132,18 @@ describe('RecordDeveloperViewPage', () => {
     expect(getRecordDeveloperData).toHaveBeenCalledWith('person', '1')
   })
 
+  it('shows the raw values of the developer-mode record, not a separate record read (Material getRecordDeveloperMode)', async () => {
+    serveInstance([])
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Record Raw Values as JSON' })).toBeInTheDocument()
+    const json = document.querySelector('[data-qqq-id="json-output"]') as HTMLElement
+    expect(JSON.parse(json.textContent ?? '')).toEqual({ id: 1, firstName: 101, email: null })
+    const table = document.querySelector('[data-qqq-id="record-dev-field-table"]') as HTMLElement
+    expect(within(table).getByText('101')).toBeInTheDocument()
+    expect(getRecord).not.toHaveBeenCalled()
+  })
+
   it('gates editing and testing on the script processes in the instance metadata', async () => {
     const served = serveInstance([])
     renderPage()
@@ -144,11 +160,12 @@ describe('RecordDeveloperViewPage', () => {
     expect(document.querySelector('[data-qqq-id="button-edit-script-firstName"]')).toBeNull()
   })
 
-  it('reports a failure to load the associated scripts', async () => {
+  it('reports a failure to load the developer-mode record', async () => {
     serveInstance([])
     vi.mocked(getRecordDeveloperData).mockRejectedValue(new Error('Permission denied.'))
     renderPage()
 
-    expect(await screen.findByText('Failed to load associated scripts: Permission denied.')).toHaveAttribute('role', 'alert')
+    expect(await screen.findByText('Failed to load record: Permission denied.')).toHaveAttribute('role', 'alert')
+    expect(screen.queryByRole('heading', { name: 'Record Raw Values as JSON' })).not.toBeInTheDocument()
   })
 })

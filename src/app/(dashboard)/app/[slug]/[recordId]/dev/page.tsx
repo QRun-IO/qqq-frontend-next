@@ -28,12 +28,12 @@ import { Code, ChevronDown, ChevronUp } from 'lucide-react'
 import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useMetaData } from '@/lib/hooks/use-metadata'
 import { useQContext } from '@/lib/context/q-context'
-import { getRecordDeveloperData } from '@/lib/api/developer'
-import { getRecord } from '@/lib/api/tables'
+import { SCRIPT_LOG_TABLE, getRecordDeveloperData } from '@/lib/api/developer'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { AssociatedScriptViewer } from '@/components/records/AssociatedScriptViewer'
+import { scriptLogsQueryHref } from '@/components/scripts/script-utils'
 
 /**
  * Renders a developer debug view for a single record, showing all field values
@@ -52,12 +52,6 @@ export default function RecordDeveloperViewPage() {
   const { slug, recordId } = params
   const queryClient = useQueryClient()
 
-  const { data: record, isLoading: recordLoading, error: recordError } = useQuery({
-    queryKey: queryKeys.tableRecord(slug, recordId),
-    queryFn: () => getRecord(slug, recordId),
-    staleTime: 1000 * 60 * 5,
-  })
-
   const { data: metaData, isLoading: metaLoading } = useQuery({
     queryKey: queryKeys.tableMetadata(slug),
     queryFn: () => loadTableMetaData(slug),
@@ -65,12 +59,17 @@ export default function RecordDeveloperViewPage() {
   })
 
   const { data: instance } = useMetaData()
-  const { data: developerData, error: developerError } = useQuery({
+  // Material's RecordDeveloperView reads the record from the developer-mode route: the same
+  // response carries the raw values and the associated scripts.
+  const { data: developerData, isLoading: recordLoading, error: recordError } = useQuery({
     queryKey: queryKeys.recordDeveloper(slug, recordId),
     queryFn: () => getRecordDeveloperData(slug, recordId),
     meta: HANDLES_OWN_ERRORS,
     retry: false,
   })
+  const record = developerData?.record
+  // "View All" logs link, when the session can read the script log table
+  const logsViewAllHref = instance?.tables?.[SCRIPT_LOG_TABLE] ? scriptLogsQueryHref : undefined
 
   const headerLabel = record?.recordLabel || (metaData ? `${metaData.label} ${recordId}` : `${slug} #${recordId}`)
   useEffect(() => {
@@ -114,7 +113,7 @@ export default function RecordDeveloperViewPage() {
           className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
           role="alert"
         >
-          Failed to load record: {recordError instanceof Error ? recordError.message : 'Unknown error'}
+          Failed to load record: {getErrorMessage(recordError)}
         </div>
       )}
 
@@ -166,17 +165,9 @@ export default function RecordDeveloperViewPage() {
 
           <JsonBlock label="Record Raw Values as JSON" value={record.values} />
 
-          {developerError && (
-            <div
-              className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
-              role="alert"
-            >
-              Failed to load associated scripts: {getErrorMessage(developerError)}
-            </div>
-          )}
           {metaData && developerData?.associatedScripts.map((associated) => {
             const fieldName = associated.associatedScript.fieldName
-            const scriptId = developerData.record.values[fieldName]
+            const scriptId = record.values[fieldName]
             return (
               <AssociatedScriptViewer
                 key={fieldName}
@@ -188,6 +179,7 @@ export default function RecordDeveloperViewPage() {
                 canCreate={Boolean(metaData.editPermission)}
                 canEdit={canEditScripts}
                 canTest={canTestScripts}
+                logsViewAllHref={logsViewAllHref}
                 onChanged={reloadRecord}
               />
             )

@@ -22,7 +22,7 @@
 
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
@@ -33,11 +33,13 @@ import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
+import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
 import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
 } from '@/lib/utils/adornment-utils'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
+import { HighlightedCode } from '@/components/scripts/HighlightedCode'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -390,8 +392,13 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
   )
 }
 
+/** How long a formatting error stays on screen (Material: 5 seconds). */
+const FORMAT_ERROR_MILLIS = 5000
+
 /**
- * Read-only code display for CODE_EDITOR fields, with JSON formatting.
+ * Read-only, syntax-colored code display for CODE_EDITOR fields (Material's CodeViewer):
+ * Format JSON / Format SQL toggles a formatted copy, Expand / Collapse sizes the box, and a
+ * formatting error shows for five seconds.
  *
  * @param props - Component properties.
  * @param props.code - The code text.
@@ -401,36 +408,54 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
  * @returns The code block.
  */
 function CodeViewer({ code, languageMode, fieldName, className }: { code: string; languageMode: string; fieldName: string; className?: string }) {
-  const [formatted, setFormatted] = useState(false)
+  const [formatted, setFormatted] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const [formatError, setFormatError] = useState<string | null>(null)
-  const pretty = useMemo(() => {
-    if (!formatted) return code
-    try {
-      return JSON.stringify(JSON.parse(code), null, 2)
-    } catch {
-      return code
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(errorTimer.current), [])
+  const language = languageFor(languageMode)
+  const formattable = language === 'json' || language === 'sql'
+  const codeId = `code-viewer-${fieldName}`
+
+  /** Formats the code, or goes back to the stored text; reports a formatting error for 5 s. */
+  function toggleFormat() {
+    if (formatted !== null) {
+      setFormatted(null)
+      return
     }
-  }, [code, formatted])
+    try {
+      setFormatted(language === 'json' ? formatJson(code) : formatSql(code))
+      setFormatError(null)
+    } catch (error) {
+      setFormatError(`Error formatting code: ${error instanceof Error ? error.message : String(error)}`)
+      clearTimeout(errorTimer.current)
+      errorTimer.current = setTimeout(() => setFormatError(null), FORMAT_ERROR_MILLIS)
+    }
+  }
+
+  const buttonClass = cn('rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring', TOUCH_LINK)
   return (
     <div className={cn('w-full space-y-1', className)} data-qqq-id={`field-value-${fieldName}`} data-language-mode={languageMode}>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
         <span className="rounded bg-muted px-2 py-0.5 font-medium uppercase">{languageMode}</span>
-        {languageMode.toLowerCase() === 'json' && (
-          <button type="button" className="rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id={`button-format-${fieldName}`}
-            onClick={() => {
-              if (!formatted) {
-                try { JSON.parse(code); setFormatError(null) } catch (error) { setFormatError(`Error formatting code: ${error instanceof Error ? error.message : String(error)}`); return }
-              }
-              setFormatted((current) => !current)
-            }}>
-            {formatted ? 'Reset Format' : 'Format JSON'}
-          </button>
+        {code && (
+          <span className="flex items-center gap-1">
+            {formattable && (
+              <button type="button" className={buttonClass} data-qqq-id={`button-format-${fieldName}`} onClick={toggleFormat}>
+                {formatted !== null ? 'Reset Format' : `Format ${language.toUpperCase()}`}
+              </button>
+            )}
+            <button type="button" className={buttonClass} aria-expanded={expanded} aria-controls={codeId}
+              data-qqq-id={`button-expand-${fieldName}`} onClick={() => setExpanded((current) => !current)}>
+              {expanded ? 'Collapse' : 'Expand'}
+            </button>
+          </span>
         )}
       </div>
       {formatError && <p role="alert" className="text-xs text-destructive">{formatError}</p>}
-      <pre className="max-h-96 overflow-auto rounded-md border border-border bg-muted p-3 text-sm">
-        <code className="whitespace-pre-wrap font-mono text-foreground">{pretty}</code>
+      <pre id={codeId} className={cn('overflow-auto rounded-md border border-border bg-muted p-3 text-sm', expanded ? 'max-h-[80vh]' : 'max-h-[200px]')}
+        data-expanded={expanded}>
+        <code className="whitespace-pre-wrap font-mono text-foreground"><HighlightedCode code={formatted ?? code} language={language} /></code>
       </pre>
     </div>
   )

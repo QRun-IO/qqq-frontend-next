@@ -169,3 +169,67 @@
     font-size: 16px;
   }
 }
+
+/* Code coloring (QRun-IO/qqq#724): read-only code blocks and the overlay of CodeEditor, whose
+ * textarea text is transparent above it. Every color keeps 4.5:1 or more on the card, muted and
+ * accent surfaces, light and dark. */
+:root {
+  --qqq-code-keyword: #a0217f;
+  --qqq-code-literal: #005cc5;
+  --qqq-code-string: #0a6b32;
+  --qqq-code-number: #9a4800;
+  --qqq-code-comment: #5c6570;
+  --qqq-code-property: #1f4fb8;
+  --qqq-code-tag: #1a6a2c;
+  --qqq-code-attribute: #7a3e00;
+  --qqq-code-variable: #9b2226;
+  --qqq-code-directive: #7c3aed;
+}
+
+[data-theme="dark"],
+.dark {
+  --qqq-code-keyword: #f08bd5;
+  --qqq-code-literal: #79b8ff;
+  --qqq-code-string: #85e89d;
+  --qqq-code-number: #ffab70;
+  --qqq-code-comment: #9aa1b3;
+  --qqq-code-property: #9ecbff;
+  --qqq-code-tag: #85e89d;
+  --qqq-code-attribute: #ffab70;
+  --qqq-code-variable: #ff9a9a;
+  --qqq-code-directive: #c4a7ff;
+}
+
+.qqq-code-keyword { color: var(--qqq-code-keyword); font-weight: 600; }
+.qqq-code-literal { color: var(--qqq-code-literal); }
+.qqq-code-string { color: var(--qqq-code-string); }
+.qqq-code-number { color: var(--qqq-code-number); }
+.qqq-code-comment { color: var(--qqq-code-comment); font-style: italic; }
+.qqq-code-property { color: var(--qqq-code-property); }
+.qqq-code-tag { color: var(--qqq-code-tag); }
+.qqq-code-attribute { color: var(--qqq-code-attribute); }
+.qqq-code-variable { color: var(--qqq-code-variable); }
+.qqq-code-directive { color: var(--qqq-code-directive); font-weight: 600; }
+
+/* The overlay must match the textarea glyph for glyph: bold keywords would shift the caret. */
+.qqq-code-overlay .qqq-code-keyword,
+.qqq-code-overlay .qqq-code-directive {
+  font-weight: inherit;
+}
+
+/* Phones enlarge textarea text to 16px (no iOS zoom, above); the overlay follows. */
+@media screen and (max-width: 767px) {
+  .qqq-code-overlay {
+    font-size: 16px;
+  }
+}
+
+/* Forced colors ignore the transparent text: show the textarea's own text, hide the overlay. */
+@media (forced-colors: active) {
+  .qqq-code-overlay {
+    display: none;
+  }
+  .qqq-code-input {
+    color: CanvasText;
+  }
+}

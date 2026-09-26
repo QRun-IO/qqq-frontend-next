@@ -35,6 +35,9 @@ import { queryRecords } from './tables'
 const SCRIPT_REVISION_TABLE = 'scriptRevision'
 const SCRIPT_REVISION_FILE_TABLE = 'scriptRevisionFile'
 const SCRIPT_TYPE_FILE_SCHEMA_TABLE = 'scriptTypeFileSchema'
+/** The scripts model's run log table, for links to its query screen. */
+export const SCRIPT_LOG_TABLE = 'scriptLog'
+const SCRIPT_LOG_LINE_TABLE = 'scriptLogLine'
 
 /** How long script processes may run before the backend continues them as async jobs. */
 const SCRIPT_PROCESS_TIMEOUT_MILLIS = 60_000
@@ -112,6 +115,10 @@ export interface StoreScriptRevisionRequest {
   commitMessage: string
   /** File contents by file name. */
   files: Record<string, string>
+  /** API the revision's code runs against (scriptRevision.apiName), when the instance has APIs. */
+  apiName?: string
+  /** API version the revision's code runs against (scriptRevision.apiVersion). */
+  apiVersion?: string
 }
 
 /** Result of {@link storeScriptRevision}. */
@@ -134,6 +141,28 @@ export interface TestScriptRequest {
   files: Record<string, string>
   /** Values of the tester's input fields, by field name. */
   inputValues: Record<string, unknown>
+  /** API the code runs against, when the editor or revision names one. */
+  apiName?: string
+  /** API version the code runs against. */
+  apiVersion?: string
+}
+
+/** How a script type is tested, from the `loadScriptTestDetails` process. */
+export interface ScriptTestDetails {
+  /** Input fields of the script type's tester. */
+  testInputFields: QFieldMetaData[]
+  /** Output fields of the script type's tester. */
+  testOutputFields: QFieldMetaData[]
+}
+
+/** Request for {@link storeDataBagVersion}. */
+export interface StoreDataBagVersionRequest {
+  /** Data bag to add a version to. */
+  dataBagId: string | number
+  /** The version's contents (JSON text). */
+  data: string
+  /** Commit message of the new version. */
+  commitMessage: string
 }
 
 /** A log line written while a script ran. */
@@ -405,6 +434,20 @@ function scriptFileValues(scriptId: string | number, files: Record<string, strin
 }
 
 /**
+ * The API name and version values of a script process request, when set.
+ * @param request - Request with optional `apiName` / `apiVersion`.
+ * @param request.apiName - API name.
+ * @param request.apiVersion - API version.
+ * @returns The values to send.
+ */
+function apiValues(request: { apiName?: string; apiVersion?: string }): Record<string, unknown> {
+  const values: Record<string, unknown> = {}
+  if (request.apiName) values.apiName = request.apiName
+  if (request.apiVersion) values.apiVersion = request.apiVersion
+  return values
+}
+
+/**
  * Stores a new revision of a script and makes it current (`storeScriptRevision` process).
  *
  * @param request - Script, commit message and file contents.
@@ -413,7 +456,7 @@ function scriptFileValues(scriptId: string | number, files: Record<string, strin
 export async function storeScriptRevision(request: StoreScriptRevisionRequest): Promise<StoreScriptRevisionResult> {
   const processName = 'storeScriptRevision'
   const response = await processInit(processName, {
-    values: { ...scriptFileValues(request.scriptId, request.files), commitMessage: request.commitMessage },
+    values: { ...scriptFileValues(request.scriptId, request.files), ...apiValues(request), commitMessage: request.commitMessage },
     stepTimeoutMillis: SCRIPT_PROCESS_TIMEOUT_MILLIS,
   })
   const values = await completedValues(processName, response)
@@ -446,7 +489,7 @@ function exceptionMessageChain(exception: unknown): string | undefined {
 export async function testScript(request: TestScriptRequest): Promise<TestScriptResult> {
   const processName = 'testScript'
   const response = await processInit(processName, {
-    values: { ...request.inputValues, ...scriptFileValues(request.scriptId, request.files) },
+    values: { ...request.inputValues, ...apiValues(request), ...scriptFileValues(request.scriptId, request.files) },
     stepTimeoutMillis: SCRIPT_PROCESS_TIMEOUT_MILLIS,
   })
   const values = await completedValues(processName, response)
@@ -491,4 +534,71 @@ export async function queryScriptRevisionFiles(scriptRevisionId: string | number
 export async function queryScriptTypeFileSchemas(scriptTypeId: string | number): Promise<QRecord[]> {
   const response = await queryRecords(SCRIPT_TYPE_FILE_SCHEMA_TABLE, { filter: equalsFilter('scriptTypeId', scriptTypeId, 'id', true, 100) })
   return response.records
+}
+
+/**
+ * Loads how a script type is tested: its tester's input and output fields
+ * (`loadScriptTestDetails` process, as Material's script test form does).
+ *
+ * @param scriptTypeId - Script type id.
+ * @returns The tester's input and output fields.
+ */
+export async function loadScriptTestDetails(scriptTypeId: string | number): Promise<ScriptTestDetails> {
+  const processName = 'loadScriptTestDetails'
+  const response = await processInit(processName, { values: { scriptTypeId }, stepTimeoutMillis: SCRIPT_PROCESS_TIMEOUT_MILLIS })
+  const values = await completedValues(processName, response)
+  const fields = (value: unknown): QFieldMetaData[] =>
+    Array.isArray(value) ? value.filter((field): field is QFieldMetaData => isObject(field) && typeof field.name === 'string') : []
+  return { testInputFields: fields(values.testInputFields), testOutputFields: fields(values.testOutputFields) }
+}
+
+/**
+ * Lists the latest run logs of one script revision from the script log table (newest first,
+ * at most 100, as Material's script viewer shows), each with its log lines in
+ * `values.scriptLogLine`, the shape the record developer route returns.
+ *
+ * @param scriptRevisionId - Revision id.
+ * @returns The log records.
+ */
+export async function queryScriptLogs(scriptRevisionId: string | number): Promise<QRecord[]> {
+  const logs = (await queryRecords(SCRIPT_LOG_TABLE, { filter: equalsFilter('scriptRevisionId', scriptRevisionId, 'id', false, 100) })).records
+  if (logs.length === 0) return logs
+  const lines = (await queryRecords(SCRIPT_LOG_LINE_TABLE, {
+    filter: {
+      criteria: [{ fieldName: 'scriptLogId', operator: 'IN', values: logs.map((log) => log.values.id as string | number) }],
+      orderBys: [{ fieldName: 'id', isAscending: true }],
+      booleanOperator: 'AND',
+      skip: 0,
+      limit: 1000,
+    },
+  })).records
+  return logs.map((log) => ({
+    ...log,
+    values: { ...log.values, scriptLogLine: lines.filter((line) => String(line.values.scriptLogId) === String(log.values.id)) },
+  }))
+}
+
+/**
+ * The query filter of a script revision's logs, for the "View All" link to the script log table.
+ * @param scriptRevisionId - Revision id.
+ * @returns The filter as the query screen reads it from `?filter=`.
+ */
+export function scriptLogsFilter(scriptRevisionId: string | number): Partial<QQueryFilter> {
+  return { criteria: [{ fieldName: 'scriptRevisionId', operator: 'EQUALS', values: [scriptRevisionId] }], booleanOperator: 'AND' }
+}
+
+/**
+ * Stores a new version of a data bag (`storeDataBagVersion` process, as Material's data bag
+ * editor does). The new version becomes the data bag's current (newest) version.
+ *
+ * @param request - Data bag, contents and commit message.
+ * @returns The process's output values.
+ */
+export async function storeDataBagVersion(request: StoreDataBagVersionRequest): Promise<Record<string, unknown>> {
+  const processName = 'storeDataBagVersion'
+  const response = await processInit(processName, {
+    values: { dataBagId: request.dataBagId, data: request.data, commitMessage: request.commitMessage },
+    stepTimeoutMillis: SCRIPT_PROCESS_TIMEOUT_MILLIS,
+  })
+  return completedValues(processName, response)
 }

@@ -23,6 +23,10 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/lib/api/developer', () => ({
+  SCRIPT_LOG_TABLE: 'scriptLog',
+  scriptLogsFilter: vi.fn(),
+  loadScriptTestDetails: vi.fn(),
+  queryScriptLogs: vi.fn(),
   getAssociatedScriptLogs: vi.fn(),
   queryScriptRevisionFiles: vi.fn(),
   queryScriptRevisions: vi.fn(),
@@ -30,6 +34,10 @@ vi.mock('@/lib/api/developer', () => ({
   storeRecordAssociatedScript: vi.fn(),
   storeScriptRevision: vi.fn(),
   testScript: vi.fn(),
+}))
+
+vi.mock('@/lib/api/metadata', () => ({
+  loadTableMetaData: vi.fn(async (name: string) => ({ name, label: name, fields: {} })),
 }))
 
 vi.mock('@/lib/hooks/use-toast', () => ({
@@ -134,6 +142,26 @@ function byQqqId(id: string): HTMLElement | null {
 }
 
 /**
+ * The code block showing exactly this text (highlighted code is split into token spans).
+ * @param code - The code text.
+ * @returns The code block.
+ */
+function codeElement(code: string): HTMLElement {
+  const match = Array.from(document.querySelectorAll<HTMLElement>('[data-qqq-id^="script-code-"]')).find((element) => element.textContent === code)
+  if (!match) throw new Error(`No code block showing ${code}`)
+  return match
+}
+
+/**
+ * Wait for the code block showing this text.
+ * @param code - The code text.
+ * @returns The code block.
+ */
+function findCode(code: string): Promise<HTMLElement> {
+  return waitFor(() => codeElement(code))
+}
+
+/**
  * Wait for an element with a data-qqq-id.
  * @param id - The data-qqq-id.
  * @returns The element.
@@ -157,7 +185,7 @@ describe('AssociatedScriptViewer', () => {
     renderViewer()
 
     expect(within(card()).getByRole('heading', { name: 'Greeting Script' })).toBeInTheDocument()
-    expect(await screen.findByText("return 'Hello, friend';")).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-Script.js`)
+    expect(await findCode("return 'Hello, friend';")).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-Script.js`)
     const current = byQqqId('script-version-102')!
     expect(current).toHaveAttribute('aria-pressed', 'true')
     expect(current).toHaveTextContent('Version 2')
@@ -179,7 +207,7 @@ describe('AssociatedScriptViewer', () => {
     ])
     renderViewer()
 
-    expect(await screen.findByText('// Edit this new script to define its code.')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-Script.js`)
+    expect(await findCode('// Edit this new script to define its code.')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-Script.js`)
     expect(byQqqId(`script-code-${FIELD}-script`)).toBeNull()
     expect(byQqqId(`select-script-file-${FIELD}`)).toBeNull()
   })
@@ -189,7 +217,7 @@ describe('AssociatedScriptViewer', () => {
     renderViewer()
 
     await user.click(await findByQqqId('script-version-101'))
-    expect(await screen.findByText("return 'Hi';")).toBeInTheDocument()
+    expect(await findCode("return 'Hi';")).toBeInTheDocument()
     expect(byQqqId('script-version-101')).toHaveAttribute('aria-pressed', 'true')
     expect(byQqqId('script-version-102')).toHaveAttribute('aria-pressed', 'false')
     expect(byQqqId(`button-edit-script-${FIELD}`)).toHaveTextContent('Edit and Activate')
@@ -198,7 +226,7 @@ describe('AssociatedScriptViewer', () => {
   it('hides Edit without storeScriptRevision and Test without testScript', async () => {
     renderViewer({ canEdit: false, canTest: false })
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     expect(byQqqId(`button-edit-script-${FIELD}`)).toBeNull()
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Code', 'Logs', 'Docs'])
     expect(byQqqId(`script-tab-${FIELD}-test`)).toBeNull()
@@ -227,13 +255,13 @@ describe('AssociatedScriptViewer', () => {
     vi.mocked(storeScriptRevision).mockResolvedValue({ scriptId: 101, scriptRevisionId: 103, scriptRevisionSequenceNo: 3 })
     const { onChanged } = renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`button-edit-script-${FIELD}`)!)
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveAttribute('data-qqq-id', `dialog-script-editor-${FIELD}`)
     expect(within(dialog).getByRole('heading', { name: 'Editing Code for Script: Alpha Greeting' })).toBeInTheDocument()
     const editor = within(dialog).getByLabelText('Script.js')
-    expect(editor).toHaveAttribute('id', `script-edit-${FIELD}-Script-js`)
+    expect(editor).toHaveAttribute('id', `script-edit-${FIELD}-0`)
     expect(editor).toHaveValue("return 'Hello, friend';")
     await user.clear(editor)
     await user.type(editor, "return 'Howdy';")
@@ -259,7 +287,7 @@ describe('AssociatedScriptViewer', () => {
     vi.mocked(storeScriptRevision).mockRejectedValue(new Error('You do not have permission to run this process.'))
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`button-edit-script-${FIELD}`)!)
     const dialog = await screen.findByRole('dialog')
     await user.click(byQqqId(`button-save-script-${FIELD}`)!)
@@ -272,14 +300,16 @@ describe('AssociatedScriptViewer', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
-  it('closes the editor with Escape', async () => {
+  it('keeps the editor open on Escape, as Material does, so unsaved code is not dropped', async () => {
     const user = userEvent.setup()
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`button-edit-script-${FIELD}`)!)
-    await screen.findByRole('dialog')
+    const dialog = await screen.findByRole('dialog')
     await user.keyboard('{Escape}')
+    expect(dialog).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Close dialog' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(storeScriptRevision).not.toHaveBeenCalled()
   })
@@ -292,7 +322,7 @@ describe('AssociatedScriptViewer', () => {
     })
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`script-tab-${FIELD}-test`)!)
     const input = screen.getByLabelText('Greeting Name')
     expect(input).toHaveAttribute('id', `script-test-${FIELD}-name`)
@@ -317,7 +347,7 @@ describe('AssociatedScriptViewer', () => {
     vi.mocked(testScript).mockResolvedValueOnce({ outputObject: {}, logLines: [], exceptionMessage: 'Greeting script failed\ncaused by: root' })
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`script-tab-${FIELD}-test`)!)
     await user.click(byQqqId(`button-test-script-${FIELD}`)!)
     const error = await findByQqqId(`script-test-error-${FIELD}`)
@@ -346,7 +376,7 @@ describe('AssociatedScriptViewer', () => {
     ])
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`script-tab-${FIELD}-logs`)!)
     const table = await findByQqqId(`script-logs-${FIELD}`)
     expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent))
@@ -366,7 +396,7 @@ describe('AssociatedScriptViewer', () => {
     vi.mocked(getAssociatedScriptLogs).mockResolvedValue([])
     renderViewer()
 
-    await screen.findByText("return 'Hello, friend';")
+    await findCode("return 'Hello, friend';")
     await user.click(byQqqId(`script-tab-${FIELD}-logs`)!)
     expect(await screen.findByText('No logs available for this version.')).toBeInTheDocument()
   })
@@ -400,11 +430,11 @@ describe('AssociatedScriptViewer', () => {
     ])
     renderViewer({ data: { ...data, scriptType: { ...scriptType, values: { ...scriptType.values, fileMode: 2 } } } })
 
-    expect(await screen.findByText('main();')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-main.js`)
+    expect(await findCode('main();')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-main.js`)
     const select = byQqqId(`select-script-file-${FIELD}`)!
     expect(select).toBe(screen.getByLabelText('File'))
     await user.selectOptions(select, 'template.vm')
-    expect(screen.getByText('$name')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-template.vm`)
+    expect(codeElement('$name')).toHaveAttribute('data-qqq-id', `script-code-${FIELD}-template.vm`)
     expect(queryScriptTypeFileSchemas).toHaveBeenCalledWith(101)
   })
 

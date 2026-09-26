@@ -130,3 +130,51 @@ describe('FieldValue links on touch screens', () => {
     expect(show(field('name'), { name: 'Plain' })).not.toHaveClass('pointer-coarse:min-h-11')
   })
 })
+
+describe('FieldValue CODE_EDITOR (Material CodeViewer, QRun-IO/qqq#723/#724)', () => {
+  const sqlField = field('query', [{ type: 'CODE_EDITOR', values: { languageMode: 'sql' } }], { type: 'TEXT' })
+  const sql = "SELECT id, name FROM person WHERE id > 1 AND name = 'A'"
+
+  it('colors the code and formats SQL one clause per line, and back', () => {
+    const viewer = show(sqlField, { query: sql })
+    const code = viewer.querySelector('code') as HTMLElement
+    expect(code.textContent).toBe(sql)
+    expect(Array.from(code.querySelectorAll('.qqq-code-keyword')).map((token) => token.textContent)).toEqual(['SELECT', 'FROM', 'WHERE', 'AND'])
+    fireEvent.click(screen.getByRole('button', { name: 'Format SQL' }))
+    expect(code.textContent).toBe("SELECT\n   id,\n   name\nFROM\n   person\nWHERE\n   id > 1\n   AND name = 'A'")
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Format' }))
+    expect(code.textContent).toBe(sql)
+  })
+
+  it('expands and collapses the code box', () => {
+    const viewer = show(sqlField, { query: sql })
+    const expand = screen.getByRole('button', { name: 'Expand' })
+    expect(expand).toHaveAttribute('aria-expanded', 'false')
+    const box = viewer.querySelector('pre') as HTMLElement
+    expect(expand).toHaveAttribute('aria-controls', box.id)
+    expect(box.className).toContain('max-h-[200px]')
+    fireEvent.click(expand)
+    expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-expanded', 'true')
+    expect(box.className).toContain('max-h-[80vh]')
+  })
+
+  it('shows a JSON formatting error for five seconds and keeps the text', () => {
+    vi.useFakeTimers()
+    try {
+      const viewer = show(field('config', [{ type: 'CODE_EDITOR', values: { languageMode: 'json' } }]), { config: '{not json' })
+      fireEvent.click(screen.getByRole('button', { name: 'Format JSON' }))
+      expect(screen.getByRole('alert')).toHaveTextContent(/^Error formatting code:/)
+      expect(viewer.querySelector('code')?.textContent).toBe('{not json')
+      React.act(() => { vi.advanceTimersByTime(5000) })
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('offers no format button for languages it cannot format', () => {
+    show(field('script', [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }]), { script: 'return 1;' })
+    expect(screen.queryByRole('button', { name: /^Format/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument()
+  })
+})

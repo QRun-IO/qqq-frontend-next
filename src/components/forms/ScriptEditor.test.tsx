@@ -161,6 +161,95 @@ describe('ScriptEditor — Tab key', () => {
   })
 })
 
+describe('ScriptEditor — no keyboard trap (WCAG 2.1.2, QRun-IO/qqq#776)', () => {
+  /**
+   * Renders the editor between two buttons, so focus has somewhere to go both ways.
+   * @param props - Extra editor props.
+   * @returns The change spy.
+   */
+  function renderBetweenButtons(props: Partial<React.ComponentProps<typeof ScriptEditor>> = {}) {
+    const onChange = vi.fn()
+    render(
+      <div>
+        <button type="button">Before</button>
+        <ScriptEditor id="trap" label="Script" value="" onChange={onChange} {...props} />
+        <button type="button">After</button>
+      </div>
+    )
+    return onChange
+  }
+
+  it('moves focus to the next control with Escape then Tab, without inserting spaces', async () => {
+    const user = userEvent.setup()
+    const onChange = renderBetweenButtons()
+    await user.click(screen.getByRole('textbox'))
+    await user.keyboard('{Escape}{Tab}')
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('moves focus to the previous control with Escape then Shift+Tab', async () => {
+    const user = userEvent.setup()
+    renderBetweenButtons()
+    await user.click(screen.getByRole('textbox'))
+    await user.keyboard('{Escape}{Shift>}{Tab}{/Shift}')
+    expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus()
+  })
+
+  it('releases Tab only once per Escape: back in the editor, Tab indents again', async () => {
+    const user = userEvent.setup()
+    const onChange = renderBetweenButtons()
+    const textarea = screen.getByRole('textbox')
+    await user.click(textarea)
+    await user.keyboard('{Escape}{Tab}')
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus()
+    await user.click(textarea)
+    await user.keyboard('{Tab}')
+    expect(textarea).toHaveFocus()
+    expect(onChange).toHaveBeenLastCalledWith('  ')
+  })
+
+  it('switches Tab between indenting and moving focus with Ctrl+M', async () => {
+    const user = userEvent.setup()
+    const onChange = renderBetweenButtons()
+    const textarea = screen.getByRole('textbox')
+    await user.click(textarea)
+    await user.keyboard('{Control>}m{/Control}')
+    await user.keyboard('{Tab}')
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus()
+    await user.click(textarea)
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus()
+    expect(onChange).not.toHaveBeenCalled()
+    await user.click(textarea)
+    await user.keyboard('{Control>}m{/Control}')
+    await user.keyboard('{Tab}')
+    expect(textarea).toHaveFocus()
+    expect(onChange).toHaveBeenLastCalledWith('  ')
+    // leave the page-wide mode where it started
+    expect(screen.getByRole('status')).toHaveTextContent('Tab inserts spaces')
+  })
+
+  it('never captures Tab in a read-only editor', async () => {
+    const user = userEvent.setup()
+    const onChange = renderBetweenButtons({ readOnly: true })
+    await user.click(screen.getByRole('textbox'))
+    await user.keyboard('{Tab}')
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('tells keyboard and screen reader users how to leave the editor', () => {
+    renderBetweenButtons()
+    const textarea = screen.getByRole('textbox')
+    const describedBy = (textarea.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean)
+    const hint = describedBy.map((id) => document.getElementById(id)?.textContent ?? '').join(' ')
+    expect(hint).toContain('Esc')
+    expect(hint).toContain('Ctrl+M')
+    expect(hint).toMatch(/move focus/i)
+  })
+})
+
 describe('ScriptEditor — readOnly', () => {
   it('renders the textarea as readonly when readOnly=true', () => {
     render(

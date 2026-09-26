@@ -49,7 +49,7 @@ import { PasswordField } from './field-types/PasswordField'
 import { FileUploadField } from './field-types/FileUploadField'
 import { PossibleValueSelect } from './PossibleValueSelect'
 import { RichTextField } from './RichTextField'
-import { ScriptEditor, type ScriptEditorProps } from './ScriptEditor'
+import { ScriptEditor, scriptEditorLanguage } from './ScriptEditor'
 
 /**
  * Props for the {@link DynamicFormField} component.
@@ -363,7 +363,7 @@ export function DynamicFormField({
                 label={field.isRequired ? `${field.label} *` : field.label}
                 value={typeof controllerField.value === 'string' ? controllerField.value : ''}
                 onChange={controllerField.onChange}
-                language={scriptLanguage(mode)}
+                language={scriptEditorLanguage(mode)}
                 readOnly={isDisabled}
                 error={fieldError}
               />
@@ -683,17 +683,6 @@ const ALL_SCREEN_ROLES = ['ALL_SCREENS'] as const
 /** Help roles of process screens. */
 const PROCESS_SCREEN_ROLES = ['PROCESS_SCREEN', 'ALL_SCREENS'] as const
 
-/**
- * Maps a CODE_EDITOR `languageMode` to a {@link ScriptEditor} language.
- *
- * @param mode - The adornment's language mode.
- * @returns The editor language (`text` when not one of its languages).
- */
-function scriptLanguage(mode: string): NonNullable<ScriptEditorProps['language']> {
-  const languages: NonNullable<ScriptEditorProps['language']>[] = ['javascript', 'groovy', 'python', 'sql', 'json', 'text']
-  const normalized = mode.toLowerCase() as NonNullable<ScriptEditorProps['language']>
-  return languages.includes(normalized) ? normalized : 'text'
-}
 
 /**
  * The file a BLOB field currently holds, for the upload control of an edit form.
