@@ -20,10 +20,10 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
 | Processes and reports | 93 | 2 | 20 | 10 | 3 | 128 |
-| Widgets and blocks | 207 | 0 | 14 | 11 | 4 | 236 |
+| Widgets and blocks | 212 | 0 | 11 | 9 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **668** | **10** | **45** | **34** | **38** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 8 | 10 | 10 | 12 | 127 |
+| **Total** | **673** | **10** | **42** | **32** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 92 | 8 | 8 | 7 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -878,12 +878,12 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | Child list columns from the child table, with omit and onlyInclude fields | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:149-186 | src/components/widgets/ChildRecordListWidget.tsx:childColumns; src/components/records/AssociatedRecords.tsx | WID-024, REL-002, REL-004, REL-007 | Done: AssociatedRecords shows only the first 6 visible fields |
-| Type-aware cells (possible-value links, date and boolean formatting) | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:152-160 | src/components/widgets/ChildRecordListWidget.tsx:189-199 (plain text) | WID-024 | Partial: Non-association lists show plain text; #728 |
-| Exposed join-table columns | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:159-160 | none | none | Missing: no join columns; #728 |
-| Parent foreign-key columns hidden | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:197-207 | none in ChildRecordListWidget | none | Partial: ChildRecordListWidget still shows the FK column; #728 |
+| Type-aware cells (possible-value links, date and boolean formatting) | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:152-160 | src/components/widgets/ChildRecordListWidget.tsx:FieldValue | WID-024; src/components/widgets/ChildRecordListWidget.test.tsx | Done: non-key cells use typed field rendering, including possible-value links |
+| Exposed join-table columns | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:159-160 | src/components/widgets/ChildRecordListWidget.tsx:listColumns | src/components/widgets/ChildRecordListWidget.test.tsx | Done: included readable join tables add labelled columns |
+| Parent foreign-key columns hidden | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:197-207 | src/components/widgets/ChildRecordListWidget.tsx:shownColumns | src/components/widgets/ChildRecordListWidget.test.tsx | Done: defaulted parent-key fields are hidden in the visible grid |
 | "View All" link to the filtered child list | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:263-271 | src/components/widgets/ChildRecordListWidget.tsx:nextViewAllHref | WID-024, REL-002 | Done |
-| Row click opens the child record (disableRowClick respected) | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:346-390 | src/components/widgets/ChildRecordListWidget.tsx:181, 193-196 | WID-024 | Partial: Only the first cell is a link; #728 |
-| Export the shown child rows as CSV | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:235-311 | none | none | Missing: no CSV export; #728 |
+| Row click opens the child record (disableRowClick respected) | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:346-390 | src/components/widgets/ChildRecordListWidget.tsx:openRowRecord | WID-024; src/components/widgets/ChildRecordListWidget.test.tsx | Done: any non-link cell opens the row; disableRowClick removes navigation |
+| Export the shown child rows as CSV | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:235-311 | src/components/widgets/ChildRecordListWidget.tsx:childRecordsCsv | src/components/widgets/ChildRecordListWidget.test.tsx | Done: Export writes the returned rows and all selected columns |
 | "Add new" opens a create-child modal prefilled from defaultValues and parent fields, with disabledFields | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:317-340; material:src/qqq/components/widgets/Widget.tsx:253-285; material:src/qqq/pages/records/view/RecordView.tsx:410-429 | src/components/widgets/ChildRecordListWidget.tsx:addChildHref; src/components/records/CreateChildFromLinkDialog.tsx; src/components/records/AssociatedRecords.tsx:CreateChildRecordDialog | RPT-012, REL-003, REL-008 | Done: create dialog over the parent with presets locked |
 | Add shown only when canAddChildRecord | material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:317 | src/components/widgets/ChildRecordListWidget.tsx:150; src/components/records/AssociatedRecords.tsx:284 | REL-006 | Done |
 | createChild deep link opens the create modal | material:src/qqq/pages/records/view/RecordView.tsx:397-429 | src/lib/utils/material-links.ts; src/components/records/RecordViewHeader.tsx; src/components/records/CreateChildFromLinkDialog.tsx | REC-057 | Done: #/createChild= hash opens the create dialog |
@@ -1186,14 +1186,14 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
-| Widget dropdown (searchable autocomplete) | material:src/qqq/components/widgets/components/WidgetDropdownMenu.tsx:341-411 | src/components/widgets/WidgetBlock.tsx:191-216 (native select) | WID-047 | Partial: no search; #728 |
-| Widget DATE_PICKER popup with "Today" | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:306-337 | src/components/widgets/WidgetBlock.tsx:191-200 (native date input) | WID-048 | Partial: no Today action; #728 |
-| Widget custom timeframe (start and end inputs) | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:246-286 | none | none | Missing: no custom range; #728 |
+| Widget dropdown (searchable autocomplete) | material:src/qqq/components/widgets/components/WidgetDropdownMenu.tsx:341-411 | src/components/widgets/WidgetDropdownMenu.tsx:ComboboxDropdown | WID-047; src/components/widgets/WidgetDropdownMenu.test.tsx | Done: searchable keyboard-operated combobox |
+| Widget DATE_PICKER popup with "Today" | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:306-337 | src/components/widgets/WidgetDropdownMenu.tsx:DatePickerDropdown | WID-048; src/components/widgets/WidgetDropdownMenu.test.tsx | Done: native calendar plus Today; day-step controls require allowBackAndForth |
+| Widget custom timeframe (start and end inputs) | material:src/qqq/components/widgets/WidgetDropdownMenu.tsx:246-286 | src/components/widgets/WidgetDropdownMenu.tsx:ComboboxDropdown | src/components/widgets/WidgetDropdownMenu.test.tsx | Done: custom timeframe start and end send the UTC range after debounce |
 | Widget label tooltip and help content | material:src/qqq/components/widgets/Widget.tsx:785-797 | src/components/widgets/WidgetBlock.tsx:171-187; src/components/widgets/HoverTooltip.tsx | WID-043, WID-044 | Done |
 | Header link-button disabled tooltip (setup widgets in edit mode) | material:src/qqq/components/widgets/Widget.tsx:182-209 | src/components/widgets/WidgetHeaderControls.tsx:WidgetHeaderLinkButton; src/components/widgets/PivotTableSetupWidget.tsx:285 | none | Done: disabled setup actions explain their reason; #722 |
 | Block tooltips (tooltipMap, nested composite tooltip) | material:src/qqq/components/widgets/blocks/BlockElementWrapper.tsx:99-116 | src/components/widgets/blocks/BlockSlot.tsx (Radix tooltip) | WID-023, WID-058 | Done |
-| Block help content as the fallback tooltip | material:src/qqq/components/widgets/blocks/BlockElementWrapper.tsx:77-93 | none | none | Missing: no help fallback; #728 |
-| composite modalMode (modal from values, sends hideModal on close) | material:src/qqq/components/widgets/CompositeWidget.tsx:168-211 | none (always inline) | none | Missing: no modal composite; #728 |
+| Block help content as the fallback tooltip | material:src/qqq/components/widgets/blocks/BlockElementWrapper.tsx:77-93 | src/components/widgets/blocks/BlockSlot.tsx:BlockSlot | none | Done: a slot without a tooltip uses the widget's matching help content |
+| composite modalMode (modal from values, sends hideModal on close) | material:src/qqq/components/widgets/CompositeWidget.tsx:168-211 | src/components/widgets/blocks/QqqComposite.tsx:CompositeModal | src/components/widgets/blocks/QqqComposite.test.tsx | Done: host values open dialogs; close sends hideModal control code |
 | Table widget column-header help tooltips | material:src/qqq/components/widgets/tables/TableWidget.tsx:145-157; material:src/qqq/components/widgets/tables/cells/DataTableHeadCell.tsx | src/components/widgets/QqqTableWidget.tsx | WID-068 | Done; #728 |
 | Table widget `htmlAndTooltip` cell | material:src/qqq/components/widgets/tables/DataTable.tsx:76-83,402-410 | src/components/widgets/QqqTableWidget.tsx:CellContent | WID-068 | Done; #728 |
 | Table widget entries-per-page autocomplete | material:src/qqq/components/widgets/tables/DataTable.tsx:455-482 | src/components/widgets/QqqTableWidget.tsx (native select) | WID-068 | Done: a native select instead of an autocomplete; #728 |
@@ -1242,7 +1242,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 12 open rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 16 open rows
 - #727 Next UI 1.0 parity: report runs: 2 open rows
-- #728 Next UI 1.0 parity: dashboard widget extras: 7 open rows
+- #728 Next UI 1.0 parity: dashboard widget extras: 2 open rows
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
