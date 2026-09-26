@@ -21,11 +21,11 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { QTableMetaData } from '@/types'
+import type { QProcessMetaData, QTableMetaData } from '@/types'
 import { RecordViewHeader } from './RecordViewHeader'
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id', fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' } },
@@ -33,7 +33,7 @@ const table = {
   capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'],
 } as unknown as QTableMetaData
 
-function renderHeader() {
+function renderHeader(processes?: QProcessMetaData[]) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RecordViewHeader
@@ -44,6 +44,7 @@ function renderHeader() {
         setViewMode={vi.fn()}
         hideActions={false}
         navigateFrom={{ path: '/app/person', label: 'Person' }}
+        processes={processes}
       />
     </QueryClientProvider>
   )
@@ -75,5 +76,24 @@ describe('RecordViewHeader phone action sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(trigger).toHaveFocus()
     expect(document.body).not.toHaveFocus()
+  })
+})
+
+describe('RecordViewHeader #/launchProcess= links', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.history.replaceState(null, '', '/app/person/5')
+  })
+
+  it('launches a table process missing from the screen list (hidden) without a tableName', async () => {
+    window.location.hash = '#/launchProcess=person.bulkEdit'
+    renderHeader([])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/person.bulkEdit?recordsParam=recordIds&recordIds=5&returnTo=%2Fapp%2Fperson%2F5'))
+  })
+
+  it('names this table for a process added to every screen', async () => {
+    window.location.hash = '#/launchProcess=tagRecords'
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/tagRecords?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5'))
   })
 })

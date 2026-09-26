@@ -171,10 +171,10 @@ export function RecordViewHeader({
   const [hash, clearHash] = useLocationHash()
   const hashAction = useMemo(() => recordHashAction(hash), [hash])
   const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
-  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table
-  const hashLaunchTable = hashAction?.type === 'launchProcess'
-    ? launchTableName(processes?.find((process) => process.name === hashAction.processName), tableMetaData.name)
-    : undefined
+  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table;
+  // those are always in this screen's list, so a process missing from it (a hidden table process) names no table
+  const hashProcess = hashAction?.type === 'launchProcess' ? processes?.find((process) => process.name === hashAction.processName) : undefined
+  const hashLaunchTable = hashProcess ? launchTableName(hashProcess, tableMetaData.name) : undefined
   useEffect(() => {
     if (!hashAction) return
     if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)

@@ -192,7 +192,8 @@ test('[REC-051] a #/createChild= link creates a child of the record with the loc
   await expect(page).toHaveURL(/\/app\/person\/3\/?$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Casey Sample' })).toBeVisible()
   // the locked field is submitted with its preset value and the child is linked to the record
-  const post = writes.filter((request) => request.method() === 'POST')
+  // (possible-value searches also POST, under /data/pet/possibleValues, and are not writes)
+  const post = writes.filter((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/data/pet')
   expect(post).toHaveLength(1)
   expect(multipartField(post[0], 'personId')).toBe('3')
   expect(await sqlOne(backend, "select person_id, species_id from pet where name = 'Hash Pup'")).toEqual({ person_id: '3', species_id: '1' })
