@@ -39,7 +39,7 @@ test('[REC-001] record view shows the label, tiered sections and formatted value
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   const header = page.locator('[data-qqq-id="record-primary-sections"]')
   await expect(header.locator('[data-qqq-id="record-field-status"]')).toContainText('Active')
-  await expect(header.locator('[data-qqq-id="record-field-title"]')).toHaveCount(0)
+  await expect(header.locator('[data-qqq-id="record-field-title"]')).toContainText('Alpha')
 })
 
 test('[REC-002] empty values show a placeholder; hidden fields and sections never render @mobile', async ({ page, backend, diagnostics }) => {

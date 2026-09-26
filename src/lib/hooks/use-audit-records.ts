@@ -20,7 +20,6 @@
 
 import { useQuery } from '@tanstack/react-query'
 
-import type { QAuditRecord } from '@/types'
 import { getAuditRecords, type AuditSource } from '@/lib/api/audits'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 
@@ -36,25 +35,28 @@ interface UseAuditRecordsOptions {
   primaryKey: string | number
   /** When false the query does not run (e.g. until the history dialog opens). */
   enabled?: boolean
+  /** True for oldest first. */
+  isSortAscending?: boolean
 }
 
 /**
- * Loads a record's audit history, newest first.
+ * Loads a record's audit history in the requested order.
  *
  * @param options - See {@link UseAuditRecordsOptions}.
  * @returns The entries plus loading and error state (the caller renders errors).
  */
-export function useAuditRecords({ source, tableName, primaryKey, enabled = true }: UseAuditRecordsOptions) {
+export function useAuditRecords({ source, tableName, primaryKey, enabled = true, isSortAscending = false }: UseAuditRecordsOptions) {
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: queryKeys.audits(tableName, primaryKey),
-    queryFn: () => getAuditRecords(source!, tableName, primaryKey),
+    queryKey: [...queryKeys.audits(tableName, primaryKey), isSortAscending],
+    queryFn: () => getAuditRecords(source!, tableName, primaryKey, isSortAscending),
     enabled: enabled && source !== null,
     staleTime: 0,
     meta: HANDLES_OWN_ERRORS,
   })
 
   return {
-    auditRecords: (data ?? []) as QAuditRecord[],
+    auditRecords: data?.records ?? [],
+    total: data?.total ?? null,
     isLoading,
     isError,
     error,

@@ -18,12 +18,12 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
-| Records | 113 | 1 | 5 | 11 | 8 | 138 |
+| Records | 118 | 1 | 3 | 8 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 218 | 0 | 8 | 6 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **710** | **10** | **17** | **20** | **38** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 101 | 8 | 4 | 2 | 12 | 127 |
+| **Total** | **715** | **10** | **15** | **17** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 102 | 8 | 3 | 2 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -372,7 +372,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Sections from table metadata; no sections -> pseudo "All Fields" section | material:src/qqq/utils/qqq/TableUtils.ts:49,134 | src/components/records/RecordView.tsx (fallback grid of all visible fields) | REC-001 | Done |
 | Section `alternatives` for RECORD_VIEW replace a section's definition | material:src/qqq/pages/records/view/RecordView.tsx:712 | none | none | Missing: no code references `alternatives`; #723 |
 | Hidden sections / hidden fields never rendered | material:src/qqq/pages/records/view/RecordView.tsx:716 | src/components/records/RecordView.tsx isSectionHidden; RecordViewSection | REC-002 | Done |
-| T1 section rendered inside the identity/header card | material:src/qqq/pages/records/view/RecordView.tsx:776,1215 | src/components/records/RecordViewHeader.tsx (t1Fields grid) | REC-001 | Partial: drops T1 fields whose value is in the record label, and the primary key (Material shows all); #723 |
+| T1 section rendered inside the identity/header card | material:src/qqq/pages/records/view/RecordView.tsx:776,1215 | src/components/records/RecordView.tsx; src/components/records/RecordViewHeader.tsx | REC-001 | Done: every visible T1 field appears in metadata order, including the primary key and label values; five-profile acceptance |
 | Non-T1 sections rendered in metadata order as cards on one page | material:src/qqq/pages/records/view/RecordView.tsx:1245 | src/components/records/RecordViewTabs.tsx (Overview/T2/T3/Related tabs); list mode in RecordView.tsx | REC-004 | Done: layout is tabs or list view (URL `?view=`, user pref) |
 | Section help content under section title (VIEW_SCREEN/READ_SCREENS/ALL_SCREENS) | material:src/qqq/pages/records/view/RecordView.tsx:523 | src/components/records/RecordViewSection.tsx (selectHelpContent VIEW_SCREEN_HELP_ROLES) | REC-040 | Done |
 | Field label help tooltip by screen roles | material:src/qqq/pages/records/view/RecordView.tsx:130 | src/components/records/FieldLabel.tsx | REC-039 | Done |
@@ -422,13 +422,13 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Associated child lists (childRecordList bound to an association) with View All link | material:src/qqq/pages/records/view/RecordView.tsx:750 (via widgets) | src/components/records/AssociatedRecords.tsx; src/lib/utils/association-utils.ts | REL-002, REL-004, REL-006, REL-007 | Done: Next also adds a "Related" tab for unbound associations |
 | Record by unique key `/<table>/key?field=value` (EQUALS on each field, limit 2) with the three error messages | material:src/qqq/pages/records/view/RecordViewByUniqueKey.tsx:79-107 | src/app/(dashboard)/app/[slug]/key/page.tsx | NAV-023 | Done: redirects to the canonical record URL |
 | Audit: GetAuditsForRecord process when available, else query audit + auditDetail | material:src/qqq/components/audits/AuditBody.tsx:211 | src/lib/api/audits.ts getAuditRecords/auditSource | REC-042, REC-043 | Done |
-| Audit: limit 1000; distinct count gives "Showing first N of M audit details" | material:src/qqq/components/audits/AuditBody.tsx:374 | src/lib/api/audits.ts AUDIT_LIMIT=1000; src/components/records/AuditHistoryDialog.tsx countSentence | none | Partial: no truncation message or count request, so users aren't told the list is capped; #723 |
+| Audit: limit 1000; distinct count gives "Showing first N of M audit details" | material:src/qqq/components/audits/AuditBody.tsx:374 | src/lib/api/audits.ts AUDIT_LIMIT=1000, countRecords; src/components/records/AuditHistoryDialog.tsx countSentence | none | Done: process count or table distinct count reports the cap; focused unit coverage |
 | Audit status sentences (none / only / only 2 / all N) | material:src/qqq/components/audits/AuditBody.tsx:368 | src/components/records/AuditHistoryDialog.tsx countSentence | REC-042 | Done |
 | Audit 403: "You do not have permission to view audits"; otherwise "Error loading audits" | material:src/qqq/components/audits/AuditBody.tsx:269 | AuditHistoryDialog status | REC-043 | Done |
 | Audit detail lines ("<field>: Changed from X to Y" / "Set to" / "Removed value" / message) | material:src/qqq/components/audits/AuditBody.tsx:108 | AuditHistoryDialog describeChange | REC-042 | Done: Next prefers the detail message over the computed text; Material does the reverse |
 | Audit timestamp in viewer time zone, plus audit user display value | material:src/qqq/components/audits/AuditBody.tsx:470 | AuditHistoryDialog (formatDateTime, entry.user) | REC-042 | Done |
-| Audits grouped by date under sticky headers (full weekday, "(Today)"/"(Yesterday)") | material:src/qqq/components/audits/AuditBody.tsx:340,456 | none (flat list) | none | Missing: flat list, no date groups; #723 |
-| Audit sort toggle asc/desc, persisted in localStorage `audit.sortDirection` | material:src/qqq/components/audits/AuditBody.tsx:66,401 | none (always newest first) | REC-042 (desc only) | Missing: always newest first; #723 |
+| Audits grouped by date under sticky headers (full weekday, "(Today)"/"(Yesterday)") | material:src/qqq/components/audits/AuditBody.tsx:340,456 | src/components/records/AuditHistoryDialog.tsx | REC-042 | Done: sticky local-date headings with Today/Yesterday hints; five-profile acceptance |
+| Audit sort toggle asc/desc, persisted in localStorage `audit.sortDirection` | material:src/qqq/components/audits/AuditBody.tsx:66,401 | src/components/records/AuditHistoryDialog.tsx; src/lib/hooks/use-audit-records.ts | REC-042 | Done: order is stored and sent through either audit source; five-profile acceptance |
 | Audit title "Audit for <label>: <recordLabel>"; Close button; Esc closes | material:src/qqq/components/audits/AuditBody.tsx:413; material:src/qqq/pages/records/view/RecordView.tsx:1051 | AuditHistoryDialog | REC-044 | Done: Radix also closes on backdrop click (Material blocked that) |
 | Audit Old/New value table (fieldChangeMap) | material:src/qqq/components/audits/AuditBody.tsx:300 | none | none | N/A: dead code in Material (rows never populated) |
 | Share: load current shares (getSharedRecords), "Current Shares (N)" | material:src/qqq/components/sharing/ShareModal.tsx:222,422 | src/components/sharing/ShareDialog.tsx; src/lib/api/sharing.ts | RPT-013, RPT-018 | Done |
@@ -469,7 +469,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Boolean switch with clickable No/Yes and a null state | material:src/qqq/components/forms/BooleanFieldSwitch.tsx | src/components/forms/field-types/BooleanField.tsx (three-state) | REC-016 | Done |
 | CODE_EDITOR in forms: Ace editor in languageMode, 300px | material:src/qqq/components/forms/DynamicFormField.tsx:230 | src/components/forms/ScriptEditor.tsx; src/components/scripts/CodeEditor.tsx | REC-031; src/components/forms/ScriptEditor.test.tsx | Done: language-mode syntax coloring in the form field |
 | File input: "Current File:" link + remove; button vs dragAndDrop format | material:src/qqq/components/forms/FileInputField.tsx:90,101,120 | src/components/forms/field-types/FileUploadField.tsx | REC-035, REC-022 | Done |
-| FILE_UPLOAD `width` full/half | material:src/qqq/components/forms/DynamicForm.tsx:441 | none | none | Missing: minor; width ignored; #723 |
+| FILE_UPLOAD `width` full/half | material:src/qqq/components/forms/DynamicForm.tsx:441 | src/lib/utils/form-layout.ts; src/components/forms/DynamicForm.tsx | none | Done: full spans 12 columns and half uses the default half width; unit-tested |
 | BLOB submit: URL string omitted, File sent, null clears | material:src/qqq/components/forms/EntityForm.tsx:1323 | EntityForm onlyWhenChanged + src/lib/api/tables.ts recordFormData | REC-035, REC-022 | Done |
 | DATE_TIME unchanged -> omitted; changed -> local converted to UTC | material:src/qqq/components/forms/EntityForm.tsx:1302 | EntityForm onlyWhenChanged; zod-from-metadata wireValuesFromForm | REC-018, REC-009 | Done |
 | Possible-value select: async search, spinner, "No matches found", keyboard | material:src/qqq/components/forms/DynamicSelect.tsx:194,479 | src/components/forms/PossibleValueSelect.tsx | REC-045 | Done |
@@ -1096,7 +1096,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Record developer view: associated scripts, versions, edit, test, logs, success snackbar | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,157,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx; src/components/records/AssociatedScriptViewer.tsx | REC-054 | Done |
 | Table developer view: API docs and playground (RapiDoc, API and version selectors) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,244 | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
 | Audit modal (menu item, `a` key, `#audit` hash) | material:src/qqq/pages/records/view/RecordView.tsx:297,430,1389; material:src/qqq/components/audits/AuditBody.tsx:413 | src/components/records/AuditHistoryDialog.tsx; src/components/records/RecordViewHeader.tsx (Audit button, `a`, #audit) | REC-042, REC-043, REC-055, REC-056 | Done: button instead of menu item; backdrop click also closes |
-| Audit modal sort toggle, date group headers, "Showing first N of M" | material:src/qqq/components/audits/AuditBody.tsx:66,340,374,401 | src/components/records/AuditHistoryDialog.tsx (flat list, newest first) | REC-042 | Partial: no sort toggle, date groups or truncation message; #723 |
+| Audit modal sort toggle, date group headers, "Showing first N of M" | material:src/qqq/components/audits/AuditBody.tsx:66,340,374,401 | src/components/records/AuditHistoryDialog.tsx; src/lib/api/audits.ts | REC-042 | Done: saved sort, local-date groups and capped-result status; five-profile acceptance for sort/groups, focused unit coverage for count |
 | Share modal (current shares, add, edit scope, remove; Esc/backdrop ignored; Done) | material:src/qqq/components/sharing/ShareModal.tsx:133,366 | src/components/sharing/ShareDialog.tsx | RPT-013, RPT-014, RPT-015, RPT-017, RPT-018 | Done |
 | Share button disabled tooltip "Only the owner of a X may share it." | material:src/qqq/pages/records/view/RecordView.tsx:960 | src/components/sharing/ShareDialog.tsx:ShareButton | RPT-017 | Done |
 | Share audience autocomplete (searchable users and groups) | material:src/qqq/components/sharing/ShareModal.tsx:343,395 | src/components/sharing/ShareDialog.tsx; src/components/forms/PossibleValueSelect.tsx | RPT-013 | Done: the picker supports server-backed search for users and groups; #723 |
@@ -1237,7 +1237,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows
 - #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 8 open rows
-- #723 Next UI 1.0 parity: record view layout and menus: 14 open rows
+- #723 Next UI 1.0 parity: record view layout and menus: 9 open rows
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 1 open row
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 0 open rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 0 open rows

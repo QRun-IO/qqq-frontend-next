@@ -522,24 +522,12 @@ function RecordViewContent({
     return { path, label }
   }, [pathname, urlTab, urlView, fromPath, fromLabel, record.recordLabel, tableMetaData.label, parentPk])
 
-  // Collect T1 fields, excluding those whose values are part of the record label
-  const recordLabel = record.recordLabel ?? ''
+  // Material shows every visible T1 field in the identity card, including values
+  // repeated in the record label and the primary key.
   const t1Fields = t1Sections.flatMap((section) =>
     (section.fieldNames ?? [])
       .map((fn) => tableMetaData.fields[fn])
-      .filter((f) => {
-        if (!f || f.isHidden) return false
-        // Skip the primary key — already implied
-        if (f.name === tableMetaData.primaryKeyField) return false
-        // Skip fields whose display value is contained in the record label
-        if (recordLabel) {
-          const displayVal = record.displayValues?.[f.name]
-          const rawVal = record.values[f.name]
-          const val = displayVal ?? (rawVal != null ? String(rawVal) : null)
-          if (val && recordLabel.includes(val)) return false
-        }
-        return true
-      })
+      .filter((f) => f && !f.isHidden)
   )
 
   const renderAssociation = (name: string, label?: string) => {

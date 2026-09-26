@@ -23,7 +23,7 @@ import React from 'react'
 
 import type { QInstance, QRecord } from '@/types'
 import apiClient from '@/lib/api/client'
-import { auditSource, groupAuditRows } from '@/lib/api/audits'
+import { AUDIT_LIMIT, auditSource, groupAuditRows } from '@/lib/api/audits'
 import { useAuditRecords } from './use-audit-records'
 
 vi.mock('@/lib/api/client', () => ({ default: { post: vi.fn(), get: vi.fn() } }))
@@ -79,7 +79,7 @@ describe('auditSource', () => {
 
 describe('useAuditRecords', () => {
   it('runs GetAuditsForRecord for the record and groups its rows', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ type: 'COMPLETE', values: { audits: rows } })
+    vi.mocked(apiClient.post).mockResolvedValue({ type: 'COMPLETE', values: { audits: rows, distinctCount: 5 } })
     const { result } = renderHook(
       () => useAuditRecords({ source: 'process', tableName: 'recordLab', primaryKey: 7 }),
       { wrapper: createWrapper() }
@@ -87,9 +87,24 @@ describe('useAuditRecords', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.isError).toBe(false)
     expect(result.current.auditRecords).toHaveLength(2)
+    expect(result.current.total).toBe(5)
     const [url, body] = vi.mocked(apiClient.post).mock.calls[0]
     expect(url).toBe('/processes/GetAuditsForRecord/init')
     expect(JSON.parse((body as FormData).get('values') as string)).toEqual({ tableName: 'recordLab', recordId: '7', isSortAscending: false, limit: 1000 })
+  })
+
+  it('requests oldest first and uses a separate query key for that order', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ type: 'COMPLETE', values: { audits: rows } })
+    const wrapper = createWrapper()
+    const { result, rerender } = renderHook(
+      ({ ascending }) => useAuditRecords({ source: 'process', tableName: 'recordLab', primaryKey: 7, isSortAscending: ascending }),
+      { wrapper, initialProps: { ascending: false } }
+    )
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    rerender({ ascending: true })
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledTimes(2))
+    const body = vi.mocked(apiClient.post).mock.calls[1][1] as FormData
+    expect(JSON.parse(body.get('values') as string).isSortAscending).toBe(true)
   })
 
   it('queries the audit table joined to its details without process permission', async () => {
@@ -106,6 +121,24 @@ describe('useAuditRecords', () => {
       filter: { criteria: [{ fieldName: 'auditTable.name', values: ['recordLab'] }, { fieldName: 'recordId', values: ['7'] }], limit: 1000 },
       joins: [{ joinTable: 'auditTable' }, { joinTable: 'auditDetail', type: 'LEFT', select: true }],
     })
+  })
+
+  it('counts distinct audits when the fallback query reaches its row cap', async () => {
+    const capped = Array.from({ length: AUDIT_LIMIT }, (_, index) => auditRow(index + 1, 'Record was Edited'))
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ records: capped }).mockResolvedValueOnce({ count: 1200, distinctCount: 1150 })
+    const { result } = renderHook(
+      () => useAuditRecords({ source: 'table', tableName: 'recordLab', primaryKey: 7, isSortAscending: true }),
+      { wrapper: createWrapper() }
+    )
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.total).toBe(1150)
+    const query = vi.mocked(apiClient.post).mock.calls[0][1] as { filter: { orderBys: { isAscending: boolean }[] } }
+    expect(query.filter.orderBys.slice(0, 2)).toMatchObject([{ isAscending: true }, { isAscending: true }])
+    expect(vi.mocked(apiClient.post).mock.calls[1]).toEqual([
+      '/table/audit/count',
+      { filter: { criteria: [{ fieldName: 'auditTable.name', operator: 'EQUALS', values: ['recordLab'] }, { fieldName: 'recordId', operator: 'EQUALS', values: ['7'] }] } },
+      { params: { includeDistinct: true } },
+    ])
   })
 
   it('reports a process error instead of an empty history', async () => {

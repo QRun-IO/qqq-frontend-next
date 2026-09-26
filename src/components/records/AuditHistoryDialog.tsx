@@ -20,9 +20,9 @@
 
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { History, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, History, X } from 'lucide-react'
 
 import type { QAuditRecord, QTableMetaData } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
@@ -58,13 +58,55 @@ interface AuditHistoryDialogProps {
  * Status line for the loaded history, worded like the Material dashboard.
  *
  * @param count - Number of audits.
+ * @param total - Total available audits, when the response reached its cap.
  * @returns The sentence.
  */
-function countSentence(count: number): string {
+function countSentence(count: number, total: number | null): string {
   if (count === 0) return 'No audits were found for this record.'
+  if (total !== null && total > count) return `Showing first ${count.toLocaleString()} of ${total.toLocaleString()} audit details for this record`
   if (count === 1) return 'Showing the only audit for this record'
   if (count === 2) return 'Showing the only 2 audits for this record'
-  return `Showing all ${count} audits for this record`
+  return `Showing all ${count.toLocaleString()} audits for this record`
+}
+
+/**
+ * Date in the viewer's time zone, matching the displayed audit timestamps.
+ * @param timestamp - The audit instant.
+ * @returns A local calendar date.
+ */
+function localAuditDate(timestamp: string): string {
+  return formatDateTime(timestamp)?.split(' ')[0] ?? timestamp
+}
+
+/**
+ * Keeps adjacent entries with the same local calendar date together.
+ * @param records - Audits in the requested sort order.
+ * @returns Consecutive groups with matching local dates.
+ */
+function groupAuditsByDate(records: QAuditRecord[]): QAuditRecord[][] {
+  const groups: QAuditRecord[][] = []
+  for (const record of records) {
+    const group = groups[groups.length - 1]
+    if (!group || localAuditDate(group[0].timestamp) !== localAuditDate(record.timestamp)) groups.push([record])
+    else group.push(record)
+  }
+  return groups
+}
+
+/**
+ * Date heading with the same Today and Yesterday hints as Material.
+ * @param timestamp - The first audit instant in a group.
+ * @returns A readable date heading.
+ */
+function dateHeading(timestamp: string): string {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return timestamp
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const day = localAuditDate(timestamp)
+  const hint = day === localAuditDate(today.toISOString()) ? ' (Today)' : day === localAuditDate(yesterday.toISOString()) ? ' (Yesterday)' : ''
+  return `${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date)} ${day}${hint}`
 }
 
 /**
@@ -75,12 +117,20 @@ function countSentence(count: number): string {
  * @returns The dialog.
  */
 export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, primaryKey, recordLabel, returnFocusRef }: AuditHistoryDialogProps) {
-  const { auditRecords, isLoading, isError, error } = useAuditRecords({ source, tableName: tableMetaData.name, primaryKey, enabled: open })
+  const [isSortAscending, setSortAscending] = useState(false)
+  const [sortReady, setSortReady] = useState(false)
+  useEffect(() => {
+    setSortAscending(localStorage.getItem('audit.sortDirection') === 'true')
+    setSortReady(true)
+  }, [])
+  const { auditRecords, total, isLoading, isError, error } = useAuditRecords({
+    source, tableName: tableMetaData.name, primaryKey, enabled: open && sortReady, isSortAscending,
+  })
 
   let status: string
   if (isLoading) status = 'Loading audits...'
   else if (isError) status = getErrorStatusCode(error) === 403 ? 'You do not have permission to view audits' : 'Error loading audits'
-  else status = countSentence(auditRecords.length)
+  else status = countSentence(auditRecords.length, total)
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -101,10 +151,24 @@ export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, 
             'rounded-xl border border-border bg-card shadow-lg focus:outline-none'
           )}
         >
-          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <DialogPrimitive.Title className="text-lg font-semibold tracking-tight text-foreground">
               Audit for {tableMetaData.label}: {recordLabel}
             </DialogPrimitive.Title>
+            <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Audit sort order">
+              <button type="button" aria-label="Sort by time ascending (oldest to newest)" aria-pressed={isSortAscending}
+                onClick={() => { setSortAscending(true); localStorage.setItem('audit.sortDirection', 'true') }}
+                data-qqq-id="button-audit-sort-ascending"
+                className={cn('rounded-lg p-2 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring', isSortAscending ? 'bg-accent text-foreground' : 'text-muted-foreground')}>
+                <ArrowUp className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button type="button" aria-label="Sort by time descending (newest to oldest)" aria-pressed={!isSortAscending}
+                onClick={() => { setSortAscending(false); localStorage.setItem('audit.sortDirection', 'false') }}
+                data-qqq-id="button-audit-sort-descending"
+                className={cn('rounded-lg p-2 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring', !isSortAscending ? 'bg-accent text-foreground' : 'text-muted-foreground')}>
+                <ArrowDown className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
             <DialogPrimitive.Close
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Close audit history"
@@ -123,8 +187,14 @@ export function AuditHistoryDialog({ open, onOpenChange, source, tableMetaData, 
             {!isLoading && !isError && auditRecords.length === 0 && (
               <History className="mx-auto h-10 w-10 text-muted-foreground/30" aria-hidden="true" />
             )}
-            <ol className="space-y-4" aria-label="Audits">
-              {auditRecords.map((entry) => <AuditEntry key={entry.id} entry={entry} tableMetaData={tableMetaData} />)}
+            <ol aria-label="Audits">
+              {groupAuditsByDate(auditRecords).map((group) => (
+                <li key={`${localAuditDate(group[0].timestamp)}-${group[0].id}`}>
+                  <h3 className="sticky top-0 z-10 my-3 border-b border-border bg-card py-2 text-center text-sm font-medium text-muted-foreground"
+                    data-qqq-id="audit-date-heading">{dateHeading(group[0].timestamp)}</h3>
+                  <ol className="space-y-4">{group.map((entry) => <AuditEntry key={entry.id} entry={entry} tableMetaData={tableMetaData} />)}</ol>
+                </li>
+              ))}
             </ol>
           </div>
         </DialogPrimitive.Content>
