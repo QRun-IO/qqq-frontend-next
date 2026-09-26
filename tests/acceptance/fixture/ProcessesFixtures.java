@@ -83,6 +83,8 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QRecordListMetaDa
 import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.savedbulkloadprofiles.SavedBulkLoadProfileMetaDataProvider;
+import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.model.session.QUser;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
@@ -991,7 +993,18 @@ public final class ProcessesFixtures
       @Override
       public boolean allowProcess(MetaDataInput input, QProcessMetaData process)
       {
-         return !PROCESS_TAG.equals(process.getName()) || "sample:casey".equals(QContext.getQSession().getUser().getIdReference());
+         if(!PROCESS_TAG.equals(process.getName()))
+         {
+            return (true);
+         }
+
+         ////////////////////////////////////////////////////////////////////////
+         // QInstance builds its table paths through MetaDataAction in a        //
+         // temporary context whose session may have no user: deny it there.   //
+         ////////////////////////////////////////////////////////////////////////
+         QSession session = QContext.getQSession();
+         QUser    user    = session == null ? null : session.getUser();
+         return (user != null && "sample:casey".equals(user.getIdReference()));
       }
 
 
