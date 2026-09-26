@@ -18,12 +18,12 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
-| Records | 111 | 1 | 7 | 11 | 8 | 138 |
+| Records | 113 | 1 | 5 | 11 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
-| Widgets and blocks | 213 | 0 | 10 | 9 | 4 | 236 |
+| Widgets and blocks | 218 | 0 | 8 | 6 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **703** | **10** | **21** | **23** | **38** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 101 | 8 | 3 | 3 | 12 | 127 |
+| **Total** | **710** | **10** | **17** | **20** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 101 | 8 | 4 | 2 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -438,7 +438,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Share: remove a share (deleteSharedRecord) | material:src/qqq/components/sharing/ShareModal.tsx:301 | ShareDialog remove | RPT-015 | Done |
 | Share: status and error text (Loading/Saving/Deleting; "Error sharing record: ...") | material:src/qqq/components/sharing/ShareModal.tsx:257-320 | ShareDialog change() | none | Done |
 | Share modal ignores backdrop/Esc; "Done" button | material:src/qqq/components/sharing/ShareModal.tsx:133 | ShareDialog onInteractOutside prevented | none | Done |
-| Record developer view: raw record values as JSON (getRecordDeveloperMode) | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:104,168 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx (plain getRecord for values; the developer endpoint feeds the associated scripts) | REC-054 | Partial: raw values come from the plain record GET, not the developer-mode response; #724 |
+| Record developer view: raw record values as JSON (getRecordDeveloperMode) | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:104,168 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx:getRecordDeveloperData | REC-054; src/app/(dashboard)/app/[slug]/[recordId]/dev/page.test.tsx | Done: raw values and associated scripts use the developer-mode response |
 | Record developer view: associated-script fields with ScriptViewer, or "No script has been created..." + Create Script | material:src/qqq/pages/records/view/RecordDeveloperView.tsx:139,206 | src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx; src/components/records/AssociatedScriptViewer.tsx | REC-054 | Done |
 | Table developer view: API + version selectors (apis.json, versions.json, remembered in localStorage) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:73,121,154 | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
 | Table developer view: RapiDoc API docs and playground (openapi.json, auth, try-it, spec download) | material:src/qqq/pages/records/developer/TableDeveloperView.tsx:244; material:src/qqq/pages/records/developer/RapiDocReact.tsx | src/app/(dashboard)/app/[slug]/dev/page.tsx; src/components/records/TableApiDocs.tsx (rapidoc) | REC-053 | Done: the sample has no qqq-middleware-api, so acceptance covers the no-API state; #738 |
@@ -467,7 +467,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | TO_UPPER_CASE / TO_LOWER_CASE applied live as the user types (cursor kept) | material:src/qqq/components/forms/DynamicFormField.tsx:136; material:src/qqq/components/forms/DynamicFormUtils.ts:272 | src/lib/utils/form-layout.ts; src/components/forms/field-types/TextField.tsx; src/components/forms/DynamicFormField.tsx | REC-025 | Done: live case conversion preserves the caret; #723 |
 | Enter in a text input does not submit the form | material:src/qqq/components/forms/DynamicFormField.tsx:291 | src/components/forms/EntityForm.tsx; src/lib/utils/form-layout.ts | none | Done: implicit Enter submission is suppressed; #723 |
 | Boolean switch with clickable No/Yes and a null state | material:src/qqq/components/forms/BooleanFieldSwitch.tsx | src/components/forms/field-types/BooleanField.tsx (three-state) | REC-016 | Done |
-| CODE_EDITOR in forms: Ace editor in languageMode, 300px | material:src/qqq/components/forms/DynamicFormField.tsx:230 | src/components/forms/ScriptEditor.tsx (textarea, language badge, Tab inserts spaces) | REC-031 | Partial: no syntax highlighting; #724 |
+| CODE_EDITOR in forms: Ace editor in languageMode, 300px | material:src/qqq/components/forms/DynamicFormField.tsx:230 | src/components/forms/ScriptEditor.tsx; src/components/scripts/CodeEditor.tsx | REC-031; src/components/forms/ScriptEditor.test.tsx | Done: language-mode syntax coloring in the form field |
 | File input: "Current File:" link + remove; button vs dragAndDrop format | material:src/qqq/components/forms/FileInputField.tsx:90,101,120 | src/components/forms/field-types/FileUploadField.tsx | REC-035, REC-022 | Done |
 | FILE_UPLOAD `width` full/half | material:src/qqq/components/forms/DynamicForm.tsx:441 | none | none | Missing: minor; width ignored; #723 |
 | BLOB submit: URL string omitted, File sent, null clears | material:src/qqq/components/forms/EntityForm.tsx:1323 | EntityForm onlyWhenChanged + src/lib/api/tables.ts recordFormData | REC-035, REC-022 | Done |
@@ -911,15 +911,15 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | Revisions list (sequence, CURRENT, commit message, date, author) and selection | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:291-343, 433 | src/components/widgets/ScriptViewerWidget.tsx:99-129 | WID-032 | Done: Next opens the current revision, Material the newest |
-| API name and version line per revision | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:305, 327-332 | none | none | Missing: no API name or version; #724 |
-| Syntax-highlighted read-only code (Ace) | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:483-495 | src/components/widgets/ScriptViewerWidget.tsx:141-149 (`<pre>`) | WID-032 | Partial: No highlighting; #724 |
-| File selector for multi-file scripts, in schema order | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:130-153, 471-482 | src/components/widgets/ScriptViewerWidget.tsx:77-82 (files stacked) | WID-032 | Partial: No per-file select; order differs; #724 |
-| Logs tab with "View All" | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:345-393, 506-530; material:src/qqq/components/scripts/ScriptLogsView.tsx:45-80 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Partial: per-version logs on the record developer view; no View All link to the filtered script log table; #724 |
+| API name and version line per revision | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:305, 327-332 | src/components/scripts/ScriptViewer.tsx | src/components/widgets/ScriptViewerWidget.test.tsx | Done: revisions show their API label and version when present |
+| Syntax-highlighted read-only code (Ace) | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:483-495 | src/components/scripts/ScriptViewer.tsx; src/components/scripts/HighlightedCode.tsx | WID-032; src/components/widgets/ScriptViewerWidget.test.tsx | Done: selected file uses syntax-colored code |
+| File selector for multi-file scripts, in schema order | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:130-153, 471-482 | src/components/scripts/ScriptViewer.tsx | WID-032; src/components/widgets/ScriptViewerWidget.test.tsx | Done: file selector follows script-type schema order |
+| Logs tab with "View All" | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:345-393, 506-530; material:src/qqq/components/scripts/ScriptLogsView.tsx:45-80 | src/components/scripts/ScriptViewer.tsx; src/app/(dashboard)/app/[slug]/[recordId]/dev/page.tsx | REC-054; src/components/widgets/ScriptViewerWidget.test.tsx | Done: View All links to the script-log table filtered by revision |
 | Test tab (inputs, run testScript, show outputs, exception, logs) | material:src/qqq/components/scripts/ScriptTestForm.tsx:90-310; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:532-543 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Docs tab (help text, sample code) | material:src/qqq/components/scripts/ScriptDocsForm.tsx:41-80 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | "Edit", "Edit and Activate", "Create New Version" open the editor | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:373-388, 462-466, 554-562 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
-| Editor: code per file, split panes, mode per file type, autocomplete, beforeunload guard, test and docs panes on unsaved code | material:src/qqq/components/scripts/ScriptEditor.tsx:162, 195, 383-513 | none (src/components/forms/ScriptEditor.tsx is a textarea for code-editor fields) | none | Missing: no script editor; #724 |
-| Editor: required API name and version selects | material:src/qqq/components/scripts/ScriptEditor.tsx:129-132, 251-255, 352-375 | none | none | Missing: no API name and version selects; #724 |
+| Editor: code per file, split panes, mode per file type, autocomplete, beforeunload guard, test and docs panes on unsaved code | material:src/qqq/components/scripts/ScriptEditor.tsx:162, 195, 383-513 | src/components/scripts/ScriptEditorDialog.tsx; src/components/scripts/CodeEditor.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Partial: file panes, highlighting, unload guard, Test and Docs work; autocomplete is absent; #724 |
+| Editor: required API name and version selects | material:src/qqq/components/scripts/ScriptEditor.tsx:129-132, 251-255, 352-375 | src/components/scripts/ScriptEditorDialog.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Done: API name and version are required when the script model has those fields |
 | Editor: save with commit message (storeScriptRevision), then reload | material:src/qqq/components/scripts/ScriptEditor.tsx:249-310, 562; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:197-226 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 
 ### L. FilterAndColumnsSetup
@@ -1206,7 +1206,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | src/components/widgets/RowBuilderEditor.tsx:417-461 | none | Done: modal edits a draft and applies on OK; #722 |
 | CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | none | none | Missing: no cron builder; #702 |
 | Script editor modal (Edit, Edit and Activate, Create New Version) with commit-message dialog | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:556; material:src/qqq/components/scripts/ScriptEditor.tsx:555 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
-| Script editor multi-file panes, API name/version selects, error snackbar | material:src/qqq/components/scripts/ScriptEditor.tsx:162,352-375,406 | none | none | Missing: single-file editing only; #724 |
+| Script editor multi-file panes, API name/version selects, error snackbar | material:src/qqq/components/scripts/ScriptEditor.tsx:162,352-375,406 | src/components/scripts/ScriptEditorDialog.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Done: multi-file panes, API selects and inline save error |
 | Script viewer save success / failure snackbars | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:407,416 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Data bag editor modal (JSON editor, Preview toggle, error snackbar) | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:376; material:src/qqq/components/databags/DataBagDataEditor.tsx:133 | src/components/databags/DataBagEditorDialog.tsx | WID-028 | Done: JSON editor and preview are mounted; save errors are shown; #724 |
 | Data bag save success / failure snackbars | material:src/qqq/components/widgets/misc/DataBagViewer.tsx:268,277 | src/components/widgets/DataBagViewerWidget.tsx; src/components/databags/DataBagEditorDialog.tsx | WID-028 | Done: success and error feedback are wired; #724 |
@@ -1238,7 +1238,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows
 - #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 8 open rows
 - #723 Next UI 1.0 parity: record view layout and menus: 14 open rows
-- #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 8 open rows
+- #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 1 open row
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 0 open rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 0 open rows
 - #727 Next UI 1.0 parity: report runs: 0 open rows
