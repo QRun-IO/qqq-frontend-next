@@ -16,7 +16,7 @@
 
 // Tests for useRecordQuery hook
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
@@ -103,6 +103,25 @@ describe('useRecordQuery — pagination actions', () => {
     act(() => result.current.pagination.setPageSize(50))
     expect(result.current.pagination.pageNum).toBe(1)
     expect(result.current.pagination.pageSize).toBe(50)
+  })
+})
+
+describe('useRecordQuery — URL sync', () => {
+  it('writes view state to the URL through history rather than a router navigation', async () => {
+    // Regression (#12): router.replace refetched the RSC payload, and a document navigation that
+    // cut the fetch off made Next load the stale URL over the page the user asked for
+    const replaceState = vi.spyOn(window.history, 'replaceState')
+    try {
+      const { result } = renderHook(
+        () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
+        { wrapper: createWrapper() }
+      )
+
+      act(() => result.current.pagination.setPageSize(50))
+      await waitFor(() => expect(replaceState).toHaveBeenCalledWith(null, '', '/?pageSize=50'))
+    } finally {
+      replaceState.mockRestore()
+    }
   })
 })
 

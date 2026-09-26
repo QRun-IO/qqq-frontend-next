@@ -76,10 +76,16 @@ test('[QRY-051] saving a new view stores the filter, sort, columns and page size
   expect(stored!.view.rowsPerPage).toBe(10)
   const email = stored!.view.queryColumns.columns.find((c: { name: string }) => c.name === 'email')
   expect(email.isVisible).toBe(false)
+  // The stored view's page shows the view: its records and count have loaded before the test leaves it
+  const viewFirstNames = await sqlColumn(backend, "select first_name from person where last_name like '%Sam%' order by first_name asc limit 10")
+  const [viewTotal] = await sqlColumn(backend, "select count(*) from person where last_name like '%Sam%'")
+  await expect(page.locator('[data-qqq-id="button-saved-views"]')).toContainText('Sample People')
+  await expectColumn(page, 'firstName', viewFirstNames)
+  await expect(page.locator('[data-qqq-id="pagination-total"]')).toHaveText(viewTotal)
   // Reopening the stored view from a fresh start restores it
   await open(page, '/app/person')
   await (await openViews(page)).getByRole('menuitem', { name: 'Sample People' }).click()
-  await expectColumn(page, 'firstName', await sqlColumn(backend, "select first_name from person where last_name like '%Sam%' order by first_name asc limit 10"))
+  await expectColumn(page, 'firstName', viewFirstNames)
   await expect(grid(page, 'Person').getByRole('button', { name: 'Sort by Email' })).toHaveCount(0)
   await expect(page.getByLabel('Rows per page')).toHaveValue('10')
 })

@@ -20,8 +20,12 @@ test.describe('record lookup by key', () => {
     const [item] = await backend.sql("select id, name from nav_deep_item where code = 'NAV-B2'")
     expect(item).toEqual({ id: '2', name: 'Tide Chart' })
 
+    // The list's reads finish before the test leaves it, so none is cut off mid-flight
+    const listLoaded = Promise.all(['/table/person/query', '/table/person/count', '/processes/querySavedView/init']
+      .map((path) => page.waitForResponse((response) => new URL(response.url()).pathname.endsWith(path))))
     await open(page, '/app/person')
     await expect(recordCollection(page, 'Person')).toBeVisible()
+    await listLoaded
     await open(page, '/app/navDeepItem/key?code=NAV-B2')
     await expect(page).toHaveURL(new RegExp(`/app/navDeepItem/${item.id}/?$`))
     await expect(page).toHaveTitle(`${item.name} | Nav Deep Item | Nav Level Three | Nav Level Two | Nav Level One | QQQ Sample`)
