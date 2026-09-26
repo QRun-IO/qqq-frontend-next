@@ -142,8 +142,13 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     const truncatedImage = /^\[JavaScript Error: "Image corrupt or truncated\." \{file: "([^"]+)"/
     const truncatedImages: { text: string; url: string }[] = []
     page.on('pageerror', (error) => report(error.message, () => diagnostics.pageErrors.push(error.message)))
+    // The table developer view asks GET /qqq/v1/esb/table/{table} for its ESB section and treats a
+    // 404 as "nothing to show" (QRun-IO/qqq#739). The acceptance sample has no qqq-esb module, so
+    // that one 404, and the browser's console report of it, are expected; nothing else on the route is.
+    const esbTableProbe = (url: string) => /^\/qqq\/v1\/esb\/table\/[^/]+$/.test(new URL(url, 'http://local').pathname)
     page.on('console', (message) => {
       if (message.type() !== 'error') return
+      if (/status of 404/.test(message.text()) && esbTableProbe(message.location().url || '/')) return
       const image = truncatedImage.exec(message.text())?.[1]
       if (image) truncatedImages.push({ text: message.text(), url: image })
       else report(message.text(), () => diagnostics.consoleErrors.push(message.text()))
@@ -163,6 +168,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       }
     }
     page.on('response', (response: Response) => {
+      if (response.status() === 404 && response.request().method() === 'GET' && esbTableProbe(response.url())) return
       if (response.status() >= 400) diagnostics.failedRequests.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`)
     })
     await use(diagnostics)

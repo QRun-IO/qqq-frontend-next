@@ -176,6 +176,7 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'widgets', widgetName, ...]` — widget data queries
  * - `['qqq', 'possibleValues', ...]` — possible-value / enum queries
  * - `['qqq', 'search', ...]` — global search queries
+ * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
   /**
@@ -397,6 +398,21 @@ export const queryKeys = {
    * @returns The API versions query key tuple.
    */
   apiVersions: (apiPath: string) => [...queryKeys.all(), 'apis', 'versions', apiPath] as const,
+
+  // ESB
+  /**
+   * Key for all ESB queries.
+   *
+   * @returns The ESB namespace query key tuple.
+   */
+  esb: () => [...queryKeys.all(), 'esb'] as const,
+  /**
+   * Key for a table's ESB publications and subscribers.
+   *
+   * @param tableName - Backend table name.
+   * @returns The table ESB query key tuple.
+   */
+  esbTable: (tableName: string) => [...queryKeys.esb(), 'table', tableName] as const,
 
   // Search
   /**
