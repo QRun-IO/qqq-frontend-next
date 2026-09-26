@@ -39,6 +39,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRule
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModuleCustomizerInterface;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardThemeMetaData;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardRouteProvider;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.SampleJavalinServer;
@@ -159,6 +160,11 @@ public class AcceptanceSampleServer
             seedStaleView();
             context.contentType("application/json").result("{}");
          });
+         config.routes.post("/acceptance/theme", context ->
+         {
+            enableTheme();
+            context.contentType("application/json").result("{}");
+         });
       });
       //////////////////////////////////////////////////////////////////////////////////
       // The dashboard's Content-Security-Policy (QRun-IO/qqq#695) allows only this    //
@@ -174,10 +180,32 @@ public class AcceptanceSampleServer
 
 
    /*******************************************************************************
+    ** Opt one test into a real Material theme.  The next reset removes it.
+    *******************************************************************************/
+   private static synchronized void enableTheme()
+   {
+      MaterialDashboardThemeMetaData.ofOrWithNew(instance)
+         .withPrimaryColor("#0f766e")
+         .withSidebarBackgroundColor("#1f2937")
+         .withTableHeaderBackgroundColor("#e0f2f1")
+         .withBrandedHeaderEnabled(true)
+         .withBrandedHeaderBackgroundColor("#123456")
+         .withBrandedHeaderTextColor("#ffffff")
+         .withBrandedHeaderTagline("Owned acceptance theme")
+         .withCustomCss("body.qqq-themed [data-qqq-id=\"branded-header-tagline\"] { letter-spacing: 2px; }");
+   }
+
+
+
+   /*******************************************************************************
     ** Restore the stock seed data and every area's fixture data.
     *******************************************************************************/
    private static synchronized void reset() throws Exception
    {
+      if(instance.getSupplementalMetaData() != null)
+      {
+         instance.getSupplementalMetaData().remove(MaterialDashboardThemeMetaData.class.getName());
+      }
       SampleMetaDataProvider.primeTestDatabase("prime-test-database.sql");
       SampleMetaDataProvider.primeTestDatabase("prime-sharing-database.sql");
       primeFixtures();

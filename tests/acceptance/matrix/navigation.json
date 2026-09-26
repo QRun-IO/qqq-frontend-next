@@ -737,6 +737,45 @@
         "#708"
       ],
       "required": true
+    },
+    {
+      "id": "NAV-055",
+      "feature": "Material Dashboard CSS and test hooks remain available on navigation, banners, app homes, forms, record views and query controls",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/utils/qqqIdUtils.ts",
+        "src/lib/utils/qqq-id.ts",
+        "src/components/layout, src/components/forms, src/components/records, src/components/query"
+      ],
+      "fixture": "stock sample with NavigationFixtures and RecordsFixtures; application CSS applied in css-hooks.spec.ts",
+      "scenarios": [
+        "Material data-qqq-id and class selectors identify corresponding Next UI controls",
+        "application CSS keyed to those selectors changes the rendered style",
+        "record and query actions retain the expected behavior and button variants"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#731"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-056",
+      "feature": "The Material Dashboard theme from versioned QQQ metadata changes Next UI tokens, application CSS and the branded header",
+      "source": [
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardThemeMetaData.java",
+        "qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/specs/v1/responses/components/SupplementalInstanceMetaData.java",
+        "src/lib/theme/material-theme.ts, src/components/layout/BrandedHeaderBar.tsx"
+      ],
+      "fixture": "AcceptanceSampleServer /acceptance/theme; reset removes the theme before each test",
+      "scenarios": [
+        "v1 metaData publishes the selected Material theme settings",
+        "the rendered dashboard applies its primary token, branded header colors and tagline, and custom CSS"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#719"
+      ],
+      "required": true
     }
   ]
 }

@@ -45,6 +45,8 @@ export interface Backend {
   seedQuickView: () => Promise<void>
   /** Replaces the seeded view with references to a removed table field. */
   seedStaleView: () => Promise<void>
+  /** Enables a scoped Material theme for the current test; reset removes it. */
+  enableTheme: () => Promise<void>
 }
 
 async function control(path: string, body: unknown) {
@@ -75,6 +77,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       sql: async (query) => (await control('sql', { query })).rows,
       seedQuickView: async () => { await control('quick-view', {}) },
       seedStaleView: async () => { await control('stale-view', {}) },
+      enableTheme: async () => { await control('theme', {}) },
       setPersona: async (next, nextUser = user) => { await control('persona', { sessionId, persona: next, user: nextUser }) },
     })
     await api.dispose()
