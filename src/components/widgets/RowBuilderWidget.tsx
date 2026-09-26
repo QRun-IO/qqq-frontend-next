@@ -15,119 +15,113 @@
  */
 
 /**
- * @file RowBuilderWidget — a `rowBuilder` widget's rows: a read-only table, or, when the
- * widget is editable (`defaultValues.isEditable`) on a screen whose form hosts widgets
- * (a process step), the inline {@link RowBuilderEditor} that writes the rows to the
- * host's `outputFieldName` value.
+ * @file RowBuilderWidget — a `rowBuilder` widget (Material `RowBuilderWidget`): its rows
+ * read-only (record view and dashboards), editable in a record form, or editable in a
+ * process step through its host form.
  */
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import type { QFieldMetaData } from '@/types'
-import { RowBuilderEditor, isRowBuilderEditable } from './RowBuilderEditor'
+import { ProcessRowBuilderEditor, isRowBuilderEditable as isProcessRowBuilderEditable } from './ProcessRowBuilderEditor'
 import { useWidgetFormHost } from './widget-form-host'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
-import { formatPlainValue } from './record-widget-utils'
+import { RowBuilderEditor } from './RowBuilderEditor'
+import { RowBuilderTable } from './RowBuilderTable'
+import {
+  DEFAULT_MODAL_TITLE, isRowBuilderEditable, readRowBuilderConfig, rowBuilderFields, seedRows,
+} from './row-builder-model'
+import type { RowBuilderRecord } from './row-builder-model'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import type { WidgetComponentProps } from './widget-types'
-
-/** One row as serialized by `RowBuilderData.records`. */
-interface RowRecord {
-  values?: Record<string, unknown>
-  displayValues?: Record<string, string>
-}
 
 /** Payload of the `rowBuilder` widget (`RowBuilderData`). */
 export interface RowBuilderPayload {
   type?: string
-  records?: RowRecord[]
+  records?: RowBuilderRecord[]
+  /** Values written to the host form as they are. */
   hiddenValues?: Record<string, unknown>
+  /** Values every new row starts with. */
   defaultValuesForNewRecords?: Record<string, unknown>
-}
-
-/** A column derived from `defaultValues.fields` or the rows themselves. */
-interface RowColumn {
-  name: string
-  label: string
-  type?: string
+  /** Title of the modal editor (wins over the metadata's `modalTitle`). */
+  modalTitle?: string
 }
 
 /**
- * Columns from the widget's declared fields, else the union of row value keys.
+ * Columns for rows whose widget declares no fields: the union of the rows' value keys.
  *
- * @param declared - `defaultValues.fields` from the widget metadata.
  * @param rows - The payload rows.
- * @returns The columns in order.
+ * @returns One text column per key, labelled by its key.
  */
-function columnsFor(declared: unknown, rows: RowRecord[]): RowColumn[] {
-  const fields = asList(declared) ?? []
-  const fromFields = fields
-    .filter((field): field is Record<string, unknown> => isPlainObject(field) && typeof field.name === 'string')
-    .map((field) => ({
-      name: String(field.name),
-      label: typeof field.label === 'string' && field.label ? field.label : String(field.name),
-      type: typeof field.type === 'string' ? field.type : undefined,
-    }))
-  if (fromFields.length > 0) return fromFields
+function derivedFields(rows: RowBuilderRecord[]): QFieldMetaData[] {
   const names: string[] = []
   for (const row of rows) {
     for (const key of Object.keys(row.values ?? {})) {
       if (!names.includes(key)) names.push(key)
     }
   }
-  return names.map((name) => ({ name, label: name }))
+  return names.map((name) => ({ name, label: name, type: 'STRING', isRequired: false, isEditable: false, isHeavy: false, isHidden: false, adornments: [] }))
 }
 
 /**
- * Renders the widget's rows as a table whose columns come from
- * `widgetMetaData.defaultValues.fields`. `0` values are shown; absent values show
- * an em dash.
+ * Renders the widget. With a `formContext` in which the widget is editable (Material:
+ * `isForRecordViewAndEditScreen` widgets on record create and edit forms, others when
+ * `isEditable`), it edits the rows; otherwise it shows them read-only with the fields
+ * from `defaultValues.frontendFields` (else `fields`), hiding `isHidden` fields.
  *
- * @param props - Widget metadata and payload.
- * @returns The rendered table, the empty message, or a contained notice.
+ * @param props - Widget metadata, payload and, inside a form, the form context.
+ * @returns The rows, the editor, or a contained notice.
  */
-export function RowBuilderWidget({ widgetMetaData, data, onWidgetData }: WidgetComponentProps<RowBuilderPayload>) {
+export function RowBuilderWidget({ widgetMetaData, data, formContext, onWidgetData }: WidgetComponentProps<RowBuilderPayload>) {
   const widgetName = widgetMetaData.name
   const host = useWidgetFormHost()
-  const rows = asList<RowRecord>(data?.records)
-  if (rows === undefined || rows.some((row) => !isPlainObject(row) || (row.values !== undefined && !isPlainObject(row.values)))) {
+  const defaultValues = widgetMetaData.defaultValues
+  const config = useMemo(() => readRowBuilderConfig(defaultValues), [defaultValues])
+  const fields = useMemo(() => rowBuilderFields(defaultValues), [defaultValues])
+  const records = asList<RowBuilderRecord>(data?.records)
+  const malformed = records === undefined || records.some((row) => !isPlainObject(row) || (row.values !== undefined && !isPlainObject(row.values)))
+  const hiddenValues = isPlainObject(data?.hiddenValues) ? data.hiddenValues : undefined
+  const defaultValuesForNewRecords = isPlainObject(data?.defaultValuesForNewRecords) ? data.defaultValuesForNewRecords : undefined
+
+  if (malformed) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('row builder', 'records')} />
   }
-  if (host && onWidgetData && isRowBuilderEditable(widgetMetaData)) {
-    const declared = asList(widgetMetaData.defaultValues?.frontendFields ?? widgetMetaData.defaultValues?.fields) ?? []
-    const fields = declared
-      .filter((field): field is Record<string, unknown> => isPlainObject(field) && typeof field.name === 'string')
-      .map((field) => ({ isHeavy: false, isHidden: false, adornments: [], isEditable: true, ...field, label: String(field.label || field.name) }) as unknown as QFieldMetaData)
-    return <RowBuilderEditor widgetMetaData={widgetMetaData} data={data} fields={fields} host={host} onWidgetData={onWidgetData} />
+
+  if (host && onWidgetData && isProcessRowBuilderEditable(widgetMetaData)) {
+    return <ProcessRowBuilderEditor widgetMetaData={widgetMetaData} data={data} fields={fields} host={host} onWidgetData={onWidgetData} />
   }
-  if (rows.length === 0) {
+
+  if (formContext && isRowBuilderEditable(config, formContext.screen)) {
+    // on the edit screen, rows come from the payload (the backend loads the association),
+    // else from the record's associated records when the page already has them
+    const associated = config.associationName ? formContext.record?.associatedRecords?.[config.associationName] : undefined
+    const initialRecords = records.length === 0 && associated?.length ? associated : records
+    const modalTitle = (typeof data?.modalTitle === 'string' && data.modalTitle) || config.modalTitle || DEFAULT_MODAL_TITLE
+    return (
+      <RowBuilderEditor
+        widgetMetaData={widgetMetaData}
+        config={config}
+        fields={fields}
+        initialRecords={initialRecords}
+        defaultValuesForNewRecords={defaultValuesForNewRecords}
+        hiddenValues={hiddenValues}
+        modalTitle={modalTitle}
+        formContext={formContext}
+      />
+    )
+  }
+
+  const columns = fields.length > 0 ? fields : derivedFields(records)
+  if (records.length === 0 && columns.length === 0) {
     return <WidgetEmpty widgetName={widgetName}>No rows</WidgetEmpty>
   }
-  const columns = columnsFor(widgetMetaData.defaultValues?.fields, rows)
   return (
-    <div className="overflow-x-auto" data-qqq-id={`widget-rowBuilder-${widgetName}`}>
-      <table className="w-full text-left text-sm">
-        <caption className="sr-only">{widgetMetaData.label}</caption>
-        <thead>
-          <tr className="border-b border-border">
-            {columns.map((column) => (
-              <th key={column.name} scope="col" className="px-3 py-2 font-semibold text-foreground">{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={index} className="border-b border-border/50 last:border-0" data-qqq-id={`row-builder-row-${widgetName}-${index}`}>
-              {columns.map((column) => {
-                const display = row.displayValues?.[column.name]
-                const value = display !== undefined && display !== null && display !== '' ? display : row.values?.[column.name]
-                return <td key={column.name} className="px-3 py-2 text-foreground">{formatPlainValue(value, column.type)}</td>
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-2" data-qqq-id={`widget-rowBuilder-${widgetName}`}>
+      {config.inlineHeading && (
+        <h4 className="text-base font-semibold text-foreground" data-qqq-id={`row-builder-heading-${widgetName}`}>{config.inlineHeading}</h4>
+      )}
+      <RowBuilderTable widgetName={widgetName} caption={widgetMetaData.label} fields={columns} rows={seedRows(records, config).rows} />
     </div>
   )
 }
