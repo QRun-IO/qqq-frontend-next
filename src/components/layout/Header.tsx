@@ -35,6 +35,10 @@ export interface HeaderProps {
   appName?: string
   /** Called when the mobile hamburger menu button is clicked to open the sidebar drawer. */
   onMenuOpen?: () => void
+  /** Whether the mobile navigation drawer is open (reflected on the menu button). */
+  menuOpen?: boolean
+  /** Ref to the mobile menu button, so the drawer can return focus to it when it closes. */
+  menuButtonRef?: React.Ref<HTMLButtonElement>
   /** Called when the mobile search icon button is clicked to open the search dialog. */
   onSearchOpen?: () => void
   /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
@@ -63,7 +67,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [] }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [] }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (
@@ -76,9 +80,13 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
       <div className="flex items-center gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
+          ref={menuButtonRef}
+          type="button"
           onClick={onMenuOpen}
           className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open navigation menu"
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
           data-qqq-id="button-mobile-menu"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />

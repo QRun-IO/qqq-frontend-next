@@ -247,13 +247,97 @@ describe('Sidebar', () => {
     const onClose = vi.fn()
     renderSidebar(leafRoutes, { open: true, onClose })
 
-    // The backdrop is an aria-hidden div — click it directly
-    const backdrop = document.querySelector('[aria-hidden="true"].absolute.inset-0')
-    if (backdrop) {
-      const callsBefore = onClose.mock.calls.length
-      await user.click(backdrop as HTMLElement)
-      expect(onClose.mock.calls.length).toBeGreaterThan(callsBefore)
+    const backdrop = document.querySelector('[data-qqq-id="sidebar-mobile-backdrop"]')
+    expect(backdrop).not.toBeNull()
+    const callsBefore = onClose.mock.calls.length
+    await user.click(backdrop as HTMLElement)
+    expect(onClose.mock.calls.length).toBeGreaterThan(callsBefore)
+  })
+
+  describe('mobile drawer keyboard use', () => {
+    /** A page with the header menu button, content behind the drawer, and the drawer. */
+    function DrawerPage({ onClose }: { onClose?: () => void }) {
+      const [open, setOpen] = React.useState(false)
+      const menuButtonRef = React.useRef<HTMLButtonElement>(null)
+      return (
+        <>
+          <button ref={menuButtonRef} type="button" onClick={() => setOpen(true)}>Open navigation menu</button>
+          <a href="#behind">Behind the drawer</a>
+          <Sidebar
+            routes={leafRoutes}
+            userName="Avery"
+            logout={() => {}}
+            open={open}
+            onClose={() => { onClose?.(); setOpen(false) }}
+            returnFocusRef={menuButtonRef}
+          />
+        </>
+      )
     }
+
+    async function openFromKeyboard() {
+      const user = userEvent.setup()
+      currentPathname = '/'
+      render(<DrawerPage />)
+      screen.getByRole('button', { name: 'Open navigation menu' }).focus()
+      await user.keyboard('{Enter}')
+      const drawer = document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]') as HTMLElement
+      expect(drawer).not.toBeNull()
+      return { user, drawer }
+    }
+
+    it('is a labelled modal dialog that takes focus on open', async () => {
+      const { drawer } = await openFromKeyboard()
+      expect(drawer).toHaveAttribute('role', 'dialog')
+      expect(drawer).toHaveAccessibleName('Navigation')
+      expect(drawer.contains(document.activeElement)).toBe(true)
+    })
+
+    it('keeps Tab and Shift+Tab inside the drawer', async () => {
+      const { user, drawer } = await openFromKeyboard()
+      const stops = drawer.querySelectorAll('a[href], button').length
+      for (let press = 0; press < stops + 2; press++) {
+        await user.tab()
+        expect(drawer.contains(document.activeElement)).toBe(true)
+      }
+      for (let press = 0; press < stops + 2; press++) {
+        await user.tab({ shift: true })
+        expect(drawer.contains(document.activeElement)).toBe(true)
+      }
+      expect(screen.queryByRole('link', { name: 'Behind the drawer' })).toBeNull() // hidden from assistive technology
+    })
+
+    it('closes on Escape and returns focus to the menu button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.keyboard('{Escape}')
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('returns focus to the menu button when closed by its close button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.click(screen.getByRole('button', { name: 'Close navigation' }))
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('closes when a link is chosen and returns focus to the menu button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.click(screen.getByRole('link', { name: /Companies/ }))
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('lets Escape close an open user menu first and keeps the drawer open', async () => {
+      const { user, drawer } = await openFromKeyboard()
+      await user.click(screen.getByRole('button', { name: /Avery/ }))
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(drawer.isConnected).toBe(true)
+      await user.keyboard('{Escape}')
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+    })
   })
 
   // ─── data-qqq-id attributes ───────────────────────────────────────────────
