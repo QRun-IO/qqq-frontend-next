@@ -39,15 +39,9 @@ import type { QLoginBranding } from '@/types'
 import { useAuth } from '@/lib/auth/use-auth'
 import { recordReauthAttempt, resetReauthAttempts } from '@/lib/auth/auth-storage'
 import { safeReturnTo } from '@/lib/auth/return-to'
+import { callbackErrorMessage } from '@/lib/auth/callback-errors'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { applyBrandingTheme, isSafeImageSource } from '@/lib/theme/apply-branding'
-
-/** Messages for provider callback errors passed back as `?error=`. */
-const CALLBACK_ERRORS: Record<string, string> = {
-  access_denied: 'Sign-in was denied by the identity provider.',
-  callback_failed: 'Sign-in could not be completed.',
-  login_required: 'The identity provider requires you to sign in again.',
-}
 
 const BUTTON_CLASS = 'inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
 const INPUT_CLASS = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring aria-[invalid=true]:border-destructive'
@@ -201,10 +195,7 @@ function LoginContent() {
   const [loopStopped, setLoopStopped] = React.useState(false)
 
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
-  const callbackErrorCode = searchParams.get('error')
-  const callbackError = callbackErrorCode
-    ? CALLBACK_ERRORS[callbackErrorCode] ?? `Sign-in failed (${callbackErrorCode}).`
-    : null
+  const callbackError = callbackErrorMessage(searchParams.get('error'))
   const errorMessage = authError ?? callbackError ?? (loopStopped ? 'Your session could not be re-established. Sign in again to continue.' : null)
   const passwordSignIn = authMetadata?.type === 'TABLE_BASED'
   const branding = authMetadata?.branding

@@ -64,8 +64,13 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   - `backend.api` calls the backend over HTTP as the same session. Use it to prove
     server-side enforcement.
 - **Include the `diagnostics` fixture in every test.** It fails the test on page errors,
-  console errors and failed or ≥400 application requests. Negative scenarios whitelist
-  their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
+  console errors, failed or ≥400 application requests, and Content-Security-Policy
+  violations (every frame forwards `securitypolicyviolation` events; they are listed as
+  `cspViolations` in `diagnostics.json`). The dashboard is served with a strict policy
+  (QRun-IO/qqq#695, SEC-038 to SEC-040), so a feature that needs another origin must get it
+  from metadata or the application's `withNextDashboardSecurityHeadersCustomizer` hook
+  (see `WidgetsFixtures.allowFakeService`), never from a loosened test. Negative scenarios
+  whitelist their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
   a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under

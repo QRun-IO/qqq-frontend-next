@@ -27,7 +27,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
@@ -99,7 +99,7 @@ function StepHelp({ step }: { step: QFrontendStepMetaData }) {
   return (
     <div className="space-y-1 text-sm text-muted-foreground" data-qqq-id="process-step-help">
       {contents.map((help, index) => help.format === 'HTML'
-        ? <div key={index} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(help.content ?? '') }} />
+        ? <div key={index} dangerouslySetInnerHTML={{ __html: sanitizeHtml(help.content ?? '') }} />
         : <p key={index}>{help.content}</p>)}
     </div>
   )

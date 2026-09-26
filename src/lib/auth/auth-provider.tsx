@@ -56,6 +56,7 @@ import apiClient from '@/lib/api/client'
 import { queryClient } from '@/lib/query-client'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import {
+  claimClientData,
   clearUserClientData,
   getStoredUser,
   isSignedOut as readSignedOut,
@@ -232,13 +233,16 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    */
   const establishSession = useCallback(async (metadata: QAuthenticationMetaData): Promise<AuthUser | null> => {
     if (ANONYMOUS_TYPES.has(metadata.type)) {
-      return sessionUser(await manageSession('anonymous'), { name: 'Anonymous', email: 'anonymous@localhost' })
+      const anonymous = sessionUser(await manageSession('anonymous'), { name: 'Anonymous', email: 'anonymous@localhost' })
+      claimClientData(anonymous)
+      return anonymous
     }
     if (RESUMABLE_TYPES.has(metadata.type)) {
       const sessionUUID = readSessionUUIDCookie()
       if (!sessionUUID) return null
       try {
         const resumed = sessionUser(await resumeSession(sessionUUID), getStoredUser())
+        claimClientData(resumed)
         storeUser(resumed)
         return resumed
       } catch (error) {
@@ -442,6 +446,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     }
     sessionStorage.removeItem(PKCE_STORAGE.redirectUri)
     const signedIn = sessionUser(response, fallback)
+    claimClientData(signedIn)
     storeUser(signedIn)
     setSignedOut(false)
     setSignedOutState(false)

@@ -142,6 +142,7 @@ import com.kingsrook.qqq.backend.core.model.session.QSystemUserSession;
 import com.kingsrook.qqq.backend.core.processes.implementations.reports.BasicRunReportProcess;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
+import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -618,6 +619,23 @@ final class WidgetsFixtures
          app.withChild(report);
       }
       qInstance.addApp(app);
+   }
+
+
+
+   /*******************************************************************************
+    ** Content-Security-Policy override (the application hook, QRun-IO/qqq#695):
+    ** the loopback service stands in for QuickSight (frame-src) and serves the
+    ** image and audio blocks (img-src, media-src). The custom component bundle
+    ** needs nothing here: the dashboard allows each customComponent widget's
+    ** componentSourceUrl origin itself.
+    *******************************************************************************/
+   static void allowFakeService(NextDashboardSecurityHeaders headers)
+   {
+      if(fakeBase != null)
+      {
+         headers.withSources("frame-src", fakeBase).withSources("img-src", fakeBase).withSources("media-src", fakeBase);
+      }
    }
 
 

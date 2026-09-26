@@ -24,6 +24,7 @@ import { clearRecentRecords } from '@/lib/utils/recent-records'
 const SIGNED_OUT_KEY = 'qqq.signedOut'
 const USER_KEY = 'qqqUser'
 const REAUTH_KEY = 'qqq.reauthAttempts'
+const CLIENT_DATA_OWNER_KEY = 'qqq.clientDataOwner'
 
 /** The displayed identity of the signed-in user. */
 export interface StoredUser {
@@ -141,4 +142,22 @@ export function clearUserClientData(): void {
   clearRecentRecords()
   storeUser(null)
   storage('local')?.removeItem('accessToken')
+  storage('local')?.removeItem(CLIENT_DATA_OWNER_KEY)
+}
+
+/**
+ * Binds the per-user browser data to the signed-in identity. When someone else
+ * signs in in this browser - for example after the previous user's session
+ * expired without a logout - the previous user's recently viewed records and
+ * stored identity are removed before anything is shown (QRun-IO/qqq#696).
+ * Call it before storing the new identity.
+ *
+ * @param user - The identity that just signed in.
+ */
+export function claimClientData(user: StoredUser | null): void {
+  const owner = user?.email || user?.name
+  if (!owner) return
+  const previous = storage('local')?.getItem(CLIENT_DATA_OWNER_KEY)
+  if (previous && previous !== owner) clearUserClientData()
+  storage('local')?.setItem(CLIENT_DATA_OWNER_KEY, owner)
 }

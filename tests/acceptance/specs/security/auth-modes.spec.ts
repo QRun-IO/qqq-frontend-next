@@ -12,7 +12,8 @@ import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
-import { listCell, navigation, openUserMenu } from './support/ui'
+import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
+import { parsePolicy } from './support/csp'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
 
@@ -102,6 +103,17 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
     await expect(page.locator('[data-qqq-id="login-error"]')).toHaveText('Sign-in was denied by the identity provider.')
     expect(auth0.requests.filter((request) => request.path === '/oauth/token')).toEqual([])
     expect(Number((await variantSql('select count(*) as n from user_session'))[0].n)).toBe(0)
+  })
+
+  auth0Test('[SEC-039] the policy allows the browser token exchange with the configured Auth0 domain only', async ({ page, auth0, diagnostics }) => {
+    const policy = parsePolicy((await page.request.get('/login')).headers()['content-security-policy'])
+    expect(policy['connect-src']).toEqual(["'self'", auth0.issuer])
+    await open(page, '/app/person')
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    // the browser itself called the token endpoint on the allowed origin
+    expect(auth0.requests.filter((request) => request.path === '/oauth/token')).toHaveLength(1)
+    expect(diagnostics.cspViolations).toEqual([])
   })
 })
 

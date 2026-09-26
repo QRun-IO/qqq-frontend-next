@@ -24,7 +24,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import type { QFieldMetaData, QRecord } from '@/types'
 import { chipStyle, CHIP_COLOR_CLASSES, fileDownload, linkTarget, tooltipText } from '@/lib/utils/adornment-utils'
 
@@ -123,7 +123,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       case 'RENDER_HTML': {
         return (
           <span
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(display) }}
             data-qqq-id={`grid-cell-${field.name}`}
             className="text-sm"
           />
@@ -224,7 +224,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
     case 'HTML': {
       return (
         <span
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(display) }}
           data-qqq-id={`grid-cell-${field.name}`}
           className="text-sm"
         />

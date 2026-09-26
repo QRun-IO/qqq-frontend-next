@@ -22,7 +22,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
 import { useProcessStep } from './ProcessStepContext'
 
@@ -43,7 +43,7 @@ const ALLOWED_URI_REGEXP = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|m
  * @returns Safe HTML.
  */
 export function sanitizeProcessHtml(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_URI_REGEXP })
+  return sanitizeHtml(html, { allowedUriRegexp: ALLOWED_URI_REGEXP })
 }
 
 /**
