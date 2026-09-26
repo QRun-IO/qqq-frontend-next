@@ -137,7 +137,12 @@ test('[QRY-071] a process launched from a variant table runs with the chosen var
   await expect(page.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 1 Stock record.')
   const records = await previewRecords
   expect(records.status()).toBe(200)
-  expect(new URL(records.url()).searchParams.get('tableVariant')).toBe(JSON.stringify({ type: 'qryStore', id: 2 }))
+  // the South store (id 2); the v1 variants route names variant ids as strings
+  const southStore = (variant: string | null | undefined) => {
+    const parsed = JSON.parse(variant ?? 'null') as { type?: string, id?: unknown } | null
+    return parsed && { type: parsed.type, id: String(parsed.id) }
+  }
+  expect(southStore(new URL(records.url()).searchParams.get('tableVariant'))).toEqual({ type: 'qryStore', id: '2' })
   await page.getByRole('radio', { name: /^Skip Validation/ }).check()
   await page.getByRole('button', { name: 'Submit' }).click()
   await expect(page.getByRole('button', { name: 'Return' })).toBeVisible()
@@ -145,7 +150,7 @@ test('[QRY-071] a process launched from a variant table runs with the chosen var
   const initAndSteps = processRequests.filter((request) => request.path.endsWith('/init') || request.path.includes('/step/'))
   expect(initAndSteps.length).toBeGreaterThanOrEqual(2)
   for (const request of initAndSteps) {
-    expect(JSON.parse(variantOf(request.body) ?? 'null'), request.path).toEqual({ type: 'qryStore', id: 2 })
+    expect(southStore(variantOf(request.body)), request.path).toEqual({ type: 'qryStore', id: '2' })
   }
 
   // Return lands back on the variant query, which now has no South rows; North is untouched

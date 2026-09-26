@@ -102,7 +102,8 @@ test('[REC-055] keys typed in a text input are text, not shortcuts', async ({ pa
   void diagnostics
   void backend
   await openRecord(page, 'person', 1, 'Avery Sample')
-  const jump = page.getByRole('combobox', { name: 'Search pages and recent records' }).or(page.getByLabel('Search pages and recent records')).first()
+  // the header's page and record search box (its label names records when record search is available)
+  const jump = page.locator('[data-qqq-id="header-search"]').getByRole('combobox', { name: /^Search pages and (recent )?records$/ })
   await jump.click()
   await page.keyboard.type('necda')
   await expect(jump).toHaveValue('necda')
@@ -146,7 +147,7 @@ test('[REC-056] #audit opens the audit history and closing it clears the hash', 
 test('[REC-056] #/launchProcess= opens the process run for the record and returns to it', async ({ page, backend, diagnostics }) => {
   void diagnostics
   void backend
-  const init = nextPost(page, '/processes/person.bulkEdit/init')
+  const init = nextPost(page, '/qqq/v1/processes/person.bulkEdit/init')
   await page.goto('/app/person/2#/launchProcess=person.bulkEdit', { waitUntil: 'domcontentloaded' })
   await expect(page).toHaveURL(/\/app\/person\.bulkEdit\/?\?recordsParam=recordIds&recordIds=2&returnTo=%2Fapp%2Fperson%2F2$/)
   const request = await init
