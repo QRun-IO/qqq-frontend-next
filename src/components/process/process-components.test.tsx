@@ -143,6 +143,28 @@ describe('VALIDATION_REVIEW_SCREEN (#659)', () => {
   })
 })
 
+describe('BULK_EDIT_FORM', () => {
+  const edit: QFrontendStepMetaData = {
+    name: 'edit', label: 'Edit Values', components: [{ type: 'BULK_EDIT_FORM' }],
+    formFields: [{ name: 'firstName', label: 'First Name', type: 'STRING', isRequired: false, isEditable: true, isHeavy: false, isHidden: false, adornments: [] }],
+  }
+
+  it('switches a field on from its label, the switch hit area on touch screens (QRun-IO/qqq#708)', async () => {
+    const user = userEvent.setup()
+    const onSubmit = renderStep(edit, {}, { tableMetaData: person })
+    const toggle = screen.getByRole('switch', { name: 'Edit First Name' })
+    const label = toggle.closest('label')!
+    expect(label).not.toBeNull()
+    expect(screen.getByLabelText('First Name')).toBeDisabled()
+    await user.click(label)
+    expect(toggle).toBeChecked()
+    expect(screen.getByLabelText('First Name')).toBeEnabled()
+    await user.type(screen.getByLabelText('First Name'), 'Quinn')
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ firstName: 'Quinn', bulkEditEnabledFields: 'firstName' }), undefined))
+  })
+})
+
 describe('ProcessSummaryLines', () => {
   it('renders status, count, message, bullets and record links', () => {
     render(<ProcessSummaryLines table={person} isResultScreen lines={[
@@ -156,6 +178,13 @@ describe('ProcessSummaryLines', () => {
     expect(screen.getByText('second')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'person 7' })).toHaveAttribute('href', '/app/person/7')
     expect(screen.getByRole('link', { name: 'See these Person records in a new tab' })).toHaveAttribute('target', '_blank')
+  })
+
+  it('gives the record link icon a 44 px touch target on coarse pointers only (QRun-IO/qqq#708)', () => {
+    render(<ProcessSummaryLines table={person} isResultScreen lines={[{ status: 'OK', count: 2, message: 'were cloned', primaryKeys: [1, 2] }]} />)
+    const link = screen.getByRole('link', { name: 'See these Person records in a new tab' })
+    expect(link.className).toContain('pointer-coarse:min-h-11')
+    expect(link.className).toContain('pointer-coarse:min-w-11')
   })
 
   it('links only non-null keys of a table with a primary key', () => {

@@ -125,7 +125,7 @@ export function RecordListComponent({ index }: RecordListComponentProps) {
               <select
                 value={pageSize}
                 onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}
-                className="rounded-md border border-border bg-card px-2 py-1 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="rounded-md border border-border bg-card px-2 py-1 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11"
                 data-qqq-id="select-process-record-page-size"
               >
                 {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}

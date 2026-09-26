@@ -196,7 +196,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                 value={audience}
                 onChange={(event) => setAudience(event.target.value)}
                 disabled={busy}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm pointer-coarse:h-11"
                 data-qqq-id="share-audience"
               >
                 <option value="">Select a user or group</option>
@@ -210,7 +210,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                 value={scope}
                 onChange={(event) => setScope(event.target.value as ShareScope)}
                 disabled={busy}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm pointer-coarse:h-11"
                 data-qqq-id="share-scope"
               >
                 {SCOPES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
@@ -244,7 +244,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                       value={share.scopeId}
                       disabled={busy}
                       onChange={(event) => change('Saving...', () => editSharedRecord(tableMetaData.name, recordId, share.shareId, event.target.value as ShareScope), 'Error editing shared record')}
-                      className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      className="rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:h-11"
                       data-qqq-id={`share-scope-${share.shareId}`}
                     >
                       {SCOPES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}

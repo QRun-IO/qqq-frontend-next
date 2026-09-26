@@ -51,7 +51,7 @@ const LAYOUTS = [
   { id: 'WIDE', label: 'Wide' },
 ]
 
-const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50'
+const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11'
 
 /** Settings of a mapped field the row can change. */
 type FieldPatch = Partial<Pick<BulkLoadField, 'valueType' | 'columnIndex' | 'headerName' | 'defaultValue' | 'doValueMapping' | 'clearIfEmpty' | 'warning'>>

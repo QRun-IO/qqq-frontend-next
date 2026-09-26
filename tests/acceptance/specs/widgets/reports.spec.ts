@@ -8,12 +8,15 @@
 // Reports: run through the basic report process in each format, input fields, permissions, navigation.
 import type { Download, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
+import { navigation } from '../security/support/ui'
 import { downloadBytes, downloadText, parseCsv, readZip, sqlRows, xlsxRows } from './widget-support'
 
 /** Runs a report in a format and returns the downloaded file. */
 async function runReport(page: Page, reportName: string, format: 'CSV' | 'XLSX' | 'JSON'): Promise<Download> {
   await open(page, `/app/${reportName}`)
   await page.getByLabel('Output format').selectOption(format)
+  await expectTouchReady(page, page.locator(`[data-qqq-id="report-run-${reportName}"]`))
   await page.getByRole('button', { name: 'Run Report' }).click()
   return downloadResult(page)
 }
@@ -22,13 +25,14 @@ async function runReport(page: Page, reportName: string, format: 'CSV' | 'XLSX' 
 async function downloadResult(page: Page): Promise<Download> {
   const link = page.getByRole('link', { name: /^Download / })
   await expect(page.getByRole('status').filter({ hasText: 'Report complete' })).toBeVisible()
+  await expectTouchReady(page, page.locator('[data-qqq-id^="report-run-"]'))
   const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
   return download
 }
 
 const PEOPLE = 'select id, first_name, last_name, email from person order by id'
 
-test('[RPT-001] a table report downloads CSV with every row from the database', async ({ page, backend, diagnostics }) => {
+test('[RPT-001] a table report downloads CSV with every row from the database @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, PEOPLE)
   const download = await runReport(page, 'accPersonReport', 'CSV')
@@ -38,7 +42,7 @@ test('[RPT-001] a table report downloads CSV with every row from the database', 
   expect(rows.slice(1)).toEqual(people.map((person) => [person.id, person.first_name, person.last_name, person.email]))
 })
 
-test('[RPT-002] a table report downloads XLSX with the same rows', async ({ page, backend, diagnostics }) => {
+test('[RPT-002] a table report downloads XLSX with the same rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, PEOPLE)
   const download = await runReport(page, 'accPersonReport', 'XLSX')
@@ -49,7 +53,7 @@ test('[RPT-002] a table report downloads XLSX with the same rows', async ({ page
   expect(rows.slice(1).map((row) => [Number(row[0]), ...row.slice(1)])).toEqual(people.map((person) => [Number(person.id), person.first_name, person.last_name, person.email]))
 })
 
-test('[RPT-003] a table report downloads JSON with the same rows', async ({ page, backend, diagnostics }) => {
+test('[RPT-003] a table report downloads JSON with the same rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, PEOPLE)
   const download = await runReport(page, 'accPersonReport', 'JSON')
@@ -57,7 +61,7 @@ test('[RPT-003] a table report downloads JSON with the same rows', async ({ page
   expect(JSON.parse(await downloadText(download))).toEqual(people.map((person) => ({ id: Number(person.id), firstName: person.first_name, lastName: person.last_name, email: person.email })))
 })
 
-test('[RPT-004] a summary report counts pets per owner with a totals row', async ({ page, backend, diagnostics }) => {
+test('[RPT-004] a summary report counts pets per owner with a totals row @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const groups = await sqlRows(backend, "select p.first_name || ' ' || p.last_name as owner, count(*) as pets from pet join person p on p.id = pet.person_id group by p.id, p.first_name, p.last_name order by p.id")
   const [total] = await sqlRows(backend, 'select count(*) as pets from pet')
@@ -67,7 +71,7 @@ test('[RPT-004] a summary report counts pets per owner with a totals row', async
   expect(rows.at(-1)).toEqual(['Totals', total.pets])
 })
 
-test('[RPT-005] a pivot report produces a native pivot table in XLSX and plain rows in CSV', async ({ page, backend, diagnostics }) => {
+test('[RPT-005] a pivot report produces a native pivot table in XLSX and plain rows in CSV @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const pets = await sqlRows(backend, 'select id, name from pet order by id')
   const xlsx = await downloadBytes(await runReport(page, 'accPetPivotReport', 'XLSX'))
@@ -90,7 +94,7 @@ test('[RPT-005] a pivot report produces a native pivot table in XLSX and plain r
   expect(csv.slice(1).map((row) => [row[0], row[1]])).toEqual(pets.map((pet) => [pet.id, pet.name]))
 })
 
-test('[RPT-006] report input fields are required and filter the rows', async ({ page, backend, diagnostics }) => {
+test('[RPT-006] report input fields are required and filter the rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, 'select id, first_name from person where id >= 3 order by id')
   await open(page, '/app/accPersonInputReport')
@@ -103,6 +107,7 @@ test('[RPT-006] report input fields are required and filter the rows', async ({ 
   await form.getByRole('button', { name: 'Generate Report' }).click()
   await expect(form.getByText('Minimum Id is required.')).toBeVisible()
   await expect(input).toHaveAttribute('aria-invalid', 'true')
+  await expectTouchReady(page, form)
   expect(stepRequests).toBe(0)
   await input.fill('3')
   await form.getByRole('button', { name: 'Generate Report' }).click()
@@ -111,7 +116,7 @@ test('[RPT-006] report input fields are required and filter the rows', async ({ 
   expect(rows.slice(1)).toEqual(people.map((person) => [person.id, person.first_name]))
 })
 
-test('[RPT-011] a report without a process streams from the report route', async ({ page, backend, diagnostics }) => {
+test('[RPT-011] a report without a process streams from the report route @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const pets = await sqlRows(backend, 'select id, name from pet order by id')
   await open(page, '/app/accStreamedReport')
@@ -125,11 +130,11 @@ test('[RPT-011] a report without a process streams from the report route', async
   expect(rows.slice(1)).toEqual(pets.map((pet) => [pet.id, pet.name]))
 })
 
-test('[RPT-008] reports appear in app navigation and open their run page', async ({ page, diagnostics }) => {
+test('[RPT-008] reports appear in app navigation and open their run page @mobile', async ({ page, diagnostics }) => {
   diagnostics.allow('/missing-extension.js 404')
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
   await open(page, '/app/widgetGallery')
-  const nav = page.getByRole('navigation', { name: 'App navigation' })
+  const nav = await navigation(page)
   await nav.getByRole('button', { name: 'Expand Acceptance Reports' }).click()
   await nav.getByRole('link', { name: 'Owned Person Report' }).click()
   await expect(page).toHaveURL(/\/app\/accPersonReport\/?$/)
@@ -137,7 +142,7 @@ test('[RPT-008] reports appear in app navigation and open their run page', async
   await expect(page.getByRole('button', { name: 'Run Report' })).toBeEnabled()
 })
 
-test('[RPT-007] an administrator can run the restricted report', async ({ page, backend, diagnostics }) => {
+test('[RPT-007] an administrator can run the restricted report @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, 'select id, first_name from person order by id')
   const rows = parseCsv(await downloadText(await runReport(page, 'accRestrictedReport', 'CSV')))
@@ -147,7 +152,7 @@ test('[RPT-007] an administrator can run the restricted report', async ({ page, 
 test.describe('without the report permission', () => {
   test.use({ persona: 'noPets' })
 
-  test('[RPT-007] the restricted report is denied in the UI and by the server', async ({ page, backend, diagnostics }) => {
+  test('[RPT-007] the restricted report is denied in the UI and by the server @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const meta = await (await backend.api.get('/metaData')).json()
     expect(meta.reports.accPersonReport.hasPermission).toBe(true)
@@ -162,7 +167,7 @@ test.describe('without the report permission', () => {
     await open(page, '/app/accRestrictedReport')
     await expect(page.locator('[data-qqq-id="not-found-state"]')).toContainText('There is no app, table, process or report named accRestrictedReport that you can open.')
     await expect(page.getByRole('button', { name: 'Run Report' })).toHaveCount(0)
-    const nav = page.getByRole('navigation', { name: 'App navigation' })
+    const nav = await navigation(page)
     await nav.getByRole('button', { name: 'Expand Acceptance Reports' }).click()
     await expect(nav.getByRole('link', { name: 'Owned Person Report' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Owned Restricted Report' })).toHaveCount(0)

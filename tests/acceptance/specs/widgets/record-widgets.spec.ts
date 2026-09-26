@@ -7,15 +7,14 @@
 
 // Widgets embedded in record-view sections (not association editors).
 import type { Page } from '@playwright/test'
-import { expect, open, test } from '../../support/fixtures'
-import { byId, expectLoaded, sqlRows, widgetBody } from './widget-support'
+import { expect, test } from '../../support/fixtures'
+import { byId, expectLoaded, openRecord, sqlRows, widgetBody } from './widget-support'
 
 async function openHost(page: Page, id: number) {
-  await open(page, `/app/accWidgetHost/${id}`)
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await openRecord(page, `/app/accWidgetHost/${id}`)
 }
 
-test('[WID-060] section widgets receive the hosting record id and table', async ({ page, backend, diagnostics }) => {
+test('[WID-060] section widgets receive the hosting record id and table @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   for (const id of [1, 2]) {
     const [host] = await sqlRows(backend, `select owner, zero from acc_widget_host where id = ${id}`)
@@ -27,7 +26,7 @@ test('[WID-060] section widgets receive the hosting record id and table', async 
   }
 })
 
-test('[WID-026] cron widget shows the record expression, backend description and time zone', async ({ page, backend, diagnostics }) => {
+test('[WID-026] cron widget shows the record expression, backend description and time zone @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [host] = await sqlRows(backend, 'select cron_expression, cron_time_zone_id from acc_widget_host where id = 1')
   const description = (await (await backend.api.get('/widget/accHostCron?id=1&tableName=accWidgetHost')).json()).cronDescription
@@ -42,7 +41,7 @@ test('[WID-026] cron widget shows the record expression, backend description and
   await expect(byId(page, 'cron-empty-accHostCron')).toHaveText('No schedule set')
 })
 
-test('[WID-027] dynamic form widget shows labeled values including zero', async ({ page, backend, diagnostics }) => {
+test('[WID-027] dynamic form widget shows labeled values including zero @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const [host] = await sqlRows(backend, 'select owner, zero from acc_widget_host where id = 1')
   await openHost(page, 1)
@@ -51,7 +50,7 @@ test('[WID-027] dynamic form widget shows labeled values including zero', async 
   await expect(byId(page, 'dynamic-form-field-accHostDynamicForm-zero')).toHaveText('Zero0')
 })
 
-test('[WID-024] child record list without an association lists joined records with paging and links', async ({ page, backend, diagnostics }) => {
+test('[WID-024] child record list without an association lists joined records with paging and links @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const children = await sqlRows(backend, 'select id, name from acc_widget_host_child where host_id = 1 order by id')
   expect(children).toHaveLength(3)
@@ -69,12 +68,12 @@ test('[WID-024] child record list without an association lists joined records wi
   await expect(page).toHaveURL(new RegExp(`/app/accWidgetHostChild/${children[0].id}/?$`))
   await expect(page.getByRole('heading', { level: 1, name: children[0].name })).toBeVisible()
   // a host without children shows an empty state
-  await open(page, '/app/accWidgetHost/3')
+  await openRecord(page, '/app/accWidgetHost/3')
   await expectLoaded(page, 'accWidgetHostJoinChild')
   await expect(byId(page, 'widget-empty-accWidgetHostJoinChild')).toHaveText('No Widget Host Child records found')
 })
 
-test('[WID-031] row builder without an association shows its rows read-only', async ({ page, diagnostics }) => {
+test('[WID-031] row builder without an association shows its rows read-only @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openHost(page, 1)
   await expectLoaded(page, 'accHostRows')
@@ -85,10 +84,10 @@ test('[WID-031] row builder without an association shows its rows read-only', as
   await expect(table.getByRole('textbox')).toHaveCount(0)
 })
 
-test('[WID-028] data bag viewer lists versions newest first and shows the selected contents', async ({ page, backend, diagnostics }) => {
+test('[WID-028] data bag viewer lists versions newest first and shows the selected contents @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const versions = await sqlRows(backend, 'select id, sequence_no, commit_message, data from data_bag_version where data_bag_id = 1 order by sequence_no desc')
-  await open(page, '/app/dataBag/1')
+  await openRecord(page, '/app/dataBag/1')
   await expectLoaded(page, 'accDataBagViewer')
   const newest = byId(page, `data-bag-version-${versions[0].id}`)
   await expect(newest).toContainText(`Version ${versions[0].sequence_no}`)
@@ -99,16 +98,16 @@ test('[WID-028] data bag viewer lists versions newest first and shows the select
   expect(JSON.parse((await contents.textContent())!)).toEqual(JSON.parse(versions[0].data))
   await byId(page, `data-bag-version-${versions[1].id}`).click()
   await expect.poll(async () => JSON.parse((await contents.textContent()) ?? 'null')).toEqual(JSON.parse(versions[1].data))
-  await open(page, '/app/dataBag/2')
+  await openRecord(page, '/app/dataBag/2')
   await expectLoaded(page, 'accDataBagViewer')
   await expect(byId(page, 'widget-empty-accDataBagViewer')).toHaveText('There are not any versions of this data bag.')
 })
 
-test('[WID-032] script viewer marks the current revision and shows each revision file', async ({ page, backend, diagnostics }) => {
+test('[WID-032] script viewer marks the current revision and shows each revision file @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const script = await (await backend.api.get('/data/script/1')).json()
   expect(script.values.currentScriptRevisionId).toBe(2)
-  await open(page, '/app/script/1')
+  await openRecord(page, '/app/script/1')
   await expectLoaded(page, 'scriptViewer')
   const current = byId(page, 'script-revision-2')
   await expect(current).toContainText('Version 2')
