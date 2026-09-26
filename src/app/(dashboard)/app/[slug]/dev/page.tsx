@@ -15,7 +15,8 @@
  */
 
 /**
- * @file TableDeveloperView page — shows raw table metadata as formatted JSON for debugging field definitions and permissions.
+ * @file TableDeveloperView page — shows raw table metadata as formatted JSON for debugging field definitions and permissions,
+ * and the table's ESB publications and subscribers when it has any.
  */
 
 'use client'
@@ -27,7 +28,9 @@ import { Code, ChevronDown, ChevronUp } from 'lucide-react'
 import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadTableMetaData } from '@/lib/api/metadata'
+import { getEsbForTable } from '@/lib/api/esb'
 import { queryKeys } from '@/lib/query-client'
+import { EsbSection } from '@/components/esb/EsbSection'
 
 /**
  * Renders a developer debug view for a QQQ table, showing summary statistics
@@ -35,6 +38,8 @@ import { queryKeys } from '@/lib/query-client'
  *
  * @returns A composed page that assembles:
  *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
+ *   - An `<EsbSection>` with the table's ESB publications and subscribers, omitted when the
+ *     table has none to show (403, 404, or a backend without the ESB module)
  *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */
@@ -51,6 +56,11 @@ export default function TableDeveloperViewPage() {
     queryKey: queryKeys.tableMetadata(slug),
     queryFn: () => loadTableMetaData(slug),
     staleTime: 1000 * 60 * 5,
+  })
+
+  const { data: esb } = useQuery({
+    queryKey: queryKeys.esbTable(slug),
+    queryFn: () => getEsbForTable(slug),
   })
 
   return (
@@ -100,6 +110,8 @@ export default function TableDeveloperViewPage() {
             />
             <MetaStat label="Primary Key" value={data.primaryKeyField ?? '—'} />
           </div>
+
+          <EsbSection data={esb ?? null} />
 
           {/* Raw JSON */}
           <JsonBlock label="Full Table Metadata" value={data} defaultOpen={false} />
