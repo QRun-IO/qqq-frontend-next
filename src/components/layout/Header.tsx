@@ -44,6 +44,8 @@ export interface HeaderProps {
   onSearchOpen?: () => void
   /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
   onHelpOpen?: () => void
+  /** Ref to the keyboard shortcuts help button, so the help dialog can return focus to it when it closes. */
+  helpButtonRef?: React.Ref<HTMLButtonElement>
   /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
   /** Maps node paths to their enclosing apps, passed through to Breadcrumbs. */
@@ -70,7 +72,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
   const [notificationCount] = useState(0)
 
   return (
@@ -114,6 +116,8 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
 
         {/* Keyboard shortcuts hint */}
         <button
+          ref={helpButtonRef}
+          type="button"
           onClick={onHelpOpen}
           className="rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Keyboard shortcuts (?)"

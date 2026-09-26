@@ -67,6 +67,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const helpButtonRef = useRef<HTMLButtonElement>(null)
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
@@ -301,6 +302,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             menuButtonRef={menuButtonRef}
             onSearchOpen={() => setSearchOpen(true)}
             onHelpOpen={() => setHelpOpen(true)}
+            helpButtonRef={helpButtonRef}
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
             navTargets={navTargets}
@@ -335,7 +337,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
 
       {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} />
     </div>
   )
 }
