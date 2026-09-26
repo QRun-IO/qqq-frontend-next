@@ -7,6 +7,7 @@
 
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { allowQuickSight, appNavigation, recordCollection, v1MetaData, waitForShell } from './nav-helpers'
 
 /** SQL table behind each RDBMS-backed app-home table (the enum table petSpecies is counted via the API). */
@@ -24,7 +25,7 @@ function section(page: Page, label: string) {
 }
 
 test.describe('app home', () => {
-  test('[NAV-008] Miscellaneous home lists actions and data by label with icons, and entries navigate', async ({ page, backend, diagnostics }) => {
+  test('[NAV-008] Miscellaneous home lists actions and data by label with icons, and entries navigate @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const declared = meta.apps.miscellaneous.sections?.[0]
     expect(declared?.processes).toEqual(['sleepInteractive', 'simpleThrow'])
@@ -38,6 +39,8 @@ test.describe('app home', () => {
 
     const actions = misc.getByRole('list', { name: 'Actions' }).getByRole('link')
     await expect(actions).toHaveText(declared!.processes!.map((name) => meta.processes[name].label))
+    // On a phone or tablet every entry is a touch target and the page does not scroll sideways
+    await expectTouchReady(page, page.getByRole('main'))
     const data = misc.getByRole('list', { name: 'Data' }).getByRole('link')
     await expect(data).toHaveCount(3)
     for (const [index, name] of declared!.tables!.entries()) {
@@ -60,7 +63,7 @@ test.describe('app home', () => {
     await expect(page).toHaveTitle('Simple Throw | Miscellaneous | QQQ Sample')
   })
 
-  test('[NAV-008] Greetings App home uses labels, omits the hidden process and table', async ({ page, backend, diagnostics }) => {
+  test('[NAV-008] Greetings App home uses labels, omits the hidden process and table @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     await open(page, '/app/greetingsApp')
     await waitForShell(page)
@@ -80,7 +83,7 @@ test.describe('app home', () => {
   test.describe('without pet permissions', () => {
     test.use({ persona: 'noPets' })
 
-    test('[NAV-008] unpermitted section entries are omitted', async ({ page, backend, diagnostics }) => {
+    test('[NAV-008] unpermitted section entries are omitted @mobile', async ({ page, backend, diagnostics }) => {
       allowQuickSight(diagnostics)
       await open(page, '/app/greetingsApp')
       await waitForShell(page)
@@ -90,7 +93,7 @@ test.describe('app home', () => {
     })
   })
 
-  test('[NAV-009] table entries show the backend record count', async ({ page, backend, diagnostics }) => {
+  test('[NAV-009] table entries show the backend record count @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     for (const [app, label] of [['miscellaneous', 'Miscellaneous'], ['greetingsApp', 'Greetings App']] as const) {
       await open(page, `/app/${app}`)
@@ -111,7 +114,7 @@ test.describe('app home', () => {
     }
   })
 
-  test('[NAV-010] People App home shows its process and its child app, which navigates', async ({ page, backend, diagnostics }) => {
+  test('[NAV-010] People App home shows its process and its child app, which navigates @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     const meta = await v1MetaData(backend)
     expect(meta.apps.peopleApp.widgets).toBeUndefined()
@@ -128,7 +131,7 @@ test.describe('app home', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Greetings App' })).toBeVisible()
   })
 
-  test('[NAV-010] nested fixture apps chain through their child apps; an empty app shows the empty state', async ({ page, backend, diagnostics }) => {
+  test('[NAV-010] nested fixture apps chain through their child apps; an empty app shows the empty state @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/navLevelOne')
     await waitForShell(page)
     const one = section(page, 'Apps').getByRole('link')
@@ -159,7 +162,7 @@ test.describe('app home', () => {
   test.describe('as a viewer', () => {
     test.use({ persona: 'viewer' })
 
-    test('[NAV-010] People App shows only the permitted child app', async ({ page, backend, diagnostics }) => {
+    test('[NAV-010] People App shows only the permitted child app @mobile', async ({ page, backend, diagnostics }) => {
       allowQuickSight(diagnostics)
       const meta = await v1MetaData(backend)
       expect(meta.processes.clonePeople).toBeUndefined()
@@ -173,7 +176,7 @@ test.describe('app home', () => {
     })
   })
 
-  test('[NAV-011] Sample Widgets Dashboard opens from the sidebar with one labelled container per widget', async ({ page, backend, diagnostics }) => {
+  test('[NAV-011] Sample Widgets Dashboard opens from the sidebar with one labelled container per widget @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const declared = meta.apps.SampleWidgetsDashboard.widgets!
     expect(declared).toHaveLength(11)

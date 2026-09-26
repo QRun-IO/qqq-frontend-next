@@ -7,6 +7,7 @@
 
 import type { Locator, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchTargets } from '../../support/touch'
 import { waitForShell } from './nav-helpers'
 
 /** Records every request to a backend search endpoint (none exists in QQQ). */
@@ -24,7 +25,7 @@ function paletteOption(palette: Locator, label: string): Locator {
 }
 
 test.describe('command palette and search', () => {
-  test('[NAV-024] Ctrl+K lists navigable pages by label with type and app, filters and opens by keyboard', async ({ page, backend, diagnostics }) => {
+  test('[NAV-024] Ctrl+K lists navigable pages by label with type and app, filters and opens by keyboard @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/person')
     await waitForShell(page)
     await page.keyboard.press('Control+k')
@@ -52,7 +53,7 @@ test.describe('command palette and search', () => {
     await expect(page).toHaveTitle('Pet Species | Miscellaneous | QQQ Sample')
   })
 
-  test('[NAV-024] "." opens the palette, Escape closes it, and hidden objects are never listed', async ({ page, backend, diagnostics }) => {
+  test('[NAV-024] "." opens the palette, Escape closes it, and hidden objects are never listed @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app')
     await waitForShell(page)
     await page.locator('body').press('.')
@@ -66,7 +67,7 @@ test.describe('command palette and search', () => {
     await expect(palette).toHaveCount(0)
   })
 
-  test('[NAV-025] "/" search jumps to pages and recent records without calling a backend search endpoint', async ({ page, backend, diagnostics }) => {
+  test('[NAV-025] "/" search jumps to pages and recent records without calling a backend search endpoint @mobile', async ({ page, backend, diagnostics }) => {
     const searchRequests = watchSearchRequests(page)
     const [person] = await backend.sql('select first_name, last_name from person where id = 1')
 
@@ -85,6 +86,7 @@ test.describe('command palette and search', () => {
     await expect(pages.nth(0)).toContainText('Nav Deep Item')
     await expect(pages.nth(1)).toContainText('Nav Deep Item Report')
     await expect(pages.nth(0)).toContainText('Nav Level One / Nav Level Two / Nav Level Three')
+    await expectTouchTargets(dialog)
     await pages.nth(0).click()
     await expect(page).toHaveURL(/\/app\/navDeepItem\/?$/)
 
@@ -118,7 +120,7 @@ test.describe('command palette and search', () => {
     expect(searchRequests).toEqual([])
   })
 
-  test('[NAV-025] the header search box offers the same local matches', async ({ page, backend, diagnostics }) => {
+  test('[NAV-025] the header search box offers the same local matches @mobile', async ({ page, backend, diagnostics }) => {
     const searchRequests = watchSearchRequests(page)
     await open(page, '/app')
     await waitForShell(page)
@@ -129,6 +131,7 @@ test.describe('command palette and search', () => {
       await expect(results.getByRole('option')).toHaveCount(1)
       await expect(results.getByRole('option')).toContainText('Clone People')
       await expect(results.getByRole('option')).toContainText('People App')
+      await expectTouchTargets(results)
       await page.keyboard.press('ArrowDown')
       await page.keyboard.press('Enter')
     } else {
@@ -136,6 +139,8 @@ test.describe('command palette and search', () => {
       await page.getByRole('button', { name: 'Open search' }).click()
       const dialog = page.getByRole('dialog', { name: 'Search' })
       await dialog.getByRole('combobox').fill('clone')
+      await expect(dialog.getByRole('option', { name: /Clone People/ })).toBeVisible()
+      await expectTouchTargets(dialog)
       await dialog.getByRole('option', { name: /Clone People/ }).click()
     }
     await expect(page).toHaveURL(/\/app\/clonePeople\/?$/)

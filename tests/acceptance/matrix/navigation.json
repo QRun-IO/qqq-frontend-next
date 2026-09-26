@@ -469,9 +469,9 @@
       "source": [
         "src/components/layout/Header.tsx, src/components/layout/Sidebar.tsx (drawer mode)"
       ],
-      "fixture": "stock sample, 390x844 viewport",
+      "fixture": "stock sample, 412x839 touch viewport",
       "scenarios": [
-        "hamburger opens the drawer; choosing a table navigates and closes it; close button closes it"
+        "hamburger opens the drawer; choosing a table navigates and closes it; close button and a backdrop tap close it; drawer controls are 44 px touch targets"
       ],
       "negative": [],
       "issues": [],
@@ -530,6 +530,51 @@
       ],
       "issues": [
         "#652"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-030",
+      "feature": "Mobile navigation drawer is a keyboard-usable modal dialog: focus moves in on open, Tab stays inside, and Escape, the close button or a chosen link close it and return focus to the menu button",
+      "source": [
+        "src/components/layout/Sidebar.tsx (drawer mode, Radix Dialog)",
+        "src/components/layout/Header.tsx (menu button)",
+        "src/app/(dashboard)/layout.tsx"
+      ],
+      "fixture": "stock sample (Miscellaneous app), 412x839 touch viewport",
+      "scenarios": [
+        "Enter on the menu button opens the Navigation dialog with focus inside",
+        "Tab and Shift+Tab visit every drawer control and never reach the page behind",
+        "Escape, the close button and choosing Carrier close it; focus returns to the menu button; Carrier opens"
+      ],
+      "negative": [
+        "Tab never leaves the open drawer (QRun-IO/qqq#708: focus stayed on the menu button; Firefox could not reach the drawer)"
+      ],
+      "issues": [
+        "#708"
+      ],
+      "required": true
+    },
+    {
+      "id": "NAV-031",
+      "feature": "Shell on phones and tablets: skip link, header controls, breadcrumbs, navigation entries, user menu, app homes and not-found links are 44 px touch targets, and the page never scrolls sideways",
+      "source": [
+        "src/app/(dashboard)/layout.tsx (skip link)",
+        "src/components/layout/Header.tsx, Breadcrumbs.tsx, Sidebar.tsx, NotFoundState.tsx",
+        "src/app/not-found.tsx",
+        "src/styles/globals.css (pointer: coarse)"
+      ],
+      "fixture": "stock sample + NavigationFixtures (navDeepItem three apps deep); mobile (Pixel 7) and tablet (iPad, desktop layout with touch) projects",
+      "scenarios": [
+        "skip link is the first Tab stop and 44 px tall when shown",
+        "header, breadcrumbs, sidebar or drawer entries and the user menu meet the 44 px target",
+        "no sideways page scroll with a four-level breadcrumb trail"
+      ],
+      "negative": [
+        "under a mouse (pointer: fine) the desktop sizes are unchanged"
+      ],
+      "issues": [
+        "#708"
       ],
       "required": true
     }
