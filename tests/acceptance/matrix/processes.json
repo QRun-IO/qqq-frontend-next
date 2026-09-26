@@ -927,14 +927,15 @@
       ],
       "fixture": "ProcessesFixtures.java prcTagRecords (no table, in no app) named by MaterialDashboardInstanceMetaData; a metadata customizer lists it only for the sample user casey, so other areas keep their menus; person, qryBin",
       "scenarios": [
-        "legacy /metaData names the process in supplementalInstanceMetaData.materialDashboard; casey receives it with no table and in no app (API)",
+        "v1 /metaData names the process in supplementalInstanceMetaData.materialDashboard (the only supplemental entry v1 publishes; the unversioned route's javalin server configuration stays off v1); casey receives it with no table and in no app (API)",
         "the person query Actions menu lists it last, after a divider, and runs it on the selected rows with tableName=person (SQL)",
         "the record actions menu of qryBin (no processes of its own) runs it on that record (SQL)",
         "the phone record action sheet runs it on that record (SQL)"
       ],
       "negative": [
         "a user whose metadata omits it (alice): not offered on query or record screens and its run page is not found (no SQL rows)",
-        "noProcesses persona: absent from the metadata, not offered on query or record screens, and the backend refuses it (403, no SQL rows)"
+        "noProcesses persona: absent from the metadata, not offered on query or record screens, and the backend refuses it (403, no SQL rows)",
+        "a user whose metadata omits the process gets an empty v1 processNamesToAddToAllQueryAndViewScreens list (no hidden process names); the v1 and unversioned init routes refuse the process for a user without permission"
       ],
       "issues": [
         "QRun-IO/qqq#714"
@@ -953,7 +954,7 @@
       ],
       "fixture": "prcSpecimenPick specimenId (prcSpecimen source filtered on category = ${input.category})",
       "scenarios": [
-        "every search posts the screen values as the form-encoded values JSON",
+        "every search posts the screen values as the values map of the v1 JSON body",
         "choices narrow to the chosen Category and change when it changes",
         "the chosen id is recorded (SQL) and its label shows on the result screen"
       ],

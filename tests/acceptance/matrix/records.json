@@ -1082,7 +1082,7 @@
       ],
       "fixture": "recPvPick itemId (recPvItem source filtered on categoryId = ${input.categoryId})",
       "scenarios": [
-        "every search posts the form values as the form-encoded values JSON",
+        "every search posts the form values as the values map of the v1 JSON body",
         "create: choices narrow to the chosen Category and change when it changes",
         "edit: the stored Item label shows, a new Category changes the choices",
         "the chosen id persists (SQL) and the record view shows its label"
