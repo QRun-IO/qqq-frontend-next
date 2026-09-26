@@ -966,6 +966,107 @@
         "QRun-IO/qqq#714"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-058",
+      "feature": "Saved bulk load profile menu (Material SavedBulkLoadProfiles): new profile, update after the confirm, rename, save as a copy, delete, unsaved-change count with its list, Reset All Changes, New Bulk Load Profile, Reset to Empty or Suggested Mapping",
+      "source": [
+        "src/components/process/SavedBulkLoadProfiles.tsx",
+        "src/components/process/saved-bulk-load-profile-utils.ts",
+        "src/components/process/BulkLoadFileMappingComponent.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/SavedBulkLoadProfiles.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/utils/qqq/SavedBulkLoadProfileUtils.ts"
+      ],
+      "fixture": "enricher person.bulkInsert; SavedBulkLoadProfileMetaDataProvider on owned saved_bulk_load_profile tables",
+      "scenarios": [
+        "a new profile is named in the Save New Bulk Load Profile dialog and Enter saves it (SQL row owned by the user); the heading names it",
+        "a change shows 1 Unsaved Change with the list of changes; Save asks Update Existing Bulk Load Profile and Enter confirms; the same row holds the new mapping (SQL)",
+        "Rename keeps the row id under the new name; Save As stores a separate copy, which is then in use",
+        "a saved profile's changes are listed (header row, file column) and Reset All Changes restores its mapping",
+        "New Bulk Load Profile leaves the profile for an empty mapping; Reset to Suggested Mapping and Empty Mapping replace the mapping, and the suggested one is what the review screen shows"
+      ],
+      "negative": [
+        "Enter in the delete dialog does not delete (SQL count unchanged); only the Delete button does, and the screen starts a new, empty mapping"
+      ],
+      "issues": [
+        "QRun-IO/qqq#726"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-059",
+      "feature": "Saved bulk load profile ownership: yours vs shared with you, and only the owner may save, rename or delete a profile",
+      "source": [
+        "src/components/process/SavedBulkLoadProfiles.tsx",
+        "src/components/process/saved-bulk-load-profile-utils.ts",
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/SavedBulkLoadProfiles.tsx"
+      ],
+      "fixture": "sample users alice and bob; bob's profile stored through storeSavedBulkLoadProfile and shared READ_ONLY with alice in shared_saved_bulk_load_profile",
+      "scenarios": [
+        "the query process returns both profiles with their owners; the menu lists alice's under Your Saved Bulk Load Profiles and bob's under Bulk Load Profiles Shared with you",
+        "on bob's profile Save, Rename and Delete are disabled with the not-owner reason, the changes list says why, and no Save link is offered; Save As is enabled",
+        "alice saves her own copy (SQL row owned by sample:alice)"
+      ],
+      "negative": [
+        "bob's row is unchanged (label, owner and mapping, SQL) and no store or delete request named it; the backend has no ownership lock on saved bulk load profiles, so the UI is the only guard, as in Material"
+      ],
+      "issues": [
+        "QRun-IO/qqq#726"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-060",
+      "feature": "Bulk load file mapping form fidelity: field help, column tooltips, repeated-header warning, header-row toggle re-mapping by header name, scroll to the first error, bulk-edit Key Fields / Fields To Update and the unmapped key field error",
+      "source": [
+        "src/components/process/BulkLoadFileMappingComponent.tsx",
+        "src/components/process/bulk-load-models.ts",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadFileMappingForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadFileMappingFields.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/models/processes/BulkLoadModels.ts"
+      ],
+      "fixture": "enricher person.bulkInsert and person.bulkEditWithFile; ProcessesFixtures.primeBulkLoadHelp help content keyed process:person.bulkInsert;field:hasHeaderRow|layout and process:person.bulkEditWithFile;field:tableKeyFields",
+      "scenarios": [
+        "help for the header row, layout and table key fields shows under each and describes its control",
+        "a mapped column's tooltip names its fields; a repeated header is flagged and not offered as a column",
+        "without a header row columns are letters; a mapping to the repeated header is cleared with a warning when headers come back; off and on again the step posts header names (First Name, Last Name, Email) and the first Email column is inserted (SQL)",
+        "an unmappable submit brings the first field error into view",
+        "bulk edit shows Key Fields (Select table key fields to continue.) and Fields To Update (Clear if empty only there); choosing Id names it as an unmapped key field until a column is chosen; the matched records update (SQL)"
+      ],
+      "negative": [
+        "no step request is sent while a field has no column"
+      ],
+      "issues": [
+        "QRun-IO/qqq#726"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-061",
+      "feature": "Typed bulk load default values, searchable value mapping and the grouped, searchable Add Fields menu (Material QHierarchyAutoComplete)",
+      "source": [
+        "src/components/process/BulkLoadFileMappingComponent.tsx",
+        "src/components/process/BulkLoadAddFieldsMenu.tsx",
+        "src/components/process/BulkLoadValueMappingComponent.tsx",
+        "src/components/forms/PossibleValueSelect.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/processes/BulkLoadFileMappingField.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/QHierarchyAutoComplete.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx"
+      ],
+      "fixture": "enricher pet.bulkInsert (pet with its notes association, WIDE layout) and person.bulkInsert",
+      "scenarios": [
+        "the Person default value is chosen by searching person possible values and shows its label; Birth Date takes a date; Is Employed takes Yes or No",
+        "the Add Fields menu groups Pet and Pet Note, searches, disables mapped fields with a tooltip and adds the WIDE note field twice (Pet Note: Note (1) and (2))",
+        "species values are mapped by searching the species possible values",
+        "the pets, their person, species and birth date and both notes each are inserted (SQL)"
+      ],
+      "negative": [
+        "a default value left empty is refused with A value is required. before any step request"
+      ],
+      "issues": [
+        "QRun-IO/qqq#726"
+      ],
+      "required": true
     }
   ]
 }

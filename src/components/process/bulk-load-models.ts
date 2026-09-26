@@ -57,6 +57,9 @@ export interface BulkLoadProfile {
   keyFields: string | null
 }
 
+/** Warning for a field whose column's header repeats an earlier header (only the first is read). */
+export const DUPLICATE_HEADER_WARNING = 'This field was assigned to a column with a duplicated header'
+
 /** Whether a mapped field reads a file column or uses one value for every row. */
 export type BulkLoadValueType = 'column' | 'defaultValue'
 
@@ -142,6 +145,14 @@ export class BulkLoadField {
   }
 
   /**
+   * Name of the field in a v1 bulk load profile: the qualified name, plus `,n` for a WIDE repetition.
+   * @returns The profile field name (also the key of its value mappings).
+   */
+  getProfileFieldName(): string {
+    return this.wideLayoutIndexPath.length > 0 ? `${this.getQualifiedName()},${this.wideLayoutIndexPath.join('.')}` : this.getQualifiedName()
+  }
+
+  /**
    * Label for display.
    * @returns Label, prefixed by the child table label and suffixed by the wide index.
    */
@@ -171,12 +182,15 @@ export class BulkLoadMapping {
   layout: string | null = null
   /** Whether the table has child tables (enables TALL and WIDE layouts). */
   readonly hasAssociations: boolean
+  /** The table structure the mapping was built for. */
+  readonly tableStructure: BulkLoadTableStructure
 
   /**
    * Create the default mapping for a table: required (or key) fields mapped, the rest unused.
    * @param tableStructure - The table structure from the backend.
    */
   constructor(tableStructure: BulkLoadTableStructure) {
+    this.tableStructure = tableStructure
     this.isBulkEdit = Boolean(tableStructure.isBulkEdit)
     this.keyFields = tableStructure.keyFields ?? null
     this.hasAssociations = Boolean(tableStructure.associations?.length)
@@ -203,9 +217,10 @@ export class BulkLoadMapping {
    * Build a mapping from a v1 profile (the backend's suggestion or the current profile).
    * @param tableStructure - Table structure.
    * @param profile - The profile.
+   * @param file - The uploaded file; with a header row, columns are found by header name (as the backend reads them).
    * @returns The mapping.
    */
-  static fromProfile(tableStructure: BulkLoadTableStructure, profile: BulkLoadProfile | null | undefined): BulkLoadMapping {
+  static fromProfile(tableStructure: BulkLoadTableStructure, profile: BulkLoadProfile | null | undefined, file?: FileDescription): BulkLoadMapping {
     const mapping = new BulkLoadMapping(tableStructure)
     if (!profile) return mapping
     if (profile.version !== 'v1') throw new Error(`Unexpected version for bulk load profile: ${profile.version}`)
@@ -245,7 +260,93 @@ export class BulkLoadMapping {
       const names = (profile.fieldList ?? []).map((field) => field.fieldName)
       mapping.keyFields = tableStructure.possibleKeyFields.find((keyField) => keyField.split('|').every((part) => names.includes(part))) ?? null
     }
+    ///////////////////////////////////////////////////////////////////
+    // bulk edit: the key fields form the Key Fields section (Material //
+    // re-applies the profile's key fields when the screen opens)     //
+    ///////////////////////////////////////////////////////////////////
+    if (mapping.isBulkEdit && mapping.keyFields) mapping.setKeyFields(mapping.keyFields)
+    if (file && mapping.hasHeaderRow) mapping.remapByHeaderName(file)
     return mapping
+  }
+
+  /**
+   * Point each column-mapped field that names a header at that header's column in this file
+   * (a profile saved from a file whose columns were in another order still maps by name).
+   * @param file - The uploaded file.
+   */
+  remapByHeaderName(file: FileDescription): void {
+    for (const field of this.activeFields()) {
+      if (field.valueType !== 'column' || !field.headerName) continue
+      const index = file.headerValues.indexOf(field.headerName)
+      if (index >= 0) field.columnIndex = index
+    }
+  }
+
+  /**
+   * Turn the header row on or off, as the Material dashboard does: column-mapped fields read
+   * the header name of their column (a column whose header repeats an earlier one is cleared,
+   * with a warning, because only the first is read), or lose their header name.
+   * @param hasHeaderRow - Whether the file's first row holds headers.
+   * @param file - The uploaded file.
+   */
+  changeHasHeaderRow(hasHeaderRow: boolean, file: FileDescription): void {
+    this.hasHeaderRow = hasHeaderRow
+    for (const field of this.activeFields()) {
+      if (!hasHeaderRow) {
+        field.headerName = null
+        continue
+      }
+      if (field.valueType !== 'column' || field.columnIndex === null || field.columnIndex === undefined) continue
+      if (file.duplicateHeaderIndexes[field.columnIndex]) {
+        field.columnIndex = null
+        field.headerName = null
+        field.warning = DUPLICATE_HEADER_WARNING
+      } else {
+        field.headerName = file.headerValues[field.columnIndex] ?? null
+      }
+    }
+  }
+
+  /**
+   * Choose the bulk-edit key fields: key fields become the required (Key Fields) section,
+   * every other mapped field moves to the Fields To Update section.
+   * @param keyFields - `|`-separated qualified field names, or `null`.
+   */
+  setKeyFields(keyFields: string | null): void {
+    this.keyFields = keyFields
+    const keys = (keyFields ?? '').split('|').filter(Boolean)
+    const active = this.activeFields()
+    this.requiredFields = active.filter((field) => keys.includes(field.getQualifiedName()))
+    this.additionalFields = active.filter((field) => !keys.includes(field.getQualifiedName()))
+    for (const key of keys) {
+      if (this.requiredFields.some((field) => field.getQualifiedName() === key)) continue
+      const unused = this.unusedFields.find((field) => field.getQualifiedName() === key)
+      if (unused) {
+        this.unusedFields = this.unusedFields.filter((field) => field !== unused)
+        this.requiredFields.push(unused)
+      }
+    }
+  }
+
+  /**
+   * Labels of the chosen key fields that no file column is mapped to.
+   * @returns The labels, in key order (empty without key fields or when every key is mapped).
+   */
+  unmappedKeyFieldLabels(): string[] {
+    if (!this.isBulkEdit || !this.keyFields) return []
+    return this.keyFields.split('|').filter(Boolean).flatMap((key) => {
+      const field = this.requiredFields.find((candidate) => candidate.getQualifiedName() === key)
+      if (field && field.valueType === 'column' && field.columnIndex !== null && field.columnIndex !== undefined) return []
+      return [field?.getQualifiedLabel() ?? key]
+    })
+  }
+
+  /**
+   * The mapped fields, required (or key) fields first.
+   * @returns Required and additional fields.
+   */
+  activeFields(): BulkLoadField[] {
+    return [...this.requiredFields, ...this.additionalFields]
   }
 
   /**
@@ -257,9 +358,8 @@ export class BulkLoadMapping {
     const profile: BulkLoadProfile = {
       version: 'v1', fieldList: [], hasHeaderRow: this.hasHeaderRow, layout: this.layout, isBulkEdit: this.isBulkEdit, keyFields: this.keyFields,
     }
-    for (const field of [...this.requiredFields, ...this.additionalFields]) {
-      let fieldName = field.getQualifiedName()
-      if (field.wideLayoutIndexPath.length > 0) fieldName += `,${field.wideLayoutIndexPath.join('.')}`
+    for (const field of this.activeFields()) {
+      const fieldName = field.getProfileFieldName()
       field.error = null
       if (field.valueType === 'column') {
         if (field.columnIndex === null || field.columnIndex === undefined) {
@@ -406,6 +506,23 @@ export class FileDescription {
    */
   columnNames(hasHeaderRow: boolean): string[] {
     return hasHeaderRow ? this.headerValues : this.headerLetters.map((letter) => `Column ${letter}`)
+  }
+
+  /**
+   * Columns offered for mapping: each distinct name once (a header repeating an earlier one is
+   * left out, because only the first column with a header is read).
+   * @param hasHeaderRow - Whether the first row holds headers.
+   * @returns Column index and name, in file order.
+   */
+  columnOptions(hasHeaderRow: boolean): Array<{ index: number; label: string }> {
+    const used = new Set<string>()
+    const options: Array<{ index: number; label: string }> = []
+    this.columnNames(hasHeaderRow).forEach((label, index) => {
+      if (used.has(label)) return
+      used.add(label)
+      options.push({ index, label })
+    })
+    return options
   }
 
   /**

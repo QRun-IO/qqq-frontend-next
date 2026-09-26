@@ -78,8 +78,9 @@ export function BulkLoadProfileComponent({ index }: BulkLoadProfileComponentProp
           tableName={tableStructure.tableName}
           isBulkEdit={mapping.isBulkEdit}
           current={saved}
+          mapping={mapping}
+          file={file}
           allowSelecting={false}
-          showCurrent={false}
           profileToSave={() => mapping.clone().toProfile().profile}
           onChange={setSaved}
         />

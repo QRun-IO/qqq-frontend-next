@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
@@ -86,6 +87,7 @@ import com.kingsrook.qqq.backend.core.model.savedbulkloadprofiles.SavedBulkLoadP
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.model.session.QUser;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
+import com.kingsrook.qqq.backend.core.instances.QInstanceHelpContentManager;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
@@ -144,6 +146,7 @@ public final class ProcessesFixtures
       // saved bulk load profiles (store/query/delete processes) on owned  //
       // snake_case tables that prime() recreates                         //
       ///////////////////////////////////////////////////////////////////////
+      BULK_LOAD_HELP_INSTANCE.set(instance);
       new SavedBulkLoadProfileMetaDataProvider().defineAll(instance, SampleMetaDataProvider.RDBMS_BACKEND_NAME, table ->
       {
          table.setBackendDetails(new RDBMSTableBackendDetails().withTableName(QInstanceEnricher.inferBackendName(table.getName())));
@@ -274,6 +277,7 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE prc_tag_log (id INT AUTO_INCREMENT PRIMARY KEY, table_name VARCHAR(80), record_id VARCHAR(80))");
          statement.execute("CREATE TABLE prc_pick_log (id INT AUTO_INCREMENT PRIMARY KEY, category VARCHAR(80), specimen_id INT)");
       }
+      primeBulkLoadHelp();
    }
 
 
@@ -1157,6 +1161,43 @@ public final class ProcessesFixtures
       {
          return new RenderWidgetOutput(new CompositeWidgetData()
             .withBlock(new TextBlockData().withValues(new TextValues("Fetched composite"))));
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Bulk load file mapping help (QRun-IO/qqq#726, PRC-060): help content for the
+    ** screen's own fields (hasHeaderRow, layout, tableKeyFields) of the bulk
+    ** processes the enricher defines, keyed as the help content table keys it
+    ** ("process:<name>;field:<field>"). The bulk processes exist only after the
+    ** instance is enriched, so this runs from prime(), after the server started.
+    *******************************************************************************/
+   static final AtomicReference<QInstance> BULK_LOAD_HELP_INSTANCE = new AtomicReference<>();
+
+
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   static void primeBulkLoadHelp()
+   {
+      QInstance instance = BULK_LOAD_HELP_INSTANCE.get();
+      if(instance == null || instance.getProcess("person.bulkInsert") == null)
+      {
+         return;
+      }
+      List<List<String>> helpContents = List.of(
+         List.of("process:person.bulkInsert;field:hasHeaderRow", "Uncheck this box when the first row of the file holds data instead of column headers."),
+         List.of("process:person.bulkInsert;field:layout", "Flat files hold one person per row."),
+         List.of("process:person.bulkEditWithFile;field:tableKeyFields", "The key fields find the person each row of the file updates."));
+      for(List<String> helpContent : helpContents)
+      {
+         QInstanceHelpContentManager.processHelpContentRecord(instance, new QRecord()
+            .withValue("key", helpContent.get(0))
+            .withValue("content", helpContent.get(1))
+            .withValue("format", "TEXT")
+            .withValue("role", "PROCESS_SCREEN"));
       }
    }
 }

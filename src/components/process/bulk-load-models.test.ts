@@ -19,7 +19,7 @@
 import { describe, it, expect } from 'vitest'
 
 import type { QFieldMetaData } from '@/types'
-import { BulkLoadMapping, FileDescription, profileSubmitValues, type BulkLoadTableStructure } from './bulk-load-models'
+import { BulkLoadMapping, DUPLICATE_HEADER_WARNING, FileDescription, profileSubmitValues, type BulkLoadTableStructure } from './bulk-load-models'
 
 /**
  * Minimal field metadata.
@@ -107,5 +107,70 @@ describe('FileDescription', () => {
     expect(file.previewValues(1, true)).toEqual(['z', ''])
     expect(file.previewValues(0, false)).toEqual(['First', 'x', 'y'])
     expect(file.previewValues(null, true)).toEqual([])
+  })
+
+  it('offers each column name once (#726)', () => {
+    const file = new FileDescription(['First', 'Email', 'Email'], ['A', 'B', 'C'], [[], [], []])
+    expect(file.columnOptions(true)).toEqual([{ index: 0, label: 'First' }, { index: 1, label: 'Email' }])
+    expect(file.columnOptions(false).map((option) => option.label)).toEqual(['Column A', 'Column B', 'Column C'])
+  })
+})
+
+describe('BulkLoadMapping header row, key fields and repeats (#726)', () => {
+  const file = new FileDescription(['First Name', 'Email', 'Email'], ['A', 'B', 'C'], [['Quinn'], ['q@example.invalid'], ['x@example.invalid']])
+
+  it('names mapped columns by header when the header row is turned on, clearing repeated headers with a warning', () => {
+    const mapping = new BulkLoadMapping(person)
+    mapping.changeHasHeaderRow(false, file)
+    mapping.requiredFields[0].columnIndex = 0
+    mapping.requiredFields[1].columnIndex = 2
+    expect(mapping.requiredFields.map((f) => f.headerName)).toEqual([null, null])
+    mapping.changeHasHeaderRow(true, file)
+    expect(mapping.hasHeaderRow).toBe(true)
+    expect(mapping.requiredFields[0]).toMatchObject({ columnIndex: 0, headerName: 'First Name', warning: null })
+    expect(mapping.requiredFields[1]).toMatchObject({ columnIndex: null, headerName: null, warning: DUPLICATE_HEADER_WARNING })
+    mapping.changeHasHeaderRow(false, file)
+    expect(mapping.requiredFields[0]).toMatchObject({ columnIndex: 0, headerName: null })
+  })
+
+  it('maps a saved profile by header name in a file whose columns moved', () => {
+    const moved = new FileDescription(['Email', 'First Name'], ['A', 'B'], [[], []])
+    const mapping = BulkLoadMapping.fromProfile(person, {
+      version: 'v1', hasHeaderRow: true, layout: 'FLAT', isBulkEdit: false, keyFields: null,
+      fieldList: [{ fieldName: 'firstName', columnIndex: 0, headerName: 'First Name' }, { fieldName: 'email', columnIndex: 1, headerName: 'Email' }],
+    }, moved)
+    expect(mapping.requiredFields.map((f) => [f.getQualifiedName(), f.columnIndex])).toEqual([['firstName', 1], ['email', 0]])
+  })
+
+  it('moves key fields into the key section and reports the unmapped ones', () => {
+    const edit = new BulkLoadMapping({ ...person, isBulkEdit: true, keyFields: null })
+    expect(edit.requiredFields).toEqual([])
+    expect(edit.unmappedKeyFieldLabels()).toEqual([])
+    edit.addField(edit.unusedFields.find((f) => f.getQualifiedName() === 'isEmployed')!)
+    edit.setKeyFields('email|firstName')
+    expect(edit.requiredFields.map((f) => f.getQualifiedName())).toEqual(['email', 'firstName'])
+    expect(edit.additionalFields.map((f) => f.getQualifiedName())).toEqual(['isEmployed'])
+    expect(edit.unmappedKeyFieldLabels()).toEqual(['Email', 'FirstName'])
+    edit.requiredFields[0].columnIndex = 1
+    expect(edit.unmappedKeyFieldLabels()).toEqual(['FirstName'])
+    edit.setKeyFields(null)
+    expect(edit.requiredFields).toEqual([])
+    expect(edit.additionalFields.map((f) => f.getQualifiedName())).toEqual(['email', 'firstName', 'isEmployed'])
+  })
+
+  it('repeats child fields in a WIDE layout with indexed profile names', () => {
+    const pet: BulkLoadTableStructure = {
+      isMain: true, isMany: false, tableName: 'pet', label: 'Pet', associationPath: null, fields: [field('name', true)], isBulkEdit: false, possibleKeyFields: null,
+      associations: [{ isMain: false, isMany: true, tableName: 'petNote', label: 'Pet Note', associationPath: 'notes', fields: [field('note', true)], associations: null, isBulkEdit: false, possibleKeyFields: null }],
+    }
+    const mapping = new BulkLoadMapping(pet)
+    expect(mapping.layout).toBeNull()
+    mapping.switchLayout('WIDE')
+    const note = mapping.unusedFields.find((f) => f.getQualifiedName() === 'notes.note')!
+    const first = mapping.addField(note)
+    const second = mapping.addField(note)
+    expect([first.getQualifiedLabel(), second.getQualifiedLabel()]).toEqual(['Pet Note: Note (1)', 'Pet Note: Note (2)'])
+    expect([first.getProfileFieldName(), second.getProfileFieldName()]).toEqual(['notes.note,0', 'notes.note,1'])
+    expect(mapping.unusedFields).toContain(note)
   })
 })

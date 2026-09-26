@@ -73,6 +73,8 @@ interface PossibleValueSelectProps {
   inlineOptions?: QPossibleValue[]
   /** Field metadata whose CHIP adornment styles the options (color and icon per value). */
   chipField?: QFieldMetaData
+  /** Keep the label for assistive technology only (the host shows its own caption). */
+  hideLabel?: boolean
 }
 
 /**
@@ -133,6 +135,7 @@ export function PossibleValueSelect({
   disabled = false,
   required = false,
   placeholder,
+  hideLabel = false,
   'data-qqq-id': dataQqqId,
 }: PossibleValueSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -291,7 +294,7 @@ export function PossibleValueSelect({
       <label
         id={`${id}-label`}
         htmlFor={id}
-        className="text-sm font-medium text-foreground"
+        className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}

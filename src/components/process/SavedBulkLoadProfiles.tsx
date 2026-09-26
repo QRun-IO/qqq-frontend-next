@@ -15,15 +15,20 @@
  */
 
 /**
- * @file SavedBulkLoadProfiles — choose, save, update and delete saved bulk load
- * profiles on the bulk load screens, through the store/query/delete saved bulk
- * load profile processes (shown only when the application defines them).
+ * @file SavedBulkLoadProfiles — the Material dashboard's saved bulk load profile menu for the
+ * bulk load screens: save, rename, save as, delete and new profile actions; "Your Saved Bulk
+ * Load Profiles" and "Bulk Load Profiles Shared with you"; the unsaved-changes count with its
+ * list of changes, Save and Reset All Changes; and Reset to Empty or Suggested Mapping. Only a
+ * profile's owner may save, rename or delete it. Works through the store/query/delete saved
+ * bulk load profile processes and is shown only when the application defines them.
  */
 
 'use client'
 
-import React, { useId, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { ChevronDown, Save, X } from 'lucide-react'
 
 import {
   deleteSavedBulkLoadProfile,
@@ -31,9 +36,13 @@ import {
   storeSavedBulkLoadProfile,
   type SavedBulkLoadProfileRecord,
 } from '@/lib/api/processes'
+import { useQContext } from '@/lib/context/q-context'
+import { cn } from '@/lib/utils/cn'
 
+import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import { useProcessStep } from './ProcessStepContext'
-import type { BulkLoadProfile } from './bulk-load-models'
+import { BulkLoadMapping, type BulkLoadProfile, type FileDescription } from './bulk-load-models'
+import { diffBulkLoadMappings, isProfileOwner, splitProfilesByOwner } from './saved-bulk-load-profile-utils'
 
 /** Props for {@link SavedBulkLoadProfiles}. */
 export interface SavedBulkLoadProfilesProps {
@@ -41,142 +50,395 @@ export interface SavedBulkLoadProfilesProps {
   isBulkEdit: boolean
   /** The saved profile in use, if any. */
   current: SavedBulkLoadProfileRecord | null
-  /** Whether a saved profile can be chosen here (the file mapping screen). */
+  /** The mapping on screen (compared with the saved profile for its unsaved changes). */
+  mapping: BulkLoadMapping
+  /** The uploaded file (for column names in the list of changes). */
+  file: FileDescription
+  /** Whether profiles can be chosen here (the file mapping screen); other screens manage the one in use. */
   allowSelecting: boolean
   /** The current mapping as a v1 profile, for saving. */
   profileToSave: () => BulkLoadProfile
-  /** A profile was chosen (or `null` for none). */
+  /** A profile was chosen, or `null` for a new (empty) mapping; the host applies its mapping. */
   onSelect?: (profile: SavedBulkLoadProfileRecord | null) => void
-  /** A profile was saved, deleted (`null`) or chosen. */
+  /** Restore the backend's suggested mapping (not a saved profile). */
+  onResetToSuggested?: () => void
+  /** The profile in use changed: saved (the record) or deleted (`null`). */
   onChange: (profile: SavedBulkLoadProfileRecord | null) => void
-  /** Whether to state which profile is in use (off when the host screen already does). */
-  showCurrent?: boolean
 }
 
-const buttonClass = 'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const inputClass = 'rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11'
+/** Dialog shown by a profile action. */
+type DialogKind = 'saveNew' | 'saveAs' | 'rename' | 'update' | 'delete'
+
+const NOT_OWNER_TEXT = 'You may not save changes to this bulk load profile, because you are not its owner.'
+const menuItem = 'flex w-full items-center px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent focus:bg-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+const linkButton = 'rounded px-1 text-sm font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const quietLinkButton = 'rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const rule = <span aria-hidden="true" className="inline-block h-4 w-px bg-border" />
 
 /**
- * Render the saved bulk load profile controls.
+ * Render the saved bulk load profile menu, status and dialogs.
  * @param props - {@link SavedBulkLoadProfilesProps}
  * @returns The controls, or nothing when the application has no saved profiles.
  */
-export function SavedBulkLoadProfiles({ tableName, isBulkEdit, current, allowSelecting, profileToSave, onSelect, onChange, showCurrent = true }: SavedBulkLoadProfilesProps) {
+export function SavedBulkLoadProfiles({
+  tableName, isBulkEdit, current, mapping, file, allowSelecting, profileToSave, onSelect, onResetToSuggested, onChange,
+}: SavedBulkLoadProfilesProps) {
   const { instance, isWorking } = useProcessStep()
+  const { userId } = useQContext()
   const queryClient = useQueryClient()
-  const nameId = useId()
-  const [mode, setMode] = useState<'idle' | 'saveAs' | 'confirmDelete'>('idle')
+  const baseId = useId()
+  const [open, setOpen] = useState(false)
+  const [dialog, setDialog] = useState<DialogKind | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [dialogError, setDialogError] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const saveButtonRef = useRef<HTMLButtonElement>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const canStore = Boolean(instance?.processes?.storeSavedBulkLoadProfile)
   const canQuery = Boolean(instance?.processes?.querySavedBulkLoadProfile)
   const canDelete = Boolean(instance?.processes?.deleteSavedBulkLoadProfile)
-  const queryKey = ['qqq', 'savedBulkLoadProfiles', tableName, isBulkEdit]
+  const queryKey = useMemo(() => ['qqq', 'savedBulkLoadProfiles', tableName, isBulkEdit], [tableName, isBulkEdit])
   const profiles = useQuery({
     queryKey,
     queryFn: () => querySavedBulkLoadProfiles(tableName, isBulkEdit),
     enabled: allowSelecting && canQuery,
   })
+  const { yours, shared } = useMemo(() => splitProfilesByOwner(profiles.data ?? [], userId), [profiles.data, userId])
 
-  if (!canStore && !canQuery) return null
+  ////////////////////////////////////////////////////////////////////
+  // the unsaved changes: the mapping on screen against the saved    //
+  // profile's mapping                                               //
+  ////////////////////////////////////////////////////////////////////
+  const diffs = useMemo(() => {
+    if (!current) return []
+    try {
+      const base = BulkLoadMapping.fromProfile(mapping.tableStructure, JSON.parse(current.mappingJson) as BulkLoadProfile, file)
+      return diffBulkLoadMappings(file, base, mapping)
+    } catch {
+      return []
+    }
+  }, [current, file, mapping])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      containerRef.current?.querySelector<HTMLElement>('[data-qqq-id="button-saved-bulk-load-profiles"]')?.focus()
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (!canQuery && !canStore) return null
+
   const action = isBulkEdit ? 'Edit' : 'Load'
+  const lower = action.toLowerCase()
+  const isOwner = !current || isProfileOwner(current, userId)
+  const modified = diffs.length > 0
 
   /**
-   * Run a profile change, reporting its outcome.
-   * @param work - The change.
-   * @param success - Message on success.
+   * Open a profile action's dialog.
+   * @param kind - The action.
    */
-  const run = async (work: () => Promise<SavedBulkLoadProfileRecord | null>, success: string) => {
-    setBusy(true)
-    setError(null)
+  const openDialog = (kind: DialogKind) => {
+    setOpen(false)
     setMessage(null)
+    setDialogError(null)
+    setName(kind === 'rename' && current ? current.label : '')
+    setDialog(kind)
+  }
+
+  /**
+   * Choose a profile (or a new, empty mapping) from the menu.
+   * @param profile - The profile, or `null`.
+   */
+  const choose = (profile: SavedBulkLoadProfileRecord | null) => {
+    setOpen(false)
+    setMessage(null)
+    onSelect?.(profile)
+    onChange(profile)
+  }
+
+  /** Run the open dialog's action: store (insert, update or rename) or delete. */
+  const submit = async () => {
+    if (!dialog || busy) return
+    const needsName = dialog === 'saveNew' || dialog === 'saveAs' || dialog === 'rename'
+    if (needsName && !name.trim()) return
+    setBusy(true)
+    setDialogError(null)
     try {
-      const profile = await work()
+      if (dialog === 'delete' && current) {
+        await deleteSavedBulkLoadProfile(current.id)
+        await queryClient.invalidateQueries({ queryKey })
+        setDialog(null)
+        setMessage('Profile Deleted.')
+        ////////////////////////////////////////////////////////////////
+        // as in Material: the mapping screen starts a new profile     //
+        ////////////////////////////////////////////////////////////////
+        if (allowSelecting) onSelect?.(null)
+        onChange(null)
+        return
+      }
+      const mappingJson = JSON.stringify(profileToSave())
+      const stored = await storeSavedBulkLoadProfile({
+        id: (dialog === 'update' || dialog === 'rename') && current ? current.id : undefined,
+        label: dialog === 'update' && current ? current.label : name.trim(),
+        tableName,
+        isBulkEdit,
+        mappingJson,
+      })
       await queryClient.invalidateQueries({ queryKey })
-      onChange(profile)
-      setMode('idle')
-      setMessage(success)
+      setDialog(null)
+      setMessage('Profile Saved.')
+      onChange(stored)
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The profile could not be saved.')
+      setDialogError(failure instanceof Error ? failure.message : String(failure))
     } finally {
       setBusy(false)
     }
   }
 
-  const store = (label: string, id?: number) => run(
-    () => storeSavedBulkLoadProfile({ id, label, tableName, isBulkEdit, mappingJson: JSON.stringify(profileToSave()) }),
-    'Profile Saved.'
+  const needsName = dialog === 'saveNew' || dialog === 'saveAs' || dialog === 'rename'
+  const title = dialog === 'delete' ? `Delete Bulk ${action} Profile`
+    : dialog === 'saveAs' ? `Save Bulk ${action} Profile As`
+      : dialog === 'rename' ? `Rename Bulk ${action} Profile`
+        : dialog === 'update' ? `Update Existing Bulk ${action} Profile`
+          : `Save New Bulk ${action} Profile`
+  const profileItem = (profile: SavedBulkLoadProfileRecord, group: 'yours' | 'shared') => (
+    <button key={profile.id} type="button" role="menuitem" className={cn(menuItem, 'pl-8', current?.id === profile.id && 'font-semibold text-primary')}
+      onClick={() => choose(profile)} data-qqq-id={`saved-bulk-load-profile-${group}-${profile.id}`}>
+      {profile.label}
+    </button>
   )
+  const buttonTone = !current ? 'border-input bg-background text-foreground hover:bg-accent'
+    : modified ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+      : 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
 
   return (
-    <section aria-label={`Saved Bulk ${action} Profiles`} className="space-y-2 rounded-xl border border-border p-3 text-sm" data-qqq-id="saved-bulk-load-profiles">
-      <h4 className="font-semibold text-foreground">{`Saved Bulk ${action} Profiles`}</h4>
-      {showCurrent && (
-        <p className="text-muted-foreground" data-qqq-id="saved-bulk-load-profile-current">
-          {current ? `You are using the bulk ${action.toLowerCase()} profile: ${current.label}` : `You are not using a saved bulk ${action.toLowerCase()} profile.`}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        {allowSelecting && canQuery && (
-          <select
-            aria-label={`Saved bulk ${action.toLowerCase()} profile`}
-            value={current?.id ?? ''}
-            disabled={isWorking || busy}
-            onChange={(event) => {
-              const chosen = (profiles.data ?? []).find((profile) => String(profile.id) === event.target.value) ?? null
-              onSelect?.(chosen)
-              onChange(chosen)
-              setMessage(null)
-            }}
-            className={inputClass}
-            data-qqq-id="select-saved-bulk-load-profile"
-          >
-            <option value="">{`New bulk ${action.toLowerCase()} profile`}</option>
-            {(profiles.data ?? []).map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
-          </select>
-        )}
-        {canStore && current && (
-          <button type="button" className={buttonClass} disabled={isWorking || busy} onClick={() => { void store(current.label, current.id) }} data-qqq-id="button-save-bulk-load-profile">
-            Save
-          </button>
-        )}
-        {canStore && (
-          <button type="button" className={buttonClass} disabled={isWorking || busy} onClick={() => { setMode('saveAs'); setName(''); setError(null) }} data-qqq-id="button-save-as-bulk-load-profile">
-            Save As...
-          </button>
-        )}
-        {canDelete && current && (
-          <button type="button" className={buttonClass} disabled={isWorking || busy} onClick={() => setMode('confirmDelete')} data-qqq-id="button-delete-bulk-load-profile">
-            Delete...
-          </button>
+    <div ref={containerRef} className="flex flex-wrap items-center gap-x-3 gap-y-2" data-qqq-id="saved-bulk-load-profiles">
+      <div className="relative">
+        <button
+          type="button"
+          disabled={isWorking}
+          onClick={() => setOpen((previous) => !previous)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? `${baseId}-menu` : undefined}
+          className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50', buttonTone)}
+          data-qqq-id="button-saved-bulk-load-profiles"
+          data-profile-state={!current ? 'none' : modified ? 'modified' : 'saved'}
+        >
+          <Save className="h-4 w-4" aria-hidden="true" />
+          {`Saved Bulk ${action} Profiles`}
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+        {open && (
+          <div id={`${baseId}-menu`} role="menu" aria-label={`Saved bulk ${lower} profiles`}
+            className="absolute left-0 top-full z-30 mt-1 max-h-[calc(100vh-200px)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
+            data-qqq-id="menu-saved-bulk-load-profiles">
+            <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{`Bulk ${action} Profile Actions`}</p>
+            {!allowSelecting && (
+              <>
+                <p className="px-4 py-1.5 text-sm text-popover-foreground" data-qqq-id="saved-bulk-load-profile-in-use">
+                  {current
+                    ? <>{`You are using the bulk ${lower} profile: `}<b>{current.label}</b>. You can manage this profile on this screen.</>
+                    : `You are not using a saved bulk ${lower} profile. You can save your profile on this screen.`}
+                </p>
+                <div role="separator" className="my-1 border-t border-border" />
+              </>
+            )}
+            {canStore && (
+              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                title={!isOwner ? NOT_OWNER_TEXT : 'Save your current mapping, for quick re-use at a later time.'}
+                onClick={() => openDialog(current ? 'update' : 'saveNew')} data-qqq-id="saved-bulk-load-profile-action-save">
+                {current ? 'Save...' : 'Save As...'}
+              </button>
+            )}
+            {canStore && current && (
+              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                title={!isOwner ? NOT_OWNER_TEXT : `Change the name for this saved bulk ${lower} profile.`}
+                onClick={() => openDialog('rename')} data-qqq-id="saved-bulk-load-profile-action-rename">
+                Rename...
+              </button>
+            )}
+            {canStore && current && (
+              <button type="button" role="menuitem" className={menuItem}
+                title={`Save a new copy of this bulk ${lower} profile, with a different name, separate from the original.`}
+                onClick={() => openDialog('saveAs')} data-qqq-id="saved-bulk-load-profile-action-save-as">
+                Save As...
+              </button>
+            )}
+            {canDelete && current && (
+              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                title={!isOwner ? NOT_OWNER_TEXT : `Delete this saved bulk ${lower} profile.`}
+                onClick={() => openDialog('delete')} data-qqq-id="saved-bulk-load-profile-action-delete">
+                Delete...
+              </button>
+            )}
+            {allowSelecting && (
+              <button type="button" role="menuitem" className={menuItem}
+                title={`Create a new blank bulk ${lower} profile for this table, removing all mappings.`}
+                onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-action-new">
+                {`New Bulk ${action} Profile`}
+              </button>
+            )}
+            {allowSelecting && canQuery && (
+              <>
+                <div role="separator" className="my-1 border-t border-border" />
+                <p id={`${baseId}-yours`} className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{`Your Saved Bulk ${action} Profiles`}</p>
+                <div role="group" aria-labelledby={`${baseId}-yours`} data-qqq-id="saved-bulk-load-profiles-yours">
+                  {profiles.isLoading ? <p className="px-4 py-2 text-sm text-muted-foreground">Loading...</p>
+                    : profiles.isError ? <p role="alert" className="px-4 py-2 text-sm text-destructive">{`Saved bulk ${lower} profiles could not be loaded.`}</p>
+                      : yours.length ? yours.map((profile) => profileItem(profile, 'yours'))
+                        : <p className="px-4 py-2 text-sm italic text-muted-foreground">{`You do not have any saved bulk ${lower} profiles for this table.`}</p>}
+                </div>
+                <p id={`${baseId}-shared`} className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{`Bulk ${action} Profiles Shared with you`}</p>
+                <div role="group" aria-labelledby={`${baseId}-shared`} data-qqq-id="saved-bulk-load-profiles-shared">
+                  {!profiles.isLoading && !profiles.isError && (shared.length ? shared.map((profile) => profileItem(profile, 'shared'))
+                    : <p className="px-4 py-2 text-sm italic text-muted-foreground">{`You do not have any bulk ${lower} profiles shared with you for this table.`}</p>)}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
-      {mode === 'saveAs' && (
-        <div className="flex flex-wrap items-end gap-2">
-          <label htmlFor={nameId} className="flex flex-col gap-1">
-            Profile Name
-            <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} className={inputClass} data-qqq-id="input-bulk-load-profile-name" />
-          </label>
-          <button type="button" className={buttonClass} disabled={busy || !name.trim()} onClick={() => { void store(name.trim()) }} data-qqq-id="button-confirm-save-bulk-load-profile">
-            Save Profile
-          </button>
-          <button type="button" className={buttonClass} disabled={busy} onClick={() => setMode('idle')}>Cancel</button>
-        </div>
-      )}
-      {mode === 'confirmDelete' && current && (
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirm delete">
-          <span>{`Delete the profile ${current.label}?`}</span>
-          <button type="button" className={buttonClass} disabled={busy} onClick={() => { void run(async () => { await deleteSavedBulkLoadProfile(current.id); return null }, 'Profile Deleted.') }} data-qqq-id="button-confirm-delete-bulk-load-profile">
-            Delete Profile
-          </button>
-          <button type="button" className={buttonClass} disabled={busy} onClick={() => setMode('idle')}>Keep</button>
-        </div>
-      )}
-      {message && <p role="status" className="text-green-700" data-qqq-id="saved-bulk-load-profile-message">{message}</p>}
-      {error && <p role="alert" className="text-destructive" data-qqq-id="saved-bulk-load-profile-error">{error}</p>}
-    </section>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-qqq-id="saved-bulk-load-profile-status">
+        {message && <span role="status" className="text-green-700 dark:text-green-400" data-qqq-id="saved-bulk-load-profile-message">{message}</span>}
+        {!current && (
+          <>
+            {canStore && (
+              <button type="button" className={linkButton} disabled={isWorking} title={`Unsaved Mapping: you are not using a saved bulk ${lower} profile.`}
+                onClick={() => openDialog('saveNew')} data-qqq-id="saved-bulk-load-profile-save-new">
+                {`Save Bulk ${action} Profile As…`}
+              </button>
+            )}
+            {allowSelecting && (
+              <>
+                {canStore && rule}
+                <span className="pl-1 text-muted-foreground">Reset to:</span>
+                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-reset-empty">
+                  Empty Mapping
+                </button>
+                {rule}
+                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => { setMessage(null); onResetToSuggested?.() }} data-qqq-id="saved-bulk-load-profile-reset-suggested">
+                  Suggested Mapping
+                </button>
+              </>
+            )}
+          </>
+        )}
+        {current && modified && (
+          <>
+            <HoverTooltip
+              qqqId="saved-bulk-load-profile-changes"
+              content={(
+                <span className="block">
+                  <b>Unsaved Changes</b>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {diffs.map((diff, index) => <li key={index}>{diff}</li>)}
+                  </ul>
+                  {!isOwner && <i className="mt-1 block">{NOT_OWNER_TEXT}</i>}
+                </span>
+              )}
+            >
+              <span className="font-medium text-foreground" data-qqq-id="saved-bulk-load-profile-change-count">
+                {`${diffs.length} Unsaved Change${diffs.length === 1 ? '' : 's'}`}
+              </span>
+            </HoverTooltip>
+            {isOwner && canStore && (
+              <button type="button" className={linkButton} disabled={isWorking} onClick={() => openDialog('update')} data-qqq-id="saved-bulk-load-profile-save-changes">
+                {'Save…'}
+              </button>
+            )}
+            {allowSelecting && (
+              <>
+                {rule}
+                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => choose(current)} data-qqq-id="saved-bulk-load-profile-reset-changes">
+                  Reset All Changes
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      <DialogPrimitive.Root open={dialog !== null} onOpenChange={(next) => { if (!next) setDialog(null) }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-saved-bulk-load-profile"
+            onOpenAutoFocus={(event) => {
+              ////////////////////////////////////////////////////////////////////////
+              // the name field, the Save button of an update (so Enter saves), or //
+              // Cancel before a delete                                             //
+              ////////////////////////////////////////////////////////////////////////
+              event.preventDefault()
+              const target = dialog === 'delete' ? cancelButtonRef.current : dialog === 'update' ? saveButtonRef.current : nameInputRef.current
+              target?.focus()
+            }}
+            onKeyDown={(event) => {
+              //////////////////////////////////////////////////////////////////
+              // Enter saves (not in the delete dialog, which needs the button) //
+              //////////////////////////////////////////////////////////////////
+              if (event.key === 'Enter' && dialog !== 'delete' && !(event.target instanceof HTMLButtonElement)) {
+                event.preventDefault()
+                void submit()
+              }
+            }}
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-lg focus:outline-none">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <DialogPrimitive.Title className="text-lg font-semibold text-foreground">{title}</DialogPrimitive.Title>
+              <DialogPrimitive.Close className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Close" data-qqq-id="button-close-saved-bulk-load-profile-dialog">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </DialogPrimitive.Close>
+            </div>
+            {dialogError && <p role="alert" className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" data-qqq-id="saved-bulk-load-profile-error">{dialogError}</p>}
+            {needsName ? (
+              <div className="space-y-2">
+                <label htmlFor={`${baseId}-name`} className="block text-sm text-foreground">
+                  {dialog === 'rename' ? `Enter a new name for this saved bulk ${lower} profile.` : `Enter a name for this new saved bulk ${lower} profile.`}
+                </label>
+                <input ref={nameInputRef} id={`${baseId}-name`} type="text" value={name} maxLength={100}
+                  placeholder={`Bulk ${action} Profile Name`}
+                  onFocus={(event) => event.target.select()}
+                  onChange={(event) => setName(event.target.value)}
+                  aria-required="true" aria-invalid={Boolean(dialogError) || undefined}
+                  className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  data-qqq-id="input-bulk-load-profile-name" />
+              </div>
+            ) : (
+              <p className="text-sm text-foreground">
+                {dialog === 'delete'
+                  ? `Are you sure you want to delete the bulk ${lower} profile '${current?.label ?? ''}'?`
+                  : `Are you sure you want to update the bulk ${lower} profile '${current?.label ?? ''}'?`}
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <DialogPrimitive.Close ref={cancelButtonRef} className="rounded border border-input px-3 py-1.5 text-sm hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring" data-qqq-id="button-cancel-saved-bulk-load-profile">
+                Cancel
+              </DialogPrimitive.Close>
+              <button ref={saveButtonRef} type="button" onClick={() => { void submit() }} disabled={busy || (needsName && !name.trim())}
+                className={cn('rounded px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 disabled:opacity-50',
+                  dialog === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive' : 'bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-ring')}
+                data-qqq-id={dialog === 'delete' ? 'button-confirm-delete-bulk-load-profile' : 'button-confirm-save-bulk-load-profile'}>
+                {dialog === 'delete' ? 'Delete' : 'Save'}
+              </button>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    </div>
   )
 }
 
