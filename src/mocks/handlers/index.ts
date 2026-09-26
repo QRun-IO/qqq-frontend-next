@@ -24,6 +24,7 @@ import { tableHandlers } from './tables'
 import { possibleValuesHandlers } from './possible-values'
 import { processHandlers } from './processes'
 import { widgetHandlers } from './widgets'
+import { esbHandlers } from './esb'
 
 export const handlers = [
   ...authHandlers,
@@ -33,4 +34,5 @@ export const handlers = [
   ...tableHandlers,
   ...processHandlers,
   ...widgetHandlers,
+  ...esbHandlers,
 ]
