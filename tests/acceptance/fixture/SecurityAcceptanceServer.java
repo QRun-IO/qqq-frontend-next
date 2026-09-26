@@ -11,9 +11,12 @@
  * limitations under the License.
  */
 
+import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -223,8 +226,9 @@ public class SecurityAcceptanceServer
 
    /*******************************************************************************
     ** TABLE_BASED: make every stored session idle for a day (past the module's
-    ** inactivity timeout) and forget when each was last validated, so the next
-    ** request with it goes through the module's real expiry check.
+    ** inactivity timeout): its table access time and the module's in-memory record
+    ** of the last request (QRun-IO/qqq#696) move back a day, and its last validation
+    ** is forgotten, so the next request goes through the module's real expiry check.
     *******************************************************************************/
    private static synchronized int expireTableSessions() throws Exception
    {
@@ -232,12 +236,21 @@ public class SecurityAcceptanceServer
       {
          throw new IllegalStateException("Only the TABLE_BASED variant stores table sessions.");
       }
-      int expired = 0;
+      //////////////////////////////////////////////////////////////////////////
+      // the module keys its last-request record by this (private) prefix; read //
+      // it so the fixture follows the module instead of copying the value      //
+      //////////////////////////////////////////////////////////////////////////
+      Field activityPrefixField = TableBasedAuthenticationModule.class.getDeclaredField("ACTIVITY_KEY_PREFIX");
+      activityPrefixField.setAccessible(true);
+      String  activityPrefix = (String) activityPrefixField.get(null);
+      Instant idleSince      = Instant.now().minus(Duration.ofDays(1));
+      int     expired        = 0;
       try(Connection connection = ownedConnection(); PreparedStatement ids = connection.prepareStatement("SELECT id FROM table_auth_session"); ResultSet rows = ids.executeQuery())
       {
          while(rows.next())
          {
             TableBasedAuthenticationModule.getStateProvider().remove(new SimpleStateKey<>(rows.getString(1)));
+            TableBasedAuthenticationModule.getStateProvider().put(new SimpleStateKey<>(activityPrefix + rows.getString(1)), idleSince);
             expired++;
          }
          try(PreparedStatement update = connection.prepareStatement("UPDATE table_auth_session SET access_timestamp = DATEADD('DAY', -1, CURRENT_TIMESTAMP)"))
