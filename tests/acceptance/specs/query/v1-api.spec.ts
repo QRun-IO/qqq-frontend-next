@@ -10,7 +10,7 @@ import type { Request } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectColumn, sqlColumn } from './query-helpers'
 
-test('[QRY-065] export streams from the v1 export route and the route enforces the export capability', async ({ page, backend, diagnostics }) => {
+test('[QRY-065] export streams from the v1 export route and the route enforces the export capability @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const exports: Request[] = []
   page.on('request', (request) => { if (/\/export(\/|$)/.test(new URL(request.url()).pathname)) exports.push(request) })
@@ -39,7 +39,7 @@ test('[QRY-065] export streams from the v1 export route and the route enforces t
   expect(refused.status()).toBe(403)
 })
 
-test('[QRY-066] variant options come from the v1 variants route', async ({ page, backend, diagnostics }) => {
+test('[QRY-066] variant options come from the v1 variants route @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const lists: string[] = []
   page.on('request', (request) => { if (new URL(request.url()).pathname.endsWith('/variants')) lists.push(`${request.method()} ${new URL(request.url()).pathname}`) })

@@ -111,7 +111,7 @@ test('[QRY-063] the enum-backed Pet Species table is read-only @mobile', async (
   expect(insert.ok()).toBe(false)
 })
 
-test('[QRY-071] a process launched from a variant table runs with the chosen variant on init and every step', async ({ page, diagnostics }) => {
+test('[QRY-071] a process launched from a variant table runs with the chosen variant on init and every step @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryStock')
   const picker = page.locator('[data-qqq-id="variant-picker-dialog"]')

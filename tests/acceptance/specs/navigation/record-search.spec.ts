@@ -141,7 +141,7 @@ test.describe('record search permissions', () => {
   test.describe('noPets persona', () => {
     test.use({ persona: 'noPets' })
 
-    test('[NAV-031] finds people but never pets, and the backend refuses pet results even when asked', async ({ page, backend, diagnostics }) => {
+    test('[NAV-031] finds people but never pets, and the backend refuses pet results even when asked @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       const searches = watchSearches(page)
       // "ey" matches a person (Casey) and a pet (Barkley) in the owned database
@@ -175,7 +175,7 @@ test.describe('record search permissions', () => {
     expect(found.map((result) => [result.tableName, result.recordId, result.recordLabel])).toEqual(pets.map((pet) => ['pet', pet.id, pet.name]))
   })
 
-  test('[NAV-031] a saved view is found by its owner (alice)', async ({ page, backend, diagnostics }) => {
+  test('[NAV-031] a saved view is found by its owner (alice) @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const [view] = await backend.sql("select id, label, user_id from saved_view where lower(label) like '%people view%'")
     expect(view.user_id).toBe('sample:alice')
@@ -208,7 +208,7 @@ test.describe('record search permissions', () => {
   test.describe('casey, who neither owns nor shares the view', () => {
     test.use({ user: 'casey' })
 
-    test('[NAV-031] a saved view locked to alice (shared only with bob) is not found by casey, in the UI or from the API', async ({ page, backend, diagnostics }) => {
+    test('[NAV-031] a saved view locked to alice (shared only with bob) is not found by casey, in the UI or from the API @mobile', async ({ page, backend, diagnostics }) => {
       void diagnostics
       const searches = watchSearches(page)
       const [view] = await backend.sql("select id, user_id from saved_view where lower(label) like '%people view%'")

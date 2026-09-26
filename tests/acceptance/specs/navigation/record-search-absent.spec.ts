@@ -12,6 +12,7 @@
 import type { Page } from '@playwright/test'
 import { open } from '../../support/fixtures'
 import { expect, test } from '../security/support/variant'
+import { expectTouchReady } from '../../support/touch'
 import { waitForShell } from './nav-helpers'
 
 /** Records every request to a backend search endpoint (v1 or legacy), not the /app/search page. */
@@ -23,7 +24,7 @@ function watchSearchRequests(page: Page): string[] {
   return seen
 }
 
-test('[NAV-032] without searchable tables the header box, "/" dialog and search page stay local and never call /search', async ({ page, security, diagnostics }) => {
+test('[NAV-032] without searchable tables the header box, "/" dialog and search page stay local and never call /search @mobile', async ({ page, security, diagnostics }) => {
   void diagnostics
   const searchRequests = watchSearchRequests(page)
   const metaData = await (await security.api.get('/qqq/v1/metaData')).json()
@@ -34,16 +35,27 @@ test('[NAV-032] without searchable tables the header box, "/" dialog and search 
   await open(page, '/app')
   await waitForShell(page)
 
-  // header box: local label, local matches only
-  const header = page.getByRole('combobox', { name: 'Search pages and recent records' })
-  await header.fill(person.first_name!)
-  await expect(page.getByRole('listbox', { name: 'Search results' })).toContainText(`No pages or recent records match “${person.first_name}”`)
-  await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
-
-  // '/' dialog: pages still match, no Records group
-  await header.press('Escape')
-  await page.locator('body').press('/')
+  // a phone has no header box; its header "Open search" button opens the same dialog
+  const phoneSearch = page.getByRole('button', { name: 'Open search' })
   const dialog = page.getByRole('dialog', { name: 'Search' })
+  if (await phoneSearch.isVisible()) {
+    await phoneSearch.click()
+    const box = dialog.getByRole('combobox', { name: 'Search pages and recent records' })
+    await box.fill(person.first_name!)
+    await expect(dialog.getByRole('listbox')).toContainText(`No pages or recent records match “${person.first_name}”`)
+    await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
+    await expectTouchReady(page, dialog)
+  } else {
+    // header box: local label, local matches only
+    const header = page.getByRole('combobox', { name: 'Search pages and recent records' })
+    await header.fill(person.first_name!)
+    await expect(page.getByRole('listbox', { name: 'Search results' })).toContainText(`No pages or recent records match “${person.first_name}”`)
+    await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
+    await header.press('Escape')
+    await page.locator('body').press('/')
+  }
+
+  // the dialog: pages still match, no Records group
   await dialog.getByRole('combobox', { name: 'Search pages and recent records' }).fill('person')
   await expect(dialog.getByRole('group', { name: 'Pages' }).getByRole('option').first()).toContainText('Person')
   await expect(dialog.getByRole('group', { name: 'Records' })).toHaveCount(0)
