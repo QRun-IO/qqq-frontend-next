@@ -41,10 +41,13 @@ import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
-import { RecordQuery } from '@/components/query'
-import { ProcessRun } from '@/components/process'
-import { AppHome } from '@/components/widgets'
-import { ReportRun } from '@/components/reports'
+// Direct module imports, not the component barrels: the widgets barrel re-exports the chart
+// widgets, which pulled Recharts into this route's first load although WidgetRenderer loads
+// charts lazily (QRun-IO/qqq#710).
+import { RecordQuery } from '@/components/query/RecordQuery'
+import { ProcessRun } from '@/components/process/ProcessRun'
+import { AppHome } from '@/components/widgets/AppHome'
+import { ReportRun } from '@/components/reports/ReportRun'
 import { NotFoundState } from '@/components/layout/NotFoundState'
 
 /**

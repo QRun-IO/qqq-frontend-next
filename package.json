@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:acceptance": "node scripts/acceptance.mjs",
+    "perf:budget": "node scripts/perf-budget.mjs",
     "tsc": "tsc",
     "typecheck": "tsc --noEmit",
     "prepare": "git config core.hooksPath .githooks || true",
@@ -64,7 +65,7 @@
     "@eslint/eslintrc": "^3.3.4",
     "@playwright/test": "^1.58.2",
     "@storybook/addon-docs": "10.6.0",
-    "@storybook/nextjs": "10.6.0",
+    "@storybook/nextjs-vite": "10.6.0",
     "@storybook/react": "10.6.0",
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -76,8 +77,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "@vitest/coverage-v8": "^3.2.7",
-    "@vitest/ui": "^3.2.7",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/ui": "^4.1.11",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.3",
     "eslint-config-next": "16.3.6",
@@ -91,7 +92,7 @@
     "storybook": "10.6.0",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11"
   },
   "msw": {
     "workerDirectory": [

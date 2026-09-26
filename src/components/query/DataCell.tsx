@@ -309,6 +309,11 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
 // Utilities
 // ------------------------------------------------------------------
 
+// Intl formatters are costly to construct and a 250-row page can hold thousands of date
+// cells, so each is built once, on first use (QRun-IO/qqq#710).
+let dateFormat: Intl.DateTimeFormat | undefined
+let zoneFormat: Intl.DateTimeFormat | undefined
+
 /**
  * Formats an ISO date string using the browser's locale date formatting.
  *
@@ -321,7 +326,9 @@ function formatDate(value: string): string {
   try {
     const d = new Date(value)
     if (isNaN(d.getTime())) return value
-    return d.toLocaleDateString()
+    // the same output as d.toLocaleDateString(), without a new formatter per call
+    dateFormat ??= new Intl.DateTimeFormat()
+    return dateFormat.format(d)
   } catch {
     return value
   }
@@ -340,7 +347,8 @@ function formatDateTime(value: string): string {
   if (isNaN(d.getTime())) return value
   const pad = (n: number) => String(n).padStart(2, '0')
   const hours = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12
-  const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? ''
+  zoneFormat ??= new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+  const zone = zoneFormat.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? ''
   // Material's "yyyy-MM-dd hh:mm:ss AM TZ", in the browser's time zone
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(hours)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'} ${zone}`.trim()
 }

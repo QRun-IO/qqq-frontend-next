@@ -7,11 +7,12 @@ interface StoredView { id: number; label: string; userId: string; tableName: str
 
 const ME = 'e2e@example.invalid'
 
-/** Reads the JSON `values` field of a multipart process request. */
-function processValues(route: Route): Record<string, unknown> {
+/** Reads the multipart form fields of a process init request (one field per value). */
+function processValues(route: Route): Record<string, string> {
   const body = route.request().postData() ?? ''
-  const match = body.match(/name="values"\r\n\r\n([^\r]*)/)
-  return match ? JSON.parse(match[1]) : {}
+  const values: Record<string, string> = {}
+  for (const match of body.matchAll(/name="([^"]+)"\r\n\r\n([^\r]*)/g)) values[match[1]] = match[2]
+  return values
 }
 
 /** Mocks the saved-view processes over an in-memory store; returns the store. */
@@ -29,7 +30,7 @@ async function mockSavedViews(page: Page, initial: StoredView[]) {
   })
   await page.route('**/qqq/v1/manageSession**', (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ uuid: 'mock', values: { user: { name: 'E2E User', email: ME } } }) }))
-  await page.route('**/qqq/v1/processes/querySavedView/init**', (route) => {
+  await page.route('**/processes/querySavedView/init**', (route) => {
     const values = processValues(route)
     if (values.id !== undefined) {
       const found = store.filter((v) => v.id === Number(values.id))
@@ -38,7 +39,7 @@ async function mockSavedViews(page: Page, initial: StoredView[]) {
     }
     return complete(route, store.filter((v) => v.tableName === values.tableName))
   })
-  await page.route('**/qqq/v1/processes/storeSavedView/init**', (route) => {
+  await page.route('**/processes/storeSavedView/init**', (route) => {
     const values = processValues(route)
     const existing = store.find((v) => v.id === Number(values.id))
     const view: StoredView = { id: existing?.id ?? nextId++, label: String(values.label), userId: ME, tableName: String(values.tableName), viewJson: String(values.viewJson) }
@@ -46,7 +47,7 @@ async function mockSavedViews(page: Page, initial: StoredView[]) {
     else store.push(view)
     return complete(route, [view])
   })
-  await page.route('**/qqq/v1/processes/deleteSavedView/init**', (route) => {
+  await page.route('**/processes/deleteSavedView/init**', (route) => {
     const index = store.findIndex((v) => v.id === Number(processValues(route).id))
     if (index >= 0) store.splice(index, 1)
     return complete(route, [])

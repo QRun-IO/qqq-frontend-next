@@ -36,8 +36,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(location.search),
   useRouter: () => ({ push: vi.fn() }),
 }))
-vi.mock('@/components/query', () => ({ RecordQuery: recordQuery }))
-vi.mock('@/components/widgets', () => ({ AppHome: () => <div>App home</div> }))
+vi.mock('@/components/query/RecordQuery', () => ({ RecordQuery: recordQuery }))
+vi.mock('@/components/widgets/AppHome', () => ({ AppHome: () => <div>App home</div> }))
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

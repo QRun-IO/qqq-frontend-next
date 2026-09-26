@@ -74,6 +74,7 @@ public class AcceptanceSampleServer
             QueryFixtures.define(defined);
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
+            PerformanceFixtures.define(defined);
             instance = defined;
             return defined;
          }
@@ -149,6 +150,7 @@ public class AcceptanceSampleServer
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
+         PerformanceFixtures.prime(connection);
       }
    }
 
