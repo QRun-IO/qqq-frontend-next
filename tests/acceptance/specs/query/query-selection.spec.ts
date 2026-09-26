@@ -8,6 +8,7 @@
 // Record selection (page, all matching, first N) and launching processes with it.
 import type { Page, Response } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectScreen } from '../processes/process-helpers'
 import { expectColumn, sqlColumn } from './query-helpers'
 
 /** Waits for a process init on the registered process route and returns its multipart fields and JSON response. */
@@ -141,6 +142,8 @@ test('[QRY-034] the Actions menu offers bulk load and table processes with the s
   await expect(menu.getByRole('menuitem')).toHaveText(['Bulk Load', 'Bulk Edit', 'Bulk Edit With File', 'Bulk Delete', 'Clone People', 'Greet Interactive'])
   await menu.getByRole('menuitem', { name: 'Bulk Load' }).click()
   await expect(page).toHaveURL(/\/app\/person\.bulkInsert\/?$/)
+  // The bulk load opens on its upload screen; going back before it loads cuts off its reads
+  await expectScreen(page, 'upload', 'Upload File')
   await page.goBack()
   await expectColumn(page, 'id', ids)
   await page.locator('[data-qqq-id="grid-select-row-0"]').check()
