@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Tests for the table Developer view's ESB section wiring
+// Tests for the Developer view's slug resolution and ESB section wiring
 
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -125,5 +125,25 @@ describe('TableDeveloperViewPage ESB section', () => {
       screen.queryByRole('heading', { name: 'Enterprise Service Bus' })
     ).not.toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('shows the process Developer view with its ESB section for a process slug', async () => {
+    params.slug = 'fulfillOrder'
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'Process Developer View: fulfillOrder' })
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Enterprise Service Bus' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Triggers' })).toBeInTheDocument()
+    expect(screen.queryByText('Fields')).not.toBeInTheDocument()
+  })
+
+  it('keeps the table Developer view for a table slug', async () => {
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'Table Developer View: order' })
+    ).toBeInTheDocument()
   })
 })

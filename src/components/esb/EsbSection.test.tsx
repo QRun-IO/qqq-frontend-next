@@ -18,10 +18,11 @@
 
 import React from 'react'
 import { act, render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { axe } from 'jest-axe'
 import { describe, expect, it } from 'vitest'
 
-import { orderEsb } from '@/mocks/fixtures/esb'
+import { fulfillOrderEsb, orderEsb } from '@/mocks/fixtures/esb'
 import { EsbSection } from './EsbSection'
 
 /**
@@ -121,6 +122,49 @@ describe('EsbSection', () => {
     expect(
       screen.getByText('No processes you can access are triggered by these destinations.')
     ).toBeInTheDocument()
+  })
+
+  it('offers browsing a queue and a trigger\'s dead letters to anyone who sees them', () => {
+    render(<EsbSection data={orderEsb} />)
+    const [topic, queue] = bodyRows('Publications')
+    expect(within(topic).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(queue).getByRole('button', { name: 'Browse orderFulfillment' })).toBeInTheDocument()
+    expect(within(queue).queryByRole('button', { name: /^Purge/ })).not.toBeInTheDocument()
+    const [fulfill] = bodyRows('Subscribers')
+    expect(
+      within(fulfill).getByRole('button', { name: 'Browse dead letters for Fulfill Order' })
+    ).toBeInTheDocument()
+    expect(within(fulfill).queryByRole('button', { name: /^Pause/ })).not.toBeInTheDocument()
+  })
+
+  it('shows management actions when the user may operate and delete', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EsbSection data={{ ...orderEsb, permissions: { canOperate: true, canDelete: true } }} />
+      </QueryClientProvider>
+    )
+    const [topic, queue] = bodyRows('Publications')
+    expect(within(topic).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(queue).getByRole('button', { name: 'Purge orderFulfillment' })).toBeInTheDocument()
+    expect(
+      within(queue).getByRole('button', { name: 'Pause queue orderFulfillment' })
+    ).toBeInTheDocument()
+    const [fulfill, cancel] = bodyRows('Subscribers')
+    expect(within(fulfill).getByRole('button', { name: 'Pause Fulfill Order' })).toBeInTheDocument()
+    expect(within(cancel).getByRole('button', { name: 'Resume Cancel Order' })).toBeInTheDocument()
+  })
+
+  it('renders a process\'s publications and the triggers that start it', () => {
+    render(<EsbSection data={fulfillOrderEsb} />)
+    expect(bodyRows('Publications')).toHaveLength(1)
+    expect(bodyRows('Triggers')).toHaveLength(1)
+    expect(screen.queryByRole('table', { name: 'Subscribers' })).not.toBeInTheDocument()
+  })
+
+  it('says so when a process has no publications or triggers', () => {
+    render(<EsbSection data={{ ...fulfillOrderEsb, publications: [], triggers: [] }} />)
+    expect(screen.getByText('This process does not publish to any destination.')).toBeInTheDocument()
+    expect(screen.getByText('No destinations trigger this process.')).toBeInTheDocument()
   })
 
   it('has no accessibility violations', async () => {

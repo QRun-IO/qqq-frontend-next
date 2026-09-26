@@ -17,11 +17,27 @@
 // Tests for the ESB API client
 
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { orderEsb } from '@/mocks/fixtures/esb'
+import {
+  esbOverview,
+  fulfillOrderDeadLetters,
+  fulfillOrderEsb,
+  orderEsb,
+  orderFulfillmentMessages,
+} from '@/mocks/fixtures/esb'
 import { server } from '@/mocks/node'
-import { getEsbForTable } from './esb'
+import { processInit } from './processes'
+import {
+  getEsbDeadLetters,
+  getEsbForProcess,
+  getEsbForTable,
+  getEsbMessages,
+  getEsbOverview,
+  runEsbAction,
+} from './esb'
+
+vi.mock('./processes', () => ({ processInit: vi.fn() }))
 
 describe('getEsbForTable', () => {
   it('returns the table ESB section from GET /qqq/v1/esb/table/{table}', async () => {
@@ -86,5 +102,152 @@ describe('getEsbForTable', () => {
       )
     )
     await expect(getEsbForTable('order')).resolves.toBeNull()
+  })
+})
+
+describe('getEsbForProcess', () => {
+  it('returns the process ESB section from GET /qqq/v1/esb/process/{process}', async () => {
+    let path = ''
+    server.use(
+      http.get('/qqq/v1/esb/process/:process', ({ request }) => {
+        path = new URL(request.url).pathname
+        return HttpResponse.json(fulfillOrderEsb)
+      })
+    )
+    await expect(getEsbForProcess('fulfill order')).resolves.toEqual(fulfillOrderEsb)
+    expect(path).toBe('/qqq/v1/esb/process/fulfill%20order')
+  })
+
+  it.each([403, 404])('returns null on %i', async (status) => {
+    server.use(
+      http.get('/qqq/v1/esb/process/fulfillOrder', () =>
+        HttpResponse.json({ error: 'Permission denied.' }, { status })
+      )
+    )
+    await expect(getEsbForProcess('fulfillOrder')).resolves.toBeNull()
+  })
+
+  it('returns null for a body without publications and triggers', async () => {
+    server.use(
+      http.get('/qqq/v1/esb/process/fulfillOrder', () =>
+        HttpResponse.html('<!doctype html><html><body>SPA</body></html>')
+      )
+    )
+    await expect(getEsbForProcess('fulfillOrder')).resolves.toBeNull()
+  })
+})
+
+describe('getEsbOverview', () => {
+  it('returns the overview from GET /qqq/v1/esb/overview', async () => {
+    await expect(getEsbOverview()).resolves.toEqual(esbOverview)
+  })
+
+  it.each([403, 404])('returns null on %i', async (status) => {
+    server.use(
+      http.get('/qqq/v1/esb/overview', () =>
+        HttpResponse.json({ error: 'Permission denied.' }, { status })
+      )
+    )
+    await expect(getEsbOverview()).resolves.toBeNull()
+  })
+
+  it('returns null for a body without providers and destinations', async () => {
+    server.use(http.get('/qqq/v1/esb/overview', () => HttpResponse.json({ error: 'unexpected' })))
+    await expect(getEsbOverview()).resolves.toBeNull()
+  })
+})
+
+describe('getEsbMessages and getEsbDeadLetters', () => {
+  it('browse a destination with offset and limit', async () => {
+    let url = new URL('http://localhost')
+    server.use(
+      http.get('/qqq/v1/esb/messages/:destination', ({ request }) => {
+        url = new URL(request.url)
+        return HttpResponse.json(orderFulfillmentMessages)
+      })
+    )
+    await expect(getEsbMessages('orderFulfillment', 50, 25)).resolves.toEqual(orderFulfillmentMessages)
+    expect(url.pathname).toBe('/qqq/v1/esb/messages/orderFulfillment')
+    expect(url.searchParams.get('offset')).toBe('50')
+    expect(url.searchParams.get('limit')).toBe('25')
+  })
+
+  it('browse a trigger\'s dead letters, 50 at a time from the start by default', async () => {
+    let url = new URL('http://localhost')
+    server.use(
+      http.get('/qqq/v1/esb/deadLetters/:trigger', ({ request }) => {
+        url = new URL(request.url)
+        return HttpResponse.json(fulfillOrderDeadLetters)
+      })
+    )
+    await expect(getEsbDeadLetters('fulfillOrder.orderFulfillment')).resolves.toEqual(
+      fulfillOrderDeadLetters
+    )
+    expect(url.pathname).toBe('/qqq/v1/esb/deadLetters/fulfillOrder.orderFulfillment')
+    expect(url.searchParams.get('offset')).toBe('0')
+    expect(url.searchParams.get('limit')).toBe('50')
+  })
+
+  it('rejects a body that is not a message page', async () => {
+    server.use(http.get('/qqq/v1/esb/messages/orderFulfillment', () => HttpResponse.json({})))
+    await expect(getEsbMessages('orderFulfillment')).rejects.toThrow('Invalid ESB message page')
+  })
+
+  it('rethrows request failures', async () => {
+    server.use(
+      http.get('/qqq/v1/esb/deadLetters/fulfillOrder.orderFulfillment', () =>
+        HttpResponse.json({ error: 'Permission denied.' }, { status: 403 })
+      )
+    )
+    await expect(getEsbDeadLetters('fulfillOrder.orderFulfillment')).rejects.toThrow()
+  })
+})
+
+describe('runEsbAction', () => {
+  beforeEach(() => {
+    vi.mocked(processInit).mockReset()
+  })
+
+  it('runs the operate process with the values and returns its count and message', async () => {
+    vi.mocked(processInit).mockResolvedValue({
+      type: 'COMPLETE',
+      processUUID: 'uuid',
+      values: { count: 7, message: 'Purged 7 messages.' },
+    })
+    await expect(
+      runEsbAction('esbPurgeQueue', { providerName: 'artemis', brokerQueueName: 'orderFulfillment' })
+    ).resolves.toEqual({ count: 7, message: 'Purged 7 messages.' })
+    expect(processInit).toHaveBeenCalledWith('esbPurgeQueue', {
+      values: { providerName: 'artemis', brokerQueueName: 'orderFulfillment' },
+    })
+  })
+
+  it('reads a count sent as text', async () => {
+    vi.mocked(processInit).mockResolvedValue({
+      type: 'COMPLETE',
+      processUUID: 'uuid',
+      values: { count: '2', message: 'Deleted 2 messages.' },
+    })
+    await expect(runEsbAction('esbDeleteMessages', {})).resolves.toEqual({
+      count: 2,
+      message: 'Deleted 2 messages.',
+    })
+  })
+
+  it('rejects with the user-facing error when the process fails', async () => {
+    vi.mocked(processInit).mockResolvedValue({
+      type: 'ERROR',
+      error: 'Error message: boom',
+      userFacingError: 'The broker refused the purge.',
+    })
+    await expect(runEsbAction('esbPurgeQueue', {})).rejects.toThrow('The broker refused the purge.')
+  })
+
+  it('says the action is still running when it continues as a job', async () => {
+    vi.mocked(processInit).mockResolvedValue({ type: 'JOB_STARTED', processUUID: 'uuid', jobUUID: 'job' })
+    await expect(runEsbAction('esbRestartTrigger', {})).resolves.toEqual({
+      count: null,
+      message: 'The action is still running.',
+    })
   })
 })
