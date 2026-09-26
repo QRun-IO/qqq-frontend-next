@@ -145,6 +145,8 @@ test('[QRY-034] the Actions menu offers bulk load and table processes with the s
   await menu.getByRole('menuitem', { name: 'Bulk Load' }).click()
   // the run comes back to this query when it ends (Material closes its modal over the query)
   await expect(page).toHaveURL(/\/app\/person\.bulkInsert\/?\?returnTo=%2Fapp%2Fperson$/)
+  // the run starts before the user leaves: going back mid-load would cut off its API calls
+  await expect(page.locator('[data-qqq-id="process-step-heading"]')).toBeVisible()
   await page.goBack()
   await showTable(page)
   await expectColumn(page, 'id', ids)
