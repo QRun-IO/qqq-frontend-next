@@ -28,9 +28,48 @@ import { Toaster } from 'sonner'
  * (form Save and Cancel, process Back, Next and Submit, a phone's sticky action bar
  * and action sheets), so toasts appear at the top center instead: a toast that slid
  * in over Save took the tap meant for it, and one that stayed under a resting
- * pointer never timed out.
+ * pointer never timed out. They start below the dashboard header, clear of its controls.
  */
 export const TOASTER_POSITION = 'top-center' as const
+
+/**
+ * CSS variable the dashboard header sets to just below itself (see `useToastTopBelow`), so a
+ * top-center toast never covers the header's breadcrumbs, search, menu or help controls.
+ * Without a header (sign-in pages) toasts keep sonner's default distance from the top.
+ */
+export const TOAST_TOP_VARIABLE = '--qqq-toast-top'
+
+/** Toaster offsets (desktop and phone): below the header when one is shown. */
+export const TOASTER_OFFSET = { top: `var(${TOAST_TOP_VARIABLE}, 24px)` }
+export const TOASTER_MOBILE_OFFSET = { top: `var(${TOAST_TOP_VARIABLE}, 16px)` }
+
+/** Space between the header's bottom edge and the first toast, in px. */
+const TOAST_HEADER_GAP = 8
+
+/**
+ * Keeps {@link TOAST_TOP_VARIABLE} just below an element (the dashboard header) while it is
+ * mounted, following its size and position (a site banner above it, a resized window).
+ *
+ * @param ref - The element toasts must stay below.
+ */
+export function useToastTopBelow(ref: React.RefObject<HTMLElement | null>) {
+  React.useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const root = document.documentElement
+    const update = () => root.style.setProperty(TOAST_TOP_VARIABLE, `${Math.max(0, Math.round(element.getBoundingClientRect().bottom)) + TOAST_HEADER_GAP}px`)
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    observer?.observe(element)
+    observer?.observe(document.body)
+    window.addEventListener('resize', update)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+      root.style.removeProperty(TOAST_TOP_VARIABLE)
+    }
+  }, [ref])
+}
 
 /**
  * The global toast container. Trigger toasts with `toast()`, `toast.success()` or
@@ -42,6 +81,8 @@ export function AppToaster() {
   return (
     <Toaster
       position={TOASTER_POSITION}
+      offset={TOASTER_OFFSET}
+      mobileOffset={TOASTER_MOBILE_OFFSET}
       richColors
       closeButton
       toastOptions={{ duration: 4000 }}

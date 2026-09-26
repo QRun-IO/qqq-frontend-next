@@ -70,6 +70,13 @@ export function toasts(page: Page): Locator {
   return page.locator('[data-sonner-toast]')
 }
 
+/** Checks that a shown toast sits below the dashboard header, clear of its controls (QRun-IO/qqq#708). */
+export async function expectToastBelowHeader(page: Page, toast: Locator) {
+  const header = await page.locator('[data-qqq-id="header"]').boundingBox()
+  expect(header).not.toBeNull()
+  await expect.poll(async () => (await toast.boundingBox())?.y ?? -1).toBeGreaterThanOrEqual(header!.y + header!.height)
+}
+
 /** Reads exactly one row with an independent SQL query. */
 export async function sqlOne(backend: Backend, query: string): Promise<Record<string, string | null>> {
   const rows = await backend.sql(query)

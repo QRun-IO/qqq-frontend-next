@@ -20,11 +20,12 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
+import { useToastTopBelow } from '@/components/feedback/Toast'
 import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
 import type { SearchableTable } from '@/lib/utils/record-search'
 
@@ -72,9 +73,13 @@ export interface HeaderProps {
  */
 export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
   const [notificationCount] = useState(0)
+  // toasts appear below the header, never over its controls
+  const headerRef = useRef<HTMLElement>(null)
+  useToastTopBelow(headerRef)
 
   return (
     <header
+      ref={headerRef}
       className="flex items-center justify-between border-b border-border bg-card px-4 md:px-6"
       style={{ height: 'var(--qqq-header-height)' }}
       data-qqq-id="header"

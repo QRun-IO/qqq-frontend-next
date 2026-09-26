@@ -8,6 +8,7 @@
 import { expect, test } from '../../support/fixtures'
 import { listCell } from '../security/support/ui'
 import {
+  expectToastBelowHeader,
   VIEWER, control, expandOnPhone, fieldValue, multipartFields, openForm, openRecord, recordAction, recordIdFromUrl, recordRequests, sqlCount, sqlOne, toasts,
 } from './helpers'
 
@@ -55,6 +56,7 @@ test('[REC-006] create persists the entered values and opens the new record @mob
   await expect(page.getByRole('heading', { level: 1, name: 'Quinn Acceptance' })).toBeVisible()
   const id = recordIdFromUrl(page, 'person')
   await expect(toasts(page).filter({ hasText: 'Person created successfully.' })).toBeVisible()
+  await expectToastBelowHeader(page, toasts(page).filter({ hasText: 'Person created successfully.' }))
   await expandOnPhone(page, 'Employment Info')
   const row = await sqlOne(backend, `select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed from person where id = ${id}`)
   expect(row).toEqual({ first_name: 'Quinn', last_name: 'Acceptance', email: 'quinn@example.invalid', birth_date: '1988-07-04',

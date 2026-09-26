@@ -16,10 +16,10 @@
 
 import React from 'react'
 import { describe, it, expect } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, renderHook, screen } from '@testing-library/react'
 import { toast } from 'sonner'
 
-import { AppToaster, TOASTER_POSITION } from './Toast'
+import { AppToaster, TOASTER_POSITION, TOAST_TOP_VARIABLE, useToastTopBelow } from './Toast'
 
 describe('AppToaster', () => {
   it('shows toasts at the top center, clear of the bottom-right primary actions (QRun-IO/qqq#708)', async () => {
@@ -32,5 +32,30 @@ describe('AppToaster', () => {
     expect(item).toHaveAttribute('data-y-position', 'top')
     expect(item).toHaveAttribute('data-x-position', 'center')
     expect(TOASTER_POSITION).toBe('top-center')
+  })
+})
+
+describe('toasts below the header', () => {
+  it('offsets the toaster by the header variable, with the default distance when there is no header', async () => {
+    render(<AppToaster />)
+    act(() => { toast('Saved') })
+    await screen.findByText('Saved')
+    const list = document.querySelector('[data-sonner-toaster]') as HTMLElement
+    expect(list.style.getPropertyValue('--offset-top')).toBe('var(--qqq-toast-top, 24px)')
+    expect(list.style.getPropertyValue('--mobile-offset-top')).toBe('var(--qqq-toast-top, 16px)')
+  })
+
+  it('sets the variable just below the header while it is mounted, and clears it after', () => {
+    const header = document.createElement('header')
+    header.getBoundingClientRect = () => ({ bottom: 100 } as DOMRect)
+    document.body.appendChild(header)
+    const { unmount } = renderHook(() => useToastTopBelow({ current: header }))
+    expect(document.documentElement.style.getPropertyValue(TOAST_TOP_VARIABLE)).toBe('108px')
+    header.getBoundingClientRect = () => ({ bottom: 140 } as DOMRect)
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(document.documentElement.style.getPropertyValue(TOAST_TOP_VARIABLE)).toBe('148px')
+    unmount()
+    expect(document.documentElement.style.getPropertyValue(TOAST_TOP_VARIABLE)).toBe('')
+    header.remove()
   })
 })
