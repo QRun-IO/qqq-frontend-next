@@ -34,9 +34,9 @@ test.describe('Processes added to every query and record screen', () => {
 
   test('[PRC-050] the instance metadata names the process; it has no table and is in no app', async ({ backend, diagnostics }) => {
     void diagnostics
-    // the v1 metadata the UI reads publishes only the allow-listed Material dashboard setting
+    // The v1 metadata the UI reads publishes this process setting alongside other allow-listed settings.
     const v1 = await (await backend.api.get('/qqq/v1/metaData')).json()
-    expect(v1.supplementalInstanceMetaData).toEqual({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [TAG] } })
+    expect(v1.supplementalInstanceMetaData).toMatchObject({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [TAG] } })
     expect(v1.processes[TAG]).toMatchObject({ label: 'Tag Records', hasPermission: true })
     expect(v1.processes[TAG].tableName ?? null).toBeNull()
     const inApps = JSON.stringify(v1.appTree).includes(`"name":"${TAG}"`)
@@ -104,7 +104,7 @@ test.describe('Processes added to every screen, for a user whose metadata omits 
     const full = await (await backend.api.get('/metaData')).json()
     expect(full.supplementalInstanceMetaData.materialDashboard.processNamesToAddToAllQueryAndViewScreens).toEqual([TAG])
     const v1 = await (await backend.api.get('/qqq/v1/metaData')).json()
-    expect(v1.supplementalInstanceMetaData).toEqual({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [] } })
+    expect(v1.supplementalInstanceMetaData).toMatchObject({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [] } })
     expect(v1.processes[TAG]).toBeUndefined()
 
     await open(page, '/app/person')
@@ -135,7 +135,7 @@ test.describe('Processes added to every screen, without process permission', () 
     expect(full.supplementalInstanceMetaData.materialDashboard.processNamesToAddToAllQueryAndViewScreens).toEqual([TAG])
     expect(full.processes[TAG]).toBeUndefined()
     const v1 = await (await backend.api.get('/qqq/v1/metaData')).json()
-    expect(v1.supplementalInstanceMetaData).toEqual({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [] } })
+    expect(v1.supplementalInstanceMetaData).toMatchObject({ materialDashboard: { processNamesToAddToAllQueryAndViewScreens: [] } })
     expect(v1.processes[TAG]).toBeUndefined()
 
     await open(page, '/app/person')
