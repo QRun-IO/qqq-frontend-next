@@ -174,6 +174,14 @@ describe('Processes API', () => {
       await expect(processStatus('bulk', 'p', 'j')).resolves.toEqual({ type: 'RUNNING', processUUID: 'p', message: 'Processing', current: 5, total: 10 })
       expect(apiClient.get).toHaveBeenCalledWith('/processes/bulk/p/status/j')
     })
+
+    it('sends the run\'s table variant, which the backend requires to serve its state', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.get).mockResolvedValue({ processUUID: 'p', values: {} })
+      const { processStatus } = await import('./processes')
+      await processStatus('bulk', 'p', 'j', '{"type":"store","id":2}')
+      expect(apiClient.get).toHaveBeenCalledWith('/processes/bulk/p/status/j', { params: { tableVariant: '{"type":"store","id":2}' } })
+    })
   })
 
   describe('processRecords', () => {
@@ -219,6 +227,14 @@ describe('Processes API', () => {
       const { processCancel } = await import('./processes')
       await expect(processCancel('bulkImport', 'proc-uuid')).resolves.toBe(true)
       expect(apiClient.post).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/cancel')
+    })
+
+    it('sends the run\'s table variant with the cancel', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({})
+      const { processCancel } = await import('./processes')
+      await processCancel('bulkImport', 'proc-uuid', '{"type":"store","id":2}')
+      expect(apiClient.post).toHaveBeenCalledWith('/processes/bulkImport/proc-uuid/cancel', undefined, { params: { tableVariant: '{"type":"store","id":2}' } })
     })
   })
 

@@ -130,7 +130,7 @@ describe('useProcess', () => {
     expect(result.current.state.phase).toBe('working')
     await act(async () => { await vi.advanceTimersByTimeAsync(POLL_INITIAL_MILLIS) })
     expect(processStatus).toHaveBeenCalledTimes(3)
-    expect(processStatus).toHaveBeenCalledWith('lab', 'run-1', 'job-1')
+    expect(processStatus).toHaveBeenCalledWith('lab', 'run-1', 'job-1', undefined)
     expect(result.current.state).toMatchObject({ phase: 'step', values: { processedCount: 5 } })
     expect(result.current.state.currentStep?.name).toBe('done')
   })
@@ -192,8 +192,19 @@ describe('useProcess', () => {
     act(() => result.current.start())
     await flush()
     await act(async () => { await result.current.cancel() })
-    expect(processCancel).toHaveBeenCalledWith('lab', 'run-1')
+    expect(processCancel).toHaveBeenCalledWith('lab', 'run-1', undefined)
     expect(result.current.state.phase).toBe('cancelled')
+  })
+
+  it('cancels a run on a variant table with the variant it started with', async () => {
+    vi.mocked(processInit).mockResolvedValue({ type: 'COMPLETE', processUUID: 'run-1', values: {}, nextStep: 'choose' })
+    vi.mocked(processCancel).mockResolvedValue(true)
+    const variant = '{"type":"store","id":2}'
+    const { result } = renderHook(() => useProcess('lab', process, { ...request, tableVariant: variant }))
+    act(() => result.current.start())
+    await flush()
+    await act(async () => { await result.current.cancel() })
+    expect(processCancel).toHaveBeenCalledWith('lab', 'run-1', variant)
   })
 })
 

@@ -361,15 +361,19 @@ export async function processStep(
  * @param processName - Backend-registered name of the process.
  * @param processUUID - UUID identifying this process run instance.
  * @param jobUUID - UUID of the async job to poll.
+ * @param tableVariant - JSON of the table variant the run started with, when its table has
+ * variants (the backend serves a run's state only under the variant it started with).
  * @returns The normalized job state (running with progress, complete, or error).
  */
 export async function processStatus(
   processName: string,
   processUUID: string,
-  jobUUID: string
+  jobUUID: string,
+  tableVariant?: string
 ): Promise<ProcessResponse> {
   const body = await apiClient.get<unknown>(
-    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/status/${encodeURIComponent(jobUUID)}`
+    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/status/${encodeURIComponent(jobUUID)}`,
+    ...(tableVariant ? [{ params: { tableVariant } }] : [])
   )
   return normalizeProcessResponse(body)
 }
@@ -410,14 +414,17 @@ export async function processRecords(
  *
  * @param processName - Backend-registered name of the process.
  * @param processUUID - UUID identifying this process run instance.
+ * @param tableVariant - JSON of the table variant the run started with, when its table has variants.
  * @returns `true` once the backend accepted the cancellation.
  */
 export async function processCancel(
   processName: string,
-  processUUID: string
+  processUUID: string,
+  tableVariant?: string
 ): Promise<boolean> {
   await apiClient.post<unknown>(
-    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/cancel`
+    `/processes/${encodeURIComponent(processName)}/${encodeURIComponent(processUUID)}/cancel`,
+    ...(tableVariant ? [undefined, { params: { tableVariant } }] : [])
   )
   return true
 }

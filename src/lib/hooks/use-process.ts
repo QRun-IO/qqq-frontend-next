@@ -247,7 +247,7 @@ export function useProcess(
       pollTimerRef.current = null
       if (generation !== generationRef.current || !mountedRef.current) return
       try {
-        const response = await processStatus(processName, processUUID, jobUUID)
+        const response = await processStatus(processName, processUUID, jobUUID, initialRequestRef.current?.tableVariant)
         if (generation !== generationRef.current) return
         if (response.type === 'RUNNING') {
           setState((previous) => ({
@@ -331,7 +331,7 @@ export function useProcess(
     setState((previous) => ({ ...previous, phase: 'cancelled', jobUUID: null }))
     if (!processUUID) return
     try {
-      await processCancel(processName, processUUID)
+      await processCancel(processName, processUUID, initialRequestRef.current?.tableVariant)
     } catch {
       /////////////////////////////////////////////////////////////////////
       // the user is leaving either way; a failed cancel is not blocking //
