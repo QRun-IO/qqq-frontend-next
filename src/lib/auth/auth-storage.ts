@@ -25,6 +25,7 @@ const SIGNED_OUT_KEY = 'qqq.signedOut'
 const USER_KEY = 'qqqUser'
 const REAUTH_KEY = 'qqq.reauthAttempts'
 const CLIENT_DATA_OWNER_KEY = 'qqq.clientDataOwner'
+const SESSION_VALUES_KEY = 'qqq.sessionValues'
 
 /** The displayed identity of the signed-in user. */
 export interface StoredUser {
@@ -113,6 +114,36 @@ export function storeUser(user: StoredUser | null): void {
 }
 
 /**
+ * Persists the full session values from sign-in (the Material Dashboard keeps them as
+ * `sessionValues`), for analytics identity (QRun-IO/qqq#730). A session resumed without
+ * values keeps the stored ones; sign-out removes them.
+ *
+ * @param values - The session values for the frontend, when the backend sent any.
+ */
+export function storeSessionValues(values: Record<string, unknown> | undefined): void {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return
+  try {
+    storage('local')?.setItem(SESSION_VALUES_KEY, JSON.stringify(values))
+  } catch {
+    // storage full or unavailable: analytics identity is optional
+  }
+}
+
+/**
+ * The session values stored at the last sign-in.
+ *
+ * @returns The values, or null.
+ */
+export function getStoredSessionValues(): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(storage('local')?.getItem(SESSION_VALUES_KEY) ?? 'null') as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Counts an automatic re-authentication and reports whether too many happened
  * recently (a backend that keeps rejecting fresh sessions must not loop forever).
  *
@@ -137,10 +168,11 @@ export function resetReauthAttempts(): void {
   storage('session')?.removeItem(REAUTH_KEY)
 }
 
-/** Removes per-user data kept in the browser (recently viewed records, stored identity). */
+/** Removes per-user data kept in the browser (recently viewed records, stored identity and session values). */
 export function clearUserClientData(): void {
   clearRecentRecords()
   storeUser(null)
+  storage('local')?.removeItem(SESSION_VALUES_KEY)
   storage('local')?.removeItem('accessToken')
   storage('local')?.removeItem(CLIENT_DATA_OWNER_KEY)
 }

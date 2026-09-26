@@ -27,6 +27,7 @@ import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
 
 import type { QTableMetaData, QRecord } from '@/types'
 import { deleteRecord } from '@/lib/api/tables'
+import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
@@ -81,7 +82,10 @@ export function DeleteConfirmDialog({
   }
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteRecord(tableMetaData.name, primaryKey),
+    mutationFn: () => {
+      recordAnalytics({ category: 'tableEvents', action: 'delete', label: tableMetaData.label, recordLabel: record.recordLabel })
+      return deleteRecord(tableMetaData.name, primaryKey)
+    },
     meta: HANDLES_OWN_ERRORS,
     onSuccess: () => finishDelete(),
     onError: async (err: Error) => {

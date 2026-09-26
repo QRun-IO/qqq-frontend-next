@@ -32,11 +32,17 @@ import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
 import { applyBrandingTheme } from '@/lib/theme/apply-branding'
+import { readMaterialTheme } from '@/lib/theme/material-theme'
+import { useTheme } from '@/lib/theme/theme-provider'
+import { recordAnalytics } from '@/lib/analytics'
+import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
+import BrandedHeaderBar from '@/components/layout/BrandedHeaderBar'
+import CompanyFooter from '@/components/layout/CompanyFooter'
 import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadcrumbs'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
@@ -50,7 +56,8 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
  * - Fetches full application metadata via TanStack Query (30-minute stale time).
  * - Generates sidebar routes and path-to-label map from the app tree.
  * - Syncs branding, accent color, favicon, and document title to the DOM.
- * - Sanitizes and injects `customCss` from branding metadata.
+ * - Applies the application theme (tokens, rules, customCss) and the branded header bar.
+ * - Configures analytics and records a page view per screen.
  * - Redirects unauthenticated users to `/login`.
  * - Registers global keyboard shortcuts: Cmd+K (command palette), `/` (search), `?` (help).
  * - Renders the desktop sidebar, mobile sidebar drawer, banners, header, and main content slot.
@@ -123,30 +130,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     : undefined
   useDocumentTitle(documentTitle)
 
-  // Inject customCss from branding metadata
-  // MED-2: strip known CSS injection vectors before applying
-  useEffect(() => {
-    if (metaData?.branding?.customCss) {
-      const safe = metaData.branding.customCss
-        .replace(/<\/?\s*style[^>]*>/gi, '')   // no embedded style tags
-        .replace(/expression\s*\(/gi, '')       // no IE CSS expressions
-        .replace(/@import\b/gi, '')             // no @import directives
-        .replace(/javascript\s*:/gi, '')        // no javascript: scheme
-        .replace(/url\s*\(\s*["']?\s*data:/gi, '') // no data: URLs
+  // Application theme (MaterialDashboardThemeMetaData, QRun-IO/qqq#719): tokens, rules and its
+  // customCss; removed again when the dashboard unmounts (sign-out)
+  const { theme, setTheme } = useTheme()
+  const applicationTheme = useMemo(() => readMaterialTheme(metaData), [metaData])
+  useEffect(() => { setTheme(applicationTheme) }, [applicationTheme, setTheme])
+  useEffect(() => () => setTheme(null), [setTheme])
 
-      const styleId = 'qqq-custom-css'
-      const existingStyleEl = document.getElementById(styleId)
-      let styleTag: HTMLStyleElement
-      if (existingStyleEl instanceof HTMLStyleElement) {
-        styleTag = existingStyleEl
-      } else {
-        styleTag = document.createElement('style')
-        styleTag.id = styleId
-        document.head.appendChild(styleTag)
-      }
-      styleTag.textContent = safe
-    }
-  }, [metaData?.branding?.customCss])
+  // Analytics (QRun-IO/qqq#730): off unless configured; one page view per screen
+  useAnalytics(metaData, pathname, user?.email ?? user?.name)
 
   // Sync user ID to QContext
   useEffect(() => {
@@ -205,6 +197,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!isInputFocused() && !e.metaKey && !e.ctrlKey && !e.altKey) {
       if (e.key === '.') {
         e.preventDefault()
+        recordAnalytics({ category: 'globalEvents', action: 'dotMenuKeyboardShortcut' })
         setCommandOpen(true)
       }
       if (e.key === '/') {
@@ -259,6 +252,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
+      <BrandedHeaderBar theme={theme} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Skip to main content — accessibility */}
         <a
@@ -324,6 +318,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               <>
                 <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_BODY" className="mb-4 rounded-lg" />
                 {children}
+                <CompanyFooter branding={metaData?.branding} />
               </>
             )}
           </main>

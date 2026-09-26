@@ -53,6 +53,7 @@ import {
   type SessionResponse,
 } from '@/lib/api/auth'
 import apiClient from '@/lib/api/client'
+import { analytics } from '@/lib/analytics/analytics'
 import { queryClient } from '@/lib/query-client'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import {
@@ -62,6 +63,7 @@ import {
   isSignedOut as readSignedOut,
   resetReauthAttempts,
   setSignedOut,
+  storeSessionValues,
   storeUser,
   userFromSessionValues,
 } from './auth-storage'
@@ -233,17 +235,21 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
    */
   const establishSession = useCallback(async (metadata: QAuthenticationMetaData): Promise<AuthUser | null> => {
     if (ANONYMOUS_TYPES.has(metadata.type)) {
-      const anonymous = sessionUser(await manageSession('anonymous'), { name: 'Anonymous', email: 'anonymous@localhost' })
+      const response = await manageSession('anonymous')
+      const anonymous = sessionUser(response, { name: 'Anonymous', email: 'anonymous@localhost' })
       claimClientData(anonymous)
+      storeSessionValues(response.values)
       return anonymous
     }
     if (RESUMABLE_TYPES.has(metadata.type)) {
       const sessionUUID = readSessionUUIDCookie()
       if (!sessionUUID) return null
       try {
-        const resumed = sessionUser(await resumeSession(sessionUUID), getStoredUser())
+        const response = await resumeSession(sessionUUID)
+        const resumed = sessionUser(response, getStoredUser())
         claimClientData(resumed)
         storeUser(resumed)
+        storeSessionValues(response.values)
         return resumed
       } catch (error) {
         if (getErrorStatusCode(error) === 401) return null
@@ -356,7 +362,8 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       // A stale cookie from an earlier session would shadow the new one (the backend
       // reads `sessionId` before `sessionUUID`), so none is sent with the credentials.
       expireSessionCookies()
-      const signedIn = sessionUser(await createPasswordSession(username, password), { name: username, email: username })
+      const response = await createPasswordSession(username, password)
+      const signedIn = sessionUser(response, { name: username, email: username })
       const previous = getStoredUser()
       if (previous && previous.email !== signedIn.email) {
         // a different user on this browser: drop the previous user's cached pages and recents
@@ -364,6 +371,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
         queryClient.clear()
       }
       storeUser(signedIn)
+      storeSessionValues(response.values)
       setSignedOut(false)
       setSignedOutState(false)
       resetReauthAttempts()
@@ -397,6 +405,8 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     }
     resetReauthAttempts()
     clearUserClientData()
+    // Forget the analytics identity with the session (Material resets its providers on logout)
+    analytics.reset()
     clearAuthMetadataCache()
     queryClient.clear()
     if (metadata && RESUMABLE_TYPES.has(metadata.type)) {
@@ -448,6 +458,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
     const signedIn = sessionUser(response, fallback)
     claimClientData(signedIn)
     storeUser(signedIn)
+    storeSessionValues(response.values)
     setSignedOut(false)
     setSignedOutState(false)
     resetReauthAttempts()

@@ -52,6 +52,7 @@ import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
 import { launchTableName } from '@/lib/utils/process-utils'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+import { recordAnalytics } from '@/lib/analytics'
 
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
@@ -200,6 +201,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   )
 
   const openNewView = () => {
+    recordAnalytics({ category: 'tableEvents', action: 'activateNewView', label: tableMetaData.label })
     clearStoredQueryState(tableName)
     setViewWarnings([])
     setLocalSearchTerm('')
@@ -216,6 +218,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     router.push(`/app/${encodeURIComponent(tableName)}`)
   }
   const openSavedView = (view: SavedView) => {
+    recordAnalytics({ category: 'tableEvents', action: 'activateSavedView', label: tableMetaData.label })
     if (view.id === savedViewId) {
       setLocalSearchTerm('')
       const reconciled = reconcileView(tableMetaData, view.view)

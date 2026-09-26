@@ -18,11 +18,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   claimClientData,
   clearUserClientData,
+  getStoredSessionValues,
   getStoredUser,
   isSignedOut,
   recordReauthAttempt,
   resetReauthAttempts,
   setSignedOut,
+  storeSessionValues,
   storeUser,
   userFromSessionValues,
 } from './auth-storage'
@@ -51,6 +53,19 @@ describe('auth-storage', () => {
     expect(getStoredUser()).toBeNull()
     localStorage.setItem('qqqUser', 'not json')
     expect(getStoredUser()).toBeNull()
+  })
+
+  it('keeps the full session values for analytics identity until sign-out (QRun-IO/qqq#730)', () => {
+    const values = { user: { name: 'Alice (sample)', email: 'sample:alice' }, analyticsValues: { user_id: 'u-1' } }
+    storeSessionValues(values)
+    expect(getStoredSessionValues()).toEqual(values)
+    storeSessionValues(undefined)
+    expect(getStoredSessionValues()).toEqual(values)
+    localStorage.setItem('qqq.sessionValues', '[1]')
+    expect(getStoredSessionValues()).toBeNull()
+    storeSessionValues(values)
+    clearUserClientData()
+    expect(getStoredSessionValues()).toBeNull()
   })
 
   it('tracks an explicit sign-out per tab', () => {

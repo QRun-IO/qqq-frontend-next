@@ -34,6 +34,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { addRecentRecord } from '@/lib/utils/recent-records'
+import { recordAnalytics } from '@/lib/analytics'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
@@ -132,6 +133,8 @@ export default function RecordViewPage() {
   // Track recently viewed records for global search
   useEffect(() => {
     if (record && tableMetaData) {
+      // the record label is sent only when the application allows record data (QRun-IO/qqq#730)
+      recordAnalytics({ category: 'tableEvents', action: 'view', label: tableMetaData.label, recordLabel: record.recordLabel })
       addRecentRecord({
         tableName: tableMetaData.name,
         tableLabel: tableMetaData.label,

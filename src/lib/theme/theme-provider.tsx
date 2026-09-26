@@ -15,16 +15,15 @@
  */
 
 /**
- * @file ThemeProvider — dynamic CSS custom-property injection from QThemeMetaData with light/dark mode toggle.
+ * @file ThemeProvider — the application theme (MaterialDashboardThemeMetaData, QRun-IO/qqq#719)
+ * and the light/dark mode.
  */
 'use client'
 
-// Theme provider — dynamic CSS variable injection from QThemeMetaData
-// Supports light/dark mode toggle
-
-import React, { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
+import React, { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 
 import type { QThemeMetaData } from '@/types'
+import { applyMaterialTheme } from './material-theme'
 
 /**
  * Shape of the value provided by {@link ThemeContext}.
@@ -33,11 +32,11 @@ import type { QThemeMetaData } from '@/types'
  * context directly.
  */
 export interface ThemeContextType {
-  /** The active QQQ theme metadata, or `null` before it has been loaded. */
+  /** The application theme from metadata, or `null` when the application defines none (or before sign-in). */
   theme: QThemeMetaData | null
-  /** Replaces the active theme and triggers CSS variable re-injection. */
-  setTheme: (theme: QThemeMetaData) => void
-  /** Whether dark mode is currently active. */
+  /** Replaces the application theme (null removes it) and re-applies it to the document. */
+  setTheme: (theme: QThemeMetaData | null) => void
+  /** Whether dark mode is currently active (never while an application theme is applied). */
   isDarkMode: boolean
   /**
    * Toggles between light and dark mode, persisting the preference in
@@ -60,19 +59,18 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 const DARK_MODE_KEY = 'qqq-dark-mode'
 
 /**
- * Provider component that manages the QQQ visual theme and dark-mode state.
+ * Provider component that manages the application theme and dark-mode state.
  *
  * On mount it reads the user's dark-mode preference from `localStorage`,
- * falling back to the OS `prefers-color-scheme` media query. Whenever the
- * active theme or dark-mode flag changes it injects the corresponding CSS
- * custom properties (`--color-primary`, `--qqq-accent-color`, etc.) onto
- * `document.documentElement`, which makes them available to all Tailwind and
- * shadcn/ui components via CSS cascade.
+ * falling back to the OS `prefers-color-scheme` media query. The application
+ * theme (set by the dashboard layout from v1 metadata) is applied with
+ * {@link applyMaterialTheme}; while one is present the UI stays light, because
+ * an application's colors are designed for the light look (the Material
+ * Dashboard has no dark mode either).
  *
  * @param props - Component props.
  * @param props.children - The component subtree that needs access to the theme context.
- * @param props.initialTheme - Optional theme metadata to pre-populate before the
- *   backend metadata is fetched (useful for SSR / first paint).
+ * @param props.initialTheme - Optional theme to apply before metadata loads.
  * @returns The rendered theme context provider wrapping the component tree.
  */
 export function ThemeProvider({
@@ -82,64 +80,37 @@ export function ThemeProvider({
   children: ReactNode
   initialTheme?: QThemeMetaData
 }) {
-  const [theme, setTheme] = useState<QThemeMetaData | null>(initialTheme ?? null)
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [theme, setThemeState] = useState<QThemeMetaData | null>(initialTheme ?? null)
+  const [prefersDark, setPrefersDark] = useState(false)
+  const isDarkMode = prefersDark && !theme
 
   // Initialize dark mode from localStorage or system preference
   useEffect(() => {
     const stored = localStorage.getItem(DARK_MODE_KEY)
     if (stored !== null) {
-      setIsDarkMode(stored === 'true')
+      setPrefersDark(stored === 'true')
     } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setIsDarkMode(prefersDark)
+      setPrefersDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
   }, [])
 
-  // Inject CSS variables when theme or dark mode changes
+  // Apply the dark class when the mode changes
   useEffect(() => {
     const root = document.documentElement
+    root.classList.toggle('dark', isDarkMode)
+    root.setAttribute('data-theme', isDarkMode ? 'dark' : 'light')
+  }, [isDarkMode])
 
-    // Apply dark mode class
-    if (isDarkMode) {
-      root.classList.add('dark')
-      root.setAttribute('data-theme', 'dark')
-    } else {
-      root.classList.remove('dark')
-      root.setAttribute('data-theme', 'light')
-    }
+  // Apply the application theme; the cleanup removes it again (sign-out, theme change)
+  useEffect(() => applyMaterialTheme(theme), [theme])
 
-    // Apply theme tokens from backend metadata
-    if (theme) {
-      if (theme.primaryColor) {
-        root.style.setProperty('--color-primary', theme.primaryColor)
-        root.style.setProperty('--qqq-primary-color', theme.primaryColor)
-        root.style.setProperty('--primary', theme.primaryColor)
-        root.style.setProperty('--ring', theme.primaryColor)
-      }
-      if (theme.accentColor) {
-        root.style.setProperty('--color-accent', theme.accentColor)
-        root.style.setProperty('--qqq-accent-color', theme.accentColor)
-        root.style.setProperty('--qqq-sidebar-active-bg', theme.accentColor)
-      }
-
-      // Apply any custom tokens
-      if (theme.customTokens) {
-        for (const [key, value] of Object.entries(theme.customTokens)) {
-          root.style.setProperty(`--${key}`, value)
-        }
-      }
-    }
-  }, [theme, isDarkMode])
+  const setTheme = useCallback((next: QThemeMetaData | null) => setThemeState(next), [])
 
   /**
    * Toggles the dark-mode flag and persists the new value to `localStorage`.
-   *
-   * The updated flag triggers the CSS-variable injection effect, which adds or
-   * removes the `dark` class and `data-theme` attribute on `<html>`.
    */
   const toggleDarkMode = () => {
-    setIsDarkMode((prev) => {
+    setPrefersDark((prev) => {
       const next = !prev
       localStorage.setItem(DARK_MODE_KEY, String(next))
       return next

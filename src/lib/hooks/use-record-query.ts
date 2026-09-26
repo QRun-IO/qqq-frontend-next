@@ -34,6 +34,7 @@ import type {
   QFieldMetaData,
 } from '@/types'
 import { queryRecords, countRecords, type TableVariant } from '@/lib/api/tables'
+import { recordAnalytics } from '@/lib/analytics'
 import { queryKeys } from '@/lib/query-client'
 import {
   emptyFilter,
@@ -468,12 +469,15 @@ export function useRecordQuery({
       JSON.stringify(joins ?? null),
       variantKey,
     ],
-    queryFn: () =>
-      queryRecords(tableName, {
+    queryFn: () => {
+      // Material records every query run (QRun-IO/qqq#730)
+      recordAnalytics({ category: 'tableEvents', action: 'query', label: tableMetaData?.label })
+      return queryRecords(tableName, {
         filter: effectiveFilter,
         joins,
         ...(tableVariant ? { tableVariant } : {}),
-      }),
+      })
+    },
     // Revalidate on every mount: other users may have changed the rows (cached rows show meanwhile).
     staleTime: 0,
     placeholderData: (prev) => prev,

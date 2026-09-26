@@ -24,8 +24,8 @@ import type { QLoginBranding } from '@/types'
 /** CSS color formats accepted for branding accents (MED-3: nothing else reaches a custom property). */
 const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
 
-/** Custom properties that carry the primary accent color. */
-const ACCENT_PROPERTIES = ['--qqq-accent-color', '--color-primary', '--primary', '--ring', '--qqq-sidebar-active-bg']
+/** Custom properties that carry the primary accent color (including the Material `--qqq-primary-color`). */
+const ACCENT_PROPERTIES = ['--qqq-accent-color', '--qqq-primary-color', '--color-primary', '--primary', '--ring', '--qqq-sidebar-active-bg']
 
 /**
  * Whether a branding color may be applied to CSS custom properties.

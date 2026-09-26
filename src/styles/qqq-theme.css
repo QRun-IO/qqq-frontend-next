@@ -117,6 +117,69 @@
   --qqq-z-modal: 1000;
   --qqq-z-toast: 2000;
   --qqq-z-tooltip: 3000;
+
+  /* === Material Dashboard --qqq-* variable contract (QRun-IO/qqq#719) ===
+     Application customCss written for the Material Dashboard reads these names. Each one
+     holds the value Next renders; the theme (src/lib/theme/material-theme.ts) sets the ones
+     an application defines. */
+  --qqq-background-color: var(--color-background);
+  --qqq-surface-color: var(--color-card);
+  --qqq-text-primary: var(--color-foreground);
+  --qqq-text-secondary: var(--color-muted-foreground);
+  --qqq-border-color: var(--color-border);
+  --qqq-card-border-color: var(--color-border);
+  --qqq-divider-color: var(--color-border);
+  --qqq-header-font-family: var(--font-sans);
+  --qqq-mono-font-family: var(--font-mono);
+  --qqq-sidebar-background-color: var(--color-sidebar);
+  --qqq-sidebar-text-color: var(--color-foreground);
+  --qqq-sidebar-icon-color: var(--color-foreground);
+  --qqq-sidebar-selected-background-color: var(--color-primary);
+  --qqq-sidebar-selected-text-color: var(--color-primary-foreground);
+  --qqq-sidebar-hover-background-color: var(--color-accent);
+  --qqq-sidebar-divider-color: var(--color-border);
+  --qqq-table-header-background-color: var(--color-muted);
+  --qqq-table-header-text-color: var(--color-foreground);
+  --qqq-table-row-hover-color: color-mix(in srgb, var(--color-muted) 50%, transparent);
+  --qqq-table-row-selected-color: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  --qqq-table-border-color: var(--color-border);
+  --qqq-branded-header-enabled: false;
+  --qqq-branded-header-height: 0px;
+  --qqq-density: normal;
+  --qqq-spacing-base: 8px;
+  --qqq-spacing-small: 0.5rem;
+  --qqq-spacing-medium: 1rem;
+  --qqq-spacing-large: 1.5rem;
+
+  /* Derived variables (Material QQQ_THEMING_GUIDE.md "Additional Generated Variables") */
+  --qqq-primary-contrast-text: var(--color-primary-foreground);
+  --qqq-info-light: color-mix(in srgb, var(--qqq-info-color) 10%, white);
+  --qqq-info-dark: color-mix(in srgb, var(--qqq-info-color) 40%, black);
+  --qqq-success-light: color-mix(in srgb, var(--qqq-success-color) 10%, white);
+  --qqq-success-dark: color-mix(in srgb, var(--qqq-success-color) 40%, black);
+  --qqq-warning-light: color-mix(in srgb, var(--qqq-warning-color) 10%, white);
+  --qqq-warning-dark: color-mix(in srgb, var(--qqq-warning-color) 40%, black);
+  --qqq-error-light: color-mix(in srgb, var(--qqq-error-color) 10%, white);
+  --qqq-error-dark: color-mix(in srgb, var(--qqq-error-color) 40%, black);
+  --qqq-action-active: rgba(0, 0, 0, 0.54);
+  --qqq-action-hover: rgba(0, 0, 0, 0.04);
+  --qqq-action-selected: rgba(0, 0, 0, 0.08);
+  --qqq-action-disabled: rgba(0, 0, 0, 0.26);
+  --qqq-chart-grid-color: #c1c4ce5c;
+  --qqq-chart-text-color: #9ca2b7;
+  --qqq-chart-background-color: var(--color-primary);
+  --qqq-grey-100: #f8f9fa;
+  --qqq-grey-200: #eeeeee;
+  --qqq-grey-300: #e0e0e0;
+  --qqq-grey-400: #bdbdbd;
+  --qqq-grey-500: #9e9e9e;
+  --qqq-grey-600: #757575;
+  --qqq-grey-700: #616161;
+  --qqq-grey-800: #424242;
+  --qqq-grey-900: #212121;
+
+  /* Component override variable: application CSS may set --qqq-input-border-color */
+  --color-input: var(--qqq-input-border-color, #dfe2e8);
 }
 
 /* === Dark Mode Overrides === */

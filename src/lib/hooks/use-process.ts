@@ -34,6 +34,7 @@ import {
   type ProcessResponse,
 } from '@/lib/api/processes'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { recordAnalytics } from '@/lib/analytics'
 
 /** First poll delay after a job starts or reports progress (matches the Material dashboard). */
 export const POLL_INITIAL_MILLIS = 1_500
@@ -312,6 +313,7 @@ export function useProcess(
     const { processUUID, currentStep, phase } = stateRef.current
     if (!processUUID || !currentStep || phase !== 'step') return
     const generation = generationRef.current
+    recordAnalytics({ category: 'processEvents', action: 'processStep', label: currentStep.label })
     setState((previous) => ({ ...previous, phase: 'working', progress: { message: 'Working...', updatedAt: new Date() } }))
     void run(() => processStep(processName, processUUID, currentStep.name, { values, files, tableVariant: initialRequestRef.current?.tableVariant }), generation)
   }, [processName, run])

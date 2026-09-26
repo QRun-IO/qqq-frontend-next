@@ -48,12 +48,16 @@ export interface QInstance {
    * `bulkAddFilterValues` slot); v1 omits it when the instance defines none.
    */
   helpContents?: Record<string, QHelpContent[]>
-  /** Arbitrary key/value pairs the backend exposes to the frontend environment. */
-  environmentValues: Record<string, string>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Environment values the backend publishes to the frontend. v1 sends only the analytics
+   * settings (an allow-list, QRun-IO/qqq#730); absent when none are configured.
+   */
+  environmentValues?: Record<string, string>
+  /**
+   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen) and
+   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}).
+   */
   supplementalInstanceMetaData?: Record<string, unknown>
-  /** Optional theme overrides for colors and display mode. */
-  theme?: QThemeMetaData
 }
 
 /**
@@ -94,7 +98,8 @@ export type QLoginBranding = Pick<QBrandingMetaData, 'companyName' | 'appName' |
 /**
  * Branding configuration that controls the visual identity of the application.
  *
- * Applied globally via the theme provider and injected `<style>` tag.
+ * Applied by the dashboard layout (accent colors, favicon, logo, banners, company footer).
+ * Application CSS belongs to the theme ({@link QThemeMetaData.customCss}).
  */
 export interface QBrandingMetaData {
   /** Human-readable company name; optional in QQQ branding. */
@@ -113,24 +118,139 @@ export interface QBrandingMetaData {
   accentColorLight?: string
   /** Banners keyed by display slot (for example `QFMD_TOP_OF_SITE`). */
   banners?: Record<string, Banner>
-  /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
-  customCss?: string
 }
 
 /**
- * Theme token overrides that allow the backend to adjust color mode and palette.
- *
- * These values are applied on top of the default Tailwind CSS custom properties.
+ * The application theme: the Material Dashboard's `MaterialDashboardThemeMetaData`
+ * (QRun-IO/qqq#719), published by v1 as `supplementalInstanceMetaData.materialDashboardTheme`.
+ * Every property is optional; only the values an application sets change the UI
+ * (`src/lib/theme/material-theme.ts` maps each one onto the Next tokens).
  */
 export interface QThemeMetaData {
-  /** Primary brand color (hex or CSS value). */
   primaryColor?: string
-  /** Accent color (hex or CSS value). */
-  accentColor?: string
-  /** Preferred color scheme; defaults to the OS preference when omitted. */
-  mode?: 'light' | 'dark'
-  /** Additional arbitrary CSS custom property overrides keyed by token name. */
-  customTokens?: Record<string, string>
+  secondaryColor?: string
+  backgroundColor?: string
+  surfaceColor?: string
+  textPrimary?: string
+  textSecondary?: string
+  errorColor?: string
+  warningColor?: string
+  successColor?: string
+  infoColor?: string
+  /** Create, save, stepper, app-home icons and pagination use the info color instead of the primary color. */
+  preferInfoColorToPrimaryColor?: boolean
+
+  fontFamily?: string
+  headerFontFamily?: string
+  monoFontFamily?: string
+  fontSizeBase?: string
+  fontWeightLight?: number
+  fontWeightRegular?: number
+  fontWeightMedium?: number
+  fontWeightBold?: number
+
+  typographyH1FontSize?: string
+  typographyH1FontWeight?: number
+  typographyH1LineHeight?: number | string
+  typographyH1LetterSpacing?: string
+  typographyH1TextTransform?: string
+  typographyH2FontSize?: string
+  typographyH2FontWeight?: number
+  typographyH2LineHeight?: number | string
+  typographyH2LetterSpacing?: string
+  typographyH2TextTransform?: string
+  typographyH3FontSize?: string
+  typographyH3FontWeight?: number
+  typographyH3LineHeight?: number | string
+  typographyH3LetterSpacing?: string
+  typographyH3TextTransform?: string
+  typographyH4FontSize?: string
+  typographyH4FontWeight?: number
+  typographyH4LineHeight?: number | string
+  typographyH4LetterSpacing?: string
+  typographyH4TextTransform?: string
+  typographyH5FontSize?: string
+  typographyH5FontWeight?: number
+  typographyH5LineHeight?: number | string
+  typographyH5LetterSpacing?: string
+  typographyH5TextTransform?: string
+  typographyH6FontSize?: string
+  typographyH6FontWeight?: number
+  typographyH6LineHeight?: number | string
+  typographyH6LetterSpacing?: string
+  typographyH6TextTransform?: string
+  typographyBody1FontSize?: string
+  typographyBody1FontWeight?: number
+  typographyBody1LineHeight?: number | string
+  typographyBody1LetterSpacing?: string
+  typographyBody1TextTransform?: string
+  typographyBody2FontSize?: string
+  typographyBody2FontWeight?: number
+  typographyBody2LineHeight?: number | string
+  typographyBody2LetterSpacing?: string
+  typographyBody2TextTransform?: string
+  typographyButtonFontSize?: string
+  typographyButtonFontWeight?: number
+  typographyButtonLineHeight?: number | string
+  typographyButtonLetterSpacing?: string
+  typographyButtonTextTransform?: string
+  typographyCaptionFontSize?: string
+  typographyCaptionFontWeight?: number
+  typographyCaptionLineHeight?: number | string
+  typographyCaptionLetterSpacing?: string
+  typographyCaptionTextTransform?: string
+
+  /** Absolute radius for every component that has no radius of its own. */
+  borderRadiusGlobal?: string
+  /** Multiplier for each component's default radius (when no global radius is set). */
+  borderRadiusScale?: number | string
+  borderRadiusButton?: string
+  borderRadiusCard?: string
+  borderRadiusChip?: string
+  borderRadiusDialog?: string
+  borderRadiusOutlinedInput?: string
+  borderRadiusLinearProgress?: string
+  borderRadiusMenuPaper?: string
+  borderRadiusPaperRounded?: string
+  borderRadiusPopoverPaper?: string
+  borderRadiusTooltip?: string
+  density?: 'compact' | 'normal' | 'comfortable'
+
+  logoPath?: string
+  iconPath?: string
+  faviconPath?: string
+  /** Application CSS, injected as `<style id="qqq-custom-theme-css">`. */
+  customCss?: string
+  iconStyle?: 'filled' | 'outlined' | 'rounded' | 'sharp' | 'two-tone'
+
+  brandedHeaderEnabled?: boolean
+  brandedHeaderBackgroundColor?: string
+  brandedHeaderTextColor?: string
+  brandedHeaderLogoPath?: string
+  brandedHeaderLogoAltText?: string
+  brandedHeaderHeight?: string
+  brandedHeaderTagline?: string
+
+  appBarBackgroundColor?: string
+  appBarTextColor?: string
+
+  sidebarBackgroundColor?: string
+  sidebarTextColor?: string
+  sidebarIconColor?: string
+  sidebarSelectedBackgroundColor?: string
+  sidebarSelectedTextColor?: string
+  sidebarHoverBackgroundColor?: string
+  sidebarDividerColor?: string
+
+  tableHeaderBackgroundColor?: string
+  tableHeaderTextColor?: string
+  tableRowHoverColor?: string
+  tableRowSelectedColor?: string
+  tableBorderColor?: string
+
+  dividerColor?: string
+  borderColor?: string
+  cardBorderColor?: string
 }
 
 /**

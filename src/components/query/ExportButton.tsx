@@ -30,6 +30,7 @@ import type { QTableMetaData, QQueryFilter } from '@/types'
 import { exportRecords, type ExportFormat, type TableVariant } from '@/lib/api/tables'
 import { hasCapability } from '@/lib/utils/query-columns'
 import { toast } from '@/lib/hooks/use-toast'
+import { recordAnalytics } from '@/lib/analytics'
 
 /**
  * Props for the ExportButton component.
@@ -109,6 +110,7 @@ export function ExportButton({ tableName, tableMetaData, exportFilter, columnNam
   const runExport = async (format: ExportFormat) => {
     setOpen(false)
     setExporting(true)
+    recordAnalytics({ category: 'tableEvents', action: 'export', label: tableMetaData.label })
     const filename = `${tableMetaData.label} Export ${formatDateTimeForFileName(new Date())}.${format}`
     try {
       const { skip: _skip, limit: _limit, ...filter } = exportFilter

@@ -34,6 +34,7 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { runFormAdjuster } from '@/lib/api/form-adjuster'
 import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
+import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import {
   zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, defaultValuesForCreate, zodFieldFromMetadata,
@@ -357,6 +358,16 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
 
   const hasChanges = isDirty || Boolean(copyAssociations?.dirty) || Object.keys(associations).length > 0
 
+  // Material's form-opened events (QRun-IO/qqq#730); the record label only with record data allowed
+  const openedEventSent = useRef(false)
+  useEffect(() => {
+    if (openedEventSent.current || (!record && (isEdit || isCopy))) return
+    openedEventSent.current = true
+    recordAnalytics(record
+      ? { category: 'tableEvents', action: isCopy ? 'copy' : 'edit', label: tableMetaData.label, recordLabel: record.recordLabel }
+      : { category: 'tableEvents', action: 'new', label: tableMetaData.label })
+  }, [record, isEdit, isCopy, tableMetaData.label])
+
   // Browser-level navigation guard (tab close, URL change, refresh)
   // Both e.preventDefault() and e.returnValue are required for cross-browser support:
   // Chrome/Edge require returnValue to be set, Firefox/Safari rely on preventDefault().
@@ -546,6 +557,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   // --- Mutations ---
   const insertMutation = useMutation({
     mutationFn: async (values: Record<string, unknown>) => {
+      recordAnalytics({ category: 'tableEvents', action: isCopy ? 'saveCopy' : 'saveNew', label: tableMetaData.label })
       const relationshipValues: Record<string, unknown> = {}
       for (const [name, value] of Object.entries(fixedValues ?? {})) {
         const field = tableMetaData.fields[name]
@@ -589,6 +601,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
 
   const updateMutation = useMutation({
     mutationFn: async (values: Record<string, unknown>) => {
+      recordAnalytics({ category: 'tableEvents', action: 'saveEdit', label: tableMetaData.label })
       const pk = record!.values[tableMetaData.primaryKeyField] as string | number
       // Values that cannot round-trip through the form are sent only when changed: a
       // masked password, a LONG beyond 2^53, a date-time shown at minute/second precision

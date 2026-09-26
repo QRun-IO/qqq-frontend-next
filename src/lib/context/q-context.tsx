@@ -25,6 +25,7 @@
 import React, { createContext, type ReactNode, useCallback, useContext, useState } from 'react'
 
 import type { QTableMetaData, QProcessMetaData, QBrandingMetaData } from '@/types'
+import { recordAnalytics, type AnalyticsModel } from '@/lib/analytics'
 
 /**
  * Shape of the value provided by {@link QContext}.
@@ -111,6 +112,10 @@ export interface QContextType {
   branding: QBrandingMetaData | null
   /** Replaces the current branding metadata. */
   setBranding: (branding: QBrandingMetaData) => void
+
+  // Analytics
+  /** Records a page view or event with the configured analytics providers (QRun-IO/qqq#730). */
+  recordAnalytics: (model: AnalyticsModel) => void
 }
 
 /**
@@ -234,6 +239,7 @@ export function QContextProvider({ children }: { children: ReactNode }) {
         setUserId,
         branding,
         setBranding,
+        recordAnalytics,
       }}
     >
       {children}
