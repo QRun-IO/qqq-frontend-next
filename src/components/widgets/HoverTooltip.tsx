@@ -37,15 +37,22 @@ interface HoverTooltipProps {
 /**
  * Shows `content` in a `role="tooltip"` element while the trigger is hovered or
  * focused, or after it is tapped on a touch screen (where the trigger is a 44 px
- * target); the trigger references it with `aria-describedby`. Escape, moving the
- * pointer away and leaving the trigger hide it. The open tooltip stays inside the viewport.
+ * target); the trigger references it with `aria-describedby`. It stays open while
+ * any of these holds, so the pointer leaving a focused trigger (for example after
+ * the layout moves it from under a resting pointer) does not hide it. Escape hides
+ * it; so do the pointer leaving and focus leaving once neither still holds. The
+ * open tooltip stays inside the viewport.
  *
  * @param props - See {@link HoverTooltipProps}.
  * @returns The trigger with its tooltip.
  */
 export function HoverTooltip({ content, children, qqqId }: HoverTooltipProps) {
   const id = useId()
-  const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  // a tap where the browser does not focus the trigger
+  const [tapped, setTapped] = useState(false)
+  const open = hovered || focused || tapped
   const tooltipRef = useRef<HTMLSpanElement>(null)
   const [shift, setShift] = useState(0)
 
@@ -66,17 +73,22 @@ export function HoverTooltip({ content, children, qqqId }: HoverTooltipProps) {
   return (
     <span
       className="relative inline-flex"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => { setFocused(false); setTapped(false) }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return
+        setHovered(false)
+        setFocused(false)
+        setTapped(false)
+      }}
     >
       {/* a tap focuses and clicks the trigger: both open the tooltip; tapping elsewhere (blur) closes it */}
       <span
         tabIndex={0}
         aria-describedby={id}
-        onClick={() => setOpen(true)}
+        onClick={() => setTapped(true)}
         className="inline-flex items-center rounded focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center"
         data-tooltip-trigger=""
       >

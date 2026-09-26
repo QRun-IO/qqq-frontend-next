@@ -53,6 +53,36 @@ describe('HoverTooltip', () => {
     expect(tooltip).not.toBeVisible()
   })
 
+  it('stays open while its trigger keeps focus after the pointer leaves (QRun-IO/qqq#708)', () => {
+    const { trigger, tooltip } = renderTooltip()
+    // a tap hovers, focuses and clicks the trigger; a later layout shift moves it from under the pointer
+    fireEvent.mouseEnter(trigger)
+    fireEvent.focus(trigger)
+    fireEvent.click(trigger)
+    fireEvent.mouseLeave(trigger)
+    expect(tooltip).toBeVisible()
+    fireEvent.blur(trigger)
+    expect(tooltip).not.toBeVisible()
+  })
+
+  it('stays open while hovered after focus leaves', () => {
+    const { trigger, tooltip } = renderTooltip()
+    fireEvent.focus(trigger)
+    fireEvent.mouseEnter(trigger)
+    fireEvent.blur(trigger)
+    expect(tooltip).toBeVisible()
+    fireEvent.mouseLeave(trigger)
+    expect(tooltip).not.toBeVisible()
+  })
+
+  it('closes on Escape while hovered and focused', () => {
+    const { trigger, tooltip } = renderTooltip()
+    fireEvent.mouseEnter(trigger)
+    fireEvent.focus(trigger)
+    fireEvent.keyDown(trigger, { key: 'Escape' })
+    expect(tooltip).not.toBeVisible()
+  })
+
   it('closes on Escape', () => {
     const { trigger, tooltip } = renderTooltip()
     fireEvent.focus(trigger)
