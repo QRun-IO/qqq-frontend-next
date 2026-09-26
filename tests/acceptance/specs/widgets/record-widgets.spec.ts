@@ -157,7 +157,9 @@ test.describe('at phone width', () => {
   test('[WID-065] the accordion mounts only open sections and requests each widget once @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const requests = widgetRequests(page)
-    await openHost(page, 1)
+    // opened as a user lands on it: openHost expands every section, which is what this test must not do
+    await page.goto('/app/accWidgetHost/1', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     // the first section (the schedule) starts open; the desktop tab layout is not mounted
     await expectLoaded(page, 'accHostCron')
     await expect(page.locator('[data-qqq-id="record-view-tabs"]')).toHaveCount(0)
