@@ -19,7 +19,7 @@
  */
 'use client'
 
-import React, { useId, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 
 /** Gap in px kept between an open tooltip and the viewport edge. */
 const VIEWPORT_MARGIN = 8
@@ -39,9 +39,9 @@ interface HoverTooltipProps {
  * focused, or after it is tapped on a touch screen (where the trigger is a 44 px
  * target); the trigger references it with `aria-describedby`. It stays open while
  * any of these holds, so the pointer leaving a focused trigger (for example after
- * the layout moves it from under a resting pointer) does not hide it. Escape hides
- * it; so do the pointer leaving and focus leaving once neither still holds. The
- * open tooltip stays inside the viewport.
+ * the layout moves it from under a resting pointer) does not hide it. Escape and a
+ * tap elsewhere hide it; so do the pointer leaving and focus leaving once neither
+ * still holds. The open tooltip stays inside the viewport.
  *
  * @param props - See {@link HoverTooltipProps}.
  * @returns The trigger with its tooltip.
@@ -54,12 +54,29 @@ export function HoverTooltip({ content, children, qqqId }: HoverTooltipProps) {
   const [tapped, setTapped] = useState(false)
   const open = hovered || focused || tapped
   const tooltipRef = useRef<HTMLSpanElement>(null)
+  const rootRef = useRef<HTMLSpanElement>(null)
   const [shift, setShift] = useState(0)
 
   ///////////////////////////////////////////////////////////////////
   // keep an open tooltip inside the viewport (a phone is narrower  //
   // than the space to the right of a trigger near its edge)        //
   ///////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////
+  // a tap elsewhere hides it, also where the browser neither focused //
+  // the trigger on the tap nor blurs it now (WebKit)                 //
+  /////////////////////////////////////////////////////////////////////
+  const pinned = focused || tapped
+  useEffect(() => {
+    if (!pinned) return
+    const onPointerDown = (event: Event) => {
+      if (event.target instanceof Node && rootRef.current?.contains(event.target)) return
+      setFocused(false)
+      setTapped(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  }, [pinned])
+
   useLayoutEffect(() => {
     let next = 0
     if (open && tooltipRef.current) {
@@ -72,6 +89,7 @@ export function HoverTooltip({ content, children, qqqId }: HoverTooltipProps) {
 
   return (
     <span
+      ref={rootRef}
       className="relative inline-flex"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
