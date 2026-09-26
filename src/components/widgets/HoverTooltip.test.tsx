@@ -83,6 +83,25 @@ describe('HoverTooltip', () => {
     expect(tooltip).not.toBeVisible()
   })
 
+  it('closes on a tap elsewhere when the browser does not move focus (WebKit)', () => {
+    const { trigger, tooltip } = renderTooltip()
+    fireEvent.mouseEnter(trigger)
+    fireEvent.click(trigger)
+    fireEvent.mouseLeave(trigger)
+    expect(tooltip).toBeVisible()
+    fireEvent.pointerDown(trigger)
+    expect(tooltip).toBeVisible()
+    fireEvent.pointerDown(document.body)
+    expect(tooltip).not.toBeVisible()
+  })
+
+  it('closes a focused tooltip on a tap elsewhere', () => {
+    const { trigger, tooltip } = renderTooltip()
+    fireEvent.focus(trigger)
+    fireEvent.pointerDown(document.body)
+    expect(tooltip).not.toBeVisible()
+  })
+
   it('closes on Escape', () => {
     const { trigger, tooltip } = renderTooltip()
     fireEvent.focus(trigger)
