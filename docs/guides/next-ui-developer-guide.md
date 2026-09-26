@@ -1,6 +1,6 @@
 # Next UI developer guide
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-09-26. It explains the current frontend and backend metadata contract; it does not claim that Next UI 1.0 has shipped. The checked-out `package.json` and Maven POM still say `0.2.1`. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-09-26. It explains the current frontend and backend metadata contract. The source is versioned `1.0.0` for release preparation; check the published Maven artifact and image before treating that version as available. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 ## 1. What an application supplies
 
@@ -39,7 +39,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). The checked-out `package.json` and POM still say `0.2.1`; use the published artifact version that actually exists, rather than assuming `1.0.0` is available.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Source version `1.0.0` is a release candidate until the Maven artifact is published and verified.
 
 | Setting | Behavior in this checkout |
 |---|---|
