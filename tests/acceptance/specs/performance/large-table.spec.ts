@@ -6,8 +6,12 @@
  */
 
 // Large-table budgets: prfWide has 10,000 rows and 40 columns (PerformanceFixtures.java).
+// The tablet shows the desktop grid. A phone opens the table as cards (PRF-001 times that first
+// page) and shows all 40 columns in its Table view, where it pages, sorts and filters like the
+// desktop grid (QRun-IO/qqq#708).
 import { expect, open, test } from '../../support/fixtures'
-import { addCondition, columnCells, grid, nextQuery, openFilter, sqlColumn } from '../query/query-helpers'
+import { expectNoHorizontalScroll, expectTouchReady } from '../../support/touch'
+import { addCondition, closeFilterSheet, columnCells, grid, isPhone, nextQuery, openFilter, showTable, sqlColumn } from '../query/query-helpers'
 import { PERFORMANCE_BUDGET, timed } from './budgets'
 
 const ROWS = 10_000
@@ -22,10 +26,17 @@ const LABELS = ['Id', 'Name', ...Array.from({ length: 38 }, (_, i) => column(i +
 /** Ids from `first` counting down, `count` of them. */
 const idsDown = (first: number, count: number) => Array.from({ length: count }, (_, i) => String(first - i))
 
-test('[PRF-001] a 10,000-row, 40-column table opens with every column and the exact first page within budget', async ({ page, diagnostics }) => {
+test('[PRF-001] a 10,000-row, 40-column table opens with every column and the exact first page within budget @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   const ids = idsDown(ROWS, 25)
+  // the first page as the screen shows it: grid rows, or on a phone its default card list
   const elapsed = await timed('first page', () => open(page, '/app/prfWide'), () => expect(columnCells(page, 'id')).toHaveText(ids))
+  if (isPhone(page)) {
+    // one page of cards in the DOM, not the table; then every column in the Table view
+    await expect(page.getByRole('list', { name: 'Performance Wide records' }).getByRole('listitem')).toHaveCount(25)
+    await expectTouchReady(page, page.locator('[data-qqq-id^="record-query-"]'))
+    await showTable(page)
+  }
   const table = grid(page, 'Performance Wide')
   // every field is a column (the grid keeps the metadata field-map order, so compare as a set)
   const headers = table.getByRole('button', { name: /^Sort by / })
@@ -40,12 +51,15 @@ test('[PRF-001] a 10,000-row, 40-column table opens with every column and the ex
   await expect(columnCells(page, column(39).name)).toHaveText(ids.map((id) => `C39-${id}`))
   // one page in the DOM, not the table
   await expect(table.locator('tbody td[data-qqq-id^="grid-cell-"]:not([data-qqq-id="grid-cell-_select"])')).toHaveCount(25 * 40)
+  // the 40 columns scroll inside the grid, never the page
+  await expectNoHorizontalScroll(page)
   expect(elapsed, 'first page of 10,000 rows').toBeLessThan(PERFORMANCE_BUDGET.firstPageMs)
 })
 
-test('[PRF-002] 250-row pages of 40 columns render, page and reach the last page within budget', async ({ page, diagnostics }) => {
+test('[PRF-002] 250-row pages of 40 columns render, page and reach the last page within budget @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/prfWide')
+  await showTable(page)
   await expect(columnCells(page, 'id')).toHaveText(idsDown(ROWS, 25))
   const table = grid(page, 'Performance Wide')
   const cells = table.locator('tbody td[data-qqq-id^="grid-cell-"]:not([data-qqq-id="grid-cell-_select"])')
@@ -71,9 +85,10 @@ test('[PRF-002] 250-row pages of 40 columns render, page and reach the last page
   }
 })
 
-test('[PRF-003] sorting and filtering 10,000 rows return exact results within budget', async ({ page, backend, diagnostics }) => {
+test('[PRF-003] sorting and filtering 10,000 rows return exact results within budget @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/prfWide')
+  await showTable(page)
   await expect(columnCells(page, 'id')).toHaveText(idsDown(ROWS, 25))
   const table = grid(page, 'Performance Wide')
 
@@ -89,6 +104,8 @@ test('[PRF-003] sorting and filtering 10,000 rows return exact results within bu
   const filtered = await timed('filter Count 04 = 0', () => row.getByLabel('Filter value for Count 04').fill('0'),
     () => expect(columnCells(page, 'id')).toHaveText(matching.slice(0, 25)))
   await expect(page.locator('[data-qqq-id="pagination-total"]')).toHaveText('40')
+  await closeFilterSheet(page)
+  await expect(table.locator('th[aria-sort="ascending"]')).toContainText('Name')
 
   expect(sorted, 'sort by Name').toBeLessThan(PERFORMANCE_BUDGET.queryMs)
   expect(filtered, 'filter').toBeLessThan(PERFORMANCE_BUDGET.queryMs)

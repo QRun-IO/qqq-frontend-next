@@ -84,6 +84,17 @@ describe('CronScheduleEditor', () => {
     expect(onValue).toHaveBeenLastCalledWith('0 0,30 * 1,15 * ?')
   })
 
+  it('keeps a slot popover within the space beside its trigger, scrolling inside (QRun-IO/qqq#708)', async () => {
+    const user = userEvent.setup()
+    render(<Harness initial="0 0 9 * * ?" />)
+    await user.click(screen.getByRole('button', { name: /^Minutes/ }))
+    const minutes = screen.getByRole('dialog', { name: 'Minutes' })
+    // 60 touch-sized minute choices are taller than a phone or tablet screen: the popover is
+    // capped at the height Radix measures as available and scrolls, so every choice is reachable
+    expect(within(minutes).getAllByRole('checkbox')).toHaveLength(60)
+    expect(minutes).toHaveClass('max-h-[var(--radix-popover-content-available-height)]', 'overflow-y-auto')
+  })
+
   it('describes a typed expression and flags an invalid one in Advanced mode', async () => {
     const user = userEvent.setup()
     const { container } = render(<Harness />)

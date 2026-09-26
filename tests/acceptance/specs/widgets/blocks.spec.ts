@@ -114,7 +114,7 @@ test('[WID-059] an unsupported block type shows a contained warning and neighbor
   await expect(widgetBody(page, 'accHealthy')).toHaveText('Healthy neighbor content')
 })
 
-test('[WID-067] a widget whose payload is a single leaf block renders that block', async ({ page, backend, diagnostics }) => {
+test('[WID-067] a widget whose payload is a single leaf block renders that block @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await expectLoaded(page, 'accLeafBlock')
   // the backend sends the block itself (blockTypeName TEXT, no blocks list), as a Material block widget
@@ -124,4 +124,5 @@ test('[WID-067] a widget whose payload is a single leaf block renders that block
   const body = widgetBody(page, 'accLeafBlock')
   await expect(body.locator('[data-block-type="TEXT"]')).toHaveText('Owned leaf block text')
   await expect(body.locator('[data-block-type="COMPOSITE"]')).toHaveCount(0)
+  await expectTouchReady(page, widget(page, 'accLeafBlock'))
 })

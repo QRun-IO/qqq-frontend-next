@@ -8,6 +8,7 @@
 // Widgets embedded in record-view sections (not association editors).
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { byId, expectLoaded, openRecord, sqlRows, widgetBody } from './widget-support'
 
 async function openHost(page: Page, id: number) {
@@ -172,7 +173,7 @@ test.describe('at phone width', () => {
   })
 })
 
-test('[WID-064] the schedule editor edits an existing expression in Advanced mode with live validation and the backend description', async ({ page, backend, diagnostics }) => {
+test('[WID-064] the schedule editor edits an existing expression in Advanced mode with live validation and the backend description @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const expression = '0 */15 8-17 ? * MON-FRI'
   const backendDescription = (await (await backend.api.get(`/widget/accHostCron?cronExpression=${encodeURIComponent(expression)}`)).json()).cronDescription
@@ -193,6 +194,7 @@ test('[WID-064] the schedule editor edits an existing expression in Advanced mod
   await input.fill('0 75 9 * * ?')
   await expect(byId(page, 'cron-editor-error-accHostCron')).toHaveText('Minute values must be between 0 and 59')
   await expect(input).toHaveAttribute('aria-invalid', 'true')
+  await expectTouchReady(page, editor)
   await input.fill(expression)
   await expect(live).toHaveText(backendDescription)
   await expect(input).not.toHaveAttribute('aria-invalid')

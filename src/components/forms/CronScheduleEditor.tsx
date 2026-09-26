@@ -204,7 +204,12 @@ function SlotPicker({ slot, baseId, qqqId, schedule, isEmpty, required, disabled
             collisionPadding={16}
             role="dialog"
             aria-label={SLOT_LABELS[slot]}
-            className="z-[200] w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 text-sm text-popover-foreground shadow-md"
+            // At most the space Radix measures beside the trigger, scrolling inside: 60 touch-sized
+            // minute choices are taller than a phone or tablet screen (QRun-IO/qqq#708).
+            className={cn(
+              'z-[200] w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 text-sm text-popover-foreground shadow-md',
+              'max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain'
+            )}
             data-qqq-id={`cron-${slot}-popover-${qqqId}`}
           >
             <fieldset className="space-y-2">
