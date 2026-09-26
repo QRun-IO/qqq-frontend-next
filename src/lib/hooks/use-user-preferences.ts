@@ -39,7 +39,7 @@ export interface UserPreferences {
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
-  tableDefaultPageSize: 25,
+  tableDefaultPageSize: 50,
   tableDefaultDensity: 'standard',
   tableDefaultViewMode: 'grid',
   recordDefaultViewMode: 'tabs',

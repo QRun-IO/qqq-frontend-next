@@ -21,7 +21,7 @@ import { describe, it, expect } from 'vitest'
 import type { QFieldMetaData, QTableMetaData } from '@/types'
 import { emptyFilter } from './filter-utils'
 import { getQueryColumns, orderColumns, hasCapability } from './query-columns'
-import { buildViewJson, diffViews, isColumnVisible, parseViewJson, viewToState, type ViewState } from './saved-view-utils'
+import { buildViewJson, diffViews, isColumnVisible, parseViewJson, reconcileView, viewToState, type ViewState } from './saved-view-utils'
 
 const field = (name: string, label: string, extra: Partial<QFieldMetaData> = {}): QFieldMetaData => ({
   name, label, type: 'STRING', isRequired: false, isEditable: true, isHeavy: false, isHidden: false, adornments: [], ...extra,
@@ -78,9 +78,9 @@ describe('saved view JSON', () => {
     })
     expect(view.queryColumns?.columns).toEqual([
       { name: '__check__', isVisible: true, width: 100, pinned: 'left' },
-      { name: 'person.firstName', isVisible: true, width: 150 },
       { name: 'id', isVisible: true, width: 90, pinned: 'left' },
-      { name: 'name', isVisible: false, width: 150 },
+      { name: 'person.firstName', isVisible: true, width: 200 },
+      { name: 'name', isVisible: false, width: 200 },
     ])
     expect(view.rowsPerPage).toBe(50)
     expect(view.mode).toBe('advanced')
@@ -95,7 +95,7 @@ describe('saved view JSON', () => {
     const restored = viewToState(table, parsed, 25, [10, 25, 50])
     expect(restored.userFilter.criteria).toEqual([{ fieldName: 'name', operator: 'CONTAINS', values: ['Co'] }])
     expect(restored.sortOrder).toEqual([{ fieldName: 'name', isAscending: true }])
-    expect(restored.columnOrder).toEqual(['person.firstName', 'id', 'name'])
+    expect(restored.columnOrder).toEqual(['id', 'person.firstName', 'name'])
     expect(restored.columnVisibility).toEqual({ 'person.firstName': true, id: true, name: false })
     expect(restored.pageSize).toBe(50)
     expect(restored.filterMode).toBe('advanced')
@@ -115,16 +115,28 @@ describe('saved view JSON', () => {
   it('tolerates partial or broken documents (a Material view with only a filter)', () => {
     const restored = viewToState(table, parseViewJson('{"queryFilter":{"criteria":[{"fieldName":"name","operator":"EQUALS","values":["Coco"]}]},"rowsPerPage":33}'), 25, [10, 25, 50])
     expect(restored.userFilter.criteria).toHaveLength(1)
+    expect(restored.sortOrder).toEqual([])
     expect(restored.pageSize).toBe(25)
     expect(restored.columnOrder).toEqual([])
     expect(parseViewJson('not json').queryFilter).toEqual({})
   })
 
+  it('uses the primary key only when a saved sort field was removed', () => {
+    const repaired = reconcileView(table, {
+      queryFilter: { orderBys: [{ fieldName: 'retiredField', isAscending: true }] },
+      queryColumns: { columns: [] },
+    })
+    expect(repaired.view.queryFilter.orderBys).toEqual([{ fieldName: 'id', isAscending: false }])
+    expect(repaired.warnings).toContain('1 field that was part of this view is no longer in this table, and was removed from this view (retiredField).')
+  })
+
   it('reports unsaved changes against the stored view', () => {
     const stored = buildViewJson(table, state())
     expect(diffViews(table, stored, buildViewJson(table, state()))).toEqual([])
-    expect(diffViews(table, stored, buildViewJson(table, state({ sortOrder: [] })))).toEqual(['Changed the sort'])
-    expect(diffViews(table, stored, buildViewJson(table, state({ columnVisibility: {} })))).toEqual(['Changed the columns'])
-    expect(diffViews(table, stored, buildViewJson(table, state({ userFilter: emptyFilter() })))).toEqual(['Changed the filter'])
+    expect(diffViews(table, stored, buildViewJson(table, state({ sortOrder: [] })))).toEqual(['Changed sort'])
+    expect(diffViews(table, stored, buildViewJson(table, state({ columnVisibility: {} })))).toEqual([
+      'Turned on column: Name', 'Turned off column: Person: First Name',
+    ])
+    expect(diffViews(table, stored, buildViewJson(table, state({ userFilter: emptyFilter() })))).toEqual(['Removed filter: Name contains Co'])
   })
 })

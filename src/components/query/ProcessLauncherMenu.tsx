@@ -18,25 +18,32 @@
  * @file ProcessLauncherMenu — the query screen's Actions menu (Material's QueryScreenActionMenu):
  * Bulk Load/Edit/Edit With File/Delete when the table's capabilities, the user's permissions and
  * the `{table}.bulk*` processes allow them, then the table's own processes, then the processes
- * the instance adds to every query screen. Launching is delegated to the caller, which passes
- * the current selection to the process.
+ * the instance adds to every query screen, then Developer Mode (the table's developer page). Each
+ * item shows Material's icon (a process's own icon, else an arrow). Launching is delegated to the
+ * caller, which passes the current selection to the process.
  */
 
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Play, ChevronDown, FilePlus2, Pencil, FilePenLine, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Play, ChevronDown } from 'lucide-react'
 
-import type { QProcessMetaData, QTableMetaData } from '@/types'
+import type { QIcon, QProcessMetaData, QTableMetaData } from '@/types'
 import { hasCapability } from '@/lib/utils/query-columns'
 
-/** Bulk actions offered by the menu, in Material's order. */
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
+
+/** Bulk actions offered by the menu, in Material's order, with Material's icons. */
 const BULK_ACTIONS = [
-  { suffix: 'bulkInsert', label: 'Bulk Load', capability: 'TABLE_INSERT', permission: 'insertPermission', needsSelection: false, Icon: FilePlus2 },
-  { suffix: 'bulkEdit', label: 'Bulk Edit', capability: 'TABLE_UPDATE', permission: 'editPermission', needsSelection: true, Icon: Pencil },
-  { suffix: 'bulkEditWithFile', label: 'Bulk Edit With File', capability: 'TABLE_UPDATE', permission: 'editPermission', needsSelection: false, Icon: FilePenLine },
-  { suffix: 'bulkDelete', label: 'Bulk Delete', capability: 'TABLE_DELETE', permission: 'deletePermission', needsSelection: true, Icon: Trash2 },
+  { suffix: 'bulkInsert', label: 'Bulk Load', capability: 'TABLE_INSERT', permission: 'insertPermission', needsSelection: false, iconName: 'library_add' },
+  { suffix: 'bulkEdit', label: 'Bulk Edit', capability: 'TABLE_UPDATE', permission: 'editPermission', needsSelection: true, iconName: 'edit' },
+  { suffix: 'bulkEditWithFile', label: 'Bulk Edit With File', capability: 'TABLE_UPDATE', permission: 'editPermission', needsSelection: false, iconName: 'edit_note' },
+  { suffix: 'bulkDelete', label: 'Bulk Delete', capability: 'TABLE_DELETE', permission: 'deletePermission', needsSelection: true, iconName: 'delete' },
 ] as const
+
+/** Material's icon for a process that declares none. */
+const DEFAULT_PROCESS_ICON = 'arrow_forward'
 
 /**
  * Props for the ProcessLauncherMenu component.
@@ -61,7 +68,10 @@ interface MenuEntry {
   key: string
   label: string
   process: QProcessMetaData
-  Icon: typeof Play
+  /** Material icon name shown before the label. */
+  iconName: string
+  /** The process's own icon (name or image path), which wins over `iconName`. */
+  icon?: QIcon
   blockedMessage?: string
 }
 
@@ -83,7 +93,7 @@ export function buildActionEntries({ tableMetaData, allProcesses, processes, sel
       key: action.suffix,
       label: action.label,
       process,
-      Icon: action.Icon,
+      iconName: action.iconName,
       blockedMessage: action.needsSelection && selectionCount === 0 ? `No records were selected to ${action.label}.` : undefined,
     })
   }
@@ -94,7 +104,7 @@ export function buildActionEntries({ tableMetaData, allProcesses, processes, sel
     if (min != null && min > 0 && selectionCount === 0) blockedMessage = `No records were selected for the process: ${process.label}`
     else if (min != null && selectionCount < min) blockedMessage = `Too few records were selected for the process: ${process.label}.  A minimum of ${min} is required.`
     else if (max != null && selectionCount > max) blockedMessage = `Too many records were selected for the process: ${process.label}.  A maximum of ${max} is allowed.`
-    return { key: process.name, label: process.label, process, Icon: Play, blockedMessage }
+    return { key: process.name, label: process.label, process, iconName: process.iconName || DEFAULT_PROCESS_ICON, icon: process.icon, blockedMessage }
   }
   const table = processes
     .filter((p) => p.tableName === tableMetaData.name && !p.isHidden && p.hasPermission !== false)
@@ -139,7 +149,6 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
   }, [isOpen])
 
   const { bulk, table, added } = buildActionEntries(props)
-  if (bulk.length === 0 && table.length === 0 && added.length === 0) return null
 
   const choose = (entry: MenuEntry) => {
     setIsOpen(false)
@@ -156,7 +165,7 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
       data-qqq-id={`process-launcher-item-${entry.process.name}`}
     >
-      <entry.Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <MetadataIcon icon={entry.icon} iconName={entry.iconName} kind="process" className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="truncate">{entry.label}</span>
     </button>
   )
@@ -186,6 +195,17 @@ export function ProcessLauncherMenu(props: ProcessLauncherMenuProps) {
             {table.map(item)}
             {added.length > 0 && bulk.length + table.length > 0 && <div role="separator" className="my-1 border-t border-border" />}
             {added.map(item)}
+            {/* Material always ends the menu with the table's developer page */}
+            <Link
+              href={`/app/${encodeURIComponent(props.tableMetaData.name)}/dev`}
+              role="menuitem"
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+              data-qqq-id="process-launcher-developer-mode"
+            >
+              <MetadataIcon iconName="code" className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="truncate">Developer Mode</span>
+            </Link>
           </div>
         </div>
       )}

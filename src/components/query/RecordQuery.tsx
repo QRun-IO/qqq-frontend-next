@@ -25,22 +25,24 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { X, ArrowLeft, Loader2 } from 'lucide-react'
+import { X, ArrowLeft, CircleHelp, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 
-import type { QTableMetaData, QProcessMetaData, QInstance } from '@/types'
-import type { TableVariant } from '@/lib/api/tables'
+import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
+import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
-import { countActiveCriteria, emptyFilter } from '@/lib/utils/filter-utils'
+import { countActiveCriteria, emptyFilter, isCriterionComplete, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
-import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
-import { buildViewJson, diffViews, isColumnVisible, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
+import { getQueryColumns, orderColumns, pinColumn } from '@/lib/utils/query-columns'
+import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
+import { AD_HOC_VIEW_IDENTITY, clearStoredQueryState, readCurrentSavedViewId, readStoredQueryView, savedViewIdentity, writeCurrentSavedViewId, writeStoredQueryView } from '@/lib/utils/query-view-storage'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
@@ -49,7 +51,7 @@ import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter-settings-context'
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
 import { launchTableName } from '@/lib/utils/process-utils'
-import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
+import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
@@ -64,6 +66,7 @@ import { SavedViewsMenu } from './SavedViewsMenu'
 import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
 import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
+import { QuickSavedViews } from './QuickSavedViews'
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
@@ -102,7 +105,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const quickSearchRef = useRef<HTMLInputElement>(null)
   const filterButtonRef = useRef<HTMLButtonElement>(null)
   const { preferences } = useUserPreferences()
-  const { userId } = useQContext()
+  const { userId, setPageHeader } = useQContext()
   const allProcesses = useMemo(() => metaData?.processes ?? {}, [metaData])
 
   // ------------------------------------------------------------------
@@ -126,6 +129,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const savedViews = useSavedViews(tableName, metaData, userId)
   const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable)
   const currentView: SavedView | null = savedViewId !== undefined ? savedViewQuery.data ?? null : null
+  const [viewWarnings, setViewWarnings] = useState<string[]>([])
   const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize'].some((key) => searchParams.has(key)))
   const appliedViewRef = useRef<string | null>(null)
   const viewLoading = savedViewId !== undefined && savedViews.isAvailable && savedViewQuery.isLoading
@@ -147,9 +151,27 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     if (appliedViewRef.current === key) return
     const first = appliedViewRef.current === null
     appliedViewRef.current = key
+    const stored = readStoredQueryView(tableName)
+    const view = stored?.viewIdentity === savedViewIdentity(currentView.id) ? stored : currentView.view
+    const reconciled = reconcileView(tableMetaData, view)
+    setViewWarnings(reconciled.warnings)
     if (first && hadUrlStateRef.current) return
-    applyView(viewToState(tableMetaData, currentView.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
-  }, [currentView, applyView, tableMetaData, preferences.tableDefaultPageSize])
+    applyView(viewToState(tableMetaData, reconciled.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
+  }, [currentView, applyView, tableMetaData, tableName, preferences.tableDefaultPageSize])
+
+  useEffect(() => {
+    setPageHeader(`${tableMetaData.label}${currentView ? ` / ${currentView.label}` : ''}`)
+  }, [currentView, setPageHeader, tableMetaData.label])
+
+  useEffect(() => {
+    if (savedViewId !== undefined) {
+      if (currentView) writeCurrentSavedViewId(tableName, currentView.id)
+      return
+    }
+    if (hadUrlStateRef.current) return
+    const lastId = readCurrentSavedViewId(tableName)
+    if (lastId) router.replace(`/app/${encodeURIComponent(tableName)}/savedView/${lastId}`)
+  }, [savedViewId, currentView, tableName, router])
 
   const defaultViewState = useMemo<ViewState>(() => ({
     userFilter: emptyFilter(preferences.tableDefaultPageSize),
@@ -161,12 +183,25 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     filterMode: 'basic',
   }), [preferences.tableDefaultPageSize, rq.filter.defaultSort])
   const currentViewJson = useMemo(() => buildViewJson(tableMetaData, rq.viewState), [tableMetaData, rq.viewState])
+  const reportHref = useMemo(() => {
+    if (!canInsertRecords(metaData?.tables?.savedReport)) return undefined
+    const filter = normalizeFilter(currentViewJson.queryFilter, rq.viewState.pageSize)
+    const prepared = prepFilterForBackend(filter, (name) => resolveField(tableMetaData, name)?.field)
+    const presets = {
+      tableName,
+      queryFilterJson: JSON.stringify(prepared),
+      columnsJson: JSON.stringify(currentViewJson.queryColumns),
+    }
+    return `/app/savedReport/create#defaultValues=${encodeURIComponent(JSON.stringify(presets))}`
+  }, [currentViewJson, metaData?.tables?.savedReport, rq.viewState.pageSize, tableMetaData, tableName])
   const viewDiffs = useMemo(
     () => diffViews(tableMetaData, currentView ? currentView.view : buildViewJson(tableMetaData, defaultViewState), currentViewJson),
     [tableMetaData, currentView, defaultViewState, currentViewJson]
   )
 
   const openNewView = () => {
+    clearStoredQueryState(tableName)
+    setViewWarnings([])
     setLocalSearchTerm('')
     if (savedViewId === undefined) {
       applyView(defaultViewState)
@@ -183,7 +218,9 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const openSavedView = (view: SavedView) => {
     if (view.id === savedViewId) {
       setLocalSearchTerm('')
-      applyView(viewToState(tableMetaData, view.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
+      const reconciled = reconcileView(tableMetaData, view.view)
+      setViewWarnings(reconciled.warnings)
+      applyView(viewToState(tableMetaData, reconciled.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
       return
     }
     router.push(`/app/${encodeURIComponent(tableName)}/savedView/${view.id}`)
@@ -249,6 +286,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [alertMessage, setAlertMessage] = useState<string | null>(null)
   const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
+  const [storageReady, setStorageReady] = useState(false)
   // Column statistics need the table's QUERY_STATS capability and the columnStats process
   const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
@@ -263,6 +301,103 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     () => orderColumns(getQueryColumns(tableMetaData), rq.columns.columnOrder).filter((c) => isColumnVisible(c.name, rq.columns.columnVisibility)).map((c) => c.name),
     [tableMetaData, rq.columns.columnOrder, rq.columns.columnVisibility]
   )
+  const queryColumns = useMemo(() => getQueryColumns(tableMetaData), [tableMetaData])
+  const joinedLabels = useMemo(() => {
+    const active = new Set((rq.joins ?? []).map((join) => join.joinTable))
+    return (tableMetaData.exposedJoins ?? []).filter((join) => join.joinTable && active.has(join.joinTable.name))
+      .map((join) => join.label || join.joinTable?.label || join.joinTable?.name).filter((label): label is string => Boolean(label))
+  }, [rq.joins, tableMetaData.exposedJoins])
+  const filteredColumns = useMemo(() => {
+    const names = new Set<string>()
+    const visit = (filter: QQueryFilter) => {
+      for (const criterion of filter.criteria ?? []) if (isCriterionComplete(criterion)) names.add(criterion.fieldName)
+      for (const child of filter.subFilters ?? []) visit(child)
+    }
+    visit(rq.filter.userFilter)
+    return names
+  }, [rq.filter.userFilter])
+  const baselineColumns = currentView?.view.queryColumns ?? buildViewJson(tableMetaData, defaultViewState).queryColumns
+  const columnsChanged = JSON.stringify(currentViewJson.queryColumns) !== JSON.stringify(baselineColumns)
+  const columnsState = columnsChanged ? 'dirty' : currentView ? 'clean' : 'empty'
+
+  useEffect(() => {
+    if (savedViewId === undefined && !hadUrlStateRef.current && !readCurrentSavedViewId(tableName)) {
+      const stored = readStoredQueryView(tableName)
+      if (stored) {
+        const reconciled = reconcileView(tableMetaData, stored)
+        setViewWarnings(reconciled.warnings)
+        applyView(viewToState(tableMetaData, reconciled.view, preferences.tableDefaultPageSize, PAGE_SIZE_OPTIONS))
+      }
+    }
+    setStorageReady(true)
+  // Restore once on mount; subsequent state changes are saved by the next effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!storageReady || (savedViewId !== undefined && !currentView)) return
+    if (savedViewId === undefined && !hadUrlStateRef.current && readCurrentSavedViewId(tableName)) return
+    writeStoredQueryView(tableName, {
+      ...currentViewJson,
+      viewIdentity: currentView ? savedViewIdentity(currentView.id) : AD_HOC_VIEW_IDENTITY,
+    })
+  }, [storageReady, tableName, currentViewJson, currentView, savedViewId])
+
+  const columnMenu = {
+    onFilter: (name: string) => {
+      rq.filter.setUserFilter({ ...rq.filter.userFilter, criteria: [...rq.filter.userFilter.criteria, { fieldName: name, operator: 'EQUALS' as const, values: [] }] })
+      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+    },
+    onHide: (name: string) => rq.columns.setColumnVisibility({ ...rq.columns.columnVisibility, [name]: false }),
+    onPin: (name: string, side: 'left' | 'right' | null) => rq.columns.setColumnPins(
+      pinColumn(queryColumns.map((column) => column.name), rq.columns.columnPins, name, side, tableMetaData.primaryKeyField)
+    ),
+    onCopyPageValues: (name: string) => {
+      const label = queryColumns.find((column) => column.name === name)?.label ?? name
+      const values = rq.data.records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? ''))
+      void navigator.clipboard.writeText(`${values.join('\n')}\n`)
+        .then(() => setAlertMessage(`Copied ${values.length.toLocaleString()} ${label} values.`))
+        .catch(() => setAlertMessage(`Could not copy ${label} values.`))
+    },
+    onCopyFullQueryValues: (name: string) => {
+      void (async () => {
+        const label = queryColumns.find((column) => column.name === name)?.label ?? name
+        const setting = metaData?.supplementalInstanceMetaData?.materialDashboard
+        const configuredLimit = setting && typeof setting === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in setting
+          ? setting.queryScreenCopyFullQueryColumnValuesLimit : undefined
+        const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT
+        if (rq.pagination.totalCount !== null && rq.pagination.totalCount > limit) {
+          setAlertMessage(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
+          return
+        }
+        try {
+          const values: string[] = []
+          const pageLength = 250
+          while (values.length < limit) {
+            const result = await queryRecords(tableName, {
+              filter: { ...rq.filter.baseFilter, skip: values.length, limit: Math.min(pageLength, limit - values.length) },
+              joins: rq.joins,
+              ...(tableVariant ? { tableVariant } : {}),
+            })
+            values.push(...result.records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? '')))
+            if (result.records.length < pageLength) break
+          }
+          if (values.length === limit && (rq.pagination.totalCount === null || rq.pagination.totalCount > limit)) {
+            setAlertMessage(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
+            return
+          }
+          if (values.length === 0) {
+            setAlertMessage(`There are no ${label} values to copy.`)
+            return
+          }
+          await navigator.clipboard.writeText(`${values.join('\n')}\n`)
+          setAlertMessage(`Copied ${values.length.toLocaleString()} ${label} values.`)
+        } catch {
+          setAlertMessage(`Could not copy ${label} values.`)
+        }
+      })()
+    },
+  }
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })
@@ -342,9 +477,35 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         </Link>
       )}
 
+      <div className="flex flex-wrap items-center gap-2" data-qqq-id="query-heading">
+        <h1 className="text-xl font-semibold text-foreground">{tableMetaData.label}{currentView ? ` / ${currentView.label}` : ''}</h1>
+        {joinedLabels.length > 0 && (
+          <button type="button" className="rounded p-1 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label={`Joined with ${joinedLabels.join(', ')}`}
+            title={`Results from ${tableMetaData.label} joined with ${joinedLabels.join(', ')}`}
+            data-qqq-id="query-joins-help">
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      {viewWarnings.length > 0 && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-view-warning">
+          {viewWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+        </div>
+      )}
+
       {savedViewId !== undefined && savedViewQuery.isError && (
         <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive" data-qqq-id="saved-view-load-error">
           There was an error loading the selected view: {savedViewQuery.error instanceof Error ? savedViewQuery.error.message : 'unknown error'}
+        </div>
+      )}
+
+      {rq.data.countError && (
+        <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive" data-qqq-id="query-count-error">
+          {getErrorStatusCode(rq.data.countError) === 403
+            ? 'You do not have permission to view these records.'
+            : 'Failed to count records.'}
         </div>
       )}
 
@@ -390,6 +551,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
             onNewView={openNewView}
             onStore={storeView}
             onDelete={deleteView}
+            reportHref={reportHref}
           />
         }
         selectionMenu={
@@ -405,6 +567,9 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         }
         columnVisibility={rq.columns.columnVisibility}
         columnOrder={rq.columns.columnOrder}
+        columnPins={rq.columns.columnPins}
+        visibleColumnCount={exportColumns.length}
+        columnsState={columnsState}
         columnConfigOpen={rq.columns.columnConfigOpen}
         toggleColumnConfig={rq.columns.toggleColumnConfig}
         setColumnConfigOpen={rq.columns.setColumnConfigOpen}
@@ -481,6 +646,10 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
       {rq.filter.filterMode === 'advanced' && (
         <AdvancedQueryPreview filter={rq.filter.userFilter} fields={availableFilterFields} onChange={rq.filter.setUserFilter} />
       )}
+
+      <QuickSavedViews tableMetaData={tableMetaData} quickViews={savedViews.quickViews} currentView={currentView}
+        isModified={viewDiffs.length > 0} tableVariant={tableVariant} canCount={rq.data.canCount && !rq.data.needsVariant}
+        onSelect={openSavedView} />
 
       {rq.filter.filterMode === 'advanced' && rq.filter.filterPanelOpen && (
         <div className="hidden rounded-xl border border-primary/20 bg-primary/5 md:block">
@@ -570,6 +739,11 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
           columnVisibility={rq.columns.columnVisibility}
           columnOrder={rq.columns.columnOrder}
           columnWidths={rq.columns.columnWidths}
+          columnPins={rq.columns.columnPins}
+          columnMenu={columnMenu}
+          filteredColumns={filteredColumns}
+          onShowFilter={columnMenu.onFilter}
+          isCounting={rq.pagination.isCounting}
           onColumnWidthChange={rq.columns.setColumnWidth}
           density={rq.density}
           pageNum={rq.pagination.pageNum}
@@ -594,7 +768,8 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
 
       {/* A table that can be read by key but not queried: Material opens Go To, and it cannot be dismissed */}
       {!rq.data.canQuery && hasCapability(tableMetaData, 'TABLE_GET') && (!tableMetaData.usesVariants || (tableVariant && !variantPickerOpen)) && (
-        <GotoRecordDialog open mayClose={false} tableMetaData={tableMetaData} tableVariant={tableVariant} onClose={() => undefined} />
+        <GotoRecordDialog open mayClose={false} tableMetaData={tableMetaData} tableVariant={tableVariant}
+          onChangeVariant={tableMetaData.usesVariants ? () => setVariantPickerOpen(true) : undefined} onClose={() => undefined} />
       )}
 
       {tableMetaData.usesVariants && (

@@ -78,6 +78,29 @@ export function VariantPicker({ open, tableName, variantTableLabel, selected, on
   }, [variantsQuery.data, searchTerm])
   const same = (a: TableVariant | null | undefined, b: TableVariant) => Boolean(a) && String(a!.id) === String(b.id) && a!.type === b.type
 
+  /**
+   * Keyboard choice, as Material's dialog: Enter selects the highlighted option (or the only one
+   * the filter leaves); the arrow keys move the highlight through the filtered options.
+   *
+   * @param e - The key event from the filter input or an option.
+   */
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const choice = (highlighted && variants.some((v) => same(highlighted, v)) ? highlighted : null) ?? (variants.length === 1 ? variants[0] : null)
+      if (choice) {
+        e.preventDefault()
+        onSelect(choice)
+      }
+      return
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && variants.length > 0) {
+      e.preventDefault()
+      const index = variants.findIndex((v) => same(highlighted, v))
+      const next = e.key === 'ArrowDown' ? Math.min(variants.length - 1, index + 1) : Math.max(0, index < 0 ? 0 : index - 1)
+      setHighlighted(variants[next])
+    }
+  }
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel() }}>
       <DialogPrimitive.Portal>
@@ -110,6 +133,7 @@ export function VariantPicker({ open, tableName, variantTableLabel, selected, on
                 type="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder={`Filter ${variantTableLabel}...`}
                 className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                 data-qqq-id="variant-search-input"
@@ -141,6 +165,7 @@ export function VariantPicker({ open, tableName, variantTableLabel, selected, on
                       aria-selected={isSelected}
                       onClick={() => setHighlighted(variant)}
                       onDoubleClick={() => onSelect(variant)}
+                      onKeyDown={handleKeyDown}
                       className={cn('flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring',
                         isSelected ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-accent')}
                       data-qqq-id={`variant-option-${variant.id}`}

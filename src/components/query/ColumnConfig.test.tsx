@@ -485,9 +485,9 @@ describe('ColumnConfig — column order (display order)', () => {
       return btn?.textContent?.trim()
     })
 
-    expect(labels[0]).toContain('Last Name')
-    expect(labels[1]).toContain('First Name')
-    expect(labels[2]).toContain('ID')
+    expect(labels[0]).toContain('ID')
+    expect(labels[1]).toContain('Last Name')
+    expect(labels[2]).toContain('First Name')
   })
 })
 

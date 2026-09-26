@@ -144,6 +144,16 @@ public class AcceptanceSampleServer
             }
             context.contentType("application/json").result(new JSONObject().put("rows", select(query)).toString());
          });
+         config.routes.post("/acceptance/quick-view", context ->
+         {
+            seedQuickView();
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/stale-view", context ->
+         {
+            seedStaleView();
+            context.contentType("application/json").result("{}");
+         });
       });
       //////////////////////////////////////////////////////////////////////////////////
       // The dashboard's Content-Security-Policy (QRun-IO/qqq#695) allows only this    //
@@ -225,6 +235,49 @@ public class AcceptanceSampleServer
          }
       }
       return records;
+   }
+
+
+
+   /*******************************************************************************
+    ** Mark the stock Alice People View as a counted quick view for query acceptance.
+    *******************************************************************************/
+   private static void seedQuickView() throws Exception
+   {
+      try(Connection connection = ConnectionManager.getConnection(SampleMetaDataProvider.defineRdbmsBackend()))
+      {
+         if(!"jdbc:h2:mem:test_database".equals(connection.getMetaData().getURL()))
+         {
+            throw new IllegalStateException("Acceptance quick views require the sample in-memory H2 database.");
+         }
+         try(PreparedStatement statement = connection.prepareStatement(
+            "INSERT INTO quick_saved_view (saved_view_id, user_id, label, sort_order, do_count) " +
+               "SELECT id, 'sample:alice', 'Avery People', 1, TRUE FROM saved_view WHERE label = 'Alice People View'"))
+         {
+            statement.executeUpdate();
+         }
+      }
+   }
+
+
+   /*******************************************************************************
+    ** Replace the stock view with references to a removed field. Every test resets H2.
+    *******************************************************************************/
+   private static void seedStaleView() throws Exception
+   {
+      String viewJson = "{\"queryFilter\":{\"criteria\":[{\"fieldName\":\"retiredField\",\"operator\":\"EQUALS\",\"values\":[\"old\"]}],\"orderBys\":[{\"fieldName\":\"retiredField\",\"isAscending\":true}]},\"queryColumns\":{\"columns\":[{\"name\":\"retiredField\",\"isVisible\":true}]},\"quickFilterFieldNames\":[\"retiredField\"],\"rowsPerPage\":25}";
+      try(Connection connection = ConnectionManager.getConnection(SampleMetaDataProvider.defineRdbmsBackend()))
+      {
+         if(!"jdbc:h2:mem:test_database".equals(connection.getMetaData().getURL()))
+         {
+            throw new IllegalStateException("Acceptance saved-view mutation requires the sample in-memory H2 database.");
+         }
+         try(PreparedStatement statement = connection.prepareStatement("UPDATE saved_view SET view_json = ? WHERE label = 'Alice People View'"))
+         {
+            statement.setString(1, viewJson);
+            statement.executeUpdate();
+         }
+      }
    }
 
 

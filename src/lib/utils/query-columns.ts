@@ -15,12 +15,14 @@
  */
 
 /**
- * @file query-columns — the columns a record query grid can show: the table's own fields and
- * the fields of its readable exposed joins (named `joinTable.field`, labelled
- * "Join Label: Field Label", hidden by default), as in the Material dashboard.
+ * @file query-columns — the columns a record query grid can show: the table's own fields, its
+ * query-selectable virtual fields, and the fields of its readable exposed joins (named
+ * `joinTable.field`, labelled "Join Label: Field Label", hidden by default), as in the Material
+ * dashboard. Also Material's default column widths and column pinning.
  */
 
-import type { QFieldMetaData, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QTableMetaData, QVirtualFieldMetaData } from '@/types'
+import { sizeWidth } from './adornment-utils'
 
 /** One column the grid, column chooser and export can use. */
 export interface QueryColumn {
@@ -34,10 +36,64 @@ export interface QueryColumn {
   isJoin: boolean
   /** Column chooser group heading ("{Table} Fields"). */
   group: string
+  /** Name of the table the field belongs to (the query table, or the join table). */
+  tableName: string
+  /** Whether the column is a virtual (computed) field. */
+  isVirtual: boolean
+  /** Whether the column can be sorted and filtered (false for virtual fields that are not query criteria). */
+  isQueryCriteria: boolean
+  /** Material's default width for the column, in pixels. */
+  defaultWidth: number
+}
+
+/** The side a column is pinned to. */
+export type ColumnPin = 'left' | 'right'
+
+/** Pinned columns by name. */
+export type ColumnPins = Record<string, ColumnPin>
+
+/**
+ * Material's default grid width for a field (`DataGridUtils.getColumnWidthForField`): the SIZE
+ * adornment, else 200 for possible-value fields, 100 for numbers and dates (75 for a short-labelled
+ * numeric primary key), 200 for date-times, 75 for booleans and 200 for anything else.
+ *
+ * @param field - The field.
+ * @param table - The field's table, when it is the query table (for the primary key rule).
+ * @returns The width in pixels.
+ */
+export function defaultColumnWidth(field: QFieldMetaData, table?: Pick<QTableMetaData, 'primaryKeyField'>): number {
+  const sized = sizeWidth(field)
+  if (sized !== undefined) return sized
+  if (field.possibleValueSourceName) return 200
+  switch (field.type) {
+    case 'DECIMAL':
+    case 'INTEGER':
+    case 'LONG':
+      return table && field.name === table.primaryKeyField && (field.label ?? '').length < 3 ? 75 : 100
+    case 'DATE':
+      return 100
+    case 'DATE_TIME':
+      return 200
+    case 'BOOLEAN':
+      return 75
+    default:
+      return 200
+  }
 }
 
 /**
- * Lists every column for a table, base fields first (metadata order), then join fields.
+ * The query-selectable virtual fields of a table, in metadata order.
+ *
+ * @param table - Table metadata (a join table may have none).
+ * @returns The virtual fields that are query columns.
+ */
+export function selectableVirtualFields(table: Pick<QTableMetaData, 'virtualFields'>): QVirtualFieldMetaData[] {
+  return Object.values(table.virtualFields ?? {}).filter((field) => field && field.isQuerySelectable === true)
+}
+
+/**
+ * Lists every column for a table: the primary key, then the other base fields in section order,
+ * then its query-selectable virtual fields; then each readable join's fields and virtual fields.
  * Hidden fields and heavy non-BLOB fields are excluded.
  *
  * @param table - Table metadata.
@@ -45,15 +101,31 @@ export interface QueryColumn {
  */
 export function getQueryColumns(table: QTableMetaData): QueryColumn[] {
   const usable = (f: QFieldMetaData) => !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
-  const columns: QueryColumn[] = fieldsInSectionOrder(table)
-    .filter(usable)
-    .map((field) => ({ name: field.name, label: field.label, field, isJoin: false, group: `${table.label} Fields` }))
+  const group = `${table.label} Fields`
+  const base = (field: QFieldMetaData): QueryColumn => ({
+    name: field.name, label: field.label, field, isJoin: false, group, tableName: table.name, isVirtual: false, isQueryCriteria: true,
+    defaultWidth: defaultColumnWidth(field, table),
+  })
+  const fields = fieldsInSectionOrder(table).filter(usable)
+  // Material puts the primary key first (and pins it), whatever the sections say
+  const primaryKey = fields.findIndex((field) => field.name === table.primaryKeyField)
+  if (primaryKey > 0) fields.unshift(...fields.splice(primaryKey, 1))
+  const columns: QueryColumn[] = fields.map(base)
+  for (const field of selectableVirtualFields(table).filter((f) => !f.isHidden && !table.fields?.[f.name])) {
+    columns.push({ ...base(field), isVirtual: true, isQueryCriteria: field.isQueryCriteria === true })
+  }
   for (const join of table.exposedJoins ?? []) {
     const joinTable = join.joinTable
     if (!joinTable?.fields || joinTable.readPermission === false) continue
     const joinLabel = join.label || joinTable.label
-    for (const field of fieldsInSectionOrder(joinTable).filter((f) => usable(f) && f.type !== 'BLOB')) {
-      columns.push({ name: `${joinTable.name}.${field.name}`, label: `${joinLabel}: ${field.label}`, field, isJoin: true, group: `${joinTable.label} Fields` })
+    const joinGroup = `${joinTable.label} Fields`
+    const joinColumn = (field: QFieldMetaData, isVirtual: boolean, isQueryCriteria: boolean): QueryColumn => ({
+      name: `${joinTable.name}.${field.name}`, label: `${joinLabel}: ${field.label}`, field, isJoin: true, group: joinGroup, tableName: joinTable.name,
+      isVirtual, isQueryCriteria, defaultWidth: defaultColumnWidth(field),
+    })
+    for (const field of fieldsInSectionOrder(joinTable).filter((f) => usable(f) && f.type !== 'BLOB')) columns.push(joinColumn(field, false, true))
+    for (const field of selectableVirtualFields(joinTable).filter((f) => !f.isHidden && !joinTable.fields[f.name])) {
+      columns.push(joinColumn(field, true, field.isQueryCriteria === true))
     }
   }
   return columns
@@ -99,6 +171,54 @@ export function orderColumns<T extends { name: string }>(columns: T[], columnOrd
     .map((column, i) => ({ column, rank: index.get(column.name) ?? columnOrder.length + i }))
     .sort((a, b) => a.rank - b.rank)
     .map(({ column }) => column)
+}
+
+/**
+ * The pins in effect: explicit pins, or the table's primary key pinned left by default.
+ *
+ * @param orderedNames - Column names in display order.
+ * @param pins - Explicit pins, or null for the default.
+ * @param defaultPinnedName - The primary key, when known.
+ * @returns Pinned columns by name.
+ */
+export function effectivePins(orderedNames: string[], pins: ColumnPins | null, defaultPinnedName = orderedNames[0]): ColumnPins {
+  if (pins) return pins
+  const name = orderedNames.includes(defaultPinnedName) ? defaultPinnedName : orderedNames[0]
+  return name ? { [name]: 'left' } : {}
+}
+
+/**
+ * Moves pinned columns to their side, as Material's grid shows them: left-pinned columns first,
+ * then the others, then right-pinned columns, each group keeping its order.
+ *
+ * @param columns - Columns in display order.
+ * @param pins - Pinned columns by name.
+ * @returns The arranged columns.
+ */
+export function arrangePinnedColumns<T extends { name: string }>(columns: T[], pins: ColumnPins): T[] {
+  return [
+    ...columns.filter((c) => pins[c.name] === 'left'),
+    ...columns.filter((c) => !pins[c.name]),
+    ...columns.filter((c) => pins[c.name] === 'right'),
+  ]
+}
+
+/**
+ * Pins or unpins one column (Material's column menu "Pin to left", "Pin to right", "Unpin"),
+ * starting from the pins in effect.
+ *
+ * @param orderedNames - Column names in display order.
+ * @param pins - Explicit pins, or null for the default.
+ * @param name - The column.
+ * @param side - The side to pin to, or null to unpin.
+ * @param defaultPinnedName - The primary-key column, when known.
+ * @returns The new explicit pins.
+ */
+export function pinColumn(orderedNames: string[], pins: ColumnPins | null, name: string, side: ColumnPin | null, defaultPinnedName = orderedNames[0]): ColumnPins {
+  const next = { ...effectivePins(orderedNames, pins, defaultPinnedName) }
+  if (side) next[name] = side
+  else delete next[name]
+  return next
 }
 
 /**

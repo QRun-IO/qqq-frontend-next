@@ -65,7 +65,7 @@ describe('useRecordQuery — initialization', () => {
     )
 
     expect(result.current.pagination.pageNum).toBe(1)
-    expect(result.current.pagination.pageSize).toBe(25)
+    expect(result.current.pagination.pageSize).toBe(50)
     expect(result.current.filter.filterMode).toBe('basic')
     expect(result.current.filter.quickSearchTerm).toBe('')
     expect(result.current.columns.columnConfigOpen).toBe(false)

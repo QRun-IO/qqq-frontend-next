@@ -25,11 +25,13 @@
 import React, { useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Loader2, RefreshCw, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Loader2, RefreshCw, X } from 'lucide-react'
 
-import type { QQueryFilter } from '@/types'
+import type { QFieldType, QQueryFilter } from '@/types'
 import { processInit } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
+
+import { formatDateTimeForFileName } from './ExportButton'
 
 /** Name of the backend process that computes column statistics. */
 export const COLUMN_STATS_PROCESS = 'columnStats'
@@ -81,6 +83,10 @@ interface ColumnStatsDialogProps {
   fieldName: string | null
   /** Column label. */
   fieldLabel: string
+  /** The column's field type (date-time values are grouped by hour). */
+  fieldType?: QFieldType
+  /** The query table's label (export file name). */
+  tableLabel?: string
   /** The query's filter (paging ignored). */
   filter: QQueryFilter
   /** Closes the dialog. */
@@ -93,7 +99,7 @@ interface ColumnStatsDialogProps {
  * @param props - Component properties.
  * @returns The dialog.
  */
-export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, filter, onClose }: ColumnStatsDialogProps) {
+export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, fieldType, tableLabel, filter, onClose }: ColumnStatsDialogProps) {
   const [orderBy, setOrderBy] = useState('count.desc')
   const { skip: _skip, limit: _limit, orderBys: _orderBys, ...criteria } = filter
   void _skip
@@ -115,6 +121,25 @@ export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, filter, on
     setOrderBy((current) => (current === `${key}.desc` ? `${key}.asc` : `${key}.desc`))
   }
   const arrow = (key: string | null) => (orderBy === `${key}.asc` ? <ArrowUp className="h-3 w-3" aria-hidden="true" /> : orderBy === `${key}.desc` ? <ArrowDown className="h-3 w-3" aria-hidden="true" /> : null)
+  const valueOf = (row: StatsRecord) => (row.displayValues?.[fieldName!] ?? String(row.values?.[fieldName!] ?? ''))
+  // Material groups date-time values by hour and says so in the value column's header
+  const valueHeader = fieldType === 'DATE_TIME' ? `${fieldLabel} (grouped by hour)` : fieldLabel
+
+  /** Downloads the value distribution as CSV, as Material's Export does. */
+  const exportCsv = () => {
+    const clean = (value: unknown) => (value === undefined || value === null ? '' : String(value).replace(/"/g, '""'))
+    const lines = rows.map((row) => `"${clean(valueOf(row))}",${row.values?.count ?? ''}\n`)
+    const csv = `"${clean(fieldLabel)}","Count"\n${lines.join('')}`
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${tableLabel ?? tableName} - ${fieldLabel} Column Stats ${formatDateTimeForFileName(new Date())}.csv`
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   return (
     <DialogPrimitive.Root open={fieldName !== null} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -128,6 +153,10 @@ export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, filter, on
               <button type="button" onClick={() => statsQuery.refetch()} disabled={statsQuery.isFetching} data-qqq-id="button-column-stats-refresh"
                 className="flex items-center gap-1 rounded border border-input px-2 py-1 text-sm hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring">
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Refresh
+              </button>
+              <button type="button" onClick={exportCsv} disabled={rows.length === 0} data-qqq-id="button-column-stats-export"
+                className="flex items-center gap-1 rounded border border-input px-2 py-1 text-sm hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring">
+                <Download className="h-3.5 w-3.5" aria-hidden="true" /> Export
               </button>
               <DialogPrimitive.Close className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Close">
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -150,7 +179,7 @@ export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, filter, on
                     <thead>
                       <tr className="border-b border-border text-left text-muted-foreground">
                         <th scope="col" className="py-2">
-                          <button type="button" onClick={() => sortBy('value')} className="flex items-center gap-1 font-semibold focus:outline-none focus:ring-1 focus:ring-ring">{fieldLabel}{arrow(fieldName)}</button>
+                          <button type="button" onClick={() => sortBy('value')} className="flex items-center gap-1 font-semibold focus:outline-none focus:ring-1 focus:ring-ring" data-qqq-id="column-stats-value-header">{valueHeader}{arrow(fieldName)}</button>
                         </th>
                         <th scope="col" className="py-2 text-right">
                           <button type="button" onClick={() => sortBy('count')} className="ml-auto flex items-center gap-1 font-semibold focus:outline-none focus:ring-1 focus:ring-ring">Count{arrow('count')}</button>
@@ -161,7 +190,7 @@ export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, filter, on
                     <tbody>
                       {rows.map((row, i) => (
                         <tr key={i} className="border-b border-border" data-qqq-id="column-stats-row">
-                          <td className="py-1.5" data-qqq-id="column-stats-value">{(row.displayValues?.[fieldName!] ?? String(row.values?.[fieldName!] ?? '')) || '—'}</td>
+                          <td className="py-1.5" data-qqq-id="column-stats-value">{valueOf(row) || '—'}</td>
                           <td className="py-1.5 text-right tabular-nums" data-qqq-id="column-stats-count">{String(row.values?.count ?? '')}</td>
                           <td className="py-1.5 text-right tabular-nums" data-qqq-id="column-stats-percent">{row.displayValues?.percent ?? ''}</td>
                         </tr>

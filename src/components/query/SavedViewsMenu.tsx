@@ -23,6 +23,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { BookmarkIcon, ChevronDown, X } from 'lucide-react'
 
@@ -50,6 +51,8 @@ interface SavedViewsMenuProps {
   onStore: (input: { id?: number; label: string }) => Promise<void>
   /** Deletes the current view. */
   onDelete: (view: SavedView) => Promise<void>
+  /** Material-compatible create URL with the current filter and columns as presets. */
+  reportHref?: string
 }
 
 /**
@@ -58,7 +61,7 @@ interface SavedViewsMenuProps {
  * @param props - Component properties.
  * @returns The menu, or null when the backend has no saved views.
  */
-export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete }: SavedViewsMenuProps) {
+export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref }: SavedViewsMenuProps) {
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind | null>(null)
   const [name, setName] = useState('')
@@ -180,6 +183,10 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
               onClick={() => openDialog('delete')} data-qqq-id="saved-view-action-delete">Delete...</button>
           )}
           <button type="button" role="menuitem" className={menuItem} onClick={() => { setOpen(false); onNewView() }} data-qqq-id="saved-view-action-new">New View</button>
+          {reportHref && (
+            <Link role="menuitem" className={menuItem} href={reportHref} onClick={() => setOpen(false)}
+              data-qqq-id="saved-view-action-create-report">Create Report from Current View</Link>
+          )}
 
           <div role="separator" className="my-1 border-t border-border" />
           <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground" id="your-saved-views">Your Saved Views</p>

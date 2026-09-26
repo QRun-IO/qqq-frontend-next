@@ -7,6 +7,76 @@
   "description": "Querying, relationships, saved views, export and bulk selection",
   "rows": [
     {
+      "id": "QRY-090",
+      "feature": "Column menu sorts, pins, opens a field filter and hides a column",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Sort matches SQL", "Pin right is reflected in the grid", "Filter opens the field editor", "Hide removes the column"],
+      "negative": [],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-091",
+      "feature": "Column menu copies page or full query values in backend sort order",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample carrier (11 rows)",
+      "scenarios": ["Page copy contains the first ten ids", "Full copy contains all eleven ids"],
+      "negative": [],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-092",
+      "feature": "Column chooser searches, groups, counts and marks changed layouts",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/components/query/FieldListMenu.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Search narrows fields", "Groups collapse and expand", "Hiding a field marks the columns dirty"],
+      "negative": ["Unknown search shows an empty message"],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-093",
+      "feature": "Last saved view and unsaved edits survive reopening and reload",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample Alice People View",
+      "scenarios": ["Dirty filter survives reload", "Table route opens the last saved view", "Reset restores the backend view"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-094",
+      "feature": "Counted quick views render and open their saved-view route",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/components/query/QuickSavedViews.tsx"],
+      "fixture": "sample Alice People View marked as a quick view in H2",
+      "scenarios": ["Count reflects the backend filter", "Quick-view button opens the filtered view"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-095",
+      "feature": "A new query defaults to fifty rows per page",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "QueryFixtures.java qryManyRow (1,234 rows)",
+      "scenarios": ["Fifty visible rows", "Pagination reports fifty of the full count"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-096",
+      "feature": "A saved view reconciles removed fields and warns the user",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample Alice People View with retiredField references in H2",
+      "scenarios": ["Obsolete criteria and sort are removed before querying", "Warning names the removed field", "Heading names the active saved view"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
       "id": "QRY-001",
       "feature": "Record list renders metadata labels and all records in the default primary-key-descending order",
       "source": [

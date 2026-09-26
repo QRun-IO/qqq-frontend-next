@@ -19,7 +19,7 @@
  */
 
 import {
-  Accessibility, Activity, AlarmClock, Archive, ArrowDown, ArrowUp, AtSign, Award, Ban, Barcode, ChartBar,
+  Accessibility, Activity, AlarmClock, Archive, ArrowDown, ArrowRight, ArrowUp, AtSign, Award, Ban, Barcode, ChartBar,
   ChartLine, ChartPie, Bell, BellRing, Blocks, BookOpen, Bookmark, Box, Boxes, Briefcase, Bug, Building2,
   Calculator, Calendar, CalendarClock, CalendarDays, Camera, Car, CircleCheck, CircleHelp, CirclePlay,
   CircleUser, CircleX, Clipboard, ClipboardList, Clock, Cloud, CloudUpload, Code, Coffee, Cog, Contact, Copy,
@@ -58,6 +58,7 @@ const MATERIAL_TO_LUCIDE: Record<string, LucideIcon> = {
   apps: LayoutGrid,
   archive: Archive,
   arrow_downward: ArrowDown,
+  arrow_forward: ArrowRight,
   arrow_upward: ArrowUp,
   article: Newspaper,
   assessment: ChartBar,

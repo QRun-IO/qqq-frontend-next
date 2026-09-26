@@ -26,6 +26,15 @@
  */
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const
 
+/** Default rows per page on the Record Query page (Material Dashboard: 50). */
+export const DEFAULT_PAGE_SIZE = 50
+
+/** Longest cell value the query grid shows before trimming it with "..." (Material Dashboard: 2048). */
+export const MAX_GRID_VALUE_LENGTH = 2048
+
+/** Default limit of "Copy full query values" (Material Dashboard `queryScreenCopyFullQueryColumnValuesLimit`). */
+export const DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT = 100_000
+
 /**
  * Debounce delay (in milliseconds) for the quick-search input on the Record Query page.
  *

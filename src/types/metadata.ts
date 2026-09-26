@@ -155,8 +155,9 @@ export interface QTableMetaData {
   /** Map of field name → field metadata for every column in this table. */
   fields: Record<string, QFieldMetaData>
   /**
-   * Virtual fields (computed by the backend, for example with a field function), by name.
-   * Those marked `isQueryCriteria` can be filtered on.
+   * Fields computed by the backend rather than stored (v1 `virtualFields`). Those with
+   * `isQuerySelectable` are query-screen columns; only `isQueryCriteria` ones can be
+   * sorted and filtered.
    */
   virtualFields?: Record<string, QVirtualFieldMetaData>
   /** Ordered list of field-grouping sections shown on the record view/edit pages. */
@@ -245,14 +246,13 @@ export interface QFieldMetaData {
 }
 
 /**
- * A virtual field: computed by the backend rather than stored, and usable in queries as
- * its flags allow.
+ * A virtual (computed, not stored) field of a table (v1 `VirtualFieldMetaData`).
  */
 export interface QVirtualFieldMetaData extends QFieldMetaData {
-  /** Whether the field can be selected in query output (shown as a column). */
-  isQuerySelectable?: boolean
-  /** Whether the field can be used in query criteria (filters). */
+  /** Whether the field may be used in filter criteria and sorts. */
   isQueryCriteria?: boolean
+  /** Whether the field is returned by queries (a query-screen column). */
+  isQuerySelectable?: boolean
 }
 
 /**

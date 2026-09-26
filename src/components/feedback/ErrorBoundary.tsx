@@ -34,6 +34,10 @@ export interface ErrorBoundaryProps {
   fallback?: ReactNode
   /** Optional callback invoked with the caught error and React error info for external logging. */
   onError?: (error: Error, info: ErrorInfo) => void
+  /** Optional recovery action to run when the user retries. */
+  onReset?: () => void
+  /** Label for the recovery button. */
+  resetLabel?: string
   /** Additional Tailwind class names applied to the default error card container. */
   className?: string
 }
@@ -103,6 +107,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state so the child tree will attempt to re-render.
    */
   handleReset = () => {
+    this.props.onReset?.()
     this.setState({ hasError: false, error: null })
   }
 
@@ -155,7 +160,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             data-qqq-id="button-error-boundary-retry"
           >
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            Try Again
+            {this.props.resetLabel ?? 'Try Again'}
           </button>
         </div>
       )

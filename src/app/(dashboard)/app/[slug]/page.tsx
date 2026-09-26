@@ -66,7 +66,7 @@ import { NotFoundState } from '@/components/layout/NotFoundState'
  * @param metaData - The full QQQ instance metadata fetched from the backend.
  * @returns A `{ type, name }` object describing the resolved resource, or `null`.
  */
-export function resolveSlugTarget(
+function resolveSlugTarget(
   slug: string,
   metaData: QInstance
 ): { type: 'app' | 'table' | 'process' | 'report'; name: string } | null {

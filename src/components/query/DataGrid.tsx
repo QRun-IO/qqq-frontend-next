@@ -15,12 +15,14 @@
  */
 
 /**
- * @file DataGrid — TanStack Table v8 data grid for the QQQ Record Query page. Renders sortable, resizable columns with row selection and density support.
+ * @file DataGrid — TanStack Table v8 data grid for the QQQ Record Query page: sortable, resizable
+ * and pinnable columns with Material's column menu, active-filter and field-help header icons,
+ * row selection, striped rows and density support.
  */
 
 'use client'
 
-import React, { useMemo, useRef, useCallback, useEffect } from 'react'
+import React, { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -30,14 +32,19 @@ import {
   type SortingState,
   type RowSelectionState,
 } from '@tanstack/react-table'
-import { ArrowUp, ArrowDown, ArrowUpDown, BarChart3, Inbox } from 'lucide-react'
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import { ArrowUp, ArrowDown, ArrowUpDown, BarChart3, CircleHelp, Filter, Inbox } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
-import { sizeWidth } from '@/lib/utils/adornment-utils'
-import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
+import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
+import { MAX_GRID_VALUE_LENGTH } from '@/lib/constants'
+import { selectHelpContent, QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { arrangePinnedColumns, effectivePins, getQueryColumns, orderColumns, type ColumnPins, type QueryColumn } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
+import { HelpContent } from '@/components/records/HelpContent'
+import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
 import { DataCell } from './DataCell'
 
 /**
@@ -77,6 +84,8 @@ interface DataGridProps {
   columnOrder: string[]
   /** Map of field name → pixel width for user-resized columns. */
   columnWidths: Record<string, number>
+  /** Pinned columns; null pins the first column (the primary key by default). */
+  columnPins?: ColumnPins | null
   /** Callback invoked when the user drags a column resize handle. */
   onColumnWidthChange: (fieldName: string, width: number) => void
   /** Row height density variant: compact, standard, or comfortable. */
@@ -92,6 +101,16 @@ interface DataGridProps {
   isRowSelectedByQuery?: (rowIndex: number) => boolean
   /** When provided, each header offers column statistics for its column. */
   onColumnStats?: (columnName: string, columnLabel: string) => void
+  /** Column menu actions; without them the headers have no column menu. */
+  columnMenu?: Omit<ColumnMenuActions, 'onSort' | 'onColumnStats'>
+  /** Columns the filter has a complete criterion on (their headers show a filter icon). */
+  filteredColumns?: ReadonlySet<string>
+  /** Opens the filter for a column (the header filter icon). */
+  onShowFilter?: (columnName: string) => void
+  /** Height of the scrolling grid (Material fills the viewport); unset lets the page scroll. */
+  height?: number
+  /** Changes when the page or page size changes; the grid then scrolls back to its first row. */
+  scrollResetKey?: string
 }
 
 /** Tailwind height classes for each row density variant. */
@@ -108,12 +127,44 @@ const DENSITY_CELL_CLASS: Record<Density, string> = {
   comfortable: 'px-4 py-3 text-sm',
 }
 
+/** Width of the selection (checkbox) column. */
+const SELECT_COLUMN_WIDTH = 44
+/** Room for a sort label, statistics action and column menu without covering the next header. */
+const MIN_COLUMN_WIDTH = 140
+
+/** Opaque background of odd (striped) rows, so pinned cells cover what scrolls under them. */
+const STRIPE_BG = 'bg-[color-mix(in_oklch,var(--color-muted)_55%,var(--color-card))]'
+
+/** How far (px) the pointer may move between press and release for a row click to count. */
+const CLICK_SLOP = 5
+
+/** Delay before a row click opens the record, so a double-click (selecting text) cancels it. */
+const ROW_CLICK_DELAY_MS = 100
+
+/**
+ * Trims a long text value, as Material's grid does (2048 characters, then "...").
+ *
+ * @param value - A cell value.
+ * @returns The value, trimmed when it is a long string.
+ */
+function trimValue<T>(value: T): T | string {
+  return typeof value === 'string' && value.length > MAX_GRID_VALUE_LENGTH ? `${value.substring(0, MAX_GRID_VALUE_LENGTH)}...` : value
+}
+
+/** Sticky placement of a pinned column. */
+interface PinPlacement {
+  side: 'left' | 'right'
+  offset: number
+  /** Whether it is the innermost pinned column on its side (it gets the divider). */
+  edge: boolean
+}
+
 /**
  * TanStack Table v8 data grid component for the QQQ Record Query page.
  *
  * Renders a sortable, column-resizable HTML table with row selection checkboxes,
- * density variants (compact / standard / comfortable), and arrow-key cell
- * navigation. Clicking a data row navigates to the record detail view.
+ * density variants (compact / standard / comfortable), pinned columns, Material's column menu
+ * and arrow-key cell navigation. Clicking a data row navigates to the record detail view.
  *
  * Return value depends on the current loading and data state:
  * - **`isLoading` is true** — returns a skeleton table (animated pulse rows
@@ -141,12 +192,18 @@ export function DataGrid({
   columnVisibility,
   columnOrder,
   columnWidths,
+  columnPins = null,
   onColumnWidthChange,
   density,
   pageSize,
   onResetFilter,
   isRowSelectedByQuery,
   onColumnStats,
+  columnMenu,
+  filteredColumns,
+  onShowFilter,
+  height,
+  scrollResetKey,
 }: DataGridProps) {
   const router = useRouter()
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null)
@@ -154,16 +211,46 @@ export function DataGrid({
   const activeResizeRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null)
   // MED-27: ref to the <table> element for arrow-key cell navigation
   const tableRef = useRef<HTMLTableElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  /**
-   * Computes the ordered list of visible fields by filtering out hidden fields, applying
-   * `columnVisibility`, and sorting by `columnOrder`.
-   */
-  // Build sorted column list (base and exposed-join fields) respecting columnOrder + visibility
-  const visibleFields = useMemo(
-    () => orderColumns(getQueryColumns(tableMetaData), columnOrder).filter((c) => isColumnVisible(c.name, columnVisibility)),
-    [tableMetaData, columnVisibility, columnOrder]
-  )
+  // A new page starts at its first row (Material scrolls to the origin on page changes)
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [scrollResetKey])
+
+  // Columns in display order: saved order, pinned columns at their sides, visible ones only
+  const { visibleFields, pins } = useMemo(() => {
+    const ordered = orderColumns(getQueryColumns(tableMetaData), columnOrder)
+    const pinsInEffect = effectivePins(ordered.map((c) => c.name), columnPins, tableMetaData.primaryKeyField)
+    return {
+      visibleFields: arrangePinnedColumns(ordered, pinsInEffect).filter((c) => isColumnVisible(c.name, columnVisibility)),
+      pins: pinsInEffect,
+    }
+  }, [tableMetaData, columnVisibility, columnOrder, columnPins])
+
+  // Declared widths: a user-resized width wins; otherwise Material's default for the field
+  const widthOf = useCallback((column: QueryColumn) => Math.max(MIN_COLUMN_WIDTH, columnWidths[column.name] ?? column.defaultWidth), [columnWidths])
+
+  // Sticky offsets of pinned columns, from their declared widths (measured widths replace them
+  // when the browser lays the table out differently, see the layout effect below)
+  const declaredPlacements = useMemo(() => {
+    const placements: Record<string, PinPlacement> = {}
+    let left = SELECT_COLUMN_WIDTH
+    const leftPinned = visibleFields.filter((c) => pins[c.name] === 'left')
+    leftPinned.forEach((column, index) => {
+      placements[column.name] = { side: 'left', offset: left, edge: index === leftPinned.length - 1 }
+      left += widthOf(column)
+    })
+    let right = 0
+    const rightPinned = visibleFields.filter((c) => pins[c.name] === 'right')
+    ;[...rightPinned].reverse().forEach((column, index) => {
+      placements[column.name] = { side: 'right', offset: right, edge: index === rightPinned.length - 1 }
+      right += widthOf(column)
+    })
+    return placements
+  }, [visibleFields, pins, widthOf])
+  const [measuredPlacements, setMeasuredPlacements] = useState<Record<string, PinPlacement> | null>(null)
+  const placements = measuredPlacements ?? declaredPlacements
 
   // Row ids must be unique; a many-side join can repeat a primary key, so repeats get "#n"
   const rowIds = useMemo(() => {
@@ -184,13 +271,8 @@ export function DataGrid({
    * format expected by TanStack Table (for aria-sort and icon rendering only —
    * actual sorting is handled server-side via `manualSorting: true`).
    */
-  // TanStack sorting state derived from QFilterOrderBy[]
   const tanstackSorting: SortingState = useMemo(
-    () =>
-      sortOrder.map((s) => ({
-        id: s.fieldName,
-        desc: !s.isAscending,
-      })),
+    () => sortOrder.map((s) => ({ id: s.fieldName, desc: !s.isAscending })),
     [sortOrder]
   )
 
@@ -213,16 +295,18 @@ export function DataGrid({
     [sortOrder, onSortChange]
   )
 
+  /** Sorts by a column from its menu (Material "Sort ascending" / "Sort descending"). */
+  const sortFromMenu = useCallback((fieldName: string, isAscending: boolean) => onSortChange([{ fieldName, isAscending }]), [onSortChange])
+
   /**
    * Builds TanStack Table column definitions from the visible fields plus a leading
    * checkbox selection column. Memoized so column objects are stable between renders.
    */
-  // Column definitions
   const columns = useMemo<ColumnDef<QRecord>[]>(() => {
     // Checkbox selection column
     const selectColumn: ColumnDef<QRecord> = {
       id: '_select',
-      size: 44,
+      size: SELECT_COLUMN_WIDTH,
       enableSorting: false,
       // A label around each box is its touch target (44 px on coarse pointers, globals.css)
       header: ({ table }) => (
@@ -264,35 +348,51 @@ export function DataGrid({
     const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((column) => {
       const field = column.field
       const sortInfo = sortMap.get(column.name)
-      // A user-resized width wins; otherwise the field's SIZE adornment suggests one.
-      const defaultWidth = columnWidths[column.name] ?? sizeWidth(field) ?? 150
+      const help = selectHelpContent(field.helpContents, QUERY_SCREEN_HELP_ROLES)
+      const filtered = column.isQueryCriteria && filteredColumns?.has(column.name)
 
       return {
         id: column.name,
-        size: defaultWidth,
-        enableSorting: true,
-        header: () => {
-          const isSorted = sortInfo != null
-          return (
-            <div className="flex w-full items-center gap-1">
-            <button
-              type="button"
-              className="flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
-              onClick={() => handleSortColumn(column.name)}
-              aria-label={`Sort by ${column.label}`}
-              data-qqq-id={`grid-header-${column.name}`}
-            >
-              <span className="truncate">{column.label}</span>
-              {isSorted ? (
-                sortInfo.isAscending ? (
-                  <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+        size: widthOf(column),
+        enableSorting: column.isQueryCriteria,
+        header: () => (
+          <div className="flex w-full items-center gap-1">
+            {column.isQueryCriteria ? (
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring"
+                onClick={() => handleSortColumn(column.name)}
+                aria-label={`Sort by ${column.label}`}
+                data-qqq-id={`grid-header-${column.name}`}
+              >
+                <span className="truncate">{column.label}</span>
+                {sortInfo ? (
+                  sortInfo.isAscending ? (
+                    <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                  ) : (
+                    <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                  )
                 ) : (
-                  <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
-                )
-              ) : (
-                <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden="true" />
-              )}
-            </button>
+                  <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden="true" />
+                )}
+              </button>
+            ) : (
+              // a virtual field the backend cannot sort or filter on (Material hides both)
+              <span className="min-w-0 flex-1 truncate font-semibold" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
+            )}
+            {help && <ColumnHelp column={column} help={help} />}
+            {filtered && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onShowFilter?.(column.name) }}
+                className="shrink-0 rounded p-0.5 text-primary hover:bg-primary/10 focus:outline-none focus:ring-1 focus:ring-ring"
+                aria-label={`${column.label} is filtered. Show the filter`}
+                title={`${column.label} is filtered`}
+                data-qqq-id={`grid-column-filter-${column.name}`}
+              >
+                <Filter className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
             {onColumnStats && (
               <button
                 type="button"
@@ -304,14 +404,24 @@ export function DataGrid({
                 <BarChart3 className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
-            </div>
-          )
-        },
+            {columnMenu && (
+              <ColumnHeaderMenu
+                column={column}
+                sort={sortInfo}
+                pinned={pins[column.name]}
+                hasRows={records.length > 0}
+                onSort={sortFromMenu}
+                onColumnStats={onColumnStats}
+                {...columnMenu}
+              />
+            )}
+          </div>
+        ),
         cell: ({ row }) => (
           <DataCell
             field={field}
-            value={row.original.values[column.name]}
-            displayValue={row.original.displayValues?.[column.name]}
+            value={trimValue(row.original.values[column.name])}
+            displayValue={trimValue(row.original.displayValues?.[column.name])}
             record={row.original}
           />
         ),
@@ -319,7 +429,7 @@ export function DataGrid({
     })
 
     return [selectColumn, ...fieldColumns]
-  }, [visibleFields, sortOrder, columnWidths, handleSortColumn, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats])
+  }, [visibleFields, sortOrder, widthOf, handleSortColumn, sortFromMenu, isRowSelectedByQuery, records, rowIds, onRowSelectionChange, onColumnStats, columnMenu, filteredColumns, onShowFilter, pins])
 
   const table = useReactTable<QRecord>({
     data: records,
@@ -341,6 +451,61 @@ export function DataGrid({
     manualSorting: true,
     getRowId: (row, index) => rowIdByRecord.get(row) ?? `row-${index}`,
   })
+
+  // Measure the pinned columns once laid out: a table wider than its columns spreads the extra
+  // width over them, which moves the sticky offsets. Unlaid-out tables (all widths 0) keep the
+  // declared offsets.
+  const placementKey = JSON.stringify(declaredPlacements)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const tableElement = tableRef.current
+      if (!tableElement) return
+      const headers = Array.from(tableElement.querySelectorAll<HTMLTableCellElement>('thead th'))
+      const widths = headers.map((th) => th.offsetWidth)
+      if (widths.every((w) => w === 0)) return
+      const ids = headers.map((th) => th.dataset.col ?? '')
+      const next: Record<string, PinPlacement> = {}
+      let left = widths[0] ?? SELECT_COLUMN_WIDTH
+      for (let i = 1; i < ids.length; i++) {
+        const declared = declaredPlacements[ids[i]]
+        if (declared?.side === 'left') {
+          next[ids[i]] = { ...declared, offset: left }
+          left += widths[i]
+        }
+      }
+      let right = 0
+      for (let i = ids.length - 1; i >= 1; i--) {
+        const declared = declaredPlacements[ids[i]]
+        if (declared?.side === 'right') {
+          next[ids[i]] = { ...declared, offset: right }
+          right += widths[i]
+        }
+      }
+      setMeasuredPlacements((prev) => {
+        const differs = JSON.stringify(next) !== JSON.stringify(declaredPlacements)
+        const value = differs ? next : null
+        return JSON.stringify(prev) === JSON.stringify(value) ? prev : value
+      })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined' || !tableRef.current) return
+    const observer = new ResizeObserver(measure)
+    observer.observe(tableRef.current)
+    return () => observer.disconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- placementKey stands for declaredPlacements
+  }, [placementKey, records.length])
+
+  /** Sticky classes and offsets per column id, shared by header and body cells. */
+  const pinStyles = useMemo(() => {
+    const styles: Record<string, { className: string; style: React.CSSProperties }> = {}
+    for (const [id, placement] of Object.entries(placements)) {
+      styles[id] = {
+        className: `sticky ${placement.edge ? (placement.side === 'left' ? 'border-r border-border' : 'border-l border-border') : ''}`,
+        style: placement.side === 'left' ? { left: placement.offset } : { right: placement.offset },
+      }
+    }
+    return styles
+  }, [placements])
 
   // ------------------------------------------------------------------
   // Column resize handlers
@@ -365,7 +530,7 @@ export function DataGrid({
       const handleMouseMove = (me: MouseEvent) => {
         if (!resizeRef.current) return
         const delta = me.clientX - resizeRef.current.startX
-        const newWidth = Math.max(60, resizeRef.current.startWidth + delta)
+        const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeRef.current.startWidth + delta)
         onColumnWidthChange(resizeRef.current.colId, newWidth)
       }
 
@@ -396,7 +561,7 @@ export function DataGrid({
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
       e.preventDefault()
       const delta = e.key === 'ArrowRight' ? 10 : -10
-      const newWidth = Math.max(60, currentWidth + delta)
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, currentWidth + delta)
       onColumnWidthChange(colId, newWidth)
     },
     [onColumnWidthChange]
@@ -414,26 +579,52 @@ export function DataGrid({
   }, [])
 
   // ------------------------------------------------------------------
-  // Row click handler
+  // Row click: Material ignores a press that turns into a drag (selecting text) and a double-click
   // ------------------------------------------------------------------
+  const pressRef = useRef<{ x: number; y: number } | null>(null)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (clickTimerRef.current) clearTimeout(clickTimerRef.current) }, [])
+
   /**
-   * Navigates to the record detail view when a table row is clicked.
+   * Opens the record of a row.
    *
-   * Uses the table's primary key field to construct the URL. Rows without a
-   * resolvable primary key value are silently ignored.
-   *
-   * @param record - The QRecord whose row was clicked.
+   * @param record - The row's record.
    */
-  const handleRowClick = useCallback(
+  const openRecord = useCallback(
     (record: QRecord) => {
-      const primaryKey = tableMetaData.primaryKeyField
-      const id = record.values[primaryKey]
-      if (id != null) {
-        router.push(`/app/${tableName}/${id}`)
-      }
+      const id = record.values[tableMetaData.primaryKeyField]
+      if (id != null) router.push(`/app/${tableName}/${id}`)
     },
     [router, tableName, tableMetaData.primaryKeyField]
   )
+
+  /** Remembers where a press started and cancels a pending row click (click, then drag). */
+  const handleRowMouseDown = useCallback((e: React.MouseEvent) => {
+    pressRef.current = { x: e.clientX, y: e.clientY }
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+  }, [])
+
+  /**
+   * Opens the record after a short delay, unless the pointer moved (a drag) or a double-click
+   * follows (both select text instead).
+   *
+   * @param record - The row's record.
+   * @param e - The click event.
+   */
+  const handleRowClick = useCallback(
+    (record: QRecord, e: React.MouseEvent) => {
+      const press = pressRef.current
+      if (press && Math.max(Math.abs(e.clientX - press.x), Math.abs(e.clientY - press.y)) >= CLICK_SLOP) return
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+      clickTimerRef.current = setTimeout(() => openRecord(record), ROW_CLICK_DELAY_MS)
+    },
+    [openRecord]
+  )
+
+  /** A double-click selects text; it never opens the record. */
+  const handleRowDoubleClick = useCallback(() => {
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+  }, [])
 
   // ------------------------------------------------------------------
   // MED-27: Arrow-key keyboard navigation between cells
@@ -554,7 +745,13 @@ export function DataGrid({
   // Main grid
   // ------------------------------------------------------------------
   return (
-    <div className="relative w-full overflow-x-auto" data-qqq-id={`grid-${tableName}`}>
+    <div
+      ref={scrollRef}
+      className={`relative w-full ${height ? 'overflow-auto' : 'overflow-x-auto'}`}
+      style={height ? { height } : undefined}
+      data-qqq-id={`grid-${tableName}`}
+      data-grid-scroll={height ? 'viewport' : 'page'}
+    >
       {/* D-Q-6: SR announcement for background refetches */}
       <div
         role="status"
@@ -566,25 +763,31 @@ export function DataGrid({
       </div>
 
       {isFetching && (
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-primary/20 overflow-hidden z-10">
+        <div className="sticky left-0 top-0 z-10 h-0.5 w-full overflow-hidden bg-primary/20">
           <div className="h-full bg-primary animate-[slideRight_1s_ease-in-out_infinite]" />
         </div>
       )}
 
-      <table ref={tableRef} className="w-full border-collapse table-fixed min-w-[600px]" role="grid" aria-label={`${tableMetaData.label} records`}>
-        <thead>
+      <table
+        ref={tableRef}
+        className="w-full border-collapse table-fixed min-w-[600px]"
+        style={{ minWidth: `${table.getTotalSize()}px` }}
+        role="grid"
+        aria-label={`${tableMetaData.label} records`}
+      >
+        <thead className={height ? 'sticky top-0 z-[3]' : undefined}>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
               className="border-b border-border bg-muted"
             >
-              {headerGroup.headers.map((header, colIndex) => {
+              {headerGroup.headers.map((header) => {
                 // Compute aria-sort for sortable columns
                 const isSelectCol = header.id === '_select'
                 const sortInfo = !isSelectCol
                   ? sortOrder.find((s) => s.fieldName === header.id)
                   : undefined
-                const isSortable = !isSelectCol
+                const isSortable = !isSelectCol && header.column.columnDef.enableSorting !== false
                 const ariaSortValue: 'ascending' | 'descending' | 'none' | undefined = !isSortable
                   ? undefined
                   : sortInfo
@@ -592,21 +795,18 @@ export function DataGrid({
                       ? 'ascending'
                       : 'descending'
                     : 'none'
-
-                // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
-                const stickyClass =
-                  colIndex === 0
-                    ? 'sticky left-0 z-[1] bg-muted'
-                    : colIndex === 1
-                      ? 'sticky left-[44px] z-[1] bg-muted'
-                      : ''
+                const pinned = pinStyles[header.id]
+                // the selection column always stays in view, as the pinned columns do
+                const stickyClass = isSelectCol ? 'sticky left-0 z-[2] bg-muted' : pinned ? `${pinned.className} z-[2] bg-muted` : ''
 
                 return (
                   <th
                     key={header.id}
                     scope="col"
+                    data-col={header.id}
+                    data-pinned={isSelectCol ? undefined : pins[header.id]}
                     className={`group relative text-left font-semibold text-foreground select-none ${cellClass} ${stickyClass}`}
-                    style={{ width: `${header.getSize()}px` }}
+                    style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
                     aria-sort={ariaSortValue}
                   >
                     {header.isPlaceholder
@@ -623,7 +823,7 @@ export function DataGrid({
                           aria-orientation="vertical"
                           aria-label={`Resize ${fieldLabel} column`}
                           aria-valuenow={Math.round(header.getSize())}
-                          aria-valuemin={60}
+                          aria-valuemin={MIN_COLUMN_WIDTH}
                           aria-valuemax={2000}
                           tabIndex={0}
                           onMouseDown={(e) =>
@@ -652,13 +852,65 @@ export function DataGrid({
               isChecked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
               rowClass={rowClass}
               cellClass={cellClass}
+              pinStyles={pinStyles}
+              onRowMouseDown={handleRowMouseDown}
               onRowClick={handleRowClick}
+              onRowDoubleClick={handleRowDoubleClick}
+              onOpenRecord={openRecord}
               onCellKeyDown={handleCellKeyDown}
             />
           ))}
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** Props for {@link ColumnHelp}. */
+interface ColumnHelpProps {
+  /** The column. */
+  column: QueryColumn
+  /** The field's help for the query screen. */
+  help: NonNullable<ReturnType<typeof selectHelpContent>>
+}
+
+/**
+ * The field-help icon of a column header: its tooltip shows the field's query-screen help, headed
+ * by the column label (Material shows it on the header title).
+ *
+ * @param props - Component properties.
+ * @returns The help icon with its tooltip.
+ */
+function ColumnHelp({ column, help }: ColumnHelpProps) {
+  const tooltip = useFocusSafeTooltip()
+  return (
+    <TooltipPrimitive.Provider delayDuration={300}>
+      <TooltipPrimitive.Root open={tooltip.open} onOpenChange={tooltip.onOpenChange}>
+        <TooltipPrimitive.Trigger asChild onFocus={tooltip.onFocus} onBlur={tooltip.onBlur} onKeyDown={tooltip.onKeyDown}
+          onPointerDown={tooltip.onPointerDown} onClick={(e) => { e.stopPropagation(); tooltip.onClick(e) }}>
+          <button
+            type="button"
+            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            aria-label={`Help for ${column.label}`}
+            data-qqq-id={`grid-header-help-${column.name}`}
+          >
+            <CircleHelp className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Content
+            side="top"
+            sideOffset={4}
+            data-qqq-id={`grid-header-help-tooltip-${column.name}`}
+            className="z-[170] max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm font-normal text-foreground shadow-md"
+          >
+            <p className="mb-1 font-semibold">{column.label}</p>
+            <HelpContent helpContent={help} />
+            <TooltipPrimitive.Arrow className="fill-border" />
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
+      </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
   )
 }
 
@@ -677,8 +929,16 @@ interface GridRowProps {
   rowClass: string
   /** Density cell class. */
   cellClass: string
-  /** Opens the row's record. */
-  onRowClick: (record: QRecord) => void
+  /** Sticky classes and offsets of pinned columns. */
+  pinStyles: Record<string, { className: string; style: React.CSSProperties }>
+  /** Starts a row press (row-click guard). */
+  onRowMouseDown: (e: React.MouseEvent) => void
+  /** A row click (opens the record unless it was a drag or double-click). */
+  onRowClick: (record: QRecord, e: React.MouseEvent) => void
+  /** A row double-click (cancels the pending open). */
+  onRowDoubleClick: () => void
+  /** Opens the row's record at once (keyboard). */
+  onOpenRecord: (record: QRecord) => void
   /** Arrow-key cell navigation. */
   onCellKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => void
 }
@@ -693,34 +953,37 @@ interface GridRowProps {
  * @param props - Component properties.
  * @returns The table row.
  */
-const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellClass, onRowClick, onCellKeyDown }: GridRowProps) {
+const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellClass, pinStyles, onRowMouseDown, onRowClick, onRowDoubleClick, onOpenRecord, onCellKeyDown }: GridRowProps) {
+  // Material stripes the rows (even / odd); a selected row is highlighted instead
+  const odd = row.index % 2 === 1
+  const background = isSelected ? 'bg-primary/5' : odd ? STRIPE_BG : ''
+  const stickyBackground = odd && !isSelected ? STRIPE_BG : 'bg-card'
   return (
     <tr
-      className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${isSelected ? 'bg-primary/5' : ''}`}
-      onClick={() => onRowClick(row.original)}
+      className={`border-b border-border transition-colors hover:bg-muted/50 cursor-pointer ${rowClass} ${background}`}
+      onMouseDown={onRowMouseDown}
+      onClick={(e) => onRowClick(row.original, e)}
+      onDoubleClick={onRowDoubleClick}
       data-qqq-id={`grid-row-${row.index}`}
+      data-row-parity={odd ? 'odd' : 'even'}
     >
-      {row.getVisibleCells().map((cell, colIndex) => {
-        // D-Q-8: sticky columns — checkbox col (index 0) and first data col (index 1)
-        const cellStickyClass =
-          colIndex === 0
-            ? 'sticky left-0 z-[1] bg-card'
-            : colIndex === 1
-              ? 'sticky left-[44px] z-[1] bg-card'
-              : ''
+      {row.getVisibleCells().map((cell) => {
+        const isSelectCol = cell.column.id === '_select'
+        const pinned = pinStyles[cell.column.id]
+        const cellStickyClass = isSelectCol ? `sticky left-0 z-[1] ${stickyBackground}` : pinned ? `${pinned.className} z-[1] ${stickyBackground}` : ''
 
         return (
           <td
             key={cell.id}
             className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass}`}
-            style={{ width: `${cell.column.getSize()}px` }}
+            style={{ width: `${cell.column.getSize()}px`, ...(pinned?.style ?? {}) }}
             data-qqq-id={`grid-cell-${cell.column.id}`}
             tabIndex={0}
             onKeyDown={(e) => {
               // Enter on a focused cell opens the record, like a row click (keyboard parity)
-              if (e.key === 'Enter' && e.target === e.currentTarget && cell.column.id !== '_select') {
+              if (e.key === 'Enter' && e.target === e.currentTarget && !isSelectCol) {
                 e.preventDefault()
-                onRowClick(row.original)
+                onOpenRecord(row.original)
                 return
               }
               onCellKeyDown(e)

@@ -39,7 +39,8 @@ test('[QRY-050] your saved views are listed and open on their own route @mobile'
   await expect(page).toHaveURL(new RegExp(`/app/person/savedView/${seed!.id}/?`))
   await expectColumn(page, 'firstName', await sqlColumn(backend, "select first_name from person where first_name = 'Avery' order by id desc"))
   await expect(page.locator('[data-qqq-id="button-saved-views"]')).toContainText(ALICE_VIEW)
-  await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toHaveCount(0)
+  await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toContainText('1 Unsaved Change')
+  await expect(page.locator('[data-qqq-id="saved-view-unsaved"] [title]')).toHaveAttribute('title', /columns saved with it/)
   // Direct link and reload
   await page.reload()
   await expectColumn(page, 'firstName', ['Avery'])

@@ -24,7 +24,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { ChevronsRight, CornerDownRight, Loader2, X } from 'lucide-react'
+import { ChevronsRight, CornerDownRight, Loader2, Settings, X } from 'lucide-react'
 
 import type { QTableMetaData } from '@/types'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
@@ -52,6 +52,8 @@ export interface GotoRecordDialogProps {
   mayClose?: boolean
   /** Called when the user dismisses the dialog. */
   onClose: () => void
+  /** Opens the variant picker from a key-only table's required Go To dialog. */
+  onChangeVariant?: () => void
 }
 
 /**
@@ -61,7 +63,7 @@ export interface GotoRecordDialogProps {
  * @param props - Component properties.
  * @returns The dialog.
  */
-export function GotoRecordDialog({ open, tableMetaData, tableVariant, mayClose = true, onClose }: GotoRecordDialogProps) {
+export function GotoRecordDialog({ open, tableMetaData, tableVariant, mayClose = true, onClose, onChangeVariant }: GotoRecordDialogProps) {
   const router = useRouter()
   const options = useMemo(() => gotoOptions(tableMetaData), [tableMetaData])
   const [values, setValues] = useState<Record<string, string>>({})
@@ -127,6 +129,14 @@ export function GotoRecordDialog({ open, tableMetaData, tableVariant, mayClose =
           </div>
 
           <div className="space-y-4 px-6 py-4">
+            {tableMetaData.usesVariants && tableVariant && onChangeVariant && (
+              <button type="button" onClick={onChangeVariant} data-qqq-id="goto-change-variant"
+                aria-label={`Change ${tableMetaData.variantTableLabel}`}
+                className="inline-flex items-center gap-1.5 rounded px-1 text-sm text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                {tableMetaData.variantTableLabel}: {tableVariant.name ?? String(tableVariant.id)}
+                <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
               Find a {tableMetaData.label} record by any of these fields.
             </DialogPrimitive.Description>

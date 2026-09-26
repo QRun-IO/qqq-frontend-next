@@ -31,7 +31,7 @@ const theirs = view(2, 'Their View', 'sample:bob')
 
 function makeViews(overrides: Partial<SavedViewsResult> = {}): SavedViewsResult {
   return {
-    isAvailable: true, canStore: true, canDelete: true, yourViews: [mine], sharedViews: [theirs], isLoading: false, error: null,
+    isAvailable: true, canStore: true, canDelete: true, yourViews: [mine], sharedViews: [theirs], quickViews: [], isLoading: false, error: null,
     storeView: vi.fn(), deleteView: vi.fn(), isOwner: (v) => v.userId === 'sample:alice', ...overrides,
   }
 }
@@ -95,5 +95,13 @@ describe('SavedViewsMenu', () => {
     expect(screen.getByText("Are you sure you want to delete the view 'My View'?")).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(mine))
+  })
+
+  it('offers a report seeded from the current view when report creation is available', async () => {
+    const href = '/app/savedReport/create#defaultValues=%7B%22tableName%22%3A%22person%22%7D'
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={noop} onNewView={noop}
+      onStore={vi.fn()} onDelete={vi.fn()} reportHref={href} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Saved views' }))
+    expect(screen.getByRole('menuitem', { name: 'Create Report from Current View' })).toHaveAttribute('href', href)
   })
 })

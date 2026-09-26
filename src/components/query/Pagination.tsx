@@ -45,6 +45,8 @@ interface PaginationProps {
   totalPages: number
   /** Whether a background fetch is in progress; navigation buttons are disabled when true. */
   isFetching: boolean
+  /** Whether the matching count is still being computed (Material shows "Counting..."). */
+  isCounting?: boolean
   /** Callback invoked when the user navigates to a different page. */
   onPageChange: (page: number) => void
   /** Callback invoked when the user changes the rows-per-page setting. */
@@ -71,6 +73,7 @@ export function Pagination({
   pageRowCount = 0,
   totalPages,
   isFetching,
+  isCounting = false,
   onPageChange,
   onPageSizeChange,
 }: PaginationProps) {
@@ -117,8 +120,10 @@ export function Pagination({
     >
       {/* Left: record count summary */}
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span aria-live="polite" aria-atomic="true">
-          {shown === 0 ? (
+        <span aria-live="polite" aria-atomic="true" data-qqq-id="pagination-summary">
+          {isCounting && !uncounted ? (
+            'Counting...'
+          ) : shown === 0 ? (
             'No records'
           ) : (
             <>

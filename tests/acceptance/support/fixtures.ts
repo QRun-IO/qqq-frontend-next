@@ -41,6 +41,10 @@ export interface Backend {
   api: APIRequestContext
   sessionId: string
   setPersona: (persona: Persona, user?: SampleUser) => Promise<void>
+  /** Marks the seeded Alice People saved view as a counted quick view. */
+  seedQuickView: () => Promise<void>
+  /** Replaces the seeded view with references to a removed table field. */
+  seedStaleView: () => Promise<void>
 }
 
 async function control(path: string, body: unknown) {
@@ -69,6 +73,8 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       sessionId,
       api,
       sql: async (query) => (await control('sql', { query })).rows,
+      seedQuickView: async () => { await control('quick-view', {}) },
+      seedStaleView: async () => { await control('stale-view', {}) },
       setPersona: async (next, nextUser = user) => { await control('persona', { sessionId, persona: next, user: nextUser }) },
     })
     await api.dispose()

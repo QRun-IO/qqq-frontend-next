@@ -81,6 +81,17 @@ describe('GotoRecordDialog', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  it('shows the selected variant and lets a key-only table reopen the variant picker', async () => {
+    const onChangeVariant = vi.fn()
+    render(<GotoRecordDialog open mayClose={false}
+      tableMetaData={{ ...table(), usesVariants: true, variantTableLabel: 'Store' }}
+      tableVariant={{ id: 2, type: 'store', name: 'North Store' }}
+      onChangeVariant={onChangeVariant} onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Change Store' }))
+    expect(screen.getByRole('button', { name: 'Change Store' })).toHaveTextContent('Store: North Store')
+    expect(onChangeVariant).toHaveBeenCalledOnce()
+  })
+
   it('reports a failed lookup, and cannot be dismissed when mayClose is false', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()

@@ -33,11 +33,13 @@ import {
   LayoutGrid,
   Table2,
   Tag,
+  Settings,
 } from 'lucide-react'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
 import type { TableVariant } from '@/lib/api/tables'
+import type { ColumnPins } from '@/lib/utils/query-columns'
 
 import { GotoRecordButton } from '@/components/records/GotoRecordDialog'
 
@@ -243,6 +245,15 @@ export interface RecordQueryToolbarProps {
   columnVisibility: Record<string, boolean>
   /** Ordered list of column field names. */
   columnOrder: string[]
+  /** Pinned columns. */
+  columnPins?: ColumnPins | null
+  /** How many columns are shown (the "Columns (N)" button). */
+  visibleColumnCount?: number
+  /**
+   * The columns button's state, as Material styles it: `empty` without a saved view and with the
+   * default columns, `clean` for a saved view's own columns, `dirty` when the columns differ.
+   */
+  columnsState?: 'empty' | 'clean' | 'dirty'
   /** Whether the column-config panel is open. */
   columnConfigOpen: boolean
   /** Callback to toggle the column-config panel. */
@@ -344,6 +355,9 @@ export function RecordQueryToolbar({
   selectionMenu,
   columnVisibility,
   columnOrder,
+  columnPins,
+  visibleColumnCount,
+  columnsState = 'empty',
   columnConfigOpen,
   toggleColumnConfig,
   setColumnConfigOpen,
@@ -424,17 +438,19 @@ export function RecordQueryToolbar({
           }`}
           aria-label={
             selectedVariantId != null
-              ? `Current variant: ${selectedVariantLabel ?? String(selectedVariantId)}. Click to change.`
+              ? `${tableMetaData.variantTableLabel}: ${selectedVariantLabel ?? String(selectedVariantId)}. Change ${tableMetaData.variantTableLabel}`
               : `Select ${tableMetaData.variantTableLabel}`
           }
+          title={selectedVariantId != null ? `Change ${tableMetaData.variantTableLabel}` : undefined}
           data-qqq-id="button-variant-picker"
         >
           <Tag className="h-4 w-4" aria-hidden="true" />
-          <span className="max-w-[140px] truncate">
+          <span className="max-w-[220px] truncate">
             {selectedVariantId != null
-              ? (selectedVariantLabel ?? String(selectedVariantId))
+              ? `${tableMetaData.variantTableLabel}: ${selectedVariantLabel ?? String(selectedVariantId)}`
               : `Select ${tableMetaData.variantTableLabel}`}
           </span>
+          {selectedVariantId != null && <Settings className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />}
         </button>
       )}
 
@@ -543,15 +559,21 @@ export function RecordQueryToolbar({
           type="button"
           onClick={toggleColumnConfig}
           className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-            columnConfigOpen
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-input bg-background text-foreground hover:bg-accent'
+            columnsState === 'clean'
+              ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
+              : columnsState === 'dirty'
+                ? 'border-primary/20 bg-primary/15 text-primary hover:bg-primary/20'
+                : columnConfigOpen
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-input bg-background text-foreground hover:bg-accent'
           }`}
-          aria-label="Configure columns"
           aria-expanded={columnConfigOpen}
+          data-button-state={columnsState}
           data-qqq-id="button-column-config"
         >
           <Columns className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Configure </span>
+          <span data-qqq-id="button-column-config-label">Columns{visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}</span>
         </button>
 
         {columnConfigOpen && columnConfigPos && (
@@ -563,6 +585,7 @@ export function RecordQueryToolbar({
               tableMetaData={tableMetaData}
               columnVisibility={columnVisibility}
               columnOrder={columnOrder}
+              columnPins={columnPins}
               onVisibilityChange={setColumnVisibility}
               onOrderChange={setColumnOrder}
               onClose={() => setColumnConfigOpen(false)}

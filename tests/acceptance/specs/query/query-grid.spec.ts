@@ -9,6 +9,25 @@
 import { expect, open, test } from '../../support/fixtures'
 import { columnCells, expectColumn, grid, isPhone, nextQuery, showTable, sqlColumn } from './query-helpers'
 
+async function clickSortColumn(page: import('@playwright/test').Page, column: string) {
+  const point = await page.locator('[data-qqq-id="grid-qryItem"]').evaluate((container, name) => {
+    const header = container.querySelector<HTMLElement>(`th[data-col="${name}"]`)
+    const button = header?.querySelector<HTMLElement>(`button[data-qqq-id="grid-header-${name}"]`)
+    if (!header || !button) throw new Error(`Missing ${name} sort button`)
+    const pinnedWidth = [...container.querySelectorAll<HTMLElement>('th[data-col="_select"], th[data-pinned="left"]')]
+      .reduce((width, pinned) => width + pinned.offsetWidth, 0)
+    container.scrollLeft = Math.max(0, header.offsetLeft - pinnedWidth - 16)
+    const rect = button.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    const hit = document.elementFromPoint(x, y)
+    if (!button.contains(hit)) throw new Error(`${name} sort button is covered by ${hit?.outerHTML.slice(0, 300) ?? 'nothing'}; button ${rect.left}..${rect.right}; scroll ${container.scrollLeft}`)
+    return { x, y }
+  }, column)
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(point.x, point.y)
+  else await page.mouse.click(point.x, point.y)
+}
+
 test('[QRY-068] default columns follow the table sections, then fields no section lists (Material order) @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // the fields are declared price, quantity, code, id, name; the sections list id, name, code, then price, then quantity
@@ -98,23 +117,22 @@ test('[QRY-003] sorting by a column header cycles ascending, descending and the 
   await open(page, '/app/qryItem')
   await showTable(page)
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
-  const header = grid(page, 'Query Item').getByRole('button', { name: 'Sort by Name', exact: true })
   const sent = nextQuery(page, 'qryItem')
-  await header.click()
+  await clickSortColumn(page, 'name')
   expect((await sent).filter).toMatchObject({ orderBys: [{ fieldName: 'name', isAscending: true }] })
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by name asc'))
   await expect(page.locator('th[aria-sort="ascending"]')).toContainText('Name')
-  await header.click()
+  await clickSortColumn(page, 'name')
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by name desc'))
   // The sort is kept in the URL's filter, so it survives a reload
   const urlSort = () => JSON.parse(Buffer.from(new URL(page.url()).searchParams.get('filter') ?? '', 'base64').toString('utf8') || '{}').orderBys
   await expect.poll(urlSort).toEqual([{ fieldName: 'name', isAscending: false }])
   await page.reload()
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by name desc'))
-  await grid(page, 'Query Item').getByRole('button', { name: 'Sort by Name', exact: true }).click()
+  await clickSortColumn(page, 'name')
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
   // Numeric sort is numeric, not textual; nulls follow the database order
-  await grid(page, 'Query Item').getByRole('button', { name: 'Sort by Quantity', exact: true }).click()
+  await clickSortColumn(page, 'quantity')
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by quantity asc nulls first'))
 })
 
@@ -127,18 +145,19 @@ test('[QRY-004] column visibility and order persist per table @mobile', async ({
   const config = page.getByRole('dialog', { name: 'Configure columns' })
   await config.getByRole('button', { name: 'Hide column Notes' }).click()
   await expect(table.getByRole('button', { name: 'Sort by Notes' })).toHaveCount(0)
-  // Move "Name" to the front with the keyboard
+  // Move "Code" before "Name" with the keyboard; the primary key remains pinned left.
   const names = config.locator('[data-qqq-id^="column-config-item-"]')
-  const nameIndex = (await names.evaluateAll((items) => items.map((i) => i.getAttribute('data-qqq-id')))).indexOf('column-config-item-name')
-  const grip = config.getByRole('button', { name: 'Drag to reorder Name' })
-  for (let i = 0; i < nameIndex; i++) {
+  const codeIndex = (await names.evaluateAll((items) => items.map((i) => i.getAttribute('data-qqq-id')))).indexOf('column-config-item-code')
+  const grip = config.getByRole('button', { name: 'Drag to reorder Code' })
+  for (let i = 0; i < codeIndex; i++) {
     await grip.focus()
     await grip.press('ArrowUp')
   }
-  await expect(table.locator('thead th').nth(1)).toContainText('Name')
+  await expect(table.locator('thead th').nth(1)).toContainText('Id')
+  await expect(table.locator('thead th').nth(2)).toContainText('Code')
   await page.keyboard.press('Escape')
   await page.reload()
-  await expect(grid(page, 'Query Item').locator('thead th').nth(1)).toContainText('Name')
+  await expect(grid(page, 'Query Item').locator('thead th').nth(2)).toContainText('Code')
   await expect(grid(page, 'Query Item').getByRole('button', { name: 'Sort by Notes' })).toHaveCount(0)
   // Other tables keep their own configuration
   await open(page, '/app/carrier')

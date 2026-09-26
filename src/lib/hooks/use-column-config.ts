@@ -15,7 +15,7 @@
  */
 
 /**
- * @file use-column-config — sub-hook that manages column visibility, order, widths,
+ * @file use-column-config — sub-hook that manages column visibility, order, widths, pins
  * and the column-config panel open state for the Record Query page.
  *
  * This hook is an internal implementation detail of `useRecordQuery`. It is not
@@ -25,10 +25,10 @@
 
 'use client'
 
-import { useCallback, useEffect, type Dispatch } from 'react'
+import { useCallback, type Dispatch } from 'react'
 
-import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import type { RecordQueryState, RecordQueryAction } from '@/lib/hooks/use-record-query'
+import type { ColumnPins } from '@/lib/utils/query-columns'
 
 /**
  * The shape of the object returned by `useColumnConfig`.
@@ -43,6 +43,8 @@ export interface ColumnConfigResult {
   columnOrder: string[]
   /** Map of fieldName → pixel width for resized columns. */
   columnWidths: Record<string, number>
+  /** Pinned columns; null pins the first column (the primary key by default). */
+  columnPins: ColumnPins | null
   /** Whether the column-configuration side panel is open. */
   columnConfigOpen: boolean
   /**
@@ -72,6 +74,12 @@ export interface ColumnConfigResult {
    * @param width - New width in pixels.
    */
   setColumnWidth: (fieldName: string, width: number) => void
+  /**
+   * Replace the pinned columns.
+   *
+   * @param pins - Pinned columns by name, or null for the default (first column pinned left).
+   */
+  setColumnPins: (pins: ColumnPins | null) => void
   /** Toggle the column-configuration side panel open/closed. */
   toggleColumnConfig: () => void
   /**
@@ -83,56 +91,24 @@ export interface ColumnConfigResult {
 }
 
 /**
- * Manages column visibility, order, widths, and the column-config panel open state
+ * Manages column visibility, order, widths, pins and the column-config panel open state
  * for the Record Query page.
  *
- * Column visibility, order, and widths are persisted to localStorage so they survive
- * navigation and page refreshes. The panel open state is ephemeral (in-memory only).
+ * The columns are part of the query screen's view, which the page remembers per table (with
+ * the filter, sort and page size) under Material's `qqq.recordQueryView.<table>` key. The panel
+ * open state is ephemeral (in-memory only).
  *
  * This hook reads its authoritative state from the `RecordQueryState` managed by the
- * parent `useRecordQuery` hook and dispatches actions to mutate it. The returned
- * localStorage setters are used only to initialize state and sync persistence — the
- * reducer is the single source of truth during a session.
+ * parent `useRecordQuery` hook and dispatches actions to mutate it.
  *
- * @param tableName - Backend table name used as the localStorage key prefix.
  * @param state - Current `RecordQueryState` snapshot from `useRecordQuery`.
  * @param dispatch - Dispatcher from `useRecordQuery`'s `useReducer` call.
  * @returns Object containing all column-config state values and stable callback functions.
  */
 export function useColumnConfig(
-  tableName: string,
   state: RecordQueryState,
   dispatch: Dispatch<RecordQueryAction>
 ): ColumnConfigResult {
-  const storageKeyColumns = `qqq-${tableName}-columns`
-  const storageKeyColumnOrder = `qqq-${tableName}-column-order`
-  const storageKeyColumnWidths = `qqq-${tableName}-column-widths`
-
-  const [, setStoredColumnVisibility] = useLocalStorage<Record<string, boolean>>(
-    storageKeyColumns,
-    {}
-  )
-  const [, setStoredColumnOrder] = useLocalStorage<string[]>(storageKeyColumnOrder, [])
-  const [, setStoredColumnWidths] = useLocalStorage<Record<string, number>>(
-    storageKeyColumnWidths,
-    {}
-  )
-
-  // ------------------------------------------------------------------
-  // Persist column settings to localStorage when they change
-  // ------------------------------------------------------------------
-  useEffect(() => {
-    setStoredColumnVisibility(state.columnVisibility)
-  }, [state.columnVisibility]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setStoredColumnOrder(state.columnOrder)
-  }, [state.columnOrder]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setStoredColumnWidths(state.columnWidths)
-  }, [state.columnWidths]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // ------------------------------------------------------------------
   // Stable dispatch wrappers
   // ------------------------------------------------------------------
@@ -162,6 +138,12 @@ export function useColumnConfig(
     [dispatch]
   )
 
+  /** Replace the pinned columns. */
+  const setColumnPins = useCallback(
+    (pins: ColumnPins | null) => dispatch({ type: 'SET_COLUMN_PINS', pins }),
+    [dispatch]
+  )
+
   /** Toggle the column-configuration side panel open/closed. */
   const toggleColumnConfig = useCallback(
     () => dispatch({ type: 'TOGGLE_COLUMN_CONFIG' }),
@@ -178,11 +160,13 @@ export function useColumnConfig(
     columnVisibility: state.columnVisibility,
     columnOrder: state.columnOrder,
     columnWidths: state.columnWidths,
+    columnPins: state.columnPins,
     columnConfigOpen: state.columnConfigOpen,
     setColumnVisibility,
     toggleColumn,
     setColumnOrder,
     setColumnWidth,
+    setColumnPins,
     toggleColumnConfig,
     setColumnConfigOpen,
   }

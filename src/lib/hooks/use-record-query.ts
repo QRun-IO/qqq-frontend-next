@@ -49,10 +49,11 @@ import {
 } from '@/lib/utils/filter-utils'
 import { isColumnVisible, type ViewState } from '@/lib/utils/saved-view-utils'
 import { getDefaultQuickFilterFieldNames, reconcileBasicMode } from '@/lib/utils/quick-filter-utils'
-import { hasCapability } from '@/lib/utils/query-columns'
+import { hasCapability, type ColumnPins } from '@/lib/utils/query-columns'
+import { DENSITY_STORAGE_KEY, readLegacyColumnState } from '@/lib/utils/query-view-storage'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { useColumnConfig } from '@/lib/hooks/use-column-config'
-import { PAGE_SIZE_OPTIONS } from '@/lib/constants'
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/lib/constants'
 
 // ------------------------------------------------------------------
 // Types
@@ -97,6 +98,8 @@ export interface RecordQueryState {
   columnOrder: string[]
   /** Column pixel widths. */
   columnWidths: Record<string, number>
+  /** Pinned columns; null pins the first column (Material pins the primary key by default). */
+  columnPins: ColumnPins | null
   /** Row selection keyed by primary key string. */
   rowSelection: Record<string, boolean>
   /** Which records the selection covers. */
@@ -124,6 +127,7 @@ export type RecordQueryAction =
   | { type: 'TOGGLE_COLUMN'; fieldName: string }
   | { type: 'SET_COLUMN_ORDER'; order: string[] }
   | { type: 'SET_COLUMN_WIDTH'; fieldName: string; width: number }
+  | { type: 'SET_COLUMN_PINS'; pins: ColumnPins | null }
   | { type: 'SET_ROW_SELECTION'; selection: Record<string, boolean> }
   | { type: 'SET_SELECTION_MODE'; mode: SelectionMode; subsetSize?: number | null }
   | { type: 'CLEAR_ROW_SELECTION' }
@@ -167,6 +171,8 @@ function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction):
       return { ...state, columnOrder: action.order }
     case 'SET_COLUMN_WIDTH':
       return { ...state, columnWidths: { ...state.columnWidths, [action.fieldName]: action.width } }
+    case 'SET_COLUMN_PINS':
+      return { ...state, columnPins: action.pins }
     case 'SET_ROW_SELECTION':
       return { ...state, rowSelection: action.selection, selectionMode: 'rows', subsetSize: null }
     case 'SET_SELECTION_MODE':
@@ -188,7 +194,8 @@ function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction):
         sortOrder: action.view.sortOrder,
         columnVisibility: action.view.columnVisibility,
         columnOrder: action.view.columnOrder,
-        columnWidths: { ...state.columnWidths, ...action.view.columnWidths },
+        columnWidths: action.view.columnWidths,
+        columnPins: action.view.columnPins ?? null,
         pageSize: action.view.pageSize as PageSize,
         filterMode: action.view.filterMode,
         quickFilterFieldNames: action.view.quickFilterFieldNames ?? [],
@@ -270,8 +277,13 @@ interface UseRecordQueryOptions {
   tableMetaData: QTableMetaData | undefined
   /** All-table metadata used to check read permissions along exposed join paths. */
   allTables: Record<string, QTableMetaData> | undefined
-  /** Initial number of rows per page. Defaults to 25. */
+  /** Default number of rows per page (Material: 50). */
   initialPageSize?: PageSize
+  /**
+   * The view to start from (a remembered or saved view). The URL's filter, search and paging
+   * still win over it; its columns apply either way, as Material keeps them for a filter link.
+   */
+  initialView?: ViewState | null
   /** Selected backend variant (tables whose backend uses variants); queries wait for one. */
   tableVariant?: TableVariant | null
   /** Hold all queries (for example while a saved view is loading). */
@@ -291,7 +303,8 @@ export function useRecordQuery({
   tableName,
   tableMetaData,
   allTables,
-  initialPageSize = 25,
+  initialPageSize = DEFAULT_PAGE_SIZE,
+  initialView = null,
   tableVariant = null,
   paused = false,
 }: UseRecordQueryOptions) {
@@ -299,10 +312,9 @@ export function useRecordQuery({
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [density, setDensity] = useLocalStorage<Density>(`qqq-${tableName}-density`, 'standard')
-  const [storedColumnVisibility] = useLocalStorage<Record<string, boolean>>(`qqq-${tableName}-columns`, {})
-  const [storedColumnOrder] = useLocalStorage<string[]>(`qqq-${tableName}-column-order`, [])
-  const [storedColumnWidths] = useLocalStorage<Record<string, number>>(`qqq-${tableName}-column-widths`, {})
+  // Material keeps one density for every table
+  const [storedDensity, setDensity] = useLocalStorage<Density>(DENSITY_STORAGE_KEY, 'standard')
+  const density: Density = (['compact', 'standard', 'comfortable'] as const).includes(storedDensity) ? storedDensity : 'standard'
 
   const primaryKey = tableMetaData?.primaryKeyField
   /** Material's default sort: primary key, descending. */
@@ -317,25 +329,30 @@ export function useRecordQuery({
   // ------------------------------------------------------------------
   const initialStateRef = useRef<RecordQueryState | null>(null)
   if (!initialStateRef.current) {
+    const isPageSize = (value: unknown): value is PageSize => (PAGE_SIZE_OPTIONS as readonly unknown[]).includes(value)
     const pageSizeParam = Number(searchParams.get('pageSize'))
-    const pageSize = ((PAGE_SIZE_OPTIONS as readonly number[]).includes(pageSizeParam) ? pageSizeParam : initialPageSize) as PageSize
+    const pageSize: PageSize = isPageSize(pageSizeParam) ? pageSizeParam : isPageSize(initialView?.pageSize) ? initialView.pageSize : initialPageSize
     const filterParam = searchParams.get('filter')
-    const initialFilter = filterParam ? deserializeFilter(filterParam, pageSize) : emptyFilter(pageSize)
+    const viewFilter = initialView ? { ...initialView.userFilter, orderBys: initialView.sortOrder, skip: 0, limit: pageSize } : null
+    const initialFilter = filterParam ? deserializeFilter(filterParam, pageSize) : viewFilter ?? emptyFilter(pageSize)
     const pageParam = parseInt(searchParams.get('page') ?? '', 10)
     // the mode and added quick filters are remembered per table (Material keeps them in the stored view)
     const storedMode = readStored(filterModeKey, (v): v is 'basic' | 'advanced' => v === 'basic' || v === 'advanced')
     const storedQuickFilters = readStored(quickFilterFieldsKey, (v): v is string[] => Array.isArray(v) && v.every((name) => typeof name === 'string'))
+    // Columns: the view's, else what earlier versions stored per table
+    const legacy = initialView ? null : readLegacyColumnState(tableName)
     initialStateRef.current = reconcileState({
       pageNum: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
       pageSize,
       userFilter: { ...initialFilter, orderBys: [] },
       quickSearchTerm: searchParams.get('q') ?? '',
-      filterMode: storedMode ?? 'basic',
-      quickFilterFieldNames: (storedQuickFilters ?? []).filter((name) => Boolean(tableMetaData && resolveField(tableMetaData, name))),
+      filterMode: initialView?.filterMode ?? storedMode ?? 'basic',
+      quickFilterFieldNames: (initialView?.quickFilterFieldNames ?? storedQuickFilters ?? []).filter((name) => Boolean(tableMetaData && resolveField(tableMetaData, name))),
       sortOrder: initialFilter.orderBys?.length ? initialFilter.orderBys : defaultSort,
-      columnVisibility: storedColumnVisibility,
-      columnOrder: storedColumnOrder,
-      columnWidths: storedColumnWidths,
+      columnVisibility: initialView?.columnVisibility ?? legacy?.columnVisibility ?? {},
+      columnOrder: initialView?.columnOrder ?? legacy?.columnOrder ?? [],
+      columnWidths: initialView?.columnWidths ?? legacy?.columnWidths ?? {},
+      columnPins: initialView?.columnPins ?? null,
       rowSelection: {},
       selectionMode: 'rows',
       subsetSize: null,
@@ -346,7 +363,7 @@ export function useRecordQuery({
 
   const reducer = useMemo(() => basicModeReducer(tableMetaData, defaultQuickFilterFieldNames), [tableMetaData, defaultQuickFilterFieldNames])
   const [state, dispatch] = useReducer(reducer, initialStateRef.current)
-  const columns = useColumnConfig(tableName, state, dispatch)
+  const columns = useColumnConfig(state, dispatch)
 
   // remember the mode and added quick filters for this table
   useEffect(() => {
@@ -367,7 +384,7 @@ export function useRecordQuery({
     const params = new URLSearchParams(searchParams.toString())
     for (const key of ['page', 'pageSize', 'filter', 'q']) params.delete(key)
     if (state.pageNum > 1) params.set('page', String(state.pageNum))
-    if (state.pageSize !== 25) params.set('pageSize', String(state.pageSize))
+    if (state.pageSize !== initialPageSize) params.set('pageSize', String(state.pageSize))
     if (!isFilterEmpty(state.userFilter) || !sortIsDefault) {
       params.set('filter', serializeFilter({ ...state.userFilter, orderBys: sortIsDefault ? [] : state.sortOrder }))
     }
@@ -377,7 +394,7 @@ export function useRecordQuery({
       router.replace(`${pathname}${newSearch ? `?${newSearch}` : ''}`, { scroll: false })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams is read, not tracked, to avoid loops
-  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, router, pathname])
+  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, router, pathname, initialPageSize])
 
   // ------------------------------------------------------------------
   // Joins: only the exposed joins the visible columns, criteria or sort use
@@ -496,7 +513,10 @@ export function useRecordQuery({
     ? state.pageNum + (records.length >= state.pageSize ? 1 : 0)
     : Math.max(1, Math.ceil(totalCount / state.pageSize))
   const isLoading = enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading))
-  const isError = recordsQuery.isError || countQuery.isError
+  // A failed count keeps the rows (Material shows its own "count" alert)
+  const isError = recordsQuery.isError
+  /** Whether the count for the current query is still being computed (Material "Counting..."). */
+  const isCounting = enabled && canCount && (countQuery.isLoading || countQuery.isPlaceholderData)
 
   // ------------------------------------------------------------------
   // Selection
@@ -547,10 +567,11 @@ export function useRecordQuery({
     columnVisibility: state.columnVisibility,
     columnOrder: state.columnOrder,
     columnWidths: state.columnWidths,
+    columnPins: state.columnPins,
     pageSize: state.pageSize,
     filterMode: state.filterMode,
     quickFilterFieldNames: state.quickFilterFieldNames,
-  }), [state.userFilter, state.sortOrder, state.columnVisibility, state.columnOrder, state.columnWidths, state.pageSize, state.filterMode, state.quickFilterFieldNames])
+  }), [state.userFilter, state.sortOrder, state.columnVisibility, state.columnOrder, state.columnWidths, state.columnPins, state.pageSize, state.filterMode, state.quickFilterFieldNames])
 
   return {
     pagination: {
@@ -559,6 +580,7 @@ export function useRecordQuery({
       totalCount,
       distinctCount,
       totalPages,
+      isCounting,
       setPage,
       setPageSize,
     },
@@ -598,7 +620,8 @@ export function useRecordQuery({
       isLoading,
       isFetching: recordsQuery.isFetching,
       isError,
-      error: recordsQuery.error ?? countQuery.error,
+      error: recordsQuery.error,
+      countError: canCount && !recordsQuery.isError ? countQuery.error : null,
       canQuery,
       canCount,
       needsVariant,

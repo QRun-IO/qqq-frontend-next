@@ -54,6 +54,10 @@ export async function runSavedViewProcess(processName: string, values: Record<st
       userId: typeof v.userId === 'string' ? v.userId : undefined,
       tableName: String(v.tableName ?? ''),
       view: parseViewJson(v.viewJson),
+      // quick views (backend quickSavedView rows) carry their type, position and count flag
+      ...(typeof v.type === 'string' ? { type: v.type } : {}),
+      ...(typeof v.sortOrder === 'number' ? { sortOrder: v.sortOrder } : {}),
+      ...(typeof v.doCount === 'boolean' ? { doCount: v.doCount } : {}),
     }
   })
 }
@@ -70,6 +74,8 @@ export interface SavedViewsResult {
   yourViews: SavedView[]
   /** Views other users shared with the current user. */
   sharedViews: SavedView[]
+  /** The quick views (yours, then shared ones), in their sort order (Material `QuickSavedViews`). */
+  quickViews: SavedView[]
   /** Whether the list is loading. */
   isLoading: boolean
   /** Error loading the list, if any. */
@@ -132,6 +138,9 @@ export function useSavedViews(tableName: string, metaData: QInstance | undefined
     canDelete: permitted(SAVED_VIEW_PROCESSES.delete),
     yourViews: all.filter(isOwner),
     sharedViews: all.filter((v) => !isOwner(v)),
+    quickViews: [...all.filter(isOwner), ...all.filter((v) => !isOwner(v))]
+      .filter((v) => v.type === 'quickView')
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     isLoading: listQuery.isLoading,
     error: listQuery.error,
     storeView,
