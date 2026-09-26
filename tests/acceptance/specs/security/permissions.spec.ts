@@ -18,7 +18,7 @@ const personCount = async (sql: (query: string) => Promise<Record<string, string
 test.describe('viewer persona (read only, no processes)', () => {
   test.use({ persona: 'viewer' })
 
-  test('[SEC-003] create is not offered, the create link is refused and the backend writes nothing', async ({ page, backend, diagnostics }) => {
+  test('[SEC-003] create is not offered, the create link is refused and the backend writes nothing @mobile', async ({ page, backend, diagnostics }) => {
     allowExternalQuickSightWidget(diagnostics)
     const before = await personCount(backend.sql)
     await open(page, '/app/person')
@@ -39,7 +39,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     expect(await backend.sql("select id from person where first_name = 'Mallory'")).toEqual([])
   })
 
-  test('[SEC-004] edit is not offered, the edit link is refused and the backend changes nothing', async ({ page, backend, diagnostics }) => {
+  test('[SEC-004] edit is not offered, the edit link is refused and the backend changes nothing @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const reads = recordRequests(page)
     await open(page, '/app/person/1')
@@ -58,7 +58,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     expect(await backend.sql('select first_name from person where id = 1')).toEqual([{ first_name: 'Avery' }])
   })
 
-  test('[SEC-005] delete is not offered on the record or the list and the backend deletes nothing', async ({ page, backend, diagnostics }) => {
+  test('[SEC-005] delete is not offered on the record or the list and the backend deletes nothing @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/1')
     await expect(page.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()
@@ -80,7 +80,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     expect(await backend.sql('select id from person where id = 1')).toEqual([{ id: '1' }])
   })
 
-  test('[SEC-006] copy is not offered and the copy link is refused', async ({ page, backend, diagnostics }) => {
+  test('[SEC-006] copy is not offered and the copy link is refused @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const before = await personCount(backend.sql)
     await open(page, '/app/person/1')
@@ -92,7 +92,7 @@ test.describe('viewer persona (read only, no processes)', () => {
     expect(await personCount(backend.sql)).toBe(before)
   })
 
-  test('[SEC-007] processes are not offered, their links do not start them and the backend refuses them', async ({ page, backend, diagnostics }) => {
+  test('[SEC-007] processes are not offered, their links do not start them and the backend refuses them @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const before = await personCount(backend.sql)
     const processCalls: string[] = []
@@ -120,7 +120,7 @@ test.describe('viewer persona (read only, no processes)', () => {
 test.describe('noProcesses persona (full table rights, no processes)', () => {
   test.use({ persona: 'noProcesses' })
 
-  test('[SEC-007] standalone processes are not offered or started while table rights stay intact', async ({ page, backend, diagnostics }) => {
+  test('[SEC-007] standalone processes are not offered or started while table rights stay intact @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const before = await personCount(backend.sql)
     await open(page, '/app/person')
@@ -149,7 +149,7 @@ test.describe('noProcesses persona (full table rights, no processes)', () => {
 test.describe('noPets persona (pet tables hidden)', () => {
   test.use({ persona: 'noPets' })
 
-  test('[SEC-001] a hidden table is absent from navigation, its link loads nothing and the backend refuses it', async ({ page, backend, diagnostics }) => {
+  test('[SEC-001] a hidden table is absent from navigation, its link loads nothing and the backend refuses it @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const reads = recordRequests(page)
     await open(page, '/app/person/1')
@@ -176,7 +176,7 @@ test.describe('noPets persona (pet tables hidden)', () => {
 })
 
 test.describe('record-level security (sharing demo)', () => {
-  test('[SEC-011] alice lists and opens her own saved view and report', async ({ page, backend, diagnostics }) => {
+  test('[SEC-011] alice lists and opens her own saved view and report @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     await open(page, '/app/savedView')
@@ -190,7 +190,7 @@ test.describe('record-level security (sharing demo)', () => {
   test.describe('bob', () => {
     test.use({ user: 'bob' })
 
-    test("[SEC-011] bob cannot list, open, change or delete alice's saved view and report", async ({ page, backend, diagnostics }) => {
+    test("[SEC-011] bob cannot list, open, change or delete alice's saved view and report @mobile", async ({ page, backend, diagnostics }) => {
       diagnostics.allow('/data/savedReport/1 404')
       diagnostics.allow('status of 404')
       // Alice saves a view she shares with nobody (other areas share her stock view with bob).
@@ -237,7 +237,7 @@ test.describe('record-level security (sharing demo)', () => {
 })
 
 test.describe('permission revoked mid-session', () => {
-  test('[SEC-015] a stale edit form is refused by the backend with a clear message and nothing is written', async ({ page, backend, diagnostics }) => {
+  test('[SEC-015] a stale edit form is refused by the backend with a clear message and nothing is written @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow('/data/person/1 403')
     diagnostics.allow('status of 403')
     await open(page, '/app/person/1/edit')
