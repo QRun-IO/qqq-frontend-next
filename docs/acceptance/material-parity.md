@@ -19,10 +19,10 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
-| Processes and reports | 120 | 2 | 2 | 1 | 3 | 128 |
+| Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 213 | 0 | 10 | 9 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **701** | **10** | **23** | **23** | **38** | **795** |
+| **Total** | **703** | **10** | **21** | **23** | **38** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 101 | 8 | 3 | 3 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -528,11 +528,11 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | `tableName` sent on init | `material:src/qqq/pages/processes/ProcessRun.tsx:1921-1924` | `src/components/process/ProcessRun.tsx` request `tableName` | PRC-005 | Done |
 | `tableVariant` (from localStorage) sent on init and every step | `material:src/qqq/pages/processes/ProcessRun.tsx:1852-1856, 2026-2030` | `src/lib/api/processes.ts` sends `tableVariant` on init and every step | QRY-071 | Done |
 | Process widget mode (isWidget): no stepper, no Cancel, widget layout, reload hidden, `forceReInit` on widget reload | `material:src/qqq/pages/processes/ProcessRun.tsx:2132-2136, 2165-2174, 2279, 2326-2332`; `material:src/qqq/components/widgets/DashboardWidgets.tsx:623-637` | `src/components/widgets/QqqContainerWidgets.tsx:QqqProcessWidget`; `src/components/process/ProcessRun.tsx:isEmbedded`; `src/components/widgets/ConnectedWidget.tsx:hideReload` | WID-021, WID-061 | Done: embedded run omits stepper and Cancel, Return restarts in place, dataVersion remounts on reload |
-| Report runs through its process with `overrideLabel`, isReport and `{reportName}` | `material:src/qqq/pages/processes/ReportRun.tsx:34-58` | `src/components/reports/ReportRun.tsx` + `src/lib/api/reports.ts:startReport` | RPT-001, RPT-002, RPT-003 | Done: rebuilt as a custom page |
-| Report input fields (`inputFieldList`) in a full dynamic form (PV fields, types) | `material:src/qqq/pages/processes/ProcessRun.tsx:1164-1171, 1290-1319` | `src/components/reports/ReportRun.tsx` input form (text/number/date inputs, required check) | RPT-006 | Partial: no PV dropdowns, booleans or rich field types; #727 |
-| Report output format choice | backend step fields (Material source unverified) | `src/components/reports/ReportRun.tsx:FORMAT_OPTIONS` CSV/XLSX/JSON | RPT-001, RPT-002, RPT-003 | Done: list is hardcoded; #727 |
-| Report download | `material:src/qqq/pages/processes/ProcessRun.tsx:304-349` via DOWNLOAD_FORM | `src/components/reports/ReportRun.tsx` done-state link (`src/lib/api/reports.ts:reportDownloadUrl`) | RPT-001 | Done: serverFilePath only; storageReference downloads #727 |
-| Report with other intermediate frontend steps | generic steps in `material:src/qqq/pages/processes/ProcessRun.tsx` | `src/lib/api/reports.ts:reportStateFromResponse` → "The report did not produce a file." | none | Partial: only input and download steps supported; #727 |
+| Report runs through its process with `overrideLabel`, isReport and `{reportName}` | `material:src/qqq/pages/processes/ReportRun.tsx:34-58` | `src/components/reports/ReportRun.tsx:ReportProcessRun`; `src/lib/hooks/use-process.ts` | RPT-001, RPT-002, RPT-003 | Done: report process runs in its own page with the report label |
+| Report input fields (`inputFieldList`) in a full dynamic form (PV fields, types) | `material:src/qqq/pages/processes/ProcessRun.tsx:1164-1171, 1290-1319` | `src/components/reports/ReportRun.tsx:ReportProcessRun`; `src/components/process/ProcessStepScreen.tsx:stepFormFields` | RPT-006; `src/components/reports/ReportRun.test.tsx` | Done: dynamic form renders required, possible-value, Boolean and other declared field types |
+| Report output format choice | backend step fields (Material source unverified) | `src/components/reports/ReportRun.tsx`; `src/lib/api/reports.ts:loadReportFormats` | RPT-001, RPT-002, RPT-003 | Done: backend possible values supply formats, or a process screen asks for one |
+| Report download | `material:src/qqq/pages/processes/ProcessRun.tsx:304-349` via DOWNLOAD_FORM | `src/components/reports/ReportRun.tsx:ReportResult`; `src/lib/api/reports.ts:reportFile`; `src/lib/api/processes.ts:processDownloadUrl` | RPT-001; `src/components/reports/ReportRun.test.tsx` | Done: server file paths and storage references produce download links |
+| Report with other intermediate frontend steps | generic steps in `material:src/qqq/pages/processes/ProcessRun.tsx` | `src/components/reports/ReportRun.tsx:ReportProcessRun`; `src/components/process/ProcessStepScreen.tsx` | `src/components/reports/ReportRun.test.tsx` | Done: other declared process screens render and submit before the file |
 | Report error and permission wording | `material:src/qqq/pages/processes/ProcessRun.tsx:597, 1802` | `src/components/reports/ReportRun.tsx` error state + `permitted` check | RPT-007 | Done |
 | App-home process/report cards with permission-disabled text | `material:src/qqq/components/processes/ProcessLinkCard.tsx:47-112`; `material:src/qqq/pages/apps/Home.tsx:358-410` | `src/components/widgets/AppHome.tsx:EntryGroup` | NAV-008, SEC-008 | Done |
 
@@ -1241,7 +1241,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 8 open rows
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 0 open rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 0 open rows
-- #727 Next UI 1.0 parity: report runs: 2 open rows
+- #727 Next UI 1.0 parity: report runs: 0 open rows
 - #728 Next UI 1.0 parity: dashboard widget extras: 2 open rows
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
