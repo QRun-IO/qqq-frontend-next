@@ -14,6 +14,8 @@
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -54,6 +56,33 @@ public class AcceptanceSampleServer
    private static final Map<String, String> USERS    = new ConcurrentHashMap<>();
    private static final ThreadLocal<String> REQUEST_SESSION_COOKIE = new ThreadLocal<>();
    private static volatile QInstance        instance;
+
+
+
+   /*******************************************************************************
+    ** H2 equivalent of MySQL WEEKDAY(), used by QQQ's generic RDBMS date
+    ** function adapter: Monday is zero and Sunday is six.
+    *******************************************************************************/
+   public static Integer weekday(java.sql.Date date)
+   {
+      return date == null ? null : date.toLocalDate().getDayOfWeek().getValue() - 1;
+   }
+
+
+
+   /*******************************************************************************
+    ** H2 equivalent of MySQL CONVERT_TZ(), used by QQQ's date-time weekday
+    ** function. The fixture configures UTC but the helper accepts any zone.
+    *******************************************************************************/
+   public static Timestamp convertTimeZone(Timestamp value, String sourceZoneId, String targetZoneId)
+   {
+      if(value == null || sourceZoneId == null || targetZoneId == null)
+      {
+         return null;
+      }
+      return Timestamp.valueOf(value.toLocalDateTime().atZone(ZoneId.of(sourceZoneId))
+         .withZoneSameInstant(ZoneId.of(targetZoneId)).toLocalDateTime());
+   }
 
 
 

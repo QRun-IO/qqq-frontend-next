@@ -28,6 +28,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 
 import type { QTableMetaData, QProcessMetaData, QInstance } from '@/types'
 import type { TableVariant } from '@/lib/api/tables'
@@ -36,6 +37,7 @@ import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { countActiveCriteria, emptyFilter } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
+import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
 import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -44,13 +46,17 @@ import { useQContext } from '@/lib/context/q-context'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { canInsertRecords } from '@/lib/auth/permissions'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter-settings-context'
 import { TABLE_VARIANT_STORAGE_KEY_ROOT, readStoredTableVariant } from '@/lib/utils/table-variant'
 import { launchTableName } from '@/lib/utils/process-utils'
 import { PAGE_SIZE_OPTIONS, SEARCH_DEBOUNCE_MS } from '@/lib/constants'
 
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
-import { FilterBuilder } from './FilterBuilder'
+import { FilterBuilder, buildFilterFields } from './FilterBuilder'
+import { QuickFilterBar } from './QuickFilterBar'
+import { AdvancedQueryPreview } from './AdvancedQueryPreview'
+import { HintTooltip } from './HintTooltip'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
@@ -206,6 +212,14 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   useEffect(() => () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }, [])
 
   const activeFilterCount = countActiveCriteria(rq.filter.userFilter)
+  const basicModeCheck = canFilterWorkAsBasic(tableMetaData, rq.filter.userFilter)
+  const availableFilterFields = useMemo(() => buildFilterFields(tableMetaData), [tableMetaData])
+  const quickFilterNames = [...new Set([...rq.filter.defaultQuickFilterFieldNames, ...rq.filter.quickFilterFieldNames])]
+  const quickFilterFields = quickFilterNames.flatMap((name) => {
+    const field = availableFilterFields.find((candidate) => candidate.name === name)
+    return field ? [field] : []
+  })
+  const filterSettings = useMemo(() => filterSettingsFrom(metaData), [metaData])
 
   // View mode: grid vs card — default from user preferences; mobile override after mount
   // A chosen view mode is remembered per table, so returning from a record keeps the table view on a phone.
@@ -232,13 +246,14 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     }
   }, [viewModeKey])
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [alertMessage, setAlertMessage] = useState<string | null>(null)
   const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
   // Column statistics need the table's QUERY_STATS capability and the columnStats process
   const statsProcess = allProcesses[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(tableMetaData, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
   // Stable, so the grid's memoized rows are not re-rendered by a new handler each render
-  const openColumnStats = useCallback((name: string, label: string) => setStatsColumn({ name, label }), [])
+  const openColumnStats = useCallback((name: string, label: string) => setStatsColumn({ name, label }), [setStatsColumn])
 
   const canCreate = canInsertRecords(tableMetaData)
   const distinct = rq.pagination.distinctCount !== null
@@ -274,17 +289,27 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
     router.push(withTrailingSlash(`/app/${encodeURIComponent(process.name)}?${params.toString()}`))
   }, [router, tableName, rq.selection.selectionFilter, rq.selection.selectedRecordIds])
 
+  const openAdvancedFilters = useCallback(() => {
+    rq.filter.setFilterMode('advanced')
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen(true)
+    else if (!rq.filter.filterPanelOpen) rq.filter.toggleFilterPanel()
+  }, [rq, setMobileFilterOpen])
   const handleFilterToggle = useCallback(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) setMobileFilterOpen((o) => !o)
-    else rq.filter.toggleFilterPanel()
-  }, [rq])
+    if (rq.filter.filterMode === 'basic') {
+      openAdvancedFilters()
+    } else if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setMobileFilterOpen((open) => !open)
+    } else {
+      rq.filter.toggleFilterPanel()
+    }
+  }, [rq, openAdvancedFilters, setMobileFilterOpen])
 
   // Material query-screen shortcuts: n new record, r refresh the query, f open the filter builder.
   usePageShortcuts({
     n: canCreate && (() => router.push(`/app/${encodeURIComponent(tableName)}/create`)),
     r: handleRefresh,
     f: () => {
-      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+      if (rq.filter.filterMode === 'basic' || (!rq.filter.filterPanelOpen && !mobileFilterOpen)) handleFilterToggle()
     },
   }, Boolean(tableMetaData.readPermission))
 
@@ -308,6 +333,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
   }
 
   return (
+    <FilterSettingsProvider value={filterSettings}>
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`} data-view-mode={viewModeReady ? viewMode : undefined}>
       {safeFromPath && (
         <Link href={safeFromPath} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground" data-qqq-id="link-back-to-source">
@@ -343,7 +369,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         handleSearchChange={handleSearchChange}
         setLocalSearchTerm={setLocalSearchTerm}
         clearQuickSearch={() => rq.filter.setQuickSearch('')}
-        filterPanelOpen={rq.filter.filterPanelOpen}
+        filterPanelOpen={rq.filter.filterMode === 'advanced' && rq.filter.filterPanelOpen}
         mobileFilterOpen={mobileFilterOpen}
         activeFilterCount={activeFilterCount}
         handleFilterToggle={handleFilterToggle}
@@ -395,7 +421,68 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         onVariantChipClick={tableMetaData.usesVariants ? () => setVariantPickerOpen(true) : undefined}
       />
 
-      {rq.filter.filterPanelOpen && (
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter mode" data-qqq-id="query-filter-mode">
+        <HintTooltip content={basicModeCheck.reasons.join(' ')} data-qqq-id="basic-mode-reasons">
+          <button type="button" aria-pressed={rq.filter.filterMode === 'basic'}
+            aria-disabled={!basicModeCheck.canWorkAsBasic}
+            onClick={() => { if (basicModeCheck.canWorkAsBasic) rq.filter.setFilterMode('basic') }}
+            className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id="button-filter-basic">Basic</button>
+        </HintTooltip>
+        <button type="button" aria-pressed={rq.filter.filterMode === 'advanced'}
+          onClick={openAdvancedFilters}
+          className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          data-qqq-id="button-filter-advanced">Advanced</button>
+        <div className="flex items-center gap-1">
+          <label htmlFor={`query-sort-${tableName}`} className="text-sm text-muted-foreground">Sort:</label>
+          <select id={`query-sort-${tableName}`} aria-label="Sort field"
+            value={rq.filter.sortOrder[0]?.fieldName ?? ''}
+            onChange={(event) => rq.filter.setSort([{ fieldName: event.target.value, isAscending: rq.filter.sortOrder[0]?.isAscending ?? false }])}
+            className="min-h-11 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id="query-sort-field">
+            {availableFilterFields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+          </select>
+          <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
+            onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
+            className="min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
+        </div>
+        {(activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
+          <button type="button" onClick={() => setClearConfirmOpen(true)}
+            className="min-h-11 rounded px-2 text-sm text-muted-foreground underline focus:outline-none focus:ring-2 focus:ring-ring"
+            data-qqq-id="query-clear-all">Clear all filters</button>
+        )}
+      </div>
+
+      <AlertDialogPrimitive.Root open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <AlertDialogPrimitive.Portal>
+          <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
+          <AlertDialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 w-[min(90vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-lg">
+            <AlertDialogPrimitive.Title className="text-lg font-semibold">Clear all filters?</AlertDialogPrimitive.Title>
+            <AlertDialogPrimitive.Description className="mt-2 text-sm text-muted-foreground">This removes all conditions and quick search. Your sort order stays in place.</AlertDialogPrimitive.Description>
+            <div className="mt-5 flex justify-end gap-3">
+              <AlertDialogPrimitive.Cancel className="min-h-11 rounded border border-input px-4 text-sm">Cancel</AlertDialogPrimitive.Cancel>
+              <AlertDialogPrimitive.Action onClick={() => { setLocalSearchTerm(''); rq.filter.resetFilter() }}
+                className="min-h-11 rounded bg-destructive px-4 text-sm text-destructive-foreground">Clear filters</AlertDialogPrimitive.Action>
+            </div>
+          </AlertDialogPrimitive.Content>
+        </AlertDialogPrimitive.Portal>
+      </AlertDialogPrimitive.Root>
+
+      {rq.filter.filterMode === 'basic' && (
+        <QuickFilterBar fields={quickFilterFields} allFields={availableFilterFields}
+          defaultFieldNames={rq.filter.defaultQuickFilterFieldNames}
+          customFieldNames={rq.filter.quickFilterFieldNames}
+          filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter}
+          onCustomFieldsChange={rq.filter.setQuickFilterFieldNames}
+          onOpenAdvanced={openAdvancedFilters} />
+      )}
+
+      {rq.filter.filterMode === 'advanced' && (
+        <AdvancedQueryPreview filter={rq.filter.userFilter} fields={availableFilterFields} onChange={rq.filter.setUserFilter} />
+      )}
+
+      {rq.filter.filterMode === 'advanced' && rq.filter.filterPanelOpen && (
         <div className="hidden rounded-xl border border-primary/20 bg-primary/5 md:block">
           <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
             <span className="text-base font-semibold text-primary">Advanced Filters</span>
@@ -404,7 +491,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={rq.filter.toggleFilterPanel} />
+          <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={rq.filter.toggleFilterPanel} onClear={() => setClearConfirmOpen(true)} />
         </div>
       )}
 
@@ -426,7 +513,7 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
                 </DialogPrimitive.Close>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-qqq-id="mobile-filter-body">
-                <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={() => setMobileFilterOpen(false)} />
+                <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={() => setMobileFilterOpen(false)} onClear={() => setClearConfirmOpen(true)} />
               </div>
             </DialogPrimitive.Content>
           </div>
@@ -521,5 +608,6 @@ export function RecordQuery({ tableName, tableMetaData, allTables, processes, me
         />
       )}
     </div>
+    </FilterSettingsProvider>
   )
 }

@@ -43,8 +43,11 @@ export interface QInstance {
   widgets: Record<string, QWidgetMetaData>
   /** Branding configuration (logos, colors, banners, custom CSS). */
   branding: QBrandingMetaData
-  /** Map of help content key → help content used for contextual documentation. */
-  helpContents: Record<string, QHelpContent>
+  /**
+   * Instance-level help content by slot name (for example the query screen's
+   * `bulkAddFilterValues` slot); v1 omits it when the instance defines none.
+   */
+  helpContents?: Record<string, QHelpContent[]>
   /** Arbitrary key/value pairs the backend exposes to the frontend environment. */
   environmentValues: Record<string, string>
   /** Optional plugin-specific supplemental metadata not covered by the core schema. */
@@ -151,6 +154,11 @@ export interface QTableMetaData {
   primaryKeyField: string
   /** Map of field name → field metadata for every column in this table. */
   fields: Record<string, QFieldMetaData>
+  /**
+   * Virtual fields (computed by the backend, for example with a field function), by name.
+   * Those marked `isQueryCriteria` can be filtered on.
+   */
+  virtualFields?: Record<string, QVirtualFieldMetaData>
   /** Ordered list of field-grouping sections shown on the record view/edit pages. */
   sections: QTableSection[]
   /** Joins that have been explicitly exposed for use in queries and views. */
@@ -234,6 +242,17 @@ export interface QFieldMetaData {
   helpContents?: QHelpContent[]
   /** Named behaviors (backend extension hooks) attached to this field. */
   behaviors?: string[]
+}
+
+/**
+ * A virtual field: computed by the backend rather than stored, and usable in queries as
+ * its flags allow.
+ */
+export interface QVirtualFieldMetaData extends QFieldMetaData {
+  /** Whether the field can be selected in query output (shown as a column). */
+  isQuerySelectable?: boolean
+  /** Whether the field can be used in query criteria (filters). */
+  isQueryCriteria?: boolean
 }
 
 /**

@@ -1,6 +1,6 @@
 # Material Dashboard parity (QRun-IO/qqq#714)
 
-This is the full inventory of what the Material Dashboard can do and where each ability stands in Next. The audit covered Material `origin/develop` at `8ec1be7a`: every route, page, component, widget, block, process component, supplemental metadata class and theme property. It compared them with Next on branch `feature/next-1.0-parity`.
+This is the full inventory of what the Material Dashboard can do and where each ability stands in Next. The audit covered Material `origin/develop` at `8ec1be7a`: every route, page, component, widget, block, process component, supplemental metadata class and theme property. It compared them with Next on branch `feature/next-1.0-parity`; the Query section includes the 2026-09-26 `feature/next-1.0-w2-qfilters` update.
 
 Each row gives the Material source (`material:` is the Material repo root; `qqq:` is the backend repo root), the Next implementation (paths relative to this repo), the acceptance rows in `tests/acceptance/matrix/*.json` that cover it, and a status. Every Partial or Missing row names the issue that tracks it. A row that came up in more than one area is listed once, in the most specific area.
 
@@ -17,15 +17,16 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---|---|---|---|---|---|
 | Shell and navigation | 69 | 2 | 11 | 22 | 7 | 111 |
-| Query | 66 | 0 | 30 | 32 | 3 | 131 |
+| Query | 86 | 1 | 24 | 18 | 2 | 131 |
 | Records | 84 | 1 | 16 | 29 | 8 | 138 |
 | Processes and reports | 93 | 2 | 21 | 10 | 2 | 128 |
 | Widgets and blocks | 126 | 0 | 36 | 70 | 4 | 236 |
 | Supplemental metadata and theme | 1 | 0 | 5 | 36 | 9 | 51 |
-| **Total** | **439** | **5** | **119** | **199** | **33** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 47 | 5 | 27 | 36 | 12 | 127 |
+| **Total** | **459** | **6** | **113** | **185** | **32** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 54 | 6 | 23 | 32 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
+The 2026-09-26 recount verified 795 area rows, including 51 supplemental metadata and theme rows.
 
 ## Fixed by the parity stream
 
@@ -250,11 +251,11 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Embedded usages (reportSetup/isModal/isPreview/initial filter+columns/allowVariables/Open In New Window) | material:src/qqq/pages/records/query/RecordQuery.tsx:92-106,210,997-1003 | none (src/components/widgets/FilterAndColumnsSetupWidget.tsx is read-only) | none | Missing: no embedded query screen; #722 |
 | Key 'n' = create | material:src/qqq/pages/records/query/RecordQuery.tsx:740-744 | src/components/query/RecordQuery.tsx:usePageShortcuts | QRY-070 | Done |
 | Key 'r' = refresh | material:src/qqq/pages/records/query/RecordQuery.tsx:745-749 | src/components/query/RecordQuery.tsx:usePageShortcuts | QRY-070 | Done |
-| Key 'f' = filter builder | material:src/qqq/pages/records/query/RecordQuery.tsx:758-767 | src/components/query/RecordQuery.tsx:usePageShortcuts | QRY-070 | Done: no basic/advanced gate since Next has no basic mode |
+| Key 'f' = filter builder | material:src/qqq/pages/records/query/RecordQuery.tsx:758-767 | src/components/query/RecordQuery.tsx:usePageShortcuts | QRY-070 | Done: opens the Advanced filter builder |
 | Shortcuts suppressed in inputs/modals | material:src/qqq/pages/records/query/RecordQuery.tsx:735-738 | src/lib/hooks/use-page-shortcuts.ts | QRY-070 | Done |
 | Default sort PK descending | material:src/qqq/pages/records/query/RecordQuery.tsx:1426,1493 | src/lib/hooks/use-record-query.ts:defaultSort | QRY-001 | Done |
 | Sort via column menu / server sort | material:src/qqq/pages/records/query/RecordQuery.tsx:1405-1444,3360 | src/components/query/DataGrid.tsx:handleSortColumn | QRY-003 | Done: header click cycles asc/desc/default (Material used the menu) |
-| "Sort: <Field>" picker w/ direction toggle in filter bar | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:103-117,543-640 | none | none | Missing: no sort picker; #715 |
+| "Sort: <Field>" picker w/ direction toggle in filter bar | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:103-117,543-640 | src/components/query/RecordQuery.tsx | QRY-084 | Done: metadata field picker and direction toggle; #715 |
 | Sorting by a join field activates that join | material:src/qqq/pages/records/query/RecordQuery.tsx:970-991 | src/lib/hooks/use-record-query.ts (referencedFieldNames incl. sort) | QRY-020 | Done: join added; column not auto-shown |
 | Default columns: PK first/pinned, alphabetical, joins hidden, heavy skipped, querySelectable virtuals | material:src/qqq/models/query/QQueryColumns.ts:72-110; material:src/qqq/utils/DataGridUtils.tsx:273-295 | src/lib/utils/query-columns.ts:getQueryColumns | QRY-001 | Partial: metadata order; no PK pin; no virtual fields; #716 |
 | Default column order by sections (each field once), then fields no section lists | material:src/qqq/utils/DataGridUtils.tsx:145-262 (setupGridColumns bySection) | src/lib/utils/query-columns.ts:fieldsInSectionOrder | QRY-068 | Done |
@@ -291,42 +292,42 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Selection menu (page / full / subset / clear) | material:src/qqq/pages/records/query/RecordQuery.tsx:2491-2601 | src/components/query/SelectionMenu.tsx | QRY-030 | Done |
 | Subset dialog | material:src/qqq/components/query/SelectionSubsetDialog.tsx | src/components/query/SelectionMenu.tsx | QRY-033 | Done |
 | Selection status messages | material:src/qqq/pages/records/query/RecordQuery.tsx:2623-2664 | src/components/query/SelectionMenu.tsx:selectionSummary | QRY-030 | Done: subset text not clickable (not fully checked) |
-| Basic/Advanced toggle, mode persisted | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:439-470,662-671 | src/lib/hooks/use-record-query.ts (filterMode; setFilterMode unused) | none | Missing: no toggle UI; mode only round-trips in viewJson; #715 |
-| Basic disabled w/ reasons tooltip | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:609-625; material:src/qqq/utils/qqq/FilterUtils.tsx:416-474 | none | none | Missing: no basic mode to disable; #715 |
-| Auto-switch to advanced for complex filters | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:477-496 | n/a | none | N/A: Next is advanced-only |
-| Default quick filters (materialDashboard.defaultQuickFilterFieldNames, else T1 fields) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:804-848; material:src/main/java/.../model/metadata/MaterialDashboardTableMetaData.java:59 | none | none | Missing: no default quick filters; #715 |
-| "Add Filter" field menu (joins, virtuals) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:336-382,729-741 | none | none | Missing: no Add Filter menu; #715 |
-| Default operator per type (PVS any-of, DATE_TIME after, boolean none) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:191-207 | src/lib/utils/filter-utils.ts:getDefaultOperatorForFieldType | none | Partial: builder rows only; #715 |
-| Quick filter chip text "Field: op values +N" | material:src/qqq/components/query/QuickFilter.tsx:511-534 | none | none | Missing: no quick-filter chips; #715 |
-| Quick filter menu (operator + value, apply on close) | material:src/qqq/components/query/QuickFilter.tsx:316-325,600-635 | none | none | Missing: no quick-filter menu; #715 |
-| Hover X clears / removes quick filter | material:src/qqq/components/query/QuickFilter.tsx:572-598 | none | none | Missing: no quick-filter clear/remove; #715 |
-| "Too complex" quick filter tooltip | material:src/qqq/components/query/QuickFilter.tsx:557-567 | none | none | Missing: no "too complex" tooltip; #715 |
-| quickFilterFieldNames persisted | material:src/qqq/pages/records/query/RecordQuery.tsx:1571-1577 | src/lib/utils/saved-view-utils.ts (passthrough) | none | Partial: kept in JSON, not rendered; #715 |
-| URL/view criteria auto-become quick filters | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:477-510 | none | none | Missing: criteria never become quick filters; #715 |
+| Basic/Advanced toggle, mode persisted | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:439-470,662-671 | src/components/query/RecordQuery.tsx; src/lib/hooks/use-record-query.ts; src/lib/utils/saved-view-utils.ts | QRY-080, QRY-052, QRY-082 | Done: both modes persist in saved views and Basic restores on reload; #715 |
+| Basic disabled w/ reasons tooltip | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:609-625; material:src/qqq/utils/qqq/FilterUtils.tsx:416-474 | src/components/query/RecordQuery.tsx; src/lib/utils/quick-filter-utils.ts | QRY-082 | Done: repeated conditions disable Basic with a focusable reason; #715 |
+| Auto-switch to advanced for complex filters | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:477-496 | src/lib/hooks/use-record-query.ts:reconcileState | QRY-082 | Done: a real-server URL with OR criteria opens Advanced and preserves both conditions; #715 |
+| Default quick filters (materialDashboard.defaultQuickFilterFieldNames, else T1 fields) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:804-848; material:src/main/java/.../model/metadata/MaterialDashboardTableMetaData.java:59 | src/lib/utils/quick-filter-utils.ts; src/components/query/QuickFilterBar.tsx | QRY-080 | Done: metadata defaults and T1 fallback; #715 |
+| "Add Filter" field menu (joins, virtuals) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:336-382,729-741 | src/components/query/QuickFilterBar.tsx; src/components/query/FilterBuilder.tsx:buildFilterFields | QRY-081 | Done: base, joined and virtual fields query matching SQL rows through the picker; #715 |
+| Default operator per type (PVS any-of, DATE_TIME after, boolean none) | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:191-207 | src/lib/utils/quick-filter-utils.ts:defaultQuickFilterOperator | QRY-080 | Done: all three defaults and a Boolean choice gate pass real-server browser checks; #715 |
+| Quick filter chip text "Field: op values +N" | material:src/qqq/components/query/QuickFilter.tsx:511-534 | src/components/query/QuickFilterBar.tsx; src/lib/utils/filter-display-utils.ts | QRY-080 | Done: multiple values collapse to +N while the full list reaches SQL; #715 |
+| Quick filter menu (operator + value, apply on close) | material:src/qqq/components/query/QuickFilter.tsx:316-325,600-635 | src/components/query/QuickFilterBar.tsx:QuickFilterEditor | QRY-080 | Done (different UX): the inline editor uses explicit Apply; its operator and value filter the same SQL rows, and Cancel discards the draft; #715 |
+| Hover X clears / removes quick filter | material:src/qqq/components/query/QuickFilter.tsx:572-598 | src/components/query/QuickFilterBar.tsx | none | Done: hover/focus action clears defaults and removes custom chips; unit-tested; #715 |
+| "Too complex" quick filter tooltip | material:src/qqq/components/query/QuickFilter.tsx:557-567 | src/components/query/QuickFilterBar.tsx; src/components/query/HintTooltip.tsx | QRY-082 | Done: complex conditions explain why Basic is unavailable; #715 |
+| quickFilterFieldNames persisted | material:src/qqq/pages/records/query/RecordQuery.tsx:1571-1577 | src/lib/hooks/use-record-query.ts; src/lib/utils/saved-view-utils.ts | QRY-080, QRY-081 | Done: local reload and saved-view reload restore an added field; #715 |
+| URL/view criteria auto-become quick filters | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:477-510 | src/lib/utils/quick-filter-utils.ts:reconcileBasicMode | QRY-080, QRY-082 | Done: URL criteria render a chip, and a saved view restores its criterion and matching SQL rows; #715 |
 | Filter Builder button with count badge | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:758-775 | src/components/query/RecordQuery.tsx:activeFilterCount | QRY-016 | Done |
-| Clear-all w/ confirm, keeps sort | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:416-423,777-790 | src/components/query/FilterBuilder.tsx (button-clear-filter) | none | Partial: no confirm dialog; #715 |
-| Advanced query preview pills w/ remove X | material:src/qqq/components/query/AdvancedQueryPreview.tsx | none (src/lib/utils/filter-utils.ts:formatCriterionDisplay unused in UI) | none | Missing: no preview pills; #715 |
+| Clear-all w/ confirm, keeps sort | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:416-423,777-790 | src/components/query/RecordQuery.tsx; src/components/query/FilterBuilder.tsx | QRY-084 | Done: cancel preserves criteria; confirm clears criteria and keeps sort; #715 |
+| Advanced query preview pills w/ remove X | material:src/qqq/components/query/AdvancedQueryPreview.tsx | src/components/query/AdvancedQueryPreview.tsx | QRY-083 | Done: preview removes one criterion without clearing the query; #715 |
 | Filter rows: remove, And/Or, field/op/values, "Add Condition" | material:src/qqq/components/query/CustomFilterPanel.tsx; material:src/qqq/components/query/FilterCriteriaRow.tsx:505-563 | src/components/query/FilterBuilder.tsx (FilterGroup/FilterRow) | QRY-010, QRY-016 | Done: no valid/pending icon (not fully checked) |
 | Sub-filters not editable in Material | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:620-625; material:src/qqq/utils/qqq/FilterUtils.tsx:430 | src/components/query/FilterBuilder.tsx ("Add group") | QRY-016 | Done: Next exceeds Material |
-| Criteria validation tooltips | material:src/qqq/components/query/FilterCriteriaRow.tsx:228-289 | src/lib/utils/filter-utils.ts:isCriterionComplete | none | Partial: no messages; #715 |
+| Criteria validation tooltips | material:src/qqq/components/query/FilterCriteriaRow.tsx:228-289 | src/components/query/FilterBuilder.tsx:CriteriaRow; src/lib/utils/filter-utils.ts:validateCriterion | QRY-084 | Done: keyboard focus announces missing value and completed condition while SQL rows follow the criterion; #715 |
 | Field change resets values/operator | material:src/qqq/components/query/FilterCriteriaRow.tsx:360-395 | src/components/query/FilterBuilder.tsx (newCriterionForField) | QRY-010 | Done |
 | String operators | material:src/qqq/components/query/FilterCriteriaRow.tsx:188-200 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-010 | Done: labels match |
 | Number operators | material:src/qqq/components/query/FilterCriteriaRow.tsx:124-139 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-011 | Done |
 | Date operators | material:src/qqq/components/query/FilterCriteriaRow.tsx:140-150 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-012 | Done |
 | Date-time operators | material:src/qqq/components/query/FilterCriteriaRow.tsx:157-167 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-013 | Done |
-| Weekday "day is any of / none of" + weekdayCriteriaSettings (enabled, dateTimeFieldFunctionArguments) | material:src/qqq/components/query/FilterCriteriaRow.tsx:100-102,151-172; material:src/qqq/utils/qqq/FilterUtils.tsx:243-284; material:src/main/java/.../model/metadata/WeekdayCriteriaSettings.java:53-54 | none | none | Missing: no weekday operators; #718 |
+| Weekday "day is any of / none of" + weekdayCriteriaSettings (enabled, dateTimeFieldFunctionArguments) | material:src/qqq/components/query/FilterCriteriaRow.tsx:100-102,151-172; material:src/qqq/utils/qqq/FilterUtils.tsx:243-284; material:src/main/java/.../model/metadata/WeekdayCriteriaSettings.java:53-54 | src/components/query/FilterBuilder.tsx:WeekdayMultiSelect; src/lib/utils/filter-utils.ts:weekdayCriteriaSettings | QRY-085 | Done: date and date-time functions return matching SQL rows; date-time request carries configured time-zone arguments; #718 |
 | Boolean equals yes/no/empty | material:src/qqq/components/query/FilterCriteriaRow.tsx:174-178 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-014 | Done |
 | Blob empty / not empty | material:src/qqq/components/query/FilterCriteriaRow.tsx:184-186 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-014 | Done |
 | PVS operators | material:src/qqq/components/query/FilterCriteriaRow.tsx:111-119 | src/lib/utils/filter-utils.ts:getOperatorOptions | QRY-015 | Done |
 | URL NOT_EQUALS -> NOT_EQUALS_OR_IS_NULL | material:src/qqq/pages/records/query/RecordQuery.tsx:2843-2850 | src/lib/utils/filter-utils.ts (OPERATORS renders NOT_EQUALS, LIKE, TRUE…) | QRY-018 | Done: renders instead of normalizing |
 | Typed inputs, clear X | material:src/qqq/components/query/FilterCriteriaRowValues.tsx:69-119 | src/components/query/FilterBuilder.tsx:TypedInput | QRY-011, QRY-012, QRY-013 | Done |
-| toUpper/lowerCase behaviors in filter input | material:src/qqq/components/query/FilterCriteriaRowValues.tsx:191-226 | none | none | Missing: no upper/lower case in filter inputs; #718 |
+| toUpper/lowerCase behaviors in filter input | material:src/qqq/components/query/FilterCriteriaRowValues.tsx:191-226 | src/components/query/FilterBuilder.tsx:SingleValueInput; src/lib/utils/filter-utils.ts:caseBehaviorTransform | QRY-089 | Done: lowercase real-server and uppercase unit coverage; QQQ v1 field behaviors merged through #793; #718 |
 | Multi-value chips | material:src/qqq/components/query/FilterCriteriaRowValues.tsx:344-366 | src/components/query/FilterBuilder.tsx:TagInput | QRY-011 | Done |
 | PVS single/multi show labels, send ids | material:src/qqq/components/query/FilterCriteriaRowValues.tsx:367-438; material:src/qqq/utils/qqq/FilterUtils.tsx:58-102 | src/components/query/FilterBuilder.tsx:PossibleValueSingleSelect/PossibleValueMultiSelect | QRY-015 | Done |
-| "Bulk Add Filter Values" paster (separators, PVS validation, counts, help slot) | material:src/qqq/components/query/FilterCriteriaPaster.tsx | src/components/query/FilterBuilder.tsx:TagInput (onPaste splits comma/newline) | none | Partial: no dialog/PVS lookup/counts/help; #718 |
-| Relative date preset menu | material:src/qqq/components/query/CriteriaDateField.tsx:243-307 | none | none | Missing: custom editor only, no presets; #718 |
+| "Bulk Add Filter Values" paster (separators, PVS validation, counts, help slot) | material:src/qqq/components/query/FilterCriteriaPaster.tsx | src/components/query/FilterValuePaster.tsx | QRY-087, QRY-088 | Done: text and PVS labels, explicit separators, invalid counts, ID filtering and instance help pass all browsers; #718 |
+| Relative date preset menu | material:src/qqq/components/query/CriteriaDateField.tsx:243-307 | src/components/query/RelativeDateMenu.tsx | QRY-086 | Done: date and date-time presets query their live SQL ranges across all browser profiles; #718 |
 | Custom date expression dialog | material:src/qqq/components/query/AdvancedDateTimeFilterValues.tsx | src/components/query/FilterBuilder.tsx:ExpressionEditor | QRY-012, QRY-013 | Done |
-| Expression display + live evaluated tooltip | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/lib/utils/filter-utils.ts:describeExpression | QRY-012 | Partial: no evaluated-date tooltip; #718 |
+| Expression display + live evaluated tooltip | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/components/query/EvaluatedExpression.tsx; src/lib/utils/filter-display-utils.ts:formatEvaluatedExpression | QRY-086 | Done: date and date-time expressions retain their relative text and expose the evaluated value on keyboard focus; #718 |
 | Date-time local/UTC conversion | material:src/qqq/utils/qqq/FilterUtils.tsx:82-94,216-222 | src/lib/utils/filter-utils.ts:localDateTimeToUtc/utcToLocalDateTimeInput | QRY-013 | Done |
 | Filter variables (assign, "${VARIABLE}", block query) | material:src/qqq/components/query/AssignFilterVariable.tsx; material:src/qqq/pages/records/query/RecordQuery.tsx:1051-1064 | display only (src/lib/utils/filter-utils.ts; src/components/widgets/FilterAndColumnsSetupWidget.tsx) | none | Partial: no assign UI; Material only in report-setup embed; #722 |
 | Strip incomplete criteria | material:src/qqq/utils/qqq/FilterUtils.tsx:755-785 | src/lib/utils/filter-utils.ts:isCriterionComplete/prepFilterForBackend | none | Done |
@@ -1138,15 +1139,15 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Columns panel "Columns (N)" (search, per-table switches, counts) | material:src/qqq/components/query/FieldListMenu.tsx:624; material:src/qqq/pages/records/query/RecordQuery.tsx:3058-3139 | src/components/query/ColumnConfig.tsx | QRY-004 | Partial: no search, counts or "(N)"; #716 |
 | Filter panel (DataGrid FilterPanel slot, filter rows, Add Condition) | material:src/qqq/pages/records/query/RecordQuery.tsx:3313; material:src/qqq/components/query/CustomFilterPanel.tsx | src/components/query/FilterBuilder.tsx (Radix popover) | QRY-010, QRY-016, QRY-070 | Done |
 | Filter-row field and possible-value autocompletes | material:src/qqq/components/query/FilterCriteriaRow.tsx:527; material:src/qqq/components/query/FilterCriteriaRowValues.tsx:351 | src/components/query/FilterBuilder.tsx:PossibleValueSingleSelect/PossibleValueMultiSelect | QRY-010, QRY-015 | Done |
-| Quick filter menu (operator and value, apply on close) | material:src/qqq/components/query/QuickFilter.tsx:600 | none | none | Missing: no quick filters; #715 |
-| "Add Filter" field menu | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:336-382,729-741 | none | none | Missing: no Add Filter menu; #715 |
-| Clear-all filters confirm dialog | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:781 | src/components/query/FilterBuilder.tsx (button-clear-filter, no confirm) | none | Partial: no confirm dialog; #715 |
-| Basic-mode disabled tooltip and "too complex" quick-filter tooltip | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:609-625; material:src/qqq/components/query/QuickFilter.tsx:557-567 | none | none | Missing: no basic mode; #715 |
-| Criteria validation tooltips | material:src/qqq/components/query/FilterCriteriaRow.tsx:228-289 | src/lib/utils/filter-utils.ts:isCriterionComplete (no messages) | none | Partial: no messages; #715 |
-| "Bulk Add Filter Values" criteria paster dialog | material:src/qqq/components/query/FilterCriteriaPaster.tsx:371 | src/components/query/FilterBuilder.tsx:TagInput (paste splits values) | none | Partial: no dialog, PV lookup or counts; #718 |
-| Relative date preset menu | material:src/qqq/components/query/CriteriaDateField.tsx:246 | none | none | Missing: no presets; #718 |
+| Quick filter menu (operator and value, apply on close) | material:src/qqq/components/query/QuickFilter.tsx:600 | src/components/query/QuickFilterBar.tsx:QuickFilterEditor | QRY-080 | Done (different UX): explicit Apply and Cancel replace apply-on-close while preserving the filter outcome; #715 |
+| "Add Filter" field menu | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:336-382,729-741 | src/components/query/QuickFilterBar.tsx | QRY-081 | Done: base, joined and virtual field choices return matching SQL rows; #715 |
+| Clear-all filters confirm dialog | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:781 | src/components/query/RecordQuery.tsx | QRY-084 | Done: confirm dialog keeps sort; #715 |
+| Basic-mode disabled tooltip and "too complex" quick-filter tooltip | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:609-625; material:src/qqq/components/query/QuickFilter.tsx:557-567 | src/components/query/RecordQuery.tsx; src/components/query/HintTooltip.tsx | QRY-082 | Done: disabled reason focusable; #715 |
+| Criteria validation tooltips | material:src/qqq/components/query/FilterCriteriaRow.tsx:228-289 | src/components/query/FilterBuilder.tsx:CriteriaRow | QRY-084 | Done: pending and complete messages verified with keyboard focus against the sample server; #715 |
+| "Bulk Add Filter Values" criteria paster dialog | material:src/qqq/components/query/FilterCriteriaPaster.tsx:371 | src/components/query/FilterValuePaster.tsx | QRY-087, QRY-088 | Done: text and possible-value pasting, invalid counts and help verified; #718 |
+| Relative date preset menu | material:src/qqq/components/query/CriteriaDateField.tsx:246 | src/components/query/RelativeDateMenu.tsx | QRY-086 | Done: DATE and DATE_TIME presets query matching SQL rows; #718 |
 | Advanced (custom expression) date dialog | material:src/qqq/components/query/AdvancedDateTimeFilterValues.tsx:214 | src/components/query/FilterBuilder.tsx:ExpressionEditor | QRY-012, QRY-013 | Done |
-| Evaluated-expression tooltip on date criteria | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/lib/utils/filter-utils.ts:describeExpression | QRY-012 | Partial: no evaluated-date tooltip; #718 |
+| Evaluated-expression tooltip on date criteria | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/components/query/EvaluatedExpression.tsx; src/lib/utils/filter-display-utils.ts:formatEvaluatedExpression | QRY-086 | Done: DATE and DATE_TIME evaluated values appear on keyboard focus; #718 |
 | Assign filter variable popup (report setup) | material:src/qqq/components/query/AssignFilterVariable.tsx | display only (src/components/widgets/FilterAndColumnsSetupWidget.tsx) | none | Partial: no assign UI; #722 |
 | Saved views menu (Your / Shared lists, actions) | material:src/qqq/components/misc/SavedViews.tsx:328-437 | src/components/query/SavedViewsMenu.tsx | QRY-050, QRY-051, QRY-052, QRY-054 | Partial: no "Create Report from Current View"; #717 |
 | Saved-view dialogs: Save, Save As, Rename, Delete, inline error alert | material:src/qqq/components/misc/SavedViews.tsx:626-710 | src/components/query/SavedViewsMenu.tsx (Radix dialogs) | QRY-051, QRY-052, QRY-053 | Done |
@@ -1232,10 +1233,8 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 1 row
 - #702 Next UI 1.0: cronUI widget with live schedule description: 7 rows
 - #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 row
-- #715 Next UI 1.0 parity: Query basic mode and quick filters: 15 rows
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 12 rows
 - #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 27 rows
-- #718 Next UI 1.0 parity: Query filter operators and value inputs: 5 rows
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 25 rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 13 rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 2 rows

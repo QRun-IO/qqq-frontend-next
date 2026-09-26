@@ -48,6 +48,7 @@ import {
   resolveField,
 } from '@/lib/utils/filter-utils'
 import { isColumnVisible, type ViewState } from '@/lib/utils/saved-view-utils'
+import { getDefaultQuickFilterFieldNames, reconcileBasicMode } from '@/lib/utils/quick-filter-utils'
 import { hasCapability } from '@/lib/utils/query-columns'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { useColumnConfig } from '@/lib/hooks/use-column-config'
@@ -86,6 +87,8 @@ export interface RecordQueryState {
   quickSearchTerm: string
   /** Filter panel mode, persisted in saved views. */
   filterMode: 'basic' | 'advanced'
+  /** Quick filters added beyond the table's defaults (basic mode), persisted in saved views. */
+  quickFilterFieldNames: string[]
   /** Active sort order. */
   sortOrder: QFilterOrderBy[]
   /** Explicit column visibility (join columns default hidden, base columns default shown). */
@@ -115,6 +118,7 @@ export type RecordQueryAction =
   | { type: 'SET_USER_FILTER'; filter: QQueryFilter }
   | { type: 'SET_QUICK_SEARCH'; term: string }
   | { type: 'SET_FILTER_MODE'; mode: 'basic' | 'advanced' }
+  | { type: 'SET_QUICK_FILTER_FIELDS'; fieldNames: string[] }
   | { type: 'SET_SORT'; sortOrder: QFilterOrderBy[] }
   | { type: 'SET_COLUMN_VISIBILITY'; visibility: Record<string, boolean> }
   | { type: 'TOGGLE_COLUMN'; fieldName: string }
@@ -148,6 +152,8 @@ function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction):
       return { ...state, quickSearchTerm: action.term, pageNum: 1 }
     case 'SET_FILTER_MODE':
       return { ...state, filterMode: action.mode }
+    case 'SET_QUICK_FILTER_FIELDS':
+      return { ...state, quickFilterFieldNames: action.fieldNames }
     case 'SET_SORT':
       return { ...state, sortOrder: action.sortOrder, pageNum: 1 }
     case 'SET_COLUMN_VISIBILITY':
@@ -185,6 +191,7 @@ function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction):
         columnWidths: { ...state.columnWidths, ...action.view.columnWidths },
         pageSize: action.view.pageSize as PageSize,
         filterMode: action.view.filterMode,
+        quickFilterFieldNames: action.view.quickFilterFieldNames ?? [],
         pageNum: 1,
         quickSearchTerm: '',
         rowSelection: {},
@@ -193,6 +200,59 @@ function recordQueryReducer(state: RecordQueryState, action: RecordQueryAction):
       }
     default:
       return state
+  }
+}
+
+/** Actions after which basic mode is checked against the filter again. */
+const BASIC_MODE_ACTIONS: ReadonlySet<RecordQueryAction['type']> = new Set(['SET_USER_FILTER', 'SET_FILTER_MODE', 'APPLY_VIEW', 'RESET_FILTER'])
+
+/**
+ * Keeps basic mode consistent with the filter (Material's
+ * `ensureAllFilterCriteriaAreActiveQuickFilters`): a filter basic mode cannot show switches to
+ * advanced (so choosing basic for it does nothing), and in basic mode every field with a
+ * condition is a quick filter.
+ *
+ * @param state - A state.
+ * @param table - Table metadata.
+ * @param defaults - The table's default quick-filter fields.
+ * @returns The state, adjusted when needed.
+ */
+export function reconcileState(state: RecordQueryState, table: QTableMetaData | undefined, defaults: readonly string[]): RecordQueryState {
+  if (!table) return state
+  const reconciled = reconcileBasicMode(table, state.userFilter, { mode: state.filterMode, quickFilterFieldNames: state.quickFilterFieldNames }, defaults)
+  if (reconciled.mode === state.filterMode && reconciled.quickFilterFieldNames === state.quickFilterFieldNames) return state
+  return { ...state, filterMode: reconciled.mode, quickFilterFieldNames: reconciled.quickFilterFieldNames }
+}
+
+/**
+ * The record query reducer with basic mode kept consistent after filter and mode changes.
+ *
+ * @param table - Table metadata.
+ * @param defaults - The table's default quick-filter fields.
+ * @returns The reducer.
+ */
+export function basicModeReducer(table: QTableMetaData | undefined, defaults: readonly string[]) {
+  return (state: RecordQueryState, action: RecordQueryAction): RecordQueryState => {
+    const next = recordQueryReducer(state, action)
+    return BASIC_MODE_ACTIONS.has(action.type) ? reconcileState(next, table, defaults) : next
+  }
+}
+
+/**
+ * Reads a stored value, tolerating missing storage and bad JSON.
+ *
+ * @param key - The localStorage key.
+ * @param accept - Validates the parsed value.
+ * @returns The value, or undefined.
+ */
+function readStored<T>(key: string, accept: (value: unknown) => value is T): T | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const item = localStorage.getItem(key)
+    const parsed: unknown = item === null ? undefined : JSON.parse(item)
+    return accept(parsed) ? parsed : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -247,6 +307,10 @@ export function useRecordQuery({
   const primaryKey = tableMetaData?.primaryKeyField
   /** Material's default sort: primary key, descending. */
   const defaultSort = useMemo<QFilterOrderBy[]>(() => (primaryKey ? [{ fieldName: primaryKey, isAscending: false }] : []), [primaryKey])
+  /** Quick filters every user sees in basic mode (Material defaultQuickFilterFieldNames, else T1 fields). */
+  const defaultQuickFilterFieldNames = useMemo(() => (tableMetaData ? getDefaultQuickFilterFieldNames(tableMetaData) : []), [tableMetaData])
+  const filterModeKey = `qqq-${tableName}-filter-mode`
+  const quickFilterFieldsKey = `qqq-${tableName}-quick-filter-fields`
 
   // ------------------------------------------------------------------
   // Initial state — hydrate from URL params (read once on mount via ref)
@@ -258,12 +322,16 @@ export function useRecordQuery({
     const filterParam = searchParams.get('filter')
     const initialFilter = filterParam ? deserializeFilter(filterParam, pageSize) : emptyFilter(pageSize)
     const pageParam = parseInt(searchParams.get('page') ?? '', 10)
-    initialStateRef.current = {
+    // the mode and added quick filters are remembered per table (Material keeps them in the stored view)
+    const storedMode = readStored(filterModeKey, (v): v is 'basic' | 'advanced' => v === 'basic' || v === 'advanced')
+    const storedQuickFilters = readStored(quickFilterFieldsKey, (v): v is string[] => Array.isArray(v) && v.every((name) => typeof name === 'string'))
+    initialStateRef.current = reconcileState({
       pageNum: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
       pageSize,
       userFilter: { ...initialFilter, orderBys: [] },
       quickSearchTerm: searchParams.get('q') ?? '',
-      filterMode: 'basic',
+      filterMode: storedMode ?? 'basic',
+      quickFilterFieldNames: (storedQuickFilters ?? []).filter((name) => Boolean(tableMetaData && resolveField(tableMetaData, name))),
       sortOrder: initialFilter.orderBys?.length ? initialFilter.orderBys : defaultSort,
       columnVisibility: storedColumnVisibility,
       columnOrder: storedColumnOrder,
@@ -273,11 +341,22 @@ export function useRecordQuery({
       subsetSize: null,
       columnConfigOpen: false,
       filterPanelOpen: false,
-    }
+    }, tableMetaData, defaultQuickFilterFieldNames)
   }
 
-  const [state, dispatch] = useReducer(recordQueryReducer, initialStateRef.current)
+  const reducer = useMemo(() => basicModeReducer(tableMetaData, defaultQuickFilterFieldNames), [tableMetaData, defaultQuickFilterFieldNames])
+  const [state, dispatch] = useReducer(reducer, initialStateRef.current)
   const columns = useColumnConfig(tableName, state, dispatch)
+
+  // remember the mode and added quick filters for this table
+  useEffect(() => {
+    try {
+      localStorage.setItem(filterModeKey, JSON.stringify(state.filterMode))
+      localStorage.setItem(quickFilterFieldsKey, JSON.stringify(state.quickFilterFieldNames))
+    } catch {
+      // persistence is best-effort
+    }
+  }, [filterModeKey, quickFilterFieldsKey, state.filterMode, state.quickFilterFieldNames])
 
   // ------------------------------------------------------------------
   // Sync state to URL params (filter includes a non-default sort)
@@ -453,6 +532,7 @@ export function useRecordQuery({
   const setUserFilter = useCallback((filter: QQueryFilter) => dispatch({ type: 'SET_USER_FILTER', filter }), [])
   const setQuickSearch = useCallback((term: string) => dispatch({ type: 'SET_QUICK_SEARCH', term }), [])
   const setFilterMode = useCallback((mode: 'basic' | 'advanced') => dispatch({ type: 'SET_FILTER_MODE', mode }), [])
+  const setQuickFilterFieldNames = useCallback((fieldNames: string[]) => dispatch({ type: 'SET_QUICK_FILTER_FIELDS', fieldNames }), [])
   const setSort = useCallback((sortOrder: QFilterOrderBy[]) => dispatch({ type: 'SET_SORT', sortOrder: sortOrder.length ? sortOrder : defaultSort }), [defaultSort])
   const setRowSelection = useCallback((selection: Record<string, boolean>) => dispatch({ type: 'SET_ROW_SELECTION', selection }), [])
   const setSelectionMode = useCallback((mode: SelectionMode, subsetSize?: number | null) => dispatch({ type: 'SET_SELECTION_MODE', mode, subsetSize }), [])
@@ -469,7 +549,8 @@ export function useRecordQuery({
     columnWidths: state.columnWidths,
     pageSize: state.pageSize,
     filterMode: state.filterMode,
-  }), [state.userFilter, state.sortOrder, state.columnVisibility, state.columnOrder, state.columnWidths, state.pageSize, state.filterMode])
+    quickFilterFieldNames: state.quickFilterFieldNames,
+  }), [state.userFilter, state.sortOrder, state.columnVisibility, state.columnOrder, state.columnWidths, state.pageSize, state.filterMode, state.quickFilterFieldNames])
 
   return {
     pagination: {
@@ -485,6 +566,8 @@ export function useRecordQuery({
       userFilter: state.userFilter,
       quickSearchTerm: state.quickSearchTerm,
       filterMode: state.filterMode,
+      quickFilterFieldNames: state.quickFilterFieldNames,
+      defaultQuickFilterFieldNames,
       filterPanelOpen: state.filterPanelOpen,
       sortOrder: state.sortOrder,
       defaultSort,
@@ -493,6 +576,7 @@ export function useRecordQuery({
       setUserFilter,
       setQuickSearch,
       setFilterMode,
+      setQuickFilterFieldNames,
       setSort,
       resetFilter,
       toggleFilterPanel,

@@ -101,13 +101,17 @@ test('[QRY-052] update, rename and delete your view @mobile', async ({ page, bac
   await page.locator('[data-qqq-id="filter-row-0-0"]').getByLabel('Filter value for First Name').fill('B')
   await expectColumn(page, 'firstName', ['Blair'])
   await closeFilterSheet(page)
-  await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toContainText('1 Unsaved Change')
+  // Opening the Advanced editor also changes the saved Basic/Advanced mode.
+  const unsaved = page.locator('[data-qqq-id="saved-view-unsaved"]')
+  await expect(unsaved).toContainText('2 Unsaved Changes')
+  await expect(unsaved.locator('span[title]')).toHaveAttribute('title', /Changed the filter\nMode changed from basic to advanced/)
   await page.locator('[data-qqq-id="saved-view-save-changes"]').click()
   await page.getByRole('dialog', { name: 'Update Existing View' }).getByRole('button', { name: 'Save' }).click()
   await expect(page.locator('[data-qqq-id="saved-view-unsaved"]')).toHaveCount(0)
   const updated = await savedViewRow(backend, ALICE_VIEW)
   expect(updated!.id).toBe(seed!.id)
   expect(updated!.view.queryFilter.criteria).toEqual([{ fieldName: 'firstName', operator: 'STARTS_WITH', values: ['B'] }])
+  expect(updated!.view.mode).toBe('advanced')
 
   // Rename
   await (await openViews(page)).getByRole('menuitem', { name: 'Rename...' }).click()

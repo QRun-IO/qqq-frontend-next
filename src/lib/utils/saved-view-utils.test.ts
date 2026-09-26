@@ -101,6 +101,17 @@ describe('saved view JSON', () => {
     expect(restored.filterMode).toBe('advanced')
   })
 
+  it('round-trips basic mode and user-added quick filter fields', () => {
+    const saved = buildViewJson(table, state({ filterMode: 'basic', quickFilterFieldNames: ['person.firstName'] }))
+    expect(saved.mode).toBe('basic')
+    expect(saved.quickFilterFieldNames).toEqual(['person.firstName'])
+
+    const restored = viewToState(table, parseViewJson(JSON.stringify(saved)), 25, [10, 25, 50])
+    expect(restored.filterMode).toBe('basic')
+    expect(restored.quickFilterFieldNames).toEqual(['person.firstName'])
+    expect(restored.userFilter.criteria).toEqual([{ fieldName: 'name', operator: 'CONTAINS', values: ['Co'] }])
+  })
+
   it('tolerates partial or broken documents (a Material view with only a filter)', () => {
     const restored = viewToState(table, parseViewJson('{"queryFilter":{"criteria":[{"fieldName":"name","operator":"EQUALS","values":["Coco"]}]},"rowsPerPage":33}'), 25, [10, 25, 50])
     expect(restored.userFilter.criteria).toHaveLength(1)

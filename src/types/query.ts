@@ -72,6 +72,21 @@ export interface QFilterCriteria {
   )[]
   /** When set, compares `fieldName` against another field rather than a literal value. */
   otherFieldName?: string
+  /** A backend field function applied to the field before it is compared (for example its weekday). */
+  fieldFunction?: QFieldFunction
+}
+
+/**
+ * A backend field function in a criterion (`FieldFunction`): the function named by
+ * `functionTypeIdentifierName` is applied to `fieldName`, with optional arguments.
+ */
+export interface QFieldFunction {
+  /** The field the function reads. */
+  fieldName: string
+  /** The registered function name, for example `WeekdayOfDate` or `WeekdayOfDateTime`. */
+  functionTypeIdentifierName: string
+  /** Function arguments (for example a `timeZoneId`). */
+  arguments?: Record<string, unknown>
 }
 
 /**

@@ -22,7 +22,7 @@
  */
 
 import type { QFilterOrderBy, QQueryFilter, QTableMetaData } from '@/types'
-import { normalizeFilter, isCriterionComplete, emptyFilter } from './filter-utils'
+import { normalizeFilter, isCriterionComplete, emptyFilter, resolveField } from './filter-utils'
 import { getQueryColumns, orderColumns } from './query-columns'
 
 /** One column entry in a saved view (Material `QQueryColumns.Column`). */
@@ -83,6 +83,8 @@ export interface ViewState {
   pageSize: number
   /** Filter panel mode. */
   filterMode: 'basic' | 'advanced'
+  /** Quick filters added beyond the table's defaults (Material basic mode). */
+  quickFilterFieldNames?: string[]
 }
 
 /**
@@ -116,7 +118,7 @@ export function allColumnNames(table: QTableMetaData): string[] {
  *
  * @param table - Table metadata.
  * @param state - Current screen state.
- * @param base - The stored view being saved over, whose settings Next does not edit are kept.
+ * @param base - The stored view being saved over; its quick filters are kept when the state has none.
  * @returns The view JSON document.
  */
 export function buildViewJson(table: QTableMetaData, state: ViewState, base?: RecordQueryView): RecordQueryView {
@@ -140,7 +142,7 @@ export function buildViewJson(table: QTableMetaData, state: ViewState, base?: Re
       ],
     },
     rowsPerPage: state.pageSize,
-    quickFilterFieldNames: base?.quickFilterFieldNames ?? [],
+    quickFilterFieldNames: state.quickFilterFieldNames ?? base?.quickFilterFieldNames ?? [],
     mode: state.filterMode,
   }
 }
@@ -203,7 +205,35 @@ export function viewToState(table: QTableMetaData, view: RecordQueryView, fallba
     columnWidths,
     pageSize,
     filterMode: view.mode === 'advanced' ? 'advanced' : 'basic',
+    // quick filters on fields the table no longer has are dropped (Material's reconcile)
+    quickFilterFieldNames: [...new Set((view.quickFilterFieldNames ?? []).filter((name) => typeof name === 'string' && resolveField(table, name) !== undefined))],
   }
+}
+
+/**
+ * Lists the basic-mode differences Material's `diffViews` reports: quick filters turned on or
+ * off ("basic filters"; fields that have a condition are implied, so they do not count) and a
+ * changed mode.
+ *
+ * @param table - Table metadata (for labels).
+ * @param saved - The saved view document.
+ * @param current - The current view document.
+ * @returns Change descriptions.
+ */
+export function diffBasicModeSettings(table: QTableMetaData, saved: RecordQueryView, current: RecordQueryView): string[] {
+  const diffs: string[] = []
+  const withCriteria = new Set([...(saved.queryFilter?.criteria ?? []), ...(current.queryFilter?.criteria ?? [])].map((c) => c?.fieldName))
+  const explicit = (view: RecordQueryView) => (view.quickFilterFieldNames ?? []).filter((name) => !withCriteria.has(name))
+  const label = (name: string) => resolveField(table, name)?.label ?? name
+  const describe = (prefix: string, names: string[]) => {
+    if (names.length > 0) diffs.push(`${prefix} basic filter${names.length === 1 ? '' : 's'}: ${names.map(label).join(', ')}`)
+  }
+  describe('Turned on', explicit(current).filter((name) => !explicit(saved).includes(name)))
+  describe('Turned off', explicit(saved).filter((name) => !explicit(current).includes(name)))
+  const savedMode = saved.mode === 'advanced' ? 'advanced' : 'basic'
+  const currentMode = current.mode === 'advanced' ? 'advanced' : 'basic'
+  if (savedMode !== currentMode) diffs.push(`Mode changed from ${savedMode} to ${currentMode}`)
+  return diffs
 }
 
 /**
@@ -220,7 +250,10 @@ export function diffViews(table: QTableMetaData, saved: RecordQueryView, current
   const canonicalFilter = (view: RecordQueryView) => {
     const f = normalizeFilter(view.queryFilter ?? {}, 0)
     const strip = (x: QQueryFilter): unknown => ({
-      criteria: x.criteria.filter(isCriterionComplete).map((c) => ({ fieldName: c.fieldName, operator: c.operator, values: c.values.map((v) => (typeof v === 'object' ? v : String(v))) })),
+      criteria: x.criteria.filter(isCriterionComplete).map((c) => ({
+        fieldName: c.fieldName, operator: c.operator, values: c.values.map((v) => (typeof v === 'object' ? v : String(v))),
+        ...(c.fieldFunction ? { fieldFunction: c.fieldFunction.functionTypeIdentifierName } : {}),
+      })),
       subFilters: (x.subFilters ?? []).map(strip),
       booleanOperator: x.criteria.length + (x.subFilters ?? []).length > 1 ? x.booleanOperator : 'AND',
     })
@@ -237,6 +270,7 @@ export function diffViews(table: QTableMetaData, saved: RecordQueryView, current
     return JSON.stringify([...columns.filter((c) => c.isVisible !== false).map((c) => c.name), ...defaults.filter((n) => !listed.has(n) && !n.includes('.'))])
   }
   if (visibleOf(saved) !== visibleOf(current)) diffs.push('Changed the columns')
+  diffs.push(...diffBasicModeSettings(table, saved, current))
   if ((saved.rowsPerPage ?? current.rowsPerPage) !== current.rowsPerPage) diffs.push('Changed the rows per page')
   return diffs
 }

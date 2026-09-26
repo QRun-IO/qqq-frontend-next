@@ -31,8 +31,14 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QBackendMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.CaseChangeBehavior;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QVirtualFieldMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.functions.FieldFunction;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.functions.implementations.StringLengthFunction;
+import com.kingsrook.qqq.backend.core.model.metadata.help.QHelpContent;
+import com.kingsrook.qqq.backend.core.model.metadata.help.QHelpRole;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinOn;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinType;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
@@ -55,6 +61,8 @@ import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.Mem
 import com.kingsrook.qqq.backend.core.processes.implementations.columnstats.ColumnStatsStep;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardTableMetaData;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardInstanceMetaData;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.WeekdayCriteriaSettings;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 
 
@@ -94,6 +102,10 @@ final class QueryFixtures
    {
       instance = qInstance;
       String rdbms = SampleMetaDataProvider.RDBMS_BACKEND_NAME;
+      MaterialDashboardInstanceMetaData.ofOrWithNew(qInstance).withWeekdayCriteriaSettings(
+         new WeekdayCriteriaSettings().withEnabled(true).withDateTimeFieldFunctionArguments(Map.of("timeZoneId", "UTC", "useSessionZoneId", false)));
+      qInstance.withHelpContent("bulkAddFilterValues", new QHelpContent()
+         .withContentAsText("Paste one value per line to add several query values.").withRole(QHelpRole.QUERY_SCREEN));
 
       ///////////////////////////////////////////////////////
       // operator lab, joins and column statistics (qryItem) //
@@ -118,6 +130,14 @@ final class QueryFixtures
             List.of("quantity", "price", "receivedDate", "checkedAt", "isActive", "ownerId", "speciesId", "notes", "photo")))
          .withExposedJoin(new ExposedJoin().withJoinTable(SampleMetaDataProvider.TABLE_NAME_PERSON).withJoinPath(List.of("qryItemJoinPerson")))
          .withExposedJoin(new ExposedJoin().withJoinTable("qryItemNote").withJoinPath(List.of("qryItemJoinItemNote")))));
+      qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryCaseItem").withLabel("Case Item").withBackendName(rdbms)
+         .withPrimaryKeyField("id").withRecordLabelFormat("%s").withRecordLabelFields("code")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("code", QFieldType.STRING).withBehavior(CaseChangeBehavior.TO_LOWER_CASE))
+         .withVirtualField(new QVirtualFieldMetaData("codeLength", QFieldType.INTEGER).withLabel("Code Length")
+            .withIsQuerySelectable(true).withIsQueryCriteria(true)
+            .withFieldFunction(new FieldFunction().withFunctionTypeIdentifier(StringLengthFunction.IDENTIFIER).withFieldName("code")))
+         .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "code")))));
       //////////////////////////////////////////////////////////////////////////////////////////////
       // default grid column order (Material): fields declared out of order, sections decide (#714) //
       //////////////////////////////////////////////////////////////////////////////////////////////
@@ -275,6 +295,9 @@ final class QueryFixtures
       try(Statement statement = connection.createStatement())
       {
          for(String sql : List.of(
+            "CREATE ALIAS IF NOT EXISTS WEEKDAY FOR \"AcceptanceSampleServer.weekday\"",
+            "CREATE ALIAS IF NOT EXISTS CONVERT_TZ FOR \"AcceptanceSampleServer.convertTimeZone\"",
+            "DROP TABLE IF EXISTS qry_case_item",
             "DROP TABLE IF EXISTS qry_item_note",
             "DROP TABLE IF EXISTS qry_item",
             "DROP TABLE IF EXISTS qry_many_row",
@@ -298,6 +321,8 @@ final class QueryFixtures
                (8, 'Omega Part', 'OP-8', 55, 55.55, DATEADD('DAY', -400, CURRENT_DATE), DATEADD('DAY', -400, LOCALTIMESTAMP), TRUE, 2, 1, NULL, NULL)""",
             "CREATE TABLE qry_item_note (id INT PRIMARY KEY, item_id INT NOT NULL, note VARCHAR(80) NOT NULL)",
             "INSERT INTO qry_item_note VALUES (1, 1, 'Checked in'), (2, 1, 'Recounted'), (3, 2, 'Damaged box')",
+            "CREATE TABLE qry_case_item (id INT PRIMARY KEY, code VARCHAR(40))",
+            "INSERT INTO qry_case_item VALUES (1, 'zg-6'), (2, 'aw-1'), (3, 'long-3')",
 
             "DROP TABLE IF EXISTS qry_store",
             "CREATE TABLE qry_store (id INT PRIMARY KEY, name VARCHAR(80) NOT NULL)",

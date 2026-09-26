@@ -124,6 +124,7 @@ export async function typeTags(row: Locator, values: string[]) {
 /** Removes every condition from the root group. */
 export async function clearFilter(page: Page) {
   await page.locator('[data-qqq-id="button-clear-filter"]').click()
+  await page.getByRole('alertdialog', { name: 'Clear all filters?' }).getByRole('button', { name: 'Clear filters' }).click()
 }
 
 /** Opens a table with a Material-style JSON `?filter=` link. */

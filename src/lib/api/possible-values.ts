@@ -42,6 +42,11 @@ export interface PossibleValuesRequest {
    */
   labels?: string
   /**
+   * Display labels to resolve, as a list (for labels that contain commas, such as pasted
+   * filter values). Takes precedence over `labels`.
+   */
+  labelList?: string[]
+  /**
    * Comma-separated list of stored values to look up.
    * Semantically equivalent to `ids` for most PVS implementations.
    */
@@ -78,6 +83,7 @@ async function loadPossibleValues(url: string, request: PossibleValuesRequest): 
   const body: Record<string, unknown> = {}
   if (searchTerm !== undefined) body.searchTerm = searchTerm
   if (ids) body.ids = ids.split(',')
+  else if (request.labelList) body.labels = request.labelList
   else if (request.labels) body.labels = request.labels.split(',')
   if (useCase) body.useCase = useCase
   if (request.formValues) body.values = request.formValues
