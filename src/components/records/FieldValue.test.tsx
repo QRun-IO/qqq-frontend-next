@@ -53,6 +53,23 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(chip).toHaveTextContent('Active')
     expect(chip).toHaveAttribute('data-chip-color', 'success')
     expect(chip).toHaveAttribute('data-chip-icon', 'check')
+    // the chip draws the icon, not only names it (Material ValueUtils CHIP icons)
+    const glyph = chip.querySelector('svg[data-qqq-icon="check"]')
+    expect(glyph).not.toBeNull()
+    expect(glyph).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('draws no chip icon for a value without one', () => {
+    const chip = show(field('status', [{ type: 'CHIP', values: { 'color.DRAFT': 'info', 'icon.ACTIVE': 'check' } }]), { status: 'DRAFT' }, { status: 'Draft' })
+    expect(chip).not.toHaveAttribute('data-chip-icon')
+    expect(chip.querySelector('svg')).toBeNull()
+  })
+
+  it('keeps the line breaks of a multi-line STRING value', () => {
+    const value = show(field('address'), { address: '1 Main St\nSpringfield' })
+    expect(value.textContent).toBe('1 Main St\nSpringfield')
+    expect(value).toHaveClass('whitespace-pre-wrap')
+    expect(show(field('city'), { city: 'Springfield' })).not.toHaveClass('whitespace-pre-wrap')
   })
 
   it('offers open and download links for FILE_DOWNLOAD values', () => {

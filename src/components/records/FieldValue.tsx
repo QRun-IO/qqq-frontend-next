@@ -37,6 +37,7 @@ import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
 } from '@/lib/utils/adornment-utils'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -180,6 +181,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         data-chip-color={color}
         data-chip-icon={icon}
       >
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
         {String(value)}
       </span>
     )
@@ -308,7 +310,8 @@ function EmptyValue({ fieldName, className }: { fieldName: string; className?: s
  * @returns The span.
  */
 function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId: string; className?: string }) {
-  return <span className={cn('text-sm text-foreground', className)} data-qqq-id={dataQqqId}>{value}</span>
+  // a value with line breaks keeps them, as in the Material dashboard (ValueUtils: any string containing \n)
+  return <span className={cn('text-sm text-foreground', value.includes('\n') && 'whitespace-pre-wrap', className)} data-qqq-id={dataQqqId}>{value}</span>
 }
 
 /**

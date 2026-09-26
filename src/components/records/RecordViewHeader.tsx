@@ -24,7 +24,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData, QTableMenu } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
@@ -33,8 +33,11 @@ import { useLocationHash } from '@/lib/hooks/use-location-hash'
 import { queryKeys } from '@/lib/query-client'
 import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
 import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
+import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
+import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
 
 import { RecordActions } from './RecordActions'
+import { RecordMenuIcon } from './RecordMenuIcon'
 import { FieldLabel } from './FieldLabel'
 import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
@@ -65,6 +68,49 @@ function getInitials(label: string): string {
 }
 
 /**
+ * The default phone sheet already offers CRUD and process shortcuts; keep the remaining
+ * metadata actions without showing those shortcuts a second time.
+ *
+ * @param entries - Resolved menu entries.
+ * @returns New, developer, audit and custom download entries, with usable dividers.
+ */
+function defaultPhoneMenuExtras(entries: RecordMenuEntry[]): RecordMenuEntry[] {
+  return tidyDividers(entries.flatMap((entry): RecordMenuEntry[] => {
+    if (entry.kind === 'divider') return [entry]
+    if (entry.kind === 'submenu') {
+      const nested = defaultPhoneMenuExtras(entry.entries)
+      return hasMenuItems(nested) ? [{ ...entry, entries: nested }] : []
+    }
+    return ['new', 'developerMode', 'audit', 'downloadFile'].includes(entry.action.type) ? [entry] : []
+  }))
+}
+
+/**
+ * Renders metadata actions inside the phone dialog, including nested table menus.
+ *
+ * @param props - Resolved entries and the shared action callback.
+ * @returns Focusable menu actions for the phone sheet.
+ */
+function PhoneRecordMenuItems({ entries, onAction }: { entries: RecordMenuEntry[]; onAction: (action: RecordMenuAction) => void }) {
+  return <>
+    {entries.map((entry) => {
+      if (entry.kind === 'divider') return <div key={entry.key} className="my-1 h-px bg-border" role="separator" />
+      if (entry.kind === 'submenu') return (
+        <div key={entry.key} role="group" aria-label={entry.label}>
+          <p className="px-6 py-1.5 text-xs font-semibold text-muted-foreground">{entry.label}</p>
+          <PhoneRecordMenuItems entries={entry.entries} onAction={onAction} />
+        </div>
+      )
+      return <button key={entry.key} type="button" disabled={entry.disabled} onClick={() => onAction(entry.action)}
+        className="flex min-h-11 w-full items-center gap-3 px-6 py-3 text-left text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
+        data-qqq-id={`mobile-action-${entry.id}`}>
+        <RecordMenuIcon entry={entry} />{entry.label}
+      </button>
+    })}
+  </>
+}
+
+/**
  * Props for the {@link RecordViewHeader} component.
  */
 interface RecordViewHeaderProps {
@@ -82,6 +128,8 @@ interface RecordViewHeaderProps {
   hideActions: boolean
   /** Processes available for this table (passed through to RecordActions). */
   processes?: QProcessMetaData[]
+  /** Every process in instance metadata, for a menu's named RUN_PROCESS item. */
+  allProcesses?: Record<string, QProcessMetaData>
   /** Full table metadata map for rendering possibleValueSource fields as hover links. */
   allTables?: Record<string, QTableMetaData>
   /** Navigation context used to build outgoing record links with a back reference. */
@@ -116,6 +164,7 @@ export function RecordViewHeader({
   setViewMode,
   hideActions,
   processes,
+  allProcesses,
   allTables,
   navigateFrom,
   auditSource = null,
@@ -183,12 +232,49 @@ export function RecordViewHeader({
   const canDelete = canDeleteRecords(tableMetaData)
 
   const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
-  // A read-only user gets no Actions trigger on a phone rather than one that opens an empty sheet
-  const hasMobileActions = canEdit || canInsert || canDelete || availableProcesses.length > 0
 
   // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
   const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
   const recordPath = `${tablePath}/${encodeURIComponent(String(primaryKey))}`
+  const menuContext: RecordMenuContext = {
+    tableMetaData, record, canInsert, canEdit, canDelete, canAudit: Boolean(auditSource),
+    processes: availableProcesses, allProcesses,
+  }
+  const actionEntries = resolveRecordMenu(recordActionsMenu(tableMetaData).items, menuContext)
+  const resolveMenu = (menu: QTableMenu) => resolveRecordMenu(menu.items, menuContext)
+  const additionalMenus = recordAdditionalMenus(tableMetaData).map((menu) => ({ menu, entries: resolveMenu(menu) }))
+  const hasCustomActionsMenu = (tableMetaData.menus ?? []).some((menu) => menu.slot === 'VIEW_SCREEN_ACTIONS')
+  const phoneActionEntries = hasCustomActionsMenu ? actionEntries : defaultPhoneMenuExtras(actionEntries)
+  const hasMetadataActions = (tableMetaData.menus ?? []).some((menu) =>
+    (menu.slot === 'VIEW_SCREEN_ACTIONS' || menu.slot === 'VIEW_SCREEN_ADDITIONAL') && hasMenuItems(resolveMenu(menu)))
+  // Keep the existing read-only security gate: a default Developer Mode entry alone does not
+  // expose an otherwise empty Actions control, while a table's explicit menu still can.
+  const hasMobileActions = canEdit || canInsert || canDelete || availableProcesses.length > 0 || hasMetadataActions
+
+  /**
+   * Runs a resolved menu action from either the desktop dropdown or the phone sheet.
+   *
+   * @param action - The selected metadata or default menu action.
+   */
+  const onAction = (action: RecordMenuAction) => {
+    if (mobileActionsOpen) closeMobileActions()
+    switch (action.type) {
+      case 'new': router.push(`${tablePath}/create`); break
+      case 'copy': router.push(`${recordPath}/copy`); break
+      case 'edit': router.push(`${recordPath}/edit`); break
+      case 'delete': setShowMobileDeleteDialog(true); break
+      case 'developerMode': router.push(`${recordPath}/dev`); break
+      case 'audit': setAuditOpen(true); break
+      case 'runProcess':
+        router.push(processRunHref(action.process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(action.process, tableMetaData.name) }))
+        break
+      case 'downloadFile': {
+        const file = recordFieldFile(tableMetaData, record, action.fieldName)
+        if (file) deliverRecordFieldFile(file)
+        break
+      }
+    }
+  }
   // Material hash links on a record view: #audit, #/launchProcess={process}, #/createChild={table}/defaultValues=...
   const [hash, clearHash] = useLocationHash()
   const hashAction = useMemo(() => recordHashAction(hash), [hash])
@@ -345,7 +431,8 @@ export function RecordViewHeader({
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
             <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record} processes={processes} />
+              {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
+                actionEntries={actionEntries} resolveMenu={resolveMenu} onAction={onAction} />}
             </div>
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
@@ -420,13 +507,10 @@ export function RecordViewHeader({
 
             <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain py-2" data-qqq-id="mobile-actions-list">
               {/* Edit */}
-              {canEdit && (
+              {!hasCustomActionsMenu && canEdit && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)
-                  }}
+                  onClick={() => onAction({ type: 'edit' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -440,13 +524,10 @@ export function RecordViewHeader({
               )}
 
               {/* Copy */}
-              {canInsert && (
+              {!hasCustomActionsMenu && canInsert && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)
-                  }}
+                  onClick={() => onAction({ type: 'copy' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -460,14 +541,11 @@ export function RecordViewHeader({
               )}
 
               {/* Processes */}
-              {availableProcesses.map((process) => (
+              {!hasCustomActionsMenu && availableProcesses.map((process) => (
                 <button
                   key={process.name}
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(processRunHref(process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(process, tableMetaData.name) }))
-                  }}
+                  onClick={() => onAction({ type: 'runProcess', process })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -480,19 +558,24 @@ export function RecordViewHeader({
                 </button>
               ))}
 
+              {hasMenuItems(phoneActionEntries) && <PhoneRecordMenuItems entries={phoneActionEntries} onAction={onAction} />}
+              {additionalMenus.filter(({ entries }) => hasMenuItems(entries)).map(({ menu, entries }, index) => (
+                <div key={`${menu.label}-${index}`} role="group" aria-label={menu.label || 'Additional actions'}>
+                  <p className="px-6 py-1.5 text-xs font-semibold text-muted-foreground">{menu.label || 'Additional actions'}</p>
+                  <PhoneRecordMenuItems entries={entries} onAction={onAction} />
+                </div>
+              ))}
+
               {/* Separator before delete */}
-              {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
+              {!hasCustomActionsMenu && canDelete && (canEdit || canInsert || availableProcesses.length > 0 || hasMenuItems(phoneActionEntries) || additionalMenus.some(({ entries }) => hasMenuItems(entries))) && (
                 <div className="my-1 h-px bg-border" role="separator" />
               )}
 
               {/* Delete */}
-              {canDelete && (
+              {!hasCustomActionsMenu && canDelete && (
                 <button
                   type="button"
-                  onClick={() => {
-                    closeMobileActions()
-                    setShowMobileDeleteDialog(true)
-                  }}
+                  onClick={() => onAction({ type: 'delete' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-destructive',
                     'hover:bg-destructive/10 focus:outline-none focus:bg-destructive/10',

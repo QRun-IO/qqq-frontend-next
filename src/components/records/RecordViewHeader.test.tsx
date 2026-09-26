@@ -104,6 +104,23 @@ describe('RecordViewHeader phone action sheet', () => {
     expect(trigger).toHaveFocus()
     expect(document.body).not.toHaveFocus()
   })
+
+  it('runs a process named by a custom table menu on the phone', async () => {
+    const user = userEvent.setup()
+    const customTable = { ...table, menus: [{ slot: 'VIEW_SCREEN_ACTIONS', label: 'Actions', items: [
+      { itemType: 'RUN_PROCESS', label: 'Tag Records', values: { processName: 'tagRecords' } },
+    ] }] } as QTableMetaData
+    const process = { name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData
+    render(<QueryClientProvider client={new QueryClient()}>
+      <RecordViewHeader tableMetaData={customTable}
+        record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+        t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false}
+        navigateFrom={{ path: '/app/person', label: 'Person' }} allProcesses={{ tagRecords: process }} />
+    </QueryClientProvider>)
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    await user.click(screen.getByRole('button', { name: 'Tag Records' }))
+    expect(push).toHaveBeenCalledWith('/app/tagRecords?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5')
+  })
 })
 
 describe('RecordViewHeader #/launchProcess= links', () => {

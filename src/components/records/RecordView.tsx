@@ -136,6 +136,8 @@ interface RecordViewProps {
   associationTables?: Record<string, AssociationTableState>
   /** Processes available for this table (single-record actions) */
   processes?: QProcessMetaData[]
+  /** Every process in instance metadata, for named record menu entries. */
+  allProcesses?: Record<string, QProcessMetaData>
   /** Full table metadata map for rendering possibleValueSource fields as links with hover previews */
   allTables?: Record<string, QTableMetaData>
   /** How the current user can read this record's audits (`null` hides the Audit action). */
@@ -171,6 +173,7 @@ export function RecordView({
   widgetMetaDataMap,
   associationTables,
   processes,
+  allProcesses,
   allTables,
   auditSource = null,
   className,
@@ -356,6 +359,7 @@ export function RecordView({
       widgetMetaDataMap={widgetMetaDataMap}
       associationTables={associationTables}
       processes={processes}
+      allProcesses={allProcesses}
       allTables={allTables}
       className={className}
       tabs={tabs}
@@ -396,6 +400,7 @@ function RecordViewContent({
   widgetMetaDataMap,
   associationTables,
   processes,
+  allProcesses,
   allTables,
   className,
   tabs,
@@ -413,6 +418,7 @@ function RecordViewContent({
   /** Full child metadata and its independent load status, supplied by the page. */
   associationTables?: Record<string, AssociationTableState>
   processes?: QProcessMetaData[]
+  allProcesses?: Record<string, QProcessMetaData>
   allTables?: Record<string, QTableMetaData>
   className?: string
   tabs: Array<{ id: string; label: string }>
@@ -581,6 +587,7 @@ function RecordViewContent({
           setViewMode={setViewMode}
           hideActions={hideActions}
           processes={processes}
+          allProcesses={allProcesses}
           allTables={allTables}
           navigateFrom={navigateFrom}
           auditSource={auditSource}

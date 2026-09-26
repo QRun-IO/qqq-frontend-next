@@ -26,17 +26,24 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 describe('Copy routes preserve exact table and record identifiers', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it.each([false, true])('encodes Copy identifiers with process menu %s', async (withProcesses) => {
+  it('encodes Copy identifiers in the quick action', () => {
     const table = { ...qInstance.tables.company, name: 'company / notes', editPermission: false, deletePermission: false }
     render(<RecordActions tableMetaData={table}
       record={{ tableName: table.name, values: { id: 'A/B?#%雪' } }}
-      processes={withProcesses ? [qInstance.processes.fulfillOrder] : []} />)
-    if (withProcesses) {
-      fireEvent.keyDown(screen.getByRole('button', { name: 'Record actions menu' }), { key: 'Enter' })
-      fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
-    } else {
-      fireEvent.click(screen.getByRole('button', { name: 'Copy Companies record' }))
-    }
+      actionEntries={[]} resolveMenu={() => []} onAction={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Companies record' }))
     expect(push).toHaveBeenCalledWith('/app/company%20%2F%20notes/A%2FB%3F%23%25%E9%9B%AA/copy')
+  })
+
+  it('delegates a metadata Copy menu item to the shared action handler', async () => {
+    const table = { ...qInstance.tables.company, editPermission: false, deletePermission: false }
+    const onAction = vi.fn()
+    render(<RecordActions tableMetaData={table}
+      record={{ tableName: table.name, values: { id: 3 } }}
+      actionEntries={[{ kind: 'item', key: 'copy', label: 'Copy', id: 'copy', action: { type: 'copy' } }]}
+      resolveMenu={() => []} onAction={onAction} />)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Record actions menu' }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
+    expect(onAction).toHaveBeenCalledWith({ type: 'copy' })
   })
 })

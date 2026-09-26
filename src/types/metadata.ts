@@ -197,6 +197,38 @@ export interface QTableMetaData {
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
   shareableTableMetaData?: Record<string, unknown>
+  /**
+   * Menus the table defines for screen slots: the record view's `VIEW_SCREEN_ACTIONS` menu
+   * replaces the default actions menu, `VIEW_SCREEN_ADDITIONAL` menus add buttons beside it.
+   */
+  menus?: QTableMenu[]
+}
+
+/** A menu a table defines for a screen slot (v1 `TableMenu`). */
+export interface QTableMenu {
+  /** Label of the menu's button. */
+  label?: string
+  /** Icon of the menu's button. */
+  icon?: QIcon
+  /** Where the menu goes, e.g. `VIEW_SCREEN_ACTIONS` or `VIEW_SCREEN_ADDITIONAL`. */
+  slot?: string
+  /** The menu's items, in order. */
+  items?: QTableMenuItem[]
+}
+
+/** One item of a table menu (v1 `TableMenuItem`). */
+export interface QTableMenuItem {
+  /** `BUILT_IN`, `RUN_PROCESS`, `DOWNLOAD_FILE`, `SUB_MENU`, `SUB_LIST` or `DIVIDER`. */
+  itemType: string
+  /** Label overriding the default for the item type. */
+  label?: string
+  /** Icon overriding the default for the item type. */
+  icon?: QIcon
+  /**
+   * Item-type values: `option` (BUILT_IN), `processName` (RUN_PROCESS), `fieldName`
+   * (DOWNLOAD_FILE), `items` (SUB_MENU, SUB_LIST: menu items of this same shape).
+   */
+  values?: Record<string, unknown>
 }
 
 /**
@@ -523,8 +555,23 @@ export interface QTableSection {
   hidden?: boolean
   /** Help content shown with the section heading, per each entry's screen roles. */
   helpContents?: QHelpContent[]
-  /** Number of grid columns this section occupies in the record layout. */
+  /** Width of this section's card on large screens, in columns of a 12-column grid. */
   gridColumns?: number
+  /** Whether screens that collapse sections may collapse this one, and whether it starts open. */
+  collapsible?: QSectionCollapsible
+  /**
+   * Alternative definitions of this section for specific screens, keyed by type
+   * (`RECORD_VIEW`, `RECORD_EDIT`); a screen of that type uses its alternative instead.
+   */
+  alternatives?: Record<string, QTableSection>
+}
+
+/** A section's collapsible behavior (v1 `TableSectionCollapsible`). */
+export interface QSectionCollapsible {
+  /** Whether the user may collapse and expand the section. */
+  isCollapsible?: boolean
+  /** Whether a collapsible section starts open before the user toggles it. */
+  initiallyOpen?: boolean
 }
 
 /**

@@ -190,6 +190,7 @@ export default function RecordViewPage() {
           if (tableMetaData.associations?.length) associations.refetch()
         }}
         processes={tableProcesses}
+        allProcesses={metaData?.processes}
         allTables={metaData?.tables}
         widgetMetaDataMap={metaData?.widgets}
         associationTables={associationTables}
