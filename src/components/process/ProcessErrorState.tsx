@@ -36,7 +36,8 @@ export interface ProcessErrorStateProps {
   processName: string
   processLabel: string
   onRetry?: () => void
-  onClose: () => void
+  /** Leaves the run; omitted for a run embedded in a widget, which has nowhere to leave to. */
+  onClose?: () => void
 }
 
 const buttonBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
@@ -82,10 +83,12 @@ export function ProcessErrorState({ error, isUserFacing, processName, processLab
         )}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Close
-        </button>
+        {onClose && (
+          <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Close
+          </button>
+        )}
         {onRetry && (
           <button type="button" onClick={onRetry} className={cn(buttonBase, 'bg-primary text-primary-foreground hover:bg-primary/90')} data-qqq-id="button-retry">
             <RefreshCw className="h-4 w-4" aria-hidden="true" />

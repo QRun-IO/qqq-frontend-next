@@ -32,7 +32,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { QWidgetMetaData, WidgetData } from '@/types'
 import { canViewWidget } from '@/lib/auth/permissions'
 import { useWidget } from '@/lib/hooks/use-widget'
-import type { BlockActionCallback, WidgetRecordContext } from './widget-types'
+import type { BlockActionCallback, WidgetDataCallback, WidgetRecordContext } from './widget-types'
 import { WidgetBlock } from './WidgetBlock'
 import type { WidgetChromeData, WidgetDropdownControl } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
@@ -59,6 +59,10 @@ interface ConnectedWidgetProps {
   parentMetaData?: QWidgetMetaData
   /** Renders only the body (tab panels of a parent widget). */
   bare?: boolean
+  /** Data the page already has (a process value seeding a process-step widget); no request is made until a reload. */
+  initialData?: WidgetData
+  /** Data an editing widget produces for its host screen (process steps). */
+  onWidgetData?: WidgetDataCallback
 }
 
 /** Dropdown fields every payload may carry. */
@@ -131,7 +135,7 @@ function exportRows(data: DropdownPayload | undefined): unknown[][] | null {
  * @returns The rendered `WidgetBlock` + `WidgetRenderer` tree.
  */
 export function ConnectedWidget({
-  widgetMetaData, params, className, recordContext, actionCallback, widgetRegistry, parentMetaData, bare,
+  widgetMetaData, params, className, recordContext, actionCallback, widgetRegistry, parentMetaData, bare, initialData, onWidgetData,
 }: ConnectedWidgetProps) {
   const permitted = canViewWidget(widgetMetaData)
 
@@ -147,7 +151,7 @@ export function ConnectedWidget({
     return merged
   }, [params, selections])
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useWidget(widgetMetaData.name, requestParams, { enabled: permitted })
+  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } = useWidget(widgetMetaData.name, requestParams, { enabled: permitted, initialData })
   const payload = data as (WidgetData & DropdownPayload) | undefined
 
   // Apply backend default selections, and drop persisted choices that are no longer offered.
@@ -241,6 +245,7 @@ export function ConnectedWidget({
       onDropdownChange={handleDropdownChange}
       className={className}
       bare={bare}
+      hideReload={(widgetMetaData.type ?? payload?.type) === 'process'}
     >
       {payload && (
         <WidgetRenderer
@@ -251,6 +256,8 @@ export function ConnectedWidget({
           widgetRegistry={widgetRegistry}
           childParams={childParams}
           onReload={handleReload}
+          dataVersion={dataUpdatedAt}
+          onWidgetData={onWidgetData}
         />
       )}
     </WidgetBlock>

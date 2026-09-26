@@ -174,12 +174,14 @@ export interface QqqProcessPayload {
 
 /**
  * Renders a QQQ `process` widget: the named process runs inline, seeded with the
- * payload's default values and any `recordIds` in the page URL.
+ * payload's default values and any `recordIds` in the page URL. As Material's
+ * `isWidget` mode, the run is embedded (no stepper, no Cancel, Return starts over in
+ * place) and starts over whenever the widget's data is reloaded (`forceReInit`).
  *
  * @param props - Widget props.
  * @returns The embedded process, or an empty message when no process is available.
  */
-export function QqqProcessWidget({ widgetMetaData, data }: WidgetComponentProps<QqqProcessPayload>) {
+export function QqqProcessWidget({ widgetMetaData, data, dataVersion }: WidgetComponentProps<QqqProcessPayload>) {
   const searchParams = useSearchParams()
   const processName = isPlainObject(data.processMetaData) && typeof data.processMetaData.name === 'string' ? data.processMetaData.name : undefined
   const { data: process, isError } = useProcessMetaData(processName)
@@ -193,6 +195,8 @@ export function QqqProcessWidget({ widgetMetaData, data }: WidgetComponentProps<
   return (
     <div data-qqq-id={`process-widget-${widgetMetaData.name}`}>
       <ProcessRun
+        key={dataVersion ?? 0}
+        isEmbedded
         processName={processName}
         processMetaData={process}
         initialValues={data.defaultValues}

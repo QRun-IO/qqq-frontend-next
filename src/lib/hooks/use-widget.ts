@@ -31,6 +31,11 @@ const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
 export interface UseWidgetOptions {
   /** When false the query does not run (e.g. a denied widget). Defaults to true. */
   enabled?: boolean
+  /**
+   * Data the page already has (a process value seeds a process-step widget): shown without a
+   * request until it is reloaded, as Material's `initialWidgetDataList`.
+   */
+  initialData?: WidgetData
 }
 
 /**
@@ -59,9 +64,9 @@ export function useWidget(
   return useQuery<WidgetData, Error>({
     queryKey: queryKeys.widgetData(widgetName, params),
     queryFn: () => fetchWidgetData(widgetName, params),
-    staleTime: WIDGET_STALE_TIME,
+    staleTime: options.initialData ? Infinity : WIDGET_STALE_TIME,
     enabled: Boolean(widgetName) && options.enabled !== false,
-    placeholderData: keepPreviousData,
+    ...(options.initialData ? { initialData: options.initialData } : { placeholderData: keepPreviousData }),
     retry: false,
     meta: HANDLES_OWN_ERRORS,
   })

@@ -17,7 +17,9 @@
 /**
  * @file ProcessSummaryResultsComponent — renders a PROCESS_SUMMARY_RESULTS
  * process component: the processed-record count and the backend's
- * `processResults` summary lines.
+ * `processResults` summary lines, under a "Process Summary" header that shows the
+ * process's icon (Material ProcessSummaryResults) and turns red when the run ended
+ * in ERROR.
  */
 
 'use client'
@@ -26,6 +28,7 @@ import React, { useId } from 'react'
 
 import { cn } from '@/lib/utils/cn'
 
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { useProcessStep } from './ProcessStepContext'
 import { ProcessSummaryLines, readSummaryLines } from './ProcessSummaryLines'
 
@@ -40,13 +43,19 @@ export interface ProcessSummaryResultsComponentProps {
  * @returns The process summary panel.
  */
 export function ProcessSummaryResultsComponent({ index }: ProcessSummaryResultsComponentProps) {
-  const { values, sourceTableMetaData } = useProcessStep()
+  const { values, sourceTableMetaData, processMetaData } = useProcessStep()
+  const hasIcon = Boolean(processMetaData.icon?.name || processMetaData.icon?.path || processMetaData.iconName)
   const headingId = useId()
   const recordCount = typeof values.recordCount === 'number' ? values.recordCount : undefined
   const isError = values.status === 'ERROR'
   return (
     <section aria-labelledby={headingId} className="rounded-xl border border-border p-4" data-qqq-id={`process-summary-results-${index}`}>
-      <h4 id={headingId} className={cn('mb-3 inline-block rounded-md px-2 py-1 text-sm font-semibold text-white', isError ? 'bg-destructive' : 'bg-green-700')}>
+      <h4 id={headingId} className={cn('mb-3 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-semibold text-white', isError ? 'bg-destructive' : 'bg-green-700')}>
+        {hasIcon && (
+          <span data-qqq-id="process-summary-icon" className="inline-flex">
+            <MetadataIcon icon={processMetaData.icon} iconName={processMetaData.iconName} kind="process" className="h-5 w-5" />
+          </span>
+        )}
         Process Summary
       </h4>
       {recordCount !== undefined && sourceTableMetaData && (

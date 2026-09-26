@@ -42,6 +42,8 @@ export interface ProcessResultStepProps {
   resultValues: Record<string, unknown>
   /** Additional CSS class names to apply to the root container. */
   className?: string
+  /** Replaces the navigation links (an embedded widget run offers Return in place instead). */
+  actions?: React.ReactNode
 }
 
 /** A single numeric stat entry to display in the completion summary. */
@@ -118,6 +120,7 @@ export function ProcessResultStep({
   processMetaData,
   resultValues,
   className,
+  actions,
 }: ProcessResultStepProps) {
   const stats = parseResultStats(resultValues)
   const tableName = processMetaData?.tableName
@@ -173,7 +176,8 @@ export function ProcessResultStep({
 
       {/* Navigation links */}
       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-        {tableName && (
+        {actions}
+        {!actions && tableName && (
           <>
             <Link
               href={`/app/${tableName}`}
@@ -205,7 +209,7 @@ export function ProcessResultStep({
           </>
         )}
 
-        {!tableName && (
+        {!actions && !tableName && (
           <Link
             href="/app"
             className={cn(

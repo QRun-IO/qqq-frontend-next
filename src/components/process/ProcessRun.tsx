@@ -58,6 +58,11 @@ export interface ProcessRunProps {
   initialRequest?: ProcessInitRequest
   /** In-app path to leave to (the record or query that launched the run); defaults to {@link processReturnPath}. */
   returnTo?: string
+  /**
+   * `true` when the run is embedded in a dashboard `process` widget (Material `isWidget`): no
+   * stepper, no Cancel or Close, and Return starts a fresh run in place instead of leaving the page.
+   */
+  isEmbedded?: boolean
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
@@ -143,6 +148,7 @@ export function ProcessRun({
   initialValues,
   initialRequest,
   returnTo,
+  isEmbedded = false,
   className,
 }: ProcessRunProps) {
   const router = useRouter()
@@ -158,6 +164,7 @@ export function ProcessRun({
   const { state, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const startedRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const { data: tableMetaData } = useTableMetaData(processMetaData.tableName || undefined)
   const sourceTableName = typeof state.values.sourceTable === 'string' ? state.values.sourceTable : undefined
@@ -177,30 +184,42 @@ export function ProcessRun({
   //////////////////////////////////////////////////////////////////
   useEffect(() => {
     if (state.phase !== 'step' || state.screenInstance <= 1) return
-    document.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
+    containerRef.current?.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
   }, [state.phase, state.screenInstance])
 
-  const leave = () => router.push(returnTo ?? processReturnPath(processMetaData, instance))
+  ///////////////////////////////////////////////////////////////////////
+  // an embedded run stays on its dashboard: leaving starts it over     //
+  ///////////////////////////////////////////////////////////////////////
+  const leave = () => {
+    if (isEmbedded) start()
+    else router.push(returnTo ?? processReturnPath(processMetaData, instance))
+  }
   const cancelAndLeave = async () => {
     await cancel()
     leave()
   }
 
   const container = (children: React.ReactNode) => (
-    <div className={cn('mx-auto max-w-3xl', className)} data-qqq-id={`process-run-${processName}`} data-process-phase={boundsMessage ? 'error' : state.phase}>
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">{children}</div>
+    <div
+      ref={containerRef}
+      className={cn(isEmbedded ? 'w-full' : 'mx-auto max-w-3xl', className)}
+      data-qqq-id={`process-run-${processName}`}
+      data-process-phase={boundsMessage ? 'error' : state.phase}
+      data-embedded={isEmbedded || undefined}
+    >
+      <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>{children}</div>
       <ProcessCancelDialog open={confirmCancel} onOpenChange={setConfirmCancel} onConfirm={() => { void cancelAndLeave() }} />
     </div>
   )
 
   if (boundsMessage) {
     return container(
-      <ProcessErrorState error={boundsMessage} isUserFacing processName={processName} processLabel={processMetaData.label} onClose={leave} />
+      <ProcessErrorState error={boundsMessage} isUserFacing processName={processName} processLabel={processMetaData.label} onClose={isEmbedded ? undefined : leave} />
     )
   }
 
   const steps = state.steps
-  const showWizard = (processMetaData.stepFlow ?? 'LINEAR') === 'LINEAR' && steps.length > 1
+  const showWizard = !isEmbedded && (processMetaData.stepFlow ?? 'LINEAR') === 'LINEAR' && steps.length > 1
 
   if (state.phase === 'error') {
     return container(
@@ -210,7 +229,7 @@ export function ProcessRun({
         processName={processName}
         processLabel={processMetaData.label}
         onRetry={start}
-        onClose={leave}
+        onClose={isEmbedded ? undefined : leave}
       />
     )
   }
@@ -224,7 +243,20 @@ export function ProcessRun({
           </div>
         )}
         <div className="p-8">
-          <ProcessResultStep processMetaData={processMetaData} resultValues={state.values} />
+          <ProcessResultStep
+            processMetaData={processMetaData}
+            resultValues={state.values}
+            actions={isEmbedded ? (
+              <button
+                type="button"
+                onClick={start}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                data-qqq-id="button-return"
+              >
+                Return
+              </button>
+            ) : undefined}
+          />
         </div>
       </>
     )
@@ -308,6 +340,7 @@ export function ProcessRun({
         sourceTableMetaData={sourceTableMetaData}
         previewTableMetaData={previewTableMetaData}
         instance={instance}
+        isEmbedded={isEmbedded}
         onSubmit={submit}
         onBack={back}
         onCancel={() => setConfirmCancel(true)}

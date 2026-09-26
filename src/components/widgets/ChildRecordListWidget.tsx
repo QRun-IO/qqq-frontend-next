@@ -33,6 +33,7 @@ import { displayText } from './record-lookup-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import type { WidgetComponentProps } from './widget-types'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
+import { ChildRecordListEditor } from './ChildRecordListEditor'
 
 /** Field metadata subset used for columns. */
 interface ChildFieldMetaData {
@@ -80,6 +81,12 @@ export interface ChildRecordListPayload {
   disabledFieldsForNewChildRecords?: string[]
   /** Child field to parent field, for defaults taken from the hosting record. */
   defaultValuesForNewChildRecordsFromParentFields?: Record<string, string>
+  /** `true` when the list is edited in memory by a process step (Material `isInProcess`). */
+  isInProcess?: boolean
+  /** In a process: rows may be edited. */
+  allowRecordEdit?: boolean
+  /** In a process: rows may be deleted. */
+  allowRecordDelete?: boolean
 }
 
 /**
@@ -156,7 +163,7 @@ export function nextViewAllHref(viewAllLink: string, tableName: string): string 
  * @param props - Widget props with a `ChildRecordListRenderer` payload.
  * @returns A table of child records, an empty state, or a payload notice.
  */
-export function ChildRecordListWidget({ widgetMetaData, data, recordContext }: WidgetComponentProps<ChildRecordListPayload>) {
+export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onWidgetData }: WidgetComponentProps<ChildRecordListPayload>) {
   const widgetName = widgetMetaData.name
   const table = data?.childFrontendTableMetaData ?? data?.childTableMetaData
   const queryOutput = data?.queryOutput
@@ -164,6 +171,13 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext }: W
 
   if (!table || !isPlainObject(table) || typeof table.name !== 'string' || records === undefined) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('child record list', 'queryOutput.records and child table metadata')} />
+  }
+
+  ////////////////////////////////////////////////////////////////////////
+  // a process step edits its child rows in memory and posts them itself //
+  ////////////////////////////////////////////////////////////////////////
+  if (data.isInProcess === true && onWidgetData) {
+    return <ChildRecordListEditor widgetMetaData={widgetMetaData} data={data} table={table} onChange={(next) => onWidgetData({ ...next })} />
   }
 
   const tableLabel = table.label ?? table.name

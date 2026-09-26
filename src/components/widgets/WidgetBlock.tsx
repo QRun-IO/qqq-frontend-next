@@ -90,6 +90,8 @@ interface WidgetBlockProps {
   className?: string
   /** Renders only the body (no chrome), e.g. for tab panels. */
   bare?: boolean
+  /** Hides the header reload control even when metadata enables it (Material `showReloadControl={false}` for process widgets). */
+  hideReload?: boolean
 }
 
 /**
@@ -114,7 +116,7 @@ function labelHelp(helpContent: QWidgetMetaData['helpContent']): QWidgetHelpCont
  */
 export function WidgetBlock({
   widgetMetaData, data, isLoading = false, isFetching = false, isError = false, error = null, onReload, onExport,
-  exportMessage, dropdowns, onDropdownChange, children, className, bare = false,
+  exportMessage, dropdowns, onDropdownChange, children, className, bare = false, hideReload = false,
 }: WidgetBlockProps) {
   const { name } = widgetMetaData
   const label = data?.label ?? widgetMetaData.label
@@ -227,7 +229,7 @@ export function WidgetBlock({
             </button>
           )}
 
-          {widgetMetaData.showReloadButton && onReload && (
+          {widgetMetaData.showReloadButton && onReload && !hideReload && (
             <button
               type="button"
               onClick={onReload}

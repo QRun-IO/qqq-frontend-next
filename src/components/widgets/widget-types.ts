@@ -169,7 +169,18 @@ export interface WidgetComponentProps<T> {
   actionCallback?: BlockActionCallback
   /** Re-fetch the widget's data. */
   onReload?: () => void
+  /** Changes each time the widget's data is (re)loaded, e.g. the query's `dataUpdatedAt`. */
+  dataVersion?: number
+  /**
+   * Receives what an editing widget produces for the screen hosting it (a process step), as
+   * Material's value-producing widget callbacks do: a `rowBuilder`'s `{ [outputFieldName]: json }`
+   * or an in-process `childRecordList`'s updated payload. Widgets stay read-only without it.
+   */
+  onWidgetData?: WidgetDataCallback
 }
+
+/** Callback for data an editing widget produces for its host screen. */
+export type WidgetDataCallback = (data: Record<string, unknown>) => void
 
 /**
  * Narrows unknown to a plain object.

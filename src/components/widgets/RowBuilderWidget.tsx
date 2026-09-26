@@ -15,12 +15,18 @@
  */
 
 /**
- * @file RowBuilderWidget — read-only table of a `rowBuilder` widget's rows.
+ * @file RowBuilderWidget — a `rowBuilder` widget's rows: a read-only table, or, when the
+ * widget is editable (`defaultValues.isEditable`) on a screen whose form hosts widgets
+ * (a process step), the inline {@link RowBuilderEditor} that writes the rows to the
+ * host's `outputFieldName` value.
  */
 'use client'
 
 import React from 'react'
 
+import type { QFieldMetaData } from '@/types'
+import { RowBuilderEditor, isRowBuilderEditable } from './RowBuilderEditor'
+import { useWidgetFormHost } from './widget-form-host'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { formatPlainValue } from './record-widget-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
@@ -81,11 +87,19 @@ function columnsFor(declared: unknown, rows: RowRecord[]): RowColumn[] {
  * @param props - Widget metadata and payload.
  * @returns The rendered table, the empty message, or a contained notice.
  */
-export function RowBuilderWidget({ widgetMetaData, data }: WidgetComponentProps<RowBuilderPayload>) {
+export function RowBuilderWidget({ widgetMetaData, data, onWidgetData }: WidgetComponentProps<RowBuilderPayload>) {
   const widgetName = widgetMetaData.name
+  const host = useWidgetFormHost()
   const rows = asList<RowRecord>(data?.records)
   if (rows === undefined || rows.some((row) => !isPlainObject(row) || (row.values !== undefined && !isPlainObject(row.values)))) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('row builder', 'records')} />
+  }
+  if (host && onWidgetData && isRowBuilderEditable(widgetMetaData)) {
+    const declared = asList(widgetMetaData.defaultValues?.frontendFields ?? widgetMetaData.defaultValues?.fields) ?? []
+    const fields = declared
+      .filter((field): field is Record<string, unknown> => isPlainObject(field) && typeof field.name === 'string')
+      .map((field) => ({ isHeavy: false, isHidden: false, adornments: [], isEditable: true, ...field, label: String(field.label || field.name) }) as unknown as QFieldMetaData)
+    return <RowBuilderEditor widgetMetaData={widgetMetaData} data={data} fields={fields} host={host} onWidgetData={onWidgetData} />
   }
   if (rows.length === 0) {
     return <WidgetEmpty widgetName={widgetName}>No rows</WidgetEmpty>

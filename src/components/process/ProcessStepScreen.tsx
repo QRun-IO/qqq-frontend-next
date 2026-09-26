@@ -35,8 +35,9 @@ import type { ProcessFiles } from '@/lib/api/processes'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 
+import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
-import { inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
+import { ProcessCompositeHost, inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
 import {
   ProcessStepContext,
   type ProcessStepContextValue,
@@ -60,6 +61,11 @@ export interface ProcessStepScreenProps {
   sourceTableMetaData?: QTableMetaData
   previewTableMetaData?: QTableMetaData
   instance?: QInstance
+  /**
+   * `true` when the run is embedded in a dashboard `process` widget (Material `isWidget`):
+   * no Cancel, and Return (on the last screen) is whatever `onReturn` does in place.
+   */
+  isEmbedded?: boolean
   onSubmit: (values: Record<string, unknown>, files?: ProcessFiles) => void
   onBack: () => void
   onCancel: () => void
@@ -71,14 +77,45 @@ const secondaryButton = cn(buttonBase, 'border border-border bg-card text-foregr
 const primaryButton = cn(buttonBase, 'bg-primary text-primary-foreground hover:bg-primary/90')
 
 /**
- * Every field whose input lives in the screen form: declared form fields plus
- * input fields of ad hoc and seeded composite widgets.
+ * The fields a backend step listed in the `inputFieldList` process value (the basic
+ * report process lists the report's input fields there). Material adds them to the
+ * form of any screen; here they join a screen that has an EDIT_FORM to show them.
+ * @param step - The screen.
+ * @param values - Process values.
+ * @returns The listed fields that have a name, or none.
+ */
+export function inputListFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
+  if (!(step.components ?? []).some((component) => component.type === 'EDIT_FORM')) return []
+  const list = values.inputFieldList
+  if (!Array.isArray(list)) return []
+  return list.filter((candidate): candidate is QFieldMetaData => Boolean(candidate) && typeof candidate === 'object' && typeof (candidate as QFieldMetaData).name === 'string')
+    .map((candidate) => ({ ...candidate, label: candidate.label || candidate.name }))
+}
+
+/**
+ * The screen's form fields as Material's `getFullFieldList` builds them: the step's
+ * form fields, then `inputFieldList` fields it does not already declare.
+ * @param step - The screen.
+ * @param values - Process values.
+ * @returns The form fields.
+ */
+export function stepFormFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
+  const fields = [...(step.formFields ?? [])]
+  for (const field of inputListFields(step, values)) {
+    if (!fields.some((existing) => existing.name === field.name)) fields.push(field)
+  }
+  return fields
+}
+
+/**
+ * Every field whose input lives in the screen form: declared form fields, report
+ * input fields, plus input fields of ad hoc and seeded composite widgets.
  * @param step - The screen.
  * @param values - Process values (seeded widget data).
  * @returns Form fields.
  */
 function screenFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
-  const fields = [...(step.formFields ?? [])]
+  const fields = stepFormFields(step, values)
   for (const component of step.components ?? []) {
     if (component.type !== 'WIDGET') continue
     const widgetName = typeof component.values?.widgetName === 'string' ? component.values.widgetName : ''
@@ -88,6 +125,18 @@ function screenFields(step: QFrontendStepMetaData, values: Record<string, unknow
     }
   }
   return fields
+}
+
+/**
+ * Whether two field lists would validate and submit alike (a widget re-registering the
+ * same fields must not re-render the screen).
+ * @param a - One list.
+ * @param b - The other.
+ * @returns `true` when they match.
+ */
+function sameFields(a: QFieldMetaData[], b: QFieldMetaData[]): boolean {
+  const key = (fields: QFieldMetaData[]) => JSON.stringify(fields.map((field) => [field.name, field.type, field.label, field.isRequired, field.isEditable, field.possibleValueSourceName]))
+  return key(a) === key(b)
 }
 
 /**
@@ -114,11 +163,12 @@ function StepHelp({ step }: { step: QFrontendStepMetaData }) {
  */
 export function ProcessStepScreen({
   processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
-  tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
+  tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false,
   onSubmit, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
   const [overrideOnLastStep, setOverrideOnLastStep] = useState<boolean | null>(null)
   const [stepLabel, setStepLabel] = useState<string | null>(null)
+  const [widgetFields, setWidgetFields] = useState<Record<string, QFieldMetaData[]>>({})
   const contributorsRef = useRef(new Map<string, ProcessSubmitContributor>())
   const extraValuesRef = useRef<Record<string, unknown>>({})
 
@@ -126,7 +176,28 @@ export function ProcessStepScreen({
   const hasComponent = useCallback((type: string) => components.some((component) => component.type === type), [components])
   const isBulkEdit = hasComponent('BULK_EDIT_FORM')
   const hasValidationReview = hasComponent('VALIDATION_REVIEW_SCREEN')
-  const fields = useMemo(() => screenFields(step, values).filter((field) => !field.isHidden), [step, values])
+  ////////////////////////////////////////////////////////////////////////////
+  // fields that widgets add to the form (a dynamicForm's report variables, //
+  // a rowBuilder's cells) are validated and submitted with the screen      //
+  ////////////////////////////////////////////////////////////////////////////
+  const registerWidgetFields = useCallback((owner: string, list: QFieldMetaData[]) => {
+    setWidgetFields((previous) => {
+      if (sameFields(previous[owner] ?? [], list)) return previous
+      const next = { ...previous }
+      if (list.length > 0) next[owner] = list
+      else delete next[owner]
+      return next
+    })
+  }, [])
+  const fields = useMemo(() => {
+    const base = screenFields(step, values).filter((field) => !field.isHidden)
+    for (const field of Object.values(widgetFields).flat()) {
+      if (!field.isHidden && !base.some((existing) => existing.name === field.name)) base.push(field)
+    }
+    return base
+  }, [step, values, widgetFields])
+  const formFields = useMemo(() => stepFormFields(step, values), [step, values])
+  const inputFieldNames = useMemo(() => new Set(inputListFields(step, values).map((field) => field.name)), [step, values])
 
   const defaultValues = useMemo(() => {
     const defaults: Record<string, unknown> = {}
@@ -198,9 +269,14 @@ export function ProcessStepScreen({
     void form.handleSubmit(submitValues)()
   }, [form, isWorking, submitValues])
 
+  const widgetFormHost = useMemo<WidgetFormHost>(() => ({
+    form, disabled: isWorking, editableByDefault: false, registerFields: registerWidgetFields,
+  }), [form, isWorking, registerWidgetFields])
+
   const context: ProcessStepContextValue = {
     processName, processUUID, processMetaData, tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
-    step, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep, setStepLabel, tableVariant,
+    step, formFields, inputFieldNames, isEmbedded, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep,
+    setStepLabel, tableVariant,
   }
 
   const index = steps.findIndex((candidate) => candidate.name === step.name)
@@ -216,8 +292,11 @@ export function ProcessStepScreen({
 
   return (
     <ProcessStepContext.Provider value={context}>
+     <WidgetFormHostContext.Provider value={widgetFormHost}>
+      {/* no browser autofill on process screens (Material autoComplete="off") */}
       <form
         noValidate
+        autoComplete="off"
         onSubmit={(event) => { event.preventDefault(); requestSubmit() }}
         aria-labelledby={`process-step-heading-${step.name}`}
         data-qqq-id={`process-step-${step.name}`}
@@ -232,11 +311,13 @@ export function ProcessStepScreen({
         </div>
         <div className="space-y-6 p-6">
           <StepHelp step={step} />
-          {components.map((component, componentIndex) => (
-            <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
-              <ProcessComponent component={component} index={componentIndex} />
-            </div>
-          ))}
+          <ProcessCompositeHost>
+            {components.map((component, componentIndex) => (
+              <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
+                <ProcessComponent component={component} index={componentIndex} />
+              </div>
+            ))}
+          </ProcessCompositeHost>
         </div>
         {!isScanner && <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3" data-qqq-id="process-actions">
           {noMoreSteps ? (
@@ -246,10 +327,13 @@ export function ProcessStepScreen({
             </button>
           ) : (
             <>
-              <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel">
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancel
-              </button>
+              {/* an embedded (widget) run has no Cancel: there is nowhere to leave to (Material isWidget) */}
+              {!isEmbedded && (
+                <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel">
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  Cancel
+                </button>
+              )}
               {backStep && (
                 <button type="button" onClick={onBack} disabled={isWorking} className={secondaryButton} data-qqq-id="button-back">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -265,6 +349,7 @@ export function ProcessStepScreen({
           )}
         </div>}
       </form>
+     </WidgetFormHostContext.Provider>
     </ProcessStepContext.Provider>
   )
 }

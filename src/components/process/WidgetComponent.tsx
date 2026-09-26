@@ -16,22 +16,27 @@
 
 /**
  * @file WidgetComponent — renders a WIDGET process component, like the Material
- * dashboard: a named widget (seeded from the process value of the same name, or
- * fetched with the process UUID and process values as parameters) or an ad hoc
+ * dashboard: a named widget in its full dashboard chrome (label, icons, help,
+ * dropdowns, export, reload), seeded from the process value of the same name or
+ * fetched with the process UUID and process values as parameters; or an ad hoc
  * composite widget whose blocks are declared on the component.
+ *
+ * Widgets that produce values for the process write them into the step, as
+ * Material's action callbacks do: an in-process `childRecordList` posts its edited
+ * rows as `frontendRecords`, an editable `rowBuilder` posts its rows under its
+ * `outputFieldName`, and an editable `dynamicForm`'s fields join the step's form.
  */
 
 'use client'
 
-import React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useCallback, useMemo, useRef } from 'react'
 
-import type { QFrontendComponent, QWidgetMetaData } from '@/types'
-import { fetchWidgetData } from '@/lib/api/widgets'
+import type { QFrontendComponent, QWidgetMetaData, WidgetData } from '@/types'
+import { isPlainObject } from '@/components/widgets/widget-types'
 
-import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
-import { useProcessStep } from './ProcessStepContext'
-import { ProcessBlocks, readBlocks } from './ProcessBlocks'
+import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
+import { useProcessStep, useSubmitContributor } from './ProcessStepContext'
+import { ProcessBlocks, readBlocks, useProcessBlockAction } from './ProcessBlocks'
 
 /** Props for {@link WidgetComponent}. */
 export interface WidgetComponentProps {
@@ -55,33 +60,45 @@ export function widgetParams(processUUID: string | null, values: Record<string, 
 }
 
 /**
- * A named widget: composite data renders as interactive blocks, anything else
- * through the dashboard widget renderer.
- * @param props - Widget metadata and optional seeded data.
+ * The rows an in-process child record list posts as `frontendRecords` (Material
+ * `childRecordData.queryOutput.records`).
+ * @param data - The list's payload.
+ * @returns The rows as JSON.
+ */
+export function frontendRecordsJson(data: Record<string, unknown>): string {
+  const output = isPlainObject(data.queryOutput) ? data.queryOutput : {}
+  return JSON.stringify(Array.isArray(output.records) ? output.records : [])
+}
+
+/**
+ * A named widget in its dashboard chrome, with the process as its host.
+ * @param props - Widget metadata, seeded data and position.
  * @returns The rendered widget.
  */
 function NamedWidget({ widget, seeded, index }: { widget: QWidgetMetaData; seeded: unknown; index: number }) {
   const { processUUID, values } = useProcessStep()
-  const query = useQuery({
-    queryKey: ['qqq', 'processWidget', widget.name, processUUID],
-    queryFn: () => fetchWidgetData(widget.name, widgetParams(processUUID, values)),
-    enabled: seeded === undefined || seeded === null,
-    staleTime: Infinity,
-    retry: false,
-  })
-  const data = seeded ?? query.data
-  if (!data) {
-    if (query.isError) return <p role="alert" className="text-sm text-destructive">{`Could not load ${widget.label}.`}</p>
-    return <p role="status" className="text-sm text-muted-foreground">{`Loading ${widget.label}...`}</p>
-  }
-  const blocks = readBlocks(data)
+  const blockAction = useProcessBlockAction()
+  const params = useMemo(() => widgetParams(processUUID, values), [processUUID, values])
+  const initialData = useMemo(() => (isPlainObject(seeded) ? { ...seeded, hasPermission: true } as unknown as WidgetData : undefined), [seeded])
+  const produced = useRef<Record<string, unknown> | null>(null)
+  const type = widget.type ?? (isPlainObject(seeded) && typeof seeded.type === 'string' ? seeded.type : undefined)
+
+  const onWidgetData = useCallback((data: Record<string, unknown>) => {
+    produced.current = type === 'childRecordList' ? { frontendRecords: frontendRecordsJson(data) } : { ...(produced.current ?? {}), ...data }
+  }, [type])
+
+  useSubmitContributor(`widget-${index}-${widget.name}`, () => ({ maySubmit: true, values: produced.current ?? undefined }))
+
   return (
-    <section aria-label={widget.label} className="space-y-2" data-qqq-id={`process-widget-${widget.name}`}>
-      {widget.label && <h4 className="text-sm font-semibold text-foreground">{widget.label}</h4>}
-      {blocks.length > 0 || widget.type === 'composite'
-        ? <ProcessBlocks blocks={blocks} name={`${widget.name}-${index}`} />
-        : <WidgetRenderer widgetMetaData={widget} data={data} />}
-    </section>
+    <div data-qqq-id={`process-widget-${widget.name}`}>
+      <ConnectedWidget
+        widgetMetaData={widget}
+        params={params}
+        initialData={initialData}
+        actionCallback={blockAction}
+        onWidgetData={onWidgetData}
+      />
+    </div>
   )
 }
 
@@ -98,7 +115,7 @@ export function WidgetComponent({ component, index }: WidgetComponentProps) {
   if (isAdHoc) {
     return (
       <div data-qqq-id={`process-adhoc-widget-${index}`}>
-        <ProcessBlocks blocks={readBlocks(component.values)} name={`adhoc-${index}`} />
+        <ProcessBlocks blocks={readBlocks(component.values)} name={`adhoc-${index}`} composite={component.values} />
       </div>
     )
   }

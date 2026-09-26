@@ -19,13 +19,17 @@
  * (possibly nested) list of blocks arranged by one of the backend layouts.
  *
  * Parity reference: Material dashboard `CompositeWidget.tsx` / `WidgetBlock.tsx`.
- * Not rendered: `modalMode` composites are shown inline (no modal), and block
- * `conditional` is not evaluated outside a process step.
+ * On a screen that hosts composites (a process step, see `composite-host`), TEXT
+ * blocks interpolate `${name}` values, blocks with an unmet `conditional` are left
+ * out, INPUT_FIELD blocks are bound to the host's form, and `modalMode` composites
+ * open as dialogs when a BUTTON control code shows them. Without a host (dashboards),
+ * `modalMode` composites are shown inline and `conditional` is not evaluated.
  */
 'use client'
 
 import React, { useCallback } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { AlertTriangle, X } from 'lucide-react'
 
 import type { QWidgetMetaData } from '@/types'
 import type { BlockActionCallback, QqqBlockData, QqqCompositeData } from '../widget-types'
@@ -34,7 +38,8 @@ import { cn } from '@/lib/utils/cn'
 import { SafeHtml } from '../SafeHtml'
 import { WidgetPayloadNotice } from '../WidgetNotice'
 import { NestedCompositeContext } from './BlockSlot'
-import { blockColor, blockQqqId, blockStyles, styleMap } from './block-utils'
+import { blockColor, blockQqqId, blockStyles, blockValues, styleMap } from './block-utils'
+import { interpolateValues, isBlockShown, useCompositeHost } from './composite-host'
 import {
   AudioBlock, BigNumberBlock, ButtonBlock, DividerBlock, IconBlock, ImageBlock, InputFieldBlock,
   NumberIconBadgeBlock, ProgressBarBlock, TableSubRowDetailRowBlock, TextBlock, UpOrDownNumberBlock,
@@ -92,6 +97,7 @@ interface InnerProps {
  * @returns The rendered composite, or a payload notice when `blocks` is malformed.
  */
 function CompositeContainer({ data, widgetName, actionCallback }: InnerProps & { data: QqqCompositeData }) {
+  const host = useCompositeHost()
   const blocks = asList<unknown>(data.blocks)
   if (!blocks) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('composite', 'blocks')} />
@@ -106,7 +112,7 @@ function CompositeContainer({ data, widgetName, actionCallback }: InnerProps & {
     const px = (side: string) => (typeof padding[side] === 'number' ? `${padding[side]}px` : undefined)
     Object.assign(style, { paddingTop: px('top'), paddingBottom: px('bottom'), paddingLeft: px('left'), paddingRight: px('right') })
   }
-  return (
+  const content = (
     <>
       {typeof data.overlayHtml === 'string' && data.overlayHtml && (
         <div style={styleMap(data.overlayStyleOverrides)} data-qqq-id={`block-overlay-${widgetName}`}>
@@ -131,6 +137,56 @@ function CompositeContainer({ data, widgetName, actionCallback }: InnerProps & {
       </div>
     </>
   )
+
+  /////////////////////////////////////////////////////////////////////////
+  // a modal-mode composite on a host screen is a dialog that the host's //
+  // BUTTON control codes open and close (Material CompositeWidget)      //
+  /////////////////////////////////////////////////////////////////////////
+  const blockId = typeof data.blockId === 'string' ? data.blockId : ''
+  if (host?.isModalOpen && typeof data.modalMode === 'string' && data.modalMode && blockId) {
+    return (
+      <DialogPrimitive.Root open={host.isModalOpen(blockId)} onOpenChange={(open) => { if (!open) host.closeModal?.(blockId) }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <DialogPrimitive.Content
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-lg"
+            aria-describedby={undefined}
+            data-qqq-id={`block-modal-${widgetName}-${blockId}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <DialogPrimitive.Title className="sr-only">{modalTitle(data, host.values)}</DialogPrimitive.Title>
+              <div className="min-w-0 flex-1">{content}</div>
+              <DialogPrimitive.Close
+                className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                aria-label="Close"
+                data-qqq-id={`button-block-modal-close-${blockId}`}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </DialogPrimitive.Close>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    )
+  }
+  return content
+}
+
+/**
+ * An accessible name for a modal composite: its first TEXT block's (interpolated) text, else a generic one.
+ *
+ * @param data - The modal composite.
+ * @param values - The host's values, for `${name}` placeholders.
+ * @returns The dialog title.
+ */
+function modalTitle(data: QqqCompositeData, values: Record<string, unknown>): string {
+  for (const block of asList<unknown>(data.blocks) ?? []) {
+    if (!isPlainObject(block) || block.blockTypeName !== 'TEXT') continue
+    const content = blockValues(block as QqqBlockData)
+    const text = typeof content.interpolatedText === 'string' ? content.interpolatedText : typeof content.text === 'string' ? content.text : ''
+    if (text.trim()) return interpolateValues(text.split('\n')[0], values)
+  }
+  return 'Details'
 }
 
 /**
@@ -141,12 +197,19 @@ function CompositeContainer({ data, widgetName, actionCallback }: InnerProps & {
  * @returns The rendered block.
  */
 function QqqBlock({ block, widgetName, actionCallback }: InnerProps & { block: QqqBlockData }) {
+  const host = useCompositeHost()
   const type = typeof block.blockTypeName === 'string' ? block.blockTypeName : ''
+  if (!isBlockShown(block, host)) return null
   if (type === 'COMPOSITE') {
     return <CompositeContainer data={block as QqqCompositeData} widgetName={widgetName} actionCallback={actionCallback} />
   }
+  if (host?.renderInputField && type === 'INPUT_FIELD') return <>{host.renderInputField({ block, widgetName })}</>
+  const values = blockValues(block)
+  const shown = host && type === 'TEXT' && typeof values.text === 'string' && values.interpolatedText === undefined
+    ? { ...block, values: { ...values, interpolatedText: interpolateValues(values.text, host.values) } }
+    : block
   const Leaf = LEAF_BLOCKS[type]
-  if (Leaf) return <Leaf block={block} widgetName={widgetName} actionCallback={actionCallback} />
+  if (Leaf) return <Leaf block={shown} widgetName={widgetName} actionCallback={actionCallback} />
   return (
     <div
       role="alert"

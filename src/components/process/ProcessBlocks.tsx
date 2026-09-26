@@ -15,21 +15,33 @@
  */
 
 /**
- * @file ProcessBlocks — renders composite widget blocks inside a process screen
- * (ad hoc WIDGET components and named composite widgets seeded from process
- * values). Text interpolates `${value}` placeholders, blocks with a false
- * `conditional` value are omitted, input fields join the screen's form, and
- * buttons with an action code submit the screen with `actionCode`.
+ * @file ProcessBlocks — composite widget blocks inside a process screen (ad hoc WIDGET
+ * components and named composite widgets), rendered by the shared composite renderer
+ * (`QqqComposite`: every block type, layout and style) with the process screen as its
+ * host, as Material's ProcessRun hosts `CompositeWidget`:
+ *
+ * - TEXT interpolates `${value}` placeholders; a block whose `conditional` value is
+ *   false is left out;
+ * - INPUT_FIELD blocks are typed inputs in the screen's form, seeded from the process
+ *   value of their field; with `submitOnEnter`, Enter submits the screen, and an entry
+ *   of `->code` submits it with that `actionCode` instead of the text;
+ * - BUTTON blocks with an `actionCode` submit the screen with it; a `controlCode`
+ *   (`showModal:x`, `hideModal:x`, `toggleModal:x`) shows, hides or toggles the
+ *   modal-mode composite (or `conditional` blocks) named `x`.
  */
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 
-import type { QFieldMetaData } from '@/types'
+import type { QFieldMetaData, QWidgetMetaData } from '@/types'
+import type { BlockActionCallback, QqqBlockData, QqqCompositeData } from '@/components/widgets/widget-types'
+import { cn } from '@/lib/utils/cn'
 
+import { QqqComposite } from '@/components/widgets/blocks/QqqComposite'
+import { CompositeHostContext, type CompositeHost, type HostInputFieldProps } from '@/components/widgets/blocks/composite-host'
+import { blockQqqId, blockValues } from '@/components/widgets/blocks/block-utils'
 import { useProcessStep } from './ProcessStepContext'
-import { interpolateProcessValues } from './process-values'
 
 /** A composite widget block as serialized by the backend. */
 export interface ProcessBlockData {
@@ -66,6 +78,23 @@ export function blockTypeOf(block: ProcessBlockData): string {
 }
 
 /**
+ * Give a block tree the shape the shared composite renderer reads: `blockTypeName`
+ * (v1 sends `blockType`) and nested `blocks` (v1 sends `subBlocks`).
+ * @param blocks - Blocks as the backend sent them.
+ * @returns The same blocks in block-data shape.
+ */
+export function normalizeBlocks(blocks: ProcessBlockData[]): QqqBlockData[] {
+  return blocks.map((block) => {
+    const type = blockTypeOf(block)
+    const nested = readBlocks(block)
+    const { blockType: _blockType, subBlocks: _subBlocks, ...rest } = block as ProcessBlockData & { subBlocks?: unknown }
+    void _blockType
+    void _subBlocks
+    return { ...rest, blockTypeName: type, ...(type === 'COMPOSITE' || nested.length > 0 ? { blocks: normalizeBlocks(nested) } : {}) } as QqqBlockData
+  })
+}
+
+/**
  * Collect the input-field definitions of a block tree (they become form fields).
  * @param blocks - Blocks to scan.
  * @returns Field definitions of every INPUT_FIELD block.
@@ -83,32 +112,135 @@ export function inputFieldsOfBlocks(blocks: ProcessBlockData[]): QFieldMetaData[
   return fields
 }
 
-/** Props for {@link ProcessBlocks}. */
-export interface ProcessBlocksProps {
-  blocks: ProcessBlockData[]
-  /** Identifier for `data-qqq-id` attributes. */
-  name: string
+/**
+ * HTML input type for an INPUT_FIELD block's field (Material renders a typed dynamic form field).
+ * @param type - The field's QQQ type.
+ * @returns The input `type`.
+ */
+function inputType(type: unknown): string {
+  switch (type) {
+    case 'INTEGER':
+    case 'LONG':
+    case 'DECIMAL':
+      return 'number'
+    case 'DATE':
+      return 'date'
+    case 'DATE_TIME':
+      return 'datetime-local'
+    case 'TIME':
+      return 'time'
+    case 'PASSWORD':
+      return 'password'
+    default:
+      return 'text'
+  }
+}
+
+/** The block action callback of the current process screen. */
+const ProcessBlockActionContext = createContext<BlockActionCallback | undefined>(undefined)
+
+/**
+ * The action callback for blocks on this process screen (buttons and control codes).
+ * @returns The callback, or `undefined` outside a process screen.
+ */
+export function useProcessBlockAction(): BlockActionCallback | undefined {
+  return useContext(ProcessBlockActionContext)
 }
 
 /**
- * Render a list of composite widget blocks.
- * @param props - {@link ProcessBlocksProps}
- * @returns The rendered blocks.
+ * An INPUT_FIELD block as a typed input in the screen's form.
+ * @param props - The block and its widget name.
+ * @returns The labeled input.
  */
-export function ProcessBlocks({ blocks, name }: ProcessBlocksProps) {
-  const { values, form, isWorking, requestSubmit } = useProcessStep()
-  const [controlValues, setControlValues] = useState<Record<string, boolean>>({})
+function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
+  const { form, isWorking, requestSubmit } = useProcessStep()
+  const values = blockValues(block)
+  const field = values.fieldMetaData as QFieldMetaData | undefined
+  if (!field || typeof field.name !== 'string') return null
+  const inputId = `process-block-input-${widgetName}-${field.name}`
+  const errorId = `${inputId}-error`
+  const message = form.formState.errors[field.name]?.message
+  const error = typeof message === 'string' ? message : undefined
+  const label = field.label || field.name
+  const isBoolean = field.type === 'BOOLEAN'
 
-  const isVisible = (block: ProcessBlockData) => {
-    if (!block.conditional) return true
-    return Boolean(controlValues[block.conditional] ?? values[block.conditional])
+  /**
+   * Enter never submits the step by itself; with `submitOnEnter` it does, and `->code`
+   * submits the code instead of the text (Material InputFieldBlock).
+   * @param event - The key event.
+   */
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    if (values.submitOnEnter !== true) return
+    const entered = String(event.currentTarget.value ?? '').trim()
+    if (entered.startsWith('->')) {
+      form.setValue(field.name, '')
+      requestSubmit({ actionCode: entered.substring(2) })
+      return
+    }
+    if (field.isRequired && entered === '') {
+      void form.trigger(field.name)
+      return
+    }
+    requestSubmit()
   }
+
+  return (
+    <div
+      className={cn('mt-2 flex gap-1', isBoolean ? 'flex-row-reverse items-center justify-end' : 'flex-col')}
+      data-qqq-id={blockQqqId('INPUT_FIELD', widgetName)}
+      data-block-type="INPUT_FIELD"
+      data-block-id={block.blockId}
+    >
+      <label htmlFor={inputId} className="text-base font-medium text-foreground pointer-coarse:min-h-11 pointer-coarse:content-center">
+        {label}
+        {field.isRequired && <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>}
+      </label>
+      <input
+        id={inputId}
+        type={isBoolean ? 'checkbox' : inputType(field.type)}
+        step={field.type === 'DECIMAL' ? 'any' : undefined}
+        placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
+        autoFocus={values.autoFocus === true}
+        disabled={isWorking}
+        aria-required={field.isRequired || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        {...form.register(field.name)}
+        onKeyDown={onKeyDown}
+        className={isBoolean
+          ? 'h-4 w-4 pointer-coarse:h-6 pointer-coarse:w-6'
+          : cn('rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring', error ? 'border-destructive' : 'border-border')}
+        data-qqq-id={`input-block-${field.name}`}
+      />
+      {error && <p id={errorId} role="alert" className="text-xs text-destructive">{error}</p>}
+    </div>
+  )
+}
+
+/** Props for {@link ProcessCompositeHost}. */
+export interface ProcessCompositeHostProps {
+  children: React.ReactNode
+}
+
+/**
+ * Hosts the composite blocks of one process screen: interpolation and conditional
+ * values, form-bound inputs, and the control-code state shared by every widget on
+ * the screen (a button in one widget may open a modal composite in another).
+ * @param props - The screen's components.
+ * @returns The hosted components.
+ */
+export function ProcessCompositeHost({ children }: ProcessCompositeHostProps) {
+  const { values, isWorking, requestSubmit } = useProcessStep()
+  const [controlValues, setControlValues] = useState<Record<string, boolean>>({})
+  const hostValues = useMemo(() => ({ ...values, ...controlValues }), [values, controlValues])
 
   /**
    * Apply a `showModal:x`, `hideModal:x` or `toggleModal:x` control code.
    * @param controlCode - The button's control code.
    */
-  const applyControlCode = (controlCode: string) => {
+  const applyControlCode = useCallback((controlCode: string) => {
     const [action, target] = controlCode.split(':', 2)
     if (!target) return
     setControlValues((previous) => {
@@ -116,78 +248,65 @@ export function ProcessBlocks({ blocks, name }: ProcessBlocksProps) {
       const next = action === 'showModal' ? true : action === 'hideModal' ? false : action === 'toggleModal' ? !current : current
       return { ...previous, [target]: next }
     })
-  }
+  }, [values])
 
-  const renderBlock = (block: ProcessBlockData, key: string): React.ReactNode => {
-    if (!isVisible(block)) return null
-    const type = blockTypeOf(block)
-    const blockValues = block.values ?? {}
-    switch (type) {
-      case 'COMPOSITE':
-        return <div key={key} className="flex flex-col gap-2">{readBlocks(block).map((child, index) => renderBlock(child, `${key}-${index}`))}</div>
-      case 'TEXT': {
-        const text = typeof blockValues.text === 'string' ? interpolateProcessValues(blockValues.text, values) : ''
-        return <p key={key} className="text-sm text-foreground" data-qqq-id={`process-block-text-${key}`}>{text}</p>
-      }
-      case 'BUTTON': {
-        const label = typeof blockValues.label === 'string' ? blockValues.label : 'Continue'
-        const actionCode = typeof blockValues.actionCode === 'string' ? blockValues.actionCode : undefined
-        const controlCode = typeof blockValues.controlCode === 'string' ? blockValues.controlCode : undefined
-        return (
-          <button
-            key={key}
-            type="button"
-            disabled={isWorking}
-            onClick={() => {
-              if (actionCode) requestSubmit({ actionCode })
-              else if (controlCode) applyControlCode(controlCode)
-            }}
-            className="inline-flex w-fit items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            data-qqq-id={`button-block-${actionCode ?? controlCode ?? key}`}
-          >
-            {label}
-          </button>
-        )
-      }
-      case 'INPUT_FIELD': {
-        const field = blockValues.fieldMetaData as QFieldMetaData | undefined
-        if (!field?.name) return null
-        const inputId = `process-block-input-${name}-${field.name}`
-        return (
-          <div key={key} className="flex flex-col gap-1">
-            <label htmlFor={inputId} className="text-sm font-medium text-foreground">{field.label ?? field.name}</label>
-            <input
-              id={inputId}
-              type="text"
-              placeholder={typeof blockValues.placeholder === 'string' ? blockValues.placeholder : undefined}
-              autoFocus={blockValues.autoFocus === true}
-              disabled={isWorking}
-              aria-required={field.isRequired || undefined}
-              {...form.register(field.name)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  if (blockValues.submitOnEnter === true) requestSubmit()
-                }
-              }}
-              className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              data-qqq-id={`input-block-${field.name}`}
-            />
-          </div>
-        )
-      }
-      case 'DIVIDER':
-        return <hr key={key} className="border-border" />
-      default: {
-        const text = typeof blockValues.text === 'string' ? blockValues.text : typeof blockValues.label === 'string' ? blockValues.label : ''
-        return text ? <p key={key} className="text-sm text-foreground">{interpolateProcessValues(text, values)}</p> : null
-      }
+  const actionCallback = useCallback<BlockActionCallback>((block, eventValues) => {
+    if (isWorking || !block || block.blockTypeName !== 'BUTTON') return false
+    const actionCode = typeof eventValues?.actionCode === 'string' && eventValues.actionCode ? eventValues.actionCode : undefined
+    const controlCode = typeof eventValues?.controlCode === 'string' && eventValues.controlCode ? eventValues.controlCode : undefined
+    if (actionCode) {
+      requestSubmit({ actionCode })
+      return true
     }
-  }
+    if (controlCode) {
+      applyControlCode(controlCode)
+      return true
+    }
+    return false
+  }, [applyControlCode, isWorking, requestSubmit])
+
+  const host = useMemo<CompositeHost>(() => ({
+    values: hostValues,
+    renderInputField: (props) => <ProcessInputField {...props} />,
+    isModalOpen: (blockId) => Boolean(hostValues[blockId]),
+    closeModal: (blockId) => setControlValues((previous) => ({ ...previous, [blockId]: false })),
+  }), [hostValues])
 
   return (
-    <div className="flex flex-col gap-2 py-2" data-qqq-id={`process-blocks-${name}`}>
-      {blocks.map((block, index) => renderBlock(block, `${name}-${index}`))}
+    <CompositeHostContext.Provider value={host}>
+      <ProcessBlockActionContext.Provider value={actionCallback}>{children}</ProcessBlockActionContext.Provider>
+    </CompositeHostContext.Provider>
+  )
+}
+
+/** Props for {@link ProcessBlocks}. */
+export interface ProcessBlocksProps {
+  /** The composite's blocks. */
+  blocks: ProcessBlockData[]
+  /** Identifier for `data-qqq-id` attributes (the ad hoc widget's name). */
+  name: string
+  /** The composite's other data (layout, styles), when it declares any. */
+  composite?: Record<string, unknown>
+}
+
+/**
+ * Render an ad hoc composite of a process screen. As in Material, its blocks stack in
+ * a column.
+ * @param props - {@link ProcessBlocksProps}
+ * @returns The rendered blocks.
+ */
+export function ProcessBlocks({ blocks, name, composite }: ProcessBlocksProps) {
+  const actionCallback = useProcessBlockAction()
+  const widgetMetaData = useMemo<QWidgetMetaData>(() => ({ name, label: '', hasPermission: true }), [name])
+  const data = useMemo<QqqCompositeData>(() => ({
+    blockTypeName: 'COMPOSITE',
+    layout: 'FLEX_COLUMN',
+    ...(composite && typeof composite.styles === 'object' && composite.styles ? { styles: composite.styles as Record<string, unknown> } : {}),
+    blocks: normalizeBlocks(blocks),
+  }), [blocks, composite])
+  return (
+    <div className="py-2" data-qqq-id={`process-blocks-${name}`}>
+      <QqqComposite widgetMetaData={widgetMetaData} data={data} actionCallback={actionCallback} />
     </div>
   )
 }
