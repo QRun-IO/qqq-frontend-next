@@ -20,9 +20,9 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 111 | 1 | 7 | 11 | 8 | 138 |
 | Processes and reports | 93 | 2 | 20 | 10 | 3 | 128 |
-| Widgets and blocks | 203 | 0 | 17 | 12 | 4 | 236 |
+| Widgets and blocks | 207 | 0 | 14 | 11 | 4 | 236 |
 | Supplemental metadata and theme | 37 | 0 | 3 | 0 | 11 | 51 |
-| **Total** | **664** | **10** | **48** | **35** | **38** | **795** |
+| **Total** | **668** | **10** | **45** | **34** | **38** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 87 | 8 | 10 | 10 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -805,15 +805,15 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 |---|---|---|---|---|
 | statistics: grouped count, countURL, countFontSize | material:src/qqq/components/widgets/statistics/StatisticsCard.tsx:92-104 | src/components/widgets/QqqStatisticsWidgets.tsx:formatCount, 101-104 | WID-016 | Done |
 | statistics: "+N%" change, color from increaseIsGood, percentageLabel | material:src/qqq/components/widgets/statistics/StatisticsCard.tsx:64-85, 121 | src/components/widgets/QqqStatisticsWidgets.tsx:90-117 | WID-016 | Done: "Bad" is red in Next, orange in Material |
-| statistics: change row hidden when 0 or undefined; spinner while count is undefined | material:src/qqq/components/widgets/statistics/StatisticsCard.tsx:102-108 | src/components/widgets/QqqStatisticsWidgets.tsx:108 | none | Partial: Next shows "0%" and a blank count; #728 |
+| statistics: change row hidden when 0 or undefined; spinner while count is undefined | material:src/qqq/components/widgets/statistics/StatisticsCard.tsx:102-108 | src/components/widgets/QqqStatisticsWidgets.tsx:QqqStatisticsWidget | src/components/widgets/QqqDisplayWidgets.test.tsx | Done: zero and absent changes are hidden; an absent count shows a loading spinner |
 | multiStatistics: group icon and color, header, subheader, "label: value" list, per-statistic URL | material:src/qqq/components/widgets/statistics/MultiStatisticsCard.tsx:85-118 | src/components/widgets/QqqStatisticsWidgets.tsx:164-180 | WID-012 | Done |
 | MiniStatisticsCard app-home tiles (label, count, icon, disabled without permission) | material:src/qqq/components/widgets/statistics/MiniStatisticsCard.tsx:53-131; material:src/qqq/pages/apps/Home.tsx:446-503 | src/components/widgets/AppHome.tsx:98-165 | NAV-008, NAV-009 | Done |
 | Chart subheader: main number with link, up/down % colored by isGoodVsPrevious, "vs" text, previous number with link | material:src/qqq/components/widgets/components/ChartSubheaderWithData.tsx:54-107 | src/components/widgets/QqqChartWidget.tsx:ChartSubheader (262-304) | WID-014 | Done: Links are unit-tested only |
 | stepper: complete, current and upcoming steps; link on the current step | material:src/qqq/components/widgets/misc/StepperCard.tsx:80-131 | src/components/widgets/QqqDisplayWidgets.tsx:QqqStepperWidget (123-147) | WID-018 | Done |
-| stepper: per-step colorOverride on icon and label | material:src/qqq/components/widgets/misc/StepperCard.tsx:86-119 | src/components/widgets/QqqDisplayWidgets.tsx:139 | none | Partial: Applied to the icon only; #728 |
-| stepper: per-step iconOverride | material:src/qqq/components/widgets/misc/StepperCard.tsx:85, 99, 113 | none | none | Missing: no iconOverride; #728 |
+| stepper: per-step colorOverride on icon and label | material:src/qqq/components/widgets/misc/StepperCard.tsx:86-119 | src/components/widgets/QqqDisplayWidgets.tsx:QqqStepperWidget | src/components/widgets/QqqDisplayWidgets.test.tsx | Done: applies to the icon and label |
+| stepper: per-step iconOverride | material:src/qqq/components/widgets/misc/StepperCard.tsx:85, 99, 113 | src/components/widgets/QqqDisplayWidgets.tsx:QqqStepperWidget | src/components/widgets/QqqDisplayWidgets.test.tsx | Done: uses the metadata icon when present |
 | fieldValueList: "Label: value" rows, prefix icons and colors, indent levels | material:src/qqq/components/widgets/misc/FieldValueListWidget.tsx:78-101 | src/components/widgets/QqqDisplayWidgets.tsx:196-211 | WID-005 | Done |
-| fieldValueList: type-aware display value (ValueUtils.getDisplayValue) | material:src/qqq/components/widgets/misc/FieldValueListWidget.tsx:99 | src/components/widgets/QqqDisplayWidgets.tsx:valueText (171-177) | WID-005 | Partial: Uses displayValues or the raw value; no type, displayFormat or adornment formatting; #728 |
+| fieldValueList: type-aware display value (ValueUtils.getDisplayValue) | material:src/qqq/components/widgets/misc/FieldValueListWidget.tsx:99 | src/components/widgets/QqqDisplayWidgets.tsx:QqqFieldValueListWidget; src/components/widgets/widget-field-values.ts; src/components/records/FieldValue.tsx | WID-005; src/components/widgets/QqqDisplayWidgets.test.tsx | Done: uses the record field renderer for type, displayFormat, adornments and displayValues |
 | fieldValueList: dropdownNeedsSelectedText renders chrome only | material:src/qqq/components/widgets/misc/FieldValueListWidget.tsx:44-51 | src/components/widgets/WidgetBlock.tsx chrome | none | Done: unverified |
 | usaMap markers from the payload | material:src/qqq/components/widgets/misc/USMapWidget.tsx:85-98 | src/components/widgets/QqqDisplayWidgets.tsx:268-293 | WID-020 | Done: Material hard-codes three markers; Next reads mapMarkerList |
 | usaMap US-states basemap (jvectormap) | material:src/qqq/components/widgets/misc/USMapWidget.tsx:79-107 | src/components/widgets/QqqDisplayWidgets.tsx:QqqUsaMapWidget; src/components/widgets/us-states-map.ts | none | Done: projected markers overlay the US state paths; #728 |
@@ -1242,7 +1242,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 12 open rows
 - #726 Next UI 1.0 parity: bulk load fidelity: 16 open rows
 - #727 Next UI 1.0 parity: report runs: 2 open rows
-- #728 Next UI 1.0 parity: dashboard widget extras: 11 open row
+- #728 Next UI 1.0 parity: dashboard widget extras: 7 open rows
 - #729 Next UI 1.0 parity: command palette and recently viewed: 0 open rows
 - #730 Next UI 1.0 parity: analytics (GA4, PostHog, plugin registry): 0 open rows
 - #731 Next UI 1.0 parity: CSS and test hook parity: 3 open rows
