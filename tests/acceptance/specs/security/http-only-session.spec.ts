@@ -67,6 +67,20 @@ async function logOut(page: Page): Promise<number> {
   return status
 }
 
+/**
+ * Checks the current user and closes the touch navigation drawer so the page remains usable.
+ *
+ * @param page - The page.
+ * @param name - Expected user name.
+ */
+async function expectUserAndCloseNavigation(page: Page, name: string) {
+  const nav = await navigation(page)
+  await expect(nav.locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(name)
+  if (await page.locator('[data-qqq-id="sidebar-mobile-drawer"]').isVisible()) {
+    await nav.locator('[data-qqq-id="button-sidebar-close"]').click()
+  }
+}
+
 test('[SEC-048] script in the page can neither read the session cookies nor obtain the session token @mobile', async ({ page, backend, diagnostics, context }) => {
   void diagnostics
   await open(page, '/app/person')
@@ -127,7 +141,9 @@ tableTest('[SEC-048] [SEC-049] TABLE_BASED sign-in, reload resume, idle expiry a
   await open(page, '/app/person')
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
   expect(sessionRequests).toEqual([])
+  const firstSignIn = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/manageSession')
   await submitCredentials(page, TESS)
+  expect(JSON.parse(await (await firstSignIn).text())).not.toHaveProperty('uuid')
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   const [first] = await tableSessions()
   if (!first?.id) throw new Error('Expected a session after sign-in')
@@ -140,7 +156,7 @@ tableTest('[SEC-048] [SEC-049] TABLE_BASED sign-in, reload resume, idle expiry a
   expect(resumed.json).not.toHaveProperty('uuid')
   expect(resumed.text).not.toContain(first.id)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(TESS.name)
+  await expectUserAndCloseNavigation(page, TESS.name)
   expect((await tableSessions()).map((row) => row.id)).toEqual([first.id])
 
   // idle expiry: the next request is refused, the form asks again without trying to resume
@@ -189,14 +205,14 @@ tableTest('[SEC-049] a sign-in after a logout that never reached the server uses
   await submitCredentials(page, RAVI)
   await expect(page).toHaveURL(/\/app\/person\/?$/)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(RAVI.name)
+  await expectUserAndCloseNavigation(page, RAVI.name)
   const ravi = (await tableSessions()).find((row) => row.username === RAVI.username)
   expect(ravi).toBeTruthy()
   if (!ravi?.id) throw new Error('Expected a session for the next user')
   await expectHttpOnlySession(page, context, ravi.id)
   await page.reload()
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText(RAVI.name)
+  await expectUserAndCloseNavigation(page, RAVI.name)
 })
 
 const CLIENT_ID = 'qqq-acceptance'
@@ -241,7 +257,7 @@ oauthTest('[SEC-048] [SEC-049] OAUTH2 sign-in, reload resume, server-side revoca
   expect(resumed.json).not.toHaveProperty('uuid')
   expect(resumed.text).not.toContain(first.uuid)
   await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
-  await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Dana Owner (OIDC)')
+  await expectUserAndCloseNavigation(page, 'Dana Owner (OIDC)')
   expect(authorizeRequests()).toHaveLength(1)
 
   // another tab or an administrator ends the session: the next request goes through the provider and back

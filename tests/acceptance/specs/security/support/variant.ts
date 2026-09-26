@@ -150,7 +150,7 @@ export const test = acceptanceTest.extend<{ security: SecurityBackend }, { secur
     const sessionId = randomUUID()
     await control('reset', {})
     await control('persona', { sessionId, persona, user })
-    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1' }])
+    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1', httpOnly: true }])
     const api = await playwright.request.newContext({ baseURL: SECURITY_URL, extraHTTPHeaders: { Cookie: `sessionId=${sessionId}` } })
     await use({
       url: SECURITY_URL,

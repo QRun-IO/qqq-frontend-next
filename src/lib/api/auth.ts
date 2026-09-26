@@ -104,7 +104,7 @@ export function clearAuthMetadataCache(): void {
 export interface SessionResponse {
   /**
    * Server-assigned session UUID, mirrored to the `sessionUUID` cookie. Absent when the
-   * session was resumed from that cookie, which script cannot read (QRun-IO/qqq#733).
+   * cookie is HttpOnly or the session was resumed from it (QRun-IO/qqq#733).
    */
   uuid?: string
   /** Session values for the frontend (e.g. `user: { name, email }`), when the backend sets any. */

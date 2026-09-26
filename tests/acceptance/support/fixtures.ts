@@ -65,7 +65,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     await control('reset', {})
     await control('persona', { sessionId, persona, user })
     // Mock authentication keys each request's session to the sessionId cookie.
-    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1' }])
+    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1', httpOnly: true }])
     const api = await playwright.request.newContext({
       baseURL: ACCEPTANCE_BACKEND_URL, extraHTTPHeaders: { Cookie: `sessionId=${sessionId}` },
     })
