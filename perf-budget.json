@@ -1,5 +1,5 @@
 {
-  "$comment": "Bundle budget for the static export, checked by scripts/perf-budget.mjs (QRun-IO/qqq#710). Sizes are KB gzip. '_' is the exported placeholder of a dynamic segment: /app/_ is /app/[slug] (app home, record query, process, report), /app/_/_ is the record view. Budgets sit about 5% above the measured 1.0 sizes; raise one only with the reason in the commit.",
+  "$comment": "Bundle budget for the static export, checked by scripts/perf-budget.mjs (QRun-IO/qqq#710). Sizes are KB gzip. '_' is the exported placeholder of a dynamic segment: /app/_ is /app/[slug] (app home, record query, process, report), /app/_/_ is the record view. The 2026-09-26 merge of ESB process management (#13) into Next UI 1.0 moved measured total JS from 706.6 to 736.2 KB and /app/_ first-load JS from 461.7 to 470.2 KB; the 750 and 475 KB caps retain narrow headroom for that combined product. Raise a cap only with the reason in the commit.",
   "firstLoadJsGzipKB": 330,
   "routes": {
     "/": 230,
@@ -9,7 +9,7 @@
     "/callback": 230,
     "/login": 230,
     "/token": 230,
-    "/app/_": 470,
+    "/app/_": 475,
     "/app/_/_": 455,
     "/app/_/_/copy": 375,
     "/app/_/_/edit": 370,
@@ -17,7 +17,7 @@
     "/app/_/savedView/_": 390
   },
   "cssGzipKB": 18,
-  "totalJsGzipKB": 710,
+  "totalJsGzipKB": 750,
   "largestChunkGzipKB": 100,
   "lazyChunks": {
     "rapidoc": {
