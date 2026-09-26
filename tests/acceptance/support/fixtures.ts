@@ -135,8 +135,19 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       if (target && nextRouteFetch(target)) reports.push({ text, at: performance.now(), push })
       else push()
     }
+    // Firefox logs "Image corrupt or truncated." for an intact image whose decode a navigation cut
+    // off (logging out while the logo decodes, for example). After the test, such a report is ignored
+    // only when the same browser, on the page's origin, decodes that image in full; an image that is
+    // really corrupt or truncated, or one that cannot be checked, still fails the test.
+    const truncatedImage = /^\[JavaScript Error: "Image corrupt or truncated\." \{file: "([^"]+)"/
+    const truncatedImages: { text: string; url: string }[] = []
     page.on('pageerror', (error) => report(error.message, () => diagnostics.pageErrors.push(error.message)))
-    page.on('console', (message) => { if (message.type() === 'error') report(message.text(), () => diagnostics.consoleErrors.push(message.text())) })
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return
+      const image = truncatedImage.exec(message.text())?.[1]
+      if (image) truncatedImages.push({ text: message.text(), url: image })
+      else report(message.text(), () => diagnostics.consoleErrors.push(message.text()))
+    })
     page.on('requestfailed', (request) => {
       const failure = request.failure()?.errorText ?? ''
       // Navigation-cancelled background reads are not application failures.
@@ -158,6 +169,16 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     // One round trip delivers violation reports still queued in the page.
     if (!page.isClosed()) await page.evaluate(() => 0).catch(() => undefined)
     classifyAccessControlReports()
+    for (const { text, url } of truncatedImages) {
+      const decodes = !page.isClosed() && new URL(url).origin === new URL(page.url()).origin && await page.evaluate((src) => new Promise<boolean>((resolve) => {
+        const image = new Image()
+        image.onload = () => { void image.decode().then(() => resolve(image.naturalWidth > 0), () => resolve(false)) }
+        image.onerror = () => resolve(false)
+        image.src = src
+      }), url).catch(() => false)
+      if (decodes) diagnostics.interruptedFetches.push(text)
+      else diagnostics.consoleErrors.push(text)
+    }
     const unexpected = [
       ...diagnostics.pageErrors.map((text) => `pageerror: ${text}`),
       ...diagnostics.consoleErrors.map((text) => `console: ${text}`),
