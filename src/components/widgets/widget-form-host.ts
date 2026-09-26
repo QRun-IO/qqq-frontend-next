@@ -17,8 +17,9 @@
 /**
  * @file widget-form-host — the form a widget may add fields to, when a screen with a form
  * hosts it (Material widgets use the host screen's Formik context): a `dynamicForm`
- * widget's fields join a process step's form, are validated with it and submitted with
- * the step. Dashboards and record views provide no host, so widgets there stay read-only.
+ * widget's fields join a process step or record edit form, are validated with it and
+ * submitted with the host. Dashboards and record views provide no host, so widgets
+ * there stay read-only.
  */
 
 import { createContext, useContext } from 'react'

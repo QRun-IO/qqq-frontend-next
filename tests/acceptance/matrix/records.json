@@ -1217,6 +1217,28 @@
       "required": true
     },
     {
+      "id": "REC-061",
+      "feature": "An editable dynamicForm widget on a record form validates its fields and persists them in the declared JSON record field",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/components/forms/FormWidgetSection.tsx",
+        "src/components/widgets/DynamicFormWidget.tsx"
+      ],
+      "fixture": "accWidgetHost 1 with accHostRecordVariables and hidden inputValues field",
+      "scenarios": [
+        "the region field starts from stored JSON and appears in the record edit form",
+        "changing the region persists the new JSON in inputValues and survives reload"
+      ],
+      "negative": [
+        "clearing the required region blocks the write",
+        "the transient region field is absent from the table multipart payload"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
+    },
+    {
       "id": "REC-060",
       "feature": "Material table and field form adjusters and field rules operate against the real QQQ sample server",
       "source": [

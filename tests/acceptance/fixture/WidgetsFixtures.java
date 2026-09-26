@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import javax.imageio.ImageIO;
+import org.json.JSONObject;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.ChildRecordListRenderer;
@@ -246,12 +247,12 @@ final class WidgetsFixtures
          statement.execute("DROP TABLE IF EXISTS data_bag_version");
          statement.execute("DROP TABLE IF EXISTS data_bag");
          statement.execute("CREATE TABLE acc_widget_host (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), owner VARCHAR(100), zero INTEGER, "
-            + "cron_expression VARCHAR(100), cron_time_zone_id VARCHAR(100))");
+            + "cron_expression VARCHAR(100), cron_time_zone_id VARCHAR(100), input_values TEXT)");
          statement.execute("CREATE TABLE acc_widget_host_child (id INTEGER AUTO_INCREMENT PRIMARY KEY, host_id INTEGER, name VARCHAR(100))");
-         statement.execute("INSERT INTO acc_widget_host (id, name, owner, zero, cron_expression, cron_time_zone_id) VALUES "
-            + "(1, 'Owned host one', 'Owned owner one', 0, '0 0 9 * * ?', 'America/Chicago'), "
-            + "(2, 'Owned host two', 'Owned owner two', 7, '0 30 12 ? * MON-FRI', 'UTC'), "
-            + "(3, 'Owned host empty', 'Owned owner empty', 0, NULL, NULL)");
+         statement.execute("INSERT INTO acc_widget_host (id, name, owner, zero, cron_expression, cron_time_zone_id, input_values) VALUES "
+            + "(1, 'Owned host one', 'Owned owner one', 0, '0 0 9 * * ?', 'America/Chicago', '{\"region\":\"North\"}'), "
+            + "(2, 'Owned host two', 'Owned owner two', 7, '0 30 12 ? * MON-FRI', 'UTC', '{\"region\":\"West\"}'), "
+            + "(3, 'Owned host empty', 'Owned owner empty', 0, NULL, NULL, NULL)");
          statement.execute("INSERT INTO acc_widget_host_child (id, host_id, name) VALUES (1, 1, 'Owned child alpha'), (2, 1, 'Owned child beta'), "
             + "(3, 1, 'Owned child gamma'), (4, 2, 'Owned child delta')");
          statement.execute("ALTER TABLE acc_widget_host ALTER COLUMN id RESTART WITH 100");
@@ -528,14 +529,16 @@ final class WidgetsFixtures
          .withField(new QFieldMetaData("zero", QFieldType.INTEGER))
          .withField(new QFieldMetaData("cronExpression", QFieldType.STRING).withLabel("Schedule Expression"))
          .withField(new QFieldMetaData("cronTimeZoneId", QFieldType.STRING).withLabel("Time Zone"))
+         .withField(new QFieldMetaData("inputValues", QFieldType.TEXT))
          .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "owner", "zero")))
          .withSection(new QFieldSection().withName("hostSchedule").withLabel("Owned Schedule").withTier(Tier.T2).withWidgetName("accHostCron"))
          .withSection(new QFieldSection().withName("hostFieldValues").withLabel("Owned Record Values").withTier(Tier.T2).withWidgetName("accHostFieldValues"))
          .withSection(new QFieldSection().withName("hostHtml").withLabel("Owned Record Html").withTier(Tier.T2).withWidgetName("accHostHtml"))
          .withSection(new QFieldSection().withName("hostDynamicForm").withLabel("Owned Dynamic Form").withTier(Tier.T2).withWidgetName("accHostDynamicForm"))
+         .withSection(new QFieldSection().withName("hostRecordVariables").withLabel("Owned Record Variables").withTier(Tier.T2).withWidgetName("accHostRecordVariables"))
          .withSection(new QFieldSection().withName("hostChildren").withLabel("Owned Children").withTier(Tier.T2).withWidgetName(HOST_CHILD_JOIN))
          .withSection(new QFieldSection().withName("hostRows").withLabel("Owned Rows").withTier(Tier.T2).withWidgetName("accHostRows"))
-         .withSection(new QFieldSection("hostHidden", "Hidden", new QIcon("visibility_off"), Tier.T2, List.of("cronExpression", "cronTimeZoneId")).withIsHidden(true)));
+         .withSection(new QFieldSection("hostHidden", "Hidden", new QIcon("visibility_off"), Tier.T2, List.of("cronExpression", "cronTimeZoneId", "inputValues")).withIsHidden(true)));
       qInstance.addTable(host);
 
       QTableMetaData child = rdbms(new QTableMetaData().withName(HOST_CHILD_TABLE).withLabel("Widget Host Child").withPrimaryKeyField("id")
@@ -556,6 +559,7 @@ final class WidgetsFixtures
       add(qInstance, widget("accHostFieldValues", WidgetType.FIELD_VALUE_LIST, "Owned Record Values"));
       add(qInstance, widget("accHostHtml", WidgetType.HTML, "Owned Record Html"));
       add(qInstance, widget("accHostDynamicForm", WidgetType.DYNAMIC_FORM, "Owned Dynamic Form"));
+      add(qInstance, widget("accHostRecordVariables", WidgetType.DYNAMIC_FORM, "Owned Record Variables").withDefaultValue("isEditable", true));
       add(qInstance, widget("accHostRows", WidgetType.ROW_BUILDER, "Owned Rows")
          .withDefaultValue("fields", new ArrayList<>(List.of(new QFieldMetaData("name", QFieldType.STRING).withLabel("Row Name"),
             new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Row Quantity")))));
@@ -1076,6 +1080,7 @@ final class WidgetsFixtures
             case "accHostFieldValues" -> hostFieldValues(input, params);
             case "accHostHtml" -> new RawHTML("Owned Record Html", "Host record " + params.getOrDefault("id", "(none)") + " in " + params.getOrDefault("tableName", "(none)"));
             case "accHostDynamicForm" -> hostDynamicForm(input, params);
+            case "accHostRecordVariables" -> hostRecordVariables(input, params);
             case "accHostRows" -> new RowBuilderData(new ArrayList<>(List.of(new QRecord().withValue("name", "Owned row one").withValue("quantity", 3),
                new QRecord().withValue("name", "Owned row two").withValue("quantity", 0))));
             default -> throw (new QException("Unexpected owned widget " + name));
@@ -1185,6 +1190,22 @@ final class WidgetsFixtures
          .withFieldList(List.of(new QFieldMetaData("owner", QFieldType.STRING).withLabel("Owner"), new QFieldMetaData("zero", QFieldType.INTEGER).withLabel("Zero")))
          .withRecordOfFieldValues(new QRecord().withValue("owner", record.getValue("owner")).withValue("zero", record.getValue("zero")))
          .withNoFieldsMessage("No owned fields"));
+   }
+
+
+   /*******************************************************************************
+    ** A field in a hidden section remains readable; the renderer supplies
+    ** its current JSON values, as scheduled reports do in production.
+    *******************************************************************************/
+   private static QWidgetData hostRecordVariables(RenderWidgetInput input, Map<String, String> params) throws QException
+   {
+      QRecord record = readHost(input, params);
+      String stored = record.getValueString("inputValues");
+      String region = stored == null || stored.isBlank() ? "North" : new JSONObject(stored).optString("region", "North");
+      return (new DynamicFormWidgetData()
+         .withFieldList(List.of(new QFieldMetaData("region", QFieldType.STRING).withLabel("Region").withIsRequired(true)))
+         .withRecordOfFieldValues(new QRecord().withValue("region", region))
+         .withMergedDynamicFormValuesIntoFieldName("inputValues"));
    }
 
 

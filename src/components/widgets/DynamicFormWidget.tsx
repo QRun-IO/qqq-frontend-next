@@ -27,6 +27,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef } from 'react'
+import { useWatch } from 'react-hook-form'
 
 import type { QFieldMetaData, QRecord } from '@/types'
 import { DynamicForm } from '@/components/forms/DynamicForm'
@@ -34,7 +35,7 @@ import { useWidgetFormHost, type WidgetFormHost } from './widget-form-host'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { formatPlainValue, parseJsonValue, recordValue } from './record-widget-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
-import type { WidgetComponentProps } from './widget-types'
+import type { WidgetComponentProps, WidgetFormContext } from './widget-types'
 
 /** A field in the dynamic form's field list (backend `QFieldMetaData`). */
 export interface DynamicFormField {
@@ -116,15 +117,19 @@ function formFieldsOf(fields: DynamicFormField[]): QFieldMetaData[] {
  * @param props - Widget name, fields, starting values and display values, and the host.
  * @returns The editable fields.
  */
-function EditableDynamicForm({ widgetName, fields, values, displayValues, host }: {
+function EditableDynamicForm({ widgetName, fields, values, displayValues, host, mergedFieldName, setMergedValues }: {
   widgetName: string
   fields: DynamicFormField[]
   values: Record<string, unknown>
   displayValues: Record<string, string>
   host: WidgetFormHost
+  mergedFieldName?: string
+  setMergedValues?: WidgetFormContext['setValues']
 }) {
   const formFields = useMemo(() => formFieldsOf(fields), [fields])
+  const names = useMemo(() => formFields.map((field) => field.name), [formFields])
   const { form, registerFields } = host
+  const watched = useWatch({ control: form.control, name: names })
   const seeded = useRef(new Set<string>())
 
   useEffect(() => {
@@ -134,9 +139,20 @@ function EditableDynamicForm({ widgetName, fields, values, displayValues, host }
       const start = values[field.name] ?? field.defaultValue
       form.setValue(field.name, start === undefined || start === null ? (field.type === 'BOOLEAN' ? null : '') : field.type === 'BOOLEAN' ? start === true || start === 'true' : start)
     }
+  }, [form, formFields, values])
+
+  useEffect(() => {
     registerFields(widgetName, formFields)
     return () => registerFields(widgetName, [])
-  }, [form, formFields, registerFields, values, widgetName])
+  }, [formFields, registerFields, widgetName])
+
+  // Material writes the widget's current fields as JSON into a declared record field.
+  // Process widgets have no record form callback, so their values stay as process inputs.
+  useEffect(() => {
+    if (!mergedFieldName || !setMergedValues || watched.some((value) => value === undefined)) return
+    const serialized = JSON.stringify(Object.fromEntries(names.map((name, index) => [name, watched[index]])))
+    if (form.getValues(mergedFieldName) !== serialized) setMergedValues({ [mergedFieldName]: serialized })
+  }, [form, mergedFieldName, names, setMergedValues, watched])
 
   const record = useMemo<QRecord>(() => ({ tableName: '', values, displayValues }), [displayValues, values])
   return (
@@ -162,7 +178,7 @@ function EditableDynamicForm({ widgetName, fields, values, displayValues, host }
  * @param props - Widget metadata, payload and the hosting record context.
  * @returns The fields, the no-fields message (nothing when the payload has none), or a contained notice.
  */
-export function DynamicFormWidget({ widgetMetaData, data, recordContext }: WidgetComponentProps<DynamicFormPayload>) {
+export function DynamicFormWidget({ widgetMetaData, data, recordContext, formContext }: WidgetComponentProps<DynamicFormPayload>) {
   const widgetName = widgetMetaData.name
   const host = useWidgetFormHost()
   const fields = useMemo(() => asList<DynamicFormField>(data?.fieldList), [data?.fieldList])
@@ -183,6 +199,8 @@ export function DynamicFormWidget({ widgetMetaData, data, recordContext }: Widge
         values={values}
         displayValues={displayValues}
         host={host}
+        mergedFieldName={data.mergedDynamicFormValuesIntoFieldName}
+        setMergedValues={formContext?.setValues}
       />
     )
   }

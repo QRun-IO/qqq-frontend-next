@@ -342,3 +342,51 @@ describe('widget validators', () => {
     expect(post).not.toHaveBeenCalled()
   })
 })
+
+describe('dynamic form widget on a record edit screen', () => {
+  beforeEach(() => { vi.restoreAllMocks(); adjuster.mockReset(); widgetData.mockReset() })
+
+  it('validates widget fields and saves their JSON in the declared record field', async () => {
+    const user = userEvent.setup()
+    const table = lab({
+      sections: [
+        { name: 'main', label: 'Main', isHidden: false, fieldNames: ['id', 'title', 'kind', 'code', 'note'] },
+        { name: 'variables', label: 'Variables', isHidden: false, fieldNames: [], widgetName: 'variablesWidget' },
+      ],
+    }, { inputValues: field('inputValues', { type: 'TEXT', isHidden: true }) })
+    const widgets = {
+      variablesWidget: {
+        name: 'variablesWidget', label: 'Variables', type: 'dynamicForm', hasPermission: true,
+        defaultValues: { isEditable: true },
+      } as QWidgetMetaData,
+    }
+    const record: QRecord = {
+      ...stored,
+      values: { ...stored.values, inputValues: '{"region":"North"}' },
+    }
+    widgetData.mockResolvedValue({
+      type: 'dynamicForm',
+      fieldList: [{ name: 'region', label: 'Region', type: 'STRING', isRequired: true }],
+      mergedDynamicFormValuesIntoFieldName: 'inputValues',
+      recordOfFieldValues: { values: { region: 'North' } },
+    })
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({
+      record: { tableName: 'lab', values: { ...record.values, inputValues: '{"region":"South"}' } },
+    })
+    renderForm(table, { record, widgets })
+    const region = await screen.findByLabelText(/^Region/)
+    expect(region).toHaveValue('North')
+
+    await user.clear(region)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('Region is required')).toBeVisible()
+    expect(patch).not.toHaveBeenCalled()
+
+    await user.type(region, 'South')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1))
+    const body = patch.mock.calls[0][1] as FormData
+    expect(JSON.parse(String(body.get('inputValues')))).toEqual({ region: 'South' })
+    expect(body.has('region')).toBe(false)
+  })
+})

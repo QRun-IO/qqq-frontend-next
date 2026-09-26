@@ -34,6 +34,7 @@ import { getErrorMessage } from '@/lib/utils/error-utils'
 
 import type { ChildRecordListPayload } from '@/components/widgets/ChildRecordListWidget'
 import type { WidgetFormContext } from '@/components/widgets/widget-types'
+import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { ChildRecordListEditor } from './ChildRecordListEditor'
 
@@ -76,6 +77,8 @@ export interface FormWidgetSectionProps {
   setAssociation: (name: string, records: Array<Record<string, unknown>>) => void
   /** Registers a check run before saving. */
   registerValidator: (key: string, validate: (() => string[]) | null) => void
+  /** Gives dynamic widgets the parent React Hook Form and field registration. */
+  host: WidgetFormHost
   /** When true the form is locked. */
   disabled: boolean
 }
@@ -87,7 +90,7 @@ export interface FormWidgetSectionProps {
  * @returns The widget, its loading state, or its load error.
  */
 export function FormWidgetSection({
-  widgetMetaData, params, reloadCount, control, screen, record, tableMetaData, setValues, setAssociation, registerValidator, disabled,
+  widgetMetaData, params, reloadCount, control, screen, record, tableMetaData, setValues, setAssociation, registerValidator, host, disabled,
 }: FormWidgetSectionProps) {
   const query = useQuery({
     queryKey: ['qqq', 'formWidget', widgetMetaData.name, params, reloadCount],
@@ -129,17 +132,19 @@ export function FormWidgetSection({
           formContext={formContext}
         />
       ) : (
-        <WidgetRenderer
-          widgetMetaData={widgetMetaData}
-          data={query.data}
-          formContext={formContext}
-          recordContext={{
-            tableName: tableMetaData.name,
-            recordId: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : undefined,
-            record: { tableName: tableMetaData.name, values, displayValues: record?.displayValues ?? {} },
-            tableMetaData,
-          }}
-        />
+        <WidgetFormHostContext.Provider value={host}>
+          <WidgetRenderer
+            widgetMetaData={widgetMetaData}
+            data={query.data}
+            formContext={formContext}
+            recordContext={{
+              tableName: tableMetaData.name,
+              recordId: primaryKey !== null && primaryKey !== undefined ? String(primaryKey) : undefined,
+              record: { tableName: tableMetaData.name, values, displayValues: record?.displayValues ?? {} },
+              tableMetaData,
+            }}
+          />
+        </WidgetFormHostContext.Provider>
       )}
     </div>
   )

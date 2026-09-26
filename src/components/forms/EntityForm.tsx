@@ -29,7 +29,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Loader2, Save, X } from 'lucide-react'
 
-import type { QTableMetaData, QTableSection, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
+import type { QFieldMetaData, QTableMetaData, QTableSection, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { runFormAdjuster } from '@/lib/api/form-adjuster'
@@ -37,7 +37,7 @@ import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
 import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import {
-  zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, defaultValuesForCreate, zodFieldFromMetadata,
+  zodSchemaFromFields, zodSchemaFromTableMetadata, defaultValuesFromRecord, defaultValuesForCopy, defaultValuesForCreate, zodFieldFromMetadata,
   validateCopyPasswords, wireValuesFromForm, formValueFromRecordValue,
 } from '@/lib/utils/zod-from-metadata'
 import { applyAdjustedDefinitions, fieldFormAdjusters, hasTableOnLoadAdjuster, tableFieldRules } from '@/lib/utils/form-adjuster-utils'
@@ -51,6 +51,7 @@ import { toast } from '@/lib/hooks/use-toast'
 import { MetadataIcon, SectionIcon } from '@/components/layout/MetadataIcon'
 
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
+import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm, formSectionElementId, renderableFormSections } from './DynamicForm'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
 import { FormSectionSidebar } from './FormSectionSidebar'
@@ -302,6 +303,13 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const [widgetReloads, setWidgetReloads] = useState<Record<string, { params: Record<string, string | number | boolean>; count: number }>>({})
   // Child records widgets manage for associations of this table, saved with the record.
   const [associations, setAssociations] = useState<Record<string, Array<Record<string, unknown>>>>({})
+  // A dynamicForm's fields join the record form's validation, then its JSON output is saved
+  // under the table field named by the widget rather than as undeclared record fields.
+  const [widgetFields, setWidgetFields] = useState<Record<string, QFieldMetaData[]>>({})
+  const widgetOnlyNames = useMemo(() => new Set(Object.values(widgetFields).flat()
+    .map((field) => field.name).filter((name) => !tableMetaData.fields[name])), [widgetFields, tableMetaData.fields])
+  const recordWireValues = (values: Record<string, unknown>) => wireValuesFromForm(tableMetaData,
+    Object.fromEntries(Object.entries(values).filter(([name]) => !widgetOnlyNames.has(name))))
   // Checks widgets registered to run before saving (Material addSubValidations).
   const validatorsRef = useRef(new Map<string, () => string[]>())
   const [widgetErrors, setWidgetErrors] = useState<string[]>([])
@@ -317,10 +325,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
 
   // Build Zod schema from metadata (memoized to avoid expensive recomputation). Values that
   // widgets write (e.g. a saved report's filter JSON, a hidden field) pass through unchanged.
-  const schema = useMemo(
-    () => zodSchemaFromTableMetadata(formTable, fieldNamesToInclude, isCopy).passthrough(),
-    [formTable, fieldNamesToInclude, isCopy]
-  )
+  const schema = useMemo(() => {
+    const tableSchema = zodSchemaFromTableMetadata(formTable, fieldNamesToInclude, isCopy)
+    const added = Object.values(widgetFields).flat().filter((field) =>
+      field.isEditable !== false && !field.isHidden && !formTable.fields[field.name])
+    return tableSchema.merge(zodSchemaFromFields(added)).passthrough()
+  }, [formTable, fieldNamesToInclude, isCopy, widgetFields])
   // Adjusters may change field definitions after the form mounts: validate with the latest schema.
   const schemaRef = useRef(schema)
   schemaRef.current = schema
@@ -573,7 +583,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       if (isCopy) validateCopyPasswords(tableMetaData, insertValues, fieldNamesToInclude)
       if (copyAssociations?.error) throw new Error(copyAssociations.error)
       const associationGroups = copyAssociations ? copyAssociations.getRecords(insertValues) : widgetAssociations()
-      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, wireValuesFromForm(tableMetaData, insertValues), associationGroups))
+      const saved = validateSavedRecord(await insertRecord(tableMetaData.name, recordWireValues(insertValues), associationGroups))
       copyAssociations?.validateResult?.(saved)
       return saved
     },
@@ -610,7 +620,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       // Material dashboard does, so omission never triggers a write default.
       const submitted = Object.fromEntries(Object.entries(values).filter(([name]) =>
         Boolean(dirtyFieldsRef.current[name]) || !onlyWhenChanged(tableMetaData.fields[name])))
-      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, wireValuesFromForm(tableMetaData, submitted), widgetAssociations()))
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations()))
     },
     meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
@@ -773,6 +783,15 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     if (validate) validatorsRef.current.set(key, validate)
     else validatorsRef.current.delete(key)
   }, [])
+  const registerWidgetFields = useCallback((owner: string, fields: QFieldMetaData[]) => {
+    setWidgetFields((current) => {
+      if (JSON.stringify(current[owner] ?? []) === JSON.stringify(fields)) return current
+      const next = { ...current }
+      if (fields.length > 0) next[owner] = fields
+      else delete next[owner]
+      return next
+    })
+  }, [])
   const widgetParams = useMemo(() => {
     const params: Record<string, string | number | boolean> = {}
     const pk = record?.values[tableMetaData.primaryKeyField]
@@ -783,6 +802,9 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     return params
   }, [record, isEdit, tableMetaData.primaryKeyField, propDefaultValues])
   const formLocked = disabled || isSaving || Boolean(defaultsError) || Boolean(formDisabledMessage)
+  const widgetFormHost = useMemo<WidgetFormHost>(() => ({
+    form, disabled: formLocked, editableByDefault: true, registerFields: registerWidgetFields,
+  }), [form, formLocked, registerWidgetFields])
   const renderWidgetSection = useCallback((section: QTableSection) => {
     if (isCopy || !section.widgetName) return undefined
     const widget = widgets?.[section.widgetName]
@@ -800,10 +822,11 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         setValues={setFormValues}
         setAssociation={setAssociation}
         registerValidator={registerValidator}
+        host={widgetFormHost}
         disabled={formLocked}
       />
     )
-  }, [isCopy, widgets, widgetReloads, widgetParams, control, isEdit, record, formTable, setFormValues, setAssociation, registerValidator, formLocked])
+  }, [isCopy, widgets, widgetReloads, widgetParams, control, isEdit, record, formTable, setFormValues, setAssociation, registerValidator, widgetFormHost, formLocked])
 
   const disabledNames = useMemo(
     () => [...(disabledFieldNames ?? []), ...adjustingFields],
