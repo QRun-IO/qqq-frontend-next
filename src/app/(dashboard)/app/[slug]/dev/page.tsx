@@ -15,8 +15,9 @@
  */
 
 /**
- * @file TableDeveloperView page — table metadata statistics and raw JSON, plus the
- * "API Docs & Playground" for the application APIs that expose the table.
+ * @file TableDeveloperView page — table metadata statistics and raw JSON, the table's ESB
+ * publications and subscribers when it has any, and the "API Docs & Playground" for the
+ * application APIs that expose the table.
  */
 
 'use client'
@@ -29,8 +30,10 @@ import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useMetaData } from '@/lib/hooks/use-metadata'
 import { useQContext } from '@/lib/context/q-context'
 import { loadTableMetaData } from '@/lib/api/metadata'
+import { getEsbForTable } from '@/lib/api/esb'
 import { queryKeys } from '@/lib/query-client'
 import { TableApiDocs } from '@/components/records/TableApiDocs'
+import { EsbSection } from '@/components/esb/EsbSection'
 
 /**
  * Renders a developer debug view for a QQQ table, showing summary statistics
@@ -38,6 +41,8 @@ import { TableApiDocs } from '@/components/records/TableApiDocs'
  *
  * @returns A composed page that assembles:
  *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
+ *   - An `<EsbSection>` with the table's ESB publications and subscribers, omitted when the
+ *     table has none to show (403, 404, or a backend without the ESB module)
  *   - The `<TableApiDocs>` section (API and version selectors with the embedded RapiDoc reference)
  *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
@@ -58,6 +63,11 @@ export default function TableDeveloperViewPage() {
   useEffect(() => {
     setPageHeader(`${tableLabel} Developer Mode`)
   }, [tableLabel, setPageHeader])
+
+  const { data: esb } = useQuery({
+    queryKey: queryKeys.esbTable(slug),
+    queryFn: () => getEsbForTable(slug),
+  })
 
   return (
     <div className="space-y-6" data-qqq-id={`table-dev-${slug}`}>
@@ -106,6 +116,8 @@ export default function TableDeveloperViewPage() {
             />
             <MetaStat label="Primary Key" value={data.primaryKeyField ?? '—'} />
           </div>
+
+          <EsbSection data={esb ?? null} />
 
           <TableApiDocs tableName={data.name || slug} primaryColor={instance?.branding?.accentColor} />
 
