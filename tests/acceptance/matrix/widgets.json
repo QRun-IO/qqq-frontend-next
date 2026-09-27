@@ -584,6 +584,25 @@
       "required": true
     },
     {
+      "id": "WID-071",
+      "feature": "a WIDGET-adorned process form field renders filter setup and writes its own value",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/DynamicFormFieldAsWidget.tsx",
+        "src/components/forms/WidgetAdornmentField.tsx"
+      ],
+      "fixture": "ProcessesFixtures.java prcFieldWidget with a queryFilterJson WIDGET adornment",
+      "scenarios": [
+        "the widget request names the adorned field, the editor updates its filter, and the next process screen receives the JSON"
+      ],
+      "negative": [
+        "other widget output fields are not written to the adorned field's host form"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
       "id": "WID-031",
       "feature": "rowBuilder widget without association binding shows its rows read-only",
       "source": [

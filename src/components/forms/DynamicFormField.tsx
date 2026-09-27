@@ -51,6 +51,7 @@ import { FileUploadField } from './field-types/FileUploadField'
 import { PossibleValueSelect } from './PossibleValueSelect'
 import { RichTextField } from './RichTextField'
 import { ScriptEditor, scriptEditorLanguage } from './ScriptEditor'
+import { WidgetAdornmentField } from './WidgetAdornmentField'
 
 /**
  * Props for the {@link DynamicFormField} component.
@@ -296,6 +297,10 @@ export function DynamicFormField({
         {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
       </FieldWithHelp>
     )
+  }
+
+  if (hasAdornment(field, 'WIDGET')) {
+    return <WidgetAdornmentField field={field} control={control} disabled={disabled} possibleValueContext={possibleValueContext} />
   }
 
   // Fields with possible values (a named source, or values declared inline) use PossibleValueSelect

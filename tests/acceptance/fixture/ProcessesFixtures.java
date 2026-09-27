@@ -60,6 +60,8 @@ import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaDataInterface;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAdornment;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.help.HelpFormat;
@@ -126,6 +128,7 @@ public final class ProcessesFixtures
    static final String PROCESS_QUICK       = "prcQuickTask";
    static final String PROCESS_TAG         = "prcTagRecords";
    static final String PROCESS_PICK        = "prcSpecimenPick";
+   static final String PROCESS_FIELD_WIDGET = "prcFieldWidget";
 
    static final AtomicInteger FLAKY_CALLS = new AtomicInteger();
 
@@ -213,6 +216,7 @@ public final class ProcessesFixtures
       instance.addProcess(defineScanner());
       instance.addProcess(defineLoop());
       instance.addProcess(definePick());
+      instance.addProcess(defineFieldWidget());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
          .withLabel("Quick Task")
@@ -230,7 +234,7 @@ public final class ProcessesFixtures
 
       List<QAppChildMetaData> children = new ArrayList<>();
       children.add(instance.getTable(TABLE_SPECIMEN));
-      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK, PROCESS_PICK))
+      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK, PROCESS_PICK, PROCESS_FIELD_WIDGET))
       {
          children.add(instance.getProcess(processName));
       }
@@ -380,6 +384,31 @@ public final class ProcessesFixtures
             .withViewField(new QFieldMetaData("route", QFieldType.STRING).withLabel("Route").withPossibleValueSourceName("prcRoute"))
             .withViewField(new QFieldMetaData("routeNote", QFieldType.STRING).withLabel("Route Note"))
             .withViewField(new QFieldMetaData("detail", QFieldType.STRING).withLabel("Detail")));
+   }
+
+
+
+   /*******************************************************************************
+    ** A form field that hosts Material's filter-and-columns setup widget.
+    *******************************************************************************/
+   private static QProcessMetaData defineFieldWidget()
+   {
+      return new QProcessMetaData()
+         .withName(PROCESS_FIELD_WIDGET)
+         .withLabel("Field Widget")
+         .withStep(new QFrontendStepMetaData()
+            .withName("edit")
+            .withLabel("Edit Filter")
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("tableName", QFieldType.STRING).withLabel("Table Name"))
+            .withFormField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")
+               .withFieldAdornment(new FieldAdornment(AdornmentType.WIDGET)
+                  .withValue(AdornmentType.WidgetValues.WIDGET_NAME, "reportSetupWidget"))))
+         .withStep(new QFrontendStepMetaData()
+            .withName("review")
+            .withLabel("Review Filter")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")));
    }
 
 

@@ -20,9 +20,9 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 127 | 3 | 0 | 0 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
-| Widgets and blocks | 219 | 0 | 7 | 6 | 4 | 236 |
+| Widgets and blocks | 220 | 0 | 7 | 5 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 0 | 11 | 50 |
-| **Total** | **724** | **12** | **11** | **9** | **38** | **794** |
+| **Total** | **725** | **12** | **11** | **8** | **38** | **794** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 8 | 2 | 2 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -933,7 +933,7 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Edit: "Edit Filters and Columns", "+ Add Filters", "+ Add Columns" | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:303-330, 457-546 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Done: separate Add controls open the relevant editor tab when filters or columns are absent; five profiles |
 | Edit: modal with the full query screen (filter builder, sort, columns, variables) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter builder, multiple sort levels, columns, preview and query link work; variable assignment and the embedded full query screen remain; #722 |
 | Edit: OK writes queryFilterJson and columnsJson into the form | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:336-362; material:src/qqq/components/forms/EntityForm.tsx:486-537 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:save → WidgetFormContext.setValues | WID-070 | Done: Cancel leaves database unchanged; OK updates form; host Save persists backend JSON; five profiles |
-| filterAndColumnsSetup as a form field (WIDGET adornment in processes and row builders) | material:src/qqq/components/forms/DynamicFormField.tsx:264-281; material:src/qqq/components/forms/DynamicFormFieldAsWidget.tsx:41-170 | none | none | Missing: no WIDGET form field; #722 |
+| filterAndColumnsSetup as a form field (WIDGET adornment in processes and row builders) | material:src/qqq/components/forms/DynamicFormField.tsx:264-281; material:src/qqq/components/forms/DynamicFormFieldAsWidget.tsx:41-170 | src/components/forms/WidgetAdornmentField.tsx; src/components/forms/DynamicFormField.tsx | WID-071; src/components/forms/WidgetAdornmentField.test.tsx | Done: form widget request names the field, only that field is written back, and an indexed row-builder name is unit-tested; process path passed five profiles |
 | Help slots on the filter and pivot widgets (sectionSubhead, modalSubheader) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:434-495; material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:209-227 | src/components/widgets/WidgetSlotHelp.tsx in both widgets | none | Done: view sectionSubhead and form modalSubheader use screen roles; unit covered; #732 |
 
 ### M. PivotTableSetup
