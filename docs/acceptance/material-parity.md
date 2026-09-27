@@ -20,10 +20,10 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
 | Records | 127 | 3 | 0 | 0 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
-| Widgets and blocks | 220 | 0 | 7 | 5 | 4 | 236 |
+| Widgets and blocks | 227 | 0 | 5 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 0 | 11 | 50 |
-| **Total** | **725** | **12** | **11** | **8** | **38** | **794** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 8 | 2 | 2 | 12 | 127 |
+| **Total** | **732** | **12** | **9** | **3** | **38** | **794** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 104 | 8 | 2 | 1 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 row-by-row recount found 794 area rows, including 50 supplemental metadata and theme rows. The prior summary overstated the total by one; no behavior row was deleted in this correction. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -954,13 +954,13 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Material ability | Material source | Next implementation | Acceptance row(s) | Status |
 |---|---|---|---|---|
 | View: expression, backend description, time zone | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:688-740 | src/components/widgets/CronUIWidget.tsx:210-249 | WID-026, RPT-012 | Done |
-| Cron on the record edit screen, with a time-zone select | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:744-860; material:src/qqq/components/forms/EntityForm.tsx:585-599, 910 | src/components/forms/DynamicForm.tsx:109-116 (plain fields) | RPT-012 | Partial: No builder; #702 |
-| Basic days picker (every day, weekdays, dates) | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:778-795, 1063-1127 | none | none | Missing: no days picker; #702 |
-| Basic hours picker | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:796-806 | none | none | Missing: no hours picker; #702 |
-| Basic minutes picker | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:807-818 | none | none | Missing: no minutes picker; #702 |
-| Basic/Advanced toggle (Basic disabled for unsupported expressions) and Clear | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:250-263, 596-617, 746-763 | none | none | Missing: no toggle or Clear; #702 |
-| Advanced raw expression with a tooltip naming the part under the caret | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682, 820-840 | src/components/forms/DynamicForm.tsx raw text field | RPT-012 | Partial: No part tooltip; #702 |
-| Live description or error while typing | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:382-427, 866-869 | src/components/widgets/CronUIWidget.tsx:119-207 (editable mode) | none | Missing: Next's editable CronUIWidget mode is never used; #702 |
+| Cron on the record edit screen, with a time-zone select | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:744-860; material:src/qqq/components/forms/EntityForm.tsx:585-599, 910 | src/components/forms/DynamicForm.tsx:editScreenCronWidget, CronScheduleEditor; src/components/forms/DynamicFormField.tsx:PossibleValueSelect | WID-064, RPT-012 | Done: editable widget section uses metadata field names; a time-zone possible-value source renders the select; five profiles; #702 |
+| Basic days picker (every day, weekdays, dates) | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:778-795, 1063-1127 | src/components/forms/CronScheduleEditor.tsx:SlotPicker; src/lib/utils/cron-utils.ts:buildBasicExpression | WID-064 | Done: weekday and date choices produce Quartz expressions; five profiles; #702 |
+| Basic hours picker | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:796-806 | src/components/forms/CronScheduleEditor.tsx:SlotPicker | WID-064 | Done: selected and every-hour choices; five profiles; #702 |
+| Basic minutes picker | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:807-818 | src/components/forms/CronScheduleEditor.tsx:SlotPicker | WID-064 | Done: selected and every-minute choices; five profiles; #702 |
+| Basic/Advanced toggle (Basic disabled for unsupported expressions) and Clear | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:250-263, 596-617, 746-763 | src/components/forms/CronScheduleEditor.tsx:modeButton, Clear | WID-064 | Done: unsupported expressions stay Advanced with a reason, and Clear resets the schedule; five profiles; #702 |
+| Advanced raw expression with a tooltip naming the part under the caret | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682, 820-840 | src/components/forms/CronScheduleEditor.tsx:trackCaret, cron-format; src/lib/utils/cron-utils.ts:cronPartAtCaret | WID-064 | Done: the named part is highlighted inline as the caret moves, including keyboard navigation; five profiles; #702 |
+| Live description or error while typing | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:382-427, 866-869 | src/components/forms/CronScheduleEditor.tsx:checkCron, cron-live; src/lib/utils/cron-utils.ts | WID-064 | Done: debounced description and invalid-part error, with persisted description matching the backend; five profiles; #702 |
 
 ### O. DataBagViewer
 
@@ -1204,7 +1204,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | FilterAndColumnsSetup editor modal (full query screen) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter, multiple sort levels, columns, preview and save work; variable assignment and the embedded full query screen remain; #722 |
 | PivotTableSetup editor modal | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:776-807 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx; src/components/widgets/PivotTableSetupWidget.tsx:297 | none | Done: pivot editor dialog is mounted from the record form; #722 |
 | RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | src/components/widgets/RowBuilderEditor.tsx:417-461 | none | Done: modal edits a draft and applies on OK; #722 |
-| CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | none | none | Missing: no cron builder; #702 |
+| CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | src/components/forms/CronScheduleEditor.tsx:SlotPicker, cron-format | WID-064 | Done: date and weekday popovers plus inline caret-part hint; five profiles; #702 |
 | Script editor modal (Edit, Edit and Activate, Create New Version) with commit-message dialog | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:556; material:src/qqq/components/scripts/ScriptEditor.tsx:555 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Script editor multi-file panes, API name/version selects, error snackbar | material:src/qqq/components/scripts/ScriptEditor.tsx:162,352-375,406 | src/components/scripts/ScriptEditorDialog.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Done: multi-file panes, API selects and inline save error |
 | Script viewer save success / failure snackbars | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:407,416 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
@@ -1229,7 +1229,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 
 - #406 Complete V1 API surface for new frontend: 0 open rows
 - #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 0 open rows
-- #702 Next UI 1.0: cronUI widget with live schedule description: 7 open rows
+- #702 Next UI 1.0: cronUI widget with live schedule description: 0 open rows
 - #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 open row
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 0 open rows (integrated)
 - #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 0 open rows

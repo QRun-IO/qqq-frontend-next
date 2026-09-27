@@ -217,6 +217,9 @@ final class WidgetsFixtures
 
       qInstance.addPossibleValueSource(new QPossibleValueSource().withName(CHOICE_PVS).withLabel("Choice").withType(QPossibleValueSourceType.ENUM)
          .withEnumValues(List.of(new QPossibleValue<>("alpha", "Alpha"), new QPossibleValue<>("beta", "Beta"))));
+      qInstance.addPossibleValueSource(new QPossibleValueSource().withName("accHostTimeZones").withLabel("Time Zone").withType(QPossibleValueSourceType.ENUM)
+         .withEnumValues(List.of(new QPossibleValue<>("UTC", "UTC"), new QPossibleValue<>("America/New_York", "America/New_York"),
+            new QPossibleValue<>("America/Chicago", "America/Chicago"))));
 
       defineGallery(qInstance);
       defineControls(qInstance);
@@ -528,7 +531,7 @@ final class WidgetsFixtures
          .withField(new QFieldMetaData("owner", QFieldType.STRING))
          .withField(new QFieldMetaData("zero", QFieldType.INTEGER))
          .withField(new QFieldMetaData("cronExpression", QFieldType.STRING).withLabel("Schedule Expression"))
-         .withField(new QFieldMetaData("cronTimeZoneId", QFieldType.STRING).withLabel("Time Zone"))
+         .withField(new QFieldMetaData("cronTimeZoneId", QFieldType.STRING).withLabel("Time Zone").withPossibleValueSourceName("accHostTimeZones"))
          .withField(new QFieldMetaData("inputValues", QFieldType.TEXT))
          .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "owner", "zero")))
          .withSection(new QFieldSection().withName("hostSchedule").withLabel("Owned Schedule").withTier(Tier.T2).withWidgetName("accHostCron"))

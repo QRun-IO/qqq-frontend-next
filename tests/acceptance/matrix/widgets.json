@@ -1389,9 +1389,10 @@
         "src/components/forms/CronScheduleEditor.tsx",
         "src/lib/utils/cron-utils.ts"
       ],
-      "fixture": "scheduledReport (memory) for savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron",
+      "fixture": "scheduledReport (memory) for savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron with a time-zone enum possible-value source",
       "scenarios": [
         "Basic mode builds weekdays, hours and minutes; the live description equals the cronDescription QQQ stores",
+        "Basic mode builds selected dates, Clear resets the schedule, and the Advanced hint names the part under the keyboard caret",
         "Advanced mode edits the stored expression; the live description equals the backend widget description; expression and time zone persist (SQL)",
         "an expression Basic mode cannot show opens Advanced with Basic disabled and the reason"
       ],
