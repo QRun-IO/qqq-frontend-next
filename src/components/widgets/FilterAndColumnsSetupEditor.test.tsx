@@ -51,6 +51,18 @@ function FormHarness({ onSetValues }: { onSetValues: (next: Record<string, unkno
 }
 
 describe('FilterAndColumnsSetupWidget form editor', () => {
+  it('opens separate Add Filters and Add Columns controls on the matching editor tab', async () => {
+    const user = userEvent.setup()
+    render(<FormHarness onSetValues={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: '+ Add Columns' }))
+    expect(screen.getByRole('tab', { name: 'Columns' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await user.click(screen.getByRole('button', { name: '+ Add Filters' }))
+    expect(screen.getByRole('tab', { name: 'Filters and sort' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('discards Cancel and writes backend-compatible filter and columns JSON on OK', async () => {
     const user = userEvent.setup()
     const onSetValues = vi.fn()
@@ -63,11 +75,15 @@ describe('FilterAndColumnsSetupWidget form editor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
     await user.selectOptions(screen.getByLabelText('Sort by'), 'firstName')
+    await user.click(screen.getByRole('button', { name: '+ Add sort' }))
+    await user.click(screen.getAllByRole('checkbox', { name: 'Ascending' })[1])
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(onSetValues).toHaveBeenCalledTimes(1)
     const saved = onSetValues.mock.calls[0][0] as Record<string, string>
-    expect(JSON.parse(saved.queryFilterJson).orderBys).toEqual([{ fieldName: 'firstName', isAscending: true }])
+    expect(JSON.parse(saved.queryFilterJson).orderBys).toEqual([
+      { fieldName: 'firstName', isAscending: true }, { fieldName: 'id', isAscending: false },
+    ])
     expect(JSON.parse(saved.columnsJson).columns.some((column: { name: string }) => column.name === 'firstName')).toBe(true)
     expect(screen.getByText(/Sorted by/)).toHaveTextContent('First Name ascending')
   })

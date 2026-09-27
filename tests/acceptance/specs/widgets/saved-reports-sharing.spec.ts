@@ -74,8 +74,13 @@ test('[WID-070] saved-report filter editor cancels drafts and persists OK throug
   await open(page, '/app/savedReport/1/edit')
   const edit = page.getByRole('button', { name: 'Edit Filters and Columns' })
   await expect(edit).toBeVisible()
-  await edit.click()
+  const addFilters = page.getByRole('button', { name: '+ Add Filters' })
+  await expect(addFilters).toBeVisible()
+  await addFilters.click()
   const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await expect(dialog.getByRole('tab', { name: 'Filters and sort' })).toHaveAttribute('aria-selected', 'true')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await edit.click()
   await expect(dialog).toBeVisible()
   await dialog.getByLabel('Sort by').selectOption('possibleValueLabel')
   await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -84,13 +89,19 @@ test('[WID-070] saved-report filter editor cancels drafts and persists OK throug
 
   await edit.click()
   await dialog.getByLabel('Sort by').selectOption('possibleValueLabel')
+  await dialog.getByRole('button', { name: '+ Add sort' }).click()
+  await dialog.getByLabel('Then by 2').selectOption('possibleValueId')
+  await dialog.getByRole('checkbox', { name: 'Ascending' }).nth(1).uncheck()
   await dialog.getByRole('button', { name: 'OK' }).click()
   await expect(dialog).toHaveCount(0)
   expect((await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]).toEqual(before)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
   const after = (await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1'))[0]
-  expect(JSON.parse(after.query_filter_json).orderBys).toEqual([{ fieldName: 'possibleValueLabel', isAscending: true }])
+  expect(JSON.parse(after.query_filter_json).orderBys).toEqual([
+    { fieldName: 'possibleValueLabel', isAscending: true },
+    { fieldName: 'possibleValueId', isAscending: false },
+  ])
   expect(JSON.parse(after.columns_json).columns.some((column: { name: string }) => column.name === 'possibleValueLabel')).toBe(true)
 })
 

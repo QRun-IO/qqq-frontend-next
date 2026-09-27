@@ -33,6 +33,11 @@ function table(extra: Partial<QTableMetaData> = {}): QTableMetaData {
 afterEach(() => window.localStorage.clear())
 
 describe('record view layout from metadata', () => {
+  it('does not ask for joins from widget-only sections without fieldNames', () => {
+    const lab = table({ sections: [{ name: 'summary', label: 'Summary', widgetName: 'summaryWidget', isHidden: false } as QTableSection] })
+    expect(recordSectionQueryJoins(lab, { lab: { ...lab, readPermission: true } })).toEqual([])
+  })
+
   it('loads only readable joins used by visible record sections and resolves their qualified values', () => {
     const person = { name: 'person', label: 'Person', readPermission: true, fields: {
       firstName: { name: 'firstName', label: 'First Name', isHidden: false },

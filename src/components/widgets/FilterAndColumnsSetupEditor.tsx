@@ -122,22 +122,33 @@ export function FilterSetupPreview({ table, filter, columns, api, widgetName }: 
  * @param root0 - Widget metadata, current form values and save callback.
  * @returns The dialog content.
  */
-function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCancel, onSave, disabled, helpRoles, api }: {
+function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCancel, onSave, disabled, helpRoles, api, initialTab }: {
   table: QTableMetaData; data: FilterAndColumnsSetupPayload | undefined; values: Record<string, unknown>
   widgetMetaData: QWidgetMetaData
   widgetName: string; onCancel: () => void; onSave: (filter: QQueryFilter, columns: ColumnsState) => void
   disabled: boolean; helpRoles: readonly string[]; api: ReturnType<typeof resolveApiVersion>
+  initialTab: 'filters' | 'columns'
 }) {
   const filterField = data?.filterFieldName ?? 'queryFilterJson'
   const columnField = data?.columnsFieldName ?? data?.columnFieldName ?? 'columnsJson'
   const loaded = initialFilter(values[filterField], table, data, values)
   const [filter, setFilter] = useState(loaded.filter)
   const [columns, setColumns] = useState(() => columnsStateFromEntries(table, storedColumns(values[columnField])) ?? DEFAULT_COLUMNS_STATE)
-  const [tab, setTab] = useState<'filters' | 'columns'>('filters')
+  const [tab, setTab] = useState<'filters' | 'columns'>(initialTab)
   const [warning] = useState(removedFieldsWarning(loaded.removed))
   const fields = buildFilterFields(table)
-  const changeSort = (name: string) => setFilter((current) => ({ ...current, orderBys: name ? [{ fieldName: name, isAscending: true }] : [] }))
-  const sort = filter.orderBys?.[0]
+  const sorts = filter.orderBys ?? []
+  const changeSort = (index: number, name: string) => setFilter((current) => {
+    const orderBys = [...(current.orderBys ?? [])]
+    if (!name) orderBys.splice(index, 1)
+    else if (index < orderBys.length) orderBys[index] = { ...orderBys[index], fieldName: name }
+    else orderBys.push({ fieldName: name, isAscending: true })
+    return { ...current, orderBys }
+  })
+  const addSort = () => {
+    const field = fields.find(({ name }) => !sorts.some((sort) => sort.fieldName === name))
+    if (field) changeSort(sorts.length, field.name)
+  }
   const backend = toBackendFilter(table, filter)
   return (
     <>
@@ -154,12 +165,25 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {tab === 'filters' ? <>
           <FilterBuilder tableMetaData={table} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />
-          {!data?.hideSortBy && <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
-            <label htmlFor={`report-sort-${widgetName}`} className="text-sm font-medium">Sort by</label>
-            <select id={`report-sort-${widgetName}`} value={sort?.fieldName ?? ''} onChange={(event) => changeSort(event.target.value)} className="rounded border border-input bg-background p-2 text-sm">
-              <option value="">No sort</option>{fields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
-            </select>
-            {sort && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sort.isAscending !== false} onChange={(event) => setFilter((current) => ({ ...current, orderBys: [{ ...sort, isAscending: event.target.checked }] }))} />Ascending</label>}
+          {!data?.hideSortBy && <div className="space-y-2 border-t border-border pt-3">
+            {(sorts.length ? sorts : [undefined]).map((sort, index) => (
+              <div key={index} className="flex flex-wrap items-center gap-3">
+                <label htmlFor={`report-sort-${widgetName}-${index}`} className="text-sm font-medium">{index === 0 ? 'Sort by' : `Then by ${index + 1}`}</label>
+                <select id={`report-sort-${widgetName}-${index}`} value={sort?.fieldName ?? ''} onChange={(event) => changeSort(index, event.target.value)} className="rounded border border-input bg-background p-2 text-sm">
+                  <option value="">No sort</option>{fields.filter((field) => field.name === sort?.fieldName || !sorts.some((used) => used.fieldName === field.name))
+                    .map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+                </select>
+                {sort && <>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sort.isAscending !== false}
+                    onChange={(event) => setFilter((current) => ({ ...current, orderBys: (current.orderBys ?? []).map((entry, at) =>
+                      at === index ? { ...entry, isAscending: event.target.checked } : entry) }))} />Ascending</label>
+                  <button type="button" onClick={() => changeSort(index, '')} className="rounded px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                    aria-label={`Remove sort ${index + 1}`}>Remove</button>
+                </>}
+              </div>
+            ))}
+            {sorts.length > 0 && sorts.length < fields.length && <button type="button" onClick={addSort}
+              className="rounded px-2 py-2 text-sm text-primary hover:underline" data-qqq-id={`filter-editor-add-sort-${widgetName}`}>+ Add sort</button>}
           </div>}
         </> : <ColumnConfig tableMetaData={table} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
@@ -188,12 +212,13 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
   const versioned = useApiTableMetaData(data?.isApiVersioned ? api : undefined, tableName)
   const table = data?.isApiVersioned ? versioned.data : plain.data
   const [open, setOpen] = useState(false)
+  const [initialTab, setInitialTab] = useState<'filters' | 'columns'>('filters')
   const [alert, setAlert] = useState('')
   const restoreFocus = useRestoreFocus(open)
   const name = widgetMetaData.name
   const helpRoles = formContext.screen === 'recordCreate' ? INSERT_SCREEN_HELP_ROLES : EDIT_SCREEN_HELP_ROLES
   const reason = !table || (data?.isApiVersioned && !api) ? selectTableFirstMessage(Boolean(data?.isApiVersioned), Boolean(data?.hideColumns)) : null
-  const openEditor = () => {
+  const openEditor = (tab: 'filters' | 'columns' = 'filters') => {
     if (!table || disabled) return
     const missing = missingDefaultFields(data?.filterDefaultFieldNames, values, data?.filterDefaultFieldNameSourceFieldNames)
     if (missing.length) {
@@ -201,6 +226,7 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
       return
     }
     setAlert('')
+    setInitialTab(tab)
     setOpen(true)
   }
   const save = (filter: QQueryFilter, columns: ColumnsState) => {
@@ -211,10 +237,21 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
       ...(!data?.hideColumns ? { [columnField]: JSON.stringify(toColumnsJson(table, columns)) } : {}) })
     setOpen(false)
   }
+  const filterField = data?.filterFieldName ?? 'queryFilterJson'
+  const columnField = data?.columnsFieldName ?? data?.columnFieldName ?? 'columnsJson'
+  const configuredFilter = table ? initialFilter(values[filterField], table, data, values).filter : null
+  const hasFilters = Boolean(configuredFilter?.criteria.length || configuredFilter?.subFilters?.length)
+  const hasColumns = Boolean(storedColumns(values[columnField])?.some((column) => column.isVisible))
   return (
     <div className="space-y-2" data-qqq-id={`widget-filterAndColumnsSetup-${name}`}>
-      <div className="flex justify-end"><WidgetHeaderLinkButton label={editButtonLabel(Boolean(data?.hideColumns), data?.editButtonLabel)}
-        onClick={openEditor} disabled={disabled || Boolean(reason)} disabledTooltip={reason} qqqId={`filter-edit-button-${name}`} /></div>
+      <div className="flex flex-wrap justify-end gap-2">
+        {!hasFilters && <WidgetHeaderLinkButton label="+ Add Filters" onClick={() => openEditor('filters')}
+          disabled={disabled || Boolean(reason)} disabledTooltip={reason} qqqId={`filter-add-button-${name}`} />}
+        {!data?.hideColumns && !hasColumns && <WidgetHeaderLinkButton label="+ Add Columns" onClick={() => openEditor('columns')}
+          disabled={disabled || Boolean(reason)} disabledTooltip={reason} qqqId={`columns-add-button-${name}`} />}
+        <WidgetHeaderLinkButton label={editButtonLabel(Boolean(data?.hideColumns), data?.editButtonLabel)}
+          onClick={() => openEditor()} disabled={disabled || Boolean(reason)} disabledTooltip={reason} qqqId={`filter-edit-button-${name}`} />
+      </div>
       {alert && <p role="alert" className="rounded bg-destructive/10 p-2 text-sm text-destructive">{alert}</p>}
       {renderSummary(values)}
       {table && <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) setOpen(false) }}>
@@ -222,6 +259,7 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
           <DialogPrimitive.Content aria-describedby={undefined} onCloseAutoFocus={restoreFocus} onInteractOutside={(event) => event.preventDefault()}
             data-qqq-id={`filter-editor-${name}`} className="fixed inset-2 z-50 flex flex-col rounded-lg border border-border bg-card shadow-lg focus:outline-none sm:inset-8">
             <EditorDialog table={omitExposedJoins(table, data?.omitExposedJoins)} data={data} values={values} widgetMetaData={widgetMetaData} widgetName={name}
+              initialTab={initialTab}
               onCancel={() => setOpen(false)} onSave={save} disabled={disabled} helpRoles={helpRoles} api={api} />
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>

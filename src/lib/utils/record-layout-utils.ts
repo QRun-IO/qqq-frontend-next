@@ -89,7 +89,7 @@ export function recordSectionField(table: QTableMetaData, allTables: Record<stri
  */
 export function recordSectionQueryJoins(table: QTableMetaData, allTables: Record<string, QTableMetaData>): QueryJoin[] {
   const names = new Set(visibleRecordViewSections(table, allTables).flatMap((section) =>
-    section.fieldNames.filter((name) => {
+    (section.fieldNames ?? []).filter((name) => {
       const field = recordSectionField(table, allTables, name)
       return name.includes('.') && field && !field.isHidden
     }).map((name) => name.split('.')[0])
