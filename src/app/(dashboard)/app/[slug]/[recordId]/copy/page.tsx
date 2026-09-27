@@ -36,9 +36,9 @@ import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
 import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
 import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import type { EntityFormProps } from '@/components/forms/EntityForm'
-import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
 
 const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
+const FullCopyDraft = lazy(() => import('@/components/forms/FullCopyDraft').then((module) => ({ default: module.FullCopyDraft })))
 
 /**
  * Renders the entity copy form for the record identified by `slug` and `recordId`.
@@ -188,7 +188,11 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         isCopy={true}
         copyAssociations={mode === 'full' ? fullState : undefined}
       >
-        {tree && <fieldset hidden={mode !== 'full'} disabled={mode !== 'full'} className="min-w-0"><FullCopyDraft tree={tree} onChange={setCopyState} /></fieldset>}
+        {tree && <fieldset hidden={mode !== 'full'} disabled={mode !== 'full'} className="min-w-0">
+          <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading full copy draft…</p>}>
+            <FullCopyDraft tree={tree} onChange={setCopyState} />
+          </Suspense>
+        </fieldset>}
       </EntityForm></Suspense>
     </div>
   )

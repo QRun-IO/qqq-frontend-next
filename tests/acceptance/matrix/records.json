@@ -261,6 +261,7 @@
       "fixture": "person 1; recordLab 1",
       "scenarios": [
         "source values prefilled without the key",
+        "Full Copy loads the descendant draft on selection; returning to Base Copy preserves the base form",
         "save creates a new row and opens it",
         "source unchanged"
       ],

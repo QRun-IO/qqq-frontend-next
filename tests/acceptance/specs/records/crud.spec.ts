@@ -223,6 +223,10 @@ test('[REC-013] copy prefills a new record and saves it separately from the sour
   await expect(control(page, 'firstName')).toHaveValue('Avery')
   await expect(control(page, 'email')).toHaveValue('avery@example.invalid')
   await expect(control(page, 'id')).toHaveCount(0)
+  await expect(page.locator('[data-qqq-id="full-copy-draft"]')).toHaveCount(0)
+  await page.locator('[data-qqq-id="copy-mode-full"]').check()
+  await expect(page.locator('[data-qqq-id="full-copy-draft"]')).toBeVisible()
+  await page.locator('[data-qqq-id="copy-mode-base"]').check()
   await control(page, 'firstName').fill('Avery Copy')
   await page.getByRole('button', { name: 'Save' }).click()
 
