@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { QInstance, QTableMetaData, QTableSection } from '@/types'
 import {
-  collapsibleSectionStorageKey, gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionGridSpan, recordViewActionsPlacement, recordViewSections,
+  collapsibleSectionStorageKey, gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionField, recordSectionGridSpan, recordSectionQueryJoins, recordViewActionsPlacement, recordViewSections,
   showRecordSidebar, storeSectionOpen, twelfths, visibleRecordViewSections,
 } from './record-layout-utils'
 
@@ -33,6 +33,27 @@ function table(extra: Partial<QTableMetaData> = {}): QTableMetaData {
 afterEach(() => window.localStorage.clear())
 
 describe('record view layout from metadata', () => {
+  it('loads only readable joins used by visible record sections and resolves their qualified values', () => {
+    const person = { name: 'person', label: 'Person', readPermission: true, fields: {
+      firstName: { name: 'firstName', label: 'First Name', isHidden: false },
+    } } as unknown as QTableMetaData
+    const lab = table({
+      fields: { id: { name: 'id', label: 'ID', isHidden: false } } as unknown as QTableMetaData['fields'],
+      sections: [section('identity', { fieldNames: ['id'] }), section('owner', { fieldNames: ['person.firstName'] })],
+      exposedJoins: [{ label: 'Owner', isMany: false, joinTable: person,
+        joinPath: [{ name: 'labPerson', type: 'MANY_TO_ONE', leftTable: 'lab', rightTable: 'person' }] }],
+    })
+    const allowed = { lab: { ...lab, readPermission: true }, person }
+    expect(visibleRecordViewSections(lab, allowed)).toHaveLength(2)
+    expect(recordSectionField(lab, allowed, 'person.firstName')).toMatchObject({ name: 'person.firstName', label: 'First Name' })
+    expect(recordSectionQueryJoins(lab, allowed)).toEqual([{ joinTable: 'person', select: true, type: 'LEFT', joinName: 'labPerson' }])
+
+    const denied = { ...allowed, person: { ...person, readPermission: false } }
+    expect(visibleRecordViewSections(lab, denied).map(({ name }) => name)).toEqual(['identity'])
+    expect(recordSectionField(lab, denied, 'person.firstName')).toBeUndefined()
+    expect(recordSectionQueryJoins(lab, denied)).toEqual([])
+  })
+
   it('replaces a section by its RECORD_VIEW alternative and keeps the others', () => {
     const alternative = section('details', { label: 'Details For Viewing', fieldNames: ['b'] })
     const sections = recordViewSections(table({ sections: [section('identity'), section('details', { fieldNames: ['a'], alternatives: { RECORD_VIEW: alternative, RECORD_EDIT: section('x') } })] }))

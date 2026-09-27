@@ -42,6 +42,25 @@ test('[REC-001] record view shows the label, tiered sections and formatted value
   await expect(header.locator('[data-qqq-id="record-field-title"]')).toContainText('Alpha')
 })
 
+test('[REC-064] record sections load and render readable joined fields @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const owner = await sqlOne(backend, 'select first_name from person where id = 1')
+  const requests: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === '/qqq/v1/table/qryItem/1') {
+      requests.push(new URL(request.url()).searchParams.get('queryJoins') ?? '')
+    }
+  })
+
+  await openRecord(page, 'qryItem', 1, 'Alpha Widget')
+  await expandOnPhone(page, 'Details')
+  await expect(fieldValue(page, 'person.firstName')).toHaveText(owner.first_name!)
+  expect(requests.some((encoded) => {
+    const joins = JSON.parse(encoded || '[]') as Array<{ joinTable: string; joinName?: string; select: boolean }>
+    return joins.some(({ joinTable, joinName, select }) => joinTable === 'person' && joinName === 'qryItemJoinPerson' && select)
+  })).toBe(true)
+})
+
 test('[REC-002] empty values show a placeholder; hidden fields and sections never render @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await sqlOne(backend, 'select birth_date from person where id = 4')).birth_date).toBeNull()

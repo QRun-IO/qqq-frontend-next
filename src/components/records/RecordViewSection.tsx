@@ -26,7 +26,7 @@ import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
-import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, storeSectionOpen, twelfths } from '@/lib/utils/record-layout-utils'
+import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionField, storeSectionOpen, twelfths } from '@/lib/utils/record-layout-utils'
 import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 
@@ -184,7 +184,7 @@ export function RecordViewSection({
 
   // Filter to visible fields. Heavy fields are included: a single-record read returns them.
   const visibleFields = section.fieldNames
-    .map((fn) => tableMetaData.fields[fn])
+    .map((fn) => recordSectionField(tableMetaData, allTables, fn))
     .filter((f) => f && !f.isHidden)
   const sectionHelp = selectSlotHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES, `table:${tableMetaData.name};section:${section.name}`, helpHelpActive)
 

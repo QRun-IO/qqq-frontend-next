@@ -18,11 +18,11 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
-| Records | 126 | 3 | 0 | 1 | 8 | 138 |
+| Records | 127 | 3 | 0 | 0 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 218 | 0 | 8 | 6 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 0 | 11 | 50 |
-| **Total** | **722** | **12** | **12** | **10** | **38** | **794** |
+| **Total** | **723** | **12** | **12** | **9** | **38** | **794** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 8 | 2 | 2 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -377,7 +377,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Section help content under section title (VIEW_SCREEN/READ_SCREENS/ALL_SCREENS) | material:src/qqq/pages/records/view/RecordView.tsx:523 | src/components/records/RecordViewSection.tsx (selectHelpContent VIEW_SCREEN_HELP_ROLES) | REC-040 | Done |
 | Field label help tooltip by screen roles | material:src/qqq/pages/records/view/RecordView.tsx:130 | src/components/records/FieldLabel.tsx | REC-039 | Done |
 | Field gridColumns (12-column grid) and section gridColumns (card width) | material:src/qqq/pages/records/view/RecordView.tsx:128,1285 | src/lib/utils/record-layout-utils.ts:gridSpanClasses; src/components/records/RecordViewSection.tsx; src/components/records/RecordViewTabs.tsx | REC-004 | Done: field and section spans are twelfths in card view, with full-width mobile cards; #723 |
-| Join-table fields in sections (`table.field`), fetched with queryJoins on GET | material:src/qqq/pages/records/view/RecordView.tsx:166,621 | src/lib/api/tables.ts getRecord accepts queryJoins, but the record page never passes it; RecordViewSection looks up only `tableMetaData.fields` | none | Missing: join fields in sections are silently dropped; #722 |
+| Join-table fields in sections (`table.field`), fetched with queryJoins on GET | material:src/qqq/pages/records/view/RecordView.tsx:166,621 | src/lib/utils/record-layout-utils.ts:recordSectionField/recordSectionQueryJoins; src/app/(dashboard)/app/[slug]/[recordId]/page.tsx; src/components/records/RecordViewSection.tsx | REC-064 | Done: readable exposed joins used by visible sections are sent on GET, and qualified fields render from the returned values; permission-denied joins are omitted; five-profile real-sample acceptance; #722 |
 | Table variant (localStorage `qqq.tableVariant.<table>`) applied to record GET and blob URLs | material:src/qqq/pages/records/view/RecordView.tsx:208,630; material:src/qqq/utils/qqq/ValueUtils.tsx:249 | src/lib/utils/table-variant.ts; src/app/(dashboard)/app/[slug]/[recordId]/page.tsx; src/lib/utils/adornment-utils.ts | REC-063 | Done: view, edit, copy and association GETs send the stored variant; backend file links carry it; inline BLOB bytes come from the selected record response; #722 |
 | Collapsible sections (`section.collapsible.isCollapsible/initiallyOpen`), state kept in localStorage | material:src/qqq/pages/records/view/RecordView.tsx:568,727,1063 | src/lib/utils/record-layout-utils.ts:initialSectionOpen; src/components/records/RecordViewSection.tsx | none | Done: section buttons restore and store the Material localStorage key; focused component tests; #723 |
 | Widget sections rendered through DashboardWidgets (screen=recordView) | material:src/qqq/pages/records/view/RecordView.tsx:750,1250 | src/components/records/RecordViewSection.tsx -> ConnectedWidget | WID-024, WID-026, WID-028, WID-030, WID-032 | Done |

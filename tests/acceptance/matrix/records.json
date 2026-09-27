@@ -1283,6 +1283,27 @@
       "required": true
     },
     {
+      "id": "REC-064",
+      "feature": "Record sections render qualified fields from readable exposed joins",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx:155-180,539-561",
+        "src/lib/utils/record-layout-utils.ts",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem joins person and shows person.firstName in Details",
+      "scenarios": [
+        "record GET sends a selected LEFT join with qryItemJoinPerson",
+        "the joined person's first name appears in the Details section"
+      ],
+      "negative": [
+        "unreadable join paths are removed from sections and GET descriptors by the same permission filter as query pages"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
+    },
+    {
       "id": "REC-063",
       "feature": "Record view, edit and copy load from the table variant selected on the query screen",
       "source": [

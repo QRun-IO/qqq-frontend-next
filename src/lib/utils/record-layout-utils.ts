@@ -21,8 +21,9 @@
  * and 12-column grid spans (`gridColumns`).
  */
 
-import type { QInstance, QTableMetaData, QTableSection, QWidgetMetaData } from '@/types'
+import type { QFieldMetaData, QInstance, QTableMetaData, QTableSection, QueryJoin, QWidgetMetaData } from '@/types'
 import { MATERIAL_DASHBOARD_TYPE, materialDashboardTableMetaData } from './goto-utils'
+import { withReadableExposedJoins } from './query-columns'
 
 /** Section alternative type for the record view screen. */
 export const RECORD_VIEW_ALTERNATIVE = 'RECORD_VIEW'
@@ -45,17 +46,62 @@ export function recordViewSections(table: QTableMetaData): QTableSection[] {
  * Resolves alternatives before filtering hidden or empty record-view sections.
  *
  * @param table - Table metadata.
+ * @param allTables - Visible table registry for qualified join fields.
  * @returns Renderable sections in metadata order.
  */
-export function visibleRecordViewSections(table: QTableMetaData): QTableSection[] {
+export function visibleRecordViewSections(table: QTableMetaData, allTables?: Record<string, QTableMetaData>): QTableSection[] {
   return recordViewSections(table).filter((section) => {
     if (section.isHidden || section.hidden) return false
     if (section.widgetName) return true
     return section.fieldNames.some((name) => {
-      const field = table.fields[name]
+      const field = recordSectionField(table, allTables, name)
       return field && !field.isHidden
     })
   })
+}
+
+/**
+ * Resolve a record section's base or qualified join field. A joined field retains its
+ * `table.field` name because the record response uses that key for its value.
+ *
+ * @param table - Base table metadata.
+ * @param allTables - Visible table registry used to check every join hop.
+ * @param name - Section field name.
+ * @returns Readable field metadata with the response key, or undefined.
+ */
+export function recordSectionField(table: QTableMetaData, allTables: Record<string, QTableMetaData> | undefined, name: string): QFieldMetaData | undefined {
+  if (table.fields[name]) return table.fields[name]
+  const dot = name.indexOf('.')
+  if (dot < 1 || !allTables) return undefined
+  const joinName = name.slice(0, dot)
+  const fieldName = name.slice(dot + 1)
+  const join = withReadableExposedJoins(table, allTables).exposedJoins?.find(({ joinTable }) => joinTable?.name === joinName)
+  const field = join?.joinTable?.fields[fieldName]
+  return field ? { ...field, name } : undefined
+}
+
+/**
+ * Join descriptors required by visible record sections, using the same shape as the query page.
+ *
+ * @param table - Base table metadata.
+ * @param allTables - Visible table registry used to check join permissions.
+ * @returns Joins selected for the record GET.
+ */
+export function recordSectionQueryJoins(table: QTableMetaData, allTables: Record<string, QTableMetaData>): QueryJoin[] {
+  const names = new Set(visibleRecordViewSections(table, allTables).flatMap((section) =>
+    section.fieldNames.filter((name) => {
+      const field = recordSectionField(table, allTables, name)
+      return name.includes('.') && field && !field.isHidden
+    }).map((name) => name.split('.')[0])
+  ))
+  return (withReadableExposedJoins(table, allTables).exposedJoins ?? [])
+    .filter(({ joinTable }) => joinTable && names.has(joinTable.name))
+    .map(({ joinTable, joinPath }): QueryJoin => ({
+      joinTable: joinTable!.name,
+      select: true,
+      type: 'LEFT',
+      ...(joinPath?.length === 1 && joinPath[0].name ? { joinName: joinPath[0].name } : {}),
+    }))
 }
 
 /**

@@ -24,7 +24,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo } fro
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
-import type { QInstance, QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
+import type { QFieldMetaData, QInstance, QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
@@ -34,7 +34,7 @@ import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
 import { scrollIntoViewWhenRendered } from '@/lib/utils/scroll-when-rendered'
 import { recordHashAction } from '@/lib/utils/material-links'
-import { recordViewActionsPlacement, showRecordSidebar, visibleRecordViewSections } from '@/lib/utils/record-layout-utils'
+import { recordSectionField, recordViewActionsPlacement, showRecordSidebar, visibleRecordViewSections } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
 import { FieldValue } from './FieldValue'
@@ -301,7 +301,7 @@ export function RecordView({
   if (!record) return null
 
   // Separate sections into tiers, excluding sections with no renderable content
-  const visibleSections = visibleRecordViewSections(tableMetaData)
+  const visibleSections = visibleRecordViewSections(tableMetaData, allTables)
   const primarySections = visibleSections.filter((s) => !s.tier || s.tier === 'T1' || s.tier === 'basic')
   const secondarySections = visibleSections.filter((s) => s.tier === 'T2' || s.tier === 'advanced')
   const tertiarySections = visibleSections.filter((s) => s.tier === 'T3')
@@ -486,7 +486,7 @@ function RecordViewContent({
   // CQ-MED-4: primarySections already captures all sections without an explicit tier
   // (via the `!s.tier` predicate), so the `|| visibleSections` fallback is redundant.
   const t1Sections = primarySections
-  const orderedSections = visibleRecordViewSections(tableMetaData)
+  const orderedSections = visibleRecordViewSections(tableMetaData, allTables)
   const hasSidebar = showRecordSidebar(tableMetaData) && orderedSections.length > 0
   const parentPk = record.values[tableMetaData.primaryKeyField]
 
@@ -525,8 +525,8 @@ function RecordViewContent({
   // repeated in the record label and the primary key.
   const t1Fields = t1Sections.flatMap((section) =>
     (section.fieldNames ?? [])
-      .map((fn) => tableMetaData.fields[fn])
-      .filter((f) => f && !f.isHidden)
+      .map((fn) => recordSectionField(tableMetaData, allTables, fn))
+      .filter((f): f is QFieldMetaData => Boolean(f && !f.isHidden))
   )
 
   const renderAssociation = (name: string, label?: string) => {

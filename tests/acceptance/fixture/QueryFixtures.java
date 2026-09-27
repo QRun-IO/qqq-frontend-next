@@ -127,7 +127,7 @@ final class QueryFixtures
          .withCapability(Capability.QUERY_STATS)
          .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "code")))
          .withSection(new QFieldSection("details", "Details", new QIcon("dataset"), Tier.T2,
-            List.of("quantity", "price", "receivedDate", "checkedAt", "isActive", "ownerId", "speciesId", "notes", "photo")))
+            List.of("quantity", "price", "receivedDate", "checkedAt", "isActive", "ownerId", "person.firstName", "speciesId", "notes", "photo")))
          .withExposedJoin(new ExposedJoin().withJoinTable(SampleMetaDataProvider.TABLE_NAME_PERSON).withJoinPath(List.of("qryItemJoinPerson")))
          .withExposedJoin(new ExposedJoin().withJoinTable("qryItemNote").withJoinPath(List.of("qryItemJoinItemNote")))));
       qInstance.addTable(rdbmsTable(new QTableMetaData().withName("qryCaseItem").withLabel("Case Item").withBackendName(rdbms)
