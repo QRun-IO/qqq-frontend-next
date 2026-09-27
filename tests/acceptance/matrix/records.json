@@ -1281,6 +1281,28 @@
         "QRun-IO/qqq-frontend-next#720"
       ],
       "required": true
+    },
+    {
+      "id": "REC-063",
+      "feature": "Record view, edit and copy load from the table variant selected on the query screen",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx:209-252,656",
+        "src/lib/utils/table-variant.ts",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryStock (same record ID in North and South variants)",
+      "scenarios": [
+        "Selecting South Store shows S-KIWI on the record view and edit/copy forms",
+        "Every South record GET includes tableVariant {type: qryStore, id: 2}",
+        "Switching to North Store shows N-APPLE for the same record ID with variant id 1"
+      ],
+      "negative": [
+        "The duplicate ID must not show North Store's N-APPLE value"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
     }
   ]
 }

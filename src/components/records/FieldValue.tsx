@@ -31,6 +31,7 @@ import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import type { QFieldMetaData, QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
@@ -219,7 +220,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
   }
 
   if (findAdornment(field, 'FILE_DOWNLOAD')) {
-    const file = fileDownload(field, record)
+    const file = fileDownload(field, record, storedRecordVariantJson(tableMetaData ?? allTables?.[record.tableName]))
     if (!file) return <EmptyValue fieldName={field.name} className={className} />
     return <FileLinks url={file.url} fileName={file.fileName} dataQqqId={dataQqqId} className={className} />
   }

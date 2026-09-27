@@ -18,11 +18,11 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 123 | 4 | 1 | 1 | 2 | 131 |
-| Records | 125 | 3 | 0 | 2 | 8 | 138 |
+| Records | 126 | 3 | 0 | 1 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 218 | 0 | 8 | 6 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 0 | 11 | 50 |
-| **Total** | **721** | **12** | **12** | **11** | **38** | **794** |
+| **Total** | **722** | **12** | **12** | **10** | **38** | **794** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 8 | 2 | 2 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -378,7 +378,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | Field label help tooltip by screen roles | material:src/qqq/pages/records/view/RecordView.tsx:130 | src/components/records/FieldLabel.tsx | REC-039 | Done |
 | Field gridColumns (12-column grid) and section gridColumns (card width) | material:src/qqq/pages/records/view/RecordView.tsx:128,1285 | src/lib/utils/record-layout-utils.ts:gridSpanClasses; src/components/records/RecordViewSection.tsx; src/components/records/RecordViewTabs.tsx | REC-004 | Done: field and section spans are twelfths in card view, with full-width mobile cards; #723 |
 | Join-table fields in sections (`table.field`), fetched with queryJoins on GET | material:src/qqq/pages/records/view/RecordView.tsx:166,621 | src/lib/api/tables.ts getRecord accepts queryJoins, but the record page never passes it; RecordViewSection looks up only `tableMetaData.fields` | none | Missing: join fields in sections are silently dropped; #722 |
-| Table variant (localStorage `qqq.tableVariant.<table>`) applied to record GET and blob URLs | material:src/qqq/pages/records/view/RecordView.tsx:208,630; material:src/qqq/utils/qqq/ValueUtils.tsx:249 | src/lib/utils/table-variant.ts; src/lib/hooks/use-record.ts; src/lib/api/tables.ts | QRY-071 | Done: record GET and edit send the variant; blob URLs are the `?tableVariant=` row below (#722) |
+| Table variant (localStorage `qqq.tableVariant.<table>`) applied to record GET and blob URLs | material:src/qqq/pages/records/view/RecordView.tsx:208,630; material:src/qqq/utils/qqq/ValueUtils.tsx:249 | src/lib/utils/table-variant.ts; src/app/(dashboard)/app/[slug]/[recordId]/page.tsx; src/lib/utils/adornment-utils.ts | REC-063 | Done: view, edit, copy and association GETs send the stored variant; backend file links carry it; inline BLOB bytes come from the selected record response; #722 |
 | Collapsible sections (`section.collapsible.isCollapsible/initiallyOpen`), state kept in localStorage | material:src/qqq/pages/records/view/RecordView.tsx:568,727,1063 | src/lib/utils/record-layout-utils.ts:initialSectionOpen; src/components/records/RecordViewSection.tsx | none | Done: section buttons restore and store the Material localStorage key; focused component tests; #723 |
 | Widget sections rendered through DashboardWidgets (screen=recordView) | material:src/qqq/pages/records/view/RecordView.tsx:750,1250 | src/components/records/RecordViewSection.tsx -> ConnectedWidget | WID-024, WID-026, WID-028, WID-030, WID-032 | Done |
 | Section collapsible metadata overrides the widget's collapsible metadata | material:src/qqq/pages/records/view/RecordView.tsx:1258 | src/components/records/RecordViewSection.tsx | none | Done: a section's rule is passed to ConnectedWidget or used around an association-backed widget; focused component tests; #723 |
@@ -493,7 +493,7 @@ Record view, create/edit/copy forms, field rendering, audits, sharing and develo
 | ERROR adornment (red with warning icon) | material:src/qqq/utils/qqq/ValueUtils.tsx:208 | FieldValue | REC-038 | Done |
 | BLOB value: Open file / Download file (iframe POST download) | material:src/qqq/utils/qqq/ValueUtils.tsx:749; material:src/qqq/utils/HtmlUtils.ts | FieldValue FileLinks (base64 data URL) | REC-022 | Done: mechanics differ; relies on the native base64 BLOB value |
 | FILE_DOWNLOAD adornment (downloadUrlDynamic; Open/Download) | material:src/qqq/utils/qqq/ValueUtils.tsx:256 | adornment-utils fileDownload; FieldValue | REC-034 | Done |
-| Blob/file URL carries `?tableVariant=` | material:src/qqq/utils/qqq/ValueUtils.tsx:249 | none | none | Missing: record GETs send the variant (QRY-071), blob URLs don't; #722 |
+| Blob/file URL carries `?tableVariant=` | material:src/qqq/utils/qqq/ValueUtils.tsx:249 | src/lib/utils/adornment-utils.ts:fileDownload; src/lib/utils/record-download.ts | REC-063 (record GET); focused file-link tests | Done: backend field-download URLs include the selected variant, including record menu downloads; external/dynamic URLs stay unchanged and inline BLOB data is variant-specific through GET; #722 |
 | WIDGET adornment in view (field value used as widget data) | material:src/qqq/components/view/FieldValueAsWidget.tsx:44 | FieldValue -> WidgetRenderer | REC-037 | Done |
 | DATE_TIME in viewer zone, or backend zoned display value | material:src/qqq/utils/qqq/ValueUtils.tsx:289 | FieldValue + src/lib/utils/datetime-utils.ts | REC-018, REC-019 | Done |
 | DATE / TIME display values; BOOLEAN Yes/No | material:src/qqq/utils/qqq/ValueUtils.tsx:300-320 | FieldValue | REC-016, REC-017 | Done |
@@ -1236,7 +1236,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows
-- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 8 open rows
+- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 7 open rows
 - #723 Next UI 1.0 parity: record view layout and menus: 0 open rows
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 1 open row
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 0 open rows

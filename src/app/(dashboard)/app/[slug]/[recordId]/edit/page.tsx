@@ -40,6 +40,7 @@ import { useRecord } from '@/lib/hooks/use-record'
 import { recordLoadFailure } from '@/lib/utils/error-utils'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 
 const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
 
@@ -71,12 +72,14 @@ export default function EntityEditPage() {
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
 
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
     enabled: canEditRecords(tableMetaData),
     includeAssociations: false,
+    tableVariant,
   })
 
   useEffect(() => {

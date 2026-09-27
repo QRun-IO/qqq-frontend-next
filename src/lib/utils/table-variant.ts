@@ -18,6 +18,7 @@
  * @file The table variant a user chose on the query screen, remembered per table.
  */
 
+import type { QTableMetaData } from '@/types'
 import type { TableVariant } from '@/lib/api/tables'
 
 /** localStorage key root for a table's selected variant (the same key Material uses). */
@@ -38,4 +39,15 @@ export function readStoredTableVariant(tableName: string): TableVariant | null {
   } catch {
     return null
   }
+}
+
+/**
+ * The stored variant for a table that declares variants, as the v1 record API's JSON parameter.
+ * @param table - Table metadata.
+ * @returns A type/id JSON value, or undefined for ordinary tables and absent selections.
+ */
+export function storedRecordVariantJson(table: QTableMetaData | undefined): string | undefined {
+  if (!table?.usesVariants) return undefined
+  const variant = readStoredTableVariant(table.name)
+  return variant ? JSON.stringify({ type: variant.type, id: variant.id }) : undefined
 }

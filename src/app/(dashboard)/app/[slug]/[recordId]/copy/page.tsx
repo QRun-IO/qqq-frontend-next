@@ -34,6 +34,7 @@ import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
 import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
 import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import type { EntityFormProps } from '@/components/forms/EntityForm'
 import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
 
@@ -78,15 +79,18 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
 
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
     enabled: canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
     includeAssociations: false,
+    tableVariant,
   })
 
   const expanded = useRecord({ tableName: slug, primaryKey: recordId, includeAssociations: true,
+    tableVariant,
     enabled: mode === 'full' && !tree && canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
   })
   const sourceTables = useMemo(() => {

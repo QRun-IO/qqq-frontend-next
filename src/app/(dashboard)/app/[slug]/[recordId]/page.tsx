@@ -46,6 +46,7 @@ import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { AssociationTableState } from '@/lib/utils/association-utils'
 import { canReadRecords } from '@/lib/auth/permissions'
 import { processRunHref, tableProcessForSegment, tableReportForSegment } from '@/lib/utils/material-links'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { RouteRedirect } from '@/components/layout/RouteRedirect'
 
 const RecordView = lazy(() => import('@/components/records/RecordView').then((module) => ({ default: module.RecordView })))
@@ -77,6 +78,7 @@ export default function RecordViewPage() {
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
 
   // Material URL shapes: /app/{table}/{process} runs the process, /app/{table}/{report} runs the report.
   const scopedProcess = metaData?.tables?.[slug] ? tableProcessForSegment(metaData, slug, recordId) : null
@@ -87,6 +89,7 @@ export default function RecordViewPage() {
     primaryKey: recordId,
     enabled: canReadRecords(tableMetaData) && Boolean(metaData) && !scopedProcess && !scopedReport,
     includeAssociations: false,
+    tableVariant,
   })
 
   const targetNames = [...new Set(tableMetaData?.associations?.map((association) => association.associatedTableName) ?? [])]
@@ -116,6 +119,7 @@ export default function RecordViewPage() {
     enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length) && Boolean(metaData)
       && deniedTargets.size === 0 && unreadableTargets.length === 0,
     includeAssociations: true,
+    tableVariant,
   })
   const displayRecord = record && associations.record && !associations.isError
     ? { ...record, associatedRecords: associations.record.associatedRecords }

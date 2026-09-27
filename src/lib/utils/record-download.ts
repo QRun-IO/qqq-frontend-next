@@ -22,6 +22,7 @@
 
 import type { QRecord, QTableMetaData } from '@/types'
 import { attachmentUrl, fileDownload } from './adornment-utils'
+import { storedRecordVariantJson } from './table-variant'
 import { isHttpUrl } from './string-utils'
 
 /** A field's file and how to deliver it. */
@@ -47,7 +48,7 @@ export function recordFieldFile(table: QTableMetaData, record: QRecord, fieldNam
   const value = record.values[fieldName]
   if (!field || value === null || value === undefined || value === '') return null
 
-  const linked = fileDownload(field, record)
+  const linked = fileDownload(field, record, storedRecordVariantJson(table))
   if (linked) {
     return field.type === 'BLOB'
       ? { url: attachmentUrl(linked.url), fileName: linked.fileName, mode: 'download' }

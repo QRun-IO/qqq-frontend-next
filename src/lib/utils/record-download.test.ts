@@ -20,7 +20,10 @@ const table = {
 const record = (values: Record<string, unknown>, displayValues: Record<string, string> = {}) =>
   ({ tableName: 'lab', values: { id: 7, ...values }, displayValues }) as QRecord
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  window.localStorage.clear()
+})
 
 describe('record field file delivery', () => {
   it('names inline blobs from their display value or field metadata', () => {
@@ -38,6 +41,13 @@ describe('record field file delivery', () => {
       url: 'https://example.invalid/guide.pdf?revision=2', fileName: 'guide.pdf', mode: 'open',
     })
     expect(recordFieldFile(table, record({ manual: '/files/readme.txt' }), 'manual')?.mode).toBe('open')
+  })
+
+  it('keeps the chosen table variant on a record action download', () => {
+    window.localStorage.setItem('qqq.tableVariant.lab', JSON.stringify({ type: 'store', id: '2' }))
+    const variantTable = { ...table, usesVariants: true } as QTableMetaData
+    const file = recordFieldFile(variantTable, record({ attachment: '/data/lab/7/attachment/report.pdf' }), 'attachment')
+    expect(file?.url).toBe(`/qqq/v1/table/lab/7/attachment/report.pdf?tableVariant=${encodeURIComponent('{"type":"store","id":"2"}')}&download=1`)
   })
 
   it('does not offer missing, non-file or unsafe values as downloads', () => {
