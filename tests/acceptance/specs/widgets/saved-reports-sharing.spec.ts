@@ -105,6 +105,43 @@ test('[WID-070] saved-report filter editor cancels drafts and persists OK throug
   expect(JSON.parse(after.columns_json).columns.some((column: { name: string }) => column.name === 'possibleValueLabel')).toBe(true)
 })
 
+test('[WID-070] report setup assigns a filter variable and saves its expression @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const [before] = await sqlRows(backend, 'select query_filter_json from saved_report where id = 1')
+  try {
+    await open(page, '/app/savedReport/1/edit')
+    await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+    await dialog.getByRole('button', { name: 'Add condition' }).click()
+    await byId(page, 'filter-field-0-0').selectOption('possibleValueLabel')
+    await byId(page, 'filter-value-0-0-assign-variable').click()
+    await expect(byId(page, 'filter-value-0-0-variable')).toHaveText('${VARIABLE}')
+    await expect(dialog.getByText('Cannot perform query because of a missing value for a variable.')).toBeVisible()
+    const popupQueries: string[] = []
+    page.context().on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.includes('/qqq/v1/table/petSpecies/query')) popupQueries.push(request.url())
+    })
+    const [queryPage] = await Promise.all([
+      page.waitForEvent('popup'),
+      dialog.getByRole('link', { name: 'Open in new window' }).click(),
+    ])
+    await expect(queryPage.getByRole('alert').filter({ hasText: 'Cannot perform query because of a missing value for a variable.' })).toBeVisible()
+    expect(popupQueries).toEqual([])
+    await queryPage.close()
+    await dialog.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+    const [after] = await sqlRows(backend, 'select query_filter_json from saved_report where id = 1')
+    expect(JSON.parse(after.query_filter_json).criteria[0]).toMatchObject({
+      fieldName: 'possibleValueLabel',
+      values: [{ type: 'FilterVariableExpression', fieldName: 'possibleValueLabel', valueIndex: 0 }],
+    })
+  } finally {
+    const restored = await backend.api.put('/data/savedReport/1', { multipart: { queryFilterJson: before.query_filter_json } })
+    expect(restored.status()).toBe(200)
+  }
+})
+
 test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, '/app/savedReport/102')

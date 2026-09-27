@@ -45,6 +45,7 @@ import {
   buildQuickFilter,
   combineWithQuickFilter,
   prepFilterForBackend,
+  hasFilterVariables,
   referencedFieldNames,
   resolveField,
 } from '@/lib/utils/filter-utils'
@@ -456,7 +457,8 @@ export function useRecordQuery({
   const canQuery = hasCapability(tableMetaData, 'TABLE_QUERY')
   const canCount = hasCapability(tableMetaData, 'TABLE_COUNT')
   const needsVariant = Boolean(tableMetaData?.usesVariants) && !tableVariant
-  const enabled = Boolean(tableMetaData && allTables) && canQuery && !needsVariant && !paused
+  const hasVariables = hasFilterVariables(state.userFilter)
+  const enabled = Boolean(tableMetaData && allTables) && canQuery && !needsVariant && !paused && !hasVariables
   const variantKey = tableVariant ? `${tableVariant.type}:${tableVariant.id}` : null
 
   const recordsQuery = useQuery({
@@ -507,16 +509,16 @@ export function useRecordQuery({
     enabled: enabled && canCount,
   })
 
-  const records = useMemo<QRecord[]>(() => recordsQuery.data?.records ?? [], [recordsQuery.data?.records])
+  const records = useMemo<QRecord[]>(() => hasVariables ? [] : recordsQuery.data?.records ?? [], [hasVariables, recordsQuery.data?.records])
   /** Total matching rows, or null when the table cannot count. */
-  const totalCount: number | null = canCount ? countQuery.data?.count ?? 0 : null
-  const distinctCount: number | null = canCount && includeDistinct ? countQuery.data?.distinctCount ?? null : null
+  const totalCount: number | null = canCount ? hasVariables ? 0 : countQuery.data?.count ?? 0 : null
+  const distinctCount: number | null = canCount && includeDistinct && !hasVariables ? countQuery.data?.distinctCount ?? null : null
   const totalPages = totalCount === null
     ? state.pageNum + (records.length >= state.pageSize ? 1 : 0)
     : Math.max(1, Math.ceil(totalCount / state.pageSize))
   const isLoading = enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading))
   // A failed count keeps the rows (Material shows its own "count" alert)
-  const isError = recordsQuery.isError
+  const isError = !hasVariables && recordsQuery.isError
   /** Whether the count for the current query is still being computed (Material "Counting..."). */
   const isCounting = enabled && canCount && (countQuery.isLoading || countQuery.isPlaceholderData)
 
@@ -597,6 +599,7 @@ export function useRecordQuery({
       defaultSort,
       effectiveFilter,
       baseFilter,
+      hasVariables,
       setUserFilter,
       setQuickSearch,
       setFilterMode,
@@ -620,10 +623,10 @@ export function useRecordQuery({
     data: {
       records,
       isLoading,
-      isFetching: recordsQuery.isFetching,
+      isFetching: !hasVariables && recordsQuery.isFetching,
       isError,
-      error: recordsQuery.error,
-      countError: canCount && !recordsQuery.isError ? countQuery.error : null,
+      error: hasVariables ? null : recordsQuery.error,
+      countError: canCount && !hasVariables && !recordsQuery.isError ? countQuery.error : null,
       canQuery,
       canCount,
       needsVariant,

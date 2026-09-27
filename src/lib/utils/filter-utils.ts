@@ -937,6 +937,20 @@ export function isFilterVariableExpression(v: unknown): v is FilterVariableExpre
   return typeof v === 'object' && v !== null && (v as { type?: string }).type === 'FilterVariableExpression'
 }
 
+/** Material's warning when a filter cannot run until a variable has a value. */
+export const MISSING_FILTER_VARIABLE_MESSAGE = 'Cannot perform query because of a missing value for a variable.'
+
+/**
+ * Whether any criterion, including one in a nested group, has an unresolved variable.
+ * @param filter - The filter or an incomplete draft.
+ * @returns Whether a variable value still needs to be supplied.
+ */
+export function hasFilterVariables(filter: Partial<QQueryFilter> | undefined): boolean {
+  if (!filter) return false
+  if ((filter.criteria ?? []).some((criterion) => (criterion?.values ?? []).some(isFilterVariableExpression))) return true
+  return (filter.subFilters ?? []).some(hasFilterVariables)
+}
+
 /**
  * Type guard for `Now` expressions.
  *

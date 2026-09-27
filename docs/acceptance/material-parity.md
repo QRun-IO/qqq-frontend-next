@@ -17,13 +17,13 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
-| Query | 123 | 4 | 1 | 1 | 2 | 131 |
+| Query | 124 | 4 | 0 | 1 | 2 | 131 |
 | Records | 127 | 3 | 0 | 0 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 227 | 0 | 5 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 36 | 0 | 3 | 0 | 11 | 50 |
-| **Total** | **732** | **12** | **9** | **3** | **38** | **794** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 104 | 8 | 2 | 1 | 12 | 127 |
+| **Total** | **733** | **12** | **8** | **3** | **38** | **794** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 105 | 8 | 1 | 1 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The 2026-09-26 row-by-row recount found 794 area rows, including 50 supplemental metadata and theme rows. The prior summary overstated the total by one; no behavior row was deleted in this correction. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -329,7 +329,7 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Custom date expression dialog | material:src/qqq/components/query/AdvancedDateTimeFilterValues.tsx | src/components/query/FilterBuilder.tsx:ExpressionEditor | QRY-012, QRY-013 | Done |
 | Expression display + live evaluated tooltip | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/components/query/EvaluatedExpression.tsx; src/lib/utils/filter-display-utils.ts:formatEvaluatedExpression | QRY-086 | Done: date and date-time expressions retain their relative text and expose the evaluated value on keyboard focus; #718 |
 | Date-time local/UTC conversion | material:src/qqq/utils/qqq/FilterUtils.tsx:82-94,216-222 | src/lib/utils/filter-utils.ts:localDateTimeToUtc/utcToLocalDateTimeInput | QRY-013 | Done |
-| Filter variables (assign, "${VARIABLE}", block query) | material:src/qqq/components/query/AssignFilterVariable.tsx; material:src/qqq/pages/records/query/RecordQuery.tsx:1051-1064 | display only (src/lib/utils/filter-utils.ts; src/components/widgets/FilterAndColumnsSetupWidget.tsx) | none | Partial: no assign UI; Material only in report-setup embed; #722 |
+| Filter variables (assign, "${VARIABLE}", block query) | material:src/qqq/components/query/AssignFilterVariable.tsx; material:src/qqq/pages/records/query/RecordQuery.tsx:1051-1064 | src/components/query/FilterBuilder.tsx:VariableSlot; src/lib/utils/filter-utils.ts:hasFilterVariables; src/lib/hooks/use-record-query.ts; src/components/query/RecordQuery.tsx | WID-070 | Done: report setup assigns and saves the expression; preview and a query opened in a new window show the missing-value warning without querying; five profiles; #722 |
 | Strip incomplete criteria | material:src/qqq/utils/qqq/FilterUtils.tsx:755-785 | src/lib/utils/filter-utils.ts:isCriterionComplete/prepFilterForBackend | none | Done |
 | ?filter= JSON URL (+Next page/pageSize/q) | material:src/qqq/pages/records/query/RecordQuery.tsx:2820-2869 | src/lib/hooks/use-record-query.ts (deserializeFilter/normalizeFilter) | QRY-017 | Done |
 | PV ids -> labels from URL/views | material:src/qqq/utils/qqq/FilterUtils.tsx:113-237 | src/components/query/FilterBuilder.tsx:useSelectedLabels | QRY-015, QRY-017 | Done |
@@ -931,7 +931,7 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Default criteria from record fields; unknown fields removed with a warning | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:136-184, 271-287 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:83-84; src/components/widgets/filter-and-columns-utils.ts | none | Done: editor seeds and screens criteria before preview; #722 |
 | API-versioned table metadata | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:205-257 | src/lib/hooks/use-filter-setup.ts:useApiTableMetaData; FilterAndColumnsSetupWidget.tsx; FilterAndColumnsSetupEditor.tsx | none | Partial: API-versioned variant lacks real-server acceptance; #722 |
 | Edit: "Edit Filters and Columns", "+ Add Filters", "+ Add Columns" | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:303-330, 457-546 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Done: separate Add controls open the relevant editor tab when filters or columns are absent; five profiles |
-| Edit: modal with the full query screen (filter builder, sort, columns, variables) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter builder, multiple sort levels, columns, preview and query link work; variable assignment and the embedded full query screen remain; #722 |
+| Edit: modal with the full query screen (filter builder, sort, columns, variables) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter builder, multiple sort levels, columns, variables, preview and query link work; the embedded full query screen remains; #722 |
 | Edit: OK writes queryFilterJson and columnsJson into the form | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:336-362; material:src/qqq/components/forms/EntityForm.tsx:486-537 | src/components/widgets/FilterAndColumnsSetupEditor.tsx:save → WidgetFormContext.setValues | WID-070 | Done: Cancel leaves database unchanged; OK updates form; host Save persists backend JSON; five profiles |
 | filterAndColumnsSetup as a form field (WIDGET adornment in processes and row builders) | material:src/qqq/components/forms/DynamicFormField.tsx:264-281; material:src/qqq/components/forms/DynamicFormFieldAsWidget.tsx:41-170 | src/components/forms/WidgetAdornmentField.tsx; src/components/forms/DynamicFormField.tsx | WID-071; src/components/forms/WidgetAdornmentField.test.tsx | Done: form widget request names the field, only that field is written back, and an indexed row-builder name is unit-tested; process path passed five profiles |
 | Help slots on the filter and pivot widgets (sectionSubhead, modalSubheader) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:434-495; material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:209-227 | src/components/widgets/WidgetSlotHelp.tsx in both widgets | none | Done: view sectionSubhead and form modalSubheader use screen roles; unit covered; #732 |
@@ -1146,7 +1146,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Relative date preset menu | material:src/qqq/components/query/CriteriaDateField.tsx:246 | src/components/query/RelativeDateMenu.tsx | QRY-086 | Done: DATE and DATE_TIME presets query matching SQL rows; #718 |
 | Advanced (custom expression) date dialog | material:src/qqq/components/query/AdvancedDateTimeFilterValues.tsx:214 | src/components/query/FilterBuilder.tsx:ExpressionEditor | QRY-012, QRY-013 | Done |
 | Evaluated-expression tooltip on date criteria | material:src/qqq/components/query/CriteriaDateField.tsx:123-148; material:src/qqq/components/query/EvaluatedExpression.tsx | src/components/query/EvaluatedExpression.tsx; src/lib/utils/filter-display-utils.ts:formatEvaluatedExpression | QRY-086 | Done: DATE and DATE_TIME evaluated values appear on keyboard focus; #718 |
-| Assign filter variable popup (report setup) | material:src/qqq/components/query/AssignFilterVariable.tsx | display only (src/components/widgets/FilterAndColumnsSetupWidget.tsx) | none | Partial: no assign UI; #722 |
+| Assign filter variable popup (report setup) | material:src/qqq/components/query/AssignFilterVariable.tsx | src/components/query/FilterBuilder.tsx:VariableSlot | WID-070 | Done: the variable button replaces the literal value with `${VARIABLE}` and persists its expression; five profiles; #722 |
 | Saved views menu (Your / Shared lists, actions) | material:src/qqq/components/misc/SavedViews.tsx:328-437 | src/components/query/SavedViewsMenu.tsx | QRY-050, QRY-051, QRY-052, QRY-054 | Done: Your, Shared and Create Report actions are available. |
 | Saved-view dialogs: Save, Save As, Rename, Delete, inline error alert | material:src/qqq/components/misc/SavedViews.tsx:626-710 | src/components/query/SavedViewsMenu.tsx (Radix dialogs) | QRY-051, QRY-052, QRY-053 | Done |
 | Saved-view unsaved-changes count and diff tooltip | material:src/qqq/components/misc/SavedViews.tsx:441-593 | src/lib/utils/saved-view-utils.ts:diffViews; src/components/query/SavedViewsMenu.tsx | QRY-052 | Done: detailed changes populate count and tooltip. |
@@ -1201,7 +1201,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | "There is no data available to export." browser alert() | material:src/qqq/components/widgets/Widget.tsx:660-663; material:src/qqq/components/widgets/tables/TableWidget.tsx:128; material:src/qqq/components/widgets/misc/RecordGridWidget.tsx:300 | src/components/widgets/ConnectedWidget.tsx:187-189 | WID-046 | Done: inline message instead of alert() |
 | Widget error and unsupported-block alerts | material:src/qqq/components/widgets/DashboardWidgets.tsx:490; material:src/qqq/components/widgets/WidgetBlock.tsx:104 | src/components/widgets/WidgetBlock.tsx:WidgetErrorState; src/components/widgets/blocks/QqqComposite.tsx:150-160 | WID-051, WID-059 | Done |
 | Widget-level error boundary (Next-only) | none | src/components/widgets/WidgetErrorBoundary.tsx | WID-051, WID-053 | N/A: Next-only |
-| FilterAndColumnsSetup editor modal (full query screen) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter, multiple sort levels, columns, preview and save work; variable assignment and the embedded full query screen remain; #722 |
+| FilterAndColumnsSetup editor modal (full query screen) | material:src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:568-603 | src/components/widgets/FilterAndColumnsSetupEditor.tsx | WID-070 | Partial: filter, multiple sort levels, columns, variables, preview and save work; the embedded full query screen remains; #722 |
 | PivotTableSetup editor modal | material:src/qqq/components/widgets/misc/PivotTableSetupWidget.tsx:776-807 | src/components/widgets/pivot-table/PivotTableEditorDialog.tsx; src/components/widgets/PivotTableSetupWidget.tsx:297 | none | Done: pivot editor dialog is mounted from the record form; #722 |
 | RowBuilder "Edit Rows" modal | material:src/qqq/components/widgets/misc/RowBuilderWidget.tsx:863-906 | src/components/widgets/RowBuilderEditor.tsx:417-461 | none | Done: modal edits a draft and applies on OK; #722 |
 | CronUI days popover and caret-part tooltip | material:src/qqq/components/widgets/misc/CronUIWidget.tsx:624-682,1063 | src/components/forms/CronScheduleEditor.tsx:SlotPicker, cron-format | WID-064 | Done: date and weekday popovers plus inline caret-part hint; five profiles; #702 |
@@ -1236,7 +1236,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
 - #720 Next UI 1.0 parity: form adjusters and field rules: 0 open rows
 - #721 Next UI 1.0 parity: inline possible-value sources and chip options: 0 open rows
-- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 7 open rows
+- #722 Next UI 1.0 parity: association and widget editing in create/edit forms: 3 open rows
 - #723 Next UI 1.0 parity: record view layout and menus: 0 open rows
 - #724 Next UI 1.0 parity: developer tools (data bag editor, script docs and multi-file editing): 1 open row
 - #725 Next UI 1.0 parity: process screens: widgets and blocks: 0 open rows

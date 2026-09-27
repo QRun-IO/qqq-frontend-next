@@ -35,7 +35,7 @@ import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
-import { countActiveCriteria, emptyFilter, isCriterionComplete, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
+import { countActiveCriteria, emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
 import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
@@ -506,6 +506,12 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       {viewWarnings.length > 0 && (
         <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-view-warning">
           {viewWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+        </div>
+      )}
+
+      {rq.filter.hasVariables && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-variable-warning">
+          {MISSING_FILTER_VARIABLE_MESSAGE}
         </div>
       )}
 

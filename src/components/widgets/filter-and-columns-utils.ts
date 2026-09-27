@@ -26,7 +26,8 @@ import type { QFieldMetaData, QFilterCriteria, QQueryFilter, QTableMetaData, Que
 import type { ApiVersionRef } from '@/lib/api/api-versioned'
 import {
   emptyFilter,
-  isFilterVariableExpression,
+  hasFilterVariables,
+  MISSING_FILTER_VARIABLE_MESSAGE,
   prepFilterForBackend,
   referencedFieldNames,
   resolveField,
@@ -35,7 +36,7 @@ import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { buildViewJson, isColumnVisible, viewToState, type SavedViewColumn } from '@/lib/utils/saved-view-utils'
 
 /** Material's warning when a preview or editor query would need a variable's value (RecordQuery `updateTable`). */
-export const MISSING_VARIABLE_MESSAGE = 'Cannot perform query because of a missing value for a variable.'
+export const MISSING_VARIABLE_MESSAGE = MISSING_FILTER_VARIABLE_MESSAGE
 
 /** Rows the preview grid shows (the first page). */
 export const PREVIEW_PAGE_SIZE = 25
@@ -184,11 +185,7 @@ export function removeUnknownCriteria(table: QTableMetaData, filter: QQueryFilte
  * @param filter - The filter.
  * @returns True when a variable is used.
  */
-export function filterHasVariables(filter: Partial<QQueryFilter> | undefined): boolean {
-  if (!filter) return false
-  if ((filter.criteria ?? []).some((criterion) => (criterion?.values ?? []).some(isFilterVariableExpression))) return true
-  return (filter.subFilters ?? []).some(filterHasVariables)
-}
+export const filterHasVariables = hasFilterVariables
 
 /**
  * The table without the exposed joins the widget omits (`omitExposedJoins`, by join table name),
