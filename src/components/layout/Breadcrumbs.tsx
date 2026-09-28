@@ -162,22 +162,30 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
   const pathname = usePathname()
   const breadcrumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
   const trailRef = useRef<HTMLElement>(null)
+  const hasLabels = Object.keys(pathToLabelMap).length > 0
 
   // On a touch screen a long trail scrolls sideways on its own; start at its end, the current page
   useEffect(() => {
     const trail = trailRef.current
-    if (trail && trail.scrollWidth > trail.clientWidth) trail.scrollLeft = trail.scrollWidth
-  }, [pathname, breadcrumbs.length])
+    if (!trail) return
+    const revealCurrentPage = () => {
+      if (trail.scrollWidth > trail.clientWidth) trail.scrollLeft = trail.scrollWidth
+    }
+    revealCurrentPage()
+    const observer = new ResizeObserver(revealCurrentPage)
+    observer.observe(trail)
+    return () => observer.disconnect()
+  }, [pathname, breadcrumbs.length, hasLabels])
 
   // Until metadata supplies labels, raw URL segments would flash in place of labels
-  if (breadcrumbs.length === 0 || Object.keys(pathToLabelMap).length === 0) {
+  if (breadcrumbs.length === 0 || !hasLabels) {
     return null
   }
 
   return (
     <nav
       ref={trailRef}
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm pointer-coarse:flex-nowrap pointer-coarse:overflow-x-auto"
+      className="flex min-w-0 flex-1 md:flex-initial flex-wrap items-center gap-x-2 gap-y-1 text-sm pointer-coarse:flex-nowrap pointer-coarse:overflow-x-auto"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
@@ -195,7 +203,7 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
           <span className="text-muted-foreground/60 pointer-coarse:flex-shrink-0" aria-hidden="true">/</span>
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="max-w-[12rem] truncate font-semibold text-foreground pointer-coarse:flex-shrink-0"
+              className="max-w-full md:max-w-[12rem] truncate font-semibold text-foreground pointer-coarse:flex-shrink-0"
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >

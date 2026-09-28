@@ -29,6 +29,7 @@ import { isPlainObject } from '../widget-types'
 import { cn } from '@/lib/utils/cn'
 import { WidgetIcon } from '../WidgetIcon'
 import { BlockSlot } from './BlockSlot'
+import { useCompositeHost } from './composite-host'
 import { blockColor, blockQqqId, blockStyles, blockValues, iconName, numeric, text, tint } from './block-utils'
 
 /** Props shared by every leaf block component. */
@@ -452,6 +453,7 @@ export function InputFieldBlock({ block, widgetName, actionCallback }: LeafBlock
  * @returns The rendered button block.
  */
 export function ButtonBlock({ block, widgetName, actionCallback }: LeafBlockProps) {
+  const host = useCompositeHost()
   const values = blockValues(block)
   const styles = blockStyles(block)
   const format = typeof styles.format === 'string' ? styles.format.toLowerCase() : 'filled'
@@ -463,15 +465,21 @@ export function ButtonBlock({ block, widgetName, actionCallback }: LeafBlockProp
   const variant = format === 'outlined' ? 'border bg-transparent' : format === 'text' ? 'border-0 bg-transparent' : 'border-0 text-white'
   const variantStyle: React.CSSProperties = format === 'outlined'
     ? { borderColor: color ?? 'currentColor', color }
-    : format === 'text' ? { color } : { background: color ?? '#344767' }
+    : format === 'text' ? { color } : { background: color ?? (host ? undefined : '#344767') }
   return (
-    <div {...rootAttributes(block, widgetName)} className="m-2 min-w-[8rem]">
+    <div {...rootAttributes(block, widgetName)} className={host ? 'w-fit max-w-full' : 'm-2 min-w-[8rem]'}>
       <BlockSlot block={block} slot="">
         <button
           type="button"
+          disabled={host?.isWorking}
           data-format={format}
           onClick={() => actionCallback?.(block, { ...values })}
-          className={cn('inline-flex w-full items-center justify-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring', variant)}
+          className={cn(
+            'inline-flex w-full items-center justify-center gap-1 rounded-md text-sm font-medium disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring',
+            host ? 'px-4 py-2' : 'px-3 py-1.5',
+            variant,
+            host && format === 'filled' && 'bg-primary text-primary-foreground hover:bg-primary/90'
+          )}
           style={variantStyle}
           data-qqq-id={`button-block-${widgetName}${buttonCode ? `-${buttonCode}` : ''}`}
         >

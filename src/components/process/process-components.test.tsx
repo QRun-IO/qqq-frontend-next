@@ -97,6 +97,15 @@ describe('WIDGET components (#661)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ scanCode: 'ABC' }, undefined))
   })
 
+  it('disables widget actions while the process is working', async () => {
+    const user = userEvent.setup()
+    const onSubmit = renderStep(step, { operator: 'Casey' }, { isWorking: true })
+    const approve = screen.getByRole('button', { name: 'Approve' })
+    expect(approve).toBeDisabled()
+    await user.click(approve)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('seeds a named widget from process values and fetches one without them', async () => {
     const named: QFrontendStepMetaData = { name: 'w', label: 'W', components: [
       { type: 'WIDGET', values: { widgetName: 'seeded' } },

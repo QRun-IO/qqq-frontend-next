@@ -39,6 +39,8 @@ export interface HostInputFieldProps {
 export interface CompositeHost {
   /** Values for `${name}` interpolation in TEXT blocks and for block `conditional`s. */
   values: Record<string, unknown>
+  /** Disables block actions while the hosting screen submits or loads. */
+  isWorking?: boolean
   /** Renders an INPUT_FIELD block bound to the host's form. */
   renderInputField?: (props: HostInputFieldProps) => React.ReactNode
   /** Whether the modal-mode composite with this block id is open. */

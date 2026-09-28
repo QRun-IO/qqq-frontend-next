@@ -28,6 +28,17 @@ test.describe('mobile navigation', () => {
   test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
 
   test('[NAV-026] the header menu opens the navigation drawer, which navigates and closes @mobile', async ({ page, backend, diagnostics }) => {
+    await open(page, '/app/SampleWidgetsDashboard')
+    await waitForShell(page)
+    const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
+    const current = trail.locator('[aria-current="page"]')
+    await expect(current).toHaveText('Sample Widgets Dashboard')
+    await expect.poll(async () => {
+      const navBox = await trail.boundingBox()
+      const titleBox = await current.boundingBox()
+      if (!navBox || !titleBox) return 0
+      return Math.min(navBox.x + navBox.width, titleBox.x + titleBox.width) - Math.max(navBox.x, titleBox.x)
+    }).toBeGreaterThan(100)
     await open(page, '/app')
     await waitForShell(page)
     const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')

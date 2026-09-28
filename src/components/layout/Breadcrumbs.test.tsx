@@ -17,7 +17,7 @@
 // Tests for Breadcrumbs component and its trail/title builders
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 let currentPathname = '/app/person'
@@ -28,6 +28,12 @@ vi.mock('next/navigation', () => ({
 
 import Breadcrumbs, { buildBreadcrumbs, buildDocumentTitle, humanizeSegment } from './Breadcrumbs'
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
+
+beforeEach(() => vi.stubGlobal('ResizeObserver', class {
+  observe() {}
+  disconnect() {}
+}))
+afterEach(() => vi.unstubAllGlobals())
 
 const pathToLabelMap: Record<string, string> = {
   '/app': 'Dashboard',
@@ -156,5 +162,19 @@ describe('Breadcrumbs', () => {
     currentPathname = '/app'
     const { container } = render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('reveals the current page when metadata labels arrive after the route', () => {
+    currentPathname = '/app/person'
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600)
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200)
+    try {
+      const { rerender } = render(<Breadcrumbs pathToLabelMap={{}} />)
+      rerender(<Breadcrumbs pathToLabelMap={pathToLabelMap} />)
+      expect(screen.getByRole('navigation', { name: /breadcrumb/i }).scrollLeft).toBe(600)
+    } finally {
+      scrollWidth.mockRestore()
+      clientWidth.mockRestore()
+    }
   })
 })

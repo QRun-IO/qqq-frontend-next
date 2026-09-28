@@ -267,10 +267,11 @@ export function ProcessCompositeHost({ children }: ProcessCompositeHostProps) {
 
   const host = useMemo<CompositeHost>(() => ({
     values: hostValues,
+    isWorking,
     renderInputField: (props) => <ProcessInputField {...props} />,
     isModalOpen: (blockId) => Boolean(hostValues[blockId]),
     closeModal: (blockId) => setControlValues((previous) => ({ ...previous, [blockId]: false })),
-  }), [hostValues])
+  }), [hostValues, isWorking])
 
   return (
     <CompositeHostContext.Provider value={host}>
