@@ -48,13 +48,11 @@ import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/he
 import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
-import { MetadataIcon, SectionIcon } from '@/components/layout/MetadataIcon'
 
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
-import { DynamicForm, formSectionElementId, renderableFormSections } from './DynamicForm'
+import { DynamicForm } from './DynamicForm'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
-import { FormSectionSidebar } from './FormSectionSidebar'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 
 /** How long a save's warning stays on screen when it is shown as a toast. */
@@ -734,31 +732,15 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     guardedNavigate(doCancel)
   }
 
-  // Heading, as in Material: "Creating New X", "Edit X: <record label>", "Copy X: <record label>"
+  // Keep the earlier Next UI heading compact while retaining the record label for screen readers.
   const recordLabel = record ? (record.recordLabel || String(record.values[tableMetaData.primaryKeyField] ?? '')) : ''
   const heading = overrideHeading ?? (
     isEdit
-      ? `Edit ${tableMetaData.label}: ${recordLabel}`
+      ? `Edit ${tableMetaData.label}`
       : isCopy
-        ? `Copy ${tableMetaData.label}: ${recordLabel}`
+        ? `Copy ${tableMetaData.label}`
         : `Creating New ${tableMetaData.label}`
   )
-
-  // Page forms show the first T1 section's fields in the header card, under the title, and a
-  // sidebar of the form's sections (Material EntityForm); modal forms keep a plain layout.
-  const fieldSections = renderableFormSections(formTable, {
-    fieldNamesToInclude, showReadOnlyFields: isEdit, disabled: disabled || Boolean(defaultsError) || Boolean(formDisabledMessage), widgets,
-  })
-  const formSections = isModal ? [] : (formTable.sections ?? []).flatMap((section) => {
-    const fieldSection = fieldSections.find((entry) => entry.section.name === section.name)
-    if (fieldSection) return [fieldSection]
-    const widget = section.widgetName ? widgets?.[section.widgetName] : undefined
-    return !isCopy && !section.isHidden && !section.hidden && widget && widget.hasPermission !== false && isEditableFormWidget(widget)
-      ? [{ section, fields: [] }]
-      : []
-  })
-  const headerSection = formSections.find(({ section }) => section.tier === 'T1')?.section
-  const bodySections = headerSection ? (formTable.sections ?? []).filter((section) => section.name !== headerSection.name) : undefined
 
   // Material CSS hooks (QRun-IO/qqq#731): record-{mode}-{part}-{table}
   const formMode = isCopy ? 'copy' : isEdit ? 'edit' : 'create'
@@ -868,55 +850,15 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       className={cn('flex min-w-0 flex-col gap-6', className)}
       data-qqq-id={`entity-form-${tableMetaData.name}`}
     >
-      {/* Header card — only if not modal: table icon, title and the first T1 section's fields */}
+      {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
-        <div
-          id={headerSection ? formSectionElementId(headerSection.name) : undefined}
-          tabIndex={headerSection ? -1 : undefined}
-          className="scroll-mt-24 rounded-xl border border-border bg-card p-4 shadow-sm focus:outline-none sm:p-6"
-          data-qqq-id={`form-header-${formMode}`}
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-              data-qqq-id="form-avatar"
-            >
-              <MetadataIcon icon={tableMetaData.icon} kind="table" className="h-5 w-5" />
-            </span>
-            <h2 className="min-w-0 break-words text-xl font-semibold text-foreground" data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>{heading}</h2>
+          <div className="border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
+            <h2 className="text-xl font-semibold text-foreground" aria-label={recordLabel && (isEdit || isCopy) ? `${heading}: ${recordLabel}` : undefined}
+              data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>
+              {heading}
+            </h2>
           </div>
-          {headerSection?.label && (
-            <h3 className="mt-4 flex items-center text-sm font-medium text-muted-foreground lg:hidden" data-qqq-id={`form-header-section-${sanitizeQqqId(headerSection.name)}`}>
-              <SectionIcon section={headerSection} />
-              {headerSection.label}
-            </h3>
-          )}
-          {headerSection && (
-            <DynamicForm
-              register={register}
-              control={control}
-              errors={errors}
-              tableMetaData={formTable}
-              sections={[headerSection]}
-              hideSectionLabels
-              fieldNamesToInclude={fieldNamesToInclude}
-              possibleValueContext={pvContext}
-              disabled={formLocked}
-              disabledFieldNames={disabledNames}
-              dirtyFields={dirtyFields as Record<string, boolean>}
-              record={record}
-              showReadOnlyFields={isEdit}
-              helpRoles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES}
-              enforceMaxLength={false}
-              widgets={widgets}
-              renderWidgetSection={renderWidgetSection}
-              onFieldBlur={onFieldBlur}
-              displayValueOverrides={displayOverrides}
-              className="mt-4"
-            />
-          )}
-        </div>
         </div>
       )}
 
@@ -969,7 +911,6 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         control={control}
         errors={errors}
         tableMetaData={formTable}
-        sections={bodySections}
         fieldNamesToInclude={fieldNamesToInclude}
         possibleValueContext={pvContext}
         disabled={formLocked}
@@ -1030,13 +971,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
           <div className="entityForm p-6" data-qqq-id={`record-${formMode}-${tableNameForId}`}>{formContent}</div>
         </div>
       ) : (
-        <div className="entityForm lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-6" data-qqq-id={`record-${formMode}-${tableNameForId}`}>
-          {/* the section sidebar on large screens; phones and tablets scroll one column */}
-          <FormSectionSidebar
-            sections={formSections.map(({ section }) => section)}
-            label={`${tableMetaData.label} form sections`}
-            className="hidden lg:block"
-          />
+        <div className="entityForm mx-auto w-full max-w-4xl" data-qqq-id={`record-${formMode}-${tableNameForId}`}>
           {formContent}
         </div>
       )}

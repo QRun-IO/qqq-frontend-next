@@ -542,7 +542,7 @@ function PointDot({ cx, cy, index = 0, value, stroke, datasetIndex, chart, radiu
  * data; never throws.
  *
  * Material parity: legends (pie, stacked, horizontal bars, line badges above the chart)
- * toggle their series or slice; a pie is full (not a donut) and its tooltip adds the
+ * toggle their series or slice; pie data uses a doughnut and its tooltip adds the
  * percent of the total; stacked bars show only the hovered dataset in the tooltip, their
  * y axis on the right with whole-number ticks; category labels turn when they do not fit;
  * a small line chart keeps its y ticks and grid; a `barChart` widget ends with an
@@ -674,9 +674,9 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
           nameKey="label"
           cx="50%"
           cy="50%"
-          innerRadius={0}
+          innerRadius={Math.round(radius * 0.5)}
           outerRadius={Math.round(radius)}
-          paddingAngle={0}
+          paddingAngle={1}
           stroke="#FFFFFF"
           isAnimationActive={false}
           onClick={(_entry: unknown, index: number) => {

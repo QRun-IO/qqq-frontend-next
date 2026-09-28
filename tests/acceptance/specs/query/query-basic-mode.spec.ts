@@ -13,12 +13,13 @@
 
 // Basic/Advanced mode over real QQQ metadata and SQL-backed records.
 import { expect, open, test } from '../../support/fixtures'
-import { addCondition, captureQueries, closeFilterSheet, expectColumn, filterUrl, openFilter, showTable, sqlColumn } from './query-helpers'
+import { addCondition, captureQueries, closeFilterSheet, expectColumn, filterUrl, openFilter, showBasicFilters, showTable, sqlColumn } from './query-helpers'
 
 test('[QRY-080] Basic mode offers metadata quick filters and queries the selected value @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person')
   await showTable(page)
+  await showBasicFilters(page)
   await expect(page.getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
   const chip = page.locator('[data-qqq-id="quick-filter-firstName"]')
   await expect(chip).toBeVisible()
@@ -32,6 +33,7 @@ test('[QRY-080] Basic mode offers metadata quick filters and queries the selecte
 test('[QRY-081] Add quick filter offers a metadata field and remembers it across reload @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person')
+  await showBasicFilters(page)
   const picker = page.getByRole('combobox', { name: 'Add quick filter' })
   const option = picker.locator('option:not([value=""])').first()
   const fieldName = await option.getAttribute('value')
@@ -41,6 +43,7 @@ test('[QRY-081] Add quick filter offers a metadata field and remembers it across
   await expect(chip).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).click()
   await page.reload()
+  await showBasicFilters(page)
   await expect(chip).toBeVisible()
   await expect(page.getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
@@ -49,6 +52,7 @@ test('[QRY-081] a joined quick filter queries its exposed field @mobile', async 
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
+  await showBasicFilters(page)
   await page.getByRole('combobox', { name: 'Add quick filter' }).selectOption('person.firstName')
   const chip = page.locator('[data-qqq-id="quick-filter-person.firstName"]')
   await expect(chip).toContainText('Person: First Name')
@@ -62,6 +66,7 @@ test('[QRY-081] a virtual quick filter queries its field function @mobile', asyn
   void diagnostics
   await open(page, '/app/qryCaseItem')
   await showTable(page)
+  await showBasicFilters(page)
   await page.getByRole('combobox', { name: 'Add quick filter' }).selectOption('codeLength')
   await expect(page.locator('[data-qqq-id="quick-filter-codeLength"]')).toContainText('Code Length')
   await page.getByRole('spinbutton', { name: 'Filter value for Code Length' }).fill('4')
@@ -74,6 +79,7 @@ test('[QRY-080] quick filter operators start from field-type defaults @mobile', 
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
+  await showBasicFilters(page)
   const picker = page.getByRole('combobox', { name: 'Add quick filter' })
   await picker.selectOption('isActive')
   const booleanEditor = page.getByRole('group', { name: 'Is Active quick filter' })
@@ -100,6 +106,7 @@ test('[QRY-080] a quick-filter chip summarizes multiple values while retaining t
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
+  await showBasicFilters(page)
   const chip = page.locator('[data-qqq-id="quick-filter-name"]')
   await chip.click()
   const editor = page.getByRole('group', { name: 'Name quick filter' })
@@ -117,6 +124,7 @@ test('[QRY-082] URL criteria become quick filters and OR links open Advanced mod
   void diagnostics
   await open(page, filterUrl('qryItem', { criteria: [{ fieldName: 'quantity', operator: 'EQUALS', values: [10] }] }))
   await showTable(page)
+  await showBasicFilters(page)
   await expect(page.getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('[data-qqq-id="quick-filter-quantity"]')).toBeVisible()
   await expectColumn(page, 'name', await sqlColumn(backend,
@@ -126,6 +134,7 @@ test('[QRY-082] URL criteria become quick filters and OR links open Advanced mod
     { fieldName: 'quantity', operator: 'EQUALS', values: [10] },
     { fieldName: 'code', operator: 'EQUALS', values: ['BG-2'] },
   ] }))
+  await showBasicFilters(page)
   await expect(page.getByRole('button', { name: 'Advanced', exact: true })).toHaveAttribute('aria-pressed', 'true')
   const basic = page.getByRole('button', { name: 'Basic', exact: true })
   await expect(basic).toHaveAttribute('aria-disabled', 'true')
@@ -139,6 +148,7 @@ test('[QRY-080] a saved view restores Basic mode and its added quick filter @mob
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
+  await showBasicFilters(page)
   const picker = page.getByRole('combobox', { name: 'Add quick filter' })
   await picker.selectOption('quantity')
   const chip = page.locator('[data-qqq-id="quick-filter-quantity"]')
@@ -146,6 +156,7 @@ test('[QRY-080] a saved view restores Basic mode and its added quick filter @mob
   await page.getByRole('button', { name: 'Apply quick filter' }).click()
   await expectColumn(page, 'name', await sqlColumn(backend,
     'select name from qry_item where quantity = 10 order by id desc'))
+  await closeFilterSheet(page)
   await page.getByRole('button', { name: 'Save View As...' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save View As' })
   await dialog.getByLabel('Enter a name for this view').fill('Basic Quantity View')
@@ -162,6 +173,7 @@ test('[QRY-080] a saved view restores Basic mode and its added quick filter @mob
   ]))
   await expect(page).toHaveURL(new RegExp(`/app/qryItem/savedView/${rows[0].id}/?`))
   await page.reload()
+  await showBasicFilters(page)
   await expect(page.getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(chip).toContainText('10')
   await expectColumn(page, 'name', await sqlColumn(backend,
@@ -176,6 +188,7 @@ test('[QRY-082] Basic mode explains filters with repeated conditions @mobile', a
   await addCondition(page, 'Name', 'equals')
   await addCondition(page, 'Name', 'equals')
   await closeFilterSheet(page)
+  await showBasicFilters(page)
   const basic = page.getByRole('button', { name: 'Basic', exact: true })
   await expect(basic).toHaveAttribute('aria-disabled', 'true')
   await basic.focus()
@@ -192,6 +205,7 @@ test('[QRY-083] Advanced preview removes its condition without clearing the quer
   await row.getByRole('textbox', { name: 'Filter value for Name' }).fill('a')
   await closeFilterSheet(page)
   await expectColumn(page, 'name', await sqlColumn(backend, "select name from qry_item where name like '%a%' order by id desc"))
+  await showBasicFilters(page)
   await page.getByRole('button', { name: 'Remove Name contains a' }).click()
   await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by id desc'))
 })
@@ -204,6 +218,7 @@ test('[QRY-084] Sort picker and confirmed clear keep the selected sort @mobile',
   const row = await addCondition(page, 'Name', 'contains')
   await row.getByRole('textbox', { name: 'Filter value for Name' }).fill('a')
   await closeFilterSheet(page)
+  await showBasicFilters(page)
   await page.getByRole('combobox', { name: 'Sort field' }).selectOption('name')
   await page.getByRole('button', { name: 'Sort ascending' }).click()
   await expectColumn(page, 'name', await sqlColumn(backend, "select name from qry_item where name like '%a%' order by name asc"))

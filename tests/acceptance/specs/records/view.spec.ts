@@ -35,11 +35,11 @@ test('[REC-001] record view shows the label, tiered sections and formatted value
   await expandOnPhone(page, 'Employment Info')
   await expect(fieldValue(page, 'isEmployed')).toHaveText('No')
 
-  // The T1 header shows T1 fields that are not already part of the label (Record Lab: status).
+  // The compact Next header shows T1 fields that add information beyond the record label.
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   const header = page.locator('[data-qqq-id="record-primary-sections"]')
   await expect(header.locator('[data-qqq-id="record-field-status"]')).toContainText('Active')
-  await expect(header.locator('[data-qqq-id="record-field-title"]')).toContainText('Alpha')
+  await expect(header.locator('[data-qqq-id="record-field-title"]')).toHaveCount(0)
 })
 
 test('[REC-064] record sections load and render readable joined fields @mobile', async ({ page, backend, diagnostics }) => {
@@ -116,10 +116,7 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
     await expect(overview.getByRole('heading', { level: 3, name: section })).toBeVisible()
   }
   if ((page.viewportSize()?.width ?? 0) >= 1024) {
-    const sidebar = page.locator('[data-qqq-id="record-sidebar"]')
-    await expect(sidebar).toBeVisible()
-    await sidebar.getByRole('button', { name: 'Numeric Bounds' }).click()
-    await expect(overview.getByRole('heading', { level: 3, name: 'Numeric Bounds' })).toBeInViewport()
+    await expect(page.locator('[data-qqq-id="record-sidebar"]')).toHaveCount(0)
   }
 
   await page.getByRole('tab', { name: 'Case and Whitespace' }).click()

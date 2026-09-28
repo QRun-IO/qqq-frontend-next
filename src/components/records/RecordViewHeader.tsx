@@ -47,7 +47,17 @@ import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
 import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
 import { GotoRecordButton } from './GotoRecordDialog'
-import { MetadataIcon } from '@/components/layout/MetadataIcon'
+
+/**
+ * Abbreviate the record label for the compact Next UI avatar.
+ * @param label - The record's display label.
+ * @returns One or two initials, or a placeholder for an empty label.
+ */
+function getInitials(label: string): string {
+  const words = label.trim().split(/\s+/).filter(Boolean)
+  if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase()
+  return words[0]?.slice(0, 2).toUpperCase() || '?'
+}
 
 /**
  * The default phone sheet already offers CRUD and process shortcuts; keep the remaining
@@ -129,7 +139,7 @@ interface RecordViewHeaderProps {
 /**
  * Renders the header block of the record detail page.
  *
- * Displays a 56 × 56 px table-icon avatar, the record label as an `<h1>`,
+ * Displays a 56 × 56 px initials avatar, the record label as an `<h1>`,
  * a compact T1 field grid with hover-card links for possibleValueSource fields,
  * a card/list view-mode radio toggle, and the action bar (desktop) or bottom-
  * sheet trigger (mobile). The mobile bottom sheet mounts a
@@ -287,24 +297,24 @@ export function RecordViewHeader({
     <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2" data-qqq-id="record-view-desktop-actions">
       {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
       {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
-        actionEntries={actionEntries} resolveMenu={resolveMenu} onAction={onAction} />}
+        actionEntries={hasCustomActionsMenu || availableProcesses.length > 0 ? actionEntries : []}
+        resolveMenu={resolveMenu} onAction={onAction} />}
     </div>
   )
 
   return (
-    <div className="contents" data-qqq-id={`record-view-header-${sanitizeQqqId(tableMetaData.name)}`}>
+    <div data-qqq-id={`record-view-header-${sanitizeQqqId(tableMetaData.name)}`}>
     <div className="flex flex-wrap items-start gap-4" data-qqq-id="record-view-header">
       <div
-        className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[var(--qqq-accent-color)] text-[var(--qqq-primary-contrast-text)]"
+        className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
         aria-hidden="true"
         data-qqq-id={`record-view-avatar-${sanitizeQqqId(tableMetaData.name)}`}
       >
-        <MetadataIcon icon={tableMetaData.icon} kind="table" className="h-6 w-6" />
+        {getInitials(record.recordLabel || `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`)}
       </div>
       {/* The title keeps at least 14rem; when the controls do not fit beside it (phones, tablets
           with the sidebar open) they wrap onto their own row instead of squeezing the title. */}
       <div className="min-w-0 flex-1 basis-56">
-        <p className="text-sm font-medium text-muted-foreground">Viewing {tableMetaData.label}:</p>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl" data-qqq-id={`record-view-title-${sanitizeQqqId(tableMetaData.name)}`}>
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}

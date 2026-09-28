@@ -61,8 +61,8 @@ const DARK_MODE_KEY = 'qqq-dark-mode'
 /**
  * Provider component that manages the application theme and dark-mode state.
  *
- * On mount it reads the user's dark-mode preference from `localStorage`,
- * falling back to the OS `prefers-color-scheme` media query. The application
+ * On mount it reads an explicit dark-mode preference from `localStorage`,
+ * defaulting to light as the Material Dashboard does. The application
  * theme (set by the dashboard layout from v1 metadata) is applied with
  * {@link applyMaterialTheme}; while one is present the UI stays light, because
  * an application's colors are designed for the light look (the Material
@@ -84,14 +84,10 @@ export function ThemeProvider({
   const [prefersDark, setPrefersDark] = useState(false)
   const isDarkMode = prefersDark && !theme
 
-  // Initialize dark mode from localStorage or system preference
+  // Material opens in light mode; the OS preference must not silently change the dashboard.
   useEffect(() => {
     const stored = localStorage.getItem(DARK_MODE_KEY)
-    if (stored !== null) {
-      setPrefersDark(stored === 'true')
-    } else {
-      setPrefersDark(window.matchMedia('(prefers-color-scheme: dark)').matches)
-    }
+    setPrefersDark(stored === 'true')
   }, [])
 
   // Apply the dark class when the mode changes

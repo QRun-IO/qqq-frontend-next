@@ -20,7 +20,7 @@
 
 'use client'
 
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
@@ -175,8 +175,6 @@ export function RecordQueryContent({
   const queryClient = useQueryClient()
   // Material's grid alert can be closed; a new error shows again
   const [dismissedError, setDismissedError] = useState<Error | null>(null)
-  const gridArea = useRef<HTMLDivElement>(null)
-  const gridHeight = useViewportFillHeight(gridArea, viewMode === 'grid' && !isLoading && records.length > 0)
 
   return (
     <>
@@ -243,7 +241,7 @@ export function RecordQueryContent({
           if (window.location.pathname.includes('/savedView/')) router.replace(`/app/${encodeURIComponent(tableName)}/`)
           else window.location.reload()
         }}>
-          <div ref={gridArea} className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-hidden rounded-xl border border-border">
             {/* DataGrid: shown when viewMode is 'grid' */}
             {viewMode === 'grid' && (
               <DataGrid
@@ -270,7 +268,6 @@ export function RecordQueryContent({
                 columnMenu={columnMenu}
                 filteredColumns={filteredColumns}
                 onShowFilter={onShowFilter}
-                height={gridHeight}
                 scrollResetKey={`${pageNum}:${pageSize}`}
               />
             )}
@@ -313,38 +310,4 @@ export function RecordQueryContent({
       )}
     </>
   )
-}
-
-/** Room kept under the grid for the pagination bar and the page's bottom padding. */
-const SPACE_BELOW_GRID = 88
-/** The grid never shrinks below this height when it fills the viewport. */
-const MIN_GRID_HEIGHT = 360
-
-/**
- * The height that makes the grid fill the rest of the viewport (Material sizes its grid to the
- * window), measured from the grid's position on the page. Only on wide screens: a phone scrolls
- * the page.
- *
- * @param ref - The element around the grid.
- * @param enabled - Whether the grid is shown.
- * @returns The height in pixels, or undefined to let the page scroll.
- */
-function useViewportFillHeight(ref: RefObject<HTMLDivElement | null>, enabled: boolean): number | undefined {
-  const [height, setHeight] = useState<number | undefined>(undefined)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const element = ref.current
-      if (!enabled || !element || window.innerWidth < 768) {
-        setHeight(undefined)
-        return
-      }
-      const top = element.getBoundingClientRect().top + window.scrollY
-      const next = Math.max(MIN_GRID_HEIGHT, Math.round(window.innerHeight - top - SPACE_BELOW_GRID))
-      setHeight((prev) => (prev === next ? prev : next))
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  })
-  return height
 }

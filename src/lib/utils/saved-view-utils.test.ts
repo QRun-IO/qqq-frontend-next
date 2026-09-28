@@ -79,8 +79,8 @@ describe('saved view JSON', () => {
     expect(view.queryColumns?.columns).toEqual([
       { name: '__check__', isVisible: true, width: 100, pinned: 'left' },
       { name: 'id', isVisible: true, width: 90, pinned: 'left' },
-      { name: 'person.firstName', isVisible: true, width: 200 },
-      { name: 'name', isVisible: false, width: 200 },
+      { name: 'person.firstName', isVisible: true, width: 150 },
+      { name: 'name', isVisible: false, width: 150 },
     ])
     expect(view.rowsPerPage).toBe(50)
     expect(view.mode).toBe('advanced')

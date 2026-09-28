@@ -212,7 +212,6 @@ describe('field rules', () => {
     })
     renderForm(table, { record: stored, widgets })
     expect(await screen.findByText('Kind none')).toBeVisible()
-    expect(screen.getByRole('navigation', { name: 'Lab form sections' })).toHaveTextContent('Summary')
     expect(widgetData).toHaveBeenLastCalledWith('kindWidget', { id: '3' })
     await user.click(screen.getByRole('combobox', { name: 'Kind' }))
     await user.click(await screen.findByRole('option', { name: 'Beta' }))

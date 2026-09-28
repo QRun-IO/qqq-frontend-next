@@ -159,6 +159,23 @@ describe('RecordViewHeader for a read-only user', () => {
 })
 
 describe('RecordViewHeader layout', () => {
+  it('keeps secondary actions in the process menu without duplicate desktop buttons', async () => {
+    const user = userEvent.setup()
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    expect(screen.queryByRole('button', { name: 'Copy Person record' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete Person record' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Record actions menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Copy' }))
+    expect(push).toHaveBeenCalledWith('/app/person/5/copy')
+  })
+
+  it('keeps standalone secondary actions when there is no process menu', () => {
+    renderHeader()
+    expect(screen.getByRole('button', { name: 'Copy Person record' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Person record' })).toBeInTheDocument()
+  })
+
   it('lets the controls wrap onto their own row instead of squeezing the title', () => {
     renderHeader()
     const header = document.querySelector('[data-qqq-id="record-view-header"]')
@@ -203,8 +220,7 @@ describe('RecordViewHeader Material CSS hooks (QRun-IO/qqq#731)', () => {
     renderHeader()
     const wrapper = document.querySelector('[data-qqq-id="record-view-header-person"]')
     expect(wrapper).toContainElement(document.querySelector('[data-qqq-id="record-view-header"]') as HTMLElement)
-    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"] [data-qqq-icon="none"]')).toBeInTheDocument()
-    expect(wrapper).toHaveTextContent('Viewing Person:')
+    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"]')).toHaveTextContent('MS')
     expect(screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })).toHaveAttribute('data-qqq-id', 'record-view-title-person')
   })
 })

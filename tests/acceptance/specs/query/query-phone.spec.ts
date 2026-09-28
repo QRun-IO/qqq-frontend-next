@@ -82,10 +82,11 @@ test.describe('on a phone', () => {
     await expect(titles).toHaveText(await sqlColumn(backend, 'select name from qry_item order by id desc'))
     const trigger = page.locator('[data-qqq-id="button-filter"]')
     await trigger.click()
-    const sheet = page.getByRole('dialog', { name: 'Advanced Filters' })
+    const sheet = page.getByRole('dialog', { name: 'Filters', exact: true })
     await expect(sheet).toBeVisible()
     await expect.poll(() => sheet.evaluate((node) => node.contains(document.activeElement))).toBe(true)
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await sheet.getByRole('button', { name: 'Advanced', exact: true }).click()
 
     // Several conditions: the sheet stays inside the viewport and its body scrolls
     const quantity = await addCondition(page, 'Quantity', 'greater than')

@@ -563,6 +563,7 @@ export function RecordQueryToolbar({
           ref={columnConfigBtnRef}
           type="button"
           onClick={toggleColumnConfig}
+          aria-label={`Configure columns${visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}`}
           className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
             columnsState === 'clean'
               ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
@@ -577,8 +578,7 @@ export function RecordQueryToolbar({
           data-qqq-id="button-column-config"
         >
           <Columns className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Configure </span>
-          <span data-qqq-id="button-column-config-label">Columns{visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}</span>
+          <span className="sr-only" data-qqq-id="button-column-config-label">Columns{visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}</span>
         </button>
 
         {columnConfigOpen && columnConfigPos && (

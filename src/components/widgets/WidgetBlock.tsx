@@ -19,7 +19,7 @@
  *
  * Renders the widget card (or plain container when `isCard` is false) with its
  * header — main icon tile, label (or the payload's label override, as the page title
- * for a parent widget that asks for it), sublabel, header icon tiles, tooltip, help,
+ * for a parent widget that asks for it), sublabel, header icons, tooltip, help,
  * dropdown controls, export and reload buttons, and the collapse toggle of a
  * collapsible widget — and a body that shows a loading skeleton, the error state, the
  * permission message, the "please select" message for required dropdowns, or the
@@ -225,7 +225,7 @@ export function WidgetBlock({
             <WidgetIconTile name={widgetMetaData.icon} className="-mt-9 mr-2 h-16 w-16 rounded-lg text-2xl shadow-md" qqqId={`widget-main-icon-${name}`} />
           )}
           {open && (topLeft?.name || topLeft?.path) && (
-            <WidgetIconTile name={topLeft.name} path={topLeft.path} color={topLeft.color} qqqId={`widget-icon-topLeftInsideCard-${name}`} />
+            <WidgetIconTile name={topLeft.name} path={topLeft.path} color={topLeft.color} filled={false} qqqId={`widget-icon-topLeftInsideCard-${name}`} />
           )}
           <div className="min-w-0">
             {labelElement && (widgetMetaData.tooltip
@@ -278,7 +278,7 @@ export function WidgetBlock({
           )}
 
           {open && (topRight?.name || topRight?.path) && (
-            <WidgetIconTile name={topRight.name} path={topRight.path} color={topRight.color} qqqId={`widget-icon-topRightInsideCard-${name}`} />
+            <WidgetIconTile name={topRight.name} path={topRight.path} color={topRight.color} filled={false} qqqId={`widget-icon-topRightInsideCard-${name}`} />
           )}
 
           {isCollapsible && (

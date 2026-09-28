@@ -280,14 +280,14 @@ describe('QqqChartWidget Material chart extras (#728)', () => {
     expect(resolveChartColor(null)).toBeNull()
   })
 
-  it('fills pie slices from theme color names and draws a full pie', () => {
+  it('fills doughnut slices from theme color names', () => {
     const { container } = draw('pie', {
       chartData: { labels: ['A', 'B', 'C'], datasets: [{ label: 'S', data: [1, 2, 3], backgroundColors: ['info', 'success', '#ABCDEF'] }] },
     }, 'named')
     const sectors = Array.from(container.querySelectorAll('.recharts-pie-sector path'))
     expect(sectors.map((sector) => sector.getAttribute('fill'))).toEqual(['#0062FF', '#43A047', '#ABCDEF'])
-    // a full pie: each sector closes at the center (480 x 240 canvas), there is no inner arc
-    for (const sector of sectors) expect(sector.getAttribute('d')?.replace(/\s+/g, ' ')).toMatch(/L 240,120 Z$/)
+    // Each slice has an outer and inner arc, preserving the open center.
+    for (const sector of sectors) expect(sector.getAttribute('d')?.match(/A/g)).toHaveLength(2)
   })
 
   it('toggles a pie slice from its legend button', () => {

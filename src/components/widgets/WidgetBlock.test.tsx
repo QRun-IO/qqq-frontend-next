@@ -89,7 +89,7 @@ describe('WidgetBlock collapsible widgets', () => {
 })
 
 describe('WidgetBlock icons', () => {
-  it('draws header icons as white glyphs on tiles of the metadata color, or an image from a path', () => {
+  it('draws header glyphs in the metadata color and preserves image paths', () => {
     render(
       <WidgetBlock widgetMetaData={{ ...base, icons: { topRightInsideCard: { name: 'sports', color: 'rgb(143, 0, 216)' }, topLeftInsideCard: { path: '/owned-icon.png', color: 'rgb(0, 97, 255)' } } }}>
         <p>Body</p>
@@ -97,12 +97,12 @@ describe('WidgetBlock icons', () => {
     )
     const right = document.querySelector('[data-qqq-id="widget-icon-topRightInsideCard-accChrome"]') as HTMLElement
     expect(right).toHaveAttribute('data-icon-name', 'sports')
-    expect(right.style.backgroundColor).toBe('rgb(143, 0, 216)')
-    expect(right.style.color).toBe('rgb(255, 255, 255)')
+    expect(right.style.backgroundColor).toBe('')
+    expect(right.style.color).toBe('rgb(143, 0, 216)')
     const left = document.querySelector('[data-qqq-id="widget-icon-topLeftInsideCard-accChrome"]') as HTMLElement
     expect(left).toHaveAttribute('data-icon-path', '/owned-icon.png')
     expect(left.querySelector('img')).toHaveAttribute('src', '/owned-icon.png')
-    expect(left.style.backgroundColor).toBe('rgb(0, 97, 255)')
+    expect(left.style.backgroundColor).toBe('')
   })
 
   it('draws the main metadata icon as a 64 px tile, any Material name falling back to the shared map', () => {

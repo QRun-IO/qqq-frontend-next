@@ -98,8 +98,8 @@ describe('record view layout from metadata', () => {
     expect(initialSectionOpen('lab', open)).toBe(false)
   })
 
-  it('shows the record sidebar unless the table turns it off', () => {
-    expect(showRecordSidebar(table())).toBe(true)
+  it('shows the record sidebar only when the table requests it', () => {
+    expect(showRecordSidebar(table())).toBe(false)
     expect(showRecordSidebar(table({ supplementalMetaData: { materialDashboard: { showRecordSidebar: true } } }))).toBe(true)
     expect(showRecordSidebar(table({ supplementalMetaData: { materialDashboard: { showRecordSidebar: false } } }))).toBe(false)
   })
@@ -123,6 +123,7 @@ describe('record view layout from metadata', () => {
     expect(gridSpanClasses(4)).toBe('col-span-12 min-w-0 lg:col-span-4')
     expect(gridSpanClasses(99)).toBe('col-span-12 min-w-0 lg:col-span-12')
     expect(recordSectionGridSpan(section('fields', { gridColumns: 6 }))).toBe('col-span-12 min-w-0 lg:col-span-6')
+    expect(recordSectionGridSpan(section('fields'))).toBe('col-span-12 min-w-0 lg:col-span-6')
     expect(recordSectionGridSpan(section('widget', { gridColumns: 4, widgetName: 'summary' }), {
       summary: { name: 'summary', label: 'Summary', hasPermission: true, gridColumns: 3 },
     })).toBe('col-span-12 min-w-0 lg:col-span-3')

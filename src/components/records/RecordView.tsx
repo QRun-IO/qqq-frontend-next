@@ -521,12 +521,17 @@ function RecordViewContent({
     return { path, label }
   }, [pathname, urlTab, urlView, fromPath, fromLabel, record.recordLabel, tableMetaData.label, parentPk])
 
-  // Material shows every visible T1 field in the identity card, including values
-  // repeated in the record label and the primary key.
+  // The title and route already identify this record. Keep the Next header compact by
+  // showing only T1 values that add information beyond the label and primary key.
+  const recordLabel = record.recordLabel ?? ''
   const t1Fields = t1Sections.flatMap((section) =>
     (section.fieldNames ?? [])
       .map((fn) => recordSectionField(tableMetaData, allTables, fn))
-      .filter((f): f is QFieldMetaData => Boolean(f && !f.isHidden))
+      .filter((field): field is QFieldMetaData => {
+        if (!field || field.isHidden || field.name === tableMetaData.primaryKeyField) return false
+        const value = record.displayValues?.[field.name] ?? record.values[field.name]
+        return value == null || !recordLabel.includes(String(value))
+      })
   )
 
   const renderAssociation = (name: string, label?: string) => {

@@ -67,6 +67,18 @@ const CONTENT_CLASSES = cn(
 )
 
 /**
+ * Whether a secondary action already has an enabled item in the Actions menu.
+ * @param entries - Resolved menu entries, including nested menus.
+ * @param type - The action being considered for a standalone button.
+ * @returns Whether the action remains accessible through the menu.
+ */
+function menuOffersAction(entries: RecordMenuEntry[], type: 'copy' | 'delete'): boolean {
+  return entries.some((entry) => entry.kind === 'submenu'
+    ? menuOffersAction(entry.entries, type)
+    : entry.kind === 'item' && !entry.disabled && entry.action.type === type)
+}
+
+/**
  * Menu entries as Radix dropdown items, with sub-menus and separators.
  *
  * @param props - Component properties.
@@ -117,9 +129,8 @@ export function RecordMenuItems({ entries, onAction }: { entries: RecordMenuEntr
 }
 
 /**
- * The record view's action controls, as in the Material dashboard: Edit and Delete buttons for
- * quick access (Material's button bar), a button per `VIEW_SCREEN_ADDITIONAL` menu, and the
- * Actions menu.
+ * The record view's compact Next controls: Edit, secondary actions when the Actions menu
+ * does not already offer them, and each metadata-defined additional menu.
  *
  * @param props - {@link RecordActionsProps}
  * @returns The controls.
@@ -152,7 +163,7 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
         </button>
       )}
 
-      {canCopy && (
+      {canCopy && !menuOffersAction(actionEntries, 'copy') && (
         <button
           type="button"
           onClick={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)}
@@ -166,7 +177,7 @@ export function RecordActions({ tableMetaData, record, actionEntries, resolveMen
         </button>
       )}
 
-      {canDelete && (
+      {canDelete && !menuOffersAction(actionEntries, 'delete') && (
         <button
           type="button"
           onClick={() => onAction({ type: 'delete' })}

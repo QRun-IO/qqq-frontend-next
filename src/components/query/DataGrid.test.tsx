@@ -121,6 +121,7 @@ describe('DataGrid Material CSS hooks (QRun-IO/qqq#731)', () => {
 describe('DataGrid compact headers (QRun-IO/qqq#728)', () => {
   it('keeps narrow columns inside their sticky cell while offering statistics through the menu', () => {
     render(grid({
+      columnWidths: { id: 75, name: 200 },
       onColumnStats: vi.fn(),
       columnMenu: {
         onHide: vi.fn(), onPin: vi.fn(),

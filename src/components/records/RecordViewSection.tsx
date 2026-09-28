@@ -269,7 +269,7 @@ export function RecordViewSection({
       ) : (
         /* Material uses a 12-column field grid; each field defaults to full width. */
         <dl
-          className="grid grid-cols-12 gap-x-8 gap-y-6"
+          className="grid grid-cols-12 gap-x-8 gap-y-4"
         >
           {visibleFields.map((field) => {
             if (!field) return null

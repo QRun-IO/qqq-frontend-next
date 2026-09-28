@@ -161,14 +161,14 @@ export function storeSectionOpen(tableName: string, sectionName: string, open: b
 }
 
 /**
- * Whether the record view shows its section sidebar (`materialDashboard.showRecordSidebar`,
- * default true).
+ * Whether the record view shows its section sidebar. Next UI keeps its compact record layout
+ * unless the table explicitly asks for section navigation.
  *
  * @param table - Table metadata.
- * @returns False only when the table sets `showRecordSidebar` to false.
+ * @returns True only when the table sets `showRecordSidebar` to true.
  */
 export function showRecordSidebar(table: QTableMetaData): boolean {
-  return materialDashboardTableMetaData(table)?.showRecordSidebar !== false
+  return materialDashboardTableMetaData(table)?.showRecordSidebar === true
 }
 
 /**
@@ -232,5 +232,5 @@ export function gridSpanClasses(span: number): string {
  */
 export function recordSectionGridSpan(section: QTableSection, widgets?: Record<string, QWidgetMetaData>): string {
   const width = section.widgetName ? widgets?.[section.widgetName]?.gridColumns : section.gridColumns
-  return gridSpanClasses(twelfths(width) ?? 12)
+  return gridSpanClasses(twelfths(width) ?? 6)
 }

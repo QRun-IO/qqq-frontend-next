@@ -55,6 +55,18 @@ describe('ThemeProvider', () => {
     expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
   })
 
+  it('opens in light mode even when the operating system prefers dark', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as typeof window.matchMedia
+    try {
+      render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+      expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it('should toggle dark mode', async () => {
     const user = userEvent.setup()
     render(

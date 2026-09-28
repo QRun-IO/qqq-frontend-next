@@ -113,8 +113,7 @@ test.describe('Material CSS and test hooks', () => {
       const wrapper = form.locator(`[data-qqq-id="form-section-${materialId(section.name)}"]`)
       await expect(wrapper, section.name).toHaveClass(/form-section-wrapper.*is-visible|is-visible.*form-section-wrapper/)
       const sectionHeading = wrapper.locator(`[data-qqq-id="form-section-header-${materialId(section.name)}"]`)
-      if (section.name === 'identity') await expect(sectionHeading).toHaveCount(0) // T1 fields sit beneath the form title
-      else await expect(sectionHeading).toHaveText(section.label)
+      await expect(sectionHeading).toHaveText(section.label)
     }
     // Field wrappers: input-{field}, switch-{boolean field}, all visible (Next does not render hidden fields)
     const firstName = form.locator('[data-qqq-id="input-firstname"]')
@@ -176,10 +175,16 @@ test.describe('Material CSS and test hooks', () => {
     if (phone) {
       // Phones show sections as an accordion; the tab bar (Next's section navigation) is desktop only
       await expect(page.locator('[data-qqq-id="record-view-accordion"]')).toBeVisible()
-      await expect(page.locator('[data-qqq-id="record-sidebar"]')).toHaveCount(0)
+      await expect(page.locator('[data-qqq-id="record-sidebar"]')).toBeHidden()
     } else {
-      await expect(page.locator('[data-qqq-id="record-sidebar"] [role="tablist"]')).toBeVisible()
-      await expect(page.locator('[data-qqq-id="record-sidebar"] [role="tab"]').first()).toHaveClass(/sidebar-section.*is-visible/)
+      const sidebar = page.locator('[data-qqq-id="record-sidebar"]')
+      await expect(view.getByRole('tablist')).toBeVisible()
+      if (await sidebar.isVisible()) {
+        await expect(sidebar.locator('[data-qqq-id="sidebar-item-identity"]')).toHaveClass(/sidebar-section.*is-visible/)
+      } else {
+        // The tablet width has tabs and desktop actions, while the lg-only sidebar stays hidden.
+        await expect(sidebar).toBeHidden()
+      }
       const trigger = page.locator('[data-qqq-id="record-view-actions-menu-button"] [data-qqq-id="button-actions-menu"]')
       await expect(trigger).toHaveAttribute('data-button-variant', 'outlined')
       await trigger.click()
@@ -216,6 +221,13 @@ test.describe('Material CSS and test hooks', () => {
     await expect(page.locator('[data-qqq-id="button-create-new"]')).toHaveAccessibleName('Create new Person record')
     await expect(page.locator('[data-qqq-id="button-filter-builder"] [data-qqq-id="button-filter"]')).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-views"] [data-qqq-id="button-saved-views"]')).toBeVisible()
+    if ((await page.locator('[data-qqq-id="button-query-mode-basic"]').count()) === 0) {
+      await page.locator('[data-qqq-id="button-filter"]').click()
+    }
+    const basicMode = page.locator('[data-qqq-id="button-query-mode-basic"]')
+    const advancedMode = page.locator('[data-qqq-id="button-query-mode-advanced"]')
+    await expect(basicMode).toHaveText('Basic')
+    await expect(advancedMode).toHaveText('Advanced')
     const header = page.locator('th[data-qqq-id="table-header-firstname"]')
     await expect(header).toContainText('First Name')
 
@@ -231,10 +243,11 @@ test.describe('Material CSS and test hooks', () => {
     expect(hooks.map((hook) => hook.label)).toContain(clone)
 
     // Material-targeted app CSS: hide the bulk entries and the filter builder button, restyle a header
-    await customCss(page, '[data-qqq-id^="menu-item-bulk"] { display: none } [data-qqq-id="button-filter-builder"] { display: none } [data-qqq-id="table-header-firstname"] { background-color: rgb(20, 40, 60) }')
+    await customCss(page, '[data-qqq-id^="menu-item-bulk"] { display: none } [data-qqq-id="button-filter-builder"] { display: none } [data-qqq-id="button-query-mode-advanced"] { outline: 3px solid rgb(30, 60, 90) } [data-qqq-id="table-header-firstname"] { background-color: rgb(20, 40, 60) }')
     await expect(menu.getByRole('menuitem', { name: 'Bulk Edit' })).toBeHidden()
     await expect(menu.getByRole('menuitem', { name: clone })).toBeVisible()
     await expect(page.locator('[data-qqq-id="button-filter"]')).toBeHidden()
+    await expect.poll(() => computed(advancedMode, 'outline-color')).toBe('rgb(30, 60, 90)')
     await expect.poll(() => computed(header, 'background-color')).toBe('rgb(20, 40, 60)')
   })
 })

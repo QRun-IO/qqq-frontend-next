@@ -236,7 +236,7 @@ export function DataGrid({
     }
   }, [tableMetaData, columnVisibility, columnOrder, columnPins])
 
-  // Declared widths: a user-resized width wins; otherwise Material's default for the field
+  // A user-resized width wins, then explicit metadata, then the readable Next UI default.
   const widthOf = useCallback((column: QueryColumn) => Math.max(MIN_COLUMN_WIDTH, columnWidths[column.name] ?? column.defaultWidth), [columnWidths])
 
   // Sticky offsets of pinned columns, from their declared widths (measured widths replace them
@@ -358,8 +358,8 @@ export function DataGrid({
       const sortInfo = sortMap.get(column.name)
       const help = selectHelpContent(field.helpContents, QUERY_SCREEN_HELP_ROLES)
       const filtered = column.isQueryCriteria && filteredColumns?.has(column.name)
-      // Material keeps narrow numeric/date columns. Their extra header actions live in the
-      // column menu, so those actions cannot overflow a sticky cell and cover its neighbor.
+      // Explicitly narrow columns keep extra actions in the menu so those controls cannot
+      // overflow a sticky cell and cover its neighbor.
       const compactHeader = widthOf(column) < 160
 
       return {

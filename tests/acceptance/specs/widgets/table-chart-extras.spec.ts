@@ -189,7 +189,7 @@ test.describe('table and chart extras', () => {
     await expectTouchReady(page, card)
   })
 
-  test('[WID-069] pie: theme color names, a full pie, the percent tooltip and legend toggles @mobile', async ({ page, backend, diagnostics }) => {
+  test('[WID-069] pie: theme color names, doughnut slices, the percent tooltip and legend toggles @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accPieNamed')
     expect(payload.chartData.datasets[0].backgroundColors).toEqual(['info', 'success', '#8E24AA'])
@@ -198,14 +198,8 @@ test.describe('table and chart extras', () => {
     const sectors = card.locator('.recharts-pie-sector path')
     await expect(sectors).toHaveCount(3)
     expect(await sectors.evaluateAll((paths) => paths.map((path) => path.getAttribute('fill')?.toUpperCase()))).toEqual(['#0062FF', '#43A047', '#8E24AA'])
-    // a full pie: one arc per sector, each closing at the same center (a donut sector has two arcs)
-    const shapes = await sectors.evaluateAll((paths) => paths.map((path) => {
-      const d = (path.getAttribute('d') ?? '').replace(/\s+/g, ' ').trim()
-      return { arcs: (d.match(/A/g) ?? []).length, end: /L ([\d.-]+,[\d.-]+) Z$/.exec(d)?.[1] ?? null }
-    }))
-    expect(shapes.map((shape) => shape.arcs)).toEqual([1, 1, 1])
-    expect(new Set(shapes.map((shape) => shape.end)).size).toBe(1)
-    expect(shapes[0].end).not.toBeNull()
+    const arcs = await sectors.evaluateAll((paths) => paths.map((path) => (path.getAttribute('d')?.match(/A/g) ?? []).length))
+    expect(arcs).toEqual([2, 2, 2])
 
     // the tooltip adds the percent of the total (Gamma, the lower half, is 3 of 6)
     await sectors.nth(2).hover()

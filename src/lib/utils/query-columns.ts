@@ -18,7 +18,7 @@
  * @file query-columns — the columns a record query grid can show: the table's own fields, its
  * query-selectable virtual fields, and the fields of its readable exposed joins (named
  * `joinTable.field`, labelled "Join Label: Field Label", hidden by default), as in the Material
- * dashboard. Also Material's default column widths and column pinning.
+ * dashboard, with Next UI's readable default widths and column pinning.
  */
 
 import type { QFieldMetaData, QTableMetaData, QVirtualFieldMetaData } from '@/types'
@@ -42,7 +42,7 @@ export interface QueryColumn {
   isVirtual: boolean
   /** Whether the column can be sorted and filtered (false for virtual fields that are not query criteria). */
   isQueryCriteria: boolean
-  /** Material's default width for the column, in pixels. */
+  /** Default width for the column, in pixels. */
   defaultWidth: number
 }
 
@@ -70,32 +70,14 @@ export type ColumnPin = 'left' | 'right'
 export type ColumnPins = Record<string, ColumnPin>
 
 /**
- * Material's default grid width for a field (`DataGridUtils.getColumnWidthForField`): the SIZE
- * adornment, else 200 for possible-value fields, 100 for numbers and dates (75 for a short-labelled
- * numeric primary key), 200 for date-times, 75 for booleans and 200 for anything else.
+ * Preserve the original Next UI column width unless metadata explicitly sets a SIZE
+ * adornment. Narrow Material defaults leave too little room for this grid's header controls.
  *
  * @param field - The field.
- * @param table - The field's table, when it is the query table (for the primary key rule).
  * @returns The width in pixels.
  */
-export function defaultColumnWidth(field: QFieldMetaData, table?: Pick<QTableMetaData, 'primaryKeyField'>): number {
-  const sized = sizeWidth(field)
-  if (sized !== undefined) return sized
-  if (field.possibleValueSourceName) return 200
-  switch (field.type) {
-    case 'DECIMAL':
-    case 'INTEGER':
-    case 'LONG':
-      return table && field.name === table.primaryKeyField && (field.label ?? '').length < 3 ? 75 : 100
-    case 'DATE':
-      return 100
-    case 'DATE_TIME':
-      return 200
-    case 'BOOLEAN':
-      return 75
-    default:
-      return 200
-  }
+export function defaultColumnWidth(field: QFieldMetaData): number {
+  return sizeWidth(field) ?? 150
 }
 
 /**
@@ -121,7 +103,7 @@ export function getQueryColumns(table: QTableMetaData): QueryColumn[] {
   const group = `${table.label} Fields`
   const base = (field: QFieldMetaData): QueryColumn => ({
     name: field.name, label: field.label, field, isJoin: false, group, tableName: table.name, isVirtual: false, isQueryCriteria: true,
-    defaultWidth: defaultColumnWidth(field, table),
+    defaultWidth: defaultColumnWidth(field),
   })
   const fields = fieldsInSectionOrder(table).filter(usable)
   // Material puts the primary key first (and pins it), whatever the sections say

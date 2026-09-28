@@ -115,26 +115,27 @@ interface WidgetIconTileProps {
   color?: string
   /** Tile size classes (default a 1.75 rem header tile). */
   className?: string
+  /** Use a filled tile; header icons instead use a colored glyph. */
+  filled?: boolean
   /** `data-qqq-id` for the tile. */
   qqqId?: string
 }
 
 /**
- * A white glyph (or a 16 px image) on a rounded tile in the icon's color, as Material
- * Dashboard draws widget header icons and the main widget icon. An image that fails to
- * load is hidden, leaving the colored tile.
+ * A metadata glyph or image, with a filled tile for prominent main icons and a
+ * colored glyph for compact header icons. Failed images are hidden.
  *
  * @param props - See {@link WidgetIconTileProps}.
  * @returns An `aria-hidden` tile.
  */
-export function WidgetIconTile({ name, path, color, className, qqqId }: WidgetIconTileProps) {
+export function WidgetIconTile({ name, path, color, className, filled = true, qqqId }: WidgetIconTileProps) {
   const background = color || 'var(--qqq-info-color, var(--color-primary))'
   if (path) {
     return (
       <span
         aria-hidden="true"
         className={cn('inline-flex flex-shrink-0 items-center justify-center rounded', className ?? 'h-7 w-7')}
-        style={{ backgroundColor: background }}
+        style={{ backgroundColor: filled ? background : undefined }}
         data-qqq-id={qqqId}
         data-icon-path={path}
       >
@@ -147,8 +148,8 @@ export function WidgetIconTile({ name, path, color, className, qqqId }: WidgetIc
   return (
     <span
       aria-hidden="true"
-      className={cn('inline-flex flex-shrink-0 items-center justify-center rounded text-white', className ?? 'h-7 w-7 text-base')}
-      style={{ backgroundColor: background, color: '#ffffff' }}
+      className={cn('inline-flex flex-shrink-0 items-center justify-center rounded', className ?? 'h-7 w-7 text-lg')}
+      style={{ backgroundColor: filled ? background : undefined, color: filled ? '#ffffff' : background }}
       data-qqq-id={qqqId}
       data-icon-name={name}
     >
