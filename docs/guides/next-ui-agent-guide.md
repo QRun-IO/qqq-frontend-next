@@ -152,6 +152,7 @@ The query URL owns `page`, `pageSize`, `filter`, and `q`; do not move shareable 
 - For exposed query joins, check every target and intermediate table named in `joinPath`. The query screen filters its metadata before rendering columns or filters, and the request hook applies the same rule before sending a join. Keep both paths aligned when changing join UI.
 - Sanitize HTML. Review CSS, external links, iframes, custom bundle URLs, and CSP when adding a new embed. The Javalin host and standalone server supply security headers; test the deployed response. The [security review](../security/next-ui-review.md) predates some integrated fixes, so reconcile each follow-up with source and current acceptance evidence.
 - Give forms real labels, `aria-required`/`aria-invalid` where relevant, keyboard operation, error text, and a sensible focus target. Dialogs and phone sheets must trap focus and restore it. Check both desktop keyboard and phone/tablet touch interactions.
+- The nonmodal Columns popup focuses its named container on open and returns focus to its trigger on explicit close/Escape. Outside clicks keep focus on the clicked control. Embedded report column editors must not take focus when mounted. Verify keyboard search and native browser Tab behavior with QRY-092.
 - Keep errors local when possible: widget failures show a contained retry and leave neighboring widgets usable; route errors and missing records have dedicated states. Never swallow an API failure into a blank page.
 
 ## Quality gates and evidence

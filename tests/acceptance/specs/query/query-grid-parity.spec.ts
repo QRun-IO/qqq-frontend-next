@@ -75,6 +75,40 @@ test('[QRY-092] the column chooser searches, groups, counts and marks a changed 
   await expect(button).toHaveAttribute('data-button-state', 'dirty')
 })
 
+test('[QRY-092] the column popup receives and restores keyboard focus @mobile', async ({ page, diagnostics, browserName }) => {
+  void diagnostics
+  await open(page, '/app/qryItem')
+  await showTable(page)
+  const trigger = page.getByRole('button', { name: 'Configure columns' })
+  const panel = page.getByRole('dialog', { name: 'Configure columns' })
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  await expect(panel).toBeFocused()
+  await page.keyboard.press('Tab')
+  // Native WebKit Tab skips buttons in this runner; all engines must reach the search input.
+  if (browserName !== 'webkit') {
+    await expect(panel.getByRole('button', { name: 'Close column configuration' })).toBeFocused()
+    await page.keyboard.press('Tab')
+  }
+  await expect(panel.getByRole('searchbox', { name: 'Search Fields' })).toBeFocused()
+  await panel.getByRole('searchbox', { name: 'Search Fields' }).fill('Notes')
+  await expect(panel.getByRole('listitem')).toHaveCount(1)
+  await panel.getByRole('button', { name: 'Close column configuration' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(panel).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(panel).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await trigger.click()
+  const quickSearch = page.getByRole('searchbox', { name: 'Quick search Query Item' })
+  await quickSearch.click()
+  await expect(panel).toBeHidden()
+  await expect(quickSearch).toBeFocused()
+})
+
 test('[QRY-093] the last saved view and its unsaved filter survive reopening and reload @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const rows = await backend.sql("select id from saved_view where label = 'Alice People View'")

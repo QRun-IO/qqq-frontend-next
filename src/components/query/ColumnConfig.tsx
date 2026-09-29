@@ -23,7 +23,7 @@
 
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronDown, ChevronRight, Eye, EyeOff, GripVertical, Pin, Search, X } from 'lucide-react'
 
 import type { QTableMetaData } from '@/types'
@@ -92,6 +92,11 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, col
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!embedded) panelRef.current?.focus({ preventScroll: true })
+  }, [embedded])
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const pins = effectivePins(columns.map((c) => c.name), columnPins, tableMetaData.primaryKeyField)
   const searching = search.trim() !== ''
@@ -159,6 +164,7 @@ export function ColumnConfig({ tableMetaData, columnVisibility, columnOrder, col
 
   return (
     <div className={`flex ${embedded ? 'w-full' : 'w-80 shadow-sm'} max-w-[calc(100vw-16px)] flex-col rounded-xl border border-border bg-card`} data-qqq-id="column-config"
+      ref={panelRef} tabIndex={embedded ? undefined : -1}
       role={embedded ? 'group' : 'dialog'} aria-label="Configure columns"
       style={maxHeight === undefined ? undefined : { maxHeight }}>
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">

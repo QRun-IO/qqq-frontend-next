@@ -4,7 +4,21 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, compact filter controls restored
+## Latest checkpoint — September 29, query evidence and column-popup focus
+
+**VIS-026 corrected:** opening Columns with Enter left focus on its toolbar trigger; activating the popup's Close button with Enter then left focus on the page body. The nonmodal popup now receives focus without scrolling or automatically opening a phone search keyboard. Explicit close returns to Columns; Escape keeps its existing focus return, and outside clicks retain focus on the clicked control. Embedded report column editors do not take focus when mounted. The popup layout and field controls are unchanged.
+
+The component regression failed before the fix. A real-browser probe reproduced both focus failures; the corrected Playwright regression then failed at inactive popup focus. Its first attempt used a Testing Library matcher by mistake and is not counted as product evidence. After the fix, 48 affected component tests pass. The broader five-profile backend run passed 28/30; both failures assumed WebKit tabs to a button before search. A plain native-control probe showed Chromium/Firefox tab to Close while this WebKit runner tabs directly to search. The test now verifies those observed native paths while retaining popup focus, search, keyboard close, Escape and outside-click assertions. The final focus check passes all five profiles. Production export, types, lint, license and bundle checks pass. Logs use `column-focus-*`; the confirmed pre-fix artifacts are retained separately.
+
+**Review evidence correction:** some older current captures still showed column widths that had already been fixed. The capture tool now stores a timestamp and SHA-256 fingerprint of the exported files in each new entry. The gallery displays them, flags untracked/older builds, and avoids resetting a newer scenario selection when an earlier fetch finishes. Six theme/viewport image-pair checks and both warning checks pass (`gallery-provenance-check.log`). Captures outside the refreshed query family still require freshness verification; they must not be treated as current approval evidence.
+
+All 27 query states now have refreshed original/current entries in light/dark at desktop/tablet/phone sizes: 324 entries. Current entries have no setup/runtime errors or document overflow and match the final export fingerprint. Three added states cover column-popup keyboard focus, search and no matches. The original has no search control; those baseline captures explicitly state they are not equivalent interaction states. Inspected fresh desktop column configuration/menu/empty/error/loading states, desktop keyboard focus, tablet filtered columns and dark phone no-match presentation. Inventory is now 104 light and 83 dark states per viewport. No full family is approved.
+
+**VIS-027 remains open:** the light query error panel fails a browser contrast check at 4.24:1 for its heading, message and Retry text (required 4.5:1). The dark panel passes. `query-error-contrast-probe.log` contains the measured foreground/background colors and affected nodes. Correct the text contrast while preserving configured status colors and the original panel layout, then verify both default and application themes.
+
+Remote full CI36580709453 at30db309: WebKit passed; Chromium/phone/tablet and Firefox remain running. Keep local corrections unpushed until that run finishes. Full visual review, functional gaps and final release gates remain open.
+
+## Earlier checkpoint — September 29, compact filter controls restored
 
 **VIS-002 corrected for the reproduced desktop height regression:** the populated filter table started at y579, versus y535 in the original Next capture. The unsaved-view status forced a separate full-width row (24px), and the desktop filter header used 44px controls plus padding (20px above the original header height). A browser-only trial isolated both causes before the source change.
 
@@ -129,6 +143,8 @@ Current verification: **1,771 unit tests and 40 bulk-load real-backend cases acr
 - Review dimensions: hierarchy, typography and spacing, color and icon treatment, control grouping, responsive layout, and interaction states. Confirm findings against source before changing defaults; preserve explicitly configured metadata behavior.
 
 ## Coverage
+
+Current inventory: **104 light and 83 dark states per viewport**, each with original/current entries. The 27 query states in both themes were regenerated with build fingerprints at the latest checkpoint. Other families include older captures without provenance and need current-build verification before approval. The table below describes the initial inventory and its remaining review scope; later checkpoints document additional coverage, not whole-family approvals.
 
 The initial pass captured 38 scenarios per build at desktop (1440×1000), tablet (810×1080), and phone (393×851): 228 build/state combinations and 447 screenshots, including long-page scroll sequences. Every entry viewport has received a paired visual scan. Detailed review of all scroll sequences, dark/configured themes, keyboard focus, and additional interaction states remains. No whole family is signed off yet. The baseline report-filter editor is unavailable because that functionality did not exist there; its capture is not an equivalent editor state. The desktop baseline delete capture was corrected during the populated-filter follow-up.
 

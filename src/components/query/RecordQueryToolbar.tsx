@@ -579,7 +579,7 @@ export function RecordQueryToolbar({
               columnPins={columnPins}
               onVisibilityChange={setColumnVisibility}
               onOrderChange={setColumnOrder}
-              onClose={() => setColumnConfigOpen(false)}
+              onClose={() => { setColumnConfigOpen(false); columnConfigBtnRef.current?.focus() }}
             />
           </div>
         )}

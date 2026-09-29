@@ -95,6 +95,19 @@ const defaultVisibility: Record<string, boolean> = {
 const defaultOrder = ['id', 'firstName', 'lastName']
 
 describe('ColumnConfig — rendering', () => {
+  it('focuses the named popup when it opens', () => {
+    render(<ColumnConfig tableMetaData={makeTableMeta()} columnVisibility={defaultVisibility} columnOrder={defaultOrder}
+      onVisibilityChange={vi.fn()} onOrderChange={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('dialog', { name: 'Configure columns' })).toHaveFocus()
+  })
+
+  it('does not take focus when embedded inside an editor', () => {
+    render(<><button autoFocus>Report field</button><ColumnConfig embedded tableMetaData={makeTableMeta()}
+      columnVisibility={defaultVisibility} columnOrder={defaultOrder}
+      onVisibilityChange={vi.fn()} onOrderChange={vi.fn()} onClose={vi.fn()} /></>)
+    expect(screen.getByRole('button', { name: 'Report field' })).toHaveFocus()
+  })
+
   it('renders the "Configure Columns" heading', () => {
     render(
       <ColumnConfig

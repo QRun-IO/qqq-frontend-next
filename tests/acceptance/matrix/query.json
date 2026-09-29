@@ -31,7 +31,7 @@
       "feature": "Column chooser searches, groups, counts and marks changed layouts",
       "source": ["qqq-frontend-material-dashboard/src/qqq/components/query/FieldListMenu.tsx"],
       "fixture": "QueryFixtures.java qryItem",
-      "scenarios": ["Search narrows fields", "Groups collapse and expand", "Hiding a field marks the columns dirty"],
+      "scenarios": ["Search narrows fields", "Groups collapse and expand", "Hiding a field marks the columns dirty", "Keyboard opening focuses the popup and Tab reaches search", "Explicit close and Escape restore Columns focus; outside click keeps the clicked control focused"],
       "negative": ["Unknown search shows an empty message"],
       "issues": [716],
       "required": true
