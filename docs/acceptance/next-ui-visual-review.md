@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, report filter indicators and API cache correction
+## Latest checkpoint — September 29, script suggestions
+
+Added caret-adjacent suggestions inside the existing script editor: QQQ API/logger helpers, language keywords and file identifiers. The parent dialog, textarea, split panes and syntax overlay are retained. Inspected desktop light/dark captures under `test-results/acceptance/script-completion-evidence`; list bounds and both-theme axe checks pass across all five profiles. This focused review does not approve the whole developer-tools family.
+
+The new interaction passes 1,840 unit tests, types, affected lint, license, static export and bundle budgets; 15 Chromium developer/script workflows and 10 focused cases across all five profiles. Native WebKit groups consecutive edits differently from Chromium: the initial cross-browser assertion failed after a fill plus completion, and a plain-textarea probe reproduced it. Retained failures; no production undo workaround or retry was added. The replacement check starts from a loaded revision and verifies native undo and redo, then separately tests typed-prefix completion and SQL-backed save/reload. Source/caret validation and linear prefix scanning correct both independent review findings.
+
+Baseline full Chromium at 95847c2 is now terminal: 556 passed, all 390 required rows, no failures/skips/flaky tests. Backend PR #913 is merged. The broad original-Next visual review and final release gates remain open.
+
+## Earlier checkpoint — September 29, report filter indicators and API cache correction
 
 Report previews now feed complete nested criteria into the shared grid’s existing filtered-column indicator. Clicking it opens the current filter without adding a condition. The read-only preview keeps edits local. Inspected the real-backend desktop light editor and read-only captures in `report-filter-indicator-final-artifacts`; the existing grid indicator and layouts are reused. The captured editor is scrolled to its active condition. This is a focused inspection, not whole-family approval.
 

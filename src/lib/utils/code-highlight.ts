@@ -147,6 +147,23 @@ const SQL_KEYWORDS = [
   'values', 'when', 'where', 'with',
 ]
 
+/**
+ * Keywords and literals shared by highlighting and script completion.
+ * @param language - The selected file language.
+ * @returns Suggestions appropriate to that language.
+ */
+export function codeKeywords(language: CodeLanguage): readonly string[] {
+  switch (language) {
+    case 'javascript': return [...JS_KEYWORDS, 'true', 'false', 'null', 'undefined']
+    case 'java': return [...JAVA_KEYWORDS, 'true', 'false', 'null']
+    case 'python': return [...PYTHON_KEYWORDS, 'True', 'False', 'None']
+    case 'sql': return [...SQL_KEYWORDS, 'null', 'true', 'false']
+    case 'json': return ['true', 'false', 'null']
+    case 'velocity': return ['if', 'else', 'elseif', 'end', 'foreach', 'set', 'macro', 'include', 'parse', 'stop']
+    default: return []
+  }
+}
+
 const NUMBER = /(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\b/y
 const DOUBLE_QUOTED = /"(?:[^"\\\n]|\\.)*"?/y
 const SINGLE_QUOTED = /'(?:[^'\\\n]|\\.)*'?/y

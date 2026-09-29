@@ -300,6 +300,7 @@ export function ScriptEditorDialog({
                       </div>
                     </div>
                     <CodeEditor
+                      autocomplete
                       id={`script-edit-${domId(idKey)}-${index}`}
                       ariaLabel={fileName}
                       value={contents[fileName] ?? ''}

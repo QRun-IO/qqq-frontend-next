@@ -1139,7 +1139,8 @@
         "test run output and log lines equal the backend testScript response; a failing run shows the error the backend returns",
         "logs list the script_log rows of the selected version with their lines",
         "docs show the script type help text and sample code",
-        "create a script for an empty associated script field"
+        "create a script for an empty associated script field",
+        "local QQQ helper and keyword suggestions support keyboard and pointer/touch insertion, native undo/redo, both-theme accessibility, and SQL-verified revision persistence"
       ],
       "negative": [
         "a viewer cannot save or test a revision (no Edit or Test offered; the backend refuses storeScriptRevision and testScript)",

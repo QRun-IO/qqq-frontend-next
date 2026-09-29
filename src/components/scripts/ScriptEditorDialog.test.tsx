@@ -80,6 +80,33 @@ describe('ScriptEditorDialog', () => {
     vi.mocked(testScript).mockReset()
   })
 
+  it('completes QQQ API methods in the existing script editor and leaves other text intact', async () => {
+    const user = userEvent.setup()
+    renderDialog({ files: [{ name: 'main.js', fileType: 'javascript', contents: 'const result = ' }] })
+    const editor = screen.getByRole('textbox', { name: 'main.js' })
+    await user.click(editor)
+    await user.keyboard('{End}')
+    await user.type(editor, 'api.bu')
+    expect(screen.getByRole('listbox', { name: 'Code suggestions' })).toBeVisible()
+    expect(screen.getByRole('option', { name: /api.bulkInsert/ })).toBeVisible()
+    await user.keyboard('{Enter}')
+    expect(editor).toHaveValue('const result = api.bulkInsert(')
+    expect(editor).toHaveFocus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('dismisses suggestions with Escape and allows Tab to leave the code', async () => {
+    const user = userEvent.setup()
+    renderDialog({ files: [{ name: 'main.js', fileType: 'javascript', contents: '' }] })
+    const editor = screen.getByRole('textbox', { name: 'main.js' })
+    await user.type(editor, 'logger.')
+    expect(screen.getByRole('option', { name: /logger.log/ })).toBeVisible()
+    await user.keyboard('{Escape}{Tab}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(editor).not.toHaveFocus()
+    expect(editor).toHaveValue('logger.')
+  })
+
   it('opens the first file in one pane, colored by its file type; each pane picks its file', async () => {
     const user = userEvent.setup()
     renderDialog()

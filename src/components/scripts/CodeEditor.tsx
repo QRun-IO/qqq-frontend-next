@@ -39,6 +39,7 @@ import React, { useCallback, useLayoutEffect, useRef, useState, useSyncExternalS
 
 import type { CodeLanguage } from '@/lib/utils/code-highlight'
 import { cn } from '@/lib/utils/cn'
+import { findCodeCompletions, type CodeCompletionMatch } from '@/lib/utils/code-completions'
 import { HighlightedCode } from './HighlightedCode'
 
 /** The text a Tab inserts. */
@@ -98,6 +99,8 @@ export interface CodeEditorProps {
   onChange?: (value: string) => void
   /** Language to color the code as. */
   language: CodeLanguage
+  /** Enable local code suggestions for script files. */
+  autocomplete?: boolean
   /** Read-only: selectable and focusable, never edited, never captures Tab. */
   readOnly?: boolean
   /** Visible rows. Defaults to 12. */
@@ -159,6 +162,7 @@ export function CodeEditor({
   onChange,
   language,
   readOnly = false,
+  autocomplete = false,
   rows = 12,
   ariaLabel,
   describedBy,
@@ -170,11 +174,65 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const movesFocus = useSyncExternalStore(subscribeTabMode, readTabMode, readServerTabMode)
   const [released, setReleased] = useState(false)
+  const [completion, setCompletion] = useState<(CodeCompletionMatch & { selected: number; top: number; left: number; height: number; caret: number; source: string }) | null>(null)
+  const composing = useRef(false)
+  const metricsRef = useRef<HTMLSpanElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const pendingSelection = useRef<[number, number] | null>(null)
   const hintId = `${id}-keyboard-hint`
   const statusId = `${id}-tab-status`
+  const listId = `${id}-suggestions`
+  const shown = autocomplete && !readOnly ? completion : null
+
+  useLayoutEffect(() => {
+    if (shown) document.getElementById(`${listId}-${shown.selected}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [shown, listId])
+
+  /**
+   * Refreshes local suggestions and positions the list beside the visible caret.
+   * @param textarea - The editor input.
+   * @param explicit - Whether Ctrl+Space requested suggestions.
+   */
+  function suggest(textarea: HTMLTextAreaElement, explicit = false) {
+    if (!autocomplete || readOnly || composing.current || textarea.selectionStart !== textarea.selectionEnd) {
+      setCompletion(null)
+      return
+    }
+    const match = findCodeCompletions(textarea.value, textarea.selectionStart, language, explicit)
+    if (!match) { setCompletion(null); return }
+    const before = textarea.value.slice(0, textarea.selectionStart).split('\n')
+    const metrics = metricsRef.current?.getBoundingClientRect()
+    const lineHeight = metrics?.height || 24
+    const characterWidth = metrics?.width || 8.4
+    const caretTop = 12 + (before.length - 1) * lineHeight - textarea.scrollTop
+    const height = Math.min(192, Math.max(72, textarea.clientHeight - 24))
+    const top = caretTop + lineHeight + height <= textarea.clientHeight ? caretTop + lineHeight : Math.max(0, caretTop - height)
+    const column = before.at(-1)!.replace(/\t/g, '        ').length
+    const left = Math.min(Math.max(0, 12 + column * characterWidth - textarea.scrollLeft), Math.max(0, textarea.clientWidth - 320))
+    setCompletion({ ...match, selected: 0, top, left, height, caret: textarea.selectionStart, source: textarea.value })
+  }
+
+  /**
+   * Applies one suggestion as a normal undoable textarea edit.
+   * @param index - The selected item.
+   */
+  function acceptCompletion(index: number) {
+    const textarea = textareaRef.current
+    if (!shown || !textarea) return
+    if (textarea.value !== shown.source || textarea.selectionStart !== shown.caret || textarea.selectionEnd !== shown.caret) {
+      setCompletion(null)
+      return
+    }
+    const item = shown.items[index]
+    let end = shown.end
+    if (item.text.endsWith('(') && value[end] === '(') end++
+    textarea.focus()
+    const caret = shown.start + item.text.length
+    edit(textarea, shown.start, end, item.text, [caret, caret])
+    setCompletion(null)
+  }
 
   useLayoutEffect(() => {
     const selection = pendingSelection.current
@@ -203,8 +261,13 @@ export function CodeEditor({
       textarea.setSelectionRange(selection[0], selection[1])
       return
     }
+    const next = value.slice(0, start) + text + value.slice(end)
+    if (next === value) {
+      textarea.setSelectionRange(selection[0], selection[1])
+      return
+    }
     pendingSelection.current = selection
-    onChange?.(value.slice(0, start) + text + value.slice(end))
+    onChange?.(next)
   }
 
   /**
@@ -242,6 +305,33 @@ export function CodeEditor({
    * @param event - The keydown event.
    */
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (composing.current || event.nativeEvent.isComposing) return
+    if (autocomplete && !readOnly && event.ctrlKey && event.key === ' ' && !event.altKey && !event.metaKey) {
+      event.preventDefault()
+      suggest(event.currentTarget, true)
+      return
+    }
+    if (shown && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        const step = event.key === 'ArrowDown' ? 1 : -1
+        setCompletion({ ...shown, selected: (shown.selected + step + shown.items.length) % shown.items.length })
+        return
+      }
+      if (event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey && !movesFocus && !released)) {
+        event.preventDefault()
+        acceptCompletion(shown.selected)
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        setCompletion(null)
+        setReleased(true)
+        return
+      }
+    }
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Escape'].includes(event.key) || event.ctrlKey || event.metaKey) setCompletion(null)
     if (event.key.toLowerCase() === 'm' && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
       event.preventDefault()
       setReleased(false)
@@ -290,10 +380,16 @@ export function CodeEditor({
           ref={textareaRef}
           id={id}
           value={value}
-          onChange={(event) => onChange?.(event.target.value)}
+          onChange={(event) => { onChange?.(event.target.value); suggest(event.currentTarget) }}
           onKeyDown={handleKeyDown}
-          onScroll={syncScroll}
-          onBlur={() => setReleased(false)}
+          onScroll={() => { syncScroll(); setCompletion(null) }}
+          onClick={() => setCompletion(null)}
+          onCompositionStart={() => { composing.current = true; setCompletion(null) }}
+          onCompositionEnd={(event) => { composing.current = false; suggest(event.currentTarget) }}
+          onBlur={(event) => {
+            setReleased(false)
+            if (!listRef.current?.contains(event.relatedTarget)) setCompletion(null)
+          }}
           readOnly={readOnly}
           rows={rows}
           wrap="off"
@@ -301,6 +397,9 @@ export function CodeEditor({
           autoCapitalize="off"
           autoCorrect="off"
           aria-label={ariaLabel}
+          aria-autocomplete={autocomplete && !readOnly ? 'list' : undefined}
+          aria-controls={shown ? listId : undefined}
+          aria-activedescendant={shown ? `${listId}-${shown.selected}` : undefined}
           aria-describedby={describedByIds}
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
@@ -312,10 +411,22 @@ export function CodeEditor({
             boxClassName
           )}
         />
+        {autocomplete && <span ref={metricsRef} aria-hidden="true" className="pointer-events-none invisible absolute font-mono text-sm leading-6">M</span>}
+        {shown && <div ref={listRef} id={listId} role="listbox" aria-label="Code suggestions"
+          data-qqq-id={`code-suggestions-${id}`} className="absolute z-10 w-80 max-w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
+          style={{ top: shown.top, left: shown.left, maxHeight: shown.height }}>
+          {shown.items.map((item, index) => <button key={item.text} id={`${listId}-${index}`} type="button" role="option"
+            tabIndex={-1} aria-selected={index === shown.selected} onMouseDown={(event) => event.preventDefault()}
+            onClick={() => acceptCompletion(index)} data-qqq-id={`code-suggestion-${id}-${index}`}
+            className="flex min-h-11 w-full flex-col items-start rounded px-2 py-1 text-left text-sm text-popover-foreground hover:bg-accent aria-selected:bg-accent">
+            <span className="font-mono">{item.text}</span><span className="text-xs text-muted-foreground">{item.description}</span>
+          </button>)}
+        </div>}
       </div>
       {!readOnly && (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-muted-foreground">
           <p id={hintId}>
+            {autocomplete && 'Code suggestions: Ctrl+Space to open, arrows to choose, Enter or Tab to insert, Escape to dismiss. '}
             Tab inserts two spaces. To move focus out of the code, press Esc and then Tab, or press Ctrl+M to make Tab move focus.
           </p>
           <span id={statusId} role="status" aria-live="polite" className="font-medium">

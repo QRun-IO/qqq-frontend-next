@@ -221,3 +221,7 @@ and v1 public-environment allow-list (#704; backend PR #908 merged to develop as
 real process execution and SQL; PRC-039 is the approved real-account exclusion. Preserve
 the shared-drive view, folder-only validation, cancellation and token expiry handling.
 Never log or persist the access token, and never publish OAuth client secrets in metadata. Javalin conditional CSP covers its static export only; standalone Node/container deployments also require runtime `QQQ_DASHBOARD_CSP_SOURCES` using the [documented Google directives](./next-ui-developer-guide.md#google-drive-process-configuration). Check the actual dashboard HTML response from the selected host. RC1 remains immutable and retains its historical placeholder; these changes belong to the ongoing final 1.0 work.
+
+### Script editor suggestions
+
+`CodeEditor` autocomplete is opt-in from `ScriptEditorDialog`; keep other metadata code fields unchanged unless their contract calls for it. QQQ helpers, language keywords and file identifiers are local suggestions. Preserve native undo/redo, composition input, read-only behavior, caret/selection validation, and Escape-then-Tab focus escape. `records/script-completions.spec.ts` verifies loaded-revision undo/redo, prefix and pointer/touch insertion, both-theme accessibility, and SQL-backed save/reload. Native browsers group consecutive edits differently; do not claim every insertion creates a separate undo transaction.

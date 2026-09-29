@@ -20,9 +20,9 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Query | 122 | 6 | 1 | 0 | 2 | 131 |
 | Records | 126 | 4 | 0 | 0 | 8 | 138 |
 | Processes and reports | 120 | 5 | 0 | 0 | 3 | 128 |
-| Widgets and blocks | 224 | 4 | 4 | 0 | 4 | 236 |
+| Widgets and blocks | 225 | 4 | 3 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 40 | 0 | 0 | 0 | 11 | 51 |
-| **Total** | **729** | **22** | **5** | **1** | **38** | **795** |
+| **Total** | **730** | **22** | **4** | **1** | **38** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 104 | 10 | 1 | 0 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -918,7 +918,7 @@ Dashboard and record-view widgets: widget types, dashboard layout and data flow,
 | Test tab (inputs, run testScript, show outputs, exception, logs) | material:src/qqq/components/scripts/ScriptTestForm.tsx:90-310; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:532-543 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | Docs tab (help text, sample code) | material:src/qqq/components/scripts/ScriptDocsForm.tsx:41-80 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 | "Edit", "Edit and Activate", "Create New Version" open the editor | material:src/qqq/components/widgets/misc/ScriptViewer.tsx:373-388, 462-466, 554-562 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
-| Editor: code per file, split panes, mode per file type, autocomplete, beforeunload guard, test and docs panes on unsaved code | material:src/qqq/components/scripts/ScriptEditor.tsx:162, 195, 383-513 | src/components/scripts/ScriptEditorDialog.tsx; src/components/scripts/CodeEditor.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Partial: file panes, highlighting, unload guard, Test and Docs work; autocomplete is absent; #724 |
+| Editor: code per file, split panes, mode per file type, autocomplete, beforeunload guard, test and docs panes on unsaved code | material:src/qqq/components/scripts/ScriptEditor.tsx:162, 195, 383-513 | src/components/scripts/ScriptEditorDialog.tsx; src/components/scripts/CodeEditor.tsx | src/components/scripts/ScriptEditorDialog.test.tsx; src/components/scripts/CodeEditor.test.tsx; REC-054 | Done: file panes, highlighting, unload guard, Test and Docs; local QQQ helpers, language keywords and file identifiers with keyboard/pointer selection, native undo/redo and focus escape; #724 |
 | Editor: required API name and version selects | material:src/qqq/components/scripts/ScriptEditor.tsx:129-132, 251-255, 352-375 | src/components/scripts/ScriptEditorDialog.tsx | src/components/scripts/ScriptEditorDialog.test.tsx | Done: API name and version are required when the script model has those fields |
 | Editor: save with commit message (storeScriptRevision), then reload | material:src/qqq/components/scripts/ScriptEditor.tsx:249-310, 562; material:src/qqq/components/widgets/misc/ScriptViewer.tsx:197-226 | src/components/records/AssociatedScriptViewer.tsx (record developer view) | REC-054 | Done |
 
