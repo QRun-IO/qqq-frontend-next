@@ -214,7 +214,7 @@ Use the real ThemeProvider when rendering UserPreferencesDialog or a sidebar wit
 ### Google Drive integration boundary
 
 Google Drive picker changes span the frontend component/SDK loader and Javalin's CSP
-and v1 public-environment allow-list (#704; backend PR #908 is pending). The frontend needs those backend changes to receive its public configuration and load under the configured CSP. PRC-065 tests controlled SDK responses with
+and v1 public-environment allow-list (#704; backend PR #908 merged to develop as `bac663044`). The frontend needs those backend changes to receive its public configuration and load under the configured CSP. PRC-065 tests controlled SDK responses with
 real process execution and SQL; PRC-039 is the approved real-account exclusion. Preserve
 the shared-drive view, folder-only validation, cancellation and token expiry handling.
 Never log or persist the access token, and never publish OAuth client secrets in metadata. Javalin conditional CSP covers its static export only; standalone Node/container deployments also require runtime `QQQ_DASHBOARD_CSP_SOURCES` using the [documented Google directives](./next-ui-developer-guide.md#google-drive-process-configuration). Check the actual dashboard HTML response from the selected host. RC1 remains immutable and retains its historical placeholder; these changes belong to the ongoing final 1.0 work.

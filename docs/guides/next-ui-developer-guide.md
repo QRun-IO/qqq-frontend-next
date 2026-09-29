@@ -425,7 +425,7 @@ Components use labeled fields, keyboard navigation, focus-managed dialogs and dr
 
 Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, `pnpm build:export`, and `pnpm perf:budget` for the relevant change. For RC1, prioritize complete Chromium workflows and the full Chromium gate before expanding browser/viewport coverage; verify defaults, validation, save/reopen and persisted results. The final release acceptance gate is `QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet pnpm test:acceptance` with `QQQ_SAMPLE_JAR` pointing at a compatible real sample build. It verifies SQL/backend behavior as well as browser behavior; mocked tests are not a substitute. See [test setup](../../tests/acceptance/README.md), [performance budget](../acceptance/performance.md), and [API error handling](../API-ERROR-HANDLING.md).
 
-Current limits to account for: the Material parity ledger has open Partial/Missing rows beyond the narrower feature matrix; the report filter/column editor supports variables and API-versioned metadata but still needs complete embedded-query equivalence review; a built-in QFMD bridge does not prove every third-party Material bundle works; root-path static hosting is the documented deployment; and Google Picker requires a backend with the #704 metadata/CSP changes (backend PR #908 is pending). Real Auth0 tenant, Google account, and AWS QuickSight service tests have approved external-service exclusions in the feature matrix. Validate any additional feature against the current branch, backend contract, and matrix before describing it as production-compatible.
+Current limits to account for: the Material parity ledger has open Partial/Missing rows beyond the narrower feature matrix; the report filter/column editor supports variables and API-versioned metadata but still needs complete embedded-query equivalence review; a built-in QFMD bridge does not prove every third-party Material bundle works; root-path static hosting is the documented deployment; and Google Picker requires a backend with the #704 metadata/CSP changes (backend PR #908 merged to develop as `bac663044`). Real Auth0 tenant, Google account, and AWS QuickSight service tests have approved external-service exclusions in the feature matrix. Validate any additional feature against the current branch, backend contract, and matrix before describing it as production-compatible.
 
 
 ### Google Drive process configuration
@@ -440,7 +440,7 @@ origins, including `https://docs.google.com/*` as required by the
 [Google Picker setup guide](https://developers.google.com/workspace/drive/picker/guides/web-picker).
 Client secrets are not browser configuration and are not published in v1 metadata.
 
-The Next UI middleware must include the #704 changes (backend PR #908, pending) that publish these two settings
+The Next UI middleware must include the #704 changes (backend PR #908, merged to develop as `bac663044`) that publish these two settings
 and permit Google's SDK and picker origins in CSP only when both are configured.
 Those conditional headers apply to the Javalin-hosted static export. The standalone
 Node/container host must receive `QQQ_DASHBOARD_CSP_SOURCES` at runtime; it does not derive
