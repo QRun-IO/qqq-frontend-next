@@ -39,6 +39,16 @@ function makeViews(overrides: Partial<SavedViewsResult> = {}): SavedViewsResult 
 const noop = () => undefined
 
 describe('SavedViewsMenu', () => {
+  it('opens from the keyboard and selects a saved view with arrow keys', async () => {
+    const onSelectView = vi.fn()
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={onSelectView} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    screen.getByRole('button', { name: 'Saved views' }).focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Save As...' })).toHaveFocus())
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+    expect(onSelectView).toHaveBeenCalledWith(mine)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
   it('renders nothing when the backend has no saved view processes', () => {
     const { container } = render(<SavedViewsMenu savedViews={makeViews({ isAvailable: false })} currentView={null} viewDiffs={[]}
       onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)

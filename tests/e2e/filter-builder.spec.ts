@@ -26,11 +26,12 @@ async function waitForGridReady(page: import('@playwright/test').Page) {
   ).toBeVisible({ timeout: 20000 })
 }
 
-/** Opens the filter panel on desktop (clicks the "Filter" button). */
+/** Opens the filter panel and selects the advanced builder. */
 async function openFilterPanel(page: import('@playwright/test').Page) {
   const filterBtn = page.locator('[data-qqq-id="button-filter"]')
   await expect(filterBtn).toBeVisible({ timeout: 10000 })
   await filterBtn.click()
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
   // Wait for the FilterBuilder to appear
   await expect(page.locator('[data-qqq-id="filter-builder"]')).toBeVisible({ timeout: 10000 })
 }
@@ -42,7 +43,7 @@ test.describe('FilterBuilder', () => {
     await waitForGridReady(page)
   })
 
-  test('opens filter panel when Filter button is clicked', async ({ page }) => {
+  test('opens the advanced builder from the Filter panel', async ({ page }) => {
     await openFilterPanel(page)
     await expect(page.locator('[data-qqq-id="filter-builder"]')).toBeVisible()
   })

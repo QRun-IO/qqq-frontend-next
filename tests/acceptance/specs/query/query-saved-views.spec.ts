@@ -15,7 +15,9 @@ const ALICE_VIEW = 'Alice People View'
 /** Opens the saved views menu. */
 async function openViews(page: Page) {
   await page.locator('[data-qqq-id="button-saved-views"]').click()
-  return page.getByRole('menu', { name: 'Saved views' })
+  const menu = page.getByRole('menu', { name: 'Saved views' })
+  await expect(menu).toBeInViewport({ ratio: 1 })
+  return menu
 }
 
 /** Reads a saved view row from SQL. */

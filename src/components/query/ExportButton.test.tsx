@@ -48,6 +48,16 @@ const filter: QQueryFilter = {
 }
 
 describe('ExportButton', () => {
+  it('opens from the keyboard and chooses an export format with arrow keys', async () => {
+    mockExport.mockResolvedValue(new Blob(['data']))
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    screen.getByRole('button', { name: 'Export records' }).focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toHaveFocus())
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(mockExport).toHaveBeenCalledTimes(1))
+    expect(mockExport.mock.calls[0][1]).toMatch(/\.xlsx$/)
+  })
   beforeEach(() => {
     mockExport.mockReset()
     vi.mocked(toast.error).mockReset()

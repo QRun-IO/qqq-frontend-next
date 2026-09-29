@@ -22,7 +22,8 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { isAxiosError } from 'axios'
 import { Download, ChevronDown } from 'lucide-react'
 
@@ -91,18 +92,6 @@ async function exportErrorMessage(error: unknown): Promise<string> {
  */
 export function ExportButton({ tableName, tableMetaData, exportFilter, columnNames, totalCount, tableVariant }: ExportButtonProps) {
   const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  // Escape closes the menu and returns focus to its button
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
   const [exporting, setExporting] = useState(false)
   const allowed = hasCapability(tableMetaData, 'TABLE_EXPORT')
   const nothingToExport = totalCount === 0
@@ -134,48 +123,50 @@ export function ExportButton({ tableName, tableMetaData, exportFilter, columnNam
   }
 
   return (
-    <div className="relative" data-qqq-id="export-button">
-      <button ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        disabled={exporting || !allowed}
-        title={allowed ? undefined : 'Exports are not allowed for this table.'}
-        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label={allowed ? 'Export records' : 'Export records (exports are not allowed for this table)'}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-qqq-id="button-export"
-      >
-        <Download className="h-4 w-4" aria-hidden="true" />
-        {exporting ? 'Exporting...' : 'Export'}
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-border bg-popover py-1 shadow-sm" role="menu" aria-label="Export options">
-            {FORMATS.map((format) => (
-              <button
-                key={format}
-                type="button"
-                role="menuitem"
-                disabled={nothingToExport}
-                onClick={() => runExport(format)}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring"
-                data-qqq-id={`export-${format}`}
-              >
-                Export {format.toUpperCase()}
-                {totalCount !== null && (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {totalCount.toLocaleString()} record{totalCount === 1 ? '' : 's'}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenuPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+      <div className="relative" data-qqq-id="export-button">
+        <DropdownMenuPrimitive.Trigger asChild>
+          <button
+            type="button"
+            disabled={exporting || !allowed}
+            title={allowed ? undefined : 'Exports are not allowed for this table.'}
+            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label={allowed ? 'Export records' : 'Export records (exports are not allowed for this table)'}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            data-qqq-id="button-export"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            {exporting ? 'Exporting...' : 'Export'}
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </DropdownMenuPrimitive.Trigger>
+        <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content align="end" sideOffset={4} collisionPadding={8}
+              className="z-50 w-56 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
+              style={{ maxHeight: 'var(--radix-dropdown-menu-content-available-height)' }} aria-label="Export options" aria-labelledby={undefined}>
+              {FORMATS.map((format) => (
+                <DropdownMenuPrimitive.Item key={format} asChild disabled={nothingToExport}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={nothingToExport}
+                  onClick={() => runExport(format)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring"
+                  data-qqq-id={`export-${format}`}
+                >
+                  Export {format.toUpperCase()}
+                  {totalCount !== null && (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {totalCount.toLocaleString()} record{totalCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </button>
+                </DropdownMenuPrimitive.Item>
+              ))}
+            </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Portal>
+      </div>
+    </DropdownMenuPrimitive.Root>
   )
 }
