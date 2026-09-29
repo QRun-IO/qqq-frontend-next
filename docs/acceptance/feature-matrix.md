@@ -6,9 +6,9 @@ real-backend acceptance coverage (QRun-IO/qqq#649). See `tests/acceptance/README
 
 Rows: 393. Required rows passing in the recorded runs: 390.
 
-Recorded runs: `test-results/acceptance/report-indicator-evidence/chromium-full-303ba61.json` (2026-09-29T19:44:50.908Z), `test-results/acceptance/report-indicator-evidence/chromium-report-indicators.json` (2026-09-29T19:55:03.963Z, partial).
+Recorded runs: `test-results/acceptance/report-indicator-evidence/chromium-full-95847c2.json` (2026-09-29T20:12:15.725Z).
 
-September 29 checkpoint: full Chromium on303ba61 passed554 tests/390required rows. The subsequent report-filter indicator change passed30real-backend report workflows and1828units,types,lint,license,static export and bundle checks. Backend62461e163 (PR913 pendingCI/merge) corrects variant handling and a reproduced concurrent API metadata-cache race;110module tests/coverage pass. Earlier eeab664 CI is terminal: FirefoxWID070 loading timeout; WebKitNAV023 internal navigation error; touchWID072 API500,NAV034 redirect timeout,REL005 internal navigation error. Traces retained;40 focused rechecks passed across Firefox,WebKit,phone and tablet; this is not a full matrix pass and the original failures remain recorded. Full final-source/browser-matrix and originalNext visual review remain open. Three approved external-service exclusions and immutable RC1 artifacts are unchanged.
+September 29 checkpoint: the full Chromium run on frontend 95847c2 and backend 62461e163 passed 556 tests and all 390 required rows, with zero failures, skips or flaky tests. Backend PR #913 is merged to QQQ develop as cba758507dcc54cf282a6638ab50a7d3a1904c7c: variant handling and the reproduced concurrent API metadata-cache race are fixed; 110 module tests and coverage passed. Earlier eeab664 CI failures remain recorded: Firefox WID070 loading timeout, WebKit NAV023 internal navigation error, touch WID072 API500, NAV034 redirect timeout and REL005 internal navigation error. Forty focused rechecks passed across Firefox, WebKit, phone and tablet; this does not establish a full matrix pass. Final-source browser verification and the original Next visual review remain open. Three approved external-service exclusions and immutable RC1 artifacts are unchanged.
 
 ## Navigation, application structure, branding and icons
 

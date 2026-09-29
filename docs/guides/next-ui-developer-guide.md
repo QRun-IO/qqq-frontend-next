@@ -276,7 +276,7 @@ Selecting a saved view imports it into the report draft. **Reset Changes** reapp
 
 Complete conditions, including nested groups, mark the corresponding preview column header. Use that indicator to open the existing filter. It adds no condition; editing a read-only preview stays local, and editor changes remain a draft until OK and host Save. Very narrow columns retain the shared grid’s compact header treatment.
 
-When a preview table declares `usesVariants`, select its backend variant before querying. The choice uses the same per-table browser storage as Record Query (`qqq.tableVariant.<table>`). Switching variants starts a fresh preview page; query/count, full-column copy and statistics use the selection. It does not alter the saved report definition. Application-API query/count require the backend fix in [QQQ PR #913](https://github.com/QRun-IO/qqq/pull/913), currently pending CI/merge; verification used its locally built middleware JAR.
+When a preview table declares `usesVariants`, select its backend variant before querying. The choice uses the same per-table browser storage as Record Query (`qqq.tableVariant.<table>`). Switching variants starts a fresh preview page; query/count, full-column copy and statistics use the selection. It does not alter the saved report definition. Application-API query/count require the backend fix in [QQQ PR #913](https://github.com/QRun-IO/qqq/pull/913), merged to QQQ develop as `cba758507dcc54cf282a6638ab50a7d3a1904c7c`; verification used the middleware JAR built from its reviewed source. This does not require or announce a QQQ 4.1 release.
 
 
 
