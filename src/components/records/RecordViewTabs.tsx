@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
 import { PHONE_MEDIA_QUERY, useMediaQuery } from '@/lib/hooks/use-media-query'
@@ -170,6 +170,30 @@ export function RecordViewTabs({
   navigateFrom,
 }: RecordViewTabsProps) {
   const isPhone = useMediaQuery(PHONE_MEDIA_QUERY)
+  const tabId = useId()
+  const panelAttributes = {
+    id: `${tabId}-panel`,
+    role: 'tabpanel',
+    tabIndex: 0,
+    'aria-labelledby': `${tabId}-${activeTab}`,
+  }
+  const panelFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+  /**
+   * Moves focus without loading another section; Enter or Space activates the button.
+   * @param event - Keyboard event from a tab.
+   * @param index - Focused tab index.
+   */
+  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number | undefined
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = tabs.length - 1
+    if (next === undefined) return
+    event.preventDefault()
+    document.getElementById(`${tabId}-${tabs[next].id}`)?.focus()
+  }
   if (!isPhone) {
     return (
       <>
@@ -180,16 +204,22 @@ export function RecordViewTabs({
           <div
             className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
             role="tablist"
+            aria-label={`${tableMetaData.label} sections`}
             data-qqq-id="record-view-tabs"
           >
-            {tabs.map((tab) => (
+            {tabs.map((tab, index) => (
               <button
                 key={tab.id}
+                type="button"
                 role="tab"
+                id={`${tabId}-${tab.id}`}
+                aria-controls={`${tabId}-panel`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onKeyDown={(event) => handleTabKey(event, index)}
                 aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'sidebar-section is-visible flex-[1_0_auto] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                  'sidebar-section is-visible flex-[1_0_auto] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                   activeTab === tab.id
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -205,8 +235,8 @@ export function RecordViewTabs({
         {/* Tab content: Overview — Material's 12-column card widths */}
         {activeTab === 'overview' && (
           <div
-            className="grid grid-cols-12 gap-6"
-            role="tabpanel"
+            className={cn('grid grid-cols-12 gap-6', panelFocus)}
+            {...panelAttributes}
             data-qqq-id="record-tab-panel-overview"
           >
             {secondarySections.map((section) => (
@@ -236,7 +266,8 @@ export function RecordViewTabs({
           activeTab === `section-${section.name}` && (
             <div
               key={section.name}
-              role="tabpanel"
+              {...panelAttributes}
+              className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
               <div className="grid grid-cols-12 gap-6">
@@ -261,7 +292,8 @@ export function RecordViewTabs({
           activeTab === `section-${section.name}` && (
             <div
               key={section.name}
-              role="tabpanel"
+              {...panelAttributes}
+              className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
               <div className="grid grid-cols-12 gap-6">
@@ -283,7 +315,7 @@ export function RecordViewTabs({
 
         {/* Tab content: unbound named associations */}
         {activeTab === 'related' && (
-          <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
+          <div className={cn('space-y-6', panelFocus)} {...panelAttributes} data-qqq-id="record-tab-panel-related">
             <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
           </div>
         )}

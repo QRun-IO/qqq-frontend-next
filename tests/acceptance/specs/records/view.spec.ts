@@ -218,3 +218,58 @@ test('[REC-004] every visible section opens by touch on phones and tablets @mobi
   await page.goto(`/app/fieldLab/${id}?tab=section-normalization`, { waitUntil: 'domcontentloaded' })
   await expect(fieldValue(page, 'upperValue')).toHaveText('ABC')
 })
+
+
+test('[REC-004] record sections support keyboard navigation and named panels @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const created = await backend.api.post('/data/fieldLab', { multipart: { name: 'Keyboard Sections', boundedValue: '12.5', timeZone: 'UTC' } })
+  expect(created.status()).toBe(200)
+  const id = (await created.json()).records[0].values.id
+  await openRecord(page, 'fieldLab', id, 'Keyboard Sections')
+
+  if (isPhone(page)) {
+    const trigger = page.getByRole('button', { name: 'Numeric Bounds', exact: true })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`)
+    await expect(panel).toHaveAccessibleName('Numeric Bounds')
+    await expect(panel).toContainText('12.50')
+    await page.keyboard.press('Space')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(trigger).toBeFocused()
+    return
+  }
+
+  const tabs = page.locator('[data-qqq-id="record-view-tabs"]')
+  const overview = tabs.getByRole('tab', { name: 'Overview', exact: true })
+  const dates = tabs.getByRole('tab', { name: 'Date Defaults', exact: true })
+  const bounds = tabs.getByRole('tab', { name: 'Numeric Bounds', exact: true })
+  await overview.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(dates).toBeFocused()
+  await expect(overview).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Enter')
+  await expect(dates).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: 'Date Defaults', exact: true })).toBeVisible()
+  await page.keyboard.press('End')
+  await expect(bounds).toBeFocused()
+  await expect(dates).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Space')
+  await expect(bounds).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: 'Numeric Bounds', exact: true })).toContainText('12.50')
+  await page.keyboard.press('Home')
+  await expect(overview).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(overview).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowLeft')
+  await expect(bounds).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(overview).toBeFocused()
+  await expect(tabs.locator('[role="tab"][tabindex="0"]')).toHaveCount(1)
+  await page.keyboard.press('Tab')
+  const panel = page.getByRole('tabpanel', { name: 'Overview', exact: true })
+  await expect(panel).toBeFocused()
+  await expect(overview).toHaveAttribute('aria-controls', await panel.getAttribute('id') ?? '')
+  await expectNoSidewaysScroll(page)
+})

@@ -81,7 +81,8 @@
       "scenarios": [
         "Overview shows all T2 sections",
         "a section tab shows only that section",
-        "list view shows every section"
+        "list view shows every section",
+        "Arrow/Home/End keys move tab focus; Enter/Space activates a named panel with one tab stop; phone accordion supports keyboard activation"
       ],
       "negative": [],
       "issues": [],

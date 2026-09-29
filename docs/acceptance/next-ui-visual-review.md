@@ -4,7 +4,17 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, compact report inputs restored
+## Latest checkpoint — September 29, record section keyboard review
+
+**VIS-023 corrected:** record tabs had tab roles but no arrow navigation, single tab stop or tab/panel associations. The real-backend regression failed when Right Arrow left focus on Overview. Tabs now use manual activation: Left/Right/Home/End move focus; Enter/Space opens the section through the existing URL callback. This avoids mounting section widgets merely while moving focus. Tab enters the named panel, with a visible focus indicator. Phone accordion behavior is preserved. The approach follows the [WAI tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/).
+
+Verification:1786unit tests, production export/typecheck, final types/lint/license/whitespace and bundle1033.5KB/1050KB pass. The related five-profile run passed32cases and found one ambiguous phone test selector (outer accordion and nested section share a region name). The test now follows the trigger’s actual aria-controls and retains name/value assertions; all five keyboard rechecks pass. Existing section/list/deep-link/joined-field checks passed. Logs: `record-tabs-{red-browser,green-browser,keyboard-green,unit,build,types,lint,final-lint,budget}.log`. The pre-fix trace is retained in `record-tabs-red-artifacts`.
+
+Added record-section-focus and refreshed record-small pairs in light/dark at desktop/tablet/phone:24entries, no runtime/setup errors or page overflow. Inspected desktop original/current record card, dark tablet focus and phone accordion focus. Current layout retains the recovered original record composition; focus styling adds no layout spacing. Inventory is98light states/size and77dark. These are reviewed states, not whole-family approval. Configured/denied/error/loading variants and remaining form/widget review continue.
+
+Local changes remain unpushed while fullCI36573705464 at121468b is active: Firefox/WebKit running; Chromium/touch failed during Corepack network setup before tests. General CI and image build passed. No merge or publication.
+
+## Earlier checkpoint — September 29, compact report inputs restored
 
 **VIS-020 corrected for standard report input screens:** restored the compact card, 384px ordinary field maximum, and left-aligned Generate Report action below the inputs. Removed the added visible Input/Step header and divided footer. Cancel remains a secondary inline action. The accessible form name, shared dynamic form, validation, typed values, possible values and process cancellation remain. Configured grid widths and rich editors retain their layout; longer or custom report processes retain their step navigation and components.
 

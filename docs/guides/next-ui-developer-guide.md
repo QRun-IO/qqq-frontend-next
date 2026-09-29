@@ -102,6 +102,8 @@ Record pages render sections, field values, associated records, widgets, metadat
 
 Query changes replace the current URL immediately, preserving unrelated parameters and the hash. Reload and browser back/forward restore the visible filter, sort, search and pagination state; changing those controls does not add a separate history entry.
 
+Record section tabs support Left/Right, Home and End to move focus. Enter or Space opens the focused section; Tab moves into the named content panel. Moving focus alone does not load section widgets. Phone sections use accordion buttons with Enter/Space activation. The selected tab remains reflected in the URL.
+
 Query header labels can wrap to two lines when their text and sort indicator do not fit, including with wider system or configured fonts. Configured column widths and 44px touch menu targets remain effective. Active sorts display their direction arrow; unsorted headings remain labeled sort buttons. Relative-date preset menus scroll within the space available beside their trigger.
 
 Selection and display-density menus support arrow-key navigation, Enter to choose, and Escape to close and return focus to the trigger. They stay within the viewport on phone and tablet. Density choices expose radio-menu semantics; the selected option uses the theme primary/foreground color pair.
