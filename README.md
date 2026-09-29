@@ -2,6 +2,8 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
+RC1 preparation, installation requirements, known gaps and current evidence are in the [RC1 notes](docs/releases/1.0.0-RC.1.md). Check their publication status before using the prerelease coordinate.
+
 ## Use it in a QQQ application
 
 The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq-bom-pom`) and `QApplicationJavalinServer` serves it at `/`, on the same port and origin as the API:
@@ -15,7 +17,7 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 
-Feature coverage is certified by the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
+Feature coverage is recorded in the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
 
 ## Run the local QQQ sample
 

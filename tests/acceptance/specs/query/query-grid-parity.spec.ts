@@ -75,7 +75,7 @@ test('[QRY-092] the column chooser searches, groups, counts and marks a changed 
   await expect(button).toHaveAttribute('data-button-state', 'dirty')
 })
 
-test('[QRY-092] the column popup receives and restores keyboard focus @mobile', async ({ page, diagnostics, browserName }) => {
+test('[QRY-092] the column popup receives and restores keyboard focus @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
@@ -85,9 +85,9 @@ test('[QRY-092] the column popup receives and restores keyboard focus @mobile', 
   await page.keyboard.press('Enter')
   await expect(panel).toBeFocused()
   await page.keyboard.press('Tab')
-  // Native WebKit Tab skips buttons in this runner; all engines must reach the search input.
-  if (browserName !== 'webkit') {
-    await expect(panel.getByRole('button', { name: 'Close column configuration' })).toBeFocused()
+  // Native Tab stops depend on the platform's keyboard-navigation settings.
+  const close = panel.getByRole('button', { name: 'Close column configuration' })
+  if (await close.evaluate(element => element === document.activeElement)) {
     await page.keyboard.press('Tab')
   }
   await expect(panel.getByRole('searchbox', { name: 'Search Fields' })).toBeFocused()

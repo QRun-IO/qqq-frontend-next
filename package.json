@@ -1,13 +1,13 @@
 {
   "name": "qqq-frontend-next",
-  "version": "1.0.0",
+  "version": "1.0.0-RC.1",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "build:export": "QQQ_NEXT_OUTPUT=export NEXT_PUBLIC_MOCK_API=false next build",
-    "build:jar": "pnpm build:export && mvn -B -q package",
+    "build:jar": "pnpm build:export && mvn -B -q clean package",
     "start": "next start",
     "lint": "eslint src && node scripts/check-license-headers.mjs",
     "lint:jsdoc": "eslint src --ext .ts,.tsx",

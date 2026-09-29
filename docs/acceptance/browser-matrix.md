@@ -2,7 +2,9 @@
 
 The acceptance suite runs against the owned sample backend and the production static
 export (javalin mode). The default gate runs Chromium only; the documented matrix is the
-five configured Playwright projects below, in one run and one gate.
+five configured Playwright projects below. CI runs Chromium separately from phone/tablet
+so the primary workflow gate can finish independently. For RC1, prioritize Chromium
+workflow depth; the complete final browser claim still requires all five projects.
 
 ```bash
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar

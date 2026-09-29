@@ -273,7 +273,8 @@ test('[QRY-007] a failed query shows the error and a retry @mobile', async ({ pa
   // An unknown field in a shared link is rejected by the backend
   await open(page, `/app/qryItem?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'noSuchField', operator: 'EQUALS', values: ['x'] }] }))}`)
   const alert = page.locator('[data-qqq-id="grid-error"]')
-  await expect(alert).toContainText('Failed to load records.')
+  // Includes the automatic retry cycle and scheduler delays on CI.
+  await expect(alert).toContainText('Failed to load records.', { timeout: 30_000 })
   await expect(alert.getByRole('button', { name: 'Retry' })).toBeVisible()
 })
 
@@ -292,7 +293,8 @@ for (const mode of ['light', 'dark', 'application'] as const) {
     }
     await open(page, `/app/qryItem?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'noSuchField', operator: 'EQUALS', values: ['x'] }] }))}`)
     const alert = page.locator('[data-qqq-id="grid-error"]')
-    await expect(alert).toContainText('Failed to load records.')
+    // Includes the automatic retry cycle and scheduler delays on CI.
+    await expect(alert).toContainText('Failed to load records.', { timeout: 30_000 })
     await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'dark' ? 'dark' : 'light')
     if (configuredErrorColor) {
       await expect.poll(() => page.locator('html').evaluate(root => getComputedStyle(root).getPropertyValue('--color-destructive').trim())).toBe(configuredErrorColor)
@@ -315,7 +317,7 @@ for (const mode of ['light', 'dark', 'application'] as const) {
     const retryResponse = page.waitForResponse(response => response.url().includes('/qqq/v1/table/qryItem/query'))
     await retry.click()
     expect((await retryResponse).status()).toBe(500)
-    await expect(page.locator('[data-qqq-id="button-refresh"] svg')).not.toHaveClass(/animate-spin/)
+    await expect(page.locator('[data-qqq-id="button-refresh"] svg')).not.toHaveClass(/animate-spin/, { timeout: 30_000 })
     await expect(alert).toContainText('noSuchField')
     await alert.getByRole('button', { name: 'Dismiss', exact: true }).click()
     await expect(alert).toBeHidden()

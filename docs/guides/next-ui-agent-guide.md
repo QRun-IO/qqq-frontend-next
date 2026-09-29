@@ -169,6 +169,8 @@ The query URL owns `page`, `pageSize`, `filter`, and `q`; do not move shareable 
 | `pnpm perf:budget` | Static-export JS/CSS budget after `build:export`; see [performance guide](../acceptance/performance.md). |
 | `QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet pnpm test:acceptance` | Full real-sample browser and backend gate when `QQQ_SAMPLE_JAR` points to a compatible sample jar. |
 
+For RC1, prioritize workflow depth in Chromium: normal entry/defaults, validation, edit/cancel, save/reopen, dependent selections, permissions/recovery and persisted records or downloads. Preserve broader tests and report their status; do not treat scenario counts as proof that everything works.
+
 Read [acceptance setup](../../tests/acceptance/README.md) and [browser matrix](../acceptance/browser-matrix.md) before running the final gate. Default acceptance runs only Chromium; the five-project command is necessary to claim the stated browser scope. Phone and tablet run tagged tests, with matrix coverage enforced by the gate. Every test title needs its matrix ID; use fixtures with a reset database, verify persisted effects through SQL, and include `diagnostics` for console, network, and CSP failures. Do not loosen a matrix row, skip a failing browser, or declare an external service excluded without the documented approval path.
 
 ## Common mistakes to avoid
