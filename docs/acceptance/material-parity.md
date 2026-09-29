@@ -17,12 +17,12 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
-| Query | 123 | 5 | 1 | 0 | 2 | 131 |
+| Query | 122 | 6 | 1 | 0 | 2 | 131 |
 | Records | 126 | 4 | 0 | 0 | 8 | 138 |
 | Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 224 | 4 | 4 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 39 | 0 | 0 | 0 | 11 | 50 |
-| **Total** | **731** | **18** | **5** | **2** | **38** | **794** |
+| **Total** | **730** | **19** | **5** | **2** | **38** | **794** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 105 | 8 | 1 | 1 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -306,7 +306,7 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | URL/view criteria auto-become quick filters | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:477-510 | src/lib/utils/quick-filter-utils.ts:reconcileBasicMode | QRY-080, QRY-082 | Done: URL criteria render a chip, and a saved view restores its criterion and matching SQL rows; #715 |
 | Filter Builder button with count badge | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:758-775 | src/components/query/RecordQuery.tsx:activeFilterCount | QRY-016 | Done |
 | Clear-all w/ confirm, keeps sort | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:416-423,777-790 | src/components/query/RecordQuery.tsx; src/components/query/FilterBuilder.tsx | QRY-084 | Done: cancel preserves criteria; confirm clears criteria and keeps sort; #715 |
-| Advanced query preview pills w/ remove X | material:src/qqq/components/query/AdvancedQueryPreview.tsx | src/components/query/AdvancedQueryPreview.tsx | QRY-083 | Done: preview removes one criterion without clearing the query; #715 |
+| Advanced query preview pills w/ remove X | material:src/qqq/components/query/AdvancedQueryPreview.tsx | src/components/query/FilterBuilder.tsx | QRY-083 | Done (different UX): original Next inline criteria show labels/values and remove individual conditions; no duplicate preview chips above the editor. SQL-backed acceptance verifies another condition remains active; #715 |
 | Filter rows: remove, And/Or, field/op/values, "Add Condition" | material:src/qqq/components/query/CustomFilterPanel.tsx; material:src/qqq/components/query/FilterCriteriaRow.tsx:505-563 | src/components/query/FilterBuilder.tsx (FilterGroup/FilterRow) | QRY-010, QRY-016 | Done: no valid/pending icon (not fully checked) |
 | Sub-filters not editable in Material | material:src/qqq/components/query/BasicAndAdvancedQueryControls.tsx:620-625; material:src/qqq/utils/qqq/FilterUtils.tsx:430 | src/components/query/FilterBuilder.tsx ("Add group") | QRY-016 | Done: Next exceeds Material |
 | Criteria validation tooltips | material:src/qqq/components/query/FilterCriteriaRow.tsx:228-289 | src/components/query/FilterBuilder.tsx:CriteriaRow; src/lib/utils/filter-utils.ts:validateCriterion | QRY-084 | Done: keyboard focus announces missing value and completed condition while SQL rows follow the criterion; #715 |

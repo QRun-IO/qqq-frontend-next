@@ -13,6 +13,8 @@ async function expectLookupError(page: Page, message: string) {
   await waitForShell(page)
   await expect(page.getByRole('main').getByRole('alert')).toHaveText(message)
   await expect(page).toHaveURL(/\/key\/?\?/)
+  // Finish initial reads before the next deliberate document replacement.
+  await page.waitForLoadState('networkidle')
 }
 
 test.describe('record lookup by key', () => {

@@ -1049,10 +1049,10 @@
     },
     {
       "id": "QRY-083",
-      "feature": "Advanced query preview shows and removes individual conditions",
-      "source": ["Material AdvancedQueryPreview.tsx", "src/components/query/AdvancedQueryPreview.tsx"],
+      "feature": "Advanced query shows and removes individual conditions (Next inline editor)",
+      "source": ["Material AdvancedQueryPreview.tsx", "src/components/query/FilterBuilder.tsx"],
       "fixture": "QueryFixtures.java qryItem",
-      "scenarios": ["A Name condition filters SQL rows and its preview chip removes that condition"],
+      "scenarios": ["Name and Quantity conditions filter SQL rows; deleting Name in the inline editor preserves Quantity"],
       "negative": ["Removing one condition does not reset the whole query"],
       "issues": [715],
       "required": true

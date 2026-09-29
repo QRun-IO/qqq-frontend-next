@@ -210,6 +210,15 @@ test.describe('sample widgets dashboard', () => {
     expect(await points.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-label')))).toEqual(payload.chartData.labels)
     expect(await chartTable(page, 'SampleLineChartWidget')).toEqual(payload.chartData.labels.map((label: string, i: number) => [label, String(payload.chartData.datasets[0].data[i])]))
     await expect(card.locator('[data-qqq-id="chart-description-SampleLineChartWidget"]')).toContainText('over the last five months')
+    for (const viewport of [{ width: 393, height: 851 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport)
+      const labels = card.locator('.recharts-xAxis .recharts-cartesian-axis-tick-value')
+      await expect(labels).toHaveText(payload.chartData.labels)
+      for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/)
+      const boxes = await labels.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()))
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
+    }
+
   })
 
   test('[WID-002] bar chart draws one bar per label in its backend color @mobile', async ({ page, backend, diagnostics }) => {

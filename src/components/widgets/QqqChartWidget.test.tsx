@@ -346,8 +346,10 @@ describe('QqqChartWidget Material chart extras (#728)', () => {
   })
 
   it('rotates category labels only when they do not fit', () => {
-    expect(needsRotatedLabels(['Jan', 'Feb'], 400)).toBe(false)
-    expect(needsRotatedLabels(Array.from({ length: 12 }, (_, i) => `A long category ${i}`), 400)).toBe(true)
-    expect(needsRotatedLabels([], 400)).toBe(false)
+    expect(needsRotatedLabels([{ width: 40, x: 0 }, { width: 50, x: 55 }])).toBe(false)
+    expect(needsRotatedLabels([{ width: 40, x: 0 }, { width: 50, x: 52 }])).toBe(true)
+    expect(needsRotatedLabels([{ width: 200, x: 0 }, { width: 200, x: 60 }])).toBe(true)
+    expect(needsRotatedLabels([{ width: 40, x: 0 }])).toBe(false)
+    expect(needsRotatedLabels([])).toBe(false)
   })
 })

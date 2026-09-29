@@ -221,7 +221,7 @@ function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChan
         </button>}
         {editable ? <DensitySelector density={density} onSelect={setDensity} /> :
           <a href={openInNewWindowHref(table.name, toBackendFilter(table, filter))} target="_blank" rel="noopener noreferrer"
-            data-qqq-id={`filter-preview-open-${widgetName}`} className="text-sm text-primary underline">Open in new window</a>}
+            data-qqq-id={`filter-preview-open-${widgetName}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Open in new window</a>}
       </div>
       {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={table}
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}

@@ -230,9 +230,9 @@ function formatValue(value: number | null, currency: boolean): string {
  * callback ref so the measurement starts whenever the container mounts, e.g. when
  * a reload turns an empty chart into a populated one.
  *
- * @returns A callback ref for the container and its current width.
+ * @returns A callback ref, the current width and the mounted container.
  */
-function useContainerWidth(): [(element: HTMLDivElement | null) => void, number] {
+function useContainerWidth(): [(element: HTMLDivElement | null) => void, number, HTMLDivElement | null] {
   const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -247,7 +247,7 @@ function useContainerWidth(): [(element: HTMLDivElement | null) => void, number]
     observer.observe(element)
     return () => observer.disconnect()
   }, [element])
-  return [setElement, width]
+  return [setElement, width, element]
 }
 
 /**
@@ -412,19 +412,50 @@ interface TooltipEntry {
   payload?: unknown
 }
 
+/** A rendered category label's unrotated width and tick position, in SVG pixels. */
+type AxisLabelMeasurement = { width: number; x: number }
+
 /**
- * Whether a set of category labels needs rotating to fit under a bar or line chart: Material's
- * Chart.js axes never skip labels and turn them when they do not fit.
+ * Whether neighboring centered category labels would overlap their eight-pixel gap.
  *
- * @param labels - The category labels.
- * @param plotWidth - Width available to the category axis (px).
- * @returns Whether to rotate the labels.
+ * @param labels - Measurements in axis order.
+ * @returns Whether horizontal labels need rotating.
  */
-export function needsRotatedLabels(labels: string[], plotWidth: number): boolean {
-  if (labels.length === 0 || plotWidth <= 0) return false
-  const longest = Math.max(...labels.map((label) => label.length))
-  // about 6.5 px per character at the 11 px axis font, plus a little spacing
-  return longest * 6.5 + 8 > plotWidth / labels.length
+export function needsRotatedLabels(labels: readonly AxisLabelMeasurement[]): boolean {
+  return labels.some((label, index) => index > 0 &&
+    (labels[index - 1].width + label.width) / 2 + 8 > Math.abs(label.x - labels[index - 1].x))
+}
+
+/**
+ * Measures the rendered axis so font metrics and line/bar tick spacing decide rotation.
+ *
+ * @param element - Mounted chart container.
+ * @param enabled - Whether this chart has a category x axis.
+ * @returns Rotation and the bounded space required below the plot.
+ */
+function useCategoryAxisLayout(element: HTMLDivElement | null, enabled: boolean) {
+  const [layout, setLayout] = useState({ rotate: false, height: 30 })
+  useLayoutEffect(() => {
+    if (!element || !enabled) return
+    const measure = () => {
+      const ticks = Array.from(element.querySelectorAll<SVGTextElement>('.recharts-xAxis .recharts-cartesian-axis-tick-value'))
+      // Non-rendering DOM environments have no SVG font metrics.
+      if (ticks.some(tick => typeof tick.getComputedTextLength !== 'function')) return
+      const labels = ticks.map(tick => ({ width: tick.getComputedTextLength(), x: Number(tick.getAttribute('x')) }))
+      const rotate = needsRotatedLabels(labels)
+      const longest = Math.max(0, ...labels.map(label => label.width))
+      const height = rotate ? Math.max(30, Math.min(110, Math.ceil(longest / Math.SQRT2) + 16)) : 30
+      setLayout(current => current.rotate === rotate && current.height === height ? current : { rotate, height })
+    }
+    measure()
+    // Recharts may finish its axis layout without rerendering this component.
+    const observer = new MutationObserver(measure)
+    observer.observe(element, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['x', 'font-size', 'font-family', 'font-weight'] })
+    const fonts = element.ownerDocument.fonts
+    fonts?.addEventListener('loadingdone', measure)
+    return () => { observer.disconnect(); fonts?.removeEventListener('loadingdone', measure) }
+  })
+  return layout
 }
 
 /**
@@ -554,7 +585,8 @@ function PointDot({ cx, cy, index = 0, value, stroke, datasetIndex, chart, radiu
 export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidgetProps) {
   const widgetName = widgetMetaData.name
   const navigate = useChartNavigation()
-  const [containerRef, width] = useContainerWidth()
+  const [containerRef, width, chartElement] = useContainerWidth()
+  const categoryLayout = useCategoryAxisLayout(chartElement, variant === 'bar' || variant === 'stackedBar' || variant === 'line')
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set())
   const toggleHidden = useCallback((index: number) => setHidden((previous) => {
     const next = new Set(previous)
@@ -635,9 +667,7 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
       items={chart.datasets.map((dataset, index) => ({ label: dataset.label, color: dataset.color ?? dataset.backgroundColors.find(Boolean) ?? PALETTE[index % PALETTE.length] }))}
     />
   )
-  // category labels turn when they do not fit (Chart.js never skips them)
-  const rotate = needsRotatedLabels(chart.labels, width - 56 - 12)
-  const longestLabel = Math.max(0, ...chart.labels.map((label) => label.length))
+  const { rotate } = categoryLayout
   const categoryAxis = (
     <XAxis
       dataKey="label"
@@ -646,7 +676,7 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
       tickLine={false}
       interval={0}
       angle={rotate ? -45 : 0}
-      height={rotate ? Math.min(110, Math.round(longestLabel * 4.7) + 16) : 30}
+      height={categoryLayout.height}
     />
   )
 

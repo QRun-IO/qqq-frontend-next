@@ -60,7 +60,6 @@ import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
 
 import { FilterBuilder, buildFilterFields } from './FilterBuilder'
 import { QuickFilterBar } from './QuickFilterBar'
-import { AdvancedQueryPreview } from './AdvancedQueryPreview'
 import { HintTooltip } from './HintTooltip'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
@@ -508,7 +507,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           className="min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
       </div>
-      {(activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
+      {rq.filter.filterMode === 'basic' && (activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
         <button type="button" onClick={() => setClearConfirmOpen(true)}
           className="min-h-11 rounded px-2 text-sm text-muted-foreground underline focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="query-clear-all">Clear all filters</button>
@@ -527,10 +526,6 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter}
           onCustomFieldsChange={rq.filter.setQuickFilterFieldNames}
           onOpenAdvanced={openAdvancedFilters} /></div>
-      )}
-
-      {rq.filter.filterMode === 'advanced' && (
-        <div className="px-4"><AdvancedQueryPreview filter={rq.filter.userFilter} fields={availableFilterFields} onChange={rq.filter.setUserFilter} /></div>
       )}
 
       {rq.filter.filterMode === 'advanced' && (

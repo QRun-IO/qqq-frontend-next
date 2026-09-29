@@ -188,8 +188,10 @@ test.describe('record-level security (sharing demo)', () => {
     void backend
     await open(page, '/app/savedView')
     await expect(listCell(page, 'View', 'Alice People View')).toBeVisible()
+    await page.waitForLoadState('networkidle')
     await open(page, '/app/savedView/1')
     await expect(page.getByRole('heading', { name: 'Alice People View' }).first()).toBeVisible()
+    await page.waitForLoadState('networkidle')
     await open(page, '/app/savedReport/1')
     await expect(page.getByRole('heading', { name: 'Pet Species Report' }).first()).toBeVisible()
   })

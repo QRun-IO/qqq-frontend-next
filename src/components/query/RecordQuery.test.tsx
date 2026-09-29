@@ -209,7 +209,7 @@ describe('RecordQuery joined read permissions', () => {
     expect(requests.filter(({ action }) => action === 'query').at(-1)?.body.filter.orderBys).toEqual([{ fieldName: 'lastName', isAscending: false }])
   })
 
-  it('previews and removes a condition in Advanced mode', async () => {
+  it('uses one editable condition list and one clear action in Advanced mode', async () => {
     const user = userEvent.setup()
     const options = makeOptions()
     options.tableMetaData.supplementalMetaData = {
@@ -224,7 +224,10 @@ describe('RecordQuery joined read permissions', () => {
     await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Bob')
     await user.click(screen.getByRole('button', { name: 'Apply quick filter' }))
     await user.click(screen.getByRole('button', { name: 'Advanced' }))
-    await user.click(screen.getByRole('button', { name: 'Remove First Name equals Bob' }))
+    expect(screen.queryByLabelText('Advanced filter preview')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear all filters' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Remove filter condition 1' }))
 
     await waitFor(() => expect(requests.filter(({ action }) => action === 'query').at(-1)?.body.filter.criteria?.length).toBe(0))
   })
