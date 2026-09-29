@@ -4,7 +4,19 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, saved-view reload correction
+## Latest checkpoint — September 29, compact report inputs restored
+
+**VIS-020 corrected for standard report input screens:** restored the compact card, 384px ordinary field maximum, and left-aligned Generate Report action below the inputs. Removed the added visible Input/Step header and divided footer. Cancel remains a secondary inline action. The accessible form name, shared dynamic form, validation, typed values, possible values and process cancellation remain. Configured grid widths and rich editors retain their layout; longer or custom report processes retain their step navigation and components.
+
+Before the change, two unit regressions failed because Generate Report was absent, and the real-browser layout regression failed because the extra Step header was visible. Final verification: **1786unit tests**, production export/typecheck, changed-file lint, license, whitespace and bundle checks pass. **30 real-backend cases across all five profiles pass**, covering report layout/required validation/database-matched output and shared mixed/filtered/required/composite process forms. Logs: `report-compact-{red-unit,red-browser,green-unit,full-unit,build,green-browser,lint,budget}.log`; pre-fix browser artifacts are retained in `report-compact-red-artifacts`.
+
+Paired input, validation and result captures were refreshed in both themes at desktop, tablet and phone:36entries, no runtime/setup errors or document overflow. Inspected desktop input, phone input pairs, dark phone validation pairs, and tablet result. The normal card geometry now matches the original; inline Cancel and shared validation focus/message treatment remain visible differences. No whole report family is approved. Canonical inventory remains97light/75dark states per size. Current preview18769 includes this correction.
+
+Final diff review kept rich/file/code/widget editors on their existing grid rules, including configured file widths. The final export,1786units and changed-file lint pass; RPT-006 passes again in all five profiles. Final logs are `report-compact-final-{build,unit,browser,lint,budget}.log`. Both current dependency audits report zero known advisories (316production dependencies;1038in the full audit); this does not replace the remaining application security checks.
+
+Remote full acceptance36573705464 at121468b remains active: Firefox/WebKit running; Chromium/mobile/tablet failed before tests in Corepack dependency setup with network ETIMEDOUT/ENETUNREACH. Its log is retained as `ci-121468b-chromium-mobile-tablet.log`. General CI36573705788 and image36573705430 pass. Do not push the local report correction while the full run is live; final full verification and release remain open.
+
+## Earlier checkpoint — September 29, saved-view reload correction
 
 Full run36564701143 is terminal: Chromium/mobile/tablet and WebKit pass; Firefox failed QRY-093. The trace showed new filtered data before asynchronous page navigation updated the URL. Query URL changes now replace the current history entry synchronously through Next-integrated native history, preserving other parameters and the hash. No query layout was intentionally changed.
 

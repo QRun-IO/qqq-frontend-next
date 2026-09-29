@@ -65,6 +65,8 @@ export interface ProcessStepContextValue {
   inputFieldNames: ReadonlySet<string>
   /** `true` when the run is embedded in a dashboard `process` widget (Material `isWidget`). */
   isEmbedded: boolean
+  /** Use the compact report input layout in the shared form. */
+  compactReportInputs?: boolean
   /** Current process values from the backend. */
   values: Record<string, unknown>
   /** The screen's single form (every component's inputs live here). */

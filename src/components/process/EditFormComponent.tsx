@@ -47,7 +47,7 @@ export interface EditFormComponentProps {
  * @returns The form fields, or nothing when the subset is empty.
  */
 export function EditFormComponent({ component, index }: EditFormComponentProps) {
-  const { formFields, inputFieldNames, form, isWorking, processName } = useProcessStep()
+  const { formFields, inputFieldNames, form, isWorking, processName, compactReportInputs } = useProcessStep()
   const includeFieldNames = Array.isArray(component.values?.includeFieldNames)
     ? (component.values.includeFieldNames as unknown[]).filter((name): name is string => typeof name === 'string')
     : undefined
@@ -60,6 +60,7 @@ export function EditFormComponent({ component, index }: EditFormComponentProps) 
     errors: form.formState.errors,
     fieldNamesToInclude: includeFieldNames,
     disabled: isWorking,
+    compactInputs: compactReportInputs,
     helpRoles: PROCESS_SCREEN_HELP_ROLES,
     helpKeyPrefix: `process:${processName};`,
   }

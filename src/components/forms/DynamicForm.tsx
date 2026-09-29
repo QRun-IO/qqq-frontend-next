@@ -59,6 +59,8 @@ export interface DynamicFormProps {
   tableMetaData?: QTableMetaData
   /** Explicit field list; when provided, section grouping is skipped. */
   fields?: QFieldMetaData[]
+  /** Stack ordinary flat-list inputs at a compact width; preserve configured and rich editors. */
+  compactInputs?: boolean
   /** Override the sections from `tableMetaData`; ignored when `fields` is set. */
   sections?: QTableSection[]
 
@@ -255,6 +257,7 @@ export function DynamicForm({
   errors,
   tableMetaData,
   fields,
+  compactInputs = false,
   sections,
   fieldNamesToInclude,
   possibleValueContext,
@@ -457,7 +460,11 @@ export function DynamicForm({
         {resolvedFields.map((f) => (
           <div
             key={f.name}
-            className={cn('field-wrapper is-visible', formFieldColumnClasses(f))}
+            className={cn('field-wrapper is-visible', compactInputs && f.gridColumns == null
+              && !['TEXT', 'HTML', 'BLOB'].includes(f.type)
+              && !f.adornments?.some((adornment) => ['FILE_UPLOAD', 'CODE_EDITOR', 'WIDGET'].includes(adornment.type))
+              ? 'col-span-12 min-w-0 max-w-sm'
+              : formFieldColumnClasses(f))}
             data-qqq-id={formFieldQqqId(f)}
           >
             <DynamicFormField

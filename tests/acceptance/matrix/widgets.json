@@ -1197,7 +1197,8 @@
       ],
       "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonInputReport",
       "scenarios": [
-        "minimumId filters rows >= value"
+        "minimumId filters rows >= value",
+        "Standard report inputs retain compact widths and an inline Generate Report action without a process header"
       ],
       "negative": [
         "empty required input blocks submit"

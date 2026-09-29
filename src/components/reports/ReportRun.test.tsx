@@ -41,7 +41,7 @@ vi.mock('@/lib/api/possible-values', () => ({
 }))
 
 import type { QFieldMetaData, QProcessMetaData, QReportMetaData } from '@/types'
-import { processInit, processStep } from '@/lib/api/processes'
+import { processInit, processStep, processCancel } from '@/lib/api/processes'
 import { loadProcessMetaData } from '@/lib/api/metadata'
 import { fetchPossibleValues } from '@/lib/api/possible-values'
 import { ReportRun } from './ReportRun'
@@ -111,16 +111,50 @@ describe('ReportRun', () => {
     const form = await screen.findByRole('form', { name: 'Input' })
     expect(within(form).getByRole('checkbox', { name: 'Include Retired' })).toBeInTheDocument()
     expect(within(form).getByRole('combobox', { name: /Species/ })).toBeInTheDocument()
-    await user.click(within(form).getByRole('button', { name: 'Submit' }))
+    await user.click(within(form).getByRole('button', { name: 'Generate Report' }))
     expect(await within(form).findByText('Minimum Id is required')).toBeInTheDocument()
     expect(processStep).not.toHaveBeenCalled()
     await user.type(within(form).getByLabelText(/Minimum Id/), '3')
     await user.click(within(form).getByRole('checkbox', { name: 'Include Retired' }))
-    await user.click(within(form).getByRole('button', { name: 'Submit' }))
+    await user.click(within(form).getByRole('button', { name: 'Generate Report' }))
     await waitFor(() => expect(processStep).toHaveBeenCalledWith('reports.basic', 'p2', 'input', expect.objectContaining({
       values: expect.objectContaining({ minimumId: 3, includeRetired: true }),
     })))
     expect(await screen.findByRole('link', { name: 'Download r.xlsx' })).toBeInTheDocument()
+  })
+
+  it('cancels the compact input form without submitting its required fields', async () => {
+    const user = userEvent.setup()
+    vi.mocked(processInit).mockResolvedValue({ type: 'COMPLETE', processUUID: 'cancel-report', nextStep: 'input', values: {
+      inputFieldList: [field('minimumId', 'Minimum Id', { type: 'INTEGER', isRequired: true })],
+    } })
+    renderRun()
+    await user.click(await screen.findByRole('button', { name: 'Run Report' }))
+    const form = await screen.findByRole('form', { name: 'Input' })
+    expect(within(form).getByRole('button', { name: 'Generate Report' })).toBeInTheDocument()
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Input' })).toBeNull())
+    expect(processCancel).toHaveBeenCalledWith('reports.basic', 'cancel-report', undefined)
+    expect(processStep).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Run Report' })).toBeEnabled()
+  })
+
+  it('keeps step navigation for a report with another screen after its inputs', async () => {
+    const user = userEvent.setup()
+    vi.mocked(loadProcessMetaData).mockResolvedValue({ ...basic, frontendSteps: [
+      basic.frontendSteps[0],
+      { name: 'confirm', label: 'Confirm', components: [{ type: 'HELP_TEXT', values: { text: 'Check the choices' } }] },
+      basic.frontendSteps[1],
+    ] })
+    vi.mocked(processInit).mockResolvedValue({ type: 'COMPLETE', processUUID: 'long-report', nextStep: 'input', values: {
+      inputFieldList: [field('minimumId', 'Minimum Id', { type: 'INTEGER' })],
+    } })
+    renderRun()
+    await user.click(await screen.findByRole('button', { name: 'Run Report' }))
+    const form = await screen.findByRole('form', { name: 'Input' })
+    expect(within(form).getByText('Step 1 of 3')).toBeInTheDocument()
+    expect(within(form).getByRole('button', { name: 'Next' })).toBeInTheDocument()
+    expect(within(form).queryByRole('button', { name: 'Generate Report' })).toBeNull()
   })
 
   it('shows the other screens a report process asks for, then a stored file', async () => {

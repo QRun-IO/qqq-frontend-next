@@ -132,6 +132,8 @@ For bulk load, the mapping screen derives required fields, child associations, l
 
 Report output formats come from the backend's `reportFormat` possible values unless a process screen declares its own `reportFormat` field. Report input screens use the same dynamic form renderer as other processes, so declared possible values, Booleans, dates and validation rules apply. Intermediate report process screens render before the download; the completed file can be a server path or storage reference.
 
+Standard report processes with an input form followed by a download use the original compact input card and **Generate Report** action. Cancel remains available beside it. Ordinary fields stack at a 384px maximum width; explicitly configured grid widths and rich editors keep their layout. These inputs retain the shared dynamic form, required validation, possible values and typed submission. Longer or custom report processes retain their step headings and navigation.
+
 ## 7. Widgets: placement, configuration, and data
 
 Each app dashboard lists widget **names** in order. The matching `QWidgetMetaData` supplies `name`, `label`, optional `type`, and `hasPermission`. The UI posts to `/qqq/v1/widget/{name}` with current dropdown and record parameters ([`ConnectedWidget.tsx`](../../src/components/widgets/ConnectedWidget.tsx), [`widgets.ts`](../../src/lib/api/widgets.ts)). The widget response contains its data and sometimes its type. [`WidgetRenderer.tsx`](../../src/components/widgets/WidgetRenderer.tsx) uses `metadata.type` first, falling back to `payload.type`; it contains errors and unknown types within the widget.

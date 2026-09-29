@@ -41,7 +41,7 @@ import { useProcessMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
 import { queryKeys } from '@/lib/query-client'
 
-import { ProcessStepScreen } from '@/components/process/ProcessStepScreen'
+import { ProcessStepScreen, inputListFields } from '@/components/process/ProcessStepScreen'
 
 /**
  * Props for the {@link ReportRun} component.
@@ -144,6 +144,14 @@ function ReportProcessRun({ reportName, processName, processMetaData, values, on
           values={state.values}
           backStep={state.backStep}
           isWorking={false}
+          compactReportInputs={state.steps.length === 2
+            && state.steps[0].name === state.currentStep.name
+            && isDownloadStep(state.steps[1])
+            && state.currentStep.components?.length === 1
+            && state.currentStep.components[0].type === 'EDIT_FORM'
+            && !state.currentStep.components[0].values?.sectionLabel
+            && !state.currentStep.formFields?.length
+            && inputListFields(state.currentStep, state.values).length > 0}
           instance={instance}
           onSubmit={submit}
           onBack={back}

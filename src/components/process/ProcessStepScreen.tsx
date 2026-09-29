@@ -69,6 +69,8 @@ export interface ProcessStepScreenProps {
    * no Cancel, and Return (on the last screen) is whatever `onReturn` does in place.
    */
   isEmbedded?: boolean
+  /** Compact presentation for a report process screen containing only report inputs. */
+  compactReportInputs?: boolean
   onSubmit: (values: Record<string, unknown>, files?: ProcessFiles) => void
   onBack: () => void
   onCancel: () => void
@@ -167,7 +169,7 @@ function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processN
  */
 export function ProcessStepScreen({
   processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
-  tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false,
+  tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false, compactReportInputs = false,
   onSubmit, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
   const [overrideOnLastStep, setOverrideOnLastStep] = useState<boolean | null>(null)
@@ -279,7 +281,7 @@ export function ProcessStepScreen({
 
   const context: ProcessStepContextValue = {
     processName, processUUID, processMetaData, tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
-    step, formFields, inputFieldNames, isEmbedded, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep,
+    step, formFields, inputFieldNames, isEmbedded, compactReportInputs, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep,
     setStepLabel, tableVariant,
   }
 
@@ -294,6 +296,14 @@ export function ProcessStepScreen({
   //////////////////////////////////////////////////////////////////////////
   const isScanner = step.format?.toLowerCase() === 'scanner'
 
+  const nextButton = (
+    <button type="submit" disabled={isWorking} className={cn(primaryButton, compactReportInputs && 'px-5 pointer-coarse:min-h-11')} data-qqq-id="button-next" data-button-variant={MATERIAL_BUTTON_VARIANTS.next}>
+      {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        : !compactReportInputs && (isSubmitLabel ? <Check className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />)}
+      {compactReportInputs ? 'Generate Report' : isSubmitLabel ? 'Submit' : 'Next'}
+    </button>
+  )
+
   return (
     <ProcessStepContext.Provider value={context}>
      <WidgetFormHostContext.Provider value={widgetFormHost}>
@@ -301,19 +311,20 @@ export function ProcessStepScreen({
       <form
         noValidate
         autoComplete="off"
+        className={compactReportInputs ? 'space-y-4 p-6' : undefined}
         onSubmit={(event) => { event.preventDefault(); requestSubmit() }}
         aria-labelledby={`process-step-heading-${step.name}`}
         data-qqq-id={`process-step-${step.name}`}
       >
-        <div className={isScanner ? 'sr-only' : 'border-b border-border px-6 py-4'}>
+        <div className={isScanner || compactReportInputs ? 'sr-only' : 'border-b border-border px-6 py-4'}>
           <h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
             {stepLabel ?? step.label}
           </h3>
-          {isLinear && steps.length > 1 && index >= 0 && (
+          {!compactReportInputs && isLinear && steps.length > 1 && index >= 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">{`Step ${index + 1} of ${steps.length}`}</p>
           )}
         </div>
-        <div className="space-y-6 p-6">
+        <div className={compactReportInputs ? 'space-y-4' : 'space-y-6 p-6'}>
           <StepHelp step={step} processName={processName} />
           <ProcessCompositeHost>
             {components.map((component, componentIndex) => (
@@ -323,7 +334,7 @@ export function ProcessStepScreen({
             ))}
           </ProcessCompositeHost>
         </div>
-        {!isScanner && <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3" data-qqq-id="process-actions">
+        {!isScanner && <div className={compactReportInputs ? 'flex flex-wrap items-center gap-3' : 'flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3'} data-qqq-id="process-actions">
           {noMoreSteps ? (
             <button type="button" onClick={onReturn} disabled={isWorking} className={secondaryButton} data-qqq-id="button-return" data-button-variant={MATERIAL_BUTTON_VARIANTS.return}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -331,10 +342,11 @@ export function ProcessStepScreen({
             </button>
           ) : (
             <>
+              {compactReportInputs && nextButton}
               {/* an embedded (widget) run has no Cancel: there is nowhere to leave to (Material isWidget) */}
               {!isEmbedded && (
-                <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel" data-button-variant={MATERIAL_BUTTON_VARIANTS.cancel}>
-                  <X className="h-4 w-4" aria-hidden="true" />
+                <button type="button" onClick={onCancel} disabled={isWorking} className={compactReportInputs ? cn(buttonBase, 'text-muted-foreground underline hover:text-foreground pointer-coarse:min-h-11') : secondaryButton} data-qqq-id="button-cancel" data-button-variant={MATERIAL_BUTTON_VARIANTS.cancel}>
+                  {!compactReportInputs && <X className="h-4 w-4" aria-hidden="true" />}
                   Cancel
                 </button>
               )}
@@ -344,11 +356,7 @@ export function ProcessStepScreen({
                   Back
                 </button>
               )}
-              <button type="submit" disabled={isWorking} className={primaryButton} data-qqq-id="button-next" data-button-variant={MATERIAL_BUTTON_VARIANTS.next}>
-                {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  : isSubmitLabel ? <Check className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                {isSubmitLabel ? 'Submit' : 'Next'}
-              </button>
+              {!compactReportInputs && nextButton}
             </>
           )}
         </div>}
