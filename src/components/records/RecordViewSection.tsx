@@ -51,6 +51,8 @@ interface RecordViewSectionProps {
   compact?: boolean
   /** Stacked mode — single column with vertical field stacking (for card grid layout) */
   stacked?: boolean
+  /** Number of field columns when no field width is declared in metadata. */
+  defaultFieldColumns?: 1 | 2
   className?: string
 }
 
@@ -78,6 +80,7 @@ export function RecordViewSection({
   navigateFrom,
   compact = false,
   stacked = false,
+  defaultFieldColumns = 1,
   className,
 }: RecordViewSectionProps) {
   const helpHelpActive = useHelpHelpActive()
@@ -267,9 +270,9 @@ export function RecordViewSection({
           })}
         </dl>
       ) : (
-        /* Material uses a 12-column field grid; each field defaults to full width. */
+        /* Explicit field widths use twelfths; the surrounding view supplies the default layout. */
         <dl
-          className="grid grid-cols-12 gap-x-8 gap-y-4"
+          className={cn('grid grid-cols-12 gap-x-8', defaultFieldColumns === 2 ? 'gap-y-6' : 'gap-y-4')}
         >
           {visibleFields.map((field) => {
             if (!field) return null
@@ -278,7 +281,9 @@ export function RecordViewSection({
                 key={field.name}
                 className={cn(
                   'flex min-w-0 flex-col gap-0.5',
-                  gridSpanClasses(twelfths(field.gridColumns) ?? 12)
+                  twelfths(field.gridColumns) !== undefined
+                    ? gridSpanClasses(field.gridColumns!)
+                    : defaultFieldColumns === 2 ? 'col-span-12 sm:col-span-6' : 'col-span-12'
                 )}
                 data-qqq-id={`record-field-${field.name}`}
               >

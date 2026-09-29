@@ -228,9 +228,10 @@ export function gridSpanClasses(span: number): string {
  *
  * @param section - Record-view section metadata.
  * @param widgets - Widgets available to the viewer.
+ * @param defaultSpan - Card width when metadata omits it: half-width in an overview, full-width in a selected tab.
  * @returns Classes for a full mobile row and the declared desktop span.
  */
-export function recordSectionGridSpan(section: QTableSection, widgets?: Record<string, QWidgetMetaData>): string {
+export function recordSectionGridSpan(section: QTableSection, widgets?: Record<string, QWidgetMetaData>, defaultSpan = 6): string {
   const width = section.widgetName ? widgets?.[section.widgetName]?.gridColumns : section.gridColumns
-  return gridSpanClasses(twelfths(width) ?? 6)
+  return gridSpanClasses(twelfths(width) ?? defaultSpan)
 }

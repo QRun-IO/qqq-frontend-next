@@ -174,7 +174,7 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   }
 
   return (
-    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-copy-${slug}-${recordId}`}>
+    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-copy-${slug}-${recordId}`}>
       <fieldset className="mb-4 flex flex-wrap gap-4">
         <legend className="mb-2 font-medium">Copy scope</legend>
         <label className="flex items-center gap-2"><input type="radio" name="copy-mode" checked={mode === 'base'} onChange={() => setMode('base')} data-qqq-id="copy-mode-base" />Base copy</label>

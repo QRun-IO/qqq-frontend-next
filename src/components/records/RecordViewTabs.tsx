@@ -271,7 +271,7 @@ export function RecordViewTabs({
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
               <div className="grid grid-cols-12 gap-6">
-                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap))}>
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
                   <RecordViewSection
                     section={section}
                     renderAssociation={renderAssociation}
@@ -280,6 +280,7 @@ export function RecordViewTabs({
                     widgetMetaDataMap={widgetMetaDataMap}
                     allTables={allTables}
                     navigateFrom={navigateFrom}
+                    defaultFieldColumns={2}
                   />
                 </div>
               </div>
@@ -297,7 +298,7 @@ export function RecordViewTabs({
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
               <div className="grid grid-cols-12 gap-6">
-                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap))}>
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
                   <RecordViewSection
                     section={section}
                     renderAssociation={renderAssociation}
@@ -306,6 +307,7 @@ export function RecordViewTabs({
                     widgetMetaDataMap={widgetMetaDataMap}
                     allTables={allTables}
                     navigateFrom={navigateFrom}
+                    defaultFieldColumns={2}
                   />
                 </div>
               </div>
