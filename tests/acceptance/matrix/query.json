@@ -41,7 +41,7 @@
       "feature": "Last saved view and unsaved edits survive reopening and reload",
       "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
       "fixture": "sample Alice People View",
-      "scenarios": ["Dirty filter survives reload", "Table route opens the last saved view", "Reset restores the backend view"],
+      "scenarios": ["Dirty filter survives reload", "Table route opens the last saved view", "Reset restores the backend view", "Displayed filter updates the URL before a delayed page navigation completes; immediate reload preserves it, along with unrelated parameters, hash and history length"],
       "negative": [],
       "issues": [717],
       "required": true

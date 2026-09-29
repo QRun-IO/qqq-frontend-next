@@ -46,6 +46,8 @@ Use the September 25 Next design (`e42ad2b2`) as the visual reference. Use Mater
 
 Verify affected screens with paired desktop and phone captures, including a fresh preference state and explicit metadata overrides. Source inspection and passing behavioral tests do not establish full visual review.
 
+Query URL synchronization in `use-record-query.ts` uses Next-integrated `window.history.replaceState(null, '', url)`. Keep updates synchronous with displayed query state, preserve unrelated parameters/hash, and replace the current entry. Do not reintroduce asynchronous page navigation for filter changes: QRY-093 holds an RSC navigation while checking immediate reload; QRY-017 covers back/forward and legacy JSON links.
+
 ## Workflow for a metadata-driven feature
 
 1. **Find the Material behavior and acceptance row.** Search the parity ledger by screen or widget type and identify the owning issue and matrix ID. Read the current Material implementation when the behavior is ambiguous. Preserve negative cases and permissions.

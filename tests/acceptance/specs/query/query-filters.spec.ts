@@ -324,6 +324,10 @@ test.describe('filter operators', () => {
     await expect(page.getByRole('grid', { name: 'Person records' }).or(page.getByRole('list', { name: 'Person records' }))).toBeVisible()
     await page.goBack()
     await expectColumn(page, 'name', widgetNames)
+    await page.goForward()
+    await expect(page.getByRole('grid', { name: 'Person records' }).or(page.getByRole('list', { name: 'Person records' }))).toBeVisible()
+    await page.goBack()
+    await expectColumn(page, 'name', widgetNames)
 
     // A link with plain JSON, as QQQ widgets and Material build them
     await open(page, filterUrl('qryItem', { criteria: [{ fieldName: 'code', operator: 'IN', values: ['AW-1', 'GW-3'] }] }))

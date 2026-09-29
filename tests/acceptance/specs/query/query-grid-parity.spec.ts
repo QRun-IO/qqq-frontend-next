@@ -97,6 +97,41 @@ test('[QRY-093] the last saved view and its unsaved filter survive reopening and
   await expectColumn(page, 'firstName', ['Avery'])
 })
 
+test('[QRY-093] a displayed filter survives immediate reload while page navigation is pending @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const rows = await backend.sql("select id from saved_view where label = 'Alice People View'")
+  const id = rows[0]?.id
+  expect(id).toBeTruthy()
+  await open(page, `/app/person/savedView/${id}?from=%2Fapp%2FprcLab#filters`)
+  await expectColumn(page, 'firstName', ['Avery'])
+  await expect(page).toHaveURL(/filter=/)
+  const historyLength = await page.evaluate(() => window.history.length)
+  let releaseNavigation!: () => void
+  const heldNavigation = new Promise<void>((resolve) => { releaseNavigation = resolve })
+  await page.route((url) => url.pathname.includes(`/app/person/savedView/${id}/`) && url.pathname.endsWith('/index.txt'), async (route) => {
+    await heldNavigation
+    await route.continue()
+  })
+  try {
+    await openFilter(page)
+    const row = page.locator('[data-qqq-id="filter-row-0-0"]')
+    await row.getByLabel('Filter operator').selectOption({ label: 'starts with' })
+    await row.getByLabel('Filter value for First Name').fill('B')
+    await expectColumn(page, 'firstName', ['Blair'])
+    const address = new URL(page.url())
+    expect(address.searchParams.get('from')).toBe('/app/prcLab')
+    expect(address.hash).toBe('#filters')
+    expect(await page.evaluate(() => window.history.length)).toBe(historyLength)
+    const encoded = address.searchParams.get('filter') ?? ''
+    expect(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')).criteria).toEqual([{ fieldName: 'firstName', operator: 'STARTS_WITH', values: ['B'] }])
+    await page.reload()
+    await expectColumn(page, 'firstName', ['Blair'])
+  } finally {
+    releaseNavigation()
+    await page.unrouteAll({ behavior: 'wait' })
+  }
+})
+
 test('[QRY-094] a counted quick view uses the backend filter and opens its saved-view route @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await backend.seedQuickView()

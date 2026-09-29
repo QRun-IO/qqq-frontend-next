@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, composite metadata inputs
+## Latest checkpoint — September 29, saved-view reload correction
+
+Full run36564701143 is terminal: Chromium/mobile/tablet and WebKit pass; Firefox failed QRY-093. The trace showed new filtered data before asynchronous page navigation updated the URL. Query URL changes now replace the current history entry synchronously through Next-integrated native history, preserving other parameters and the hash. No query layout was intentionally changed.
+
+A deterministic Firefox regression failed before the fix with the old filter still in the URL. The corrected export passes25 saved-view, delayed-navigation, back/forward, quick-view and column-menu cases across five profiles, plus20 pagination, sorting, quick-search and return-navigation cases. The current tree passes1784unit tests, production export/typecheck, final standalone types, changed-file lint, license and whitespace checks; bundle1033KB gzip remains within1050KB. Logs: `query-url-{red-unit,red-browser,green-browser,related-browser,build,unit,types,lint}.log`. The final full run with this correction remains pending; these are focused checks.
+
+The current preview includes the correction. Desktop report-input pairs were re-inspected against original source: original compact card has384px maximum-width inputs and an inline Generate Report action; current shared process screen adds header and footer dividers, step count and wider fields. VIS-020 remains open. Preserve the shared dynamic form/process lifecycle while restoring the report presentation. Full visual review and all family approvals remain open.
+
+## Earlier checkpoint — September 29, composite metadata inputs
 
 The block INPUT_FIELD integration now reuses Next's field editors for choices, formatting and supported adornments, retaining the process form and multipart upload path. Plain scalar input layout remains the reference. The richer code/filter/upload editors add genuine capabilities absent from the original block renderer; their additional height and composition are still under visual review. This does not approve the widget or process family.
 

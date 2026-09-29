@@ -23,7 +23,7 @@
 
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 
 import type {
   QTableMetaData,
@@ -310,7 +310,6 @@ export function useRecordQuery({
   tableVariant = null,
   paused = false,
 }: UseRecordQueryOptions) {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -383,7 +382,7 @@ export function useRecordQuery({
   const sortIsDefault = JSON.stringify(state.sortOrder) === JSON.stringify(defaultSort)
   useEffect(() => {
     // Keep parameters this hook does not manage (for example the `from` back link)
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(window.location.search)
     for (const key of ['page', 'pageSize', 'filter', 'q']) params.delete(key)
     if (state.pageNum > 1) params.set('page', String(state.pageNum))
     if (state.pageSize !== initialPageSize) params.set('pageSize', String(state.pageSize))
@@ -392,11 +391,12 @@ export function useRecordQuery({
     }
     if (state.quickSearchTerm) params.set('q', state.quickSearchTerm)
     const newSearch = params.toString()
-    if (newSearch !== searchParams.toString()) {
-      router.replace(`${pathname}${newSearch ? `?${newSearch}` : ''}`, { scroll: false })
+    if (newSearch !== window.location.search.slice(1)) {
+      // Next preserves its history state and syncs useSearchParams without an RSC navigation.
+      // The address bar must be current before reload can interrupt an in-flight query.
+      window.history.replaceState(null, '', `${pathname}${newSearch ? `?${newSearch}` : ''}${window.location.hash}`)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams is read, not tracked, to avoid loops
-  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, router, pathname, initialPageSize])
+  }, [state.pageNum, state.pageSize, state.userFilter, state.sortOrder, state.quickSearchTerm, sortIsDefault, pathname, initialPageSize])
 
   // ------------------------------------------------------------------
   // Joins: only the exposed joins the visible columns, criteria or sort use
