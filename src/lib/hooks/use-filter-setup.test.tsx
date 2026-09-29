@@ -17,7 +17,7 @@
 /** @file Variant isolation for report preview requests and cached rows. */
 import React from 'react'
 import { describe, expect, it } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 
@@ -70,5 +70,70 @@ describe('report preview variants', () => {
       { kind: 'query', tableVariant: { type: 'store', id: '2', name: 'South Store' } },
       { kind: 'count', tableVariant: { type: 'store', id: '2', name: 'South Store' } },
     ])
+  })
+})
+
+
+describe('report preview capabilities', () => {
+  it.each([undefined, { name: 'test', path: 'test', version: 'v1' }])('clears an unsupported cached query error while keeping the count (%j)', async (api) => {
+    const prefix = api ? '/qqq/v1/test/v1' : '/qqq/v1'
+    server.use(http.post(`${prefix}/table/person/:kind`, ({ params }) => params.kind === 'count'
+      ? HttpResponse.json({ count: 7 }) : HttpResponse.json({ message: 'Query unavailable' }, { status: 500 })))
+    const { result, rerender } = renderHook(({ capabilities }: { capabilities: QTableMetaData['capabilities'] }) => useFilterSetupPreview({
+      table: { ...table, usesVariants: false, capabilities }, api,
+      filter: emptyFilter(), includeDistinct: false, enabled: true,
+    }), { wrapper: Wrapper, initialProps: { capabilities: table.capabilities } })
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    await waitFor(() => expect(result.current.totalCount).toBe(7))
+    rerender({ capabilities: ['TABLE_COUNT'] })
+    expect(result.current.error).toBeNull()
+    expect(result.current.totalCount).toBe(7)
+  })
+
+  it.each([undefined, { name: 'test', path: 'test', version: 'v1' }])('counts without requesting unsupported rows, including refresh (%j)', async (api) => {
+    const requests: string[] = []
+    const prefix = api ? '/qqq/v1/test/v1' : '/qqq/v1'
+    server.use(http.post(`${prefix}/table/person/:kind`, ({ params }) => {
+      requests.push(String(params.kind))
+      return HttpResponse.json(params.kind === 'count' ? { count: 7 } : { records: [] })
+    }))
+    const { result } = renderHook(() => useFilterSetupPreview({
+      table: { ...table, usesVariants: false, capabilities: ['TABLE_COUNT'] },
+      api, filter: emptyFilter(), includeDistinct: false, enabled: true,
+    }), { wrapper: Wrapper })
+    await waitFor(() => expect(result.current.totalCount).toBe(7))
+    expect(requests).toEqual(['count'])
+    expect(result.current.records).toEqual([])
+    act(() => result.current.refresh())
+    await waitFor(() => expect(requests).toEqual(['count', 'count']))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+  })
+
+  it.each([undefined, { name: 'test', path: 'test', version: 'v1' }])('hides cached rows and count when capabilities are removed (%j)', async (api) => {
+    const requests: string[] = []
+    const prefix = api ? '/qqq/v1/test/v1' : '/qqq/v1'
+    server.use(http.post(`${prefix}/table/person/:kind`, ({ params }) => {
+      requests.push(String(params.kind))
+      return HttpResponse.json(params.kind === 'count' ? { count: 1 } : {
+        records: [{ tableName: 'person', values: { id: 1, firstName: 'Ada' } }],
+      })
+    }))
+    const { result, rerender } = renderHook(({ capabilities }: { capabilities: QTableMetaData['capabilities'] }) => useFilterSetupPreview({
+      table: { ...table, usesVariants: false, capabilities }, api,
+      filter: emptyFilter(), includeDistinct: false, enabled: true,
+    }), { wrapper: Wrapper, initialProps: { capabilities: table.capabilities } })
+    await waitFor(() => expect(result.current.records).toHaveLength(1))
+    await waitFor(() => expect(result.current.totalCount).toBe(1))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+    const before = [...requests]
+    rerender({ capabilities: ['TABLE_COUNT'] })
+    expect(result.current.records).toEqual([])
+    expect(result.current.totalCount).toBe(1)
+    rerender({ capabilities: [] })
+    expect(result.current.records).toEqual([])
+    expect(result.current.totalCount).toBeNull()
+    expect(result.current.isLoading).toBe(false)
+    await act(async () => result.current.refresh())
+    expect(requests).toEqual(before)
   })
 })

@@ -20,9 +20,9 @@ Opening the statistics dialog alone is insufficient evidence of that workflow.
 
 ## Post-RC1 checkpoint — 2026-09-29
 
-The local RC2 export (e87fe90 plus the RC2 version change) passed **561 Chromium tests**, all 390 required rows, zero failures/skips/flaky tests. This is candidate evidence, not a published-artifact claim.
+The local RC2 export (e87fe90 plus the RC2 version change) passed **561 Chromium tests**, all 390 required rows, zero failures/skips/flaky tests. This is candidate evidence, not a published-artifact claim. The subsequent report capability correction passed all five focused browser profiles plus 1,846 unit tests; its full CI gate is pending.
 
-The preceding d937507 [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36626338487) passed **558 tests each in Chromium and WebKit**, all 390 required rows. Firefox passed **556 with two failures**: NAV-014 reported `NS_ERROR_FAILURE` for the owned embedded page during breadcrumb navigation; QRY-007 timed out hovering an application-theme error toast after it detached. Logs and traces are retained for diagnosis. All five focused breadcrumb/error-theme scenarios subsequently passed locally in Firefox against RC2 without source or test changes. That recheck does not establish the cause or resolution of the CI failures. Phone/tablet remains in progress. These results do not establish a complete cross-browser pass or erase the RC1 results below.
+The preceding d937507 [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36626338487) passed **558 tests each in Chromium and WebKit**, all 390 required rows. Firefox passed **556 with two failures**: NAV-014 reported `NS_ERROR_FAILURE` for the owned embedded page during breadcrumb navigation; QRY-007 timed out hovering an application-theme error toast after it detached. Logs and traces are retained for diagnosis. All five focused breadcrumb/error-theme scenarios subsequently passed locally in Firefox against RC2 without source or test changes. That recheck does not establish the cause or resolution of the CI failures. Mobile passed 533; tablet passed 532 and failed REC-019 with a WebKit internal navigation error while opening a field-lab record. Its log and trace are retained. These results do not establish a complete cross-browser pass or erase the RC1 results below.
 
 ## RC1 checkpoint — 2026-09-29
 

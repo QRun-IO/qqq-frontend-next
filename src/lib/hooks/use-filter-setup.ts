@@ -77,8 +77,9 @@ export interface FilterSetupPreviewOptions {
 export function useFilterSetupPreview({ table, api, tableVariant, filter, joins, includeDistinct, enabled }: FilterSetupPreviewOptions) {
   const tableName = table.name
   const apiKey = api ? `${api.path}/${api.version}` : null
-  const canCount = hasCapability(table, 'TABLE_COUNT')
-  const canQuery = enabled && (!table.usesVariants || Boolean(tableVariant))
+  const ready = enabled && (!table.usesVariants || Boolean(tableVariant))
+  const canQuery = ready && hasCapability(table, 'TABLE_QUERY')
+  const canCount = ready && hasCapability(table, 'TABLE_COUNT')
   const countFilter: QQueryFilter = { ...filter, skip: 0, limit: 0, orderBys: [] }
   const request = { filter, ...(joins ? { joins } : {}), ...(tableVariant ? { tableVariant } : {}) }
   const countRequest = { filter: countFilter, ...(joins ? { joins } : {}), ...(tableVariant ? { tableVariant } : {}) }
@@ -96,19 +97,18 @@ export function useFilterSetupPreview({ table, api, tableVariant, filter, joins,
     queryFn: () => (api ? countApiRecords(api, tableName, countRequest, includeDistinct) : countRecords(tableName, countRequest, includeDistinct)),
     staleTime: 0,
     placeholderData: table.usesVariants ? undefined : (previous) => previous,
-    enabled: canQuery && canCount,
+    enabled: canCount,
   })
 
   return {
-    records: recordsQuery.data?.records ?? NO_RECORDS,
+    records: canQuery ? recordsQuery.data?.records ?? NO_RECORDS : NO_RECORDS,
     totalCount: canCount ? countQuery.data?.count ?? null : null,
-    isLoading: canQuery && (recordsQuery.isLoading || (canCount && countQuery.isLoading)),
-    isFetching: recordsQuery.isFetching || countQuery.isFetching,
+    isLoading: (canQuery && recordsQuery.isLoading) || (canCount && countQuery.isLoading),
+    isFetching: (canQuery && recordsQuery.isFetching) || (canCount && countQuery.isFetching),
     refresh: () => {
-      if (!canQuery) return
-      void recordsQuery.refetch()
+      if (canQuery) void recordsQuery.refetch()
       if (canCount) void countQuery.refetch()
     },
-    error: recordsQuery.error ?? countQuery.error ?? null,
+    error: (canQuery ? recordsQuery.error : null) ?? (canCount ? countQuery.error : null),
   }
 }

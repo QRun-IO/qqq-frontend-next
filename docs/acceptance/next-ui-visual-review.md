@@ -431,3 +431,10 @@ The query inventory is fully inspected: **348 images**, covering all 28 existing
 The seven-state shell inventory is fully inspected: **92 images**, comprising 84 initial-position images and eight Preferences scroll captures. Root directly inspected 64 images and retained 28 prior inspections. No new unresolved shell visual regression was found. All six current Preferences scroll captures expose the lower table/record layout choices, with the footer separate. Original search/help/navigation geometry is retained; added theme choices and command actions remain inside the existing layouts. Shell source has not changed between d937507 and e87fe90. Screenshots do not establish persistence for every preference.
 
 Exact-path ledgers are `query-review-e87fe90.md` and `shell-review-e87fe90.md` in the ignored `test-results/visual-review` evidence directory. This closes those fixed inventories, alongside the previously closed record/form inventory. Process, report and widget review remains open; notifications, login/session and branding variants are not approved by this shell review. RC2 is in preparation and final 1.0 remains held for owner testing.
+
+
+## September 29 — report fixed inventory inspected
+
+All **262 report images** in the six per-profile canonical manifests were directly inspected: 131 in each theme (desktop 40, tablet 41, phone 50). This corrects the older combined light manifest, which omitted later states. The exact-path ledger `report-review-defb3ab.md` has no missing or extra images and records no confirmed new visual regression. An initial concern about blank output-format text was withdrawn after direct focused reinspection.
+
+This is inspection of the existing images, not a claim that all captures represent defb3ab: only 10 of 216 state entries have timestamps/export fingerprints. Fifty-four original editor-state entries lack an equivalent control, and the initial phone Advanced/Columns captures do not show the lower pager. Those comparison and provenance limits remain explicit. Embedded query equivalence and whole-product visual review remain open; final 1.0 is held.
