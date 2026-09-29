@@ -605,6 +605,40 @@
       "required": true
     },
     {
+      "id": "WID-072",
+      "feature": "API-versioned report setup loads table metadata and previews through the application API",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:205-257",
+        "src/lib/hooks/use-filter-setup.ts"
+      ],
+      "fixture": "ApiVersionFixtures.java acceptanceApi 2026.Q3; savedReport 102; saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "the report editor loads person metadata and its preview rows and count through the real API-aware v1 routes"
+      ],
+      "negative": [
+        "an unsupported API version returns 404"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-073",
+      "feature": "report setup editor uses the full server-backed grid for paging, sorting and column sizing",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:482-526",
+        "src/components/widgets/FilterAndColumnsSetupEditor.tsx"
+      ],
+      "fixture": "savedReport 1 targeting petSpecies without a pivot; saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "grid preview hides selection, changing page size changes the real backend query, header sorting changes the real backend query, and keyboard column resize persists in saved columns JSON"
+      ],
+      "negative": [],
+      "issues": [722],
+      "required": true
+    },
+    {
       "id": "WID-031",
       "feature": "rowBuilder widget without association binding shows its rows read-only",
       "source": [

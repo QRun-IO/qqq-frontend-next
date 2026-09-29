@@ -25,12 +25,15 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 
 import type { QQueryFilter, QTableMetaData, QWidgetMetaData } from '@/types'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { useApiTableMetaData, useFilterSetupPreview } from '@/lib/hooks/use-filter-setup'
 import { emptyFilter, normalizeFilter, prepFilterForBackend } from '@/lib/utils/filter-utils'
 import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { ColumnConfig } from '@/components/query/ColumnConfig'
+import { DataGrid } from '@/components/query/DataGrid'
 import { FilterBuilder, buildFilterFields } from '@/components/query/FilterBuilder'
+import { Pagination } from '@/components/query/Pagination'
 import {
   columnsStateFromEntries, DEFAULT_COLUMNS_STATE, editButtonLabel, editorHeading,
   fieldLookup, filterHasVariables, missingDefaultFields, missingDefaultFieldsMessage, omitExposedJoins,
@@ -118,6 +121,50 @@ export function FilterSetupPreview({ table, filter, columns, api, widgetName }: 
 }
 
 /**
+ * The report editor uses the same server-side grid controls as Record Query.
+ * @param root0 - Draft report filter, columns, and change callbacks.
+ * @returns The paged, sortable preview grid.
+ */
+function FilterSetupEditorPreview({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName }: {
+  table: QTableMetaData; filter: QQueryFilter; onFilterChange: (filter: QQueryFilter) => void
+  columns: ColumnsState; onColumnsChange: (columns: ColumnsState) => void
+  api: ReturnType<typeof resolveApiVersion>; widgetName: string
+}) {
+  const names = visibleColumnNames(table, columns)
+  const joins = previewJoins(table, names, filter)
+  const queryKey = JSON.stringify({ criteria: filter.criteria, subFilters: filter.subFilters, orderBys: filter.orderBys, names })
+  const [pagination, setPagination] = useState<{ key: string; pageNum: number; pageSize: PageSize }>(
+    { key: queryKey, pageNum: 1, pageSize: PREVIEW_PAGE_SIZE },
+  )
+  const pageNum = pagination.key === queryKey ? pagination.pageNum : 1
+  const pageSize = pagination.pageSize
+  const prepared = prepFilterForBackend({ ...filter, skip: (pageNum - 1) * pageSize, limit: pageSize }, fieldLookup(table))
+  const hasVariables = filterHasVariables(filter)
+  const result = useFilterSetupPreview({ table, api, filter: prepared, joins: joins.joins, includeDistinct: joins.includeDistinct, enabled: !hasVariables })
+  if (hasVariables) return <p role="status" className="text-sm text-muted-foreground">Cannot perform query because of a missing value for a variable.</p>
+  if (result.error) return <p role="alert" className="text-sm text-destructive">Preview could not be loaded.</p>
+  const totalPages = result.totalCount === null
+    ? pageNum + (result.records.length === pageSize ? 1 : 0)
+    : Math.max(1, Math.ceil(result.totalCount / pageSize))
+  return (
+    <div data-qqq-id={`filter-preview-${widgetName}`} className="overflow-hidden rounded-md border border-border">
+      <DataGrid tableName={table.name} tableMetaData={table} records={result.records}
+        totalCount={result.totalCount ?? result.records.length} isLoading={result.isLoading} isFetching={result.isFetching}
+        sortOrder={filter.orderBys ?? []} onSortChange={(orderBys) => onFilterChange({ ...filter, orderBys })}
+        rowSelection={{}} onRowSelectionChange={() => {}}
+        columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder} columnWidths={columns.columnWidths}
+        onColumnWidthChange={(name, width) => onColumnsChange({ ...columns, columnWidths: { ...columns.columnWidths, [name]: width } })}
+        density="standard" pageSize={pageSize} selectable={false} disableRowClick
+        scrollResetKey={`${pageNum}:${pageSize}`} />
+      <Pagination pageNum={pageNum} pageSize={pageSize} totalCount={result.totalCount}
+        pageRowCount={result.records.length} totalPages={totalPages} isFetching={result.isFetching}
+        onPageChange={(next) => setPagination({ key: queryKey, pageNum: next, pageSize })}
+        onPageSizeChange={(next) => setPagination({ key: queryKey, pageNum: 1, pageSize: next })} />
+    </div>
+  )
+}
+
+/**
  * State mounts when the dialog opens, so Cancel discards every draft change.
  * @param root0 - Widget metadata, current form values and save callback.
  * @returns The dialog content.
@@ -188,7 +235,8 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
         </> : <ColumnConfig tableMetaData={table} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
           onOrderChange={(order) => setColumns((current) => ({ ...current, columnOrder: order }))} embedded />}
-        {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupPreview table={table} filter={filter} columns={columns} api={api} widgetName={widgetName} /></section>}
+        {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupEditorPreview table={table} filter={filter} onFilterChange={setFilter}
+          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} /></section>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
         <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open in new window</a>

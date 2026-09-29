@@ -142,6 +142,93 @@ test('[WID-070] report setup assigns a filter variable and saves its expression 
   }
 })
 
+test('[WID-072] API-versioned report setup loads table metadata and previews through the real application API @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const apiRoot = '/qqq/v1/acceptance-api/2026.Q3'
+  const metadata = await backend.api.get(`${apiRoot}/metaData/table/person`)
+  expect(metadata.status()).toBe(200)
+  expect((await metadata.json()).name).toBe('person')
+  const unknownVersion = await backend.api.get('/qqq/v1/acceptance-api/2025.Q1/metaData/table/person')
+  expect(unknownVersion.status()).toBe(404)
+
+  const versionedRequests: string[] = []
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname
+    if (path.startsWith(apiRoot)) versionedRequests.push(`${request.method()} ${path}`)
+  })
+  await page.route('**/qqq/v1/widget/reportSetupWidget*', async (route) => {
+    const response = await route.fetch()
+    const payload = await response.json()
+    await route.fulfill({ response, contentType: 'application/json', body: JSON.stringify({
+      ...payload,
+      isApiVersioned: true,
+      apiName: 'acceptanceApi',
+      apiPath: 'acceptance-api',
+      apiVersion: '2026.Q3',
+    }) })
+  })
+
+  await open(page, '/app/savedReport/102/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await expect(dialog.getByText('Preview', { exact: true })).toBeVisible()
+  await expect(dialog.locator('[data-qqq-id="filter-preview-reportSetupWidget"]')).toBeVisible()
+  await expect.poll(() => versionedRequests).toContain(`GET ${apiRoot}/metaData/table/person`)
+  await expect.poll(() => versionedRequests).toContain(`POST ${apiRoot}/table/person/query`)
+  await expect.poll(() => versionedRequests).toContain(`POST ${apiRoot}/table/person/count`)
+})
+
+test('[WID-073] report editor grid pages, sorts and saves a resized column @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const seeded = await backend.api.put('/data/savedReport/1', { multipart: {
+    tableName: 'carrier',
+    queryFilterJson: JSON.stringify({ orderBys: [{ fieldName: 'id', isAscending: true }] }),
+    columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true, width: 150 }, { name: 'name', isVisible: true, width: 220 }] }),
+  } })
+  expect(seeded.status()).toBe(200)
+  await open(page, '/app/savedReport/1/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  const preview = dialog.locator('[data-qqq-id="filter-preview-reportSetupWidget"]')
+  await expect(preview.locator('[data-qqq-id="grid-carrier"]')).toBeVisible()
+  await expect(preview.locator('[data-qqq-id="grid-select-all"]')).toHaveCount(0)
+
+  const sizedQuery = page.waitForRequest((request) => request.method() === 'POST'
+    && new URL(request.url()).pathname === '/qqq/v1/table/carrier/query'
+    && (request.postDataJSON() as { filter?: { limit?: number } }).filter?.limit === 10)
+  await preview.getByLabel('Rows per page').selectOption('10')
+  await sizedQuery
+  await expect(preview.locator('[data-qqq-id="pagination-summary"]')).toContainText('Showing 1–10 of 11')
+  const nextPage = page.waitForRequest((request) => request.method() === 'POST'
+    && new URL(request.url()).pathname === '/qqq/v1/table/carrier/query'
+    && (request.postDataJSON() as { filter?: { skip?: number } }).filter?.skip === 10)
+  await preview.getByRole('button', { name: 'Next page' }).click()
+  await nextPage
+  await expect(preview.locator('[data-qqq-id="pagination-summary"]')).toContainText('Showing 11–11 of 11')
+  await expect(preview.getByRole('button', { name: 'Next page' })).toBeDisabled()
+
+  const sortedQuery = page.waitForRequest((request) => request.method() === 'POST'
+    && new URL(request.url()).pathname === '/qqq/v1/table/carrier/query'
+    && (request.postDataJSON() as { filter?: { orderBys?: Array<{ fieldName: string; isAscending: boolean }> } })
+      .filter?.orderBys?.[0]?.fieldName === 'name')
+  await preview.getByRole('button', { name: 'Sort by Name' }).click()
+  const sort = (await sortedQuery).postDataJSON() as { filter: { orderBys: Array<{ fieldName: string; isAscending: boolean }> } }
+  expect(sort.filter.orderBys[0]).toEqual({ fieldName: 'name', isAscending: true })
+  await expect(preview.locator('[data-qqq-id="pagination-summary"]')).toContainText('Showing 1–10 of 11')
+
+  const resize = preview.getByRole('separator', { name: 'Resize Name column' })
+  const before = Number(await resize.getAttribute('aria-valuenow'))
+  await resize.focus()
+  await resize.press('ArrowRight')
+  await expect(resize).toHaveAttribute('aria-valuenow', String(before + 10))
+  await dialog.getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/savedReport\/1\/?$/)
+  const [saved] = await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1')
+  expect(JSON.parse(saved.query_filter_json).orderBys[0]).toEqual({ fieldName: 'name', isAscending: true })
+  expect(JSON.parse(saved.columns_json).columns.find((column: { name: string }) => column.name === 'name').width).toBe(before + 10)
+})
+
 test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, '/app/savedReport/102')

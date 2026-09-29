@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import com.kingsrook.qqq.api.middleware.specs.v1.ApiAwareMiddlewareVersionV1;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.actions.permissions.AvailablePermission;
 import com.kingsrook.qqq.backend.core.actions.permissions.PermissionsHelper;
 import com.kingsrook.qqq.backend.core.exceptions.QAuthenticationException;
@@ -40,6 +42,7 @@ import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModuleCustomizerInterface;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardThemeMetaData;
+import com.kingsrook.qqq.middleware.javalin.specs.v1.MiddlewareVersionV1;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardRouteProvider;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.SampleJavalinServer;
@@ -96,6 +99,7 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    public static void main(String[] args) throws Exception
    {
+      ApiAwareMiddlewareVersionV1 apiAwareVersion = new ApiAwareMiddlewareVersionV1();
       SampleJavalinServer server = new SampleJavalinServer(new SampleMetaDataProvider()
       {
          @Override
@@ -110,11 +114,15 @@ public class AcceptanceSampleServer
             QueryFixtures.define(defined);
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
+            ApiVersionFixtures.define(defined);
+            QContext.setQInstance(defined);
+            apiAwareVersion.addVersion(ApiVersionFixtures.NAME, new com.kingsrook.qqq.api.model.APIVersion(ApiVersionFixtures.VERSION));
             PerformanceFixtures.define(defined);
             instance = defined;
             return defined;
          }
       });
+      server.withMiddlewareVersionList(List.of(new MiddlewareVersionV1(), apiAwareVersion));
       server.withJavalinConfigCustomizer(config ->
       {
          config.jetty.host = "127.0.0.1";

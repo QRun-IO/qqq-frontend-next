@@ -7,7 +7,9 @@ suite; they never replace it.
 ## Run
 
 ```bash
-# Build the sample jar (qqq repo, qqq-sample-project) and point at it:
+# Install the QQQ Maven modules, build the sample jar, and point at it:
+# mvn -DskipTests -Djacoco.skip=true install  # from the qqq repo root
+# mvn -DskipTests -Djacoco.skip=true -Dcheckstyle.skip=true package  # from qqq/qqq-sample-project
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar
 pnpm test:acceptance                          # static export + full suite + gate
 node scripts/acceptance.mjs --skip-build specs/records   # reuse out/, filtered (partial gate)
@@ -19,6 +21,10 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   classpath as `next-dashboard/`, ahead of the sample jar. `QApplicationJavalinServer` then
   serves it at `/`, which is exactly what a fresh application gets.
 - **standalone mode.** Tests the Node standalone build that the container image uses.
+- **API-versioned report setup.** The acceptance server loads the matching
+  `qqq-middleware-api` JAR from `~/.m2/repository/com/kingsrook/qqq/qqq-middleware-api/<version>/`.
+  Set `QQQ_MIDDLEWARE_API_JAR` to another path when Maven uses a different local repository.
+  The fixture registers one API-aware v1 version so WID-072 uses real metadata, query and count routes.
 - **Ports.** Set them with `QQQ_ACCEPTANCE_BACKEND_PORT` (default 18765) and
   `QQQ_ACCEPTANCE_FRONTEND_PORT` (default 13765). Use distinct ports for concurrent runs.
 - **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
