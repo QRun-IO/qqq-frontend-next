@@ -83,3 +83,30 @@ test.describe('Screen formats and step flows', () => {
     await expect(page.getByRole('button', { name: 'Return' })).toBeVisible()
   })
 })
+
+for (const submission of ['Enter', 'Submit'] as const) {
+  test(`[PRC-066] backend case behaviors persist block edits through ${submission} @mobile`, async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    await openProcess(page, 'prcInputCase')
+    const edit = await expectScreen(page, 'edit', 'Edit Codes')
+    for (const [label, expected] of [['Upper Code', 'ABXD'], ['Lower Code', 'abxd']]) {
+      const input = edit.getByRole('textbox', { name: label, exact: true })
+      await expect(input).toHaveValue('abCd')
+      await input.focus()
+      await input.evaluate((node: HTMLInputElement) => node.setSelectionRange(2, 3))
+      await input.pressSequentially('X')
+      await expect(input).toHaveValue(expected)
+      expect(await input.evaluate((node: HTMLInputElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+    }
+    expect(await backend.sql('select action_code, scan_code from prc_decision_log')).toEqual([])
+    if (submission === 'Enter') await edit.getByRole('textbox', { name: 'Lower Code', exact: true }).press('Enter')
+    else await advance(page, 'Submit')
+    const done = await expectScreen(page, 'done', 'Stored Codes')
+    await expect(viewValue(done, 'upperCode')).toHaveText('ABXD')
+    await expect(viewValue(done, 'lowerCode')).toHaveText('abxd')
+    expect(await backend.sql('select action_code, scan_code from prc_decision_log order by action_code')).toEqual([
+      { action_code: 'lowerCode', scan_code: 'abxd' },
+      { action_code: 'upperCode', scan_code: 'ABXD' },
+    ])
+  })
+}

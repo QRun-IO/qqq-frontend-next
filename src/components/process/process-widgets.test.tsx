@@ -202,6 +202,30 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ stamp: instant }, undefined))
   })
 
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD', 'Enter'],
+    ['TO_LOWER_CASE', 'abxd', 'Enter'],
+    ['TO_UPPER_CASE', 'ABXD', 'Submit'],
+    ['TO_LOWER_CASE', 'abxd', 'Submit'],
+  ])('applies %s as %s and keeps the caret when submitting through %s', async (behavior, expected, submit) => {
+    const user = userEvent.setup()
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: field('code', 'Code', { behaviors: [behavior] }) } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, { code: 'abCd' })
+    const input = screen.getByLabelText('Code') as HTMLInputElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    expect(onSubmit).not.toHaveBeenCalled()
+    if (submit === 'Enter') await user.keyboard('{Enter}')
+    else await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ code: expected }, undefined))
+  })
+
   it.each([undefined, '%20s'])('submits trimmed block text through Enter (format=%s)', async (displayFormat) => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [

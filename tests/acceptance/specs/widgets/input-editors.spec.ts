@@ -65,3 +65,20 @@ for (const { font, width } of [{ font: 'system-ui' }, { font: 'monospace' }, { f
     await expect(choice).toContainText('Beta')
   })
 }
+
+test('[WID-074] backend case behaviors preserve standalone block edits and caret position @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await open(page, '/app/widgetInputEditors')
+  await expectLoaded(page, 'accTypedInputs')
+  const card = widget(page, 'accTypedInputs')
+  for (const [label, expected] of [['Owned Upper', 'ABXD'], ['Owned Lower', 'abxd']]) {
+    const input = card.getByLabel(label, { exact: true })
+    await expect(input).toHaveValue('abCd')
+    await input.focus()
+    await input.evaluate((node: HTMLInputElement) => node.setSelectionRange(2, 3))
+    await input.pressSequentially('X')
+    await expect(input).toHaveValue(expected)
+    expect(await input.evaluate((node: HTMLInputElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+  }
+})

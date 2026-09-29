@@ -65,6 +65,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaDataInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.CaseChangeBehavior;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAdornment;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
@@ -223,6 +224,7 @@ public final class ProcessesFixtures
       instance.addProcess(defineFieldWidget());
       instance.addProcess(defineBlockEditors());
       instance.addProcess(defineInputFocus());
+      instance.addProcess(defineInputCase());
       instance.addProcess(defineInputDateTimes());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
@@ -810,6 +812,55 @@ public final class ProcessesFixtures
          .withStep(new QFrontendStepMetaData().withName("done").withLabel("Done")
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Saved Code")));
+   }
+
+
+
+   /*******************************************************************************
+    ** Case behaviors travel through real process metadata and persist unchanged.
+    *******************************************************************************/
+   private static QProcessMetaData defineInputCase()
+   {
+      ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("upperCode", QFieldType.STRING)
+         .withLabel("Upper Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_UPPER_CASE)).withSubmitOnEnter(true)));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("lowerCode", QFieldType.STRING)
+         .withLabel("Lower Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_LOWER_CASE)).withSubmitOnEnter(true)));
+      return new QProcessMetaData().withName("prcInputCase").withLabel("Input Case Lab")
+         .withStep(backend("prepare", PrepareInputCaseStep.class))
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Codes")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
+         .withStep(backend("store", StoreInputCaseStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Stored Codes")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("upperCode", QFieldType.STRING).withLabel("Upper Code"))
+            .withViewField(new QFieldMetaData("lowerCode", QFieldType.STRING).withLabel("Lower Code")));
+   }
+
+
+
+   public static class PrepareInputCaseStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output)
+      {
+         output.addValue("upperCode", "abCd");
+         output.addValue("lowerCode", "abCd");
+      }
+   }
+
+
+
+   public static class StoreInputCaseStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         for(String name : List.of("upperCode", "lowerCode"))
+         {
+            insert("INSERT INTO prc_decision_log (action_code, scan_code) VALUES (?, ?)", name, input.getValueString(name));
+         }
+      }
    }
 
 

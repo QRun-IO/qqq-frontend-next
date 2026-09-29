@@ -458,6 +458,28 @@ describe('QqqComposite', () => {
     expect(action).toHaveBeenCalledWith(data.blocks![1], { cost: '24.75' })
   })
 
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD'],
+    ['TO_LOWER_CASE', 'abxd'],
+  ])('applies %s in standalone input blocks without moving the edit caret', async (behavior, expected) => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'abCd', submitOnEnter: true, fieldMetaData: {
+        name: 'code', label: 'Code', type: 'STRING', isEditable: true, behaviors: [behavior],
+      } } },
+    ] })
+    const input = screen.getByLabelText('Code') as HTMLInputElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    expect(actionCallback).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { code: expected }))
+  })
+
   it('validates trimmed standalone block text before invoking its action', async () => {
     const user = userEvent.setup()
     const { actionCallback } = renderComposite({ blocks: [

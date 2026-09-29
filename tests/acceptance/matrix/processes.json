@@ -1141,6 +1141,25 @@
         "QRun-IO/qqq#704"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-066",
+      "feature": "INPUT_FIELD case behaviors preserve caret and submitted process values",
+      "source": [
+        "src/components/process/ProcessBlocks.tsx",
+        "src/components/widgets/blocks/BlockInputEditor.tsx"
+      ],
+      "fixture": "prcInputCase",
+      "scenarios": [
+        "Backend uppercase/lowercase metadata transforms a middle-of-value edit without moving the caret; Enter and Submit persist exact values verified through independent SQL"
+      ],
+      "negative": [
+        "Typing alone does not submit or persist the process"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
+      ],
+      "required": true
     }
   ]
 }
