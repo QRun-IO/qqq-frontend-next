@@ -281,7 +281,7 @@ export function BigNumberBlock({ block, widgetName }: LeafBlockProps) {
   const styles = blockStyles(block)
   const width = text(styles.width)
   return (
-    <div {...rootAttributes(block, widgetName)} style={{ width: width ?? 'auto' }}>
+    <div {...rootAttributes(block, widgetName)} className="max-w-full" style={{ width: width ?? 'auto' }}>
       {text(values.heading) && (
         <div className="-mb-2 text-sm font-bold text-foreground">
           <BlockSlot block={block} slot="heading"><span>{text(values.heading)}</span></BlockSlot>

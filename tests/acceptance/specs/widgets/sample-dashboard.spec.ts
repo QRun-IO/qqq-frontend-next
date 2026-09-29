@@ -62,6 +62,12 @@ test.describe('sample widgets dashboard', () => {
     await expect(upDown.nth(0)).toHaveAttribute('data-direction', 'down')
     await expect(upDown.nth(0)).toContainText('12,345')
     await expect(upDown.nth(1)).toHaveAttribute('data-direction', 'up')
+    const cardBounds = (await card.boundingBox())!
+    for (const block of await bigNumbers.or(upDown).all()) {
+      const bounds = (await block.boundingBox())!
+      expect(bounds.x, 'number and context start inside their card').toBeGreaterThanOrEqual(cardBounds.x)
+      expect(bounds.x + bounds.width, 'number and context fit inside their card').toBeLessThanOrEqual(cardBounds.x + cardBounds.width)
+    }
     // same link for all parts of the first block; a per-slot link on the up/down number
     // in-app links (the static export adds trailing slashes)
     await expect(bigNumbers.nth(0).locator('a').first()).toHaveAttribute('href', /^\/same-link-for-all-parts\/?$/)

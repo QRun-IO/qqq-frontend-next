@@ -51,7 +51,7 @@ const LAYOUT_CLASSES: Record<string, string> = {
   FLEX_COLUMN: 'flex flex-col flex-wrap gap-2',
   FLEX_ROW_WRAPPED: 'flex flex-row flex-wrap gap-2',
   FLEX_ROW: 'flex flex-row gap-2',
-  FLEX_ROW_SPACE_BETWEEN: 'flex flex-row justify-between gap-1',
+  FLEX_ROW_SPACE_BETWEEN: 'flex min-w-0 max-w-full flex-row flex-wrap justify-between gap-1',
   FLEX_ROW_CENTER: 'flex flex-row flex-wrap justify-center gap-1',
   TABLE_SUB_ROW_DETAILS: 'flex flex-col border-r border-[#D0D0D0] text-sm font-normal',
   BADGES_WRAPPER: 'flex gap-1 rounded-lg border border-gray-500 bg-white px-1 text-sm font-normal text-gray-900',

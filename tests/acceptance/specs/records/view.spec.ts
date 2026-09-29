@@ -189,7 +189,19 @@ test('[REC-004] every visible section opens by touch on phones and tablets @mobi
     await expect(triggers.first()).toHaveAttribute('aria-expanded', 'true')
     await expect(fieldValue(page, 'manualDateTime')).toHaveText('—')
   } else {
-    await expect(page.locator('[data-qqq-id="record-view-tabs"]').getByRole('tab')).toHaveText(['Overview', ...sections])
+    const tabs = page.locator('[data-qqq-id="record-view-tabs"]').getByRole('tab')
+    await expect(tabs).toHaveText(['Overview', ...sections])
+    const labels = await tabs.evaluateAll((nodes) => nodes.map((node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const text = range.getBoundingClientRect()
+      const button = node.getBoundingClientRect()
+      return { label: node.textContent, left: text.left - button.left, right: button.right - text.right }
+    }))
+    for (const label of labels) {
+      expect(label.left, `${label.label} starts inside its tab`).toBeGreaterThanOrEqual(0)
+      expect(label.right, `${label.label} ends inside its tab`).toBeGreaterThanOrEqual(0)
+    }
   }
   await expectNoSidewaysScroll(page)
   await expectTouchReady(page, page.locator('[data-qqq-id="record-view-fieldLab"]'))
