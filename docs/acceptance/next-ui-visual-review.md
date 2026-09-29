@@ -4,6 +4,12 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
+## Latest checkpoint — September 29, process review
+
+PR #14 remains open at `4748b6c`. General CI and image builds pass; full real-backend run `36557085746` remains in progress. The process/profile restoration below is a locally verified follow-up and is not yet in that run. Nothing is merged or published. No whole visual family is signed off.
+
+The light inventory now contains **76 scenarios at each of three sizes**. This pass added 16 process states in both themes: 192 build/theme/size/state combinations and 270 screenshots, including verified main-content scrolling. Captures are evidence to inspect, not automatic visual approval. Current preview includes the restored profile section and status.
+
 ## Evidence and method
 
 - Current source: `feature/next-1.0`; restoration, report editor and guide commits are integrated. The live current preview includes the verified recovery changes described below. Both comparison exports were refreshed on September 29.
@@ -46,7 +52,7 @@ Views and Export overflow is now corrected using the existing Radix dropdown pat
 
 Dashboard, app-home content, wizard entry, basic process components, centered Person create/edit/copy forms, blocks/parent widgets, and developer-page structure retain the earlier overall layout in the captured states. Form headings and currency adornments differ. Reports and record-widget forms gained previously missing filter, pivot, dynamic-form, and variable sections; their additional length is functional work that must survive restoration. Typed widget table cells now render values instead of raw markup/object strings. These observations cover entry states only and do not approve the full workflows.
 
-## Current release status (September 28, latest checkpoint)
+## Historical release checkpoint — September 28
 
 - Next UI 1.0.0 remains unreleased. PR #14 remains open at `93b7b5a`; full real-backend run `36507768282` is in progress. The local query-menu follow-up described below is verified separately.
 - Remote source/typecheck/lint/unit/coverage, mocked E2E, Storybook, bundle, CircleCI and both architecture image builds pass. Full real-backend run `36501934828` completed with failures in every job. Chromium/mobile/tablet reported 143 failures and 1343 passes; Firefox reported 52 failures and 460 passes. This is not a green release gate.
@@ -172,3 +178,16 @@ Fresh original/current captures cover populated/nested filters and sample widget
 Full c442613 acceptance 36549979322 is now terminal/failing: Chromium 515/1, phone 490/1, tablet 486/5, Firefox 515/1, WebKit 513/3. Besides heading/menu failures corrected in 5077c78, phone/tablet RPT-009 reproduced an undersized standalone report link (146x20); it now has a 44px target. The two tablet navigation traces show deliberate document replacements overlapping sidebar prefetch requests; those tests now wait for initial reads to finish. No diagnostics or assertions were waived, and their intermittent CI outcome still requires the next full run. Exact artifacts and logs remain in the root visual-review evidence directory.
 
 Final follow-up verification: nested-and-ci-acceptance.log reproduced the report touch failure on phone and tablet (26 passes/two failures). After correction, nested-and-ci-green.log passes 28/28 across five profiles, including nested AND/OR filtering, lookups, owned/shared records and report touch targets. Affected report/filter units pass 21/21. Final production export/typecheck, changed-file lint, diff check and bundle budget pass (1031.3 KB gzip / 1050 KB). The completed old CI run remains failed; these local passes do not substitute for the next full run.
+
+
+## September 29 — expanded process review and saved-profile restoration
+
+Added paired light/dark captures at desktop, tablet and phone for expanded help, required-field errors, component review/download, wizard details/validation/confirmation, cancel dialog, running progress, user-facing error, scanner, state-machine entry, widget result, bulk file mapping, value mapping, review and completed validation. All 192 new combinations have clean setup/runtime capture status and no document-wide horizontal overflow. Scroll captures record and verify main-content positions. The first required-field selectors were too strict about labels or matched a containing section; the final captures use the actual field roles. Completed bulk validation is identified by its result text, since the original did not expose the newer status hook.
+
+Inspected pairs include desktop component review and both bulk-mapping viewports; phone required-field error and footer, wizard confirmation, cancellation, progress, scanner, error, loop and widget result; dark desktop bulk mapping, dark tablet value mapping and wizard validation, and dark phone bulk-mapping footer and cancellation. These process compositions retain the original Next arrangement. Added controls and readable dark primary text remain. More process variants, saved-profile menu/dialog states, internal-error detail, bulk selection/results and composite modal states still need visual review; this is not full process-family approval.
+
+**VIS-014 (medium), corrected:** the original bordered Saved Bulk Load Profiles section, heading and visible current-profile status were removed during the profile-action expansion. Restored that section in the shared component. Restored the original `showCurrent` option so file/value mapping identifies the applied profile while the final review summary avoids duplicate status. Current menu, owner permissions, reset/rename/save/delete behavior, help, typed value mapping and searchable fields remain. The extra actions can increase phone height; verified scrolling reaches the footer. Unit assertions first failed for the missing named region and for missing value-step status, then passed after correction.
+
+**VIS-008 clarification:** browser measurements show Reload occupies the same header row as the title. It increases a compact widget header to 44px on touch devices (24px on desktop); this is the touch-target requirement, not an accidental separate row. The hosted ad hoc body is 2.5px shorter than the original in the fixture. Preserve the usable controls; further composite-specific states remain open. Evidence: `process-layout-probe.mjs` and `process-layout-before.log`.
+
+Verification: `bulk-profile-panel-acceptance.log` passes45/45 across five profiles; after the final value-step correction, `bulk-profile-final-acceptance.log` passes25/25 including upload/value mapping/review and profile actions. Final full units1768/1768 in173files (`bulk-profile-final-unit.log`), affected units10/10, export/typecheck, changed-file lint, license headers, diff check and production bundle budget pass (1031.4KB gzip/1050KB). Capture logs: `process-states-light`, `process-states-followup`, `process-states-dark-baseline`, `process-states-dark-current`, `process-bulk-restored-light`, and `process-values-final-{light,dark}`. Canonical manifests supersede failed interim captures and orphaned images.

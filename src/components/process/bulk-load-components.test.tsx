@@ -117,7 +117,9 @@ describe('saved bulk load profiles (#726)', () => {
   it('lists your profiles and those shared with you, and only the owner may save, rename or delete', async () => {
     const user = userEvent.setup()
     renderScreen(mappingStep, baseValues)
-    await user.click(screen.getByRole('button', { name: 'Saved Bulk Load Profiles' }))
+    const profiles = screen.getByRole('region', { name: 'Saved Bulk Load Profiles' })
+    expect(profiles).toHaveTextContent('You are not using a saved bulk load profile.')
+    await user.click(within(profiles).getByRole('button', { name: 'Saved Bulk Load Profiles' }))
     const menu = screen.getByRole('menu', { name: 'Saved bulk load profiles' })
     const yours = within(menu).getByRole('group', { name: 'Your Saved Bulk Load Profiles' })
     const shared = within(menu).getByRole('group', { name: 'Bulk Load Profiles Shared with you' })
@@ -125,6 +127,7 @@ describe('saved bulk load profiles (#726)', () => {
     expect(within(shared).getByRole('menuitem', { name: 'Bob Shared CSV' })).toBeInTheDocument()
     await user.click(within(shared).getByRole('menuitem', { name: 'Bob Shared CSV' }))
     expect(screen.getByRole('heading', { name: 'File Mapping / Bob Shared CSV' })).toBeInTheDocument()
+    expect(profiles).toHaveTextContent('You are using the bulk load profile: Bob Shared CSV')
     expect(screen.getByLabelText('Default value for Is Employed')).toHaveValue('true')
     await user.click(screen.getByRole('button', { name: 'Saved Bulk Load Profiles' }))
     for (const item of ['Save...', 'Rename...', 'Delete...']) {
@@ -301,6 +304,7 @@ describe('bulk load value mapping (#726)', () => {
       valueMappingFullFieldName: 'speciesId', valueMappingFieldTableName: 'person', fileValues: ['Doggo', 'Kitty'],
       valueMapping: { Doggo: 1 }, mappedValueLabels: { 1: 'Dog' }, valueMappingFieldIndex: 0, fieldNamesToDoValueMapping: ['speciesId'],
     })
+    expect(screen.getByRole('region', { name: 'Saved Bulk Load Profiles' })).toHaveTextContent('You are not using a saved bulk load profile.')
     expect(screen.getByRole('combobox', { name: 'Species value for Doggo' })).toHaveTextContent('Dog')
     await user.click(screen.getByRole('button', { name: 'Submit' }))
     expect(await screen.findByText('A value is required for this mapping')).toBeInTheDocument()

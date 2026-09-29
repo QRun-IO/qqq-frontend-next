@@ -81,6 +81,7 @@ export function BulkLoadProfileComponent({ index }: BulkLoadProfileComponentProp
           mapping={mapping}
           file={file}
           allowSelecting={false}
+          showCurrent={false}
           profileToSave={() => mapping.clone().toProfile().profile}
           onChange={setSaved}
         />

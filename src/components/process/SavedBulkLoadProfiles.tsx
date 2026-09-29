@@ -56,6 +56,8 @@ export interface SavedBulkLoadProfilesProps {
   file: FileDescription
   /** Whether profiles can be chosen here (the file mapping screen); other screens manage the one in use. */
   allowSelecting: boolean
+  /** Show the profile status unless the hosting summary already presents it. */
+  showCurrent?: boolean
   /** The current mapping as a v1 profile, for saving. */
   profileToSave: () => BulkLoadProfile
   /** A profile was chosen, or `null` for a new (empty) mapping; the host applies its mapping. */
@@ -81,7 +83,7 @@ const rule = <span aria-hidden="true" className="inline-block h-4 w-px bg-border
  * @returns The controls, or nothing when the application has no saved profiles.
  */
 export function SavedBulkLoadProfiles({
-  tableName, isBulkEdit, current, mapping, file, allowSelecting, profileToSave, onSelect, onResetToSuggested, onChange,
+  tableName, isBulkEdit, current, mapping, file, allowSelecting, showCurrent = true, profileToSave, onSelect, onResetToSuggested, onChange,
 }: SavedBulkLoadProfilesProps) {
   const { instance, isWorking } = useProcessStep()
   const { userId } = useQContext()
@@ -93,7 +95,7 @@ export function SavedBulkLoadProfiles({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLElement>(null)
   const saveButtonRef = useRef<HTMLButtonElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -226,7 +228,13 @@ export function SavedBulkLoadProfiles({
       : 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
 
   return (
-    <div ref={containerRef} className="flex flex-wrap items-center gap-x-3 gap-y-2" data-qqq-id="saved-bulk-load-profiles">
+    <section ref={containerRef} aria-label={`Saved Bulk ${action} Profiles`} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border p-3 text-sm" data-qqq-id="saved-bulk-load-profiles">
+      <h4 className="w-full font-semibold text-foreground">{`Saved Bulk ${action} Profiles`}</h4>
+      {showCurrent && (
+        <p className="w-full text-muted-foreground" data-qqq-id="saved-bulk-load-profile-current">
+          {current ? `You are using the bulk ${lower} profile: ${current.label}` : `You are not using a saved bulk ${lower} profile.`}
+        </p>
+      )}
       <div className="relative">
         <button
           type="button"
@@ -438,7 +446,7 @@ export function SavedBulkLoadProfiles({
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
-    </div>
+    </section>
   )
 }
 
