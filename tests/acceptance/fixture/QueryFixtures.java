@@ -186,7 +186,7 @@ final class QueryFixtures
          .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
          .withField(new QFieldMetaData("name", QFieldType.STRING).withIsRequired(true))));
       qInstance.addBackend(new QBackendMetaData().withName("qryVariantMemory").withBackendType(MemoryBackendModule.class)
-         .withUsesVariants(true)
+         .withUsesVariants(true).withCapability(Capability.QUERY_STATS)
          .withBackendVariantsConfig(new BackendVariantsConfig().withVariantTypeKey(VARIANT_TYPE).withOptionsTableName(VARIANT_TYPE)
             .withBackendSettingSourceFieldName(MemoryModuleBackendVariantSetting.PRIMARY_KEY, "id")));
       qInstance.addTable(new QTableMetaData().withName("qryStock").withLabel("Stock").withBackendName("qryVariantMemory")

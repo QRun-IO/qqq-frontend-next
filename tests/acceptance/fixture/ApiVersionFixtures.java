@@ -31,7 +31,7 @@ public class ApiVersionFixtures
          .withName(NAME).withPath("/" + PATH + "/").withLabel("Acceptance API")
          .withDescription("Owned report setup acceptance API").withContactEmail("reports@example.test")
          .withCurrentVersion(version).withSupportedVersions(List.of(version))));
-      for(String tableName : List.of("person", "pet", "petNote", "petSpecies", "carrier"))
+      for(String tableName : List.of("person", "pet", "petNote", "petSpecies", "carrier", "qryStock"))
       {
          instance.getTable(tableName).withSupplementalMetaData(new ApiTableMetaDataContainer()
             .withApiTableMetaData(NAME, new ApiTableMetaData().withInitialVersion(VERSION)));

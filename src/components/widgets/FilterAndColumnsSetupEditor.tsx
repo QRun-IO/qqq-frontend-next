@@ -28,7 +28,7 @@ import type { QQueryFilter, QRecord, QTableMetaData, QWidgetMetaData } from '@/t
 import { useMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { Density, PageSize } from '@/lib/hooks/use-record-query'
 import { queryApiRecords } from '@/lib/api/api-versioned'
-import { queryRecords } from '@/lib/api/tables'
+import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT } from '@/lib/constants'
 import { getQueryColumns, hasCapability, pinColumn } from '@/lib/utils/query-columns'
 import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from '@/components/query/ColumnStatsDialog'
@@ -48,6 +48,8 @@ import { ColumnConfig } from '@/components/query/ColumnConfig'
 import { DataGrid } from '@/components/query/DataGrid'
 import { FilterBuilder, buildFilterFields } from '@/components/query/FilterBuilder'
 import { Pagination } from '@/components/query/Pagination'
+import { VariantPicker } from '@/components/query/VariantPicker'
+import { readStoredTableVariant, TABLE_VARIANT_STORAGE_KEY_ROOT } from '@/lib/utils/table-variant'
 import {
   columnsStateFromEntries, DEFAULT_COLUMNS_STATE, editButtonLabel, editorHeading,
   fieldLookup, filterHasVariables, missingDefaultFields, missingDefaultFieldsMessage, omitExposedJoins,
@@ -133,21 +135,58 @@ function LocalFilterSetupPreview({ filter, columns, ...props }: PreviewProps) {
     columns={previewColumns} onColumnsChange={setPreviewColumns} />
 }
 
-/**
- * Report views and editors use the same server-side grid controls as Record Query.
- * @param root0 - Draft report filter, columns, and change callbacks.
- * @returns The paged, sortable preview grid.
- */
-function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName, editable = false, onEditFilter, hideColumns = false }: {
+/** Shared report preview metadata, draft state and editor callbacks. */
+interface FilterSetupGridProps {
   table: QTableMetaData; filter: QQueryFilter; onFilterChange: (filter: QQueryFilter) => void
   columns: ColumnsState; onColumnsChange: (columns: ColumnsState) => void
   api: ReturnType<typeof resolveApiVersion>; widgetName: string; editable?: boolean; onEditFilter?: () => void; hideColumns?: boolean
-}) {
+}
+
+/**
+ * Scopes preview controls and cached records to the user's selected backend variant.
+ * @param props - Report preview metadata and draft state.
+ * @returns The variant selector and scoped grid.
+ */
+function FilterSetupGrid(props: FilterSetupGridProps) {
+  const { table, widgetName } = props
+  const [variant, setVariant] = useState<TableVariant | null>(() => table.usesVariants ? readStoredTableVariant(table.name) : null)
+  const [pickerOpen, setPickerOpen] = useState(() => Boolean(table.usesVariants) && !readStoredTableVariant(table.name))
+  const label = table.variantTableLabel ?? 'Variant'
+  const chooseVariant = (selected: TableVariant) => {
+    try { localStorage.setItem(`${TABLE_VARIANT_STORAGE_KEY_ROOT}.${table.name}`, JSON.stringify(selected)) } catch { /* Persistence is best-effort. */ }
+    setVariant(selected)
+    setPickerOpen(false)
+  }
+  return <>
+    {table.usesVariants && <div className="mb-2 flex flex-wrap items-center gap-2">
+      <button type="button" onClick={() => setPickerOpen(true)} data-qqq-id={`filter-preview-variant-${widgetName}`}
+        className="min-h-11 rounded border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        {label}: {variant?.name ?? variant?.id ?? 'Select…'}
+      </button>
+      {!variant && <p role="status" data-qqq-id={`filter-preview-needs-variant-${widgetName}`} className="text-sm text-muted-foreground">Select a {label} to preview {table.label} records.</p>}
+      <VariantPicker open={pickerOpen} tableName={table.name} variantTableLabel={label} selected={variant}
+        onSelect={chooseVariant} onCancel={() => setPickerOpen(false)} />
+    </div>}
+    {(!table.usesVariants || variant) && <VariantFilterSetupGrid key={variant ? JSON.stringify([variant.type, variant.id]) : 'default'} {...props} tableVariant={variant} />}
+  </>
+}
+
+/**
+ * Keeps paging, copy and statistics within one selected backend variant.
+ * @param props - Preview configuration and selected variant.
+ * @returns The paged report grid.
+ */
+function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName, editable = false, onEditFilter, hideColumns = false, tableVariant }: FilterSetupGridProps & { tableVariant: TableVariant | null }) {
   const [density, setDensity] = useState<Density>('standard')
   const [showColumns, setShowColumns] = useState(false)
   const [showFilter, setShowFilter] = useState(false)
   const [notice, setNotice] = useState('')
   const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
+  const active = useRef(true)
+  useEffect(() => {
+    active.current = true
+    return () => { active.current = false }
+  }, [])
   const { data: metaData } = useMetaData()
   const statsProcess = metaData?.processes?.[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(table, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
@@ -162,7 +201,7 @@ function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChan
   const pageSize = pagination.pageSize
   const prepared = prepFilterForBackend({ ...filter, skip: (pageNum - 1) * pageSize, limit: pageSize }, fieldLookup(table))
   const hasVariables = filterHasVariables(filter)
-  const result = useFilterSetupPreview({ table, api, filter: prepared, joins: joins.joins, includeDistinct: joins.includeDistinct, enabled: !hasVariables })
+  const result = useFilterSetupPreview({ table, api, tableVariant, filter: prepared, joins: joins.joins, includeDistinct: joins.includeDistinct, enabled: !hasVariables })
   const copyValues = async (name: string, all: boolean) => {
     const label = queryColumns.find((column) => column.name === name)?.label ?? name
     const textValues = (records: QRecord[]) => records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? ''))
@@ -176,19 +215,20 @@ function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChan
         if (result.totalCount !== null && result.totalCount > limit) throw new Error(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
         values = []
         // One extra row distinguishes an exact-limit result from a truncated query without a count.
-        while (values.length <= limit) {
+        while (active.current && values.length <= limit) {
           const length = Math.min(250, limit + 1 - values.length)
-          const request = { filter: { ...prepared, skip: values.length, limit: length }, joins: joins.joins }
+          const request = { filter: { ...prepared, skip: values.length, limit: length }, joins: joins.joins, ...(tableVariant ? { tableVariant } : {}) }
           const page = await (api ? queryApiRecords(api, table.name, request) : queryRecords(table.name, request))
           values.push(...textValues(page.records))
           if (page.records.length < length) break
         }
         if (values.length > limit) throw new Error(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
       }
+      if (!active.current) return
       await navigator.clipboard.writeText(`${values.join('\n')}\n`)
-      setNotice(`Copied ${values.length.toLocaleString()} ${label} values.`)
+      if (active.current) setNotice(`Copied ${values.length.toLocaleString()} ${label} values.`)
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : `Could not copy ${label} values.`)
+      if (active.current) setNotice(error instanceof Error ? error.message : `Could not copy ${label} values.`)
     }
   }
   const columnMenu = {
@@ -242,7 +282,7 @@ function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChan
         scrollResetKey={`${pageNum}:${pageSize}`} />
       {statsColumn && <ColumnStatsDialog tableName={table.name} tableLabel={table.label} fieldName={statsColumn.name}
         fieldLabel={statsColumn.label} fieldType={queryColumns.find((column) => column.name === statsColumn.name)?.field.type}
-        filter={prepared} onClose={() => setStatsColumn(null)} />}
+        filter={prepared} tableVariant={tableVariant} onClose={() => setStatsColumn(null)} />}
       <Pagination pageNum={pageNum} pageSize={pageSize} totalCount={result.totalCount}
         pageRowCount={result.records.length} totalPages={totalPages} isFetching={result.isFetching}
         onPageChange={(next) => setPagination({ key: queryKey, pageNum: next, pageSize })}

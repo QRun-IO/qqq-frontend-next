@@ -274,6 +274,9 @@ In the report setup dialog, Left/Right Arrow switches between Filters and sort a
 
 Selecting a saved view imports it into the report draft. **Reset Changes** reapplies that view; **Reset to New View** clears filters and custom quick fields, restores default columns, and sorts by the primary key descending when present. Both discard an open quick-filter edit. These actions leave the saved view unchanged. OK applies the draft to the host form; saving the form persists it. Cancel discards the dialog draft.
 
+When a preview table declares `usesVariants`, select its backend variant before querying. The choice uses the same per-table browser storage as Record Query (`qqq.tableVariant.<table>`). Switching variants starts a fresh preview page; query/count, full-column copy and statistics use the selection. It does not alter the saved report definition. Application-API query/count require the backend fix in [QQQ PR #913](https://github.com/QRun-IO/qqq/pull/913), currently pending CI/merge; verification used its locally built middleware JAR.
+
+
 
 ### Demo and compatibility dispatch labels
 

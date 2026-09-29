@@ -29,6 +29,7 @@ import { ArrowDown, ArrowUp, Download, Loader2, RefreshCw, X } from 'lucide-reac
 
 import type { QFieldType, QQueryFilter } from '@/types'
 import { processInit } from '@/lib/api/processes'
+import type { TableVariant } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 
 import { formatDateTimeForFileName } from './ExportButton'
@@ -56,12 +57,14 @@ interface ColumnStatsResult {
  * @param fieldName - Column (`field` or `joinTable.field`).
  * @param filter - Active filter (criteria and sub-filters).
  * @param orderBy - Distribution order, e.g. `count.desc`.
+ * @param tableVariant - Backend variant selected for the query.
  * @returns The parsed statistics.
  */
-async function loadColumnStats(tableName: string, fieldName: string, filter: Partial<QQueryFilter>, orderBy: string): Promise<ColumnStatsResult> {
+async function loadColumnStats(tableName: string, fieldName: string, filter: Partial<QQueryFilter>, orderBy: string, tableVariant?: TableVariant | null): Promise<ColumnStatsResult> {
   const response = await processInit(COLUMN_STATS_PROCESS, {
     values: { tableName, fieldName, filterJSON: JSON.stringify(filter), orderBy },
     stepTimeoutMillis: 60 * 1000,
+    ...(tableVariant ? { tableVariant: JSON.stringify({ type: tableVariant.type, id: tableVariant.id }) } : {}),
   })
   if ('error' in response && response.error) throw new Error(response.userFacingError ?? response.error)
   if (!('values' in response)) throw new Error('Column statistics did not complete.')
@@ -89,6 +92,8 @@ interface ColumnStatsDialogProps {
   tableLabel?: string
   /** The query's filter (paging ignored). */
   filter: QQueryFilter
+  /** Selected backend variant. */
+  tableVariant?: TableVariant | null
   /** Closes the dialog. */
   onClose: () => void
 }
@@ -99,15 +104,15 @@ interface ColumnStatsDialogProps {
  * @param props - Component properties.
  * @returns The dialog.
  */
-export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, fieldType, tableLabel, filter, onClose }: ColumnStatsDialogProps) {
+export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, fieldType, tableLabel, filter, tableVariant, onClose }: ColumnStatsDialogProps) {
   const [orderBy, setOrderBy] = useState('count.desc')
   const { skip: _skip, limit: _limit, orderBys: _orderBys, ...criteria } = filter
   void _skip
   void _limit
   void _orderBys
   const statsQuery = useQuery({
-    queryKey: [...queryKeys.tableRecords(tableName), 'columnStats', fieldName, JSON.stringify(criteria), orderBy],
-    queryFn: () => loadColumnStats(tableName, fieldName!, criteria, orderBy),
+    queryKey: [...queryKeys.tableRecords(tableName), 'columnStats', fieldName, JSON.stringify(criteria), orderBy, tableVariant?.type ?? null, tableVariant?.id ?? null],
+    queryFn: () => loadColumnStats(tableName, fieldName!, criteria, orderBy, tableVariant),
     enabled: fieldName !== null,
     retry: false,
     staleTime: 0,

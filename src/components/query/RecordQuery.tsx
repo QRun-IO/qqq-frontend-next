@@ -782,6 +782,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           fieldName={statsColumn?.name ?? null}
           fieldLabel={statsColumn?.label ?? ''}
           filter={rq.filter.baseFilter}
+          tableVariant={tableVariant}
           onClose={() => setStatsColumn(null)}
         />
       )}

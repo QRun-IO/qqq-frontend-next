@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, report saved-view resets
+## Latest checkpoint — September 29, report backend variants
+
+Report previews now reuse the existing Next variant picker for tables that require a store/tenant selection. No query runs before selection; switching starts a fresh preview page and scopes query/count, copy and statistics. The picker works nested inside the report editor. Light/dark desktop captures show it above the parent dialog and the selected variant above the preview, with no horizontal overflow or page errors. No changes were needed to the shared picker's layout or stacking. Captures: `report-variant-picker-{light,dark}.png`, `report-variant-{light,dark}.png` and `report-variant-visual-result.json` in the local visual-review directory. This does not approve the full report family.
+
+Depth verification passes 35 real-backend Chromium scenarios, all 1,826 units, production build, types, affected lint, license and bundle budget. Both ordinary and application-API previews are covered. A review-found delayed-copy race was reproduced then corrected: a response from the previous variant cannot overwrite a later clipboard copy. Independent frontend/backend reviews have no remaining findings in this scope.
+
+The application-API browser run exposed a backend defect: its query/count executors ignored the received variant. QQQ PR #913 applies the ordinary endpoints' session handling. Two HTTP regressions failed then passed; all 109 API middleware tests and coverage pass. Backend build succeeds under its configured static-analysis gates, with warnings. The 35 browser checks used that corrected local middleware JAR; PR CI/merge is pending. Full embedded-query parity, original-Next visual review and release acceptance remain open.
+
+## Earlier checkpoint — September 29, report saved-view resets
 
 Report setup now exposes Reset Changes and Reset to New View beside the selected saved view. The first restores the imported view; the second starts a default draft. Both discard unapplied Basic quick-filter values, and neither updates the saved view or report. The stale quick-filter regression failed for both reset actions before the correction, then passed. Independent review confirmed the correction with no remaining findings in this scope.
 

@@ -26,7 +26,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { QQueryFilter, QRecord, QTableMetaData, QueryJoin } from '@/types'
 import { countApiRecords, loadApiTableMetaData, queryApiRecords, type ApiVersionRef } from '@/lib/api/api-versioned'
-import { countRecords, queryRecords } from '@/lib/api/tables'
+import { countRecords, queryRecords, type TableVariant } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { hasCapability } from '@/lib/utils/query-columns'
 
@@ -56,6 +56,8 @@ export interface FilterSetupPreviewOptions {
   table: QTableMetaData
   /** The API version, for an API-versioned widget. */
   api?: ApiVersionRef
+  /** Selected backend variant for a variant-backed table. */
+  tableVariant?: TableVariant | null
   /** The filter prepared for the backend, with its sort and the page (`skip`, `limit`). */
   filter: QQueryFilter
   /** Exposed joins the shown columns, criteria or sort use. */
@@ -72,37 +74,38 @@ export interface FilterSetupPreviewOptions {
  * @param options - See {@link FilterSetupPreviewOptions}.
  * @returns The records, counts and request state.
  */
-export function useFilterSetupPreview({ table, api, filter, joins, includeDistinct, enabled }: FilterSetupPreviewOptions) {
+export function useFilterSetupPreview({ table, api, tableVariant, filter, joins, includeDistinct, enabled }: FilterSetupPreviewOptions) {
   const tableName = table.name
   const apiKey = api ? `${api.path}/${api.version}` : null
   const canCount = hasCapability(table, 'TABLE_COUNT')
+  const canQuery = enabled && (!table.usesVariants || Boolean(tableVariant))
   const countFilter: QQueryFilter = { ...filter, skip: 0, limit: 0, orderBys: [] }
-  const request = { filter, ...(joins ? { joins } : {}) }
-  const countRequest = { filter: countFilter, ...(joins ? { joins } : {}) }
+  const request = { filter, ...(joins ? { joins } : {}), ...(tableVariant ? { tableVariant } : {}) }
+  const countRequest = { filter: countFilter, ...(joins ? { joins } : {}), ...(tableVariant ? { tableVariant } : {}) }
 
   const recordsQuery = useQuery({
     queryKey: [...queryKeys.tableRecords(tableName), 'filterSetupPreview', apiKey, 'query', JSON.stringify(request)],
     queryFn: () => (api ? queryApiRecords(api, tableName, request) : queryRecords(tableName, request)),
     staleTime: 0,
-    placeholderData: (previous) => previous,
-    enabled,
+    placeholderData: table.usesVariants ? undefined : (previous) => previous,
+    enabled: canQuery,
   })
 
   const countQuery = useQuery({
     queryKey: [...queryKeys.tableRecords(tableName), 'filterSetupPreview', apiKey, 'count', JSON.stringify(countRequest), includeDistinct],
     queryFn: () => (api ? countApiRecords(api, tableName, countRequest, includeDistinct) : countRecords(tableName, countRequest, includeDistinct)),
     staleTime: 0,
-    placeholderData: (previous) => previous,
-    enabled: enabled && canCount,
+    placeholderData: table.usesVariants ? undefined : (previous) => previous,
+    enabled: canQuery && canCount,
   })
 
   return {
     records: recordsQuery.data?.records ?? NO_RECORDS,
     totalCount: canCount ? countQuery.data?.count ?? null : null,
-    isLoading: enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading)),
+    isLoading: canQuery && (recordsQuery.isLoading || (canCount && countQuery.isLoading)),
     isFetching: recordsQuery.isFetching || countQuery.isFetching,
     refresh: () => {
-      if (!enabled) return
+      if (!canQuery) return
       void recordsQuery.refetch()
       if (canCount) void countQuery.refetch()
     },
