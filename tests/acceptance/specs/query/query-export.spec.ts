@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectWithinViewport } from '../../support/touch'
 import { addCondition, closeFilterSheet, expectColumn, grid, openFilter, showTable, sqlColumn } from './query-helpers'
 
 /** Minimal RFC 4180 CSV parser (quoted fields, doubled quotes). */
@@ -32,7 +33,7 @@ function parseCsv(text: string): string[][] {
 /** Clicks an export format and returns the downloaded file. */
 async function download(page: Page, format: 'CSV' | 'XLSX' | 'JSON') {
   await page.getByRole('button', { name: 'Export records' }).click()
-  await expect(page.getByRole('menu', { name: 'Export options' })).toBeInViewport({ ratio: 1 })
+  await expectWithinViewport(page.getByRole('menu', { name: 'Export options' }))
   const [file] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('menuitem', { name: new RegExp(`^Export ${format}`) }).click(),

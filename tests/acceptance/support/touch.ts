@@ -29,6 +29,15 @@ export async function expectNoHorizontalScroll(page: Page) {
   expect(widths.scroll, `page is ${widths.scroll}px wide in a ${widths.viewport}px viewport`).toBeLessThanOrEqual(widths.viewport + 1)
 }
 
+/** Checks all four viewport edges, allowing half a CSS pixel of layout rounding. */
+export async function expectWithinViewport(locator: Locator) {
+  await expect(locator).toBeVisible()
+  await expect.poll(async () => locator.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    return Math.min(box.left, box.top, window.innerWidth - box.right, window.innerHeight - box.bottom)
+  }), { message: 'all edges stay inside the viewport' }).toBeGreaterThanOrEqual(-0.5)
+}
+
 /**
  * Lists the visible controls in `scope` whose touch target is below 44 x 44 CSS px. Only a
  * coarse (touch) pointer is checked; with a mouse the desktop sizes stand, so the list is empty.

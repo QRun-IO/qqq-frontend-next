@@ -3,6 +3,7 @@
 /* These are the default values — overridden by ThemeProvider from backend metadata */
 
 :root {
+  color-scheme: light;
   /* === Aliases: --qqq-* color tokens read from canonical Tailwind v4 --color-* values === */
   /* These ensure that any component using --qqq-primary-color / --qqq-accent-color
      automatically picks up runtime theme overrides applied to the --color-* tokens. */
@@ -185,6 +186,7 @@
 /* === Dark Mode Overrides === */
 [data-theme="dark"],
 .dark {
+  color-scheme: dark;
   /* Tailwind v4 dark semantic tokens */
   --color-background: #0f1117;
   --color-foreground: #f0f2f5;

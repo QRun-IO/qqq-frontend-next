@@ -8,6 +8,7 @@
 // Backend saved views (querySavedView / storeSavedView / deleteSavedView), owned and shared.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectWithinViewport } from '../../support/touch'
 import { addCondition, closeFilterSheet, expectColumn, grid, openFilter, showTable, sqlColumn } from './query-helpers'
 
 const ALICE_VIEW = 'Alice People View'
@@ -16,7 +17,7 @@ const ALICE_VIEW = 'Alice People View'
 async function openViews(page: Page) {
   await page.locator('[data-qqq-id="button-saved-views"]').click()
   const menu = page.getByRole('menu', { name: 'Saved views' })
-  await expect(menu).toBeInViewport({ ratio: 1 })
+  await expectWithinViewport(menu)
   return menu
 }
 
