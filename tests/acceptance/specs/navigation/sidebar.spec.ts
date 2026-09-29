@@ -173,9 +173,7 @@ test.describe('sidebar', () => {
     await expect(viewIcon).toHaveClass(/lucide-database/)
 
     await open(page, `/app/carrier/${carrier.id}/edit`)
-    const identityIcon = (page.viewportSize()?.width ?? 0) < 1024
-      ? page.getByRole('main').getByRole('heading', { name: 'Identity' }).locator('svg')
-      : page.getByRole('navigation', { name: 'Carrier form sections' }).getByRole('button', { name: 'Identity' }).locator('svg')
+    const identityIcon = page.getByRole('main').getByRole('heading', { name: 'Identity' }).locator('svg')
     await expect(identityIcon).toHaveAttribute('data-qqq-icon', 'badge')
     await expect(page.getByRole('main').getByRole('heading', { name: 'Basic Info', exact: true }).first().locator('svg')).toHaveAttribute('data-qqq-icon', 'dataset')
   })

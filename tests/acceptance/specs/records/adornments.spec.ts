@@ -104,8 +104,8 @@ test('[REC-030] SIZE adornment sets the query grid column width @mobile', async 
   await expect(grid.getByRole('gridcell', { name: 'ALPHA-01', exact: true })).toBeVisible()
   const header = (label: string) => grid.getByRole('columnheader').filter({ hasText: label }).first()
   expect(await header('Short Code').evaluate((element) => element.getBoundingClientRect().width)).toBe(100)
-  // Website has no SIZE adornment, so it keeps the Material default width for a string.
-  expect(await header('Website').evaluate((element) => element.getBoundingClientRect().width)).toBe(200)
+  // Fields without SIZE keep the original Next default; explicit metadata still wins above.
+  expect(await header('Website').evaluate((element) => element.getBoundingClientRect().width)).toBe(150)
 })
 
 test('[REC-031] CODE_EDITOR shows formatted code and edits it with a code editor @mobile', async ({ page, backend, diagnostics }) => {

@@ -353,7 +353,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const columnMenu = {
     onFilter: (name: string) => {
       rq.filter.setUserFilter({ ...rq.filter.userFilter, criteria: [...rq.filter.userFilter.criteria, { fieldName: name, operator: 'EQUALS' as const, values: [] }] })
-      if (!rq.filter.filterPanelOpen && !mobileFilterOpen) handleFilterToggle()
+      openAdvancedFilters()
     },
     onHide: (name: string) => rq.columns.setColumnVisibility({ ...rq.columns.columnVisibility, [name]: false }),
     onPin: (name: string, side: 'left' | 'right' | null) => rq.columns.setColumnPins(
@@ -487,12 +487,12 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         <button type="button" aria-pressed={rq.filter.filterMode === 'basic'}
           aria-disabled={!basicModeCheck.canWorkAsBasic}
           onClick={() => { if (basicModeCheck.canWorkAsBasic) rq.filter.setFilterMode('basic') }}
-          className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="min-h-11 rounded border border-input px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="button-query-mode-basic">Basic</button>
       </HintTooltip>
       <button type="button" aria-pressed={rq.filter.filterMode === 'advanced'}
         onClick={openAdvancedFilters}
-        className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className="min-h-11 rounded border border-input px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         data-qqq-id="button-query-mode-advanced">Advanced</button>
       <div className="flex items-center gap-1">
         <label htmlFor={`query-sort-${tableName}`} className="text-sm text-muted-foreground">Sort:</label>

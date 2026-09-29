@@ -6,7 +6,7 @@
  */
 
 import type { Locator, Page, Request } from '@playwright/test'
-import { expect, open, test, type Backend, type Diagnostics } from '../../support/fixtures'
+import { expect, open, test, type Backend } from '../../support/fixtures'
 import { expectTouchTargets } from '../../support/touch'
 import { VIEWER, expectNoSidewaysScroll, multipartFields, recordRequests, sqlCount, sqlOne, toasts } from './helpers'
 
@@ -54,12 +54,6 @@ function requestsMatching(page: Page, pattern: RegExp): Request[] {
     if (pattern.test(new URL(request.url()).pathname)) requests.push(request)
   })
   return requests
-}
-
-/** The sample classpath has no qqq-middleware-api, so the API catalog route does not exist (404). */
-function allowMissingApiCatalog(diagnostics: Diagnostics) {
-  diagnostics.allow('/apis.json 404')
-  diagnostics.allow('Failed to load resource: the server responded with a status of 404')
 }
 
 /** Asserts a dialog lies fully inside the viewport (phones and tablets included). */
@@ -111,12 +105,14 @@ async function revisions(backend: Backend) {
 
 test.describe('table developer view', () => {
   test('[REC-053] keeps the metadata sections and shows API Docs & Playground with no application APIs @mobile', async ({ page, backend, diagnostics }) => {
-    allowMissingApiCatalog(diagnostics)
-    const table = await (await backend.api.get('/qqq/v1/metaData/table/person')).json()
-    expect((await backend.api.get('/apis.json?tableName=person')).status()).toBe(404)
+    void diagnostics
+    const table = await (await backend.api.get('/qqq/v1/metaData/table/recordLab')).json()
+    const catalog = await backend.api.get('/apis.json?tableName=recordLab')
+    expect(catalog.status()).toBe(200)
+    expect(await catalog.json()).toEqual({ apis: [] })
     const specRequests = requestsMatching(page, /(versions|openapi)\.json$/)
 
-    await open(page, '/app/person/dev')
+    await open(page, '/app/recordLab/dev')
     await expect(page.getByRole('heading', { level: 2, name: `Table Developer View: ${table.label}` })).toBeVisible()
     await expectNoSidewaysScroll(page)
     await expectTouchTargets(page.locator('#main-content'))
@@ -144,11 +140,11 @@ test.describe('table developer view', () => {
     const json = JSON.parse(await byId(page, 'json-output').innerText())
     // the long metadata scrolls inside its own block, not the page
     await expectNoSidewaysScroll(page)
-    expect(json.name).toBe('person')
+    expect(json.name).toBe('recordLab')
     expect(json.label).toBe(table.label)
     expect(Object.keys(json.fields).sort()).toEqual(Object.keys(table.fields).sort())
 
-    expect(diagnostics.failedRequests).toContain('GET /apis.json 404')
+    expect(diagnostics.failedRequests).toEqual([])
     expect(specRequests.map((request) => request.url())).toEqual([])
   })
 
@@ -156,16 +152,16 @@ test.describe('table developer view', () => {
     test.use({ persona: 'viewer' })
 
     test('[REC-053] a viewer sees the same empty state and cannot fetch any table spec @mobile', async ({ page, backend, diagnostics }) => {
-      allowMissingApiCatalog(diagnostics)
-      const table = await (await backend.api.get('/qqq/v1/metaData/table/person')).json()
+      void diagnostics
+      const table = await (await backend.api.get('/qqq/v1/metaData/table/recordLab')).json()
       expect([table.insertPermission, table.editPermission, table.deletePermission]).toEqual([false, false, false])
       // No API lists the table for this session either, so there is no spec URL to fetch.
-      const catalog = await backend.api.get('/apis.json?tableName=person')
-      expect(catalog.status()).toBe(404)
-      expect(await catalog.json()).not.toHaveProperty('apis')
+      const catalog = await backend.api.get('/apis.json?tableName=recordLab')
+      expect(catalog.status()).toBe(200)
+      expect(await catalog.json()).toEqual({ apis: [] })
       const specRequests = requestsMatching(page, /(versions|openapi)\.json$/)
 
-      await open(page, '/app/person/dev')
+      await open(page, '/app/recordLab/dev')
       await expect(page.getByRole('heading', { level: 2, name: `Table Developer View: ${table.label}` })).toBeVisible()
       await expect(page.locator('p', { hasText: /^Capabilities$/ }).locator('xpath=following-sibling::p')).toHaveText('Read-only')
       const docs = byId(page, 'table-dev-api-docs')
@@ -176,7 +172,7 @@ test.describe('table developer view', () => {
       await expect(byId(page, 'table-dev-api-reference')).toHaveCount(0)
       await expect(page.locator('rapi-doc')).toHaveCount(0)
 
-      expect(diagnostics.failedRequests).toContain('GET /apis.json 404')
+      expect(diagnostics.failedRequests).toEqual([])
       expect(specRequests.map((request) => request.url())).toEqual([])
     })
   })
@@ -240,12 +236,14 @@ test.describe('record developer view: associated scripts', () => {
     await expectTouchTargets(dialog)
     await editor.fill(newCode)
     await dialog.getByLabel('Commit message').fill('Acceptance greeting')
+    await dialog.getByRole('combobox', { name: 'API Name', exact: true }).selectOption('acceptanceApi')
+    await dialog.getByRole('combobox', { name: 'API Version', exact: true }).selectOption('2026.Q3')
     await byId(page, `button-save-script-${FIELD}`).click()
 
     await expect(toasts(page).filter({ hasText: 'Saved New Script Version' })).toBeVisible()
     await expect(dialog).toHaveCount(0)
     expect(stores).toHaveLength(1)
-    expect(initValues(stores[0])).toMatchObject({ scriptId: String(SCRIPT_ID), commitMessage: 'Acceptance greeting', fileNames: 'Script.js', 'fileContents:Script.js': newCode })
+    expect(initValues(stores[0])).toMatchObject({ scriptId: String(SCRIPT_ID), commitMessage: 'Acceptance greeting', apiName: 'acceptanceApi', apiVersion: '2026.Q3', fileNames: 'Script.js', 'fileContents:Script.js': newCode })
 
     // SQL: a third revision with the message, the session's author and the new file, now current.
     const rows = await revisions(backend)
@@ -266,8 +264,10 @@ test.describe('record developer view: associated scripts', () => {
       await expect(newest).toContainText('Version 3')
       await expect(newest).toContainText('CURRENT')
       await expect(newest).toContainText('Acceptance greeting')
-      await expect(newest.locator('span.block').last()).toHaveText(/ by Alice \(sample\)$/)
-      expect((await newest.locator('span.block').last().innerText()).replace(/ by .*$/, '')).toMatch(DATE_TIME)
+      const when = byId(page, `script-version-when-${stored.id}`)
+      await expect(when).toHaveText(/ by Alice \(sample\)$/)
+      expect((await when.innerText()).replace(/ by .*$/, '')).toMatch(DATE_TIME)
+      await expect(byId(page, `script-version-api-${stored.id}`)).toHaveText('API: Acceptance API version 2026.Q3')
       await expect(newest).toHaveAttribute('aria-pressed', 'true')
       await expect(byId(page, 'script-version-102')).not.toContainText('CURRENT')
       await expect(code(page)).toHaveText(newCode)
@@ -292,6 +292,8 @@ test.describe('record developer view: associated scripts', () => {
     await expect(dialog.getByLabel('Script.js', { exact: true })).toHaveValue(firstCode)
     // No commit message typed: the stored revision gets Material's default message.
     await expect(dialog.getByLabel('Commit message')).toHaveValue('')
+    await dialog.getByRole('combobox', { name: 'API Name', exact: true }).selectOption('acceptanceApi')
+    await dialog.getByRole('combobox', { name: 'API Version', exact: true }).selectOption('2026.Q3')
     await byId(page, `button-save-script-${FIELD}`).click()
     await expect(toasts(page).filter({ hasText: 'Saved New Script Version' })).toBeVisible()
 

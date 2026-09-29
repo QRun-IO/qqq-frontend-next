@@ -26,7 +26,7 @@ test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts
   await expectColumn(page, 'person.firstName', await sqlColumn(backend,
     "select coalesce(p.first_name, '—') from qry_item i left join person p on p.id = i.owner_id order by i.id desc"))
   await expect.poll(() => (bodies.at(-1) as { joins?: unknown[] } | undefined)?.joins).toEqual([{ joinTable: 'person', select: true, type: 'LEFT', joinName: 'qryItemJoinPerson' }])
-  await expect(page.locator('[data-qqq-id="query-joins-help"]')).toHaveAttribute('title', 'Results from Query Item joined with Person')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Query Item, joined with Person')
 
   // Filter on a joined field ("Person: Last Name" style labels, joinTable.field names)
   await openFilter(page)
@@ -55,7 +55,7 @@ test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts
   const fresh = nextQuery(page, 'qryItem')
   await page.getByLabel('Rows per page').selectOption('10')
   expect((await fresh).joins).toBeUndefined()
-  await expect(page.locator('[data-qqq-id="query-joins-help"]')).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Query Item')
 })
 
 test('[QRY-021] a many-side exposed join repeats rows and reports the distinct count @mobile', async ({ page, backend, diagnostics }) => {

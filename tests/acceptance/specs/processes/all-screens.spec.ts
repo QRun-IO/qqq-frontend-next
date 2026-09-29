@@ -121,8 +121,8 @@ test.describe('Processes added to every screen, for a user whose metadata omits 
     await open(page, '/app/qryBin/2')
     await expect(page.getByRole('heading', { level: 1, name: 'Nuts' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete Storage Bin record' })).toBeVisible()
-    await page.getByRole('button', { name: 'Record actions menu' }).click()
-    await expect(page.getByRole('menuitem', { name: 'Tag Records' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Record actions menu' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Tag Records', exact: true })).toHaveCount(0)
     await open(page, `/app/${TAG}?recordsParam=recordIds&recordIds=1&tableName=person`)
     await expect(page.locator('[data-qqq-id="not-found-state"]', { hasText: TAG })).toBeVisible()
     expect(await tagLog(backend.sql)).toEqual([])
@@ -153,8 +153,8 @@ test.describe('Processes added to every screen, without process permission', () 
     await open(page, '/app/qryBin/2')
     await expect(page.getByRole('heading', { level: 1, name: 'Nuts' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Edit Storage Bin record' })).toBeVisible()
-    await page.getByRole('button', { name: 'Record actions menu' }).click()
-    await expect(page.getByRole('menuitem', { name: 'Tag Records' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Record actions menu' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Tag Records', exact: true })).toHaveCount(0)
 
     // the v1 route the UI uses refuses it, as does the unversioned one
     const v1Init = await backend.api.post(`/qqq/v1/processes/${TAG}/init`, {

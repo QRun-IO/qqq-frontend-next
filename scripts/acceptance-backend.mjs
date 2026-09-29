@@ -8,18 +8,11 @@
 // Compiles the owned acceptance fixture against the sample JAR and runs it on loopback.
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { homedir } from 'node:os'
 import path from 'node:path'
-import { ACCEPTANCE_MODE, EXPORT_CLASSPATH, resolveSampleJar } from './acceptance-paths.mjs'
+import { ACCEPTANCE_MODE, EXPORT_CLASSPATH, resolveFixtureClasspath } from './acceptance-paths.mjs'
 
 const port = process.env.QQQ_ACCEPTANCE_BACKEND_PORT ?? '18765'
-const jar = resolveSampleJar()
-const sampleVersion = path.basename(jar).match(/^qqq-sample-project-(.+)-jar-with-dependencies\.jar$/)?.[1]
-if (!sampleVersion) throw new Error(`Cannot determine QQQ version from sample JAR: ${jar}`)
-const apiJar = process.env.QQQ_MIDDLEWARE_API_JAR ?? path.join(homedir(), '.m2', 'repository', 'com', 'kingsrook', 'qqq',
-  'qqq-middleware-api', sampleVersion, `qqq-middleware-api-${sampleVersion}.jar`)
-if (!existsSync(apiJar)) throw new Error(`QQQ middleware API JAR does not exist: ${apiJar}`)
-const fixtureClasspath = [jar, apiJar].join(path.delimiter)
+const fixtureClasspath = resolveFixtureClasspath()
 const classes = path.resolve('test-results/acceptance/fixture-classes')
 rmSync(classes, { recursive: true, force: true })
 mkdirSync(classes, { recursive: true })

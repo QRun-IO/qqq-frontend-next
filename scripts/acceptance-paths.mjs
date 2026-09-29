@@ -6,6 +6,7 @@
  */
 
 import { existsSync, readdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 
 /** Sample JAR from QQQ_SAMPLE_JAR, else the newest jar-with-dependencies in a sibling qqq checkout. */
@@ -21,6 +22,16 @@ export function resolveSampleJar() {
     throw new Error('Set QQQ_SAMPLE_JAR to the qqq-sample-project jar-with-dependencies (see tests/acceptance/README.md).')
   }
   return path.join(target, jars[0])
+}
+
+/** Java dependencies shared by the main and authentication-variant fixtures. */
+export function resolveFixtureClasspath(jar = resolveSampleJar()) {
+  const sampleVersion = path.basename(jar).match(/^qqq-sample-project-(.+)-jar-with-dependencies\.jar$/)?.[1]
+  if (!sampleVersion) throw new Error(`Cannot determine QQQ version from sample JAR: ${jar}`)
+  const apiJar = process.env.QQQ_MIDDLEWARE_API_JAR ?? path.join(homedir(), '.m2', 'repository', 'com', 'kingsrook', 'qqq',
+    'qqq-middleware-api', sampleVersion, `qqq-middleware-api-${sampleVersion}.jar`)
+  if (!existsSync(apiJar)) throw new Error(`QQQ middleware API JAR does not exist: ${apiJar}`)
+  return [jar, apiJar].join(path.delimiter)
 }
 
 export const BUILD_MARKER = path.resolve('.next/acceptance-backend.txt')

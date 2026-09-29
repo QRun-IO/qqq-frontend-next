@@ -40,18 +40,20 @@ test('[QRY-070] r re-queries the backend and shows the changed data @mobile', as
   await expect(page).toHaveURL(/\/app\/person\/?$/)
 })
 
-test('[QRY-070] f opens the filter builder and n opens the create form @mobile', async ({ page, backend, diagnostics }) => {
+test('[QRY-070] f opens filters in the current mode and n opens the create form @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   void backend
   await openPeople(page)
   await expect(filterBuilder(page)).toHaveCount(0)
   await page.keyboard.press('f')
-  await expect(filterBuilder(page)).toBeVisible()
+  await expect(page.locator('[data-qqq-id="query-filter-mode"]').getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-qqq-id="query-filter-mode"]')).toBeVisible()
   await expect(page.locator('[data-qqq-id="button-filter"]')).toHaveAttribute('aria-expanded', 'true')
-  // f only opens it (Material opens the filter builder; it does not toggle it closed)
+  // f opens the filters without changing mode or toggling an open panel closed.
   await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur() })
   await page.keyboard.press('f')
-  await expect(filterBuilder(page)).toBeVisible()
+  await expect(page.locator('[data-qqq-id="query-filter-mode"]').getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-qqq-id="query-filter-mode"]')).toBeVisible()
 
   await openPeople(page)
   await page.keyboard.press('n')
@@ -81,7 +83,8 @@ test.describe('read-only persona', () => {
     await page.keyboard.press('n')
     // f still works, so n was handled and ignored
     await page.keyboard.press('f')
-    await expect(filterBuilder(page)).toBeVisible()
+    await expect(page.locator('[data-qqq-id="query-filter-mode"]').getByRole('button', { name: 'Basic', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-qqq-id="query-filter-mode"]')).toBeVisible()
     await expect(page).toHaveURL(/\/app\/person\/?$/)
     const insert = await backend.api.post('/data/person', { multipart: { firstName: 'No', lastName: 'Shortcut', email: 'no@example.invalid' } })
     expect(insert.status()).toBe(403)

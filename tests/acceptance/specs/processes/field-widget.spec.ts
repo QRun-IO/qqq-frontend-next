@@ -24,7 +24,7 @@ test('[WID-071] a WIDGET-adorned process field edits only its own value @mobile'
 
   await edit.getByRole('button', { name: 'Edit Filters and Columns' }).click()
   const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
-  await dialog.getByLabel('Sort by').selectOption('firstName')
+  await dialog.getByLabel('Sort by', { exact: true }).selectOption('firstName')
   await dialog.getByRole('button', { name: 'OK' }).click()
   await advance(page, 'Submit')
 
