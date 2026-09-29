@@ -739,7 +739,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       ? `Edit ${tableMetaData.label}`
       : isCopy
         ? `Copy ${tableMetaData.label}`
-        : `Creating New ${tableMetaData.label}`
+        : `Create ${tableMetaData.label}`
   )
 
   // Material CSS hooks (QRun-IO/qqq#731): record-{mode}-{part}-{table}

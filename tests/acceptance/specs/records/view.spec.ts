@@ -143,7 +143,7 @@ test('[REC-049] pages of a table outside the app tree use its label in the docum
   const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumb' })
 
   await page.goto('/app/scheduledReport/create', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { level: 2, name: `Creating New ${label}` })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: `Create ${label}` })).toBeVisible()
   await expect(page).toHaveTitle(`Create ${label} | ${label} | QQQ Sample`)
   await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
   await expect(breadcrumbs).not.toContainText('scheduledReport')

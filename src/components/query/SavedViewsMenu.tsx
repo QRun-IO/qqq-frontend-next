@@ -22,7 +22,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import Link from 'next/link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -70,6 +70,7 @@ type SavedViewsMenuProps = SavedViewsMenuCommonProps & ({
  * @returns The menu, or null when the backend has no saved views.
  */
 export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref, selectionOnly = false }: SavedViewsMenuProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind | null>(null)
   const [name, setName] = useState('')
@@ -122,7 +123,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
       <div className="contents" data-qqq-id="saved-views-menu">
         {/* Material's button-views hook (QRun-IO/qqq#731); the wrapper is layout-neutral */}
         <span className="contents" data-qqq-id="button-views">
-          <DropdownMenuPrimitive.Trigger asChild>
+          <DropdownMenuPrimitive.Trigger asChild ref={triggerRef}>
             <button
               type="button"
               className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
@@ -159,6 +160,11 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
         <DropdownMenuPrimitive.Portal>
           <DropdownMenuPrimitive.Content align="start" sideOffset={4} collisionPadding={8}
             aria-label="Saved views" aria-labelledby={undefined}
+            onInteractOutside={event => {
+              // A touch can return focus/click to the trigger after pointer-down opens the menu.
+              const target = event.detail.originalEvent.target
+              if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+            }}
             onCloseAutoFocus={(event) => { if (dialog) event.preventDefault() }}
             className="z-[160] w-80 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
             style={{ maxHeight: 'min(24rem, var(--radix-dropdown-menu-content-available-height))' }}>

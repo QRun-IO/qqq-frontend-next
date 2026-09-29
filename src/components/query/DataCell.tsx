@@ -178,7 +178,7 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       const boolVal = value === true || value === 'true' || value === 1
       return (
         <span
-          className={`text-sm font-medium ${boolVal ? 'text-green-700' : 'text-muted-foreground'}`}
+          className={`text-sm font-medium ${boolVal ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}
           data-qqq-id={`grid-cell-${field.name}`}
         >
           {boolVal ? 'Yes' : 'No'}

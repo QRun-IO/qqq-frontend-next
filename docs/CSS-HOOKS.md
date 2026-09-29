@@ -29,3 +29,7 @@ The ID may be on a layout-neutral wrapper around a native button or menu item. S
 - Forms: `.entityForm`, `record-create-{table}`/`record-edit-{table}`, `form-section-{section}`, `.field-wrapper.is-visible`, and `.stickyBottomButtonBar`. Default action buttons expose `data-button-variant` values such as `gradient`, `contained`, and `outlined`.
 
 The record view has a phone accordion and action sheet, a tablet tab list without the large-screen sidebar, and a large-screen tab list with the sidebar. A selector can be present in the DOM while its control is hidden at a narrower width. Test custom CSS at all three widths, including focus and contrast, before shipping it.
+
+## Display mode and primary text
+
+Next's persisted light/dark choice controls both theme tokens and Tailwind `dark:` variants. OS color preference does not override it; a configured Material application theme keeps light mode active. `--color-primary` controls branded fills, while `--text-color-primary` controls the existing `text-primary` classes and opacity variants. In light mode the text token follows the primary color; in dark mode it mixes the brand hue with white for readable text on dark surfaces. Explicit application theme and custom CSS rules still take precedence. Verify text and filled-button contrast separately when overriding these tokens.

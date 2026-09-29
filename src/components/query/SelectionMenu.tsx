@@ -83,6 +83,11 @@ export function SelectionMenu({ pageRowCount, matchingCount, distinct, onSelectP
         </DropdownMenuPrimitive.Trigger>
         <DropdownMenuPrimitive.Portal>
           <DropdownMenuPrimitive.Content aria-label="Selection" aria-labelledby={undefined} align="start" sideOffset={4} collisionPadding={8}
+            onInteractOutside={event => {
+              // A touch can return focus/click to the trigger after pointer-down opens the menu.
+              const target = event.detail.originalEvent.target
+              if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+            }}
             onCloseAutoFocus={event => { if (subsetOpen) event.preventDefault() }}
             className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-72 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm">
             <DropdownMenuPrimitive.Item asChild>

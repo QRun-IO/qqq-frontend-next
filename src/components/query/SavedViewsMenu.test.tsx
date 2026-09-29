@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 import type { SavedViewsResult } from '@/lib/hooks/use-saved-views'
@@ -39,6 +39,17 @@ function makeViews(overrides: Partial<SavedViewsResult> = {}): SavedViewsResult 
 const noop = () => undefined
 
 describe('SavedViewsMenu', () => {
+  it('keeps the menu open when touch compatibility focus returns to its trigger', async () => {
+    render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)
+    const trigger = screen.getByRole('button', { name: 'Saved views' })
+    await userEvent.click(trigger)
+    expect(screen.getByRole('menu', { name: 'Saved views' })).toBeInTheDocument()
+    act(() => trigger.focus())
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
   it('opens from the keyboard and selects a saved view with arrow keys', async () => {
     const onSelectView = vi.fn()
     render(<SavedViewsMenu savedViews={makeViews()} currentView={null} viewDiffs={[]} onSelectView={onSelectView} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} />)

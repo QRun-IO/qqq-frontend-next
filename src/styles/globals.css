@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* ThemeProvider owns the mode; the OS must not independently restyle components. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Register semantic colors with Tailwind v4's utility system */
 @theme {
   /* Surface colors */
@@ -13,6 +16,8 @@
   /* Brand */
   --color-primary: #2563eb;
   --color-primary-foreground: #ffffff;
+  /* Text can adapt to dark surfaces independently of branded button fills. */
+  --text-color-primary: var(--color-primary);
 
   /* Neutral surfaces */
   --color-secondary: #f0f2f6;

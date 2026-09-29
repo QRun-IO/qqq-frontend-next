@@ -544,8 +544,8 @@ function PointDot({ cx, cy, index = 0, value, stroke, datasetIndex, chart, radiu
  * Material parity: legends (pie, stacked, horizontal bars, line badges above the chart)
  * toggle their series or slice; pie data uses a doughnut and its tooltip adds the
  * percent of the total; stacked bars show only the hovered dataset in the tooltip, their
- * y axis on the right with whole-number ticks; category labels turn when they do not fit;
- * a small line chart keeps its y ticks and grid; a `barChart` widget ends with an
+ * y axis uses whole-number ticks; category labels turn when they do not fit.
+ * Small line charts omit the visible y axis and grid; a `barChart` widget ends with an
  * "As of" date line.
  *
  * @param props - See {@link QqqChartWidgetProps}.
@@ -708,10 +708,10 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
   } else if (variant === 'line' || variant === 'smallLine') {
     const small = variant === 'smallLine'
     drawing = (
-      <LineChart width={width} height={height} data={rows} role="img" aria-label={svgLabel} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="5 5" stroke="currentColor" strokeOpacity={0.12} vertical={!small} />
+      <LineChart width={width} height={height} data={rows} role="img" aria-label={svgLabel} margin={{ top: 8, right: 12, left: small ? 12 : 0, bottom: 4 }}>
+        {!small && <CartesianGrid strokeDasharray="5 5" stroke="currentColor" strokeOpacity={0.12} />}
         {small ? <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} /> : categoryAxis}
-        <YAxis tick={axisTick} axisLine={false} tickLine={false} width={small ? 44 : 56} tickFormatter={tickFormatter} domain={numberDomain} />
+        <YAxis tick={axisTick} axisLine={false} tickLine={false} width={small ? 0 : 56} hide={small} tickFormatter={tickFormatter} domain={numberDomain} />
         <Tooltip formatter={tooltipFormatter} />
         {chart.datasets.map((dataset, datasetIndex) => {
           const stroke = seriesColor(dataset, datasetIndex)
@@ -760,7 +760,7 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
         {horizontal
           ? <YAxis type="category" dataKey="label" tick={axisTick} axisLine={false} tickLine={false} width={88} />
           : <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={tickFormatter} domain={numberDomain}
-            orientation={stacked ? 'right' : 'left'} allowDecimals={!stacked} />}
+            allowDecimals={!stacked} />}
         {hasNegative && (horizontal
           ? <ReferenceLine x={0} stroke="currentColor" strokeOpacity={0.4} />
           : <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.4} />)}

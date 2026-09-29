@@ -108,7 +108,7 @@ test.describe('Material CSS and test hooks', () => {
     const form = page.locator('[data-qqq-id="record-create-person"]')
     await expect(form).toHaveClass(/(^|\s)entityForm(\s|$)/)
     await expect(form.locator('form[data-qqq-id="entity-form-person"]')).toHaveCount(1)
-    await expect(form.locator('[data-qqq-id="record-create-header-person"] [data-qqq-id="record-create-title-person"]')).toHaveText('Creating New Person')
+    await expect(form.locator('[data-qqq-id="record-create-header-person"] [data-qqq-id="record-create-title-person"]')).toHaveText('Create Person')
     for (const section of editableSections) {
       const wrapper = form.locator(`[data-qqq-id="form-section-${materialId(section.name)}"]`)
       await expect(wrapper, section.name).toHaveClass(/form-section-wrapper.*is-visible|is-visible.*form-section-wrapper/)

@@ -245,7 +245,7 @@ describe('Material CSS hooks (QRun-IO/qqq#731)', () => {
     expect(root?.querySelector('[data-qqq-id="entity-form-salesOrder"]')).not.toBeNull()
     expect(document.querySelector('[data-qqq-id="record-create-header-salesorder"]')).toContainElement(
       document.querySelector('[data-qqq-id="record-create-title-salesorder"]') as HTMLElement)
-    expect(screen.getByRole('heading', { name: /^Creating New / })).toHaveAttribute('data-qqq-id', 'record-create-title-salesorder')
+    expect(screen.getByRole('heading', { name: /^Create / })).toHaveAttribute('data-qqq-id', 'record-create-title-salesorder')
     const bar = document.querySelector('[data-qqq-id="record-create-button-bar-salesorder"]')
     expect(bar).toHaveClass('stickyBottomButtonBar')
     expect(bar?.querySelector('[data-qqq-id="button-save"]')).toHaveAttribute('data-button-variant', 'gradient')

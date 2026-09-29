@@ -194,8 +194,9 @@
   --color-card-foreground: #f0f2f5;
   --color-popover: #181a24;
   --color-popover-foreground: #f0f2f5;
-  --color-primary: #5b8def;
+  --color-primary: #2563eb;
   --color-primary-foreground: #ffffff;
+  --text-color-primary: color-mix(in srgb, var(--color-primary) 40%, white);
   --color-secondary: #1e2130;
   --color-secondary-foreground: #f0f2f5;
   --color-muted: #1e2130;

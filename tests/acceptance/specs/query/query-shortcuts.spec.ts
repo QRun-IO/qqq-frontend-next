@@ -58,7 +58,7 @@ test('[QRY-070] f opens filters in the current mode and n opens the create form 
   await openPeople(page)
   await page.keyboard.press('n')
   await expect(page).toHaveURL(/\/app\/person\/create\/?$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'Creating New Person' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Create Person' })).toBeVisible()
 })
 
 test('[QRY-070] keys typed in quick search are text, not shortcuts @mobile', async ({ page, backend, diagnostics }) => {
@@ -71,7 +71,7 @@ test('[QRY-070] keys typed in quick search are text, not shortcuts @mobile', asy
   await expect(search).toHaveValue('fnr')
   await expect(filterBuilder(page)).toHaveCount(0)
   await expect(page).not.toHaveURL(/\/create/)
-  await expect(page.getByRole('heading', { level: 2, name: 'Creating New Person' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 2, name: 'Create Person' })).toHaveCount(0)
 })
 
 test.describe('read-only persona', () => {

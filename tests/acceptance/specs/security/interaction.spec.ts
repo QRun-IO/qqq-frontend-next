@@ -190,30 +190,34 @@ test.describe('accessibility', () => {
       .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).slice(0, 5).join(' | ')}`)
   }
 
-  test('[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations @mobile', async ({ page, backend, diagnostics }) => {
-    void diagnostics
-    void backend
-    const pages: Array<[string, (page: Page) => Promise<unknown>]> = [
-      ['/app/miscellaneous', (p) => expect(p.getByRole('heading', { name: 'Miscellaneous', level: 1 })).toBeVisible()],
-      ['/app/person', (p) => expect(listCell(p, 'Person', 'Avery')).toBeVisible()],
-      ['/app/person/1', (p) => expect(p.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()],
-      ['/app/person/1/edit', (p) => expect(p.getByRole('textbox', { name: 'First Name' })).toHaveValue('Avery')],
-      ['/app/greetInteractive?recordsParam=recordIds&recordIds=1', (p) => expect(p.getByRole('textbox', { name: 'Greeting Prefix' })).toBeVisible()],
-    ]
-    const found: Record<string, string[]> = {}
-    for (const [path, ready] of pages) {
-      await open(page, path)
-      await ready(page)
-      const violations = await scan(page)
-      if (violations.length) found[path] = violations
-    }
-    const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
-    await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
-    const loginViolations = await scan(page)
-    if (loginViolations.length) found['/login'] = loginViolations
-    expect(found).toEqual({})
-  })
+  for (const mode of ['light', 'dark'] as const) {
+    test(`[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations in ${mode} mode @mobile`, async ({ page, backend, diagnostics }) => {
+      void diagnostics
+      void backend
+      await page.emulateMedia({ colorScheme: mode === 'dark' ? 'light' : 'dark' })
+      await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+      const pages: Array<[string, (page: Page) => Promise<unknown>]> = [
+        ['/app/miscellaneous', (p) => expect(p.getByRole('heading', { name: 'Miscellaneous', level: 1 })).toBeVisible()],
+        ['/app/person', (p) => expect(listCell(p, 'Person', 'Avery')).toBeVisible()],
+        ['/app/person/1', (p) => expect(p.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()],
+        ['/app/person/1/edit', (p) => expect(p.getByRole('textbox', { name: 'First Name' })).toHaveValue('Avery')],
+        ['/app/greetInteractive?recordsParam=recordIds&recordIds=1', (p) => expect(p.getByRole('textbox', { name: 'Greeting Prefix' })).toBeVisible()],
+      ]
+      const found: Record<string, string[]> = {}
+      for (const [path, ready] of pages) {
+        await open(page, path)
+        await ready(page)
+        const violations = await scan(page)
+        if (violations.length) found[path] = violations
+      }
+      const menu = await openUserMenu(page)
+      await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+      await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+      const loginViolations = await scan(page)
+      if (loginViolations.length) found['/login'] = loginViolations
+      expect(found).toEqual({})
+    })
+  }
 
   test('[INT-006] form fields carry their metadata labels, required state and announced errors @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics

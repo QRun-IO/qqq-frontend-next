@@ -187,10 +187,10 @@ describe('QqqChartWidget', () => {
     expect(canvas.style.height).toBe('140px')
     expect(container.querySelector('[data-qqq-id="chart-title-SampleSmallLineChartWidget"]')?.textContent).toBe('Small Line Chart')
     expect(container.querySelectorAll('circle.qqq-chart-point')).toHaveLength(5)
-    // Material's small line chart keeps its y ticks and a dashed horizontal grid, without vertical lines
-    expect(container.querySelector('.recharts-cartesian-grid-horizontal')).not.toBeNull()
-    expect(container.querySelector('.recharts-cartesian-grid-vertical')).toBeNull()
-    expect(container.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick').length).toBeGreaterThan(1)
+    // Preserve the original compact Next chart; exact values remain in the data table.
+    expect(container.querySelector('.recharts-cartesian-grid')).toBeNull()
+    expect(container.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick')).toHaveLength(0)
+    expect(tableRows('SampleSmallLineChartWidget')).toContainEqual(['January', '1753'])
     // a single-series small line chart has no legend (Material)
     expect(container.querySelector('[data-qqq-id="chart-legend-SampleSmallLineChartWidget"]')).toBeNull()
   })
@@ -313,7 +313,7 @@ describe('QqqChartWidget Material chart extras (#728)', () => {
     expect(Array.from(container.querySelectorAll('.recharts-bar-rectangle path')).map((bar) => bar.getAttribute('fill'))).toEqual(['#FB8C00', '#FB8C00'])
     const legend = container.querySelector('[data-qqq-id="chart-legend-singular"]') as HTMLElement
     expect(legend.textContent).toBe('Owned first')
-    // whole-number ticks on the right
+    // Whole-number ticks remain part of the stacked chart.
     const yAxis = container.querySelector('.recharts-yAxis') as SVGGElement
     expect(yAxis.querySelector('.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick')).not.toBeNull()
     const ticks = Array.from(yAxis.querySelectorAll('.recharts-cartesian-axis-tick-value')).map((tick) => tick.textContent ?? '')

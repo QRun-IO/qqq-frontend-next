@@ -128,7 +128,7 @@ export async function openRecord(page: Page, table: string, id: string | number,
 export async function openForm(page: Page, path: string, heading: string) {
   await page.goto(path, { waitUntil: 'domcontentloaded' })
   const name = heading.startsWith('Create ')
-    ? `Creating New ${heading.slice('Create '.length)}`
+    ? heading
     : new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`)
   await expect(page.getByRole('heading', { level: 2, name })).toBeVisible()
 }

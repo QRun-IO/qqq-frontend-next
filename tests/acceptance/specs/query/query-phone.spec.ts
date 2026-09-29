@@ -21,7 +21,7 @@ async function tapMenu(page: Page, trigger: Locator) {
     const controller = new AbortController()
     const observer = new MutationObserver(() => events.push({ type: 'expanded', value: element.getAttribute('aria-expanded') }))
     observer.observe(element, { attributes: true, attributeFilter: ['aria-expanded'] })
-    for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) {
+    for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'focusin', 'dismissableLayer.pointerDownOutside', 'dismissableLayer.focusOutside']) {
       document.addEventListener(type, (event) => {
         const target = event.target instanceof Element ? event.target.closest('button, [role="menu"], [role="menuitem"]') : null
         queueMicrotask(() => events.push({
@@ -39,6 +39,9 @@ async function tapMenu(page: Page, trigger: Locator) {
   })
   try {
     await trigger.tap()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    // Some WebKit touch sequences focus the trigger after its pointer-down opens the menu.
+    await trigger.focus()
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
   } catch (error) {
     const events = await page.evaluate(() => Reflect.get(window, '__menuTapDiagnostic')?.events).catch(() => null)

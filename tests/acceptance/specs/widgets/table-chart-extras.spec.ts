@@ -216,7 +216,7 @@ test.describe('table and chart extras', () => {
     await expectTouchReady(page, card.locator('[data-qqq-id="chart-legend-accPieNamed"]'))
   })
 
-  test('[WID-069] stacked: backgroundColor fills, the hovered dataset tooltip, a right whole-number axis, turned labels and legend toggles @mobile', async ({ page, diagnostics }) => {
+  test('[WID-069] stacked: backgroundColor fills, the hovered dataset tooltip, a left whole-number axis, turned labels and legend toggles @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accStackedExtras')
     const card = widget(page, 'accStackedExtras')
@@ -228,10 +228,10 @@ test.describe('table and chart extras', () => {
     expect(new Set(await bars.nth(1).locator('.recharts-bar-rectangle path').evaluateAll((paths) => paths.map((path) => path.getAttribute('fill')?.toUpperCase())))).toEqual(new Set(['#8E24AA']))
     expect(await bars.nth(1).locator('.recharts-bar-rectangle path').count()).toBe(7)
 
-    // the y axis sits on the right with whole-number ticks
+    // Preserve the original Next layout: the value axis is on the left.
     const canvas = await byId(page, 'chart-canvas-accStackedExtras').boundingBox()
     const yAxis = await card.locator('.recharts-yAxis').boundingBox()
-    expect(yAxis!.x).toBeGreaterThan(canvas!.x + canvas!.width / 2)
+    expect(yAxis!.x + yAxis!.width).toBeLessThan(canvas!.x + canvas!.width / 2)
     const ticks = await card.locator('.recharts-yAxis .recharts-cartesian-axis-tick-value').allTextContents()
     expect(ticks.length).toBeGreaterThan(1)
     expect(ticks.every((tick) => /^\d+$/.test(tick.trim()))).toBe(true)
@@ -275,16 +275,15 @@ test.describe('table and chart extras', () => {
     await expectTouchReady(page, legend)
   })
 
-  test('[WID-069] a small line chart shows y values and a grid; a bar chart ends with the As of line @mobile', async ({ page, diagnostics }) => {
+  test('[WID-069] a small line chart stays compact and exposes its data; a bar chart ends with the As of line @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accSmallLineTicks')
     const small = widget(page, 'accSmallLineTicks')
     // the chart chunk loads lazily and draws once its width is measured
     await expect(small.locator('circle.qqq-chart-point')).toHaveCount(4)
-    const ticks = await small.locator('.recharts-yAxis .recharts-cartesian-axis-tick-value').allTextContents()
-    expect(ticks.length).toBeGreaterThan(1)
-    expect(ticks.every((tick) => /^[\d,]+$/.test(tick.trim()))).toBe(true)
-    expect(await small.locator('.recharts-cartesian-grid-horizontal line').count()).toBeGreaterThan(0)
+    await expect(small.locator('.recharts-yAxis .recharts-cartesian-axis-tick-value')).toHaveCount(0)
+    await expect(small.locator('.recharts-cartesian-grid')).toHaveCount(0)
+    await expect(small.getByRole('table', { includeHidden: true }).locator('tbody tr')).toHaveCount(4)
 
     await expectLoaded(page, 'accBarAsOf')
     const today = await page.evaluate(() => new Date().toDateString())

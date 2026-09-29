@@ -376,7 +376,7 @@ export function DataGrid({
                 aria-label={`Sort by ${column.label}`}
                 data-qqq-id={`grid-header-${column.name}`}
               >
-                <span className="truncate pointer-coarse:line-clamp-2 pointer-coarse:whitespace-normal">{column.label}</span>
+                <span className="line-clamp-2 whitespace-normal">{column.label}</span>
                 {sortInfo && (
                   sortInfo.isAscending ? (
                     <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
@@ -387,7 +387,7 @@ export function DataGrid({
               </button>
             ) : (
               // a virtual field the backend cannot sort or filter on (Material hides both)
-              <span className="min-w-0 flex-1 truncate font-semibold pointer-coarse:line-clamp-2 pointer-coarse:whitespace-normal" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
+              <span className="min-w-0 flex-1 line-clamp-2 whitespace-normal font-semibold" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
             )}
             {help && !compactHeader && <ColumnHelp column={column} help={help} />}
             {filtered && !compactHeader && (

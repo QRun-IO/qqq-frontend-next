@@ -112,6 +112,9 @@ test('[QRY-001] default-width headings remain readable beside column actions @mo
   await table.getByRole('button', { name: 'Sort by Annual Salary', exact: true }).press('Enter')
   await expect(table.locator('th[data-col="annualSalary"]')).toHaveAttribute('aria-sort', 'ascending')
   await checkHeadings()
+  // Wider application/system fonts must also fit without changing saved column widths.
+  await page.addStyleTag({ content: 'body { font-family: Verdana, sans-serif !important; }' })
+  await checkHeadings()
 })
 
 test('[QRY-002] paging through the carrier table, with page size and URL state @mobile', async ({ page, backend, diagnostics }) => {
