@@ -13,7 +13,9 @@ import { chartTable, expectLoaded, isLargeLayout, widget, widgetPayload } from '
 const DASHBOARD = '/app/SampleWidgetsDashboard'
 
 test.describe('sample widgets dashboard', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    expect((await page.context().cookies()).find(cookie => cookie.name === 'sessionId')?.value).toBe(backend.sessionId)
     await open(page, DASHBOARD)
     await expect(page.getByRole('heading', { level: 1, name: 'Sample Widgets Dashboard' })).toBeVisible()
   })

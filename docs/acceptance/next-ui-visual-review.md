@@ -4,7 +4,17 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, error readability and refreshed form review
+## Latest checkpoint — September 29, widget width and acceptance setup
+
+The remote phone failure reproduced with a wider native font: the standalone choice stayed 224px while its neighboring scalar input measured 230px. The original width assertion is retained. The metadata-editor minimum is now `min(15rem, 100%)`: 240px where available, capped to 230px at the tested 320px phone viewport. A browser-only trial preceded the one-line source correction; the final export reproduces the trial without injected styles. System, Arial and monospace measurements and 320/393/810/1440px viewports show no document overflow. Plain scalar controls are unchanged.
+
+The Firefox dashboard trace showed its page-opening hook ran before the owned backend session and diagnostics existed. A pre-navigation session assertion failed locally. The hook now initializes those fixtures first and verifies the owned session cookie; metadata and widget reads start after the reset. This corrects a definite fixture precondition. The original 17-second render delay is not claimed independently explained; full CI must verify that it does not recur.
+
+All **105 targeted real-backend cases** pass across Chromium, Firefox, WebKit, phone and tablet: the complete sample-dashboard group and standalone input cases, including system/monospace center clicks and a 320px viewport. All **1,801 unit tests**, production export, types, lint, license and bundle checks pass. The original width and dashboard-heading assertions remain. Logs use `widget-ci-*`, `widget-width-*` and `widget-setup-red-browser.log`; the width red trace is preserved separately.
+
+Refreshed two widget states in both themes at three sizes: 24 original/current entries. Inspected the current desktop editors and light/dark phone open-choice menu. Current captures match the final export with no setup/runtime error or document overflow. The original has no choice menu; its new state is explicitly marked non-equivalent. Recounting all six canonical manifests gives **106 light and 87 dark states per viewport**; this corrects the prior checkpoint's dark count after form captures were added. No whole family is approved.
+
+## Earlier checkpoint — September 29, error readability and refreshed form review
 
 **VIS-027 corrected:** the query error panel failed at 4.24:1 in default light mode, Retry hover at 1.8:1 in dark mode, and the configured orange error theme at 2.52:1. Error text now uses the existing theme-derived red-800 in light mode and red-400 in dark mode shades, with red-300 for dark Retry hover. The visible Sonner error notification separately failed at 4.34:1; its light surface now uses red-800. The configured orange pivot validation also failed at 4.25:1 and now uses red-800 in light mode. Panel, dialog and notification geometry, placement and timing are unchanged.
 
@@ -156,7 +166,7 @@ Current verification: **1,771 unit tests and 40 bulk-load real-backend cases acr
 
 ## Coverage
 
-Current inventory: **105 light and 84 dark states per viewport**, each with original/current entries. The latest checkpoint refreshes five form states, two query error states and pivot validation against the final export. Other states include older captures and need current-build verification before approval. The table below describes the initial inventory and its remaining review scope; later checkpoints document additional coverage, not whole-family approvals.
+Current inventory: **106 light and 87 dark states per viewport**, each with original/current entries. The latest checkpoint refreshes standalone widget inputs and the open choice menu against the final export. Other states include older captures and need current-build verification before approval. The table below describes the initial inventory and its remaining review scope; later checkpoints document additional coverage, not whole-family approvals.
 
 The initial pass captured 38 scenarios per build at desktop (1440×1000), tablet (810×1080), and phone (393×851): 228 build/state combinations and 447 screenshots, including long-page scroll sequences. Every entry viewport has received a paired visual scan. Detailed review of all scroll sequences, dark/configured themes, keyboard focus, and additional interaction states remains. No whole family is signed off yet. The baseline report-filter editor is unavailable because that functionality did not exist there; its capture is not an equivalent editor state. The desktop baseline delete capture was corrected during the populated-filter follow-up.
 

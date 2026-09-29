@@ -1622,7 +1622,8 @@
       ],
       "fixture": "widgetInputEditors / accTypedInputs",
       "scenarios": [
-        "Seeded text, number, date, boolean and native file controls; currency prefix, named possible values and multiline code editor"
+        "Seeded text, number, date, boolean and native file controls; currency prefix, named possible values and multiline code editor",
+        "Choice width and center-click behavior with system and monospace fonts, including a 320px viewport"
       ],
       "negative": [
         "Code-editor Enter leaves the widget on the same page"

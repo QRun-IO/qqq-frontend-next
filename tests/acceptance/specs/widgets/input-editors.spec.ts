@@ -8,7 +8,8 @@
 import { expect, open, test } from '../../support/fixtures'
 import { expectLoaded, widget } from './widget-support'
 
-test('[WID-074] standalone blocks preserve scalar inputs and render metadata editors @mobile', async ({ page, diagnostics }) => {
+test('[WID-074] standalone blocks preserve scalar inputs and render metadata editors @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
   void diagnostics
   await open(page, '/app/widgetInputEditors')
   await expectLoaded(page, 'accTypedInputs')
@@ -39,3 +40,28 @@ test('[WID-074] standalone blocks preserve scalar inputs and render metadata edi
   await expect(code).toHaveValue('const sample = 1;\n// line two')
   await expect(page.getByRole('heading', { name: 'Widget Input Editors', exact: true })).toBeVisible()
 })
+
+for (const { font, width } of [{ font: 'system-ui' }, { font: 'monospace' }, { font: 'monospace', width: 320 }]) {
+  test(`[WID-074] choice width and center-click remain usable with ${font} text${width ? ` at ${width}px` : ''} @mobile`, async ({ page, backend, diagnostics }) => {
+    void backend
+    void diagnostics
+    if (width) await page.setViewportSize({ ...page.viewportSize()!, width })
+    await open(page, '/app/widgetInputEditors')
+    await expectLoaded(page, 'accTypedInputs')
+    await page.evaluate(font => { document.body.style.fontFamily = font }, font)
+    const card = widget(page, 'accTypedInputs')
+    const choice = card.getByRole('combobox', { name: 'Owned Choice' })
+    await expect(choice).toContainText('Alpha')
+    const scalarBounds = await card.getByLabel('Owned Text', { exact: true }).boundingBox()
+    const choiceBounds = await choice.boundingBox()
+    expect(scalarBounds).not.toBeNull()
+    expect(choiceBounds).not.toBeNull()
+    expect(choiceBounds!.width).toBeGreaterThanOrEqual(scalarBounds!.width - 0.5)
+    expect(choiceBounds!.x + choiceBounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+    await choice.click()
+    await expect(page.getByRole('option', { name: 'Beta', exact: true })).toBeVisible()
+    await expect(choice).toContainText('Alpha')
+    await page.getByRole('option', { name: 'Beta', exact: true }).click()
+    await expect(choice).toContainText('Beta')
+  })
+}

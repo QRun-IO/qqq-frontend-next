@@ -373,7 +373,7 @@ export function InputFieldBlock(props: LeafBlockProps) {
   const values = blockValues(props.block)
   const field = values.fieldMetaData as QFieldMetaData | undefined
   if (field?.isHidden) return null
-  if (field?.name && needsBlockInputEditor(field)) return <div {...rootAttributes(props.block, props.widgetName)} className="mt-2 min-w-56">
+  if (field?.name && needsBlockInputEditor(field)) return <div {...rootAttributes(props.block, props.widgetName)} className="mt-2 min-w-[min(15rem,100%)]">
     <BlockSlot block={props.block} slot=""><StandaloneBlockInputEditor {...props} field={field} /></BlockSlot>
   </div>
   return <PlainInputFieldBlock {...props} />
