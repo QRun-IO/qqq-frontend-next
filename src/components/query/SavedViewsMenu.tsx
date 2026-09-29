@@ -140,7 +140,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
         </span>
 
         {modified && (
-          <span className="order-last flex basis-full flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-qqq-id="saved-view-unsaved">
+          <span className="order-last flex basis-full md:basis-auto flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-qqq-id="saved-view-unsaved">
             <span className="font-semibold text-foreground" title={viewDiffs.join('\n')}>
               {currentView ? `${viewDiffs.length} Unsaved Change${viewDiffs.length === 1 ? '' : 's'}` : 'Unsaved Changes'}
             </span>
