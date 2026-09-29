@@ -29,6 +29,21 @@ for (const mode of ['light', 'dark'] as const) {
   })
 }
 
+for (const mode of ['light', 'dark'] as const) {
+  test(`[NAV-056] pivot validation remains readable in ${mode} mode @mobile`, async ({ page, diagnostics }) => {
+    void diagnostics
+    await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+    await open(page, '/app/savedReport/102/edit')
+    await page.getByRole('button', { name: 'Edit Pivot Table', exact: true }).click()
+    await page.locator('[data-qqq-id="pivot-editor-add-row"]').click()
+    await page.locator('[data-qqq-id="pivot-editor-ok"]').click()
+    await expect(page.locator('[data-qqq-id="pivot-editor-error"]')).toContainText('Missing value in 1 field.')
+    const results = await new AxeBuilder({ page }).include('[data-qqq-id="pivot-editor-error"]')
+      .withRules(['color-contrast']).analyze()
+    expect(results.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+  })
+}
+
 test('[NAV-056] the unbranded dark default has readable action buttons @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await page.addInitScript(() => localStorage.setItem('qqq-dark-mode', 'true'))

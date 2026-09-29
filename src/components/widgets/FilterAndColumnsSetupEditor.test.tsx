@@ -49,17 +49,62 @@ const table = {
 const meta = { name: 'reportSetupWidget', label: 'Filters and Columns' } as QWidgetMetaData
 
 /** Form harness applies only the values passed by the widget's OK action. */
-function FormHarness({ onSetValues, hidePreview = true }: { onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean }) {
+function FormHarness({ onSetValues, hidePreview = true, hideColumns = false }: { onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean; hideColumns?: boolean }) {
   const [values, setValues] = useState<Record<string, unknown>>({ tableName: 'person', queryFilterJson: '{}', columnsJson: '' })
   const context: WidgetFormContext = {
     screen: 'recordEdit', values,
     setValues: (next) => { onSetValues(next); setValues((current) => ({ ...current, ...next })) },
     setAssociation: vi.fn(), registerValidator: vi.fn(), tableMetaData: table,
   }
-  return <FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview }} formContext={context} />
+  return <FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview, hideColumns }} formContext={context} />
 }
 
 describe('FilterAndColumnsSetupWidget form editor', () => {
+  it('moves between report tabs with the keyboard and preserves the unsaved filter', async () => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'Add condition' }))
+    await user.selectOptions(screen.getByLabelText('Filter field'), 'firstName')
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Ada')
+    const filters = screen.getByRole('tab', { name: 'Filters and sort' })
+    const columns = screen.getByRole('tab', { name: 'Columns' })
+    await user.click(filters)
+    await user.keyboard('{ArrowRight}')
+    expect(columns).toHaveFocus()
+    expect(columns).toHaveAttribute('aria-selected', 'true')
+    expect(filters).toHaveAttribute('tabindex', '-1')
+    const panel = screen.getByRole('tabpanel', { name: 'Columns' })
+    expect(columns).toHaveAttribute('aria-controls', panel.id)
+    await user.keyboard('{Home}')
+    expect(filters).toHaveFocus()
+    expect(screen.getByDisplayValue('Ada')).toBeVisible()
+    await user.keyboard('{End}')
+    expect(columns).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(filters).toHaveFocus()
+    await user.keyboard('{ArrowLeft}')
+    expect(columns).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('searchbox', { name: 'Search Fields' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onSetValues).not.toHaveBeenCalled()
+  })
+
+  it('keeps keyboard navigation within Filters when metadata hides Columns', async () => {
+    const user = userEvent.setup()
+    render(<FormHarness onSetValues={vi.fn()} hideColumns />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters' }))
+    const filters = screen.getByRole('tab', { name: 'Filters and sort' })
+    await user.click(filters)
+    await user.keyboard('{ArrowRight}{End}{ArrowLeft}{Home}')
+    expect(filters).toHaveFocus()
+    expect(filters).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tab', { name: 'Columns' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tabpanel', { name: 'Filters and sort' })).toBeVisible()
+  })
+
   it('keeps column menu pins and visibility in the draft until OK', async () => {
     const user = userEvent.setup()
     const onSetValues = vi.fn()

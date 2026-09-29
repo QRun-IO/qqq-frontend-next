@@ -269,6 +269,27 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const [filter, setFilter] = useState(loaded.filter)
   const [columns, setColumns] = useState(() => columnsStateFromEntries(table, storedColumns(values[columnField])) ?? DEFAULT_COLUMNS_STATE)
   const [tab, setTab] = useState<'filters' | 'columns'>(initialTab)
+  const tabId = React.useId()
+  const tabs: { key: 'filters' | 'columns'; label: string }[] = [
+    { key: 'filters', label: 'Filters and sort' },
+    ...(!data?.hideColumns ? [{ key: 'columns' as const, label: 'Columns' }] : []),
+  ]
+  /**
+   * Activates and focuses the adjacent tab, keeping one tab stop in the list.
+   * @param event - Keyboard event from a report tab.
+   * @param index - Index of the focused tab.
+   */
+  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number | undefined
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = tabs.length - 1
+    if (next === undefined) return
+    event.preventDefault()
+    setTab(tabs[next].key)
+    document.getElementById(`${tabId}-${tabs[next].key}`)?.focus()
+  }
   const [warning] = useState(removedFieldsWarning(loaded.removed))
   const [mode, setMode] = useState<'basic' | 'advanced'>('advanced')
   const [quickFields, setQuickFields] = useState<string[]>([])
@@ -310,10 +331,15 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
       </div>
       {warning && <p role="status" className="mx-4 mt-3 rounded bg-amber-100 p-2 text-sm text-amber-900">{warning}</p>}
       <div className="flex gap-2 border-b border-border px-4 pt-3" role="tablist" aria-label="Report setup">
-        <button type="button" role="tab" aria-selected={tab === 'filters'} onClick={() => setTab('filters')} className="rounded-t px-3 py-2 data-[selected=true]:bg-muted" data-selected={tab === 'filters'}>Filters and sort</button>
-        {!data?.hideColumns && <button type="button" role="tab" aria-selected={tab === 'columns'} onClick={() => setTab('columns')} className="rounded-t px-3 py-2 data-[selected=true]:bg-muted" data-selected={tab === 'columns'}>Columns</button>}
+        {tabs.map((item, index) => <button key={item.key} type="button" role="tab"
+          id={`${tabId}-${item.key}`} aria-controls={`${tabId}-panel`} aria-selected={tab === item.key}
+          tabIndex={tab === item.key ? 0 : -1} onClick={() => setTab(item.key)} onKeyDown={(event) => handleTabKey(event, index)}
+          data-qqq-id={`filter-editor-tab-${widgetName}-${item.key}`}
+          className="rounded-t px-3 py-2 data-[selected=true]:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-selected={tab === item.key}>
+          {item.label}
+        </button>)}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div id={`${tabId}-panel`} role="tabpanel" tabIndex={-1} aria-labelledby={`${tabId}-${tab}`} className="min-h-0 flex-1 overflow-y-auto p-4">
         {tab === 'filters' ? <>
           <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filter mode">
             <button type="button" aria-pressed={mode === 'basic'} disabled={!basicCheck.canWorkAsBasic} title={basicCheck.reasons.join(' ')}

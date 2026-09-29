@@ -42,6 +42,7 @@ Use the September 25 Next design (`e42ad2b2`) as the visual reference. Use Mater
 - Dialogs launched from the phone sidebar must use the existing `--qqq-z-overlay` and `--qqq-z-modal` layers. A hardcoded `z-50` puts them behind the drawer. Return focus to a persistent control when the opening menu item unmounts.
 - For Radix menus, check keyboard navigation, collision placement, available-height scrolling and native touch focus. Returning focus to the same trigger must not dismiss its newly opened menu; outside interactions must still dismiss it. Record a dialog's actual event opener because WebKit can activate buttons without focusing them.
 - Browser keyboard checks must await the resulting focus before sending the next dependent key; Radix defers roving focus. Testing Library `getByRole` uses an exact string name by default and does not accept Playwright's `exact` option.
+- Test report editor tabs at a viewport short enough to make their panel scroll. Firefox can add a native focus stop on an overflowing container unless it has an explicit `tabIndex`; the report panel uses `-1` so Tab enters the first control. Verify draft preservation and metadata that hides Columns. Check validation contrast on the actual tinted alert background in both themes.
 
 Verify affected screens with paired desktop and phone captures, including a fresh preference state and explicit metadata overrides. Source inspection and passing behavioral tests do not establish full visual review.
 
