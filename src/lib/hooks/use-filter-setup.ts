@@ -100,7 +100,12 @@ export function useFilterSetupPreview({ table, api, filter, joins, includeDistin
     records: recordsQuery.data?.records ?? NO_RECORDS,
     totalCount: canCount ? countQuery.data?.count ?? null : null,
     isLoading: enabled && (recordsQuery.isLoading || (canCount && countQuery.isLoading)),
-    isFetching: recordsQuery.isFetching,
+    isFetching: recordsQuery.isFetching || countQuery.isFetching,
+    refresh: () => {
+      if (!enabled) return
+      void recordsQuery.refetch()
+      if (canCount) void countQuery.refetch()
+    },
     error: recordsQuery.error ?? countQuery.error ?? null,
   }
 }

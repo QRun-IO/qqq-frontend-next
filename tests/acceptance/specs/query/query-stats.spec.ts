@@ -18,6 +18,12 @@ test('[QRY-022] column statistics aggregate the filtered rows, per value and ove
   await page.getByRole('menuitem', { name: 'Column statistics' }).click()
   const dialog = page.locator('[data-qqq-id="dialog-column-stats"]')
   await expect(dialog.getByRole('heading')).toHaveText('Column Statistics for Species')
+  // Added actions must not squeeze the short title into a tall, narrow column.
+  const title = await dialog.getByRole('heading').evaluate((element) => ({
+    height: element.getBoundingClientRect().height,
+    lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+  }))
+  expect(title.height).toBeLessThanOrEqual(title.lineHeight * 2 + 1)
   const distribution = await backend.sql("select case species_id when 1 then 'Dog' when 2 then 'Cat' else '—' end as label, count(*) as n from qry_item group by species_id order by count(*) desc")
   await expect(dialog.locator('[data-qqq-id="column-stats-value"]')).toHaveText(distribution.map((r) => String(r.label)))
   await expect(dialog.locator('[data-qqq-id="column-stats-count"]')).toHaveText(distribution.map((r) => String(r.n)))

@@ -22,10 +22,24 @@
 
 import React, { useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Columns, RefreshCw } from 'lucide-react'
 
-import type { QQueryFilter, QTableMetaData, QWidgetMetaData } from '@/types'
-import { useTableMetaData } from '@/lib/hooks/use-metadata'
-import type { PageSize } from '@/lib/hooks/use-record-query'
+import type { QQueryFilter, QRecord, QTableMetaData, QWidgetMetaData } from '@/types'
+import { useMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
+import type { Density, PageSize } from '@/lib/hooks/use-record-query'
+import { queryApiRecords } from '@/lib/api/api-versioned'
+import { queryRecords } from '@/lib/api/tables'
+import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT } from '@/lib/constants'
+import { getQueryColumns, hasCapability, pinColumn } from '@/lib/utils/query-columns'
+import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from '@/components/query/ColumnStatsDialog'
+import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter-settings-context'
+import { useQContext } from '@/lib/context/q-context'
+import { useSavedViews } from '@/lib/hooks/use-saved-views'
+import { canFilterWorkAsBasic, getDefaultQuickFilterFieldNames } from '@/lib/utils/quick-filter-utils'
+import type { SavedView } from '@/lib/utils/saved-view-utils'
+import { QuickFilterBar } from '@/components/query/QuickFilterBar'
+import { SavedViewsMenu } from '@/components/query/SavedViewsMenu'
+import { DensitySelector } from '@/components/query/RecordQueryToolbar'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { useApiTableMetaData, useFilterSetupPreview } from '@/lib/hooks/use-filter-setup'
 import { emptyFilter, normalizeFilter, prepFilterForBackend } from '@/lib/utils/filter-utils'
@@ -58,16 +72,17 @@ interface EditorProps extends WidgetComponentProps<FilterAndColumnsSetupPayload>
  * @param value - Stored column field value.
  * @returns Normalized entries, if parseable.
  */
-function storedColumns(value: unknown): Array<{ name: string; isVisible: boolean; width?: number }> | undefined {
+function storedColumns(value: unknown): Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> | undefined {
   const parsed = parseJsonValue(value)
   if (!parsed.ok || parsed.value === undefined) return undefined
   const source = parsed.value
   const list = Array.isArray(source) ? source : source && typeof source === 'object' && 'columns' in source ? source.columns : null
   if (!Array.isArray(list)) return undefined
-  return list.flatMap((entry): Array<{ name: string; isVisible: boolean; width?: number }> => {
+  return list.flatMap((entry): Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> => {
     if (typeof entry === 'string') return [{ name: entry, isVisible: true }]
     if (!entry || typeof entry !== 'object' || !('name' in entry) || typeof entry.name !== 'string') return []
     return [{ name: entry.name, isVisible: !('isVisible' in entry) || entry.isVisible !== false,
+      ...('pinned' in entry && (entry.pinned === 'left' || entry.pinned === 'right') ? { pinned: entry.pinned } : {}),
       ...('width' in entry && typeof entry.width === 'number' ? { width: entry.width } : {}) }]
   })
 }
@@ -93,6 +108,7 @@ interface PreviewProps {
   columns: ColumnsState
   api: ReturnType<typeof resolveApiVersion>
   widgetName: string
+  hideColumns?: boolean
 }
 
 /**
@@ -122,14 +138,23 @@ function LocalFilterSetupPreview({ filter, columns, ...props }: PreviewProps) {
  * @param root0 - Draft report filter, columns, and change callbacks.
  * @returns The paged, sortable preview grid.
  */
-function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName }: {
+function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName, editable = false, onEditFilter, hideColumns = false }: {
   table: QTableMetaData; filter: QQueryFilter; onFilterChange: (filter: QQueryFilter) => void
   columns: ColumnsState; onColumnsChange: (columns: ColumnsState) => void
-  api: ReturnType<typeof resolveApiVersion>; widgetName: string
+  api: ReturnType<typeof resolveApiVersion>; widgetName: string; editable?: boolean; onEditFilter?: () => void; hideColumns?: boolean
 }) {
+  const [density, setDensity] = useState<Density>('standard')
+  const [showColumns, setShowColumns] = useState(false)
+  const [showFilter, setShowFilter] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [statsColumn, setStatsColumn] = useState<{ name: string; label: string } | null>(null)
+  const { data: metaData } = useMetaData()
+  const statsProcess = metaData?.processes?.[COLUMN_STATS_PROCESS]
+  const canShowStats = hasCapability(table, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
+  const queryColumns = getQueryColumns(table)
   const names = visibleColumnNames(table, columns)
   const joins = previewJoins(table, names, filter)
-  const queryKey = JSON.stringify({ criteria: filter.criteria, subFilters: filter.subFilters, orderBys: filter.orderBys, names })
+  const queryKey = JSON.stringify({ booleanOperator: filter.booleanOperator, criteria: filter.criteria, subFilters: filter.subFilters, orderBys: filter.orderBys, names })
   const [pagination, setPagination] = useState<{ key: string; pageNum: number; pageSize: PageSize }>(
     { key: queryKey, pageNum: 1, pageSize: PREVIEW_PAGE_SIZE },
   )
@@ -138,21 +163,86 @@ function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChan
   const prepared = prepFilterForBackend({ ...filter, skip: (pageNum - 1) * pageSize, limit: pageSize }, fieldLookup(table))
   const hasVariables = filterHasVariables(filter)
   const result = useFilterSetupPreview({ table, api, filter: prepared, joins: joins.joins, includeDistinct: joins.includeDistinct, enabled: !hasVariables })
+  const copyValues = async (name: string, all: boolean) => {
+    const label = queryColumns.find((column) => column.name === name)?.label ?? name
+    const textValues = (records: QRecord[]) => records.map((record) => String(record.displayValues?.[name] ?? record.values[name] ?? ''))
+    const settings = metaData?.supplementalInstanceMetaData?.materialDashboard
+    const configuredLimit = settings && typeof settings === 'object' && 'queryScreenCopyFullQueryColumnValuesLimit' in settings
+      ? settings.queryScreenCopyFullQueryColumnValuesLimit : undefined
+    const limit = typeof configuredLimit === 'number' && configuredLimit > 0 ? configuredLimit : DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT
+    try {
+      let values = textValues(result.records)
+      if (all) {
+        if (result.totalCount !== null && result.totalCount > limit) throw new Error(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
+        values = []
+        // One extra row distinguishes an exact-limit result from a truncated query without a count.
+        while (values.length <= limit) {
+          const length = Math.min(250, limit + 1 - values.length)
+          const request = { filter: { ...prepared, skip: values.length, limit: length }, joins: joins.joins }
+          const page = await (api ? queryApiRecords(api, table.name, request) : queryRecords(table.name, request))
+          values.push(...textValues(page.records))
+          if (page.records.length < length) break
+        }
+        if (values.length > limit) throw new Error(`The current query contains too many rows to copy (limit: ${limit.toLocaleString()}).`)
+      }
+      await navigator.clipboard.writeText(`${values.join('\n')}\n`)
+      setNotice(`Copied ${values.length.toLocaleString()} ${label} values.`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : `Could not copy ${label} values.`)
+    }
+  }
+  const columnMenu = {
+    onFilter: (name: string) => {
+      onFilterChange({ ...filter, criteria: [...filter.criteria, { fieldName: name, operator: 'EQUALS', values: [] }] })
+      if (onEditFilter) onEditFilter()
+      else setShowFilter(true)
+    },
+    onHide: (name: string) => onColumnsChange({ ...columns, columnVisibility: { ...columns.columnVisibility, [name]: false } }),
+    onPin: (name: string, side: 'left' | 'right' | null) => onColumnsChange({ ...columns,
+      columnPins: pinColumn(queryColumns.map((column) => column.name), columns.columnPins ?? null, name, side, table.primaryKeyField) }),
+    onCopyPageValues: (name: string) => { void copyValues(name, false) },
+    onCopyFullQueryValues: (name: string) => { void copyValues(name, true) },
+  }
   if (hasVariables) return <p role="status" className="text-sm text-muted-foreground">Cannot perform query because of a missing value for a variable.</p>
-  if (result.error) return <p role="alert" className="text-sm text-destructive">Preview could not be loaded.</p>
   const totalPages = result.totalCount === null
     ? pageNum + (result.records.length === pageSize ? 1 : 0)
     : Math.max(1, Math.ceil(result.totalCount / pageSize))
   return (
     <div data-qqq-id={`filter-preview-${widgetName}`} className="overflow-hidden rounded-md border border-border">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
+        <button type="button" onClick={result.refresh} disabled={result.isFetching} aria-label="Refresh preview"
+          data-qqq-id={`filter-preview-refresh-${widgetName}`} className="flex min-h-11 min-w-11 items-center justify-center rounded border border-input bg-background text-muted-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+          <RefreshCw className={`h-4 w-4 ${result.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
+        </button>
+        {!hideColumns && <button type="button" onClick={() => setShowColumns(!showColumns)} aria-expanded={showColumns}
+          aria-label="Configure preview columns" data-qqq-id={`filter-preview-columns-${widgetName}`}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded border border-input bg-background text-muted-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">
+          <Columns className="h-4 w-4" aria-hidden="true" />
+        </button>}
+        {editable ? <DensitySelector density={density} onSelect={setDensity} /> :
+          <a href={openInNewWindowHref(table.name, toBackendFilter(table, filter))} target="_blank" rel="noopener noreferrer"
+            data-qqq-id={`filter-preview-open-${widgetName}`} className="text-sm text-primary underline">Open in new window</a>}
+      </div>
+      {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={table}
+        columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
+        onVisibilityChange={(columnVisibility) => onColumnsChange({ ...columns, columnVisibility })}
+        onOrderChange={(columnOrder) => onColumnsChange({ ...columns, columnOrder })} embedded /></div>}
+      {showFilter && <div className="border-b border-border p-3"><FilterSettingsProvider value={filterSettingsFrom(metaData)}><FilterBuilder tableMetaData={table} filter={filter} onChange={onFilterChange} /></FilterSettingsProvider></div>}
+      {notice && <p role="status" className="p-3 text-sm" data-qqq-id={`filter-preview-notice-${widgetName}`}>{notice}</p>}
+      {result.error && <p role="alert" className="p-3 text-sm text-destructive">Preview could not be loaded. Use Refresh preview to try again.</p>}
       <DataGrid tableName={table.name} tableMetaData={table} records={result.records}
         totalCount={result.totalCount ?? result.records.length} isLoading={result.isLoading} isFetching={result.isFetching}
         sortOrder={filter.orderBys ?? []} onSortChange={(orderBys) => onFilterChange({ ...filter, orderBys })}
         rowSelection={{}} onRowSelectionChange={() => {}}
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder} columnWidths={columns.columnWidths}
         onColumnWidthChange={(name, width) => onColumnsChange({ ...columns, columnWidths: { ...columns.columnWidths, [name]: width } })}
-        density="standard" pageSize={pageSize} selectable={false} disableRowClick
+        columnPins={columns.columnPins ?? null} columnMenu={columnMenu}
+        onColumnStats={canShowStats ? (name, label) => setStatsColumn({ name, label }) : undefined}
+        density={density} pageSize={pageSize} selectable={false} disableRowClick
         scrollResetKey={`${pageNum}:${pageSize}`} />
+      {statsColumn && <ColumnStatsDialog tableName={table.name} tableLabel={table.label} fieldName={statsColumn.name}
+        fieldLabel={statsColumn.label} fieldType={queryColumns.find((column) => column.name === statsColumn.name)?.field.type}
+        filter={prepared} onClose={() => setStatsColumn(null)} />}
       <Pagination pageNum={pageNum} pageSize={pageSize} totalCount={result.totalCount}
         pageRowCount={result.records.length} totalPages={totalPages} isFetching={result.isFetching}
         onPageChange={(next) => setPagination({ key: queryKey, pageNum: next, pageSize })}
@@ -180,7 +270,24 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const [columns, setColumns] = useState(() => columnsStateFromEntries(table, storedColumns(values[columnField])) ?? DEFAULT_COLUMNS_STATE)
   const [tab, setTab] = useState<'filters' | 'columns'>(initialTab)
   const [warning] = useState(removedFieldsWarning(loaded.removed))
+  const [mode, setMode] = useState<'basic' | 'advanced'>('advanced')
+  const [quickFields, setQuickFields] = useState<string[]>([])
+  const [selectedView, setSelectedView] = useState<SavedView | null>(null)
+  const { data: metaData } = useMetaData()
+  const { userId } = useQContext()
+  const savedViews = useSavedViews(table.name, metaData, userId)
   const fields = buildFilterFields(table)
+  const defaults = getDefaultQuickFilterFieldNames(table)
+  const basicCheck = canFilterWorkAsBasic(table, filter)
+  const quickNames = [...new Set([...defaults, ...quickFields, ...filter.criteria.map((criterion) => criterion.fieldName)])]
+  const selectView = (view: SavedView) => {
+    const cleaned = removeUnknownCriteria(table, normalizeFilter(view.view.queryFilter, PREVIEW_PAGE_SIZE))
+    setFilter(cleaned.filter)
+    if (!data?.hideColumns) setColumns(columnsStateFromEntries(table, view.view.queryColumns?.columns) ?? DEFAULT_COLUMNS_STATE)
+    setQuickFields(view.view.quickFilterFieldNames ?? [])
+    setMode(view.view.mode === 'basic' && canFilterWorkAsBasic(table, cleaned.filter).canWorkAsBasic ? 'basic' : 'advanced')
+    setSelectedView(view)
+  }
   const sorts = filter.orderBys ?? []
   const changeSort = (index: number, name: string) => setFilter((current) => {
     const orderBys = [...(current.orderBys ?? [])]
@@ -195,7 +302,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   }
   const backend = toBackendFilter(table, filter)
   return (
-    <>
+    <FilterSettingsProvider value={filterSettingsFrom(metaData)}>
       <div className="flex items-start justify-between border-b border-border p-4">
         <div><DialogPrimitive.Title className="text-lg font-semibold">{editorHeading(Boolean(data?.hideColumns), data?.modalHeader)}</DialogPrimitive.Title>
           <WidgetSlotHelp widgetMetaData={widgetMetaData} slot="modalSubheader" roles={helpRoles} /></div>
@@ -208,7 +315,18 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {tab === 'filters' ? <>
-          <FilterBuilder tableMetaData={table} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />
+          <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filter mode">
+            <button type="button" aria-pressed={mode === 'basic'} disabled={!basicCheck.canWorkAsBasic} title={basicCheck.reasons.join(' ')}
+              onClick={() => setMode('basic')} data-qqq-id={`filter-editor-basic-${widgetName}`}
+              className="min-h-11 rounded border border-input px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring">Basic</button>
+            <button type="button" aria-pressed={mode === 'advanced'} onClick={() => setMode('advanced')} data-qqq-id={`filter-editor-advanced-${widgetName}`}
+              className="min-h-11 rounded border border-input px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring">Advanced</button>
+            <SavedViewsMenu selectionOnly savedViews={savedViews} currentView={selectedView} viewDiffs={[]} onSelectView={selectView} />
+          </div>
+          {mode === 'basic' ? <QuickFilterBar fields={fields.filter((field) => quickNames.includes(field.name))} allFields={fields}
+            defaultFieldNames={defaults} customFieldNames={quickNames.filter((name) => !defaults.includes(name))}
+            filter={filter} onChange={setFilter} onCustomFieldsChange={setQuickFields} onOpenAdvanced={() => setMode('advanced')} /> :
+            <FilterBuilder tableMetaData={table} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />}
           {!data?.hideSortBy && <div className="space-y-2 border-t border-border pt-3">
             {(sorts.length ? sorts : [undefined]).map((sort, index) => (
               <div key={index} className="flex flex-wrap items-center gap-3">
@@ -233,14 +351,14 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
           onOrderChange={(order) => setColumns((current) => ({ ...current, columnOrder: order }))} embedded />}
         {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupGrid table={table} filter={filter} onFilterChange={setFilter}
-          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} /></section>}
+          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
         <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open in new window</a>
         <div className="flex gap-2"><button type="button" onClick={onCancel} className="rounded border border-border px-4 py-2 text-sm">Cancel</button>
           <button type="button" disabled={disabled} onClick={() => onSave(filter, columns)} data-qqq-id={`filter-editor-save-${widgetName}`} className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">OK</button></div>
       </div>
-    </>
+    </FilterSettingsProvider>
   )
 }
 

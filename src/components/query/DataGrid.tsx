@@ -367,7 +367,7 @@ export function DataGrid({
         size: widthOf(column),
         enableSorting: column.isQueryCriteria,
         header: () => (
-          <div className="flex w-full min-w-0 items-center gap-1 overflow-hidden">
+          <div className="flex w-full min-w-0 items-center gap-0.5 overflow-hidden">
             {column.isQueryCriteria ? (
               <button
                 type="button"

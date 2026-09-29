@@ -7,12 +7,47 @@
 
 // Phone and tablet query behavior (QRun-IO/qqq#708): the card list, the filter sheet, column
 // configuration by touch, bulk actions from a phone selection, and the toolbar menus.
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets, expectWithinViewport } from '../../support/touch'
 import { addCondition, columnCells, expectColumn, isPhone, sqlColumn } from './query-helpers'
 
 const PHONE = { viewport: { width: 412, height: 839 }, hasTouch: true }
+
+/** Records native input/state evidence if a single touch does not open a menu. */
+async function tapMenu(page: Page, trigger: Locator) {
+  await trigger.evaluate((element) => {
+    const events: Record<string, unknown>[] = []
+    const controller = new AbortController()
+    const observer = new MutationObserver(() => events.push({ type: 'expanded', value: element.getAttribute('aria-expanded') }))
+    observer.observe(element, { attributes: true, attributeFilter: ['aria-expanded'] })
+    for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) {
+      document.addEventListener(type, (event) => {
+        const target = event.target instanceof Element ? event.target.closest('button, [role="menu"], [role="menuitem"]') : null
+        queueMicrotask(() => events.push({
+          type, target: target?.getAttribute('data-qqq-id') ?? target?.tagName,
+          reachedTrigger: event.target instanceof Node && element.contains(event.target),
+          pointerType: event instanceof PointerEvent ? event.pointerType : undefined,
+          button: event instanceof MouseEvent ? event.button : undefined,
+          prevented: event.defaultPrevented, expanded: element.getAttribute('aria-expanded'),
+        }))
+      }, { capture: true, signal: controller.signal })
+    }
+    Object.assign(window, { __menuTapDiagnostic: {
+      events, stop: () => { controller.abort(); observer.disconnect() },
+    } })
+  })
+  try {
+    await trigger.tap()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  } catch (error) {
+    const events = await page.evaluate(() => Reflect.get(window, '__menuTapDiagnostic')?.events).catch(() => null)
+    await test.info().attach('menu-touch-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' })
+    throw error
+  } finally {
+    await page.evaluate(() => Reflect.get(window, '__menuTapDiagnostic')?.stop()).catch(() => {})
+  }
+}
 
 /** The card list of a table (phone layout). */
 function cards(page: Page, tableLabel: string) {
@@ -54,7 +89,7 @@ test.describe('on a phone', () => {
     await expect(banner).toHaveText('1 record is selected.')
 
     // The full query result checks every card
-    await page.getByRole('button', { name: 'Selection', exact: true }).tap()
+    await tapMenu(page, page.getByRole('button', { name: 'Selection', exact: true }))
     await expectWithinViewport(page.getByRole('menu', { name: 'Selection', exact: true }))
     await page.getByRole('menuitem', { name: `Full query result (${ids.length} records)` }).tap()
     await expect(banner).toHaveText(`All ${ids.length} records matching this query are selected.`)
@@ -149,8 +184,7 @@ test.describe('on a phone', () => {
     void diagnostics
     await open(page, '/app/person')
     await expectColumn(page, 'firstName', await sqlColumn(backend, 'select first_name from person order by id desc'))
-    await page.locator('[data-qqq-id="button-saved-views"]').tap()
-    await expect(page.locator('[data-qqq-id="button-saved-views"]')).toHaveAttribute('aria-expanded', 'true')
+    await tapMenu(page, page.locator('[data-qqq-id="button-saved-views"]'))
     const views = page.getByRole('menu', { name: 'Saved views' })
     await expect(views.getByRole('group', { name: 'Your Saved Views' }).getByRole('menuitem')).toHaveText(['Alice People View'])
     await expectOnScreen(page, views)

@@ -15,6 +15,8 @@
  */
 
 import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QContextProvider } from '@/lib/context/q-context'
 import { useForm, useWatch } from 'react-hook-form'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -62,7 +64,7 @@ function HostForm() {
 describe('WIDGET field adornment', () => {
   it('requests the field-specific widget and writes only its indexed field back to the host', async () => {
     const user = userEvent.setup()
-    render(<HostForm />)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><QContextProvider><HostForm /></QContextProvider></QueryClientProvider>)
     expect(vi.mocked(useWidget)).toHaveBeenCalledWith('fieldFilter', expect.objectContaining({
       tableName: 'person', __formFieldAsWidget_FieldName: 'queryFilterJson_2',
     }), expect.anything())

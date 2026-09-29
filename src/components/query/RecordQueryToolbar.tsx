@@ -67,7 +67,7 @@ const DENSITY_OPTIONS: { value: Density; label: string }[] = [
  * @param props - Component properties.
  * @returns The rendered density selector dropdown.
  */
-function DensitySelector({
+export function DensitySelector({
   density,
   onSelect,
 }: {

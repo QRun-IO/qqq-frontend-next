@@ -147,9 +147,9 @@ export function ColumnStatsDialog({ tableName, fieldName, fieldLabel, fieldType,
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-column-stats"
           className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-lg focus:outline-none">
-          <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <DialogPrimitive.Title className="text-lg font-semibold text-foreground">Column Statistics for {fieldLabel}</DialogPrimitive.Title>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
+            <DialogPrimitive.Title className="min-w-0 flex-[1_0_100%] break-words text-lg font-semibold text-foreground sm:flex-1">Column Statistics for {fieldLabel}</DialogPrimitive.Title>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <button type="button" onClick={() => statsQuery.refetch()} disabled={statsQuery.isFetching} data-qqq-id="button-column-stats-refresh"
                 className="flex items-center gap-1 rounded border border-input px-2 py-1 text-sm hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring">
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Refresh

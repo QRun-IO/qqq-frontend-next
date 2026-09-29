@@ -32,7 +32,7 @@ import {
   referencedFieldNames,
   resolveField,
 } from '@/lib/utils/filter-utils'
-import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
+import { getQueryColumns, orderColumns, type ColumnPins } from '@/lib/utils/query-columns'
 import { buildViewJson, isColumnVisible, viewToState, type SavedViewColumn } from '@/lib/utils/saved-view-utils'
 
 /** Material's warning when a preview or editor query would need a variable's value (RecordQuery `updateTable`). */
@@ -246,6 +246,8 @@ export interface ColumnsState {
   columnOrder: string[]
   /** Column widths. */
   columnWidths: Record<string, number>
+  /** Explicit pinning, or the default primary-key pin when absent. */
+  columnPins?: ColumnPins | null
 }
 
 /**
@@ -257,14 +259,14 @@ export interface ColumnsState {
  * @param entries - The stored column entries.
  * @returns The column state, or undefined when no columns are stored.
  */
-export function columnsStateFromEntries(table: QTableMetaData, entries: Array<{ name: string; isVisible: boolean; width?: number }> | undefined): ColumnsState | undefined {
+export function columnsStateFromEntries(table: QTableMetaData, entries: Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> | undefined): ColumnsState | undefined {
   const listed = (entries ?? []).filter((entry) => entry.name !== '__check__')
   if (listed.length === 0) return undefined
   const state = viewToState(table, { queryFilter: {}, queryColumns: { columns: listed } }, PREVIEW_PAGE_SIZE, [PREVIEW_PAGE_SIZE])
   const named = new Set(state.columnOrder)
   const columnVisibility = { ...state.columnVisibility }
   for (const column of getQueryColumns(table)) if (!named.has(column.name)) columnVisibility[column.name] = false
-  return { columnVisibility, columnOrder: state.columnOrder, columnWidths: state.columnWidths }
+  return { columnVisibility, columnOrder: state.columnOrder, columnWidths: state.columnWidths, columnPins: state.columnPins }
 }
 
 /** Column state with the table's default columns (base fields shown, join fields hidden). */
@@ -299,6 +301,7 @@ export function toColumnsJson(table: QTableMetaData, state: ColumnsState): { col
     columnVisibility: state.columnVisibility,
     columnOrder: state.columnOrder,
     columnWidths: state.columnWidths,
+    columnPins: state.columnPins,
     pageSize: PREVIEW_PAGE_SIZE,
     filterMode: 'advanced',
   })

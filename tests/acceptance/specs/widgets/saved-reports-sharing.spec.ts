@@ -176,6 +176,33 @@ test('[WID-072] API-versioned report setup loads table metadata and previews thr
   await expect.poll(() => versionedRequests).toContain(`GET ${apiRoot}/metaData/table/person`)
   await expect.poll(() => versionedRequests).toContain(`POST ${apiRoot}/table/person/query`)
   await expect.poll(() => versionedRequests).toContain(`POST ${apiRoot}/table/person/count`)
+  const refreshQuery = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === `${apiRoot}/table/person/query`)
+  const refreshCount = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === `${apiRoot}/table/person/count`)
+  await dialog.getByRole('button', { name: 'Refresh preview' }).click()
+  await Promise.all([refreshQuery, refreshCount])
+})
+
+test('[WID-070] selecting a saved view only changes the report draft @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 102')
+  const viewWrites: string[] = []
+  page.on('request', (request) => {
+    if (/processes\/(store|delete)SavedView\//.test(request.url())) viewWrites.push(request.url())
+  })
+  await open(page, '/app/savedReport/102/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await dialog.getByRole('button', { name: 'Saved views' }).press('Enter')
+  await expect(page.getByRole('menuitem', { name: 'Save As...' })).toHaveCount(0)
+  await expect(page.getByRole('menuitem', { name: 'New View' })).toHaveCount(0)
+  await page.getByRole('menuitem', { name: 'Alice People View', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Basic', exact: true }).click()
+  await expect(byId(page, 'quick-filter-bar')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await expect(byId(page, 'filter-builder')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 102')).toEqual(before)
+  expect(viewWrites).toEqual([])
 })
 
 test('[WID-073] read-only report preview pages and sorts without changing the report @mobile', async ({ page, backend, diagnostics }) => {
@@ -217,6 +244,27 @@ test('[WID-073] report editor grid pages, sorts and saves a resized column @mobi
   const preview = dialog.locator('[data-qqq-id="filter-preview-reportSetupWidget"]')
   await expect(preview.locator('[data-qqq-id="grid-carrier"]')).toBeVisible()
   await expect(preview.locator('[data-qqq-id="grid-select-all"]')).toHaveCount(0)
+  await expect(preview.getByRole('gridcell').and(preview.locator('[data-qqq-id="grid-cell-name"]'))).toHaveCount(11)
+  const refresh = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/carrier/query')
+  await preview.getByRole('button', { name: 'Refresh preview' }).click()
+  await refresh
+  await expect(preview.getByRole('button', { name: 'Refresh preview' })).toBeEnabled()
+  const firstRow = preview.getByRole('row').nth(1)
+  const standardHeight = (await firstRow.boundingBox())!.height
+  await preview.getByRole('button', { name: 'Select display density' }).press('Enter')
+  await page.getByRole('menuitemradio', { name: 'Compact', exact: true }).click()
+  expect((await firstRow.boundingBox())!.height).toBeLessThan(standardHeight)
+  await preview.getByRole('button', { name: 'Name column menu' }).press('Enter')
+  await page.getByRole('menuitem', { name: 'Pin to right' }).click()
+
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+    writeText: async (text: string) => { document.documentElement.dataset.copiedReportValues = text },
+  } }))
+  await preview.getByRole('button', { name: 'Name column menu' }).press('Enter')
+  await page.getByRole('menuitem', { name: 'Copy full query values' }).click()
+  const allNames = await backend.sql('select name from carrier order by id')
+  await expect(page.locator('html')).toHaveAttribute('data-copied-report-values', allNames.map((row) => row.name).join('\n') + '\n')
+
 
   const sizedQuery = page.waitForRequest((request) => request.method() === 'POST'
     && new URL(request.url()).pathname === '/qqq/v1/table/carrier/query'
@@ -252,6 +300,30 @@ test('[WID-073] report editor grid pages, sorts and saves a resized column @mobi
   const [saved] = await sqlRows(backend, 'select query_filter_json, columns_json from saved_report where id = 1')
   expect(JSON.parse(saved.query_filter_json).orderBys[0]).toEqual({ fieldName: 'name', isAscending: true })
   expect(JSON.parse(saved.columns_json).columns.find((column: { name: string }) => column.name === 'name').width).toBe(before + 10)
+  expect(JSON.parse(saved.columns_json).columns.find((column: { name: string }) => column.name === 'name').pinned).toBe('right')
+})
+
+test('[WID-073] report column statistics opens above the editor and returns to its draft @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  expect((await backend.api.put('/data/savedReport/1', { multipart: {
+    tableName: 'qryItem', queryFilterJson: '{}',
+    columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true }, { name: 'quantity', isVisible: true }] }),
+  } })).status()).toBe(200)
+  const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')
+  await open(page, '/app/savedReport/1/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await editor.getByRole('button', { name: 'Quantity column menu' }).press('Enter')
+  await page.getByRole('menuitem', { name: 'Column statistics' }).click()
+  const stats = page.getByRole('dialog', { name: 'Column Statistics for Quantity' })
+  await expect(stats).toBeVisible()
+  await expect(stats.getByText('Calculating statistics...')).toHaveCount(0)
+  await expect(stats.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+  await stats.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(stats).toHaveCount(0)
+  await expect(editor).toBeVisible()
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click()
+  expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')).toEqual(before)
 })
 
 test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
@@ -320,6 +392,7 @@ async function openScheduleForm(page: Page) {
   await dialog.getByRole('checkbox', { name: 'Is Active' }).check()
   await dialog.getByLabel(/^Format/).click()
   await page.getByRole('option', { name: /^CSV/ }).click()
+  await expect(dialog.getByLabel(/^Format/)).toContainText('CSV')
   await dialog.getByLabel(/^To Addresses/).fill('owned-schedule@example.com')
   await dialog.getByLabel(/^Subject/).fill('Owned schedule')
   await dialog.getByLabel(/^Cron Time Zone/).click()

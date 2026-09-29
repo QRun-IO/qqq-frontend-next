@@ -173,13 +173,14 @@ function criterionValues(criterion: StoredCriterion): string {
  * @param parsed - Parsed columns JSON.
  * @returns The entries in order, or undefined when the shape is not recognized.
  */
-function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean; width?: number }> | undefined {
+function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> | undefined {
   const list = isPlainObject(parsed) ? asList(parsed.columns) : asList(parsed)
   if (list === undefined) return undefined
-  const entries: Array<{ name: string; isVisible: boolean; width?: number }> = []
+  const entries: Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> = []
   for (const item of list) {
     if (typeof item === 'string') entries.push({ name: item, isVisible: true })
     else if (isPlainObject(item) && typeof item.name === 'string') entries.push({ name: item.name, isVisible: item.isVisible !== false,
+      ...((item.pinned === 'left' || item.pinned === 'right') ? { pinned: item.pinned } : {}),
       ...(typeof item.width === 'number' ? { width: item.width } : {}) })
     else return undefined
   }
@@ -361,7 +362,7 @@ function FilterAndColumnsSetupView({ widgetMetaData, data, recordContext }: Widg
         <section className="space-y-2" aria-labelledby={`preview-heading-${widgetName}`}>
           <h4 id={`preview-heading-${widgetName}`} className="text-sm font-semibold">Preview</h4>
           <FilterSetupPreview table={table} filter={filter}
-            columns={columnsStateFromEntries(table, columns) ?? DEFAULT_COLUMNS_STATE} api={api} widgetName={widgetName} />
+            columns={columnsStateFromEntries(table, columns) ?? DEFAULT_COLUMNS_STATE} api={api} widgetName={widgetName} hideColumns={data?.hideColumns} />
         </section>
       )}
     </div>

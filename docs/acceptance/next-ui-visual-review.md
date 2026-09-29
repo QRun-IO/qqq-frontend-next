@@ -1,6 +1,6 @@
 # Next UI visual review
 
-Status: in progress, September 28, 2026. This review is a release requirement. Captured screenshots are not approvals or evidence that a surface has passed review.
+Status: in progress, September 29, 2026. This review is a release requirement. Captured screenshots are not approvals or evidence that a surface has passed review.
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
@@ -123,3 +123,11 @@ Added paired query statistics, loading and backend-error captures at desktop/tab
 Full remote WebKit job109212960890 finished **509passed/4failed** at93b7b5a. Besides the reproduced relative-date issue, failures were a saved-view touch trigger that stayed closed and two document-navigation diagnostic cases (SEC010 andRPT017). Traces place those API errors39–54ms after a full navigation began while initial reads were still starting; those two tests now let initial reads settle before deliberate document replacement, with API/security assertions unchanged. Saved-view opening now has an immediate expanded-state assertion, but its intermittent CI failure is **not declared resolved** by the focused pass. Other full-CI jobs remain in progress at last check. Artifacts/logs retained under ci-webkit-36507768282 and ci-36507768282-webkit.log.
 
 Verification: query-heading-red.log then query-heading-green.log45passes; query-heading-measurements.log; query-heading-date-unit.log1765passes; relative-date-and-ci-green.log25passes. Production export/typecheck, changed-file lint, license, bundle anddiff checks pass. Current preview contains the heading/date fixes. Final full acceptance and the complete visual review remain open.
+
+## September 29 — report controls and statistics checkpoint
+
+The current preview has been refreshed from the production export including report Basic/Advanced modes, saved-view selection, refresh, density, column configuration and column actions. Existing editor tabs and Cancel → OK → host Save remain. Read-only preview interactions stay local. These additions use the existing Next controls. The original report filter editor was absent, so it has no equivalent baseline state. Light inventory is now 60 scenarios at each of three sizes; captures are not full-family approval.
+
+Paired statistics screenshots revealed that adding Export squeezed the phone title into three lines. A wrapping header now gives the title its own phone row while keeping desktop actions alongside it. The rendered check changed from 84px (three lines) to 28px (one line) at 393px width. Fresh original/current captures exist at all three sizes. The inspected dark report states include desktop Advanced, tablet Basic, and phone Columns/Density/column menu: popups fit the viewport and the footer remains visible; phone preview pagination requires scrolling the modal body. Dark blue links remain a contrast investigation. No whole visual family is signed off.
+
+Evidence: report-controls-corrected-acceptance.log has 90/90 cases across five profiles, including draft save/cancel, saved-view import, API-versioned refresh, paging/sort/resize/pins, copy full query, nested statistics, headings and previously intermittent menu/schedule cases. The earlier expanded run used a Person fixture without QUERY_STATS and failed those five statistics cases; corrected qryItem fixtures passed in the clean run. Source build/type checking passed. Latest remote full acceptance at6439944 remains failed; local focused success does not replace that release gate. Touch-menu tests now attach native input/state diagnostics on failure, and schedule tests assert CSV selection before submission.

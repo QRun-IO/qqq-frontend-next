@@ -37,7 +37,7 @@ type DialogKind = 'saveAs' | 'rename' | 'update' | 'delete'
 /**
  * Props for the SavedViewsMenu component.
  */
-interface SavedViewsMenuProps {
+interface SavedViewsMenuCommonProps {
   /** Saved view lists and actions. */
   savedViews: SavedViewsResult
   /** The view the screen was loaded from, or null for a new view. */
@@ -46,15 +46,22 @@ interface SavedViewsMenuProps {
   viewDiffs: string[]
   /** Opens a saved view. */
   onSelectView: (view: SavedView) => void
-  /** Leaves the current view for a new (default) view. */
-  onNewView: () => void
-  /** Stores the current screen as a view (insert, or update when `id` is given) and opens it. */
-  onStore: (input: { id?: number; label: string }) => Promise<void>
-  /** Deletes the current view. */
-  onDelete: (view: SavedView) => Promise<void>
   /** Material-compatible create URL with the current filter and columns as presets. */
   reportHref?: string
 }
+
+type SavedViewsMenuProps = SavedViewsMenuCommonProps & ({
+  /** Report editors may select a view without managing saved views. */
+  selectionOnly: true
+  onNewView?: never
+  onStore?: never
+  onDelete?: never
+} | {
+  selectionOnly?: false
+  onNewView: () => void
+  onStore: (input: { id?: number; label: string }) => Promise<void>
+  onDelete: (view: SavedView) => Promise<void>
+})
 
 /**
  * Saved views dropdown and dialogs.
@@ -62,7 +69,7 @@ interface SavedViewsMenuProps {
  * @param props - Component properties.
  * @returns The menu, or null when the backend has no saved views.
  */
-export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref }: SavedViewsMenuProps) {
+export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectView, onNewView, onStore, onDelete, reportHref, selectionOnly = false }: SavedViewsMenuProps) {
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind | null>(null)
   const [name, setName] = useState('')
@@ -72,7 +79,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
 
   const isOwner = currentView ? savedViews.isOwner(currentView) : true
   const notOwnerText = 'You may not save changes to this view, because you are not its owner.'
-  const modified = viewDiffs.length > 0
+  const modified = !selectionOnly && viewDiffs.length > 0
 
   const openDialog = (kind: DialogKind) => {
     setOpen(false)
@@ -82,6 +89,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
   }
 
   const submit = async () => {
+    if (!onStore || !onDelete) return
     setSubmitting(true)
     setError(null)
     try {
@@ -142,7 +150,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
               </button>
             )}
             <button type="button" className="text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              onClick={() => (currentView ? onSelectView(currentView) : onNewView())} data-qqq-id="saved-view-reset">
+              onClick={() => (currentView ? onSelectView(currentView) : onNewView?.())} data-qqq-id="saved-view-reset">
               Reset All Changes
             </button>
           </span>
@@ -152,8 +160,9 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
           <DropdownMenuPrimitive.Content align="start" sideOffset={4} collisionPadding={8}
             aria-label="Saved views" aria-labelledby={undefined}
             onCloseAutoFocus={(event) => { if (dialog) event.preventDefault() }}
-            className="z-50 w-80 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
+            className="z-[160] w-80 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
             style={{ maxHeight: 'min(24rem, var(--radix-dropdown-menu-content-available-height))' }}>
+            {!selectionOnly && <>
             <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">View Actions</p>
             {savedViews.canStore && (
               <DropdownMenuPrimitive.Item asChild disabled={Boolean(currentView) && !isOwner}>
@@ -182,7 +191,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
               </DropdownMenuPrimitive.Item>
             )}
             <DropdownMenuPrimitive.Item asChild>
-              <button type="button" role="menuitem" className={menuItem} onClick={() => { setOpen(false); onNewView() }} data-qqq-id="saved-view-action-new">New View</button>
+              <button type="button" role="menuitem" className={menuItem} onClick={() => { setOpen(false); onNewView?.() }} data-qqq-id="saved-view-action-new">New View</button>
             </DropdownMenuPrimitive.Item>
             {reportHref && (
               <DropdownMenuPrimitive.Item asChild>
@@ -192,6 +201,7 @@ export function SavedViewsMenu({ savedViews, currentView, viewDiffs, onSelectVie
             )}
 
             <div role="separator" className="my-1 border-t border-border" />
+            </>}
             <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground" id="your-saved-views">Your Saved Views</p>
             <div role="group" aria-labelledby="your-saved-views" data-qqq-id="saved-views-yours">
               {savedViews.isLoading ? (
