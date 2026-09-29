@@ -633,7 +633,8 @@
       "fixture": "savedReport 1 targeting petSpecies without a pivot; saved-reports-sharing.spec.ts",
       "scenarios": [
         "grid preview hides selection, changing page size changes the real backend query, header sorting changes the real backend query, and keyboard column resize persists in saved columns JSON",
-        "create a report from a query, switch to Audit, save and reopen, verify stored columns and download the CSV"
+        "create a report from a query, switch to Audit, save and reopen, verify stored columns and download the CSV",
+        "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged"
       ],
       "negative": [
         "selection pseudo-column and incompatible previous-table fields are excluded from saved reports"

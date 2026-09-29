@@ -318,10 +318,11 @@ test('[WID-073] report editor grid pages, sorts and saves a resized column @mobi
   expect(JSON.parse(saved.columns_json).columns.find((column: { name: string }) => column.name === 'name').pinned).toBe('right')
 })
 
-test('[WID-073] report column statistics opens above the editor and returns to its draft @mobile', async ({ page, backend, diagnostics }) => {
+test('[WID-073] report column statistics and CSV honor the filter without saving the draft @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await backend.api.put('/data/savedReport/1', { multipart: {
-    tableName: 'qryItem', queryFilterJson: '{}',
+    tableName: 'qryItem',
+    queryFilterJson: JSON.stringify({ criteria: [{ fieldName: 'quantity', operator: 'GREATER_THAN', values: [5] }] }),
     columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true }, { name: 'quantity', isVisible: true }] }),
   } })).status()).toBe(200)
   const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')
@@ -333,7 +334,20 @@ test('[WID-073] report column statistics opens above the editor and returns to i
   const stats = page.getByRole('dialog', { name: 'Column Statistics for Quantity' })
   await expect(stats).toBeVisible()
   await expect(stats.getByText('Calculating statistics...')).toHaveCount(0)
-  await expect(stats.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+  const [totals] = await sqlRows(backend, 'select sum(quantity) as total, min(quantity) as minimum, max(quantity) as maximum from qry_item where quantity > 5')
+  const distribution = await sqlRows(backend, 'select quantity, count(*) as frequency from qry_item where quantity > 5 group by quantity order by quantity')
+  await expect(stats.locator('[data-qqq-id="column-stats-stat-sum"]')).toHaveText(Number(totals.total).toLocaleString('en-US'))
+  await expect(stats.locator('[data-qqq-id="column-stats-stat-min"]')).toHaveText(totals.minimum)
+  await expect(stats.locator('[data-qqq-id="column-stats-stat-max"]')).toHaveText(totals.maximum)
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    stats.getByRole('button', { name: 'Export', exact: true }).click(),
+  ])
+  const rows = parseCsv(await downloadText(download))
+  expect(rows[0]).toEqual(['Quantity', 'Count'])
+  const exported = rows.slice(1).map(([quantity, count]) => ({ quantity: Number(quantity.replace(/,/g, '')), count: Number(count) }))
+    .sort((a, b) => a.quantity - b.quantity)
+  expect(exported).toEqual(distribution.map((row) => ({ quantity: Number(row.quantity), count: Number(row.frequency) })))
   await stats.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(stats).toHaveCount(0)
   await expect(editor).toBeVisible()

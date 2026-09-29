@@ -3,8 +3,20 @@
 The acceptance suite runs against the owned sample backend and the production static
 export (javalin mode). The default gate runs Chromium only; the documented matrix is the
 five configured Playwright projects below. CI runs Chromium separately from phone/tablet
-so the primary workflow gate can finish independently. For RC1, prioritize Chromium
-workflow depth; the complete final browser claim still requires all five projects.
+so the primary workflow gate can finish independently. Prioritize Chromium
+workflow depth for RC1 and final 1.0; the complete final browser claim still requires all five projects.
+
+## Verification order
+
+First complete workflows in desktop Chromium against the real backend: normal defaults,
+required and invalid inputs, dependent controls, edit/cancel, save/reopen, permission
+boundaries, error recovery, and database or downloaded-file results. Expand browser and
+viewport coverage after those behaviors work. Keep existing secondary results visible;
+a passing row or test count does not establish that every path within a feature works.
+
+For example, WID-073 checks report column totals and the exported value distribution
+against SQL for the active filter, then verifies cancellation leaves saved data unchanged.
+Opening the statistics dialog alone is insufficient evidence of that workflow.
 
 ## RC1 checkpoint — 2026-09-29
 
@@ -14,7 +26,9 @@ The actual Maven Central JAR additionally passed Sleep Interactive defaults/vali
 
 ```bash
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar
-# full gate, all five projects, fresh static export
+# primary workflow gate, fresh static export
+QQQ_ACCEPTANCE_BROWSERS=chromium node scripts/acceptance.mjs
+# subsequent compatibility gate, all five projects, fresh static export
 QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet node scripts/acceptance.mjs
 # the same with explicit ports (use distinct ports for concurrent runs)
 QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet \
