@@ -196,7 +196,7 @@ test.describe('on a phone', () => {
     await page.keyboard.press('Escape')
     await expect(views).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Export records' }).tap()
+    await tapMenu(page, page.getByRole('button', { name: 'Export records' }))
     const exportMenu = page.getByRole('menuitem', { name: /^Export CSV/ }).locator('xpath=..')
     await expect(page.getByRole('menuitem', { name: /^Export CSV/ })).toBeEnabled()
     await expectOnScreen(page, exportMenu)

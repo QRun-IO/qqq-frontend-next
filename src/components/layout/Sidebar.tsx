@@ -536,6 +536,7 @@ function UserFooter({
   const [avatarFailed, setAvatarFailed] = useState(false)
   // Material names a user without a name "Anonymous"
   const displayName = userName || 'Anonymous'
+  const userButtonRef = useRef<HTMLButtonElement>(null)
   const [prefsOpen, setPrefsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -625,6 +626,7 @@ function UserFooter({
           )}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
+          ref={userButtonRef}
           data-qqq-id="sidebar-user-button"
           data-qqq-sidenav-item-type="user-profile"
         >
@@ -667,7 +669,7 @@ function UserFooter({
       </div>
 
       {/* Preferences dialog */}
-      <UserPreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
+      <UserPreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} returnFocusRef={userButtonRef} />
     </>
   )
 }

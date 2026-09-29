@@ -35,6 +35,8 @@ interface UserPreferencesDialogProps {
   open: boolean
   /** Called when the open state should change (e.g. after a close action). */
   onOpenChange: (open: boolean) => void
+  /** The persistent user-menu button, since its Preferences item unmounts on selection. */
+  returnFocusRef?: React.RefObject<HTMLButtonElement | null>
 }
 
 /** Available records-per-page options displayed as toggle chips. */
@@ -77,7 +79,7 @@ const RECORD_VIEW_OPTIONS = [
  *   Changes take effect immediately via `updatePreference`; there is no Save
  *   button — closing the dialog commits the current selection to localStorage.
  */
-export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDialogProps) {
+export function UserPreferencesDialog({ open, onOpenChange, returnFocusRef }: UserPreferencesDialogProps) {
   const { preferences, updatePreference, resetPreferences, defaults } = useUserPreferences()
 
   const isDefault = (
@@ -92,19 +94,26 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-black/50',
+            'fixed inset-0 z-[var(--qqq-z-overlay,400)] bg-black/50',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-[var(--qqq-z-modal,1000)] -translate-x-1/2 -translate-y-1/2',
             'w-full max-w-lg max-h-[85vh] flex flex-col',
             'rounded-xl border border-border bg-card shadow-lg',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
           )}
+          onCloseAutoFocus={event => {
+            const target = returnFocusRef?.current
+            if (target?.isConnected) {
+              event.preventDefault()
+              target.focus()
+            }
+          }}
           aria-describedby={undefined}
           data-qqq-id="dialog-user-preferences"
         >

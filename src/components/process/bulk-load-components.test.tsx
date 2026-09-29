@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -112,6 +112,26 @@ describe('saved bulk load profiles (#726)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(querySavedBulkLoadProfiles).mockResolvedValue([mine, bobs])
+  })
+
+  it('supports keyboard selection and restores focus after profile dialogs close', async () => {
+    const user = userEvent.setup()
+    renderScreen(mappingStep, baseValues)
+    const trigger = screen.getByRole('button', { name: 'Saved Bulk Load Profiles' })
+    trigger.focus()
+    await user.keyboard('{ArrowDown}')
+    const menu = screen.getByRole('menu', { name: 'Saved bulk load profiles' })
+    await waitFor(() => expect(within(menu).getByRole('menuitem', { name: 'Save As...' })).toHaveFocus())
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('dialog', { name: 'Save New Bulk Load Profile' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveFocus())
+
+    const saveNew = screen.getByRole('button', { name: 'Save Bulk Load Profile As…' })
+    // WebKit clicks can activate a button without focusing it first.
+    fireEvent.click(saveNew)
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(saveNew).toHaveFocus())
   })
 
   it('lists your profiles and those shared with you, and only the owner may save, rename or delete', async () => {

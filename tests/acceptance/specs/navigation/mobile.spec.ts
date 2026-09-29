@@ -148,4 +148,17 @@ test('[NAV-038] the shell is touch-ready on phones and tablets: skip link, heade
   const menu = sidebar.getByRole('menu')
   await expect(menu.getByRole('menuitem')).toHaveText(['Preferences', 'Log Out'])
   await expectTouchTargets(sidebar)
+
+  await menu.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
+  const preferences = page.getByRole('dialog', { name: 'Preferences', exact: true })
+  await expect(preferences).toBeVisible()
+  const pageSize = preferences.locator('[data-qqq-id="pref-pagesize-25"]')
+  await expect.poll(() => pageSize.evaluate(element => {
+    const bounds = element.getBoundingClientRect()
+    return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2))
+  }), { message: 'Preferences must appear above the navigation drawer' }).toBe(true)
+  await pageSize.click()
+  await preferences.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(preferences).toBeHidden()
+  await expect(sidebar.locator('[data-qqq-id="sidebar-user-button"]')).toBeFocused()
 })

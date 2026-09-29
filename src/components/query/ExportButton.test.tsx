@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 import type { QTableMetaData, QQueryFilter } from '@/types'
@@ -48,6 +48,17 @@ const filter: QQueryFilter = {
 }
 
 describe('ExportButton', () => {
+  it('keeps the menu open when touch focus returns to its trigger and still dismisses outside', async () => {
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    const trigger = screen.getByRole('button', { name: 'Export records' })
+    await userEvent.click(trigger)
+    expect(screen.getByRole('menu', { name: 'Export options' })).toBeInTheDocument()
+    act(() => trigger.focus())
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
   it('opens from the keyboard and chooses an export format with arrow keys', async () => {
     mockExport.mockResolvedValue(new Blob(['data']))
     render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)

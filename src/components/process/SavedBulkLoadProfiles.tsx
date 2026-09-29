@@ -25,9 +25,10 @@
 
 'use client'
 
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
+import React, { useId, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { ChevronDown, Save, X } from 'lucide-react'
 
 import {
@@ -95,7 +96,8 @@ export function SavedBulkLoadProfiles({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
-  const containerRef = useRef<HTMLElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dialogReturnFocusRef = useRef<HTMLElement | null>(null)
   const saveButtonRef = useRef<HTMLButtonElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -124,24 +126,6 @@ export function SavedBulkLoadProfiles({
     }
   }, [current, file, mapping])
 
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setOpen(false)
-      containerRef.current?.querySelector<HTMLElement>('[data-qqq-id="button-saved-bulk-load-profiles"]')?.focus()
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
   if (!canQuery && !canStore) return null
 
   const action = isBulkEdit ? 'Edit' : 'Load'
@@ -152,8 +136,10 @@ export function SavedBulkLoadProfiles({
   /**
    * Open a profile action's dialog.
    * @param kind - The action.
+   * @param opener - The control to return focus to after the dialog.
    */
-  const openDialog = (kind: DialogKind) => {
+  const openDialog = (kind: DialogKind, opener: HTMLElement) => {
+    dialogReturnFocusRef.current = opener.closest('[role="menu"]') ? triggerRef.current : opener
     setOpen(false)
     setMessage(null)
     setDialogError(null)
@@ -218,42 +204,50 @@ export function SavedBulkLoadProfiles({
         : dialog === 'update' ? `Update Existing Bulk ${action} Profile`
           : `Save New Bulk ${action} Profile`
   const profileItem = (profile: SavedBulkLoadProfileRecord, group: 'yours' | 'shared') => (
-    <button key={profile.id} type="button" role="menuitem" className={cn(menuItem, 'pl-8', current?.id === profile.id && 'font-semibold text-primary')}
-      onClick={() => choose(profile)} data-qqq-id={`saved-bulk-load-profile-${group}-${profile.id}`}>
-      {profile.label}
-    </button>
+    <DropdownMenuPrimitive.Item asChild key={profile.id}>
+      <button type="button" role="menuitem" className={cn(menuItem, 'pl-8', current?.id === profile.id && 'font-semibold text-primary')}
+        onClick={() => choose(profile)} data-qqq-id={`saved-bulk-load-profile-${group}-${profile.id}`}>
+        {profile.label}
+      </button>
+    </DropdownMenuPrimitive.Item>
   )
   const buttonTone = !current ? 'border-input bg-background text-foreground hover:bg-accent'
     : modified ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
       : 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
 
   return (
-    <section ref={containerRef} aria-label={`Saved Bulk ${action} Profiles`} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border p-3 text-sm" data-qqq-id="saved-bulk-load-profiles">
+    <section aria-label={`Saved Bulk ${action} Profiles`} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border p-3 text-sm" data-qqq-id="saved-bulk-load-profiles">
       <h4 className="w-full font-semibold text-foreground">{`Saved Bulk ${action} Profiles`}</h4>
       {showCurrent && (
         <p className="w-full text-muted-foreground" data-qqq-id="saved-bulk-load-profile-current">
           {current ? `You are using the bulk ${lower} profile: ${current.label}` : `You are not using a saved bulk ${lower} profile.`}
         </p>
       )}
-      <div className="relative">
-        <button
-          type="button"
-          disabled={isWorking}
-          onClick={() => setOpen((previous) => !previous)}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={open ? `${baseId}-menu` : undefined}
-          className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50', buttonTone)}
-          data-qqq-id="button-saved-bulk-load-profiles"
-          data-profile-state={!current ? 'none' : modified ? 'modified' : 'saved'}
-        >
-          <Save className="h-4 w-4" aria-hidden="true" />
-          {`Saved Bulk ${action} Profiles`}
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-        {open && (
-          <div id={`${baseId}-menu`} role="menu" aria-label={`Saved bulk ${lower} profiles`}
-            className="absolute left-0 top-full z-30 mt-1 max-h-[calc(100vh-200px)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
+      <DropdownMenuPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenuPrimitive.Trigger asChild>
+          <button
+            ref={triggerRef}
+            type="button"
+            disabled={isWorking}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50', buttonTone)}
+            data-qqq-id="button-saved-bulk-load-profiles"
+            data-profile-state={!current ? 'none' : modified ? 'modified' : 'saved'}
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {`Saved Bulk ${action} Profiles`}
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </DropdownMenuPrimitive.Trigger>
+        <DropdownMenuPrimitive.Portal>
+          <DropdownMenuPrimitive.Content aria-label={`Saved bulk ${lower} profiles`} aria-labelledby={undefined} align="start" sideOffset={4} collisionPadding={8}
+            onInteractOutside={event => {
+              const target = event.detail.originalEvent.target
+              if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+            }}
+            onCloseAutoFocus={event => { if (dialog !== null) event.preventDefault() }}
+            className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-80 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
             data-qqq-id="menu-saved-bulk-load-profiles">
             <p className="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{`Bulk ${action} Profile Actions`}</p>
             {!allowSelecting && (
@@ -267,39 +261,49 @@ export function SavedBulkLoadProfiles({
               </>
             )}
             {canStore && (
-              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
-                title={!isOwner ? NOT_OWNER_TEXT : 'Save your current mapping, for quick re-use at a later time.'}
-                onClick={() => openDialog(current ? 'update' : 'saveNew')} data-qqq-id="saved-bulk-load-profile-action-save">
-                {current ? 'Save...' : 'Save As...'}
-              </button>
+              <DropdownMenuPrimitive.Item asChild disabled={!isOwner}>
+                <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                  title={!isOwner ? NOT_OWNER_TEXT : 'Save your current mapping, for quick re-use at a later time.'}
+                  onClick={event => openDialog(current ? 'update' : 'saveNew', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-action-save">
+                  {current ? 'Save...' : 'Save As...'}
+                </button>
+              </DropdownMenuPrimitive.Item>
             )}
             {canStore && current && (
-              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
-                title={!isOwner ? NOT_OWNER_TEXT : `Change the name for this saved bulk ${lower} profile.`}
-                onClick={() => openDialog('rename')} data-qqq-id="saved-bulk-load-profile-action-rename">
-                Rename...
-              </button>
+              <DropdownMenuPrimitive.Item asChild disabled={!isOwner}>
+                <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                  title={!isOwner ? NOT_OWNER_TEXT : `Change the name for this saved bulk ${lower} profile.`}
+                  onClick={event => openDialog('rename', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-action-rename">
+                  Rename...
+                </button>
+              </DropdownMenuPrimitive.Item>
             )}
             {canStore && current && (
-              <button type="button" role="menuitem" className={menuItem}
-                title={`Save a new copy of this bulk ${lower} profile, with a different name, separate from the original.`}
-                onClick={() => openDialog('saveAs')} data-qqq-id="saved-bulk-load-profile-action-save-as">
-                Save As...
-              </button>
+              <DropdownMenuPrimitive.Item asChild>
+                <button type="button" role="menuitem" className={menuItem}
+                  title={`Save a new copy of this bulk ${lower} profile, with a different name, separate from the original.`}
+                  onClick={event => openDialog('saveAs', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-action-save-as">
+                  Save As...
+                </button>
+              </DropdownMenuPrimitive.Item>
             )}
             {canDelete && current && (
-              <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
-                title={!isOwner ? NOT_OWNER_TEXT : `Delete this saved bulk ${lower} profile.`}
-                onClick={() => openDialog('delete')} data-qqq-id="saved-bulk-load-profile-action-delete">
-                Delete...
-              </button>
+              <DropdownMenuPrimitive.Item asChild disabled={!isOwner}>
+                <button type="button" role="menuitem" className={menuItem} disabled={!isOwner}
+                  title={!isOwner ? NOT_OWNER_TEXT : `Delete this saved bulk ${lower} profile.`}
+                  onClick={event => openDialog('delete', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-action-delete">
+                  Delete...
+                </button>
+              </DropdownMenuPrimitive.Item>
             )}
             {allowSelecting && (
-              <button type="button" role="menuitem" className={menuItem}
-                title={`Create a new blank bulk ${lower} profile for this table, removing all mappings.`}
-                onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-action-new">
-                {`New Bulk ${action} Profile`}
-              </button>
+              <DropdownMenuPrimitive.Item asChild>
+                <button type="button" role="menuitem" className={menuItem}
+                  title={`Create a new blank bulk ${lower} profile for this table, removing all mappings.`}
+                  onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-action-new">
+                  {`New Bulk ${action} Profile`}
+                </button>
+              </DropdownMenuPrimitive.Item>
             )}
             {allowSelecting && canQuery && (
               <>
@@ -318,9 +322,9 @@ export function SavedBulkLoadProfiles({
                 </div>
               </>
             )}
-          </div>
-        )}
-      </div>
+          </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Portal>
+      </DropdownMenuPrimitive.Root>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-qqq-id="saved-bulk-load-profile-status">
         {message && <span role="status" className="text-green-700 dark:text-green-400" data-qqq-id="saved-bulk-load-profile-message">{message}</span>}
@@ -328,7 +332,7 @@ export function SavedBulkLoadProfiles({
           <>
             {canStore && (
               <button type="button" className={linkButton} disabled={isWorking} title={`Unsaved Mapping: you are not using a saved bulk ${lower} profile.`}
-                onClick={() => openDialog('saveNew')} data-qqq-id="saved-bulk-load-profile-save-new">
+                onClick={event => openDialog('saveNew', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-save-new">
                 {`Save Bulk ${action} Profile As…`}
               </button>
             )}
@@ -366,7 +370,7 @@ export function SavedBulkLoadProfiles({
               </span>
             </HoverTooltip>
             {isOwner && canStore && (
-              <button type="button" className={linkButton} disabled={isWorking} onClick={() => openDialog('update')} data-qqq-id="saved-bulk-load-profile-save-changes">
+              <button type="button" className={linkButton} disabled={isWorking} onClick={event => openDialog('update', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-save-changes">
                 {'Save…'}
               </button>
             )}
@@ -386,6 +390,12 @@ export function SavedBulkLoadProfiles({
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-saved-bulk-load-profile"
+            onCloseAutoFocus={event => {
+              event.preventDefault()
+              const target = dialogReturnFocusRef.current
+              if (target?.isConnected) target.focus()
+              else triggerRef.current?.focus()
+            }}
             onOpenAutoFocus={(event) => {
               ////////////////////////////////////////////////////////////////////////
               // the name field, the Save button of an update (so Enter saves), or //

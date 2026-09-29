@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 // Override next/navigation for this file so we can control pathname per test
@@ -461,6 +461,17 @@ describe('Sidebar', () => {
   })
 
   // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
+
+  it('returns preferences focus to the user menu button after the menu item unmounts', async () => {
+    const user = userEvent.setup()
+    render(<Sidebar routes={leafRoutes} userName="Alice" />)
+    const trigger = screen.getByRole('button', { name: 'Alice' })
+    await user.click(trigger)
+    await user.click(screen.getByRole('menuitem', { name: 'Preferences' }))
+    expect(screen.getByRole('dialog', { name: 'Preferences' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
 
   it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
     render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)

@@ -22,7 +22,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { isAxiosError } from 'axios'
 import { Download, ChevronDown } from 'lucide-react'
@@ -91,6 +91,7 @@ async function exportErrorMessage(error: unknown): Promise<string> {
  * @returns The rendered export menu.
  */
 export function ExportButton({ tableName, tableMetaData, exportFilter, columnNames, totalCount, tableVariant }: ExportButtonProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const allowed = hasCapability(tableMetaData, 'TABLE_EXPORT')
@@ -127,6 +128,7 @@ export function ExportButton({ tableName, tableMetaData, exportFilter, columnNam
       <div className="relative" data-qqq-id="export-button">
         <DropdownMenuPrimitive.Trigger asChild>
           <button
+            ref={triggerRef}
             type="button"
             disabled={exporting || !allowed}
             title={allowed ? undefined : 'Exports are not allowed for this table.'}
@@ -143,6 +145,10 @@ export function ExportButton({ tableName, tableMetaData, exportFilter, columnNam
         </DropdownMenuPrimitive.Trigger>
         <DropdownMenuPrimitive.Portal>
             <DropdownMenuPrimitive.Content align="end" sideOffset={4} collisionPadding={8}
+              onInteractOutside={event => {
+                const target = event.detail.originalEvent.target
+                if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+              }}
               className="z-50 w-56 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm"
               style={{ maxHeight: 'var(--radix-dropdown-menu-content-available-height)' }} aria-label="Export options" aria-labelledby={undefined}>
               {FORMATS.map((format) => (

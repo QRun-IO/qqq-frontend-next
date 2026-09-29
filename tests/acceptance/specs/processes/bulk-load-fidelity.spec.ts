@@ -82,7 +82,7 @@ function profileControls(scope: Locator): Locator {
  */
 async function openProfileMenu(scope: Locator): Promise<Locator> {
   await profileControls(scope).getByRole('button', { name: 'Saved Bulk Load Profiles' }).click()
-  const menu = scope.getByRole('menu', { name: 'Saved bulk load profiles' })
+  const menu = scope.page().getByRole('menu', { name: 'Saved bulk load profiles' })
   await expect(menu).toBeVisible()
   return menu
 }
@@ -121,6 +121,42 @@ function stepValues(request: Request): Record<string, string> {
 }
 
 test.describe('Saved bulk load profiles', () => {
+  test('[PRC-058] profile menus fit the viewport and support keyboard navigation and dialog focus return @mobile', async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    for (let index = 1; index <= 8; index++) await storeProfile(backend.api, `Review Profile ${index}`, personProfileJson())
+    const mapping = await uploadToMapping(page, 'person.bulkInsert', PEOPLE_CSV)
+    const controls = profileControls(mapping)
+    const trigger = controls.getByRole('button', { name: 'Saved Bulk Load Profiles', exact: true })
+    await trigger.focus()
+    await page.keyboard.press('ArrowDown')
+    const menu = page.getByRole('menu', { name: 'Saved bulk load profiles', exact: true })
+    await expect(menu).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Review Profile 8', exact: true })).toBeAttached()
+    const bounds = await menu.boundingBox()
+    const viewport = page.viewportSize()!
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height)
+    await expect(menu.getByRole('menuitem', { name: 'Save As...', exact: true })).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(menu.getByRole('menuitem', { name: 'Review Profile 8', exact: true })).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(menu.getByRole('menuitem', { name: 'Save As...', exact: true })).toBeFocused()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog', { name: 'Save New Bulk Load Profile', exact: true })
+    await expect(dialog.getByPlaceholder('Bulk Load Profile Name')).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(trigger).toBeFocused()
+
+    const saveNew = controls.getByRole('button', { name: 'Save Bulk Load Profile As…', exact: true })
+    await saveNew.click()
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(saveNew).toBeFocused()
+  })
+
   test('[PRC-058] saved profile actions: a new profile named with Enter, update after the confirm, rename, save as a copy and delete only with the button @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const mapping = await uploadToMapping(page, 'person.bulkInsert', PEOPLE_CSV)
