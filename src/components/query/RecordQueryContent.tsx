@@ -183,7 +183,7 @@ export function RecordQueryContent({
       ============================================================ */}
       {isError && error !== dismissedError && (
         <div
-          className="relative rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 pr-10 text-sm text-destructive"
+          className="relative rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 pr-10 text-sm text-red-800 dark:text-red-400"
           role="alert"
           data-qqq-id="grid-error"
         >
@@ -209,7 +209,7 @@ export function RecordQueryContent({
           <button
             type="button"
             onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })}
-            className="mt-2 text-xs underline hover:text-red-900 focus:outline-none"
+            className="mt-2 text-xs underline hover:text-red-900 dark:hover:text-red-300 focus:outline-none"
             data-qqq-id="button-retry"
           >
             Retry

@@ -8,6 +8,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, open, test } from '../../support/fixtures'
 
+// Theme metadata is instance-wide; every scenario needs the backend reset before navigation.
+test.beforeEach(async ({ backend }) => { void backend })
+
 for (const mode of ['light', 'dark'] as const) {
   test(`[NAV-056] branded report links and controls remain readable in ${mode} mode @mobile`, async ({ page, diagnostics }) => {
     void diagnostics
@@ -29,11 +32,16 @@ for (const mode of ['light', 'dark'] as const) {
   })
 }
 
-for (const mode of ['light', 'dark'] as const) {
-  test(`[NAV-056] pivot validation remains readable in ${mode} mode @mobile`, async ({ page, diagnostics }) => {
+for (const mode of ['light', 'dark', 'application'] as const) {
+  test(`[NAV-056] pivot validation remains readable in ${mode} mode @mobile`, async ({ page, backend, diagnostics }) => {
     void diagnostics
+    if (mode === 'application') await backend.enableTheme()
     await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
     await open(page, '/app/savedReport/102/edit')
+    await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'dark' ? 'dark' : 'light')
+    if (mode === 'application') {
+      await expect.poll(() => page.locator('html').evaluate(root => getComputedStyle(root).getPropertyValue('--color-destructive').trim())).toBe('#f97316')
+    }
     await page.getByRole('button', { name: 'Edit Pivot Table', exact: true }).click()
     await page.locator('[data-qqq-id="pivot-editor-add-row"]').click()
     await page.locator('[data-qqq-id="pivot-editor-ok"]').click()
@@ -41,6 +49,7 @@ for (const mode of ['light', 'dark'] as const) {
     const results = await new AxeBuilder({ page }).include('[data-qqq-id="pivot-editor-error"]')
       .withRules(['color-contrast']).analyze()
     expect(results.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+    expect(results.incomplete).toEqual([])
   })
 }
 

@@ -769,7 +769,9 @@
       "fixture": "AcceptanceSampleServer /acceptance/theme; reset removes the theme before each test",
       "scenarios": [
         "v1 metaData publishes the selected Material theme settings",
-        "the rendered dashboard applies its primary token, branded header colors and tagline, and custom CSS"
+        "the rendered dashboard applies its primary token, branded header colors and tagline, and custom CSS",
+        "Every theme scenario resets instance metadata before navigation",
+        "Pivot validation meets text contrast in default light, default dark and a configured orange error theme"
       ],
       "negative": [],
       "issues": [

@@ -202,7 +202,10 @@
       "fixture": "QueryFixtures.java qryItem",
       "scenarios": [
         "Backend error text shown",
-        "Retry reloads after the failure clears"
+        "Retry reloads after the failure clears",
+        "Query error text and the front error notification meet text contrast in light, dark and configured application themes",
+        "Retry repeats the backend request; hover remains readable",
+        "Dismiss hides the error; resetting the invalid filter restores SQL-verified records"
       ],
       "negative": [
         "No rows from the failed request are shown"

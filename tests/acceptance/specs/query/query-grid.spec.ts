@@ -6,6 +6,7 @@
  */
 
 // Record list basics: columns, default sort, sorting, pagination, column configuration.
+import AxeBuilder from '@axe-core/playwright'
 import { expect, open, test } from '../../support/fixtures'
 import { expectWithinViewport } from '../../support/touch'
 import { columnCells, expectColumn, grid, isPhone, nextQuery, showTable, sqlColumn } from './query-helpers'
@@ -275,3 +276,51 @@ test('[QRY-007] a failed query shows the error and a retry @mobile', async ({ pa
   await expect(alert).toContainText('Failed to load records.')
   await expect(alert.getByRole('button', { name: 'Retry' })).toBeVisible()
 })
+
+for (const mode of ['light', 'dark', 'application'] as const) {
+  test(`[QRY-007] query error remains readable in ${mode} theme and supports retry and dismissal @mobile`, async ({ page, backend, diagnostics }) => {
+    diagnostics.allow('/qqq/v1/table/qryItem/query 500')
+    diagnostics.allow('/qqq/v1/table/qryItem/count 500')
+    diagnostics.allow('status of 500')
+    await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+    let configuredErrorColor: string | undefined
+    if (mode === 'application') {
+      await backend.enableTheme()
+      const metadata = await (await backend.api.get('/qqq/v1/metaData')).json()
+      configuredErrorColor = metadata.supplementalInstanceMetaData?.materialDashboardTheme?.errorColor
+      expect(configuredErrorColor).toBeTruthy()
+    }
+    await open(page, `/app/qryItem?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'noSuchField', operator: 'EQUALS', values: ['x'] }] }))}`)
+    const alert = page.locator('[data-qqq-id="grid-error"]')
+    await expect(alert).toContainText('Failed to load records.')
+    await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'dark' ? 'dark' : 'light')
+    if (configuredErrorColor) {
+      await expect.poll(() => page.locator('html').evaluate(root => getComputedStyle(root).getPropertyValue('--color-destructive').trim())).toBe(configuredErrorColor)
+    }
+    const notificationSelector = '[data-sonner-toast][data-type="error"][data-front="true"]'
+    const notification = page.locator(notificationSelector)
+    await expect(notification).toBeVisible()
+    await notification.hover()
+    await expect(notification).toHaveCSS('opacity', '1')
+    const notificationContrast = await new AxeBuilder({ page }).include(notificationSelector).withRules(['color-contrast']).analyze()
+    expect(notificationContrast.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+    expect(notificationContrast.incomplete).toEqual([])
+    const retry = alert.getByRole('button', { name: 'Retry' })
+    for (const hovered of [false, true]) {
+      if (hovered) await retry.hover()
+      const result = await new AxeBuilder({ page }).include('[data-qqq-id="grid-error"]').withRules(['color-contrast']).analyze()
+      expect(result.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+      expect(result.incomplete).toEqual([])
+    }
+    const retryResponse = page.waitForResponse(response => response.url().includes('/qqq/v1/table/qryItem/query'))
+    await retry.click()
+    expect((await retryResponse).status()).toBe(500)
+    await expect(page.locator('[data-qqq-id="button-refresh"] svg')).not.toHaveClass(/animate-spin/)
+    await expect(alert).toContainText('noSuchField')
+    await alert.getByRole('button', { name: 'Dismiss', exact: true }).click()
+    await expect(alert).toBeHidden()
+    await page.locator('[data-qqq-id="saved-view-reset"]').click()
+    await showTable(page)
+    await expectColumn(page, 'name', await sqlColumn(backend, 'select name from qry_item order by id desc'))
+  })
+}

@@ -85,6 +85,7 @@ export function AppToaster() {
       offset={TOASTER_OFFSET}
       mobileOffset={TOASTER_MOBILE_OFFSET}
       richColors
+      style={{ '--error-text': 'var(--color-red-800)' } as React.CSSProperties}
       closeButton
       toastOptions={{ duration: 4000 }}
       aria-live="polite"

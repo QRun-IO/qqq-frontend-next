@@ -417,7 +417,7 @@ function PivotEditorBody({ widgetName, tableMetaData, availableFieldNames, defin
           <div
             role="alert"
             data-qqq-id="pivot-editor-error"
-            className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-red-700 dark:text-red-400"
+            className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-red-800 dark:text-red-400"
           >
             <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="flex-1">{errorAlert}</span>

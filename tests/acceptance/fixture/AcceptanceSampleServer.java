@@ -195,6 +195,7 @@ public class AcceptanceSampleServer
    {
       MaterialDashboardThemeMetaData.ofOrWithNew(instance)
          .withPrimaryColor("#0f766e")
+         .withErrorColor("#f97316")
          .withSidebarBackgroundColor("#1f2937")
          .withTableHeaderBackgroundColor("#e0f2f1")
          .withBrandedHeaderEnabled(true)
