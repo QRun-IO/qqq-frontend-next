@@ -114,7 +114,7 @@ describe('saved bulk load profiles (#726)', () => {
     vi.mocked(querySavedBulkLoadProfiles).mockResolvedValue([mine, bobs])
   })
 
-  it('supports keyboard selection and restores focus after profile dialogs close', async () => {
+  it('supports keyboard selection and restores focus after profile editors close', async () => {
     const user = userEvent.setup()
     renderScreen(mappingStep, baseValues)
     const trigger = screen.getByRole('button', { name: 'Saved Bulk Load Profiles' })
@@ -123,7 +123,7 @@ describe('saved bulk load profiles (#726)', () => {
     const menu = screen.getByRole('menu', { name: 'Saved bulk load profiles' })
     await waitFor(() => expect(within(menu).getByRole('menuitem', { name: 'Save As...' })).toHaveFocus())
     await user.keyboard('{Enter}')
-    expect(screen.getByRole('dialog', { name: 'Save New Bulk Load Profile' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Save New Bulk Load Profile' })).toBeVisible()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(trigger).toHaveFocus())
 
@@ -185,11 +185,16 @@ describe('saved bulk load profiles (#726)', () => {
     vi.mocked(deleteSavedBulkLoadProfile).mockResolvedValue()
     const onSubmit = renderScreen(mappingStep, baseValues)
     await user.click(screen.getByRole('button', { name: 'Save Bulk Load Profile As…' }))
-    expect(screen.getByRole('dialog', { name: 'Save New Bulk Load Profile' })).toBeInTheDocument()
+    const editor = screen.getByRole('group', { name: 'Save New Bulk Load Profile' })
+    expect(screen.getByRole('region', { name: 'Saved Bulk Load Profiles' })).toContainElement(editor)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(within(editor).getByLabelText('Profile Name')).toHaveFocus()
+    expect(within(editor).getByRole('button', { name: 'Save Profile' })).toBeDisabled()
     await user.type(screen.getByPlaceholderText('Bulk Load Profile Name'), 'Typed Name{Enter}')
     await waitFor(() => expect(storeSavedBulkLoadProfile).toHaveBeenCalledWith(expect.objectContaining({ id: undefined, label: 'Typed Name' })))
     expect(onSubmit).not.toHaveBeenCalled()
     expect(await screen.findByRole('heading', { name: 'File Mapping / Typed Name' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Saved Bulk Load Profiles' })).toHaveFocus())
 
     await user.click(screen.getByRole('button', { name: 'Saved Bulk Load Profiles' }))
     await user.click(screen.getByRole('menuitem', { name: 'Rename...' }))

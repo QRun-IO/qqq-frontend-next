@@ -19,14 +19,14 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 122 | 6 | 1 | 0 | 2 | 131 |
 | Records | 126 | 4 | 0 | 0 | 8 | 138 |
-| Processes and reports | 122 | 2 | 0 | 1 | 3 | 128 |
+| Processes and reports | 119 | 5 | 0 | 1 | 3 | 128 |
 | Widgets and blocks | 224 | 4 | 4 | 0 | 4 | 236 |
-| Supplemental metadata and theme | 39 | 0 | 0 | 0 | 11 | 50 |
-| **Total** | **730** | **19** | **5** | **2** | **38** | **794** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 105 | 8 | 1 | 1 | 12 | 127 |
+| Supplemental metadata and theme | 40 | 0 | 0 | 0 | 11 | 51 |
+| **Total** | **728** | **22** | **5** | **2** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 10 | 1 | 1 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
-The 2026-09-26 row-by-row recount found 794 area rows, including 50 supplemental metadata and theme rows. The prior summary overstated the total by one; no behavior row was deleted in this correction. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
+The September 29 recount finds 795 existing area rows, including 51 supplemental metadata and theme rows. The summary previously omitted one existing supplemental row; this recount adds or removes no ability. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
 
 ## Fixed by the parity stream
 
@@ -649,8 +649,8 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | BULK_LOAD_PROFILE_FORM on review/result | `material:src/qqq/components/processes/BulkLoadProfileForm.tsx` | `src/components/process/BulkLoadProfileComponent.tsx` | PRC-046 | Done |
 | Profiles listed as "yours" vs "shared with you" | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:137-165, 511-525` | `src/components/process/SavedBulkLoadProfiles.tsx:splitProfilesByOwner` | PRC-046; `src/components/process/bulk-load-components.test.tsx` | Done: menu groups owned and shared profiles |
 | Choose a profile to apply its mapping | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:171-184` | `src/components/process/SavedBulkLoadProfiles.tsx` select | PRC-046 | Done |
-| Save / Save As, "Profile Saved.", duplicate-name error | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:198-206, 272-310` | `src/components/process/SavedBulkLoadProfiles.tsx` Save / Save As | PRC-046 | Done |
-| Rename profile | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:222-228, 467` | `src/components/process/SavedBulkLoadProfiles.tsx` | `src/components/process/bulk-load-components.test.tsx` | Done: Rename dialog saves the new name |
+| Save / Save As, "Profile Saved.", duplicate-name error | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:198-206, 272-310` | `src/components/process/SavedBulkLoadProfiles.tsx` Save / Save As | PRC-046 | Done (different UX): original Next inline naming; save result and duplicate-name errors retained; PRC-046, PRC-058 |
+| Rename profile | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:222-228, 467` | `src/components/process/SavedBulkLoadProfiles.tsx` | `src/components/process/bulk-load-components.test.tsx` | Done (different UX): owner renames inline in the profile section; PRC-058 |
 | Delete profile with confirm | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:229, 250` | `src/components/process/SavedBulkLoadProfiles.tsx` Delete… confirm | PRC-046 | Done |
 | "Update existing profile?" confirm | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:773` | `src/components/process/SavedBulkLoadProfiles.tsx` | `src/components/process/bulk-load-components.test.tsx` | Done: update requires a confirmation dialog |
 | New / Empty mapping | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:208, 500, 663` | `src/components/process/SavedBulkLoadProfiles.tsx`; `src/components/process/BulkLoadFileMappingComponent.tsx` | `src/components/process/bulk-load-components.test.tsx` | Done: New and Empty Mapping start an unassigned mapping |
@@ -658,7 +658,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | Unsaved-changes count + diff tooltip; Reset All Changes | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:674-695`; `material:src/qqq/utils/qqq/SavedBulkLoadProfileUtils.ts:265` | `src/components/process/SavedBulkLoadProfiles.tsx:diffBulkLoadMappings` | `src/components/process/bulk-load-components.test.tsx` | Done: count, diff tooltip and reset action compare with the selected profile |
 | Non-owner can't save/rename/delete | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:414-421` | `src/components/process/SavedBulkLoadProfiles.tsx:isProfileOwner` | `src/components/process/bulk-load-components.test.tsx` | Done: non-owner actions are disabled |
 | Gated by the store/query/delete processes existing | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:395-398` | `src/components/process/SavedBulkLoadProfiles.tsx` canStore / canQuery / canDelete | PRC-046 | Done |
-| Enter in the save dialog saves (not in delete) | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:708-723` | `src/components/process/SavedBulkLoadProfiles.tsx` dialog key handler | `src/components/process/bulk-load-components.test.tsx` | Done: Enter saves or renames; delete requires its explicit button |
+| Enter in the save dialog saves (not in delete) | `material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:708-723` | `src/components/process/SavedBulkLoadProfiles.tsx` dialog key handler | `src/components/process/bulk-load-components.test.tsx` | Done (different UX): Enter saves or renames inline without submitting the process step; delete requires its explicit button |
 
 ## Widgets and blocks
 
@@ -1042,7 +1042,7 @@ What the backend sends and what Next reads (QQQ `develop` includes [#804](https:
 | Material `--qqq-*` variable contract (e.g. `--qqq-sidebar-background-color`, `--qqq-table-header-background-color`) targetable by app customCss | material:docs/QQQ_THEMING_GUIDE.md:164-237; material:src/qqq/utils/injectIslandVariables.ts:79-236; material:src/qqq/styles/qqq-override-styles.css:920-1125 | src/lib/theme/material-theme.ts; src/lib/theme/theme-provider.tsx; src/app/(dashboard)/layout.tsx; src/components/layout/BrandedHeaderBar.tsx | none | Done: the allowlisted theme property reaches the scoped Next tokens, elements or Material `--qqq-*` variables; #719 |
 | Component override vars `--qqq-stepper-inactive-color`, `--qqq-tooltip-*`, `--qqq-input-border-color`, `--qqq-menu-hover-color`, `--qqq-switch-track-color`, `--qqq-prefer-info-color-to-primary-color` | material:docs/QQQ_THEMING_GUIDE.md:214-237 | src/lib/theme/material-theme.ts; src/lib/theme/theme-provider.tsx; src/app/(dashboard)/layout.tsx; src/components/layout/BrandedHeaderBar.tsx | none | Done: the allowlisted theme property reaches the scoped Next tokens, elements or Material `--qqq-*` variables; #719 |
 | Unthemed default look: dark gradient sidebar (#42424a to #191919) with white text; AppBar not white | material:src/qqq/styles/qqq-override-styles.css:925; material:e2e/tests/unthemed-regression.spec.ts:152-243 | light sidebar (#f0f2f6) by default | none | N/A: visually different; design decision on #711 |
-| Dark mode | not implemented in Material (proposed only, material:docs/PLUGGABLE_THEMES_DESIGN.md:329; material:src/qqq/context/index.tsx:50,123, theme-dark never imported) | src/lib/theme/theme-provider.tsx:85-111 applies `.dark` from OS `prefers-color-scheme`; no toggle (`toggleDarkMode` unused) | none | N/A: Next goes dark with the OS and has no switch; design decision on #711 |
+| Dark mode | not implemented in Material (proposed only, material:docs/PLUGGABLE_THEMES_DESIGN.md:329; material:src/qqq/context/index.tsx:50,123, theme-dark never imported) | src/lib/theme/theme-provider.tsx: ThemeProvider defaults to light; an explicit saved dark preference applies only without application theme metadata | none | N/A: dark mode is a Next capability; the OS preference does not silently change the dashboard |
 | Roboto and Material Icons fonts | material:src/qqq/utils/themeUtils.ts:544-575 | Inter plus Lucide (src/lib/utils/material-icons.ts) | NAV-005 | N/A: by design |
 | UI controller flags (transparent/white sidenav, navbar variants, configurator, rtl) | material:src/qqq/context/index.tsx:32-51,111-125; material:src/qqq/components/horseshoe/NavBar.tsx:70-108 | none | none | N/A: template internals |
 
@@ -1171,8 +1171,8 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Validation-review explanatory tooltips | material:src/qqq/components/processes/ValidationReview.tsx:209-251 | src/components/process/ValidationReviewComponent.tsx | PRC-026 | Done: tooltips became inline text |
 | Process finish feedback (summary screen, "See these records in a new tab") | material:src/qqq/components/processes/ProcessSummaryResults.tsx:52-107; material:src/qqq/models/processes/ProcessSummaryLine.tsx:106-150 | src/components/process/ProcessSummaryResultsComponent.tsx; src/components/process/ProcessSummaryLines.tsx:summaryRecordsHref | PRC-027, PRC-028 | Done |
 | Saved bulk-load profile menu (yours vs shared) | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:425,511-525 | src/components/process/SavedBulkLoadProfiles.tsx | PRC-046; src/components/process/bulk-load-components.test.tsx | Done: owned and shared groups |
-| Bulk-load profile Save / Save As / Delete dialogs with inline error | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:703-742 | src/components/process/SavedBulkLoadProfiles.tsx | PRC-046 | Done |
-| Bulk-load profile Rename dialog | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:222-228,467 | src/components/process/SavedBulkLoadProfiles.tsx | src/components/process/bulk-load-components.test.tsx | Done: owner can rename |
+| Bulk-load profile Save / Save As / Delete dialogs with inline error | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:703-742 | src/components/process/SavedBulkLoadProfiles.tsx | PRC-046 | Done (different UX): naming is inline in the original Next profile panel; errors remain inline and delete retains confirmation; PRC-046, PRC-058 |
+| Bulk-load profile Rename dialog | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:222-228,467 | src/components/process/SavedBulkLoadProfiles.tsx | src/components/process/bulk-load-components.test.tsx | Done (different UX): owner renames inline; PRC-058 |
 | Bulk-load "Update existing profile?" confirm | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:773 | src/components/process/SavedBulkLoadProfiles.tsx | src/components/process/bulk-load-components.test.tsx | Done: update confirmation dialog |
 | Bulk-load profile unsaved-changes tooltip and Reset | material:src/qqq/components/misc/SavedBulkLoadProfiles.tsx:674-695 | src/components/process/SavedBulkLoadProfiles.tsx | src/components/process/bulk-load-components.test.tsx | Done: count, diffs and reset |
 | Bulk-load column tooltip and duplicate-header warning | material:src/qqq/components/processes/BulkLoadFileMappingForm.tsx:623-667 | src/components/process/BulkLoadFileMappingComponent.tsx:FilePreview | src/components/process/bulk-load-components.test.tsx | Done: mapped fields and duplicate warning |

@@ -121,7 +121,7 @@ function stepValues(request: Request): Record<string, string> {
 }
 
 test.describe('Saved bulk load profiles', () => {
-  test('[PRC-058] profile menus fit the viewport and support keyboard navigation and dialog focus return @mobile', async ({ page, backend, diagnostics }) => {
+  test('[PRC-058] profile menus fit the viewport and support keyboard navigation and editor focus return @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     for (let index = 1; index <= 8; index++) await storeProfile(backend.api, `Review Profile ${index}`, personProfileJson())
     const mapping = await uploadToMapping(page, 'person.bulkInsert', PEOPLE_CSV)
@@ -145,7 +145,7 @@ test.describe('Saved bulk load profiles', () => {
     await page.keyboard.press('Home')
     await expect(menu.getByRole('menuitem', { name: 'Save As...', exact: true })).toBeFocused()
     await page.keyboard.press('Enter')
-    const dialog = page.getByRole('dialog', { name: 'Save New Bulk Load Profile', exact: true })
+    const dialog = page.getByRole('group', { name: 'Save New Bulk Load Profile', exact: true })
     await expect(dialog.getByPlaceholder('Bulk Load Profile Name')).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(trigger).toBeFocused()
@@ -163,10 +163,12 @@ test.describe('Saved bulk load profiles', () => {
     const controls = profileControls(mapping)
     await expect(controls.getByRole('button', { name: 'Saved Bulk Load Profiles' })).toHaveAttribute('data-profile-state', 'none')
 
-    // a new profile: its name dialog saves on Enter
+    // a new profile: its inline name editor saves without submitting the mapping step
     await controls.getByRole('button', { name: 'Save Bulk Load Profile As…' }).click()
-    let dialog = page.getByRole('dialog', { name: 'Save New Bulk Load Profile' })
-    await expect(dialog.getByText('Enter a name for this new saved bulk load profile.')).toBeVisible()
+    let dialog = page.getByRole('group', { name: 'Save New Bulk Load Profile' })
+    await expect(controls.getByRole('group', { name: 'Save New Bulk Load Profile' })).toBeVisible()
+    await expect(dialog.getByLabel('Profile Name', { exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await expectTouchReady(page, dialog)
     await dialog.getByPlaceholder('Bulk Load Profile Name').fill('Lab People CSV')
     await dialog.getByPlaceholder('Bulk Load Profile Name').press('Enter')
@@ -199,7 +201,7 @@ test.describe('Saved bulk load profiles', () => {
     // rename keeps the profile (same id) under a new name
     let menu = await openProfileMenu(mapping)
     await menu.getByRole('menuitem', { name: 'Rename...' }).click()
-    dialog = page.getByRole('dialog', { name: 'Rename Bulk Load Profile' })
+    dialog = page.getByRole('group', { name: 'Rename Bulk Load Profile' })
     const name = dialog.getByPlaceholder('Bulk Load Profile Name')
     await expect(name).toHaveValue('Lab People CSV')
     await name.fill('Lab People Renamed')
@@ -211,9 +213,9 @@ test.describe('Saved bulk load profiles', () => {
     menu = await openProfileMenu(mapping)
     await expectTouchReady(page, menu)
     await menu.getByRole('menuitem', { name: 'Save As...' }).click()
-    dialog = page.getByRole('dialog', { name: 'Save Bulk Load Profile As' })
+    dialog = page.getByRole('group', { name: 'Save Bulk Load Profile As' })
     await dialog.getByPlaceholder('Bulk Load Profile Name').fill('Lab People Copy')
-    await dialog.getByRole('button', { name: 'Save' }).click()
+    await dialog.getByRole('button', { name: 'Save Profile' }).click()
     await expect(page.locator('[data-qqq-id="process-step-heading"]')).toHaveText('File Mapping / Lab People Copy')
     expect(await backend.sql('select label, user_id from saved_bulk_load_profile order by id')).toEqual([
       { label: 'Lab People Renamed', user_id: 'sample:alice' }, { label: 'Lab People Copy', user_id: 'sample:alice' },
@@ -335,7 +337,7 @@ test.describe('Saved bulk load profiles', () => {
     // the user saves their own copy instead
     menu = await openProfileMenu(mapping)
     await menu.getByRole('menuitem', { name: 'Save As...' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Save Bulk Load Profile As' })
+    const dialog = page.getByRole('group', { name: 'Save Bulk Load Profile As' })
     await dialog.getByPlaceholder('Bulk Load Profile Name').fill('Alice Copy of Bob')
     await dialog.getByPlaceholder('Bulk Load Profile Name').press('Enter')
     await expect(page.locator('[data-qqq-id="process-step-heading"]')).toHaveText('File Mapping / Alice Copy of Bob')

@@ -25,7 +25,7 @@
 
 'use client'
 
-import React, { useId, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
@@ -69,7 +69,7 @@ export interface SavedBulkLoadProfilesProps {
   onChange: (profile: SavedBulkLoadProfileRecord | null) => void
 }
 
-/** Dialog shown by a profile action. */
+/** Inline naming or confirmation shown by a profile action. */
 type DialogKind = 'saveNew' | 'saveAs' | 'rename' | 'update' | 'delete'
 
 const NOT_OWNER_TEXT = 'You may not save changes to this bulk load profile, because you are not its owner.'
@@ -79,7 +79,7 @@ const quietLinkButton = 'rounded px-1 text-sm text-muted-foreground underline-of
 const rule = <span aria-hidden="true" className="inline-block h-4 w-px bg-border" />
 
 /**
- * Render the saved bulk load profile menu, status and dialogs.
+ * Render saved bulk load profiles, inline naming and action confirmations.
  * @param props - {@link SavedBulkLoadProfilesProps}
  * @returns The controls, or nothing when the application has no saved profiles.
  */
@@ -101,6 +101,8 @@ export function SavedBulkLoadProfiles({
   const saveButtonRef = useRef<HTMLButtonElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const restoreInlineFocusRef = useRef(false)
+  const needsName = dialog === 'saveNew' || dialog === 'saveAs' || dialog === 'rename'
   const canStore = Boolean(instance?.processes?.storeSavedBulkLoadProfile)
   const canQuery = Boolean(instance?.processes?.querySavedBulkLoadProfile)
   const canDelete = Boolean(instance?.processes?.deleteSavedBulkLoadProfile)
@@ -126,6 +128,16 @@ export function SavedBulkLoadProfiles({
     }
   }, [current, file, mapping])
 
+  useEffect(() => {
+    if (needsName) nameInputRef.current?.focus()
+    else if (restoreInlineFocusRef.current) {
+      restoreInlineFocusRef.current = false
+      const target = dialogReturnFocusRef.current
+      if (target?.isConnected) target.focus()
+      else triggerRef.current?.focus()
+    }
+  }, [dialog, needsName])
+
   if (!canQuery && !canStore) return null
 
   const action = isBulkEdit ? 'Edit' : 'Load'
@@ -134,7 +146,7 @@ export function SavedBulkLoadProfiles({
   const modified = diffs.length > 0
 
   /**
-   * Open a profile action's dialog.
+   * Open a profile action's inline editor or confirmation.
    * @param kind - The action.
    * @param opener - The control to return focus to after the dialog.
    */
@@ -154,14 +166,19 @@ export function SavedBulkLoadProfiles({
   const choose = (profile: SavedBulkLoadProfileRecord | null) => {
     setOpen(false)
     setMessage(null)
+    setDialog(null)
     onSelect?.(profile)
     onChange(profile)
   }
 
-  /** Run the open dialog's action: store (insert, update or rename) or delete. */
+  const closeNameEditor = () => {
+    restoreInlineFocusRef.current = true
+    setDialog(null)
+  }
+
+  /** Store (insert, update or rename) or delete the current profile. */
   const submit = async () => {
     if (!dialog || busy) return
-    const needsName = dialog === 'saveNew' || dialog === 'saveAs' || dialog === 'rename'
     if (needsName && !name.trim()) return
     setBusy(true)
     setDialogError(null)
@@ -187,7 +204,8 @@ export function SavedBulkLoadProfiles({
         mappingJson,
       })
       await queryClient.invalidateQueries({ queryKey })
-      setDialog(null)
+      if (needsName) closeNameEditor()
+      else setDialog(null)
       setMessage('Profile Saved.')
       onChange(stored)
     } catch (failure) {
@@ -197,7 +215,6 @@ export function SavedBulkLoadProfiles({
     }
   }
 
-  const needsName = dialog === 'saveNew' || dialog === 'saveAs' || dialog === 'rename'
   const title = dialog === 'delete' ? `Delete Bulk ${action} Profile`
     : dialog === 'saveAs' ? `Save Bulk ${action} Profile As`
       : dialog === 'rename' ? `Rename Bulk ${action} Profile`
@@ -228,7 +245,7 @@ export function SavedBulkLoadProfiles({
           <button
             ref={triggerRef}
             type="button"
-            disabled={isWorking}
+            disabled={isWorking || busy}
             aria-haspopup="menu"
             aria-expanded={open}
             className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50', buttonTone)}
@@ -331,7 +348,7 @@ export function SavedBulkLoadProfiles({
         {!current && (
           <>
             {canStore && (
-              <button type="button" className={linkButton} disabled={isWorking} title={`Unsaved Mapping: you are not using a saved bulk ${lower} profile.`}
+              <button type="button" className={linkButton} disabled={isWorking || busy} title={`Unsaved Mapping: you are not using a saved bulk ${lower} profile.`}
                 onClick={event => openDialog('saveNew', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-save-new">
                 {`Save Bulk ${action} Profile As…`}
               </button>
@@ -340,11 +357,11 @@ export function SavedBulkLoadProfiles({
               <>
                 {canStore && rule}
                 <span className="pl-1 text-muted-foreground">Reset to:</span>
-                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-reset-empty">
+                <button type="button" className={quietLinkButton} disabled={isWorking || busy} onClick={() => choose(null)} data-qqq-id="saved-bulk-load-profile-reset-empty">
                   Empty Mapping
                 </button>
                 {rule}
-                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => { setMessage(null); onResetToSuggested?.() }} data-qqq-id="saved-bulk-load-profile-reset-suggested">
+                <button type="button" className={quietLinkButton} disabled={isWorking || busy} onClick={() => { setMessage(null); onResetToSuggested?.() }} data-qqq-id="saved-bulk-load-profile-reset-suggested">
                   Suggested Mapping
                 </button>
               </>
@@ -370,14 +387,14 @@ export function SavedBulkLoadProfiles({
               </span>
             </HoverTooltip>
             {isOwner && canStore && (
-              <button type="button" className={linkButton} disabled={isWorking} onClick={event => openDialog('update', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-save-changes">
+              <button type="button" className={linkButton} disabled={isWorking || busy} onClick={event => openDialog('update', event.currentTarget)} data-qqq-id="saved-bulk-load-profile-save-changes">
                 {'Save…'}
               </button>
             )}
             {allowSelecting && (
               <>
                 {rule}
-                <button type="button" className={quietLinkButton} disabled={isWorking} onClick={() => choose(current)} data-qqq-id="saved-bulk-load-profile-reset-changes">
+                <button type="button" className={quietLinkButton} disabled={isWorking || busy} onClick={() => choose(current)} data-qqq-id="saved-bulk-load-profile-reset-changes">
                   Reset All Changes
                 </button>
               </>
@@ -386,7 +403,43 @@ export function SavedBulkLoadProfiles({
         )}
       </div>
 
-      <DialogPrimitive.Root open={dialog !== null} onOpenChange={(next) => { if (!next) setDialog(null) }}>
+      {needsName && (
+        <div role="group" aria-label={title} className="flex w-full flex-wrap items-end gap-2" data-qqq-id="saved-bulk-load-profile-name-editor"
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              if (!busy) closeNameEditor()
+            } else if (event.key === 'Enter' && event.target === nameInputRef.current) {
+              event.preventDefault()
+              event.stopPropagation()
+              void submit()
+            }
+          }}>
+          {dialogError && <p role="alert" className="w-full text-sm text-destructive" data-qqq-id="saved-bulk-load-profile-error">{dialogError}</p>}
+          <label htmlFor={`${baseId}-name`} className="flex min-w-0 max-w-full flex-col gap-1 text-foreground">
+            Profile Name
+            <input ref={nameInputRef} id={`${baseId}-name`} type="text" value={name} maxLength={100}
+              placeholder={`Bulk ${action} Profile Name`} disabled={busy}
+              onFocus={event => event.target.select()} onChange={event => setName(event.target.value)}
+              aria-required="true" aria-invalid={Boolean(dialogError) || undefined}
+              className="max-w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11"
+              data-qqq-id="input-bulk-load-profile-name" />
+          </label>
+          <button type="button" disabled={busy || !name.trim()} onClick={() => { void submit() }}
+            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-qqq-id="button-confirm-save-bulk-load-profile">
+            Save Profile
+          </button>
+          <button type="button" disabled={busy} onClick={closeNameEditor}
+            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-qqq-id="button-cancel-saved-bulk-load-profile">
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <DialogPrimitive.Root open={dialog !== null && !needsName} onOpenChange={(next) => { if (!next) setDialog(null) }}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-saved-bulk-load-profile"
@@ -397,12 +450,9 @@ export function SavedBulkLoadProfiles({
               else triggerRef.current?.focus()
             }}
             onOpenAutoFocus={(event) => {
-              ////////////////////////////////////////////////////////////////////////
-              // the name field, the Save button of an update (so Enter saves), or //
-              // Cancel before a delete                                             //
-              ////////////////////////////////////////////////////////////////////////
+              // Enter confirms an update; deletion starts on Cancel.
               event.preventDefault()
-              const target = dialog === 'delete' ? cancelButtonRef.current : dialog === 'update' ? saveButtonRef.current : nameInputRef.current
+              const target = dialog === 'delete' ? cancelButtonRef.current : saveButtonRef.current
               target?.focus()
             }}
             onKeyDown={(event) => {
@@ -422,26 +472,11 @@ export function SavedBulkLoadProfiles({
               </DialogPrimitive.Close>
             </div>
             {dialogError && <p role="alert" className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" data-qqq-id="saved-bulk-load-profile-error">{dialogError}</p>}
-            {needsName ? (
-              <div className="space-y-2">
-                <label htmlFor={`${baseId}-name`} className="block text-sm text-foreground">
-                  {dialog === 'rename' ? `Enter a new name for this saved bulk ${lower} profile.` : `Enter a name for this new saved bulk ${lower} profile.`}
-                </label>
-                <input ref={nameInputRef} id={`${baseId}-name`} type="text" value={name} maxLength={100}
-                  placeholder={`Bulk ${action} Profile Name`}
-                  onFocus={(event) => event.target.select()}
-                  onChange={(event) => setName(event.target.value)}
-                  aria-required="true" aria-invalid={Boolean(dialogError) || undefined}
-                  className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                  data-qqq-id="input-bulk-load-profile-name" />
-              </div>
-            ) : (
-              <p className="text-sm text-foreground">
-                {dialog === 'delete'
-                  ? `Are you sure you want to delete the bulk ${lower} profile '${current?.label ?? ''}'?`
-                  : `Are you sure you want to update the bulk ${lower} profile '${current?.label ?? ''}'?`}
-              </p>
-            )}
+            <p className="text-sm text-foreground">
+              {dialog === 'delete'
+                ? `Are you sure you want to delete the bulk ${lower} profile '${current?.label ?? ''}'?`
+                : `Are you sure you want to update the bulk ${lower} profile '${current?.label ?? ''}'?`}
+            </p>
             <div className="mt-4 flex justify-end gap-2">
               <DialogPrimitive.Close ref={cancelButtonRef} className="rounded border border-input px-3 py-1.5 text-sm hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring" data-qqq-id="button-cancel-saved-bulk-load-profile">
                 Cancel

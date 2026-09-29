@@ -38,6 +38,7 @@ Use the September 25 Next design (`e42ad2b2`) as the visual reference. Use Mater
 - Create, edit and copy share the centered `max-w-4xl` container in [`EntityForm.tsx`](../../src/components/forms/EntityForm.tsx).
 - A fresh profile starts in light mode. A saved dark preference applies only without an application theme; an application theme keeps light mode active. Check [`theme-provider.tsx`](../../src/lib/theme/theme-provider.tsx).
 
+- Preserve inline naming in `SavedBulkLoadProfiles`: New, Save As and Rename belong inside the original profile section. Prevent Enter from submitting the enclosing process form; retain ownership rules, backend validation and overwrite/delete confirmations.
 - Dialogs launched from the phone sidebar must use the existing `--qqq-z-overlay` and `--qqq-z-modal` layers. A hardcoded `z-50` puts them behind the drawer. Return focus to a persistent control when the opening menu item unmounts.
 - For Radix menus, check keyboard navigation, collision placement, available-height scrolling and native touch focus. Returning focus to the same trigger must not dismiss its newly opened menu; outside interactions must still dismiss it. Record a dialog's actual event opener because WebKit can activate buttons without focusing them.
 - Browser keyboard checks must await the resulting focus before sending the next dependent key; Radix defers roving focus. Testing Library `getByRole` uses an exact string name by default and does not accept Playwright's `exact` option.
