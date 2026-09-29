@@ -4,7 +4,19 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, input configuration review
+## Latest checkpoint — September 29, date-time input review
+
+**VIS-025 corrected:** zoned process values were assigned directly to datetime-local controls, which displayed blank fields. Plain standalone blocks sliced UTC digits into a local-time control and discarded seconds. Shared standalone editors displayed local values but sent unzoned text through their action callback. New component regressions and a fixed America/New_York browser context reproduced the failures.
+
+Process fields and standalone blocks now reuse the existing date-time conversion helpers, retaining their native controls and seconds. Process payload conversion occurs after contributors. The converter can retain an original instant when its displayed wall time is unchanged, preserving the second occurrence of a repeated DST hour and hidden subsecond precision. Edited local times become UTC instants. Material's unadorned TEXT/HTML block mapping was inspected and confirmed to use ordinary text controls; no speculative editor redesign was made.
+
+Verification: **1,796 unit tests and 30 real-backend cases across all five profiles pass** (PRC-064 unchanged/edited, WID-075, PRC-063/062 and REC-018). Backend SQL proves unchanged spring and autumn timestamps retain their instants; edits across the spring transition use the correct offset. A unit regression proves unchanged subsecond precision survives. Production export, standalone types, changed-file lint, license, whitespace and bundle checks pass (1033.9KB/1050KB). Logs: `block-datetime-{red-unit,callback-red-unit,precision-red-unit,red-browser,green-unit,unit,build,browser,types,lint,license,budget}.log`; pre-fix browser traces remain in `block-datetime-red-artifacts`.
+
+Paired process timestamp and standalone editor captures were added/refreshed in light/dark at three sizes:24entries, no setup/runtime errors or document overflow. Inspected desktop process pairs, phone process inputs and dark phone standalone controls. The original process blocks show raw text and its regular form timestamps are blank; current controls show dates, seconds and the existing shared editor timezone hint. That hint adds height relative to the original block renderer and remains part of the broader composition review. Captures use UTC; separate acceptance uses America/New_York. Inventory101light/80dark states per size; no whole family approved.
+
+Full CI36573705464 at121468b is now terminal: Firefox and WebKit passed, Chromium/touch failed dependency download before tests. This satisfies the hold on pushing local commits. Final full verification on the new source and the complete release audit remain required; no merge or publication.
+
+## Earlier checkpoint — September 29, input configuration review
 
 **VIS-024 corrected:** advancing a process moved focus from a configured autofocus input to the screen heading. A real-browser regression reproduced the inactive Plain Code field on screen two. The process now preserves focus already inside a marked autofocus editor; ordinary result screens still receive heading focus. Plain and shared metadata editors both pass the transition check.
 

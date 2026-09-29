@@ -125,6 +125,8 @@ For `pivotTableSetup`, the record view reads `pivotTableJson`; a form supplies t
 
 ### Composite input editors
 
+Use `toLocalDateTimeInput` for seeded process/standalone DATE_TIME values and `fromLocalDateTimeInput(value, originalValue)` at submission. Supplying the original preserves an unchanged instant in the repeated DST hour and its hidden subsecond precision. Normalize the final process payload after contributors have added values, so bulk-edit fields use the same contract. Do not slice UTC text into datetime-local controls or send local text as an instant. PRC-064 and WID-075 exercise America/New_York dates and seconds.
+
 `ProcessRun` preserves focus already held inside a configured `[data-qqq-autofocus="true"]` editor; other later screens still focus their heading. Preserve this precedence when changing screen lifecycle. On scalar Enter, normalize text in the hosting form before validation/submission; do not trim unrelated fields or convert typed values to display strings. PRC-063 covers later-screen focus, placeholders, prior values, first blur, whitespace validation and backend-stored text.
 
 Keep plain block controls visually stable. Backend field metadata supplies the neutral `displayFormat: "%s"`; do not treat that as a request for a different editor. Reuse `BlockInputEditor` and `DynamicFormField` for choices, formatting, behaviors and supported field adornments. Process blocks must bind to the existing screen form and send file contents as multipart files. Never create nested forms or serialize a file as its name. Surrounding process values belong in a field widget's request context, but widget changes must update only its own field.

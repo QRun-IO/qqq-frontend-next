@@ -83,16 +83,23 @@ export function toLocalDateTimeInput(value: unknown): string {
  * Converts a local `datetime-local` value to the UTC instant QQQ stores.
  *
  * @param value - `yyyy-MM-ddTHH:mm[:ss]` typed in the browser's zone.
+ * @param originalValue - Optional stored instant to retain when its local text is unchanged.
  * @returns `yyyy-MM-ddTHH:mm:ssZ`, `''` for an empty value, or the input unchanged when it is
  *   already a zoned timestamp.
  */
-export function fromLocalDateTimeInput(value: string): string {
+export function fromLocalDateTimeInput(value: string, originalValue?: unknown): string {
   const text = value.trim()
   if (!text) return ''
   if (ZONED_ISO.test(text)) return text
   const match = LOCAL_INPUT.exec(text)
   if (!match) return text
   const [, year, month, day, hour, minute, second] = match
+  // Unchanged wall-clock text must retain the original offset during a repeated
+  // DST hour, and retain subsecond precision hidden by a seconds-only control.
+  const localSeconds = `${year}-${month}-${day}T${hour}:${minute}:${second ?? '00'}`
+  if (parseInstant(originalValue) && toLocalDateTimeInput(originalValue) === localSeconds) {
+    return originalValue instanceof Date ? originalValue.toISOString() : String(originalValue).trim()
+  }
   const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? 0))
   return date.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }

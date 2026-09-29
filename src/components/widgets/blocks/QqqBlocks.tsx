@@ -29,6 +29,7 @@ import { needsBlockInputEditor, StandaloneBlockInputEditor } from './BlockInputE
 import type { BlockActionCallback, QqqBlockData } from '../widget-types'
 import { isPlainObject } from '../widget-types'
 import { cn } from '@/lib/utils/cn'
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 import { WidgetIcon } from '../WidgetIcon'
 import { BlockSlot } from './BlockSlot'
 import { useCompositeHost } from './composite-host'
@@ -342,7 +343,7 @@ export function inputFieldControl(field: Record<string, unknown>): InputFieldCon
 
 /**
  * The initial value of a block's control: the seeded `values.value`, adapted to what
- * the control accepts (`yyyy-MM-ddTHH:mm` for a date-time, `yyyy-MM-dd` for a date).
+ * the control accepts (local `yyyy-MM-ddTHH:mm:ss` for an instant, `yyyy-MM-dd` for a date).
  *
  * @param control - The control.
  * @param value - The seeded value.
@@ -350,7 +351,7 @@ export function inputFieldControl(field: Record<string, unknown>): InputFieldCon
  */
 function initialInputValue(control: InputFieldControl, value: unknown): string {
   const seeded = text(value) ?? ''
-  if (control === 'datetime-local') return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(seeded) ? seeded.slice(0, 16) : ''
+  if (control === 'datetime-local') return toLocalDateTimeInput(value) || seeded
   if (control === 'date') return /^\d{4}-\d{2}-\d{2}/.test(seeded) ? seeded.slice(0, 10) : ''
   return seeded
 }
@@ -404,7 +405,7 @@ function PlainInputFieldBlock({ block, widgetName, actionCallback }: LeafBlockPr
       return
     }
     if (required && entered === '') return
-    actionCallback?.(block, { [fieldName]: entered })
+    actionCallback?.(block, { [fieldName]: control === 'datetime-local' ? fromLocalDateTimeInput(entered, values.value) : entered })
   }
 
   const common = {
@@ -439,7 +440,7 @@ function PlainInputFieldBlock({ block, widgetName, actionCallback }: LeafBlockPr
         {...common}
         type={control}
         value={value}
-        step={control === 'number' && field.type === 'DECIMAL' ? 'any' : undefined}
+        step={control === 'number' && field.type === 'DECIMAL' ? 'any' : control === 'datetime-local' ? 1 : undefined}
         placeholder={text(values.placeholder)}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={onKeyDown}

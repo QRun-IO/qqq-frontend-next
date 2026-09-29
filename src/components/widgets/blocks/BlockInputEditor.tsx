@@ -25,6 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { QFieldMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { formValueFromRecordValue, zodSchemaFromFields } from '@/lib/utils/zod-from-metadata'
+import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 import { DynamicFormField } from '@/components/forms/DynamicFormField'
 import type { LeafBlockProps } from './QqqBlocks'
 import { blockValues, text } from './block-utils'
@@ -95,6 +96,8 @@ export function StandaloneBlockInputEditor({ block, widgetName, actionCallback, 
         return
       }
       if (['STRING', 'TEXT', 'HTML', 'PASSWORD'].includes(field.type)) form.setValue(field.name, entered, { shouldDirty: true })
-      void form.trigger(field.name).then((valid) => { if (valid) actionCallback?.(block, { [field.name]: entered }) })
+      void form.trigger(field.name).then((valid) => {
+        if (valid) actionCallback?.(block, { [field.name]: field.type === 'DATE_TIME' ? fromLocalDateTimeInput(entered, values.value) : entered })
+      })
     }} />
 }

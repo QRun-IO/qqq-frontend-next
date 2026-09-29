@@ -33,6 +33,7 @@ import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData
 import type { ProcessFiles } from '@/lib/api/processes'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
+import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
@@ -265,6 +266,10 @@ export function ProcessStepScreen({
       Object.assign(files, contribution.files ?? {})
     }
     Object.assign(payload, extraValuesRef.current)
+    for (const field of fields) {
+      const value = payload[field.name]
+      if (field.type === 'DATE_TIME' && typeof value === 'string') payload[field.name] = fromLocalDateTimeInput(value, values[field.name])
+    }
     extraValuesRef.current = {}
     onSubmit(payload, Object.keys(files).length > 0 ? files : undefined)
   }, [fields, hasValidationReview, isBulkEdit, onSubmit, values])

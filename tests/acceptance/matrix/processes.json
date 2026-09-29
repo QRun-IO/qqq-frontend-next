@@ -1097,6 +1097,27 @@
       "negative": ["First blur does not show premature validation; required whitespace cannot advance either input screen"],
       "issues": ["QRun-IO/qqq#728"],
       "required": true
+    },
+    {
+      "id": "PRC-064",
+      "feature": "DATE_TIME process inputs display local time and submit UTC instants",
+      "source": [
+        "src/components/process/process-values.ts",
+        "src/components/process/ProcessStepScreen.tsx",
+        "src/components/process/ProcessBlocks.tsx"
+      ],
+      "fixture": "prcInputDateTimes with browser timezone America/New_York",
+      "scenarios": [
+        "Unchanged seeded timestamps preserve seconds and instant across plain/shared blocks and regular form fields, including the repeated autumn DST hour",
+        "Edited timestamps crossing daylight saving submit UTC values verified from backend SQL"
+      ],
+      "negative": [
+        "Zoned values must not disappear from datetime-local controls or lose their timezone on submission"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
+      ],
+      "required": true
     }
   ]
 }

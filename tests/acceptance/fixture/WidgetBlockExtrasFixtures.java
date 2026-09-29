@@ -432,7 +432,7 @@ final class WidgetBlockExtrasFixtures
             new InputFieldValues(new QFieldMetaData("ownedAmount", QFieldType.DECIMAL).withLabel("Owned Amount").withDisplayFormat(DisplayFormat.CURRENCY)),
             new SeededInputValues(new QFieldMetaData("ownedChoice", QFieldType.STRING).withLabel("Owned Choice").withPossibleValueSourceName(WidgetsFixtures.CHOICE_PVS), "alpha"),
             new SeededInputValues(new QFieldMetaData("ownedDay", QFieldType.DATE).withLabel("Owned Day"), "2026-03-04"),
-            new InputFieldValues(new QFieldMetaData("ownedStamp", QFieldType.DATE_TIME).withLabel("Owned Stamp")),
+            new SeededInputValues(new QFieldMetaData("ownedStamp", QFieldType.DATE_TIME).withLabel("Owned Stamp"), "2024-03-10T06:30:07Z"),
             new InputFieldValues(new QFieldMetaData("ownedClock", QFieldType.TIME).withLabel("Owned Clock")),
             new InputFieldValues(new QFieldMetaData("ownedSecret", QFieldType.PASSWORD).withLabel("Owned Secret")),
             new SeededInputValues(new QFieldMetaData("ownedFlag", QFieldType.BOOLEAN).withLabel("Owned Flag"), true),

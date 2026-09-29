@@ -1631,6 +1631,24 @@
         "QRun-IO/qqq#728"
       ],
       "required": true
+    },
+    {
+      "id": "WID-075",
+      "feature": "Standalone DATE_TIME blocks localize seeded instants without losing seconds",
+      "source": [
+        "src/components/widgets/blocks/QqqBlocks.tsx"
+      ],
+      "fixture": "accTypedInputs in America/New_York",
+      "scenarios": [
+        "UTC timestamp displays the correct local date, time and seconds"
+      ],
+      "negative": [
+        "Do not slice UTC digits into a local-time field"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
+      ],
+      "required": true
     }
   ]
 }

@@ -391,7 +391,7 @@ describe('QqqComposite', () => {
     const data: QqqCompositeData = {
       blocks: [
         field('text', 'STRING', { value: 'seeded text' }), field('count', 'INTEGER', { value: 7 }), field('amount', 'DECIMAL'), field('longId', 'LONG'),
-        field('day', 'DATE', { value: '2026-03-04' }), field('stamp', 'DATE_TIME', { value: '2026-03-04T05:06:07Z' }), field('clock', 'TIME'),
+        field('day', 'DATE', { value: '2026-03-04' }), field('stamp', 'DATE_TIME', { value: new Date(2026, 2, 4, 5, 6, 7).toISOString() }), field('clock', 'TIME'),
         field('secret', 'PASSWORD'), field('flag', 'BOOLEAN', { value: true }), field('file', 'BLOB'), field('body', 'TEXT'), field('markup', 'HTML'),
         field('script', 'STRING', { adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }] }),
       ],
@@ -407,7 +407,7 @@ describe('QqqComposite', () => {
     expect(control('Owned day')).toHaveAttribute('type', 'date')
     expect(control('Owned day')).toHaveValue('2026-03-04')
     expect(control('Owned stamp')).toHaveAttribute('type', 'datetime-local')
-    expect(control('Owned stamp')).toHaveValue('2026-03-04T05:06')
+    expect((control('Owned stamp') as HTMLInputElement).value).toMatch(/^2026-03-04T05:06:07(?:\.000)?$/)
     expect(control('Owned clock')).toHaveAttribute('type', 'time')
     expect(control('Owned secret')).toHaveAttribute('type', 'password')
     expect(control('Owned flag')).toHaveAttribute('type', 'checkbox')
@@ -417,6 +417,19 @@ describe('QqqComposite', () => {
     expect(control('Owned markup')).toHaveAttribute('type', 'text')
     expect(control('Owned script').tagName).toBe('TEXTAREA')
     expect(screen.getByText('JavaScript')).toBeVisible()
+  })
+
+  it.each([undefined, '%tF %<tT'])('round-trips a standalone date-time instant on Enter (format=%s)', async (displayFormat) => {
+    const instant = new Date(2024, 2, 10, 1, 30, 7).toISOString().replace('.000Z', 'Z')
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: instant, submitOnEnter: true, fieldMetaData: {
+        name: 'stamp', label: 'Timestamp', type: 'DATE_TIME', isEditable: true, displayFormat,
+      } } },
+    ] })
+    const input = screen.getByLabelText('Timestamp')
+    expect((input as HTMLInputElement).value).toMatch(/^2024-03-10T01:30:07(?:\.000)?$/)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { stamp: instant }))
   })
 
   it('uses metadata choice and formatted number editors in standalone input blocks', async () => {

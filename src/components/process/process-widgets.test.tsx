@@ -187,6 +187,21 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ quantity: 7, actionCode: 'approve' }, undefined))
   })
 
+  it.each(['block', 'form'])('round-trips a seeded date-time through a %s editor without losing seconds', async (host) => {
+    const user = userEvent.setup()
+    const stamp = field('stamp', 'Timestamp', { type: 'DATE_TIME' })
+    const step: QFrontendStepMetaData = host === 'block'
+      ? { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+        { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: stamp } },
+      ] } }] }
+      : { name: 'edit', label: 'Edit', components: [{ type: 'EDIT_FORM' }], formFields: [stamp] }
+    const instant = new Date(2024, 2, 10, 1, 30, 7).toISOString().replace('.000Z', 'Z')
+    const { onSubmit } = renderStep(step, { stamp: instant })
+    expect((screen.getByLabelText('Timestamp') as HTMLInputElement).value).toMatch(/^2024-03-10T01:30:07(?:\.000)?$/)
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ stamp: instant }, undefined))
+  })
+
   it.each([undefined, '%20s'])('submits trimmed block text through Enter (format=%s)', async (displayFormat) => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
