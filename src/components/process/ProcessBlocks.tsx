@@ -188,12 +188,12 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
 
   return (
     <div
-      className={cn('mt-2 flex gap-1', isBoolean ? 'flex-row-reverse items-center justify-end' : 'flex-col')}
+      className={cn('flex gap-1', isBoolean ? 'flex-row-reverse items-center justify-end' : 'flex-col')}
       data-qqq-id={blockQqqId('INPUT_FIELD', widgetName)}
       data-block-type="INPUT_FIELD"
       data-block-id={block.blockId}
     >
-      <label htmlFor={inputId} className="text-base font-medium text-foreground pointer-coarse:min-h-11 pointer-coarse:content-center">
+      <label htmlFor={inputId} className={cn('text-sm font-medium text-foreground', isBoolean && 'pointer-coarse:min-h-11 pointer-coarse:content-center')}>
         {label}
         {field.isRequired && <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>}
       </label>

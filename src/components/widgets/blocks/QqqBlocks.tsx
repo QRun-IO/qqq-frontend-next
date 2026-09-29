@@ -100,6 +100,7 @@ function textWeight(weight: unknown): number {
  * @returns The rendered text block.
  */
 export function TextBlock({ block, widgetName }: LeafBlockProps) {
+  const host = useCompositeHost()
   const values = blockValues(block)
   const styles = blockStyles(block)
   const color = blockColor(styles.color)
@@ -116,7 +117,7 @@ export function TextBlock({ block, widgetName }: LeafBlockProps) {
   return (
     <div {...rootAttributes(block, widgetName)} className="inline-block leading-tight" style={boxStyle} data-format={format || undefined}>
       <BlockSlot block={block} slot="">
-        <span className={color ? undefined : 'text-foreground'} style={{ fontSize: textSize(styles.size), fontWeight: textWeight(styles.weight), color }}>
+        <span className={color ? undefined : 'text-foreground'} style={{ fontSize: host && styles.size === undefined ? '0.875rem' : textSize(styles.size), fontWeight: textWeight(styles.weight), color }}>
           {lines.map((line, index) => (
             <div key={index} className="flex items-center gap-1">
               {index === 0 && start && <WidgetIcon name={start} />}

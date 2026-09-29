@@ -111,9 +111,9 @@ export async function pickPossibleValues(page: Page, row: Locator, labels: strin
   await closeValuePopup(page)
 }
 
-/** Closes an open possible-value dropdown by clicking the filter panel heading. */
+/** Closes an open possible-value dropdown by clicking the builder's padding. */
 export async function closeValuePopup(page: Page) {
-  await page.getByText('Filters', { exact: true }).first().click()
+  await page.locator('[data-qqq-id="filter-builder"]').click({ position: { x: 2, y: 2 } })
 }
 
 /** Removes every value chip from a multi-value input. */

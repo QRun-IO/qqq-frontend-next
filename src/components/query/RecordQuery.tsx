@@ -481,58 +481,62 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     )
   }
 
-  const filterControls = (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter mode" data-qqq-id="query-filter-mode">
-        <HintTooltip content={basicModeCheck.reasons.join(' ')} data-qqq-id="basic-mode-reasons">
-          <button type="button" aria-pressed={rq.filter.filterMode === 'basic'}
-            aria-disabled={!basicModeCheck.canWorkAsBasic}
-            onClick={() => { if (basicModeCheck.canWorkAsBasic) rq.filter.setFilterMode('basic') }}
-            className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id="button-query-mode-basic">Basic</button>
-        </HintTooltip>
-        <button type="button" aria-pressed={rq.filter.filterMode === 'advanced'}
-          onClick={openAdvancedFilters}
+  const filterModeControls = (
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter mode" data-qqq-id="query-filter-mode">
+      <HintTooltip content={basicModeCheck.reasons.join(' ')} data-qqq-id="basic-mode-reasons">
+        <button type="button" aria-pressed={rq.filter.filterMode === 'basic'}
+          aria-disabled={!basicModeCheck.canWorkAsBasic}
+          onClick={() => { if (basicModeCheck.canWorkAsBasic) rq.filter.setFilterMode('basic') }}
           className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          data-qqq-id="button-query-mode-advanced">Advanced</button>
-        <div className="flex items-center gap-1">
-          <label htmlFor={`query-sort-${tableName}`} className="text-sm text-muted-foreground">Sort:</label>
-          <select id={`query-sort-${tableName}`} aria-label="Sort field"
-            value={rq.filter.sortOrder[0]?.fieldName ?? ''}
-            onChange={(event) => rq.filter.setSort([{ fieldName: event.target.value, isAscending: rq.filter.sortOrder[0]?.isAscending ?? false }])}
-            className="min-h-11 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id="query-sort-field">
-            {availableFilterFields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
-          </select>
-          <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
-            onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
-            className="min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
-        </div>
-        {(activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
-          <button type="button" onClick={() => setClearConfirmOpen(true)}
-            className="min-h-11 rounded px-2 text-sm text-muted-foreground underline focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id="query-clear-all">Clear all filters</button>
-        )}
+          data-qqq-id="button-query-mode-basic">Basic</button>
+      </HintTooltip>
+      <button type="button" aria-pressed={rq.filter.filterMode === 'advanced'}
+        onClick={openAdvancedFilters}
+        className="min-h-11 rounded border border-input px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        data-qqq-id="button-query-mode-advanced">Advanced</button>
+      <div className="flex items-center gap-1">
+        <label htmlFor={`query-sort-${tableName}`} className="text-sm text-muted-foreground">Sort:</label>
+        <select id={`query-sort-${tableName}`} aria-label="Sort field"
+          value={rq.filter.sortOrder[0]?.fieldName ?? ''}
+          onChange={(event) => rq.filter.setSort([{ fieldName: event.target.value, isAscending: rq.filter.sortOrder[0]?.isAscending ?? false }])}
+          className="min-h-11 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          data-qqq-id="query-sort-field">
+          {availableFilterFields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+        </select>
+        <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
+          onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
+          className="min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
       </div>
+      {(activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
+        <button type="button" onClick={() => setClearConfirmOpen(true)}
+          className="min-h-11 rounded px-2 text-sm text-muted-foreground underline focus:outline-none focus:ring-2 focus:ring-ring"
+          data-qqq-id="query-clear-all">Clear all filters</button>
+      )}
+    </div>
+  )
+
+  const filterControls = (
+    <>
+      {isPhone && <div className="px-4 pt-4">{filterModeControls}</div>}
 
       {rq.filter.filterMode === 'basic' && (
-        <QuickFilterBar fields={quickFilterFields} allFields={availableFilterFields}
+        <div className="p-4"><QuickFilterBar fields={quickFilterFields} allFields={availableFilterFields}
           defaultFieldNames={rq.filter.defaultQuickFilterFieldNames}
           customFieldNames={rq.filter.quickFilterFieldNames}
           filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter}
           onCustomFieldsChange={rq.filter.setQuickFilterFieldNames}
-          onOpenAdvanced={openAdvancedFilters} />
+          onOpenAdvanced={openAdvancedFilters} /></div>
       )}
 
       {rq.filter.filterMode === 'advanced' && (
-        <AdvancedQueryPreview filter={rq.filter.userFilter} fields={availableFilterFields} onChange={rq.filter.setUserFilter} />
+        <div className="px-4"><AdvancedQueryPreview filter={rq.filter.userFilter} fields={availableFilterFields} onChange={rq.filter.setUserFilter} /></div>
       )}
 
       {rq.filter.filterMode === 'advanced' && (
         <FilterBuilder tableMetaData={tableMetaData} filter={rq.filter.userFilter} onChange={rq.filter.setUserFilter} onClose={isPhone ? () => setMobileFilterOpen(false) : rq.filter.toggleFilterPanel} onClear={() => setClearConfirmOpen(true)} />
       )}
-    </div>
+    </>
   )
 
   return (
@@ -674,15 +678,13 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
 
       {!isPhone && rq.filter.filterPanelOpen && (
         <div className="rounded-xl border border-primary/20 bg-primary/5" data-qqq-id="query-filter-panel">
-          {!isPhone && (
-            <div className="flex items-center justify-between border-b border-primary/20 px-4 py-2">
-              <span className="text-base font-semibold text-primary">Filters</span>
-              <button type="button" onClick={rq.filter.toggleFilterPanel}
-                className="text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring" aria-label="Close filter panel" data-qqq-id="filter-panel-close">
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-start justify-between gap-2 border-b border-primary/20 px-4 py-2">
+            {filterModeControls}
+            <button type="button" onClick={rq.filter.toggleFilterPanel}
+              className="self-center text-primary hover:text-primary/90 focus:outline-none focus:ring-1 focus:ring-ring" aria-label="Close filter panel" data-qqq-id="filter-panel-close">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
           {filterControls}
         </div>
       )}

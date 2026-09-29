@@ -32,6 +32,7 @@ import { AlertCircle, ChevronDown, ChevronUp, Download, HelpCircle, RefreshCw } 
 
 import type { QHelpContent, QWidgetMetaData } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { useCompositeHost } from './blocks/composite-host'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
 import { HelpContent } from '@/components/records/HelpContent'
@@ -125,6 +126,8 @@ export function WidgetBlock({
   const { name } = widgetMetaData
   const bodyId = useId()
   const isCard = widgetMetaData.isCard !== false
+  const processHost = useCompositeHost()
+  const compact = Boolean(processHost) && !isCard
   const helpHelpActive = useHelpHelpActive()
   const help = widgetSlotHelp(widgetMetaData, 'label', WIDGET_HELP_ROLES, helpHelpActive) as QHelpContent | undefined
   const footer = data?.footerHTML ?? widgetMetaData.footerHTML
@@ -183,7 +186,7 @@ export function WidgetBlock({
   const labelElement = label ? (labelAsTitle ? (
     <h2 className="text-2xl font-bold tracking-tight text-card-foreground" data-qqq-id={`widget-label-${name}`} data-page-title="true">{label}</h2>
   ) : (
-    <h3 className="text-base font-semibold text-card-foreground" data-qqq-id={`widget-label-${name}`}>{label}</h3>
+    <h3 className={cn('font-semibold text-card-foreground', compact ? 'text-sm' : 'text-base')} data-qqq-id={`widget-label-${name}`}>{label}</h3>
   )) : null
 
   /**
@@ -216,7 +219,7 @@ export function WidgetBlock({
       style={widgetMetaData.minHeight && open ? { minHeight: widgetMetaData.minHeight } : undefined}
     >
       <div
-        className={cn('flex flex-wrap items-start justify-between gap-2', isCard ? 'px-5 pt-4' : 'pb-2', isCard && !open && 'pb-4', isCollapsible && 'cursor-pointer')}
+        className={cn('flex flex-wrap items-start justify-between gap-2', isCard ? 'px-5 pt-4' : compact ? undefined : 'pb-2', isCard && !open && 'pb-4', isCollapsible && 'cursor-pointer')}
         onClick={onHeaderClick}
         data-qqq-id={`widget-header-${name}`}
       >
@@ -301,7 +304,7 @@ export function WidgetBlock({
         <p role="status" className="px-5 pt-2 text-sm text-muted-foreground" data-qqq-id={`widget-export-message-${name}`}>{exportMessage}</p>
       )}
 
-      <div id={bodyId} className={cn('flex-1', isCard ? 'p-5 pt-3' : 'pt-1')} hidden={!open} data-qqq-id={`widget-content-${name}`}>
+      <div id={bodyId} className={cn('flex-1', isCard ? 'p-5 pt-3' : compact ? undefined : 'pt-1')} hidden={!open} data-qqq-id={`widget-content-${name}`}>
         {open && body}
       </div>
 
