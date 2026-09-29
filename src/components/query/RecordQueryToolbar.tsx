@@ -21,6 +21,7 @@
 'use client'
 
 import React from 'react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import {
   Plus,
   Columns,
@@ -61,7 +62,7 @@ const DENSITY_OPTIONS: { value: Density; label: string }[] = [
 ]
 
 /**
- * Toolbar button that opens a listbox for selecting the row density of the data grid.
+ * Toolbar button that opens a menu for selecting the row density of the data grid.
  *
  * @param props - Component properties.
  * @returns The rendered density selector dropdown.
@@ -73,68 +74,53 @@ function DensitySelector({
   density: Density
   onSelect: (d: Density) => void
 }) {
-  const [open, setOpen] = React.useState(false)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    if (!open) return
-    /**
-     * Closes the dropdown when a click occurs outside the container.
-     * @param e - The native mousedown event.
-     */
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
-
   return (
-    <div className="relative" ref={containerRef}>
-      {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Select display density"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        data-qqq-id="button-density"
-      >
-        <LayoutList className="h-4 w-4" aria-hidden="true" />
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 z-[150] mt-1 w-36 rounded-xl border border-border bg-popover shadow-sm"
-          role="listbox"
-          aria-label="Display density"
+    <DropdownMenuPrimitive.Root modal={false}>
+      <DropdownMenuPrimitive.Trigger asChild>
+        {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
+        <button
+          type="button"
+          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Select display density"
+          data-qqq-id="button-density"
         >
-          {DENSITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={density === opt.value}
-              onClick={() => {
-                onSelect(opt.value)
-                setOpen(false)
-              }}
-              className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
-                density === opt.value
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-popover-foreground hover:bg-accent'
-              }`}
-              data-qqq-id={`density-option-${opt.value}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+          <LayoutList className="h-4 w-4" aria-hidden="true" />
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          align="end" sideOffset={4} collisionPadding={8}
+          className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-36 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover shadow-sm"
+          aria-label="Display density" aria-labelledby={undefined}
+        >
+          <DropdownMenuPrimitive.RadioGroup value={density} onValueChange={value => {
+            const selected = DENSITY_OPTIONS.find(option => option.value === value)
+            if (selected) onSelect(selected.value)
+          }}>
+            {DENSITY_OPTIONS.map((opt) => (
+              <DropdownMenuPrimitive.RadioItem
+                asChild
+                key={opt.value}
+                value={opt.value}
+              >
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+                    density === opt.value
+                    ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-popover-foreground hover:bg-accent'
+                  }`}
+                  data-qqq-id={`density-option-${opt.value}`}
+                >
+                  {opt.label}
+                </button>
+              </DropdownMenuPrimitive.RadioItem>
+            ))}
+          </DropdownMenuPrimitive.RadioGroup>
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
   )
 }
 

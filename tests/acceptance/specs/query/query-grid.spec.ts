@@ -7,6 +7,7 @@
 
 // Record list basics: columns, default sort, sorting, pagination, column configuration.
 import { expect, open, test } from '../../support/fixtures'
+import { expectWithinViewport } from '../../support/touch'
 import { columnCells, expectColumn, grid, isPhone, nextQuery, showTable, sqlColumn } from './query-helpers'
 
 async function clickSortColumn(page: import('@playwright/test').Page, column: string) {
@@ -183,8 +184,19 @@ test('[QRY-005] column widths, density and card view @mobile', async ({ page, di
   await page.reload()
   await expect.poll(async () => Math.round((await grid(page, 'Query Item').locator('thead th').filter({ hasText: 'Name' }).boundingBox())!.width)).toBe(Math.round(before + 50))
   // Density
-  await page.getByRole('button', { name: 'Select display density' }).click()
-  await page.getByRole('option', { name: 'Compact' }).click()
+  const density = page.getByRole('button', { name: 'Select display density' })
+  await density.focus()
+  await density.press('Enter')
+  const densityMenu = page.getByRole('menu', { name: 'Display density' })
+  await expectWithinViewport(densityMenu)
+  await expect(page.getByRole('menuitemradio', { name: 'Compact' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitemradio', { name: 'Standard' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(densityMenu).toHaveCount(0)
+  await expect(density).toBeFocused()
+  await density.press('Enter')
+  await page.getByRole('menuitemradio', { name: 'Compact' }).press('Enter')
   await expect(page.locator('[data-qqq-id="grid-row-0"]')).toHaveClass(/h-8/)
   // Card view lists the same records
   await page.getByRole('button', { name: 'Card view' }).click()

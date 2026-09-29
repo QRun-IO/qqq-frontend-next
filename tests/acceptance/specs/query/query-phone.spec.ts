@@ -9,7 +9,7 @@
 // configuration by touch, bulk actions from a phone selection, and the toolbar menus.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets } from '../../support/touch'
+import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets, expectWithinViewport } from '../../support/touch'
 import { addCondition, columnCells, expectColumn, isPhone, sqlColumn } from './query-helpers'
 
 const PHONE = { viewport: { width: 412, height: 839 }, hasTouch: true }
@@ -54,8 +54,9 @@ test.describe('on a phone', () => {
     await expect(banner).toHaveText('1 record is selected.')
 
     // The full query result checks every card
-    await page.getByRole('button', { name: 'Selection', exact: true }).click()
-    await page.getByRole('menuitem', { name: `Full query result (${ids.length} records)` }).click()
+    await page.getByRole('button', { name: 'Selection', exact: true }).tap()
+    await expectWithinViewport(page.getByRole('menu', { name: 'Selection', exact: true }))
+    await page.getByRole('menuitem', { name: `Full query result (${ids.length} records)` }).tap()
     await expect(banner).toHaveText(`All ${ids.length} records matching this query are selected.`)
     for (const id of ids) await expect(page.locator(`[data-qqq-id="card-select-${id}"]`)).toBeChecked()
     await page.getByRole('button', { name: 'Clear selection' }).click()

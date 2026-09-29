@@ -8,6 +8,7 @@
 // Record selection (page, all matching, first N) and launching processes with it.
 import type { Page, Response } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectWithinViewport } from '../../support/touch'
 import { expectColumn, showTable, sqlColumn } from './query-helpers'
 
 /** Waits for a process init on the registered process route and returns its multipart fields and JSON response. */
@@ -30,8 +31,19 @@ test('[QRY-030] the selection menu selects the page, the full query result or th
   const banner = page.locator('[data-qqq-id="bulk-selection-text"]')
   const checkboxes = page.locator('[data-qqq-id^="grid-select-row-"]')
 
-  await page.getByRole('button', { name: 'Selection', exact: true }).click()
-  await page.getByRole('menuitem', { name: `This page (${ids.length} records)` }).click()
+  const selection = page.getByRole('button', { name: 'Selection', exact: true })
+  await selection.focus()
+  await selection.press('Enter')
+  const selectionMenu = page.getByRole('menu', { name: 'Selection', exact: true })
+  await expectWithinViewport(selectionMenu)
+  await expect(page.getByRole('menuitem', { name: `This page (${ids.length} records)` })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: `Full query result (${ids.length} records)` })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(selectionMenu).toHaveCount(0)
+  await expect(selection).toBeFocused()
+  await selection.press('Enter')
+  await page.getByRole('menuitem', { name: `This page (${ids.length} records)` }).press('Enter')
   await expect(banner).toHaveText(`The ${ids.length} records on this page are selected.`)
   for (const box of await checkboxes.all()) await expect(box).toBeChecked()
   await page.getByRole('button', { name: 'Clear selection' }).click()
@@ -59,6 +71,7 @@ test('[QRY-030] the selection menu selects the page, the full query result or th
   await expect(dialog.getByRole('button', { name: 'OK' })).toBeDisabled()
   await size.fill('3')
   await dialog.getByRole('button', { name: 'OK' }).click()
+  await expect(selection).toBeFocused()
   await expect(banner).toHaveText('The first 3 records matching this query are selected.')
   await expect(checkboxes.nth(2)).toBeChecked()
   await expect(checkboxes.nth(3)).not.toBeChecked()
