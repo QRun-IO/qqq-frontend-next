@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, appearance preferences
+## Latest checkpoint — September 29, process details and RC1
+
+Fresh Chromium desktop comparisons cover process widgets, results, collapsed internal errors and expanded error details in light and dark modes: 16 original/current captures, with no setup/runtime errors or document overflow. The inspected widget, result and expanded-error pairs preserve the original Next card and action composition. Reload controls remain compact; desktop widget content is slightly shorter than the reference. These checks do not approve the complete process family.
+
+The expanded-detail review led to **VIS-028**, a reproduced accessibility defect in the application-theme configuration: its orange error color yielded 2.8:1 contrast for 12px text. Default light/dark passed. Process details now use the same derived dark/light error-text shades as the query error panel. Text size, position and disclosure behavior are unchanged. The three-theme regression first failed on the application theme, then passed; nine real-backend Chromium error/retry/completion cases and all 1,806 units pass. Build, types and affected lint pass. Evidence: `process-detail-contrast-{red,green,build,unit}.log` and `rc1-process-visual-{light,dark}.log` in the local visual-review directory.
+
+RC1 preparation separately passed the full 544-case Chromium gate (before this one-line contrast correction), clean JAR verification, dependency audit and focused checks. Its source version is `1.0.0-RC.1`; publication remains pending current CI and distributed-artifact verification. See the [RC1 notes](../releases/1.0.0-RC.1.md). The original Next visual review and all remaining Material behavior parity gaps remain final 1.0 work.
+
+## Earlier checkpoint — September 29, appearance preferences
 
 The user-facing Preferences dialog now exposes Light and Dark choices using native radio controls within its existing layout. The choice applies immediately and persists under the existing `qqq-dark-mode` browser/origin key; a fresh profile remains light. An application theme still requires light mode, now with a visible explanation and disabled choices. The saved preference is retained under that override; Reset to Defaults clears it to light along with table and record defaults. No system-following or account synchronization is claimed.
 

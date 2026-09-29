@@ -77,7 +77,7 @@ export function ProcessErrorState({ error, isUserFacing, processName, processLab
               {showDetail ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
               {showDetail ? 'Hide detailed error message' : 'Show detailed error message'}
             </button>
-            <p id={detailId} hidden={!showDetail} className="mx-auto mt-2 max-w-lg break-all font-mono text-xs text-destructive" data-qqq-id="process-error-detail">
+            <p id={detailId} hidden={!showDetail} className="mx-auto mt-2 max-w-lg break-all font-mono text-xs text-red-800 dark:text-red-400" data-qqq-id="process-error-detail">
               {error}
             </p>
           </div>

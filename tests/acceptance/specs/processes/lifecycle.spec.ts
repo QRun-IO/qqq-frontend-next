@@ -5,6 +5,7 @@
  * You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0
  */
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import { advance, choosePossibleValue, expectRunTouchReady, expectScreen, openProcess, recordRows, run, viewValue } from './process-helpers'
@@ -131,6 +132,23 @@ test.describe('Progress Lab', () => {
 })
 
 test.describe('Failures and retry', () => {
+  for (const mode of ['light', 'dark', 'application'] as const) {
+    test(`[PRC-021] expanded process error details are readable in ${mode} theme @mobile`, async ({ page, backend, diagnostics }) => {
+      void diagnostics
+      await page.addInitScript(dark => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+      if (mode === 'application') await backend.enableTheme()
+      await openProcess(page, 'prcFailures')
+      await choosePossibleValue(page, 'Failure Mode', 'Internal failure')
+      await advance(page, 'Submit')
+      const error = page.locator('[data-qqq-id="process-error-prcFailures"]')
+      await error.getByRole('button', { name: 'Show detailed error message' }).click()
+      await expect(error.locator('[data-qqq-id="process-error-detail"]')).toHaveText('Error message: Lab internals failed at stage 7')
+      const result = await new AxeBuilder({ page }).include('[data-qqq-id="process-error-prcFailures"]').withRules(['color-contrast']).analyze()
+      expect(result.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+      expect(result.incomplete).toEqual([])
+    })
+  }
+
   test('[PRC-021] internal errors sit behind a detail toggle; user-facing errors show directly @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcFailures')

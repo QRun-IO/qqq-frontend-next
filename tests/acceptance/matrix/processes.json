@@ -380,6 +380,7 @@
       "scenarios": [
         "user-facing message",
         "internal detail toggle",
+        "expanded details meet contrast requirements in light, dark and application themes",
         "simpleThrow \"I always throw.\"",
         "Close returns to the app"
       ],
