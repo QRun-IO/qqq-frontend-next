@@ -283,7 +283,7 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE prc_progress_log (id INT AUTO_INCREMENT PRIMARY KEY, item_count INT)");
          statement.execute("CREATE TABLE prc_cancel_log (id INT AUTO_INCREMENT PRIMARY KEY, item_count INT, note VARCHAR(80))");
          statement.execute("CREATE TABLE prc_decision_log (id INT AUTO_INCREMENT PRIMARY KEY, action_code VARCHAR(40), scan_code VARCHAR(80))");
-         statement.execute("CREATE TABLE prc_drive_log (id INT AUTO_INCREMENT PRIMARY KEY, note VARCHAR(200), folder_id VARCHAR(200))");
+         statement.execute("CREATE TABLE prc_drive_log (id INT AUTO_INCREMENT PRIMARY KEY, note VARCHAR(200), folder_id VARCHAR(200), folder_name VARCHAR(200), token_present BOOLEAN)");
          statement.execute("DROP TABLE IF EXISTS prc_tag_log");
          statement.execute("CREATE TABLE prc_tag_log (id INT AUTO_INCREMENT PRIMARY KEY, table_name VARCHAR(80), record_id VARCHAR(80))");
          statement.execute("CREATE TABLE prc_pick_log (id INT AUTO_INCREMENT PRIMARY KEY, category VARCHAR(80), specimen_id INT)");
@@ -1154,7 +1154,9 @@ public final class ProcessesFixtures
       @Override
       public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
       {
-         insert("INSERT INTO prc_drive_log (note, folder_id) VALUES (?, ?)", input.getValueString("exportNote"), input.getValueString("googleDriveFolderId"));
+         insert("INSERT INTO prc_drive_log (note, folder_id, folder_name, token_present) VALUES (?, ?, ?, ?)", input.getValueString("exportNote"),
+            input.getValueString("googleDriveFolderId"), input.getValueString("googleDriveFolderName"),
+            input.getValueString("googleDriveAccessToken") != null && !input.getValueString("googleDriveAccessToken").isBlank());
       }
    }
 

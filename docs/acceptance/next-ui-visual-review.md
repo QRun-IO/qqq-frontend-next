@@ -10,7 +10,7 @@ Fresh Chromium desktop comparisons cover process widgets, results, collapsed int
 
 The expanded-detail review led to **VIS-028**, a reproduced accessibility defect in the application-theme configuration: its orange error color yielded 2.8:1 contrast for 12px text. Default light/dark passed. Process details now use the same derived dark/light error-text shades as the query error panel. Text size, position and disclosure behavior are unchanged. The three-theme regression first failed on the application theme, then passed; nine real-backend Chromium error/retry/completion cases and all 1,806 units pass. Build, types and affected lint pass. Evidence: `process-detail-contrast-{red,green,build,unit}.log` and `rc1-process-visual-{light,dark}.log` in the local visual-review directory.
 
-RC1 preparation separately passed the full 544-case Chromium gate (before this one-line contrast correction), clean JAR verification, dependency audit and focused checks. Its source version is `1.0.0-RC.1`; publication remains pending current CI and distributed-artifact verification. See the [RC1 notes](../releases/1.0.0-RC.1.md). The original Next visual review and all remaining Material behavior parity gaps remain final 1.0 work.
+RC1 preparation separately passed the full 544-case Chromium gate (before this one-line contrast correction), clean JAR verification, dependency audit and focused checks. RC1 was subsequently published from `e901df9` on September 29, with Maven Central and GHCR artifact verification recorded in the release notes. See the [RC1 notes](../releases/1.0.0-RC.1.md). The original Next visual review and all remaining Material behavior parity gaps remain final 1.0 work.
 
 ## Earlier checkpoint — September 29, appearance preferences
 

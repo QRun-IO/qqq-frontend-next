@@ -139,6 +139,7 @@ public class AcceptanceSampleServer
          config.routes.post("/acceptance/reset", context ->
          {
             reset();
+            server.getAdditionalRouteProviders().forEach(provider -> provider.setQInstance(instance));
             context.contentType("application/json").result("{}");
          });
          config.routes.get("/acceptance/dashboard-csp-sources", context -> context.contentType("text/plain").result(dashboardCspSources()));
@@ -167,6 +168,13 @@ public class AcceptanceSampleServer
          config.routes.post("/acceptance/stale-view", context ->
          {
             seedStaleView();
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/google-drive", context ->
+         {
+            instance.getEnvironmentValues().put("GOOGLE_APP_CLIENT_ID", "owned-test-client");
+            instance.getEnvironmentValues().put("GOOGLE_APP_API_KEY", "owned-test-key");
+            server.getAdditionalRouteProviders().forEach(provider -> provider.setQInstance(instance));
             context.contentType("application/json").result("{}");
          });
          config.routes.post("/acceptance/theme", context ->
@@ -212,6 +220,8 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    private static synchronized void reset() throws Exception
    {
+      instance.getEnvironmentValues().remove("GOOGLE_APP_CLIENT_ID");
+      instance.getEnvironmentValues().remove("GOOGLE_APP_API_KEY");
       if(instance.getSupplementalMetaData() != null)
       {
          instance.getSupplementalMetaData().remove(MaterialDashboardThemeMetaData.class.getName());

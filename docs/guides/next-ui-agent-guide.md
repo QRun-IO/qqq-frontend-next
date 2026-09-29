@@ -1,6 +1,6 @@
 # Next UI agent guide
 
-This is an implementation playbook for coding agents working on the QQQ Next UI. Read the [developer guide](./next-ui-developer-guide.md) for user and integrator behavior, the repository [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) for scoped conventions, and the [real-server feature matrix](../acceptance/feature-matrix.md) plus [Material parity ledger](../acceptance/material-parity.md) before claiming compatibility. This guide reflects the `feature/next-1.0` release worktree as of 2026-09-28; `package.json` and the POM are set to `1.0.0` for release preparation, but publication is not established by the source version. Some ledger entries predate integrated changes, so reconcile them with source and real-server evidence. A green subset of tests is evidence for that subset, not proof of complete Material parity or a published 1.0 release.
+This is an implementation playbook for coding agents working on the QQQ Next UI. Read the [developer guide](./next-ui-developer-guide.md) for user and integrator behavior, the repository [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) for scoped conventions, and the [real-server feature matrix](../acceptance/feature-matrix.md) plus [Material parity ledger](../acceptance/material-parity.md) before claiming compatibility. This guide reflects the `feature/next-1.0` release worktree as of 2026-09-29; the published prerelease is `1.0.0-RC.1` at `e901df9`, and final `1.0.0` work continues after that commit. Current source behavior, including the new Google Drive picker, is not automatically present in RC1. Some ledger entries predate integrated changes, so reconcile them with source and real-server evidence. A green subset of tests is evidence for that subset, not proof of complete Material parity or a published 1.0 release.
 
 ## Operating rule: metadata is the product boundary
 
@@ -141,9 +141,21 @@ Verify hidden/read-only flags, typed choice IDs, numeric conversion, multiline E
 
 `/app/{slug}` resolves an app, table, process, or report from loaded instance metadata, in that order. Do not create a static page for each QQQ object. `isHidden` removes a table/process/report from navigation, while an authorized direct route still works. New dynamic route shapes must work in both standalone and Javalin static export. The export prerenders `_` placeholder paths; [`useRouteParams`](../../src/lib/hooks/use-route-params.ts) translates them from the browser path. Preserve `trailingSlash` handling and avoid constructing deep links that a static host cannot serve. Use [`material-links.ts`](../../src/lib/utils/material-links.ts) for generated links. The not-found route's [`LegacyPathRedirect`](../../src/components/layout/LegacyPathRedirect.tsx) recognizes nested Material paths and `QInstance.redirects` exact or trailing `/*` rules while preserving query/hash. Test deny/not-found loops, a child create URL (`/app/{table}/{id}/createChild/{childTable}`), and refresh of each route shape. Root-path hosting is the documented target; the parity ledger lists base-path support as Missing.
 
-The [developer route catalog](./next-ui-developer-guide.md#4-navigation-and-deep-links) includes authentication callbacks, table/process developer views, record actions and child creation. `/app/{table}/{id}/{process}` resolves only permitted table processes and redirects with record and return context; preserve that route alongside the reserved edit/copy/dev pages.
+The [developer route catalog](./next-ui-developer-guide.md#4-navigation-and-deep-links) includes authentication callbacks, table/process developer views, record actions and child creation. `/app/{table}/{id}/{process}` resolves registered processes (table exact name, table suffix, then instance exact name) and redirects with record and return context; the runner enforces permission; preserve that route alongside the reserved edit/copy/dev pages.
 
 The query URL owns `page`, `pageSize`, `filter`, and `q`; do not move shareable filter state into local storage. Saved views have `/app/{table}/savedView/{id}` and backend persistence. Local storage is for preferences, such as density, column configuration, and widget selections. See [state management](../STATE-MANAGEMENT.md). Put app shell labels, icons, and nested nav in metadata and verify breadcrumb titles against the same tree.
+
+### Keep configuration coverage executable
+
+The developer guide's [widget configuration recipes](./next-ui-developer-guide.md#widget-configuration-recipes), [link parameters](./next-ui-developer-guide.md#link-parameters-and-launch-examples), [theme properties](./next-ui-developer-guide.md#theme-property-reference), and [analytics setup](./next-ui-developer-guide.md#analytics-configuration-example) cover the supported keys and copyable response fragments. Update the matching reference whenever a consumer changes; a catalog row with only a widget name is insufficient documentation for new configuration.
+
+- Compare all `WidgetRenderer` cases with the catalog, including canonical/demo payload branches. Keep `QqqComposite` leaf types and layouts covered separately; they are not top-level widget dispatch labels.
+- Compare theme properties with `THEME_PROPERTY_KINDS`, including generated typography and radius keys. Keep browser-public `environmentValues` separate from build variables and backend secrets.
+- Trace dropdown behavior through `ConnectedWidget`: lists pair by position, payload names are request keys, response defaults must be offered options, and `dropdownNeedsSelectedText` gates the body. The interface's `isRequired` and `defaultValue` fields do not by themselves implement those behaviors.
+- Preserve `gridCols:sizeClass:*` overrides in widget metadata defaults. Their Material breakpoint widths differ from ordinary Tailwind defaults; explicit overrides can keep widgets side by side on smaller screens.
+- Document `table` cell helper values and `subRows`, chart dataset/URL arrays, and host-specific composite behavior when changing these families. Modal control codes work locally; process `conditional` and interpolation depend on the composite host. Unknown icon names can still fall back to a circle.
+- Check both table-scoped aliases (`/app/{table}/{process}` and `/app/{table}/{report}`) before record GET behavior. Process aliases take precedence over reports; matching names can shadow record IDs. Preserve form hash presets, record tab/view/return parameters, process selection/default inputs, and safe return-path validation.
+- Preserve the distinction between a displayed preview, a host-form draft, and persisted data. A payload example demonstrates the contract shape; it does not establish backend acceptance for every combination of options.
 
 ## Security and accessibility review points
 
@@ -197,3 +209,12 @@ Read [acceptance setup](../../tests/acceptance/README.md) and [browser matrix](.
 ### Appearance preferences
 
 Use the real ThemeProvider when rendering UserPreferencesDialog or a sidebar with its user footer. The saved `darkModePreference` is distinct from effective `isDarkMode`: an application theme overrides dark mode without erasing the choice. Preferences exposes Light/Dark, explains a theme lock, and resets both saved appearance and layout defaults. Preserve `qqq-dark-mode` storage compatibility. Verify changes through the actual Preferences flow and reload (NAV-056), including phone drawer layering/focus (NAV-038); injecting localStorage alone does not exercise the user control. There is currently no system appearance choice or account/device synchronization.
+
+
+### Google Drive integration boundary
+
+Google Drive picker changes span the frontend component/SDK loader and Javalin's CSP
+and v1 public-environment allow-list (#704; backend PR #908 is pending). The frontend needs those backend changes to receive its public configuration and load under the configured CSP. PRC-065 tests controlled SDK responses with
+real process execution and SQL; PRC-039 is the approved real-account exclusion. Preserve
+the shared-drive view, folder-only validation, cancellation and token expiry handling.
+Never log or persist the access token, and never publish OAuth client secrets in metadata. Javalin conditional CSP covers its static export only; standalone Node/container deployments also require runtime `QQQ_DASHBOARD_CSP_SOURCES` using the [documented Google directives](./next-ui-developer-guide.md#google-drive-process-configuration). Check the actual dashboard HTML response from the selected host. RC1 remains immutable and retains its historical placeholder; these changes belong to the ongoing final 1.0 work.

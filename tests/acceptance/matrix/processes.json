@@ -1122,6 +1122,25 @@
         "QRun-IO/qqq#728"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-065",
+      "feature": "Configured Google Drive shared-folder selection and process submission",
+      "source": [
+        "src/components/process/GoogleDriveFolderComponent.tsx",
+        "src/lib/google-drive-picker.ts"
+      ],
+      "fixture": "prcDrive with owned Google SDK script responses and real configured backend CSP",
+      "scenarios": [
+        "Select a shared-drive folder and submit ID, name, token and other required input through the real process; independently verify database outcome"
+      ],
+      "negative": [
+        "Reject a file and retry; cancel a replacement selection clears the destination and token; missing required note cannot advance"
+      ],
+      "issues": [
+        "QRun-IO/qqq#704"
+      ],
+      "required": true
     }
   ]
 }

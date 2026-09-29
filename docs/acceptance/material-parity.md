@@ -19,11 +19,11 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
 | Query | 122 | 6 | 1 | 0 | 2 | 131 |
 | Records | 126 | 4 | 0 | 0 | 8 | 138 |
-| Processes and reports | 119 | 5 | 0 | 1 | 3 | 128 |
+| Processes and reports | 120 | 5 | 0 | 0 | 3 | 128 |
 | Widgets and blocks | 224 | 4 | 4 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 40 | 0 | 0 | 0 | 11 | 51 |
-| **Total** | **728** | **22** | **5** | **2** | **38** | **795** |
-| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 103 | 10 | 1 | 1 | 12 | 127 |
+| **Total** | **729** | **22** | **5** | **1** | **38** | **795** |
+| Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 104 | 10 | 1 | 0 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
 The September 29 recount finds 795 existing area rows, including 51 supplemental metadata and theme rows. The summary previously omitted one existing supplemental row; this recount adds or removes no ability. The ledger remains under review: a Done implementation row does not by itself imply a real-server acceptance test.
@@ -609,7 +609,7 @@ Process and report launch, the step lifecycle, process form fields, step compone
 | Bulk edit grouped by sections with sidebar; "no editable fields" alert | `material:src/qqq/pages/processes/ProcessRun.tsx:842-937` | `src/components/process/BulkEditFormComponent.tsx:groupBySection` | PRC-029 | Done: section sidebar scrolls to each group; empty edit form shows an alert |
 | nonDistinctPVSFields warning | `material:src/qqq/pages/processes/ProcessRun.tsx:851-872` | `src/components/process/BulkEditFormComponent.tsx` | none | Done |
 | Bulk-edit PVs use the table | `material:src/qqq/pages/processes/ProcessRun.tsx:898-902, 1304` | `src/components/process/BulkEditFormComponent.tsx` possibleValueContext | PRC-029 | Done |
-| Google Drive folder via Google Picker (OAuth, shared drives, folder-only) | `material:src/qqq/pages/processes/ProcessRun.tsx:1012-1016, 1270-1275`; `material:src/qqq/components/processes/GoogleDriveFolderPicker.tsx`; `material:src/qqq/components/processes/GoogleDriveFolderPickerWrapper.tsx` | `src/components/process/GoogleDriveFolderComponent.tsx` (disabled button) | PRC-039 | Missing: stub only; #704 |
+| Google Drive folder via Google Picker (OAuth, shared drives, folder-only) | `material:src/qqq/pages/processes/ProcessRun.tsx:1012-1016, 1270-1275`; `material:src/qqq/components/processes/GoogleDriveFolderPicker.tsx`; `material:src/qqq/components/processes/GoogleDriveFolderPickerWrapper.tsx` | `src/components/process/GoogleDriveFolderComponent.tsx`; `src/lib/google-drive-picker.ts` | PRC-065; PRC-039 excluded | Done: configured shared-drive folder selection, cancellation, errors and submitted values verified with controlled Google SDK responses and real backend; real-account testing remains excluded; #704 |
 | Drive screen's other components still work | `material:src/qqq/pages/processes/ProcessRun.tsx:1270-1275` | `src/components/process/GoogleDriveFolderComponent.tsx` passes values through | PRC-038 | Done |
 | Named WIDGET fetched with processUUID + values | `material:src/qqq/pages/processes/ProcessRun.tsx:355-409` | `src/components/process/WidgetComponent.tsx:NamedWidget/widgetParams` | PRC-035 | Done |
 | Widget seeded from `processValues[widgetName]` | `material:src/qqq/pages/processes/ProcessRun.tsx:382-387` | `src/components/process/WidgetComponent.tsx` NamedWidget seeded | PRC-036 | Done |
@@ -1178,7 +1178,7 @@ This is a cross-cutting view that lists every Material Dashboard overlay (new wi
 | Bulk-load column tooltip and duplicate-header warning | material:src/qqq/components/processes/BulkLoadFileMappingForm.tsx:623-667 | src/components/process/BulkLoadFileMappingComponent.tsx:FilePreview | src/components/process/bulk-load-components.test.tsx | Done: mapped fields and duplicate warning |
 | Bulk-load "Add Fields" hierarchy menu (QHierarchyAutoComplete) | material:src/qqq/components/misc/QHierarchyAutoComplete.tsx:614 | src/components/process/BulkLoadAddFieldsMenu.tsx | PRC-031; src/components/process/bulk-load-components.test.tsx | Done: searchable association groups |
 | Bulk-load default-value and value-mapping autocompletes | material:src/qqq/components/processes/BulkLoadFileMappingField.tsx:273; material:src/qqq/pages/processes/ProcessRun.tsx:1370-1382 | src/components/process/BulkLoadFileMappingComponent.tsx; src/components/process/BulkLoadValueMappingComponent.tsx | PRC-031; src/components/process/bulk-load-components.test.tsx | Done: typed defaults and searchable possible values |
-| Google Drive folder picker (Google Picker window) | material:src/qqq/components/processes/GoogleDriveFolderPicker.tsx | src/components/process/GoogleDriveFolderComponent.tsx (disabled button) | PRC-039 | Missing: stub only; #704 |
+| Google Drive folder picker (Google Picker window) | material:src/qqq/components/processes/GoogleDriveFolderPicker.tsx | src/components/process/GoogleDriveFolderComponent.tsx | PRC-065; PRC-039 excluded | Done: Google picker integration; real-account testing remains excluded; #704 |
 | Child-record edit modal in a process step (`frontendRecords`) | material:src/qqq/components/widgets/DashboardWidgets.tsx:1005-1020 | src/components/widgets/ChildRecordListWidget.tsx; src/components/process/WidgetComponent.tsx:frontendRecordsJson | src/components/process/process-widgets.test.tsx | Done: in-memory child edits post as frontendRecords |
 | modalMode composite in a process (BUTTON controlCode show/hide/toggle) | material:src/qqq/pages/processes/ProcessRun.tsx:415-456; material:src/qqq/components/widgets/CompositeWidget.tsx:168-210 | src/components/process/ProcessBlocks.tsx:ProcessCompositeHost; src/components/widgets/blocks/QqqComposite.tsx | src/components/process/process-widgets.test.tsx | Done: button control codes operate a dialog |
 
@@ -1230,7 +1230,7 @@ Rows counted are Partial or Missing rows whose status names the issue.
 - #406 Complete V1 API surface for new frontend: 0 open rows
 - #696 Next UI 1.0: independent security review of auth, session, logout and HTML sanitization: 0 open rows
 - #702 Next UI 1.0: cronUI widget with live schedule description: 0 open rows
-- #704 Next UI 1.0: acceptance for the Google Drive folder picker (PRC-039): 1 open row
+- #704 Next UI 1.0: Google Drive picker implementation: 0 open implementation rows; PRC-039 real-account exclusion remains
 - #716 Next UI 1.0 parity: Query column menu and grid columns: 0 open rows (integrated)
 - #717 Next UI 1.0 parity: Query saved-view memory, quick views and screen polish: 0 open rows
 - #719 Next UI 1.0 parity: theme metadata (MaterialDashboardThemeMetaData): 0 open rows
