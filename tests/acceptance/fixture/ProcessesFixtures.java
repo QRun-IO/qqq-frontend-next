@@ -12,6 +12,8 @@
  */
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,6 +32,8 @@ import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
 import com.kingsrook.qqq.backend.core.actions.metadata.MetaDataActionCustomizerInterface;
 import com.kingsrook.qqq.backend.core.actions.processes.ProcessFileDownload;
 import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
+import com.kingsrook.qqq.backend.core.actions.tables.StorageAction;
+import com.kingsrook.qqq.backend.core.model.actions.tables.storage.StorageInput;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.exceptions.QUserFacingException;
@@ -217,6 +221,7 @@ public final class ProcessesFixtures
       instance.addProcess(defineLoop());
       instance.addProcess(definePick());
       instance.addProcess(defineFieldWidget());
+      instance.addProcess(defineBlockEditors());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
          .withLabel("Quick Task")
@@ -409,6 +414,84 @@ public final class ProcessesFixtures
             .withLabel("Review Filter")
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")));
+   }
+
+
+
+   /*******************************************************************************
+    ** Metadata editors inside composite blocks share process validation and values.
+    *******************************************************************************/
+   private static QProcessMetaData defineBlockEditors()
+   {
+      ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
+      List<QFieldMetaData> fields = List.of(
+         new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"),
+         new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost").withDisplayFormat("$%.2f"),
+         new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script")
+            .withFieldAdornment(new FieldAdornment(AdornmentType.CODE_EDITOR).withValue("languageMode", "javascript")),
+         new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")
+            .withFieldAdornment(new FieldAdornment(AdornmentType.WIDGET).withValue(AdornmentType.WidgetValues.WIDGET_NAME, "reportSetupWidget")),
+         new QFieldMetaData("attachment", QFieldType.BLOB).withLabel("Attachment").withIsRequired(true),
+         new QFieldMetaData("adornedUpload", QFieldType.STRING).withLabel("Supporting File").withIsRequired(true)
+            .withFieldAdornment(new FieldAdornment(AdornmentType.FILE_UPLOAD).withValue("format", "dragAndDrop")));
+      for(QFieldMetaData field : fields)
+      {
+         blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(field).withSubmitOnEnter(true)));
+      }
+      return new QProcessMetaData()
+         .withName("prcBlockEditors")
+         .withLabel("Block Editors")
+         .withStep(backend("prepare", PrepareBlockEditorsStep.class))
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Blocks")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
+         .withStep(backend("readUploads", ReadBlockUploadsStep.class))
+         .withStep(new QFrontendStepMetaData().withName("review").withLabel("Review Blocks")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category"))
+            .withViewField(new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost"))
+            .withViewField(new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script"))
+            .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter"))
+            .withViewField(new QFieldMetaData("columnsJson", QFieldType.TEXT).withLabel("Columns"))
+            .withViewField(new QFieldMetaData("attachmentContents", QFieldType.TEXT).withLabel("Attachment Contents"))
+            .withViewField(new QFieldMetaData("adornedUploadContents", QFieldType.TEXT).withLabel("Supporting Contents")));
+   }
+
+
+
+   public static class PrepareBlockEditorsStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output)
+      {
+         output.addValue("tableName", "person");
+         output.addValue("category", "Mineral");
+         output.addValue("cost", "12.50");
+         output.addValue("script", "const sample = 1;");
+         output.addValue("queryFilterJson", "{}");
+         output.addValue("columnsJson", "{\"columns\":[{\"name\":\"id\",\"isVisible\":true}]}");
+      }
+   }
+
+
+
+   public static class ReadBlockUploadsStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         for(String name : List.of("attachment", "adornedUpload"))
+         {
+            List<?> uploads = (List<?>) input.getValue(name);
+            try(InputStream stream = new StorageAction().getInputStream((StorageInput) uploads.get(0)))
+            {
+               output.addValue(name + "Contents", new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            catch(IOException e)
+            {
+               throw new QException("Could not read block upload", e);
+            }
+         }
+      }
    }
 
 

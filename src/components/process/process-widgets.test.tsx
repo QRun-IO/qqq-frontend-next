@@ -187,6 +187,78 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ quantity: 7, actionCode: 'approve' }, undefined))
   })
 
+  it('keeps adorned block editors in the process form and submits their typed values', async () => {
+    const user = userEvent.setup()
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('species', 'Species', { type: 'INTEGER', inlinePossibleValueSource: { enumValues: [{ id: 1, label: 'Dog' }, { id: 2, label: 'Cat' }] } }) } },
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('cost', 'Cost', { type: 'DECIMAL', displayFormat: '$%.2f' }) } },
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: field('script', 'Script', { adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }] }) } },
+      { blockTypeName: 'BUTTON', values: { label: 'Accept values', actionCode: 'accept' } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, { species: 1, cost: '12.50', script: 'first line' })
+    const choices = screen.getByRole('combobox', { name: 'Species' })
+    await user.click(choices)
+    await user.click(await screen.findByRole('option', { name: 'Cat' }))
+    expect(screen.getByText('$')).toBeVisible()
+    expect(screen.getByText('JavaScript')).toBeVisible()
+    const code = screen.getByRole('textbox', { name: 'Script' })
+    await user.click(code)
+    await user.keyboard('{End}{Enter}second line')
+    expect(onSubmit).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Accept values' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ species: 2, cost: 12.5, script: 'first line\nsecond line', actionCode: 'accept' }, undefined))
+  })
+
+  it.each(['BLOB', 'FILE_UPLOAD'] as const)('submits a required %s block as a multipart file', async (kind) => {
+    const user = userEvent.setup()
+    const upload = field('attachment', 'Attachment', { type: kind === 'BLOB' ? 'BLOB' : 'STRING', isRequired: true,
+      adornments: kind === 'FILE_UPLOAD' ? [{ type: 'FILE_UPLOAD', values: { format: 'dragAndDrop' } }] : [] })
+    const step: QFrontendStepMetaData = { name: 'upload', label: 'Upload', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: upload } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, {})
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(await screen.findByText('Attachment is required')).toBeVisible()
+    expect(onSubmit).not.toHaveBeenCalled()
+    const file = new File(['block upload'], 'attachment.txt', { type: 'text/plain' })
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(input).not.toBeNull()
+    await user.upload(input!, file)
+    expect(screen.getByText('attachment.txt')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({}, { attachment: file }))
+  })
+
+  it.each([false, true])('locks metadata editors when readonly or working (working=%s)', async (working) => {
+    const user = userEvent.setup()
+    const editable = working
+    const step: QFrontendStepMetaData = { name: 'locked', label: 'Locked', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: field('cost', 'Cost', { isEditable: editable, type: 'DECIMAL', displayFormat: '$%.2f' }) } },
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('species', 'Species', { isEditable: editable, type: 'INTEGER', inlinePossibleValueSource: { enumValues: [{ id: 1, label: 'Dog' }] } }) } },
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('script', 'Script', { isEditable: editable, adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }] }) } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, { cost: 12.5, species: 1, script: 'original' }, { isWorking: working })
+    expect(screen.getByLabelText('Cost')).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: 'Species' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(screen.getByRole('combobox', { name: 'Species' }))
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Script' })).toHaveAttribute('readonly')
+    await user.type(screen.getByRole('textbox', { name: 'Script' }), 'changed{Enter}')
+    expect(screen.getByRole('textbox', { name: 'Script' })).toHaveValue('original')
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('honors hidden and readonly metadata on plain process block inputs', () => {
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('hidden', 'Hidden Field', { isHidden: true }) } },
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('locked', 'Locked Field', { isEditable: false }) } },
+    ] } }] }
+    renderStep(step, { locked: 'fixed' })
+    expect(screen.queryByLabelText('Hidden Field')).toBeNull()
+    expect(screen.getByLabelText('Locked Field')).toBeDisabled()
+    expect(screen.getByLabelText('Locked Field')).toHaveValue('fixed')
+  })
+
   it('opens, closes and toggles a modal-mode composite from button control codes', async () => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'pick', label: 'Pick', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [

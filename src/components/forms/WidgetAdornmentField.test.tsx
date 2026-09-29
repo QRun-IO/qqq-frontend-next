@@ -38,6 +38,7 @@ vi.mock('@/lib/hooks/use-filter-setup', () => ({
 
 import { useWidget } from '@/lib/hooks/use-widget'
 import { DynamicFormField } from './DynamicFormField'
+import { BlockInputEditor } from '@/components/widgets/blocks/BlockInputEditor'
 
 const widget = { name: 'fieldFilter', label: 'Field filter', type: 'filterAndColumnsSetup', hasPermission: true } as QWidgetMetaData
 const table = { name: 'person', label: 'Person', primaryKeyField: 'id', fields: {
@@ -50,21 +51,23 @@ const field = {
   adornments: [{ type: 'WIDGET', values: { widgetName: 'fieldFilter' } }],
 } as QFieldMetaData
 
-function HostForm() {
+function HostForm({ block = false }: { block?: boolean }) {
   const form = useForm<Record<string, unknown>>({ defaultValues: {
-    tableName: 'person', queryFilterJson_2: '{}', columnsJson: '',
+    ...(block ? {} : { tableName: 'person' }), queryFilterJson_2: '{}', columnsJson: '',
   } })
   const values = useWatch({ control: form.control })
   return <>
-    <DynamicFormField field={field} register={form.register} control={form.control} errors={form.formState.errors} />
+    {block ? <BlockInputEditor field={field} widgetName="filter-block" form={form} contextValues={{ tableName: 'person' }} onEnter={() => {}} /> :
+      <DynamicFormField field={field} register={form.register} control={form.control} errors={form.formState.errors} />}
     <output data-testid="values">{JSON.stringify(values)}</output>
   </>
 }
 
 describe('WIDGET field adornment', () => {
-  it('requests the field-specific widget and writes only its indexed field back to the host', async () => {
+  it.each([false, true])('requests the field-specific widget and writes only its indexed field back to the host (block=%s)', async (block) => {
+    vi.clearAllMocks()
     const user = userEvent.setup()
-    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><QContextProvider><HostForm /></QContextProvider></QueryClientProvider>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><QContextProvider><HostForm block={block} /></QContextProvider></QueryClientProvider>)
     expect(vi.mocked(useWidget)).toHaveBeenCalledWith('fieldFilter', expect.objectContaining({
       tableName: 'person', __formFieldAsWidget_FieldName: 'queryFilterJson_2',
     }), expect.anything())

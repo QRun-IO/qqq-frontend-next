@@ -19,6 +19,8 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import type { QWidgetMetaData } from '@/types'
 import type { QqqCompositeData } from '../widget-types'
@@ -383,9 +385,9 @@ describe('QqqComposite', () => {
     expect(screen.queryByText('No id')).toBeNull()
   })
 
-  it('draws each INPUT_FIELD type with its Material control and seeded value (WID-072)', () => {
+  it.each([undefined, '%s'])('preserves plain INPUT_FIELD controls and seeded values (displayFormat=%s)', (displayFormat) => {
     const field = (name: string, type: string, extra: Record<string, unknown> = {}) =>
-      ({ blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name, label: `Owned ${name}`, type, ...extra }, ...('value' in extra ? { value: extra.value } : {}) } })
+      ({ blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name, label: `Owned ${name}`, type, displayFormat, ...extra }, ...('value' in extra ? { value: extra.value } : {}) } })
     const data: QqqCompositeData = {
       blocks: [
         field('text', 'STRING', { value: 'seeded text' }), field('count', 'INTEGER', { value: 7 }), field('amount', 'DECIMAL'), field('longId', 'LONG'),
@@ -414,7 +416,46 @@ describe('QqqComposite', () => {
     expect(control('Owned body')).toHaveAttribute('type', 'text')
     expect(control('Owned markup')).toHaveAttribute('type', 'text')
     expect(control('Owned script').tagName).toBe('TEXTAREA')
-    expect(control('Owned script')).toHaveAttribute('data-control', 'code')
+    expect(screen.getByText('JavaScript')).toBeVisible()
+  })
+
+  it('uses metadata choice and formatted number editors in standalone input blocks', async () => {
+    const user = userEvent.setup()
+    const action = vi.fn()
+    const data: QqqCompositeData = { blockTypeName: 'COMPOSITE', blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 1, fieldMetaData: {
+        name: 'species', label: 'Species', type: 'INTEGER', isEditable: true,
+        inlinePossibleValueSource: { enumValues: [{ id: 1, label: 'Dog' }, { id: 2, label: 'Cat' }] },
+      } } },
+      { blockTypeName: 'INPUT_FIELD', values: { value: '12.50', submitOnEnter: true, placeholder: 'Enter cost', fieldMetaData: {
+        name: 'cost', label: 'Cost', type: 'DECIMAL', isEditable: true, displayFormat: '$%.2f',
+      } } },
+    ] }
+    render(<QueryClientProvider client={new QueryClient()}><QqqComposite widgetMetaData={meta('editors')} data={data} actionCallback={action} /></QueryClientProvider>)
+    const choices = screen.getByRole('combobox', { name: 'Species' })
+    expect(choices).toHaveTextContent('Dog')
+    await user.click(choices)
+    await user.click(await screen.findByRole('option', { name: 'Cat' }))
+    expect(choices).toHaveTextContent('Cat')
+    expect(screen.getByText('$')).toBeVisible()
+    const cost = screen.getByRole('spinbutton', { name: 'Cost' })
+    expect(cost).toHaveAttribute('placeholder', 'Enter cost')
+    await user.clear(cost)
+    await user.type(cost, '24.75{Enter}')
+    expect(action).toHaveBeenCalledWith(data.blocks![1], { cost: '24.75' })
+  })
+
+  it('honors hidden and readonly metadata on plain standalone inputs', async () => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name: 'hidden', label: 'Hidden Field', type: 'STRING', isHidden: true } } },
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'fixed', submitOnEnter: true, fieldMetaData: { name: 'locked', label: 'Locked Field', type: 'STRING', isEditable: false } } },
+    ] })
+    expect(screen.queryByLabelText('Hidden Field')).toBeNull()
+    expect(screen.getByLabelText('Locked Field')).toBeDisabled()
+    await user.type(screen.getByLabelText('Locked Field'), 'changed{Enter}')
+    expect(screen.getByLabelText('Locked Field')).toHaveValue('fixed')
+    expect(actionCallback).not.toHaveBeenCalled()
   })
 
   it('maps standard and hex color names', () => {

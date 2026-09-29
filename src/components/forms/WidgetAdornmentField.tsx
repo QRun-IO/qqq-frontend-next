@@ -52,15 +52,17 @@ function widgetRequestParams(values: Record<string, unknown>, fieldName: string)
  * @param root0 - Field metadata, form control and edit state.
  * @returns The field widget or a contained loading/error message.
  */
-export function WidgetAdornmentField({ field, control, disabled = false, possibleValueContext }: {
+export function WidgetAdornmentField({ field, control, disabled = false, possibleValueContext, contextValues }: {
   field: QFieldMetaData
   control: Control<Record<string, unknown>>
   disabled?: boolean
+  contextValues?: Record<string, unknown>
   possibleValueContext?: PossibleValueContext
 }) {
   const name = findAdornment(field, 'WIDGET')?.values?.widgetName
   const widgetName = typeof name === 'string' ? name : ''
-  const values = useWatch({ control }) as Record<string, unknown>
+  const watched = useWatch({ control }) as Record<string, unknown>
+  const values = { ...contextValues, ...watched }
   const initialParams = useRef(widgetRequestParams(values, field.name))
   const metadata = useMetaData()
   const widgetMetaData = metadata.data?.widgets?.[widgetName]

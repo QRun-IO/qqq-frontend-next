@@ -38,6 +38,7 @@ import type { QFieldMetaData, QWidgetMetaData } from '@/types'
 import type { BlockActionCallback, QqqBlockData, QqqCompositeData } from '@/components/widgets/widget-types'
 import { cn } from '@/lib/utils/cn'
 
+import { BlockInputEditor, needsBlockInputEditor } from '@/components/widgets/blocks/BlockInputEditor'
 import { QqqComposite } from '@/components/widgets/blocks/QqqComposite'
 import { CompositeHostContext, type CompositeHost, type HostInputFieldProps } from '@/components/widgets/blocks/composite-host'
 import { blockQqqId, blockValues } from '@/components/widgets/blocks/block-utils'
@@ -153,10 +154,25 @@ export function useProcessBlockAction(): BlockActionCallback | undefined {
  * @returns The labeled input.
  */
 function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
-  const { form, isWorking, requestSubmit } = useProcessStep()
+  const { form, isWorking, requestSubmit, processName, formFields, inputFieldNames, values: processValues } = useProcessStep()
   const values = blockValues(block)
   const field = values.fieldMetaData as QFieldMetaData | undefined
-  if (!field || typeof field.name !== 'string') return null
+  if (!field || typeof field.name !== 'string' || field.isHidden) return null
+  if (field.type === 'BLOB' || needsBlockInputEditor(field)) {
+    const processField = formFields.some((item) => item.name === field.name) && !inputFieldNames.has(field.name)
+    return <div data-qqq-id={blockQqqId('INPUT_FIELD', widgetName)} data-block-type="INPUT_FIELD" data-block-id={block.blockId}>
+      <BlockInputEditor contextValues={processValues} field={field} widgetName={widgetName} form={form} disabled={isWorking}
+        autoFocus={values.autoFocus === true} placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
+        possibleValueContext={processField || field.adornments?.some((item) => item.type === 'WIDGET') ? { type: 'process', processName } : { type: 'standalone' }}
+        onEnter={(entered) => {
+          if (values.submitOnEnter !== true) return
+          if (entered.startsWith('->')) {
+            form.setValue(field.name, '')
+            requestSubmit({ actionCode: entered.substring(2) })
+          } else requestSubmit()
+        }} />
+    </div>
+  }
   const inputId = `process-block-input-${widgetName}-${field.name}`
   const errorId = `${inputId}-error`
   const message = form.formState.errors[field.name]?.message

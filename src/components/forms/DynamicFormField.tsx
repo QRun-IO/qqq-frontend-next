@@ -57,6 +57,10 @@ import { WidgetAdornmentField } from './WidgetAdornmentField'
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Surrounding values available to a field widget without making them editable. */
+  contextValues?: Record<string, unknown>
+  /** Optional hint supplied by an input block. */
+  placeholder?: string
   /** Metadata describing the field to render. */
   field: QFieldMetaData
   /** Help slot key shown in help-authoring mode (`?helpHelp`), e.g. `table:person;field:email`. */
@@ -255,6 +259,8 @@ function DirtyWrapper({
  */
 export function DynamicFormField({
   field,
+  placeholder,
+  contextValues,
   idPrefix,
   register,
   control,
@@ -300,7 +306,7 @@ export function DynamicFormField({
   }
 
   if (hasAdornment(field, 'WIDGET')) {
-    return <WidgetAdornmentField field={field} control={control} disabled={disabled} possibleValueContext={possibleValueContext} />
+    return <WidgetAdornmentField contextValues={contextValues} field={field} control={control} disabled={disabled} possibleValueContext={possibleValueContext} />
   }
 
   // Fields with possible values (a named source, or values declared inline) use PossibleValueSelect
@@ -317,6 +323,7 @@ export function DynamicFormField({
             control={control as Control<Record<string, unknown>>}
             fieldName={field.name}
             possibleValueSourceName={field.possibleValueSourceName}
+            placeholder={placeholder}
             initialLabel={displayValueOverrides?.[field.name] ?? record?.displayValues?.[field.name]}
             inlineOptions={inlineOptions}
             chipField={field}
@@ -389,6 +396,7 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
               registration={registration()}
@@ -424,6 +432,7 @@ export function DynamicFormField({
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
               </div>
               <textarea
+                placeholder={placeholder}
                 id={fieldId}
                 {...registration()}
                 disabled={isDisabled}
@@ -498,6 +507,7 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
               registration={registration()}
@@ -521,6 +531,7 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
               registration={registration()}
@@ -654,7 +665,7 @@ export function DynamicFormField({
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
-              placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : undefined}
+              placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : placeholder}
               describedBy={helpDescribedBy}
               data-qqq-id={dataQqqId}
             />
@@ -668,6 +679,7 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
               registration={registration()}

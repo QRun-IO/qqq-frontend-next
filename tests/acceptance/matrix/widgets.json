@@ -635,7 +635,9 @@
         "grid preview hides selection, changing page size changes the real backend query, header sorting changes the real backend query, and keyboard column resize persists in saved columns JSON"
       ],
       "negative": [],
-      "issues": [722],
+      "issues": [
+        722
+      ],
       "required": true
     },
     {
@@ -1607,6 +1609,25 @@
       "issues": [
         "QRun-IO/qqq#699",
         "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-074",
+      "feature": "Standalone composite scalar controls and metadata editors",
+      "source": [
+        "src/components/widgets/blocks/QqqBlocks.tsx",
+        "src/components/widgets/blocks/BlockInputEditor.tsx"
+      ],
+      "fixture": "widgetInputEditors / accTypedInputs",
+      "scenarios": [
+        "Seeded text, number, date, boolean and native file controls; currency prefix, named possible values and multiline code editor"
+      ],
+      "negative": [
+        "Code-editor Enter leaves the widget on the same page"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
       ],
       "required": true
     }

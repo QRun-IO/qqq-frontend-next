@@ -24,6 +24,8 @@
 
 import React, { useState } from 'react'
 
+import type { QFieldMetaData } from '@/types'
+import { needsBlockInputEditor, StandaloneBlockInputEditor } from './BlockInputEditor'
 import type { BlockActionCallback, QqqBlockData } from '../widget-types'
 import { isPlainObject } from '../widget-types'
 import { cn } from '@/lib/utils/cn'
@@ -366,7 +368,22 @@ const INPUT_CLASSES = 'w-full rounded-md border border-input bg-background px-3 
  * @param props - See {@link LeafBlockProps}.
  * @returns The rendered input block.
  */
-export function InputFieldBlock({ block, widgetName, actionCallback }: LeafBlockProps) {
+export function InputFieldBlock(props: LeafBlockProps) {
+  const values = blockValues(props.block)
+  const field = values.fieldMetaData as QFieldMetaData | undefined
+  if (field?.isHidden) return null
+  if (field?.name && needsBlockInputEditor(field)) return <div {...rootAttributes(props.block, props.widgetName)} className="mt-2 min-w-56">
+    <BlockSlot block={props.block} slot=""><StandaloneBlockInputEditor {...props} field={field} /></BlockSlot>
+  </div>
+  return <PlainInputFieldBlock {...props} />
+}
+
+/**
+ * Retains the original scalar block's compact label and control layout.
+ * @param props - Block payload and action callback.
+ * @returns The plain field.
+ */
+function PlainInputFieldBlock({ block, widgetName, actionCallback }: LeafBlockProps) {
   const values = blockValues(block)
   const field = isPlainObject(values.fieldMetaData) ? values.fieldMetaData : {}
   const fieldName = text(field.name) ?? 'input'

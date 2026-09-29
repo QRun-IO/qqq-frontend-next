@@ -122,6 +122,18 @@ final class WidgetBlockExtrasFixtures
 
 
    /*******************************************************************************
+    ** Standalone input editors, independently of the unrelated extras dashboards.
+    *******************************************************************************/
+   static void defineInputEditors(QInstance qInstance)
+   {
+      String inputWidget = add(qInstance, widget("accTypedInputs", WidgetType.COMPOSITE, "Owned Typed Inputs").withGridColumns(12));
+      qInstance.addApp(new QAppMetaData().withName("widgetInputEditors").withLabel("Widget Input Editors")
+         .withIcon(new QIcon("edit")).withWidgets(List.of(inputWidget)));
+   }
+
+
+
+   /*******************************************************************************
     ** Host, child and tag tables; the child list widget on the host record view.
     *******************************************************************************/
    private static void defineChildRecords(QInstance qInstance)
@@ -417,7 +429,8 @@ final class WidgetBlockExtrasFixtures
          List<InputFieldValues> inputs = List.of(
             new SeededInputValues(new QFieldMetaData("ownedText", QFieldType.STRING).withLabel("Owned Text"), "Owned seeded text"),
             new SeededInputValues(new QFieldMetaData("ownedCount", QFieldType.INTEGER).withLabel("Owned Count"), 7),
-            new InputFieldValues(new QFieldMetaData("ownedAmount", QFieldType.DECIMAL).withLabel("Owned Amount")),
+            new InputFieldValues(new QFieldMetaData("ownedAmount", QFieldType.DECIMAL).withLabel("Owned Amount").withDisplayFormat(DisplayFormat.CURRENCY)),
+            new SeededInputValues(new QFieldMetaData("ownedChoice", QFieldType.STRING).withLabel("Owned Choice").withPossibleValueSourceName(WidgetsFixtures.CHOICE_PVS), "alpha"),
             new SeededInputValues(new QFieldMetaData("ownedDay", QFieldType.DATE).withLabel("Owned Day"), "2026-03-04"),
             new InputFieldValues(new QFieldMetaData("ownedStamp", QFieldType.DATE_TIME).withLabel("Owned Stamp")),
             new InputFieldValues(new QFieldMetaData("ownedClock", QFieldType.TIME).withLabel("Owned Clock")),

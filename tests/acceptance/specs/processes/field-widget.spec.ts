@@ -32,3 +32,43 @@ test('[WID-071] a WIDGET-adorned process field edits only its own value @mobile'
   const stored = JSON.parse(await viewValue(review, 'queryFilterJson').textContent() ?? '{}') as { orderBys?: unknown[] }
   expect(stored.orderBys).toEqual([{ fieldName: 'firstName', isAscending: true }])
 })
+
+
+test('[PRC-062] composite metadata editors submit choices, code, filter JSON and uploaded bytes @mobile', async ({ page, diagnostics }) => {
+  void diagnostics
+  await openProcess(page, 'prcBlockEditors')
+  const edit = await expectScreen(page, 'edit', 'Edit Blocks')
+  await expect(edit.getByLabel('Cost', { exact: true })).toHaveValue('12.50')
+  await expect(edit.getByText('$', { exact: true })).toBeVisible()
+  await expect(edit.getByText('JavaScript', { exact: true })).toBeVisible()
+  await edit.getByRole('combobox', { name: 'Category' }).click()
+  await page.getByRole('option', { name: 'Plant', exact: true }).click()
+  await edit.getByLabel('Cost', { exact: true }).fill('24.75')
+  const script = edit.getByRole('textbox', { name: 'Script', exact: true })
+  await script.fill('const sample = 2;')
+  await script.press('End')
+  await script.press('Enter')
+  await script.pressSequentially('// second line')
+  await expect(edit).toBeVisible()
+  await expect(script).toHaveValue('const sample = 2;\n// second line')
+
+  await edit.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  await dialog.getByLabel('Sort by', { exact: true }).selectOption('firstName')
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click()
+  await advance(page, 'Submit')
+  await expect(edit.getByText('Attachment is required', { exact: true })).toBeVisible()
+  await expect(edit.getByText('Supporting File is required', { exact: true })).toBeVisible()
+  await edit.locator('input[type="file"]').nth(0).setInputFiles({ name: 'attachment.txt', mimeType: 'text/plain', buffer: Buffer.from('owned attachment bytes') })
+  await edit.locator('input[type="file"]').nth(1).setInputFiles({ name: 'support.txt', mimeType: 'text/plain', buffer: Buffer.from('owned supporting bytes') })
+  await advance(page, 'Submit')
+
+  const review = await expectScreen(page, 'review', 'Review Blocks')
+  await expect(viewValue(review, 'category')).toHaveText('Plant')
+  await expect(viewValue(review, 'cost')).toHaveText('24.75')
+  await expect(viewValue(review, 'script')).toHaveText('const sample = 2;\n// second line')
+  expect(JSON.parse(await viewValue(review, 'queryFilterJson').textContent() ?? '{}').orderBys).toEqual([{ fieldName: 'firstName', isAscending: true }])
+  expect(JSON.parse(await viewValue(review, 'columnsJson').textContent() ?? '{}')).toEqual({ columns: [{ name: 'id', isVisible: true }] })
+  await expect(viewValue(review, 'attachmentContents')).toHaveText('owned attachment bytes')
+  await expect(viewValue(review, 'adornedUploadContents')).toHaveText('owned supporting bytes')
+})

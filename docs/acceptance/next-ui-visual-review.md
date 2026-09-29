@@ -4,7 +4,23 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, report interaction review
+## Latest checkpoint — September 29, composite metadata inputs
+
+The block INPUT_FIELD integration now reuses Next's field editors for choices, formatting and supported adornments, retaining the process form and multipart upload path. Plain scalar input layout remains the reference. The richer code/filter/upload editors add genuine capabilities absent from the original block renderer; their additional height and composition are still under visual review. This does not approve the widget or process family.
+
+**VIS-021, corrected in source:** the dispatcher initially treated the backend's default `%s` format as custom formatting. This changed ordinary scalar controls into the shared form layout. A fixture-based browser failure and unit regression exposed it; neutral formatting now preserves the original scalar path. Hidden and read-only metadata are respected in both hosts.
+
+**VIS-022, corrected in source:** a standalone choice editor collapsed to approximately101px, placing its Clear button at the center of the control. A native hit test confirmed that a center click cleared the value instead of opening the choices. The original scalar input is approximately200px wide; standalone metadata editors now use a14rem minimum, also accommodating Firefox's approximately217px native input. The browser assertion compares their widths and retains the center click.
+
+A typed-input fixture existed but was not registered, so the first new capture showed Page not found. It now has a dedicated `widgetInputEditors` app. The capture script treats unexpected not-found screens as failed evidence. Paired captures also cover `prcBlockEditors`, whose original renderer lacks the rich editors, and the unchanged `prcWidgets` route. These comparisons distinguish new capability from restored composition. Final verification and refreshed captures are recorded below when complete.
+
+The remote full run36564701143 has WebKit success, Firefox520passes/1failure(QRY-093), and Chromium/mobile/tablet still running. The Firefox trace shows a concrete reload race: B-filter data appeared before asynchronous router replacement updated the address bar, so reload used the previous Avery filter. Fix remains open; no assertion has been weakened. Artifact11033840508 and its log are retained locally.
+
+Final input-editor checkpoint: **1,783 unit tests pass**, production export/typecheck, changed-file lint, license and whitespace checks pass, and the bundle remains within1050KB gzip. **35 real-backend cases pass across five profiles**, comprising30 widget/process checks and five unchanged QRY-093 rechecks. Those rechecks do not resolve the proven CI URL race. Final logs are `block-editors-width-{build,acceptance,visual-light,visual-dark}.log`, `block-editors-final-{unit,types,lint,license,budget}.log`. The earlier width run's failures and traces are retained, including the aborted local run after repeated diagnosed failures; no remote job was canceled.
+
+Canonical inventory:97light states/size(194original/current entries),75dark(150entries). All36 entries for the three compared scenarios have no setup/runtime errors or page overflow. Inspected final light desktop/phone standalone controls, light phone process lower controls, dark phone standalone controls, dark tablet process lower controls, and existing Widget Lab. Plain fields retain their compact treatment; actual adorned editors are larger than the original scalar controls. Complete configuration/autofocus and visual composition review remain open in the parity ledger. The two new acceptance rows are PRC-062 and WID-074; the generated whole-suite matrix still requires final release reconciliation.
+
+## Earlier checkpoint — September 29, report interaction review
 
 **Release not ready; full visual review incomplete.** Recovery head `06cf1b0` is now pushed to PR #14. General CI `36564701134` and image build `36564701149` pass; full acceptance `36564701143` remains running. The preceding full run ended with tablet/WebKit Export failures and Firefox saved-report opening delay. Local report review changes are verified separately and will stay local while the new full run is active.
 

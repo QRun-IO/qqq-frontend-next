@@ -233,6 +233,7 @@ final class WidgetsFixtures
       repointSampleQuickSight(qInstance);
       WidgetTableChartFixtures.define(qInstance);
       WidgetChromeFixtures.define(qInstance);
+      WidgetBlockExtrasFixtures.defineInputEditors(qInstance);
    }
 
 

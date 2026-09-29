@@ -1067,6 +1067,26 @@
         "QRun-IO/qqq#726"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-062",
+      "feature": "Composite INPUT_FIELD metadata editors share process validation and multipart submission",
+      "source": [
+        "src/components/process/ProcessBlocks.tsx",
+        "src/components/widgets/blocks/BlockInputEditor.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/blocks/InputFieldBlock.tsx"
+      ],
+      "fixture": "prcBlockEditors",
+      "scenarios": [
+        "Choose a labeled possible value, edit currency and multiline code, update a widget filter without changing columns, upload BLOB and FILE_UPLOAD data and verify backend-read content"
+      ],
+      "negative": [
+        "Required uploads block submission; code-editor Enter does not submit the process"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
+      ],
+      "required": true
     }
   ]
 }
