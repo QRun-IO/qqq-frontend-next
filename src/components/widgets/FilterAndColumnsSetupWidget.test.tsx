@@ -62,6 +62,15 @@ function mockTable(value: QTableMetaData | undefined, state: { isLoading?: boole
 }
 
 describe('FilterAndColumnsSetupWidget', () => {
+  it('omits the legacy selection column from saved report summaries', () => {
+    mockTable(petSpecies)
+    const record = savedReport({ tableName: 'petSpecies', columnsJson: JSON.stringify({ columns: [
+      { name: '__check__', isVisible: true }, { name: 'possibleValueId', isVisible: true },
+    ] }) })
+    const { container } = render(<FilterAndColumnsSetupWidget widgetMetaData={meta} data={payload} recordContext={{ tableName: 'savedReport', record }} />)
+    expect(Array.from(container.querySelectorAll('[data-qqq-id="report-columns-reportSetupWidget"] li')).map(li => li.textContent)).toEqual(['ID'])
+  })
+
   beforeEach(() => {
     tableMetaData.mockReset()
   })

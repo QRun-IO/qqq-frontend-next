@@ -785,9 +785,12 @@
       "fixture": "sample sleepInteractive, prcComponents",
       "scenarios": [
         "sleepMillis preset drives an async sleep to screen1",
-        "labName prefilled"
+        "labName prefilled",
+        "normal navigation shows a required sleep duration with a 1000ms default and completes to screen1"
       ],
-      "negative": [],
+      "negative": [
+        "clearing sleep duration blocks submission on screen0"
+      ],
       "issues": [],
       "required": true
     },

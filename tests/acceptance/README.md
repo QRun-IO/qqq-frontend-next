@@ -4,6 +4,19 @@ Executable acceptance for every supported QQQ UI feature, against the QRun-owned
 application and the production Next build. Mocked unit and e2e tests complement this
 suite; they never replace it.
 
+## RC1 priority: workflow depth in Chromium
+
+For RC1, prioritize complete real-application workflows in Chromium before expanding
+browser and viewport coverage. Exercise normal entry paths, defaults, validation,
+editing and cancellation, saving and reopening, changing dependent selections,
+permissions, failure recovery, and the resulting records or downloaded files.
+Check persisted values independently through the owned backend where applicable.
+Scenario counts and passing page-load checks are not evidence that every workflow works.
+
+Use the default Chromium project for focused diagnosis and the full Chromium acceptance
+gate for the candidate. Preserve existing cross-browser tests and record failures;
+additional browser and responsive work follows the workflow depth pass.
+
 ## Run
 
 ```bash

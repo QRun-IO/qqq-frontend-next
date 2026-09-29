@@ -194,7 +194,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     const presets = {
       tableName,
       queryFilterJson: JSON.stringify(prepared),
-      columnsJson: JSON.stringify(currentViewJson.queryColumns),
+      columnsJson: JSON.stringify({ columns: currentViewJson.queryColumns?.columns.filter(column => column.name !== '__check__') ?? [] }),
     }
     return `/app/savedReport/create#defaultValues=${encodeURIComponent(JSON.stringify(presets))}`
   }, [currentViewJson, metaData?.tables?.savedReport, rq.viewState.pageSize, tableMetaData, tableName])

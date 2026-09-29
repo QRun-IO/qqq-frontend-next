@@ -20,7 +20,7 @@
  */
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Columns, RefreshCw } from 'lucide-react'
 
@@ -428,6 +428,20 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
   }
   const filterField = data?.filterFieldName ?? 'queryFilterJson'
   const columnField = data?.columnsFieldName ?? data?.columnFieldName ?? 'columnsJson'
+  const selection = JSON.stringify([tableName, api])
+  const previousSelection = useRef(selection)
+  useEffect(() => {
+    if (!table || table.name !== tableName || previousSelection.current === selection) return
+    previousSelection.current = selection
+    const cleaned = initialFilter(values[filterField], table, data, values).filter
+    const columns = columnsStateFromEntries(table, storedColumns(values[columnField])) ?? DEFAULT_COLUMNS_STATE
+    setValues({
+      [filterField]: JSON.stringify(toBackendFilter(table, cleaned)),
+      ...(!data?.hideColumns ? { [columnField]: JSON.stringify(toColumnsJson(table, columns)) } : {}),
+    })
+    setOpen(false)
+    setAlert('Filters and columns now use the selected table.')
+  }, [selection, table, tableName, values, filterField, columnField, data, setValues])
   const configuredFilter = table ? initialFilter(values[filterField], table, data, values).filter : null
   const hasFilters = Boolean(configuredFilter?.criteria.length || configuredFilter?.subFilters?.length)
   const hasColumns = Boolean(storedColumns(values[columnField])?.some((column) => column.isVisible))

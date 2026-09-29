@@ -170,12 +170,19 @@ export function missingDefaultFields(defaultFieldNames: string[] | undefined, va
  */
 export function removeUnknownCriteria(table: QTableMetaData, filter: QQueryFilter): { filter: QQueryFilter; removed: string[] } {
   const removed: string[] = []
-  const criteria = filter.criteria.filter((criterion) => {
-    if (resolveField(table, criterion.fieldName)) return true
-    removed.push(criterion.fieldName)
+  const exists = (name: string) => {
+    if (resolveField(table, name)) return true
+    removed.push(name)
     return false
+  }
+  const clean = (group: QQueryFilter): QQueryFilter => ({
+    ...group,
+    criteria: group.criteria.filter(criterion => exists(criterion.fieldName) && (!criterion.otherFieldName || exists(criterion.otherFieldName))),
+    ...(group.orderBys ? { orderBys: group.orderBys.filter(order => exists(order.fieldName)) } : {}),
+    ...(group.subFilters ? { subFilters: group.subFilters.map(clean).filter(child => child.criteria.length || child.subFilters?.length) } : {}),
   })
-  return { filter: removed.length ? { ...filter, criteria } : filter, removed }
+  const cleaned = clean(filter)
+  return { filter: removed.length ? cleaned : filter, removed: [...new Set(removed)] }
 }
 
 /**
@@ -260,7 +267,7 @@ export interface ColumnsState {
  * @returns The column state, or undefined when no columns are stored.
  */
 export function columnsStateFromEntries(table: QTableMetaData, entries: Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> | undefined): ColumnsState | undefined {
-  const listed = (entries ?? []).filter((entry) => entry.name !== '__check__')
+  const listed = (entries ?? []).filter((entry) => entry.name !== '__check__' && resolveField(table, entry.name))
   if (listed.length === 0) return undefined
   const state = viewToState(table, { queryFilter: {}, queryColumns: { columns: listed } }, PREVIEW_PAGE_SIZE, [PREVIEW_PAGE_SIZE])
   const named = new Set(state.columnOrder)
@@ -305,7 +312,7 @@ export function toColumnsJson(table: QTableMetaData, state: ColumnsState): { col
     pageSize: PREVIEW_PAGE_SIZE,
     filterMode: 'advanced',
   })
-  const columns = view.queryColumns?.columns ?? []
+  const columns = (view.queryColumns?.columns ?? []).filter(column => column.name !== '__check__')
   const rank = (column: SavedViewColumn) => (column.pinned === 'left' ? 0 : column.pinned === 'right' ? 2 : 1)
   return { columns: [...columns].sort((a, b) => rank(a) - rank(b)) }
 }

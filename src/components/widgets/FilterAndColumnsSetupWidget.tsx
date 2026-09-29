@@ -311,7 +311,7 @@ function FilterAndColumnsSetupView({ widgetMetaData, data, recordContext }: Widg
   }
 
   const tableKnown = Boolean(table)
-  const visibleColumns = columns.filter((column) => column.isVisible)
+  const visibleColumns = columns.filter((column) => column.isVisible && column.name !== '__check__')
   const sortedBy = (orderBys.filter(isPlainObject) as Array<{ fieldName?: unknown; isAscending?: unknown }>)
     .filter((orderBy) => typeof orderBy.fieldName === 'string')
 

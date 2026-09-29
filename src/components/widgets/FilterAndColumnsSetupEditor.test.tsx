@@ -23,7 +23,7 @@ import type { QTableMetaData, QWidgetMetaData } from '@/types'
 import type { WidgetFormContext } from './widget-types'
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
-vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: table }), useMetaData: () => ({ data: undefined }) }))
+vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: (name: string) => ({ data: name === 'audit' ? audit : table }), useMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/context/q-context', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/context/q-context')>()), useQContext: () => ({ userId: 'alice' }) }))
 vi.mock('@/lib/hooks/use-saved-views', () => ({ useSavedViews: () => ({
   isAvailable: true, canStore: true, canDelete: true, isLoading: false, error: null,
@@ -38,6 +38,7 @@ vi.mock('@/lib/hooks/use-filter-setup', () => ({
 }))
 
 import { FilterAndColumnsSetupWidget } from './FilterAndColumnsSetupWidget'
+import { removeUnknownCriteria } from './filter-and-columns-utils'
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id',
@@ -46,20 +47,59 @@ const table = {
     firstName: { name: 'firstName', label: 'First Name', type: 'STRING' },
   },
 } as unknown as QTableMetaData
+const audit = { ...table, name: 'audit', label: 'Audit', fields: { id: table.fields.id, action: { ...table.fields.firstName, name: 'action', label: 'Action' } } } as QTableMetaData
 const meta = { name: 'reportSetupWidget', label: 'Filters and Columns' } as QWidgetMetaData
 
 /** Form harness applies only the values passed by the widget's OK action. */
-function FormHarness({ onSetValues, hidePreview = true, hideColumns = false }: { onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean; hideColumns?: boolean }) {
+function FormHarness({ onSetValues, hidePreview = true, hideColumns = false, switchTable = false }: { switchTable?: boolean; onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean; hideColumns?: boolean }) {
   const [values, setValues] = useState<Record<string, unknown>>({ tableName: 'person', queryFilterJson: '{}', columnsJson: '' })
   const context: WidgetFormContext = {
     screen: 'recordEdit', values,
     setValues: (next) => { onSetValues(next); setValues((current) => ({ ...current, ...next })) },
     setAssociation: vi.fn(), registerValidator: vi.fn(), tableMetaData: table,
   }
-  return <FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview, hideColumns }} formContext={context} />
+  return <>{switchTable && <button onClick={() => setValues(current => ({ ...current, tableName: 'audit' }))}>Switch to Audit</button>}<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview, hideColumns }} formContext={context} /></>
 }
 
 describe('FilterAndColumnsSetupWidget form editor', () => {
+  it('removes incompatible nested criteria, comparison fields and sorts after a table change', () => {
+    const groupDefaults = { booleanOperator: 'AND' as const, skip: 0, limit: 20 }
+    const { filter, removed } = removeUnknownCriteria(audit, {
+      ...groupDefaults,
+      criteria: [{ fieldName: 'id', operator: 'EQUALS', otherFieldName: 'firstName', values: [] }],
+      orderBys: [{ fieldName: 'firstName', isAscending: true }, { fieldName: 'id', isAscending: false }],
+      subFilters: [
+        { ...groupDefaults, criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Ada'] }] },
+        { ...groupDefaults, criteria: [{ fieldName: 'id', operator: 'GREATER_THAN', values: [1] }] },
+      ],
+    })
+    expect(removed).toEqual(['firstName'])
+    expect(filter).toEqual({
+      ...groupDefaults,
+      criteria: [], orderBys: [{ fieldName: 'id', isAscending: false }],
+      subFilters: [{ ...groupDefaults, criteria: [{ fieldName: 'id', operator: 'GREATER_THAN', values: [1] }] }],
+    })
+  })
+
+  it('saves only report data columns and removes incompatible selections when the table changes', async () => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} switchTable />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'Add condition' }))
+    await user.selectOptions(screen.getByLabelText('Filter field'), 'firstName')
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Ada')
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    const saved = onSetValues.mock.lastCall![0] as Record<string, string>
+    expect(JSON.parse(saved.columnsJson).columns.map((column: { name: string }) => column.name)).toEqual(['id', 'firstName'])
+    await user.click(screen.getByRole('button', { name: 'Switch to Audit' }))
+    const changed = onSetValues.mock.lastCall![0] as Record<string, string>
+    expect(JSON.parse(changed.queryFilterJson).criteria).toEqual([])
+    expect(JSON.parse(changed.columnsJson).columns.filter((column: { isVisible: boolean }) => column.isVisible).map((column: { name: string }) => column.name)).toEqual(['id'])
+    expect(screen.queryByText('First Name')).not.toBeInTheDocument()
+    expect(screen.queryByText('__check__')).not.toBeInTheDocument()
+  })
+
   it('moves between report tabs with the keyboard and preserves the unsaved filter', async () => {
     const user = userEvent.setup()
     const onSetValues = vi.fn()

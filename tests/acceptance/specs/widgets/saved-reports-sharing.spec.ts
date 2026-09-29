@@ -367,6 +367,41 @@ test('[RPT-009] a saved report record shows its full definition @mobile', async 
   await expectTouchReady(page, byId(page, 'widget-pivotTableSetupWidget'))
 })
 
+test('[WID-073] create a report from a query, switch tables, save, reopen and render @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await open(page, '/app/navDeepItem')
+  await page.locator('[data-qqq-id="button-saved-views"]').click()
+  const createReport = page.getByRole('menuitem', { name: 'Create Report from Current View' })
+  const href = await createReport.getAttribute('href')
+  const presets = JSON.parse(decodeURIComponent(href!.split('#defaultValues=')[1]))
+  expect(JSON.parse(presets.columnsJson).columns.some((column: { name: string }) => column.name === '__check__')).toBe(false)
+  await createReport.click()
+  await page.getByLabel('Report Name', { exact: false }).fill('Audit RC depth report')
+  await page.getByRole('combobox', { name: /^Table/ }).click()
+  await page.getByRole('textbox', { name: 'Search Table options' }).fill('Audit')
+  await page.getByRole('option', { name: 'Audit', exact: true }).click()
+  const columns = byId(page, 'report-columns-reportSetupWidget').locator('li')
+  await expect(columns).toHaveText(['Id'])
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/savedReport\/\d+\/?$/)
+  const id = new URL(page.url()).pathname.split('/').filter(Boolean).at(-1)!
+  const stored = (await sqlRows(backend, `select table_name, columns_json from saved_report where id = ${Number(id)}`))[0]
+  expect(stored.table_name).toBe('audit')
+  expect(JSON.parse(stored.columns_json).columns.some((column: { name: string }) => ['__check__', 'code', 'shelf', 'name'].includes(column.name))).toBe(false)
+  await page.reload()
+  await expect(byId(page, 'report-columns-reportSetupWidget').locator('li')).toHaveText(['Id'])
+  await recordAction(page, 'Render Report')
+  await page.getByLabel(/Report Format/).click()
+  await page.getByRole('option', { name: 'CSV', exact: true }).click()
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  const link = page.locator('[data-qqq-id="link-process-download"]')
+  await expect(link).toBeVisible()
+  const [download] = await Promise.all([page.waitForEvent('download'), link.click()])
+  const rows = parseCsv(await downloadText(download))
+  expect(rows[0]).toEqual(['Id'])
+  expect(rows.length).toBeGreaterThan(1)
+})
+
 test('[RPT-010] a saved report renders to a CSV with its saved columns and rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const species = (await (await backend.api.get('/data/petSpecies')).json()).records as Array<{ values: { possibleValueId: number; possibleValueLabel: string } }>

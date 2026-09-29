@@ -136,6 +136,24 @@ test.describe('Record selection', () => {
     await expect.poll(async () => (await recordRows(rows)).length).toBe(23)
   })
 
+  test('[PRC-043] Sleep Interactive runs normally without URL defaults @mobile', async ({ page, backend, diagnostics }) => {
+    void backend
+    void diagnostics
+    await openProcess(page, 'sleepInteractive')
+    const initial = await expectScreen(page, 'screen0', 'Screen 0')
+    const duration = initial.getByLabel('Sleep duration (milliseconds)', { exact: false })
+    await expect(duration).toHaveValue('1000')
+    await duration.fill('')
+    await advance(page, 'Submit')
+    await expect(duration).toHaveAttribute('aria-invalid', 'true')
+    await expect(initial).toBeVisible()
+    await duration.fill('1000')
+    await advance(page, 'Submit')
+    await expectScreen(page, 'screen1', 'Screen 1')
+    await expect(page.getByRole('button', { name: 'Return', exact: true })).toBeVisible()
+    await expect(run(page, 'sleepInteractive')).not.toHaveAttribute('data-process-phase', 'error')
+  })
+
   test('[PRC-043] default process values from the link preset inputs @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'sleepInteractive', undefined, { defaultProcessValues: JSON.stringify({ sleepMillis: 3500 }) })
