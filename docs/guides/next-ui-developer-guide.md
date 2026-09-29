@@ -272,6 +272,9 @@ The filter/column editor reads the payload's `tableName` or the form's `tableNam
 
 In the report setup dialog, Left/Right Arrow switches between Filters and sort and Columns; Home/End selects the first/last available tab. Tab enters the selected panel's controls. Switching tabs preserves the draft, and metadata that hides Columns leaves only the filter tab. The tab controls expose `filter-editor-tab-<widget>-filters` and `filter-editor-tab-<widget>-columns` CSS hooks.
 
+Selecting a saved view imports it into the report draft. **Reset Changes** reapplies that view; **Reset to New View** clears filters and custom quick fields, restores default columns, and sorts by the primary key descending when present. Both discard an open quick-filter edit. These actions leave the saved view unchanged. OK applies the draft to the host form; saving the form persists it. Cancel discards the dialog draft.
+
+
 ### Demo and compatibility dispatch labels
 
 The remaining dispatch labels mainly support local mock fixtures. They are implemented UI paths, but are not a promise that the production QQQ backend emits those shapes. Check [`src/mocks/fixtures/widgets`](../../src/mocks/fixtures/widgets) for demo payloads and the real widget fixtures and matrix for QQQ-backed examples.

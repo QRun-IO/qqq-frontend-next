@@ -574,11 +574,13 @@
       "scenarios": [
         "Edit Filters and Columns opens the report setup dialog",
         "OK writes queryFilterJson and columnsJson to the host form, and Save persists a changed sort to the backend",
-        "assigning a filter variable persists FilterVariableExpression in the backend JSON and shows ${VARIABLE} in the editor"
+        "assigning a filter variable persists FilterVariableExpression in the backend JSON and shows ${VARIABLE} in the editor",
+        "import a saved view, reset changes to that view or reset to a new default draft without updating the saved view"
       ],
       "negative": [
         "Cancel discards the draft; OK without host Save leaves the backend row unchanged",
-        "preview and Open in new window block a query while a filter variable lacks a value"
+        "preview and Open in new window block a query while a filter variable lacks a value",
+        "resetting and cancelling leave both the report and all saved views unchanged"
       ],
       "issues": [
         722
@@ -634,10 +636,12 @@
       "scenarios": [
         "grid preview hides selection, changing page size changes the real backend query, header sorting changes the real backend query, and keyboard column resize persists in saved columns JSON",
         "create a report from a query, switch to Audit, save and reopen, verify stored columns and download the CSV",
-        "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged"
+        "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged",
+        "a table without COUNT still shows real preview rows and page copy matches SQL"
       ],
       "negative": [
-        "selection pseudo-column and incompatible previous-table fields are excluded from saved reports"
+        "selection pseudo-column and incompatible previous-table fields are excluded from saved reports",
+        "full-column copy refuses results over the configured limit; an empty preview offers no column copy action; cancellation preserves the saved report"
       ],
       "issues": [
         722

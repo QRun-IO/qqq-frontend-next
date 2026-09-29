@@ -294,6 +294,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const [mode, setMode] = useState<'basic' | 'advanced'>('advanced')
   const [quickFields, setQuickFields] = useState<string[]>([])
   const [selectedView, setSelectedView] = useState<SavedView | null>(null)
+  const [viewRevision, setViewRevision] = useState(0)
   const { data: metaData } = useMetaData()
   const { userId } = useQContext()
   const savedViews = useSavedViews(table.name, metaData, userId)
@@ -308,6 +309,15 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
     setQuickFields(view.view.quickFilterFieldNames ?? [])
     setMode(view.view.mode === 'basic' && canFilterWorkAsBasic(table, cleaned.filter).canWorkAsBasic ? 'basic' : 'advanced')
     setSelectedView(view)
+    setViewRevision((revision) => revision + 1)
+  }
+  const newView = () => {
+    setFilter({ ...emptyFilter(PREVIEW_PAGE_SIZE), orderBys: table.primaryKeyField ? [{ fieldName: table.primaryKeyField, isAscending: false }] : [] })
+    if (!data?.hideColumns) setColumns(DEFAULT_COLUMNS_STATE)
+    setQuickFields([])
+    setMode('basic')
+    setSelectedView(null)
+    setViewRevision((revision) => revision + 1)
   }
   const sorts = filter.orderBys ?? []
   const changeSort = (index: number, name: string) => setFilter((current) => {
@@ -348,8 +358,14 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
             <button type="button" aria-pressed={mode === 'advanced'} onClick={() => setMode('advanced')} data-qqq-id={`filter-editor-advanced-${widgetName}`}
               className="min-h-11 rounded border border-input px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring">Advanced</button>
             <SavedViewsMenu selectionOnly savedViews={savedViews} currentView={selectedView} viewDiffs={[]} onSelectView={selectView} />
+            {selectedView && <>
+              <button type="button" onClick={() => selectView(selectedView)} data-qqq-id={`filter-editor-reset-view-${widgetName}`}
+                className="min-h-11 text-sm text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring">Reset Changes</button>
+              <button type="button" onClick={newView} data-qqq-id={`filter-editor-new-view-${widgetName}`}
+                className="min-h-11 text-sm text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring">Reset to New View</button>
+            </>}
           </div>
-          {mode === 'basic' ? <QuickFilterBar fields={fields.filter((field) => quickNames.includes(field.name))} allFields={fields}
+          {mode === 'basic' ? <QuickFilterBar key={viewRevision} fields={fields.filter((field) => quickNames.includes(field.name))} allFields={fields}
             defaultFieldNames={defaults} customFieldNames={quickNames.filter((name) => !defaults.includes(name))}
             filter={filter} onChange={setFilter} onCustomFieldsChange={setQuickFields} onOpenAdvanced={() => setMode('advanced')} /> :
             <FilterBuilder tableMetaData={table} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />}

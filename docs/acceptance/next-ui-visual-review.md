@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, process details and RC1
+## Latest checkpoint — September 29, report saved-view resets
+
+Report setup now exposes Reset Changes and Reset to New View beside the selected saved view. The first restores the imported view; the second starts a default draft. Both discard unapplied Basic quick-filter values, and neither updates the saved view or report. The stale quick-filter regression failed for both reset actions before the correction, then passed. Independent review confirmed the correction with no remaining findings in this scope.
+
+The rebuilt export passes all 25 report/sharing Chromium scenarios (zero skips/flaky tests), 1,823 unit tests, types, affected lint, license headers and the bundle budget (1,035.8 KB / 1,050 KB). New depth cases verify copy limits, missing COUNT capability and empty preview behavior against the real backend, with persisted report and saved-view comparisons. This is targeted verification, not complete embedded-query equivalence.
+
+Inspected desktop light/dark captures show the reset links beside the view selector, with readable controls, no dialog horizontal overflow and no page errors. Existing dialog, filter and preview composition is preserved. Evidence: `report-reset-{light,dark}.png`, `report-reset-visual-result.json`, `report-reset-chromium.log` and `report-reset-final-units.log` in the local visual-review directory. The broader original-Next comparison remains open; no complete screen family is approved.
+
+## Earlier checkpoint — September 29, process details and RC1
 
 Fresh Chromium desktop comparisons cover process widgets, results, collapsed internal errors and expanded error details in light and dark modes: 16 original/current captures, with no setup/runtime errors or document overflow. The inspected widget, result and expanded-error pairs preserve the original Next card and action composition. Reload controls remain compact; desktop widget content is slightly shorter than the reference. These checks do not approve the complete process family.
 

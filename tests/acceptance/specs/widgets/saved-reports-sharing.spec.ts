@@ -200,6 +200,7 @@ test('[WID-072] API-versioned report setup loads table metadata and previews thr
 test('[WID-070] selecting a saved view only changes the report draft @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 102')
+  const viewsBefore = await backend.sql('select id, view_json from saved_view order by id')
   const viewWrites: string[] = []
   page.on('request', (request) => {
     if (/processes\/(store|delete)SavedView\//.test(request.url())) viewWrites.push(request.url())
@@ -215,9 +216,79 @@ test('[WID-070] selecting a saved view only changes the report draft @mobile', a
   await expect(byId(page, 'quick-filter-bar')).toBeVisible()
   await dialog.getByRole('button', { name: 'Advanced', exact: true }).click()
   await expect(byId(page, 'filter-builder')).toBeVisible()
+  const selectedSort = await dialog.getByLabel('Sort by', { exact: true }).inputValue()
+  await dialog.getByLabel('Sort by', { exact: true }).selectOption(selectedSort === 'id' ? 'firstName' : 'id')
+  await dialog.getByRole('button', { name: 'Reset Changes', exact: true }).click()
+  await expect(dialog.getByLabel('Sort by', { exact: true })).toHaveValue(selectedSort)
+  await dialog.getByRole('button', { name: 'Reset to New View' }).click()
+  await expect(dialog.getByRole('button', { name: 'Saved views', exact: true })).toBeVisible()
+  await expect(dialog.getByLabel('Sort by', { exact: true })).toHaveValue('id')
+  await expect(dialog.getByLabel('Ascending', { exact: true })).not.toBeChecked()
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 102')).toEqual(before)
+  expect(await backend.sql('select id, view_json from saved_view order by id')).toEqual(viewsBefore)
   expect(viewWrites).toEqual([])
+})
+
+test('[WID-073] report preview handles missing count capability and refuses an oversized full-column copy @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  expect((await backend.api.put('/data/savedReport/1', { multipart: {
+    tableName: 'qryLedger', queryFilterJson: JSON.stringify({ orderBys: [{ fieldName: 'id', isAscending: true }] }),
+    columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true }, { name: 'entry', isVisible: true }] }),
+  } })).status()).toBe(200)
+  const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')
+  await page.route(/\/qqq\/v1\/metaData(?:\?|$)/, async route => {
+    const response = await route.fetch()
+    const payload = await response.json()
+    payload.supplementalInstanceMetaData = { ...payload.supplementalInstanceMetaData,
+      materialDashboard: { ...payload.supplementalInstanceMetaData?.materialDashboard, queryScreenCopyFullQueryColumnValuesLimit: 2 } }
+    await route.fulfill({ response, json: payload })
+  })
+  const counts: string[] = []
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/qqq/v1/table/qryLedger/count') counts.push(request.url())
+  })
+  await open(page, '/app/savedReport/1/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  const preview = byId(page, 'filter-preview-reportSetupWidget')
+  const rows = await backend.sql('select entry from qry_ledger order by id')
+  await expect(preview.getByRole('gridcell').and(preview.locator('[data-qqq-id="grid-cell-entry"]'))).toHaveText(rows.map(row => row.entry!))
+  await expect(preview.locator('[data-qqq-id="pagination-summary"]')).toContainText('Showing 1–3')
+  await expect(preview.locator('[data-qqq-id="pagination-total"]')).toHaveCount(0)
+  await expect(preview.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  expect(counts).toEqual([])
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+    writeText: async (text: string) => { document.documentElement.dataset.copiedReportValues = text },
+  } }))
+  await preview.getByRole('button', { name: 'Entry column menu' }).press('Enter')
+  await page.getByRole('menuitem', { name: 'Copy full query values' }).click()
+  await expect(byId(page, 'filter-preview-notice-reportSetupWidget')).toContainText('too many rows to copy (limit: 2)')
+  await expect(page.locator('html')).not.toHaveAttribute('data-copied-report-values')
+  await preview.getByRole('button', { name: 'Entry column menu' }).press('Enter')
+  await page.getByRole('menuitem', { name: 'Copy page values' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-copied-report-values', rows.map(row => row.entry).join('\n') + '\n')
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')).toEqual(before)
+})
+
+test('[WID-073] an empty report preview offers no copy action and leaves the saved report unchanged @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  expect((await backend.api.put('/data/savedReport/1', { multipart: {
+    tableName: 'qryItem', queryFilterJson: JSON.stringify({ criteria: [{ fieldName: 'id', operator: 'GREATER_THAN', values: [999] }] }),
+    columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true }, { name: 'name', isVisible: true }] }),
+  } })).status()).toBe(200)
+  expect(await backend.sql('select count(*) as n from qry_item where id > 999')).toEqual([{ n: '0' }])
+  const before = await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')
+  await open(page, '/app/savedReport/1/edit')
+  await page.getByRole('button', { name: 'Edit Filters and Columns' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit Filters and Columns' })
+  const preview = byId(page, 'filter-preview-reportSetupWidget')
+  await expect(preview.getByText('No records found', { exact: true })).toBeVisible()
+  await expect(preview.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  await expect(preview.getByRole('button', { name: /column menu$/ })).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')).toEqual(before)
 })
 
 test('[WID-073] read-only report preview pages and sorts without changing the report @mobile', async ({ page, backend, diagnostics }) => {

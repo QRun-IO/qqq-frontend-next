@@ -28,6 +28,7 @@ vi.mock('@/lib/context/q-context', async (importOriginal) => ({ ...(await import
 vi.mock('@/lib/hooks/use-saved-views', () => ({ useSavedViews: () => ({
   isAvailable: true, canStore: true, canDelete: true, isLoading: false, error: null,
   yourViews: [{ id: 1, label: 'People named Ada', tableName: 'person', view: {
+    mode: 'basic',
     queryFilter: { criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Ada'] }] },
     queryColumns: { columns: [{ name: 'firstName', isVisible: true, width: 220 }] },
   } }], sharedViews: [], quickViews: [], isOwner: () => true,
@@ -42,6 +43,7 @@ import { removeUnknownCriteria } from './filter-and-columns-utils'
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id',
+  supplementalMetaData: { materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] } },
   fields: {
     id: { name: 'id', label: 'Id', type: 'INTEGER' },
     firstName: { name: 'firstName', label: 'First Name', type: 'STRING' },
@@ -190,6 +192,57 @@ describe('FilterAndColumnsSetupWidget form editor', () => {
     const saved = onSetValues.mock.calls[0][0] as Record<string, string>
     expect(JSON.parse(saved.queryFilterJson).criteria[0].values).toEqual(['Ada'])
     expect(JSON.parse(saved.columnsJson).columns.find((column: { name: string }) => column.name === 'firstName')).toMatchObject({ isVisible: true, width: 220 })
+  })
+
+  it('resets an imported saved view or starts a new draft without writing the report', async () => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'Saved views' }))
+    await user.click(screen.getByRole('menuitem', { name: 'People named Ada' }))
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    const input = screen.getByRole('textbox', { name: 'Filter value for First Name' })
+    await user.clear(input)
+    await user.type(input, 'Grace')
+    await user.selectOptions(screen.getByLabelText('Sort by'), 'firstName')
+    await user.click(screen.getByRole('button', { name: 'Reset Changes' }))
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(screen.getByDisplayValue('Ada')).toBeVisible()
+    expect(screen.getByLabelText('Sort by')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Reset to New View' }))
+    expect(screen.queryByDisplayValue('Ada')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Saved views' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Reset to New View' })).not.toBeInTheDocument()
+    expect(onSetValues).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    const saved = onSetValues.mock.lastCall![0] as Record<string, string>
+    expect(JSON.parse(saved.queryFilterJson).criteria).toEqual([])
+    expect(JSON.parse(saved.queryFilterJson).orderBys).toEqual([{ fieldName: 'id', isAscending: false }])
+    expect(JSON.parse(saved.columnsJson).columns.map((column: { name: string }) => column.name)).toEqual(['id', 'firstName'])
+  })
+
+  it.each([
+    { action: 'Reset Changes', chip: 'First Name: Ada', expected: 'Ada' },
+    { action: 'Reset to New View', chip: 'First Name', expected: '' },
+  ])('discards an unapplied quick-filter value on $action', async ({ action, chip, expected }) => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'Saved views' }))
+    await user.click(screen.getByRole('menuitem', { name: 'People named Ada' }))
+    await user.click(screen.getByRole('button', { name: 'First Name: Ada' }))
+    const input = screen.getByRole('textbox', { name: 'Filter value for First Name' })
+    await user.clear(input)
+    await user.type(input, 'Grace')
+    await user.click(screen.getByRole('button', { name: action }))
+    expect(screen.queryByRole('group', { name: 'First Name quick filter' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: chip }))
+    expect(screen.getByRole('textbox', { name: 'Filter value for First Name' })).toHaveValue(expected)
+    expect(onSetValues).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(JSON.parse(onSetValues.mock.lastCall![0].queryFilterJson).criteria).toEqual(expected ? [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Ada'] }] : [])
   })
 
   it('opens separate Add Filters and Add Columns controls on the matching editor tab', async () => {

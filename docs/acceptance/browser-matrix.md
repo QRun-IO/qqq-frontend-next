@@ -20,7 +20,7 @@ Opening the statistics dialog alone is insufficient evidence of that workflow.
 
 ## RC1 checkpoint — 2026-09-29
 
-Published candidate `e901df9` / `v1.0.0-RC.1`: Chromium **547 passed**, no failed/skipped/flaky tests, all 389 required rows passed. WebKit **546 passed, 1 failed** in NAV-034 legacy table-process redirect navigation, with an internal WebKit resource-loading error; trace retained for investigation. Firefox and phone/tablet were still running at this checkpoint. [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36601699322). This does not establish a complete cross-browser pass.
+Published candidate `e901df9` / `v1.0.0-RC.1`: Chromium **547 passed**, no failed/skipped/flaky tests, all 389 required rows passed. WebKit **546 passed, 1 failed** in NAV-034 legacy table-process redirect navigation, with an internal WebKit resource-loading error; trace retained for investigation. The completed Firefox run had 546 passes and one WID-021 widget visibility timeout; phone/tablet had 1,043 passes and one tablet SEC-002 internal WebKit navigation error. The separate tag run also had failures; see the release notes for both runs. [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36601699322). This does not establish a complete cross-browser pass.
 
 The actual Maven Central JAR additionally passed Sleep Interactive defaults/validation/completion and report-context filtered statistics/CSV checks. The published arm64 container passed a runtime/HTML smoke check; its manifest also includes amd64. See [RC1 release evidence](../releases/1.0.0-RC.1.md).
 
@@ -204,4 +204,4 @@ Fixed:
   open, closes on Escape, and returns focus to its trigger, also when a dialog opened from
   one of its items closes.
 
-Open: none.
+The fixes above describe earlier checkpoints. Open failures from the RC1 runs are recorded in the RC1 checkpoint and release notes; they have not been waived.
