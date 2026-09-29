@@ -18,6 +18,12 @@ For example, WID-073 checks report column totals and the exported value distribu
 against SQL for the active filter, then verifies cancellation leaves saved data unchanged.
 Opening the statistics dialog alone is insufficient evidence of that workflow.
 
+## Post-RC1 checkpoint — 2026-09-29
+
+The local RC2 export (e87fe90 plus the RC2 version change) passed **561 Chromium tests**, all 390 required rows, zero failures/skips/flaky tests. This is candidate evidence, not a published-artifact claim.
+
+The preceding d937507 [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36626338487) passed **558 tests each in Chromium and WebKit**, all 390 required rows. Firefox passed **556 with two failures**: NAV-014 reported `NS_ERROR_FAILURE` for the owned embedded page during breadcrumb navigation; QRY-007 timed out hovering an application-theme error toast after it detached. Logs and traces are retained for diagnosis. All five focused breadcrumb/error-theme scenarios subsequently passed locally in Firefox against RC2 without source or test changes. That recheck does not establish the cause or resolution of the CI failures. Phone/tablet remains in progress. These results do not establish a complete cross-browser pass or erase the RC1 results below.
+
 ## RC1 checkpoint — 2026-09-29
 
 Published candidate `e901df9` / `v1.0.0-RC.1`: Chromium **547 passed**, no failed/skipped/flaky tests, all 389 required rows passed. WebKit **546 passed, 1 failed** in NAV-034 legacy table-process redirect navigation, with an internal WebKit resource-loading error; trace retained for investigation. The completed Firefox run had 546 passes and one WID-021 widget visibility timeout; phone/tablet had 1,043 passes and one tablet SEC-002 internal WebKit navigation error. The separate tag run also had failures; see the release notes for both runs. [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36601699322). This does not establish a complete cross-browser pass.
