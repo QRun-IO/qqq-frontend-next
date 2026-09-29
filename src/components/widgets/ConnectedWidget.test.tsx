@@ -29,7 +29,7 @@ vi.mock('@/lib/api/widgets', async (importOriginal) => {
 
 import type { QWidgetMetaData, WidgetData } from '@/types'
 import { fetchWidgetData, WidgetRequestError } from '@/lib/api/widgets'
-import { ConnectedWidget } from './ConnectedWidget'
+import { ConnectedWidget, SeededWidget } from './ConnectedWidget'
 
 const fetchMock = vi.mocked(fetchWidgetData)
 
@@ -162,6 +162,78 @@ describe('ConnectedWidget', () => {
     await screen.findByText('One')
     expect(screen.queryByRole('button', { name: 'Export Owned Multi' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Export First' })).toBeInTheDocument()
+  })
+
+  it.each(['connected', 'seeded'] as const)('keeps one working child-record export in the %s widget', async (mode) => {
+    const user = userEvent.setup()
+    const data: WidgetData = {
+      type: 'childRecordList',
+      childFrontendTableMetaData: {
+        name: 'child', label: 'Child', primaryKeyField: 'id',
+        fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' }, name: { name: 'name', label: 'Name', type: 'STRING' } },
+        sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'name'], isHidden: false }],
+      },
+      queryOutput: { records: [{ tableName: 'child', values: { id: 1, name: 'Child one' } }] },
+    }
+    const metadata: QWidgetMetaData = { name: 'children', label: 'Owned Children', type: 'childRecordList', hasPermission: true, showExportButton: true }
+    const create = vi.fn(() => 'blob:owned')
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      if (mode === 'connected') {
+        fetchMock.mockResolvedValue(data)
+        renderWidget(metadata)
+      } else {
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        render(<QueryClientProvider client={client}><SeededWidget widgetMetaData={metadata} data={data} /></QueryClientProvider>)
+      }
+      await screen.findByText('Child one')
+      expect(screen.getAllByRole('button', { name: /^Export/ })).toHaveLength(1)
+      const exportButton = screen.getByRole('button', { name: /^Export/ })
+      expect(exportButton.closest('[data-qqq-id="widget-content-children"]')).toBeNull()
+      await user.click(exportButton)
+      expect(click).toHaveBeenCalledTimes(1)
+      const blob = (create.mock.calls[0] as unknown as [Blob])[0]
+      const csv = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.readAsText(blob)
+      })
+      expect(csv).toBe('"Id","Name"\n"1","Child one"\n')
+      expect(screen.queryByText('There is no data available to export.')).toBeNull()
+    } finally {
+      click.mockRestore()
+    }
+  })
+
+  it('contains malformed child metadata and retries with corrected backend data', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const data: WidgetData = {
+      type: 'childRecordList',
+      childFrontendTableMetaData: { name: 'child', fields: {}, sections: [null] },
+      queryOutput: { records: [{ values: { id: 1 } }] },
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    try {
+      render(<QueryClientProvider client={client}>
+        <p>Unaffected dashboard content</p>
+        <SeededWidget widgetMetaData={{ name: 'brokenChild', label: 'Broken Child', type: 'childRecordList', hasPermission: true, showExportButton: true }} data={data} />
+      </QueryClientProvider>)
+      expect(screen.getByText('Unaffected dashboard content')).toBeInTheDocument()
+      expect(screen.getAllByText('Widget failed to render')).toHaveLength(1)
+      expect(screen.queryByRole('button', { name: /^Export/ })).toBeNull()
+      fetchMock.mockResolvedValue({
+        type: 'childRecordList',
+        childFrontendTableMetaData: { name: 'child', fields: { name: { name: 'name', label: 'Name', type: 'STRING' } }, sections: [] },
+        queryOutput: { records: [{ values: { name: 'Recovered child' } }] },
+      })
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
+      expect(await screen.findByText('Recovered child')).toBeInTheDocument()
+      expect(screen.queryByText('Widget failed to render')).toBeNull()
+      expect(screen.getAllByRole('button', { name: /^Export/ })).toHaveLength(1)
+    } finally {
+      error.mockRestore()
+    }
   })
 
   it('shows the backend error message with a retry, without throwing', async () => {

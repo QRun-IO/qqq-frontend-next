@@ -256,6 +256,33 @@ export function childExportTitle(shown: number, totalRows: number | undefined, h
 }
 
 /**
+ * Exports child rows with the same permission-filtered columns in a header or inline host.
+ * @param props - Child widget payload and optional compact header presentation.
+ * @returns Its export control, or nothing for an invalid child payload.
+ */
+export function ChildRecordExportButton({ widgetMetaData, data, compact = false }: WidgetComponentProps<ChildRecordListPayload> & { compact?: boolean }) {
+  const { data: instance } = useMetaData()
+  const table = data?.childFrontendTableMetaData ?? data?.childTableMetaData
+  const records = data?.queryOutput == null ? [] : isPlainObject(data.queryOutput) ? asList<QRecord>(data.queryOutput.records) : undefined
+  if (!table || !isPlainObject(table) || typeof table.name !== 'string' || records === undefined) return null
+  const columns = listColumns(table, data, (name) => Boolean(instance?.tables?.[name]) && instance?.tables?.[name]?.readPermission !== false)
+  const label = typeof data.label === 'string' && data.label ? data.label : widgetMetaData.label
+  const title = childExportTitle(records.length, data.totalRows, Boolean(data.viewAllLink))
+  return <button
+    type="button"
+    onClick={() => downloadText(widgetExportFileName(label), childRecordsCsv(columns, records))}
+    disabled={records.length === 0}
+    title={title}
+    aria-label={compact ? `Export ${label}` : title.replace('\n', ' ')}
+    className={cn('inline-flex items-center gap-1 rounded text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50', compact ? 'p-1' : 'px-2 py-1 text-sm')}
+    data-qqq-id={`child-record-export-${widgetMetaData.name}`}
+  >
+    <Download className="h-4 w-4" aria-hidden="true" />
+    {!compact && 'Export'}
+  </button>
+}
+
+/**
  * Opens a row's child record from a click anywhere on the row (Material RecordGridWidget),
  * by following the row's record link; clicks on the row's own links and controls, and
  * clicks that end a text selection, keep their usual meaning.
@@ -326,8 +353,6 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
   const totalRows = typeof data.totalRows === 'number' ? data.totalRows : undefined
   const viewAllHref = data.viewAllLink ? nextViewAllHref(data.viewAllLink, table.name) : undefined
   const allTables = instance?.tables as Record<string, QTableMetaData> | undefined
-  const exportLabel = typeof data.label === 'string' && data.label ? data.label : widgetMetaData.label
-  const exportTitle = childExportTitle(records.length, totalRows, Boolean(viewAllHref))
   const showToolbar = data.canAddChildRecord === true || widgetMetaData.showExportButton === true
 
   return (
@@ -335,18 +360,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
       {showToolbar && (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {widgetMetaData.showExportButton === true && (
-            <button
-              type="button"
-              onClick={() => downloadText(widgetExportFileName(exportLabel), childRecordsCsv(allColumns, records))}
-              disabled={records.length === 0}
-              title={exportTitle}
-              aria-label={exportTitle.replace('\n', ' ')}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              data-qqq-id={`child-record-export-${widgetName}`}
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export
-            </button>
+            <ChildRecordExportButton widgetMetaData={widgetMetaData} data={data} />
           )}
           {data.canAddChildRecord === true && (
             // a plain anchor: the record view reacts to the hash change (Next's Link would not fire it)

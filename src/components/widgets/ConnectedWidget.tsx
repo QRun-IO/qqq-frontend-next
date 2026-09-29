@@ -36,6 +36,8 @@ import type { BlockActionCallback, WidgetDataCallback, WidgetRecordContext } fro
 import { WidgetBlock } from './WidgetBlock'
 import type { WidgetChromeData, WidgetDropdownControl } from './WidgetBlock'
 import { WidgetRenderer } from './WidgetRenderer'
+import { ChildRecordExportButton } from './ChildRecordListWidget'
+import type { ChildRecordListPayload } from './ChildRecordListWidget'
 import {
   CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, storedDropdownParams, widgetCsvToString,
   widgetExportFileName, writeStoredSelection,
@@ -233,6 +235,7 @@ export function ConnectedWidget({
     )
   }
 
+  const childExportInHeader = !bare && (widgetMetaData.type ?? payload?.type) === 'childRecordList' && !(payload?.isInProcess && onWidgetData)
   const dropdowns = resolveDropdowns(payload, widgetMetaData, selections)
   const childParams: Record<string, string | number | boolean> = { ...params }
   for (const control of dropdowns) {
@@ -248,8 +251,9 @@ export function ConnectedWidget({
       isError={isError}
       error={error}
       onReload={handleReload}
-      // each table of a multi-table widget has its own export button (Material parity)
-      onExport={payload?.type === 'multiTable' ? undefined : handleExport}
+      // Multi-tables and child records own their export controls and payload handling.
+      onExport={payload?.type === 'multiTable' || (widgetMetaData.type ?? payload?.type) === 'childRecordList' ? undefined : handleExport}
+      exportControl={childExportInHeader && payload ? <ChildRecordExportButton widgetMetaData={widgetMetaData} data={payload as ChildRecordListPayload} compact /> : undefined}
       exportMessage={exportMessage}
       dropdowns={dropdowns}
       onDropdownChange={handleDropdownChange}
@@ -259,7 +263,7 @@ export function ConnectedWidget({
     >
       {payload && (
         <WidgetRenderer
-          widgetMetaData={widgetMetaData}
+          widgetMetaData={childExportInHeader ? { ...widgetMetaData, showExportButton: false } : widgetMetaData}
           data={payload}
           recordContext={recordContext}
           actionCallback={actionCallback}
@@ -301,6 +305,7 @@ export function SeededWidget({ widgetMetaData, data, params, recordContext, clas
   const [exportMessage, setExportMessage] = useState<string | null>(null)
   const query = useWidget(widgetMetaData.name, params, { enabled: reloaded && canViewWidget(widgetMetaData) })
   const payload = (reloaded && query.data ? query.data : data) as (WidgetData & DropdownPayload) | undefined
+  const childExportInHeader = (widgetMetaData.type ?? payload?.type) === 'childRecordList'
   const { refetch } = query
 
   const handleReload = useCallback(() => {
@@ -326,11 +331,12 @@ export function SeededWidget({ widgetMetaData, data, params, recordContext, clas
       isError={reloaded && query.isError}
       error={query.error}
       onReload={handleReload}
-      onExport={handleExport}
+      onExport={(widgetMetaData.type ?? payload?.type) === 'childRecordList' ? undefined : handleExport}
+      exportControl={childExportInHeader && payload ? <ChildRecordExportButton widgetMetaData={widgetMetaData} data={payload as ChildRecordListPayload} compact /> : undefined}
       exportMessage={exportMessage}
       className={className}
     >
-      {payload && <WidgetRenderer widgetMetaData={widgetMetaData} data={payload} recordContext={recordContext} onReload={handleReload} />}
+      {payload && <WidgetRenderer widgetMetaData={childExportInHeader ? { ...widgetMetaData, showExportButton: false } : widgetMetaData} data={payload} recordContext={recordContext} onReload={handleReload} />}
     </WidgetBlock>
   )
 }

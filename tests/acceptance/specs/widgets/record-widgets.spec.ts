@@ -9,7 +9,7 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
-import { byId, expectLoaded, openRecord, sqlRows, widgetBody } from './widget-support'
+import { byId, downloadText, expectLoaded, openRecord, sqlRows, widget, widgetBody } from './widget-support'
 
 async function openHost(page: Page, id: number) {
   await openRecord(page, `/app/accWidgetHost/${id}`)
@@ -72,6 +72,31 @@ test('[WID-024] child record list without an association lists joined records wi
   await openRecord(page, '/app/accWidgetHost/3')
   await expectLoaded(page, 'accWidgetHostJoinChild')
   await expect(byId(page, 'widget-empty-accWidgetHostJoinChild')).toHaveText('No Widget Host Child records found')
+})
+
+test('[WID-024] child records have one export control that downloads the displayed rows @mobile', async ({ page, backend, diagnostics }, testInfo) => {
+  void diagnostics
+  const children = await sqlRows(backend, 'select id, name from acc_widget_host_child where host_id = 1 order by id')
+  expect(children).toHaveLength(3)
+  await openHost(page, 1)
+  await expectLoaded(page, 'accWidgetHostJoinChild')
+  const card = widget(page, 'accWidgetHostJoinChild')
+  await card.screenshot({ path: testInfo.outputPath('child-record-export.png') })
+  const exports = card.getByRole('button', { name: /^Export/ })
+  await expect(exports).toHaveCount(1)
+  const header = byId(page, 'widget-header-accWidgetHostJoinChild')
+  await expect(header.getByRole('button', { name: /^Export/ })).toHaveCount(1)
+  const reloadBounds = await header.getByRole('button', { name: /^Reload/ }).boundingBox()
+  const exportBounds = await exports.boundingBox()
+  expect(reloadBounds).not.toBeNull()
+  expect(exportBounds).not.toBeNull()
+  expect(Math.abs((exportBounds!.y + exportBounds!.height / 2) - (reloadBounds!.y + reloadBounds!.height / 2))).toBeLessThan(5)
+  const [download] = await Promise.all([page.waitForEvent('download'), exports.click()])
+  const csv = await downloadText(download)
+  for (const child of children.slice(0, 2)) expect(csv).toContain(child.name)
+  expect(csv).not.toContain(children[2].name)
+  expect(csv.trim().split('\n')).toHaveLength(3)
+  await expect(card.getByText('There is no data available to export.')).toHaveCount(0)
 })
 
 test('[WID-031] row builder without an association shows its rows read-only @mobile', async ({ page, diagnostics }) => {

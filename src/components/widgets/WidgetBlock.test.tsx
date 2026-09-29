@@ -154,3 +154,23 @@ describe('WidgetBlock labels', () => {
     expect(seen).toMatchObject({ name: 'accChrome' })
   })
 })
+
+
+describe('widget exports follow visible content', () => {
+  for (const mode of ['generic', 'specialized']) {
+    it.each([
+      { name: 'permission denied', data: { hasPermission: false } },
+      { name: 'selection required', data: { dropdownNeedsSelectedText: 'Choose a customer' } },
+      { name: 'loading', isLoading: true },
+      { name: 'failed reload', isError: true, error: new Error('Reload failed') },
+    ])(`hides ${mode} export when $name`, ({ name: _name, ...state }) => {
+      render(<WidgetBlock widgetMetaData={{ ...base, showExportButton: true }} {...state}
+        onExport={mode === 'generic' ? () => {} : undefined}
+        exportControl={mode === 'specialized' ? <button>Export rows</button> : undefined}>
+        <p>Private rows</p>
+      </WidgetBlock>)
+      expect(screen.queryByRole('button', { name: /^Export/ })).toBeNull()
+      expect(screen.queryByText('Private rows')).toBeNull()
+    })
+  }
+})

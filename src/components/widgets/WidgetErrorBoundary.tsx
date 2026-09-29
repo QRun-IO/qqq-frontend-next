@@ -35,6 +35,10 @@ interface Props {
   children: React.ReactNode
   /** Optional widget name included in error logs and data-qqq-id attributes. */
   widgetName?: string
+  /** Requests fresh widget data when the user retries. */
+  onRetry?: () => void
+  /** A new payload allows a failed widget to render again after reload. */
+  resetKey?: unknown
 }
 
 /** Internal state tracked by the WidgetErrorBoundary class component. */
@@ -87,11 +91,22 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
   }
 
   /**
+   * Clears a render failure when the host supplies a replacement payload.
+   * @param previousProps - Props before the latest host update.
+   */
+  componentDidUpdate(previousProps: Props) {
+    if (this.state.hasError && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null })
+    }
+  }
+
+  /**
    * Resets the error boundary state, causing the children to be re-rendered.
    *
    * Bound as an arrow function so it can be passed directly as an onClick handler.
    */
   handleReset = () => {
+    this.props.onRetry?.()
     this.setState({ hasError: false, error: null })
   }
 

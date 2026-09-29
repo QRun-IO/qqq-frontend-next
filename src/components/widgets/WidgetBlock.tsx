@@ -97,6 +97,8 @@ interface WidgetBlockProps {
   onReload?: () => void
   /** Export callback; the button shows when metadata enables export. */
   onExport?: () => void
+  /** Specialized export control rendered in the existing header position. */
+  exportControl?: React.ReactNode
   /** Status text from the last export attempt (e.g. nothing to export). */
   exportMessage?: string | null
   /** Dropdown controls resolved from the payload. */
@@ -121,7 +123,7 @@ interface WidgetBlockProps {
  */
 export function WidgetBlock({
   widgetMetaData, data, isLoading = false, isFetching = false, isError = false, error = null, onReload, onExport,
-  exportMessage, dropdowns, onDropdownChange, children, className, bare = false, hideReload = false,
+  exportMessage, exportControl, dropdowns, onDropdownChange, children, className, bare = false, hideReload = false,
 }: WidgetBlockProps) {
   const { name } = widgetMetaData
   const bodyId = useId()
@@ -159,7 +161,6 @@ export function WidgetBlock({
 
   const body = (
     <WidgetMetaDataContext.Provider value={widgetMetaData}>
-      <WidgetErrorBoundary widgetName={name}>
         {isLoading ? (
           <WidgetSkeleton />
         ) : isError ? (
@@ -175,12 +176,11 @@ export function WidgetBlock({
         ) : (
           children
         )}
-      </WidgetErrorBoundary>
     </WidgetMetaDataContext.Provider>
   )
 
   if (bare) {
-    return <div data-qqq-id={`widget-content-${name}`}>{body}</div>
+    return <div data-qqq-id={`widget-content-${name}`}><WidgetErrorBoundary widgetName={name} onRetry={onReload} resetKey={data}>{body}</WidgetErrorBoundary></div>
   }
 
   const labelElement = label ? (labelAsTitle ? (
@@ -202,7 +202,8 @@ export function WidgetBlock({
     toggle()
   }
 
-  return (
+  const canExport = open && widgetMetaData.showExportButton && !isLoading && !isError && !deniedByData && !data?.dropdownNeedsSelectedText
+  const renderedWidget = (
     <section
       className={cn(
         'flex flex-col',
@@ -255,7 +256,8 @@ export function WidgetBlock({
             />
           ))}
 
-          {open && widgetMetaData.showExportButton && onExport && (
+          {canExport && exportControl}
+          {canExport && !exportControl && onExport && (
             <button
               type="button"
               onClick={onExport}
@@ -313,6 +315,7 @@ export function WidgetBlock({
       )}
     </section>
   )
+  return <WidgetErrorBoundary widgetName={name} onRetry={onReload} resetKey={data}>{renderedWidget}</WidgetErrorBoundary>
 }
 
 /**
