@@ -817,7 +817,7 @@ export function DataGrid({
                     scope="col"
                     data-col={header.id}
                     data-pinned={isSelectCol ? undefined : pins[header.id]}
-                    className={cn('group relative text-left font-semibold text-foreground select-none', cellClass, stickyClass, !isSelectCol && columnMenu && 'pr-1')}
+                    className={cn('group relative text-left font-semibold text-foreground select-none', cellClass, stickyClass, isSelectCol && 'pointer-coarse:px-0', !isSelectCol && columnMenu && 'pr-1')}
                     style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
                     aria-sort={ariaSortValue}
                   >
@@ -987,7 +987,7 @@ const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellCla
         return (
           <td
             key={cell.id}
-            className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass}`}
+            className={`overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${cellClass} ${cellStickyClass} ${isSelectCol ? 'pointer-coarse:px-0' : ''}`}
             style={{ width: `${cell.column.getSize()}px`, ...(pinned?.style ?? {}) }}
             data-qqq-id={`grid-cell-${cell.column.id}`}
             tabIndex={0}
