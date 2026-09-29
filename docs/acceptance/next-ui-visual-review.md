@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, report backend variants
+## Latest checkpoint — September 29, report filter indicators and API cache correction
+
+Report previews now feed complete nested criteria into the shared grid’s existing filtered-column indicator. Clicking it opens the current filter without adding a condition. The read-only preview keeps edits local. Inspected the real-backend desktop light editor and read-only captures in `report-filter-indicator-final-artifacts`; the existing grid indicator and layouts are reused. The captured editor is scrolled to its active condition. This is a focused inspection, not whole-family approval.
+
+The previous full local Chromium export (303ba61) passed **554 tests**,390 required rows,zero failed/skipped/flaky. The subsequent indicator change passes **1,828 unit tests**,types,affected lint,license,static production export,bundle budget and **30 real-backend Chromium report workflows**. The first focused browser run mistakenly served the previous static export after a standalone build; its missing-indicator failures are retained separately and are not evidence about the corrected artifact. The proper static export was then rebuilt and verified.
+
+Remote eeab664 CI is terminal: Chromium549pass; Firefox WID-070 widget-loading timeout; WebKit NAV-023 internal navigation error; touch WID-072 application-API500,NAV-034 redirect timeout,REL-005 internal navigation error. Logs and traces are retained. The API500 was reproduced as a concurrent static metadata-cache race in QQQ; backend62461e163 fixes atomic initialization and endpoint-test fixture isolation, with110module tests and coverage passing. PR913 remains pending new CI/merge. All40 focused rechecks of the failed workflows pass across Firefox,WebKit,phone and tablet on the corrected export/backend. The original failures remain recorded; a focused recheck does not establish that all navigation and loading failures are resolved. Full final-source/browser-matrix verification and the original Next visual review remain open.
+
+## Earlier checkpoint — September 29, report backend variants
 
 Report previews now reuse the existing Next variant picker for tables that require a store/tenant selection. No query runs before selection; switching starts a fresh preview page and scopes query/count, copy and statistics. The picker works nested inside the report editor. Light/dark desktop captures show it above the parent dialog and the selected variant above the preview, with no horizontal overflow or page errors. No changes were needed to the shared picker's layout or stacking. Captures: `report-variant-picker-{light,dark}.png`, `report-variant-{light,dark}.png` and `report-variant-visual-result.json` in the local visual-review directory. This does not approve the full report family.
 

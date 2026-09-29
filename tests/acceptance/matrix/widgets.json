@@ -638,12 +638,14 @@
         "create a report from a query, switch to Audit, save and reopen, verify stored columns and download the CSV",
         "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged",
         "a table without COUNT still shows real preview rows and page copy matches SQL",
-        "variant-backed report previews choose, switch and remember the backend variant for query/count, copy and statistics on ordinary and application-API routes"
+        "variant-backed report previews choose, switch and remember the backend variant for query/count, copy and statistics on ordinary and application-API routes",
+        "complete nested criteria mark preview column headers; opening the indicator edits the existing condition and real preview rows match SQL"
       ],
       "negative": [
         "selection pseudo-column and incompatible previous-table fields are excluded from saved reports",
         "full-column copy refuses results over the configured limit; an empty preview offers no column copy action; cancellation preserves the saved report",
-        "no query before selecting a required variant; an old variant copy response cannot overwrite a later copy; variant changes do not persist report edits"
+        "no query before selecting a required variant; an old variant copy response cannot overwrite a later copy; variant changes do not persist report edits",
+        "incomplete criteria do not mark columns; opening an indicator adds no condition; read-only preview edits and editor Cancel leave stored report JSON unchanged"
       ],
       "issues": [
         722

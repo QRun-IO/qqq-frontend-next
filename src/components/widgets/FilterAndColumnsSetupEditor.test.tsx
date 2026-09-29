@@ -39,7 +39,9 @@ vi.mock('@/lib/hooks/use-filter-setup', () => ({
 }))
 
 import { FilterAndColumnsSetupWidget } from './FilterAndColumnsSetupWidget'
-import { removeUnknownCriteria } from './filter-and-columns-utils'
+import { FilterSetupPreview } from './FilterAndColumnsSetupEditor'
+import { emptyFilter } from '@/lib/utils/filter-utils'
+import { DEFAULT_COLUMNS_STATE, removeUnknownCriteria } from './filter-and-columns-utils'
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id',
@@ -162,6 +164,38 @@ describe('FilterAndColumnsSetupWidget form editor', () => {
     const columns = JSON.parse(saved.columnsJson).columns
     expect(columns.find((column: { name: string }) => column.name === 'firstName').pinned).toBe('right')
     expect(columns.find((column: { name: string }) => column.name === 'id').isVisible).toBe(false)
+  })
+
+  it('opens the existing filter from its report column indicator without adding a condition', async () => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} hidePreview={false} />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'Saved views' }))
+    await user.click(screen.getByRole('menuitem', { name: 'People named Ada' }))
+    await user.click(screen.getByRole('tab', { name: 'Columns' }))
+    await user.click(screen.getByRole('button', { name: 'First Name is filtered. Show the filter' }))
+    expect(screen.getByRole('tab', { name: 'Filters and sort' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByLabelText('Filter field')).toHaveLength(1)
+    expect(screen.getByDisplayValue('Ada')).toBeVisible()
+    expect(onSetValues).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(JSON.parse(onSetValues.mock.lastCall![0].queryFilterJson).criteria).toEqual([
+      { fieldName: 'firstName', operator: 'EQUALS', values: ['Ada'] },
+    ])
+  })
+
+  it('marks complete nested filters in the read-only preview and keeps edits local', async () => {
+    const user = userEvent.setup()
+    const filter = { ...emptyFilter(), criteria: [{ fieldName: 'id', operator: 'EQUALS' as const, values: [] }],
+      subFilters: [{ ...emptyFilter(), criteria: [{ fieldName: 'firstName', operator: 'EQUALS' as const, values: ['Ada'] }] }] }
+    const before = structuredClone(filter)
+    render(<FilterSetupPreview table={table} filter={filter} columns={{ ...DEFAULT_COLUMNS_STATE, columnWidths: { firstName: 220 } }} api={undefined} widgetName="preview" />)
+    expect(screen.queryByRole('button', { name: 'Id is filtered. Show the filter' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'First Name is filtered. Show the filter' }))
+    await user.clear(screen.getByRole('textbox', { name: 'Filter value for First Name' }))
+    expect(screen.queryByRole('button', { name: 'First Name is filtered. Show the filter' })).not.toBeInTheDocument()
+    expect(filter).toEqual(before)
   })
 
   it('refreshes preview data without changing the report draft', async () => {

@@ -20,7 +20,7 @@
  */
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Columns, RefreshCw } from 'lucide-react'
 
@@ -42,7 +42,7 @@ import { SavedViewsMenu } from '@/components/query/SavedViewsMenu'
 import { DensitySelector } from '@/components/query/RecordQueryToolbar'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { useApiTableMetaData, useFilterSetupPreview } from '@/lib/hooks/use-filter-setup'
-import { emptyFilter, normalizeFilter, prepFilterForBackend } from '@/lib/utils/filter-utils'
+import { emptyFilter, isCriterionComplete, normalizeFilter, prepFilterForBackend } from '@/lib/utils/filter-utils'
 import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { ColumnConfig } from '@/components/query/ColumnConfig'
 import { DataGrid } from '@/components/query/DataGrid'
@@ -190,6 +190,19 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
   const { data: metaData } = useMetaData()
   const statsProcess = metaData?.processes?.[COLUMN_STATS_PROCESS]
   const canShowStats = hasCapability(table, 'QUERY_STATS') && Boolean(statsProcess) && statsProcess?.hasPermission !== false
+  const filteredColumns = useMemo(() => {
+    const names = new Set<string>()
+    const visit = (group: QQueryFilter) => {
+      for (const criterion of group.criteria ?? []) if (isCriterionComplete(criterion)) names.add(criterion.fieldName)
+      for (const child of group.subFilters ?? []) visit(child)
+    }
+    visit(filter)
+    return names
+  }, [filter])
+  const showExistingFilter = () => {
+    if (onEditFilter) onEditFilter()
+    else setShowFilter(true)
+  }
   const queryColumns = getQueryColumns(table)
   const names = visibleColumnNames(table, columns)
   const joins = previewJoins(table, names, filter)
@@ -234,8 +247,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
   const columnMenu = {
     onFilter: (name: string) => {
       onFilterChange({ ...filter, criteria: [...filter.criteria, { fieldName: name, operator: 'EQUALS', values: [] }] })
-      if (onEditFilter) onEditFilter()
-      else setShowFilter(true)
+      showExistingFilter()
     },
     onHide: (name: string) => onColumnsChange({ ...columns, columnVisibility: { ...columns.columnVisibility, [name]: false } }),
     onPin: (name: string, side: 'left' | 'right' | null) => onColumnsChange({ ...columns,
@@ -277,6 +289,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder} columnWidths={columns.columnWidths}
         onColumnWidthChange={(name, width) => onColumnsChange({ ...columns, columnWidths: { ...columns.columnWidths, [name]: width } })}
         columnPins={columns.columnPins ?? null} columnMenu={columnMenu}
+        filteredColumns={filteredColumns} onShowFilter={showExistingFilter}
         onColumnStats={canShowStats ? (name, label) => setStatsColumn({ name, label }) : undefined}
         density={density} pageSize={pageSize} selectable={false} disableRowClick
         scrollResetKey={`${pageNum}:${pageSize}`} />
