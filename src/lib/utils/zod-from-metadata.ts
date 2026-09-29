@@ -344,11 +344,12 @@ export function defaultValuesForCreate(tableMetaData: QTableMetaData): Record<st
  *
  * @param tableMetaData - Table metadata.
  * @param values - Form values keyed by field name.
+ * @param originalValues - Stored values to preserve when their local timestamp text is unchanged.
  * @returns A new object with wire values.
  */
-export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>): Record<string, unknown> {
+export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>, originalValues?: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(values).map(([name, value]) => [name,
-    tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value) : value]))
+    tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value, originalValues?.[name]) : value]))
 }
 
 /**

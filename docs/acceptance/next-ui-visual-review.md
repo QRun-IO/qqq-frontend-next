@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, date-time input review
+## Latest checkpoint — September 29, copied-record timestamp persistence
+
+The follow-up found ordinary record edits already protect unchanged timestamps by omitting them from PATCH. Base Copy and both child-row editor hosts submit complete values, however, and were discarding fractional seconds. The real-backend copy regression in America/New_York also reproduced a one-hour shift during the repeated autumn hour: `06:30:07.123456Z` became `05:30:07Z`. Copies and child edits now pass original record values through the existing wire converter; edited values retain normal local-to-UTC conversion.
+
+Verification: **1,799 unit tests and 30 real-backend cases across five profiles pass** (REC-065/018/013/060 and both PRC-064 cases). REC-065 checks unchanged PATCH omission, the copy POST instant and source/copy SQL precision. Separate component regressions prove association and process child-row preservation; these are not claimed as new child-specific real-backend coverage. Production export, types, changed-file lint, license, whitespace and bundle checks pass (1033.9KB/1050KB). Logs use `record-datetime-*`; the confirmed pre-fix trace is retained in `record-datetime-red-artifacts`. The first browser attempt stopped at the existing unreadable-password copy guard; supplying a new fixture password allowed the timestamp defect itself to reproduce.
+
+No layout or style changed in this correction, so existing visual captures were not repeated. Current preview includes the corrected export. Visual inventory remains101light/80dark states per size; no whole family approved. Full CI36580709453 at30db309 remains running across all browser jobs; general CI36580709451 and image36580709514 passed. Keep the new correction local until that full run finishes. Final visual review, complete release verification and publication remain open.
+
+## Earlier checkpoint — September 29, date-time input review
 
 **VIS-025 corrected:** zoned process values were assigned directly to datetime-local controls, which displayed blank fields. Plain standalone blocks sliced UTC digits into a local-time control and discarded seconds. Shared standalone editors displayed local values but sent unzoned text through their action callback. New component regressions and a fixed America/New_York browser context reproduced the failures.
 

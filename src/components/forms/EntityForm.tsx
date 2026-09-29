@@ -307,7 +307,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const widgetOnlyNames = useMemo(() => new Set(Object.values(widgetFields).flat()
     .map((field) => field.name).filter((name) => !tableMetaData.fields[name])), [widgetFields, tableMetaData.fields])
   const recordWireValues = (values: Record<string, unknown>) => wireValuesFromForm(tableMetaData,
-    Object.fromEntries(Object.entries(values).filter(([name]) => !widgetOnlyNames.has(name))))
+    Object.fromEntries(Object.entries(values).filter(([name]) => !widgetOnlyNames.has(name))), record?.values)
   // Checks widgets registered to run before saving (Material addSubValidations).
   const validatorsRef = useRef(new Map<string, () => string[]>())
   const [widgetErrors, setWidgetErrors] = useState<string[]>([])

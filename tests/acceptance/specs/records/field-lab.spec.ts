@@ -176,6 +176,30 @@ test('[REC-018] DATE_TIME is entered and shown in the viewer zone and stored in 
   expect((await sqlOne(backend, `select date_time_value from field_lab where id = ${id}`)).date_time_value).toBe('2024-01-15 14:15:00')
 })
 
+test('[REC-065] editing and copying preserve unchanged repeated-hour timestamp precision @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const instant = '2024-11-03T06:30:07.123456Z'
+  const sourceId = await insertFieldLab(backend, { name: 'Repeated Hour', dateTimeValue: instant })
+  const writes = recordRequests(page, '/qqq/v1/table/fieldLab')
+  await openForm(page, `/app/fieldLab/${sourceId}/edit`, 'Edit Field Lab')
+  await expect(control(page, 'dateTimeValue')).toHaveValue('2024-11-03T01:30:07')
+  await control(page, 'name').fill('Repeated Hour Renamed')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Repeated Hour Renamed' })).toBeVisible()
+  expect(multipartFields(writes.find((request) => request.method() === 'PATCH')!)).not.toHaveProperty('dateTimeValue')
+  await openForm(page, `/app/fieldLab/${sourceId}/copy`, 'Copy Field Lab')
+  await expect(control(page, 'dateTimeValue')).toHaveValue('2024-11-03T01:30:07')
+  await control(page, 'name').fill('Repeated Hour Copy')
+  await control(page, 'passwordValue').fill('copy-only-fixture-password')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Repeated Hour Copy' })).toBeVisible()
+  const copiedId = recordIdFromUrl(page, 'fieldLab')
+  expect(copiedId).not.toBe(sourceId)
+  expect(multipartFields(writes.find((request) => request.method() === 'POST')!).dateTimeValue).toBe(instant)
+  expect(await sqlOne(backend, `select date_time_value from field_lab where id = ${sourceId}`)).toEqual({ date_time_value: '2024-11-03 06:30:07.123456' })
+  expect(await sqlOne(backend, `select date_time_value from field_lab where id = ${copiedId}`)).toEqual({ date_time_value: '2024-11-03 06:30:07.123456' })
+})
+
 test('[REC-019] fixed-zone and per-record-zone date-times display in their declared zones @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const newYork = await insertFieldLab(backend, { name: 'Zone NY', timeZone: 'America/New_York', fixedZoneDateTime: '2024-03-10T08:30:00Z', recordZoneDateTime: '2024-03-10T08:30:00Z' })

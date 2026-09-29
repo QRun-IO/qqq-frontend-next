@@ -1326,6 +1326,26 @@
         "QRun-IO/qqq-frontend-next#722"
       ],
       "required": true
+    },
+    {
+      "id": "REC-065",
+      "feature": "Unchanged DATE_TIME instants and precision survive edit and copy",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/lib/utils/zod-from-metadata.ts"
+      ],
+      "fixture": "fieldLab; browser America/New_York; repeated DST hour with subsecond precision",
+      "scenarios": [
+        "Unrelated edit omits unchanged timestamp",
+        "Copy sends the original zoned instant and preserves source/copy SQL timestamps"
+      ],
+      "negative": [
+        "Copy must not select the first occurrence of a repeated hour or truncate fractional seconds"
+      ],
+      "issues": [
+        "QRun-IO/qqq#679"
+      ],
+      "required": true
     }
   ]
 }

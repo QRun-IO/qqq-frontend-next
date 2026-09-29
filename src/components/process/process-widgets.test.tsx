@@ -349,6 +349,28 @@ describe('process screens: value-producing widgets (#725, #736)', () => {
     expect(fetchWidgetData).not.toHaveBeenCalled()
   })
 
+  it('preserves timestamps when an in-process child row is edited', async () => {
+    const user = userEvent.setup()
+    const timestamp = '2024-11-03T06:30:07.123456Z'
+    const widget: QWidgetMetaData = { name: 'prcDogs', label: 'Dogs', type: 'childRecordList', hasPermission: true }
+    const dogTable = { name: 'prcDog', label: 'Dog', primaryKeyField: 'id', fields: {
+      id: field('id', 'Id', { type: 'INTEGER', isEditable: false }), name: field('name', 'Name'), stamp: field('stamp', 'Timestamp', { type: 'DATE_TIME' }),
+    }, sections: [{ name: 'identity', label: 'Identity', tier: 'T1', fieldNames: ['id', 'name', 'stamp'] }] }
+    const seeded = { type: 'childRecordList', isInProcess: true, allowRecordEdit: true, childFrontendTableMetaData: dogTable,
+      queryOutput: { records: [{ values: { id: 1, name: 'Rex', stamp: timestamp } }] } }
+    const { onSubmit } = renderStep({ name: 'dogs', label: 'Dogs', components: [{ type: 'WIDGET', values: { widgetName: 'prcDogs' } }] }, { prcDogs: seeded }, { instance: instanceWith(widget) })
+    await user.click(screen.getByRole('button', { name: 'Edit Dog row 1' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Editing Dog' })
+    await user.clear(within(dialog).getByLabelText(/Name/))
+    await user.type(within(dialog).getByLabelText(/Name/), 'Rex II')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce())
+    const posted = JSON.parse(String(onSubmit.mock.calls[0][0].frontendRecords))
+    expect(posted[0].values).toMatchObject({ name: 'Rex II', stamp: timestamp })
+  })
+
   it('writes an editable row builder to its output value, validating its rows with the screen', async () => {
     const user = userEvent.setup()
     const widget: QWidgetMetaData = { name: 'prcLines', label: 'Lines', type: 'rowBuilder', hasPermission: true,

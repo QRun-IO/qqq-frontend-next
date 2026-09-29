@@ -181,7 +181,7 @@ export function ChildRecordListEditor({ widgetMetaData, data, formContext }: Chi
     // An empty input is no value: a new child leaves it out (the insert applies defaults and
     // assigns the key), an existing child clears it.
     const isNew = dialog.rowIndex === null
-    const values = Object.fromEntries(Object.entries(wireValuesFromForm(childTable, formValues))
+    const values = Object.fromEntries(Object.entries(wireValuesFromForm(childTable, formValues, dialog.rowIndex === null ? undefined : rows[dialog.rowIndex].values))
       .filter(([, value]) => value !== undefined && !(isNew && (value === '' || value === null)))
       .map(([name, value]) => [name, value === '' ? null : value]))
     if (isNew || values[childTable.primaryKeyField] === null) delete values[childTable.primaryKeyField]

@@ -60,6 +60,20 @@ describe('Explicit fixed relationship submission', () => {
 describe('Base copy starts a new record identity', () => {
   beforeEach(() => vi.restoreAllMocks())
 
+  it('copies an unchanged timestamp with its original subsecond precision', async () => {
+    const table = structuredClone(qInstance.tables.company)
+    table.fields = { name: table.fields.name, stamp: { ...table.fields.name, name: 'stamp', label: 'Timestamp', type: 'DATE_TIME', isRequired: false } }
+    table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'stamp'] }]
+    const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', stamp: '2024-11-03T06:30:07.123456Z' } }
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy /></QueryClientProvider>)
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Copy' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(post).toHaveBeenCalledOnce())
+    expect((post.mock.calls[0][1] as FormData).get('stamp')).toBe('2024-11-03T06:30:07.123456Z')
+  })
+
   it('clears inherited manual keys on initial load and source reset, then submits a fresh key', async () => {
     const table = structuredClone(qInstance.tables.company)
     table.primaryKeyField = 'code'

@@ -230,7 +230,7 @@ function ChildRecordFormDialog({ table, openForm, onClose, onSave }: {
             onSubmit={(event) => {
               event.preventDefault()
               event.stopPropagation()
-              void form.handleSubmit((values) => onSave(wireValuesFromForm(table, values)))(event)
+              void form.handleSubmit((values) => onSave(wireValuesFromForm(table, values, openForm.rowIndex === null ? undefined : openForm.defaults)))(event)
             }}
           >
             <div className="flex-1 overflow-y-auto px-6 py-4">

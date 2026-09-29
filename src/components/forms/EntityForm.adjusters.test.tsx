@@ -242,6 +242,29 @@ describe('child record lists that manage an association', () => {
     return queryClient
   }
 
+  it('preserves a child timestamp when another field is edited', async () => {
+    const user = userEvent.setup()
+    const timestamp = '2024-11-03T06:30:07.123456Z'
+    const childWithStamp = { ...child, fields: { ...child.fields, stamp: field('stamp', { label: 'Timestamp', type: 'DATE_TIME' }) },
+      sections: [{ ...child.sections[0], fieldNames: [...child.sections[0].fieldNames, 'stamp'] }] }
+    const queryClient = client()
+    queryClient.setQueryData(queryKeys.tableMetadata('labLine'), childWithStamp)
+    widgetData.mockResolvedValue({ type: 'childRecordList', childTableMetaData: { name: 'labLine', label: 'Lab Line' },
+      queryOutput: { records: [{ tableName: 'labLine', values: { id: 11, labId: 3, sku: 'A-1', qty: 1, stamp: timestamp } }] } })
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 3 } } })
+    renderForm(parent, { record: stored, widgets }, queryClient)
+    await user.click(await screen.findByRole('button', { name: 'Edit Lab Line row 1' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Editing Lab Line' })
+    await user.clear(within(dialog).getByLabelText(/^Qty/))
+    await user.type(within(dialog).getByLabelText(/^Qty/), '5')
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce())
+    const associations = JSON.parse(String((patch.mock.calls[0][1] as FormData).get('associations')))
+    expect(associations.labLines[0].values).toMatchObject({ qty: 5, stamp: timestamp })
+  })
+
   it('adds, edits and deletes child rows in a dialog and saves them with the parent as the association', async () => {
     const user = userEvent.setup()
     widgetData.mockResolvedValue({
