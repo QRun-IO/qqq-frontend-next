@@ -33,7 +33,7 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import { ArrowUp, ArrowDown, ArrowUpDown, BarChart3, CircleHelp, Filter, Inbox } from 'lucide-react'
+import { ArrowUp, ArrowDown, BarChart3, CircleHelp, Filter, Inbox } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import type { QTableMetaData, QRecord, QFilterOrderBy } from '@/types'
@@ -371,25 +371,23 @@ export function DataGrid({
             {column.isQueryCriteria ? (
               <button
                 type="button"
-                className={cn('flex min-w-0 flex-1 items-center gap-1 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring', filtered && 'text-primary')}
+                className={cn('flex min-w-0 flex-1 items-center gap-0.5 font-semibold text-left focus:outline-none focus:ring-1 focus:ring-ring', filtered && 'text-primary')}
                 onClick={() => handleSortColumn(column.name)}
                 aria-label={`Sort by ${column.label}`}
                 data-qqq-id={`grid-header-${column.name}`}
               >
-                <span className="truncate">{column.label}</span>
-                {sortInfo ? (
+                <span className="truncate pointer-coarse:line-clamp-2 pointer-coarse:whitespace-normal">{column.label}</span>
+                {sortInfo && (
                   sortInfo.isAscending ? (
                     <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                   ) : (
                     <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                   )
-                ) : (
-                  <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden="true" />
                 )}
               </button>
             ) : (
               // a virtual field the backend cannot sort or filter on (Material hides both)
-              <span className="min-w-0 flex-1 truncate font-semibold" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
+              <span className="min-w-0 flex-1 truncate font-semibold pointer-coarse:line-clamp-2 pointer-coarse:whitespace-normal" data-qqq-id={`grid-header-${column.name}`}>{column.label}</span>
             )}
             {help && !compactHeader && <ColumnHelp column={column} help={help} />}
             {filtered && !compactHeader && (
@@ -819,7 +817,7 @@ export function DataGrid({
                     scope="col"
                     data-col={header.id}
                     data-pinned={isSelectCol ? undefined : pins[header.id]}
-                    className={`group relative text-left font-semibold text-foreground select-none ${cellClass} ${stickyClass}`}
+                    className={cn('group relative text-left font-semibold text-foreground select-none', cellClass, stickyClass, !isSelectCol && columnMenu && 'pr-1')}
                     style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
                     aria-sort={ariaSortValue}
                   >

@@ -13,6 +13,7 @@
 
 // Basic/Advanced mode over real QQQ metadata and SQL-backed records.
 import { expect, open, test } from '../../support/fixtures'
+import { expectWithinViewport } from '../../support/touch'
 import { addCondition, captureQueries, closeFilterSheet, expectColumn, filterUrl, openFilter, showBasicFilters, showTable, sqlColumn } from './query-helpers'
 
 test('[QRY-080] Basic mode offers metadata quick filters and queries the selected value @mobile', async ({ page, backend, diagnostics }) => {
@@ -304,6 +305,7 @@ test('[QRY-086] Relative date preset shows its evaluated value and queries recen
   await openFilter(page)
   const row = await addCondition(page, 'Received Date', 'is after')
   await row.getByRole('button', { name: 'Common relative date expressions for Received Date' }).click()
+  await expectWithinViewport(page.locator('[data-qqq-id="relative-date-menu"]'))
   await page.getByRole('menuitem', { name: /7 days ago/ }).click()
   const expression = row.locator('[data-qqq-id="filter-value-0-0-expression"]')
   await expect(expression).toContainText('7 days ago')

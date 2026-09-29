@@ -104,7 +104,8 @@ export function RelativeDateMenu({ fieldType, fieldLabel, onSelect, onCustom, da
       </DropdownMenuPrimitive.Trigger>
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content align="start" sideOffset={4} collisionPadding={8}
-          className="z-[250] max-h-[70dvh] overflow-y-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md"
+          className="z-[250] max-w-[calc(100vw-16px)] overflow-y-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md"
+          style={{ maxHeight: 'min(70dvh, var(--radix-dropdown-menu-content-available-height))' }}
           aria-label={`Common relative ${noun} expressions`} data-qqq-id="relative-date-menu">
           <RelativeDateMenuItems fieldType={fieldType} onSelect={onSelect} onCustom={onCustom} />
         </DropdownMenuPrimitive.Content>

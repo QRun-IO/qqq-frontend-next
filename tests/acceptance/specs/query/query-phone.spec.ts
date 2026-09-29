@@ -150,6 +150,7 @@ test.describe('on a phone', () => {
     await open(page, '/app/person')
     await expectColumn(page, 'firstName', await sqlColumn(backend, 'select first_name from person order by id desc'))
     await page.locator('[data-qqq-id="button-saved-views"]').tap()
+    await expect(page.locator('[data-qqq-id="button-saved-views"]')).toHaveAttribute('aria-expanded', 'true')
     const views = page.getByRole('menu', { name: 'Saved views' })
     await expect(views.getByRole('group', { name: 'Your Saved Views' }).getByRole('menuitem')).toHaveText(['Alice People View'])
     await expectOnScreen(page, views)

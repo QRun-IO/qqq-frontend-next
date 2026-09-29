@@ -527,6 +527,7 @@ test('[RPT-017] only the owner may share: the button is disabled for others and 
   expect(refused.body.error).toContain('You are not the owner of this record')
   expect(await sqlRows(backend, "select user_id from shared_saved_report where saved_report_id = 101 order by user_id")).toEqual([{ user_id: 'sample:alice' }])
   // alice's own report is shareable
+  await page.waitForLoadState('networkidle')
   await open(page, '/app/savedReport/1')
   await expect(page.getByRole('button', { name: 'Share', exact: true })).toBeEnabled()
 })

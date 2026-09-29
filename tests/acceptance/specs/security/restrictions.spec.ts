@@ -117,6 +117,8 @@ test.describe('app restrictions', () => {
     await expect(nav.getByRole('link', { name: 'Pet Vault App', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Pet Disabled App', exact: true })).toBeVisible()
 
+    // Finish the initial dashboard reads before replacing its synthetic session and document.
+    await page.waitForLoadState('networkidle')
     await security.setPersona('noPets')
     const reads = recordRequests(page)
     await open(page, '/app/securityApp')

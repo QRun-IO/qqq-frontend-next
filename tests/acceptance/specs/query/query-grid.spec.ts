@@ -78,6 +78,42 @@ test('[QRY-001] the list renders metadata labels and every record, newest first 
   await expect(page.locator('[data-qqq-id="pagination"]')).toContainText('Showing 1–8 of 8')
 })
 
+test('[QRY-001] default-width headings remain readable beside column actions @mobile @tablet', async ({ page, diagnostics }) => {
+  void diagnostics
+  await open(page, '/app/person')
+  await showTable(page)
+  const table = grid(page, 'Person')
+  const checkHeadings = async () => {
+    for (const name of ['firstName', 'lastName', 'isEmployed', 'annualSalary']) {
+      const header = table.locator(`th[data-col="${name}"]`)
+      await expect(header).toBeVisible()
+      const layout = await header.evaluate(element => {
+        const sort = element.querySelector<HTMLElement>('[data-qqq-id^="grid-header-"]')!
+        const label = sort.querySelector<HTMLElement>('span')!
+        const menu = element.querySelector<HTMLElement>('[data-qqq-id^="grid-column-menu-"]')!
+        const target = menu.getBoundingClientRect()
+        return {
+          width: element.getBoundingClientRect().width,
+          clippedX: label.scrollWidth - label.clientWidth,
+          clippedY: label.scrollHeight - label.clientHeight,
+          overlap: sort.getBoundingClientRect().right - target.left,
+          menuTarget: Math.min(target.width, target.height),
+          touch: matchMedia('(pointer: coarse)').matches,
+        }
+      })
+      expect(layout.width, `${name} keeps its default width`).toBe(150)
+      expect(layout.clippedX, `${name} label fits horizontally`).toBeLessThanOrEqual(0)
+      expect(layout.clippedY, `${name} label fits vertically`).toBeLessThanOrEqual(0)
+      expect(layout.overlap, `${name} sort and menu targets stay separate`).toBeLessThanOrEqual(0)
+      if (layout.touch) expect(layout.menuTarget).toBeGreaterThanOrEqual(44)
+    }
+  }
+  await checkHeadings()
+  await table.getByRole('button', { name: 'Sort by Annual Salary', exact: true }).press('Enter')
+  await expect(table.locator('th[data-col="annualSalary"]')).toHaveAttribute('aria-sort', 'ascending')
+  await checkHeadings()
+})
+
 test('[QRY-002] paging through the carrier table, with page size and URL state @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const ids = await sqlColumn(backend, 'select id from carrier order by id desc')
