@@ -16,7 +16,7 @@
 
 /**
  * @file use-filter-setup — server state of the saved report filter and columns widget: table
- * metadata as an application API version exposes it, and the first page (and count) of the
+ * metadata as an application API version exposes it, and a requested page (and count) of the
  * records a filter matches, through the plain or the API-versioned v1 routes.
  */
 

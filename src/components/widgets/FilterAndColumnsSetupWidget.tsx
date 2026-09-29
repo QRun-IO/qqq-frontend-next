@@ -173,13 +173,14 @@ function criterionValues(criterion: StoredCriterion): string {
  * @param parsed - Parsed columns JSON.
  * @returns The entries in order, or undefined when the shape is not recognized.
  */
-function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean }> | undefined {
+function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean; width?: number }> | undefined {
   const list = isPlainObject(parsed) ? asList(parsed.columns) : asList(parsed)
   if (list === undefined) return undefined
-  const entries: Array<{ name: string; isVisible: boolean }> = []
+  const entries: Array<{ name: string; isVisible: boolean; width?: number }> = []
   for (const item of list) {
     if (typeof item === 'string') entries.push({ name: item, isVisible: true })
-    else if (isPlainObject(item) && typeof item.name === 'string') entries.push({ name: item.name, isVisible: item.isVisible !== false })
+    else if (isPlainObject(item) && typeof item.name === 'string') entries.push({ name: item.name, isVisible: item.isVisible !== false,
+      ...(typeof item.width === 'number' ? { width: item.width } : {}) })
     else return undefined
   }
   return entries

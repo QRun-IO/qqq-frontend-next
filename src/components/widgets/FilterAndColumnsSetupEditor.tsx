@@ -42,7 +42,7 @@ import {
   visibleColumnNames,
 } from './filter-and-columns-utils'
 import type { ColumnsState } from './filter-and-columns-utils'
-import { parseJsonValue, formatPlainValue, resolveFieldLabel } from './record-widget-utils'
+import { parseJsonValue, resolveFieldLabel } from './record-widget-utils'
 import type { FilterAndColumnsSetupPayload } from './FilterAndColumnsSetupWidget'
 import type { WidgetComponentProps, WidgetFormContext } from './widget-types'
 import { WidgetHeaderLinkButton } from './WidgetHeaderControls'
@@ -87,45 +87,42 @@ function initialFilter(value: unknown, table: QTableMetaData, data: FilterAndCol
   return removeUnknownCriteria(table, seeded)
 }
 
-/**
- * Queries the first page only; variables suppress requests until resolved.
- * @param root0 - Current query draft and table.
- * @returns The preview table or request state.
- */
-export function FilterSetupPreview({ table, filter, columns, api, widgetName }: {
-  table: QTableMetaData; filter: QQueryFilter; columns: ColumnsState
-  api: ReturnType<typeof resolveApiVersion>; widgetName: string
-}) {
-  const names = visibleColumnNames(table, columns)
-  const joins = previewJoins(table, names, filter)
-  const prepared = prepFilterForBackend({ ...filter, skip: 0, limit: PREVIEW_PAGE_SIZE }, fieldLookup(table))
-  const hasVariables = filterHasVariables(filter)
-  const result = useFilterSetupPreview({ table, api, filter: prepared, joins: joins.joins, includeDistinct: joins.includeDistinct, enabled: !hasVariables })
-  if (hasVariables) return <p role="status" className="text-sm text-muted-foreground">Cannot perform query because of a missing value for a variable.</p>
-  if (result.isLoading) return <p role="status" className="text-sm text-muted-foreground">Loading preview…</p>
-  if (result.error) return <p role="alert" className="text-sm text-destructive">Preview could not be loaded.</p>
-  return (
-    <div data-qqq-id={`filter-preview-${widgetName}`} className="overflow-x-auto rounded-md border border-border">
-      <p className="p-2 text-xs text-muted-foreground">{result.totalCount === null ? `${result.records.length} shown` : `${result.totalCount} matching records`}</p>
-      <table className="w-full text-left text-sm">
-        <thead><tr>{names.map((name) => <th key={name} scope="col" className="border-b px-3 py-2">{resolveFieldLabel(table, name).label}</th>)}</tr></thead>
-        <tbody>{result.records.map((record, index) => (
-          <tr key={String(record.values?.[table.primaryKeyField] ?? index)}>
-            {names.map((name) => <td key={name} className="border-b px-3 py-2">{formatPlainValue(record.displayValues?.[name] ?? record.values?.[name])}</td>)}
-          </tr>
-        ))}</tbody>
-      </table>
-      {result.records.length === 0 && <p className="p-3 text-sm text-muted-foreground">No matching records</p>}
-    </div>
-  )
+interface PreviewProps {
+  table: QTableMetaData
+  filter: QQueryFilter
+  columns: ColumnsState
+  api: ReturnType<typeof resolveApiVersion>
+  widgetName: string
 }
 
 /**
- * The report editor uses the same server-side grid controls as Record Query.
+ * A read-only report preview with temporary paging, sorting and column sizing.
+ * @param props - Saved report configuration and table metadata.
+ * @returns The shared grid, reset when the saved configuration changes.
+ */
+export function FilterSetupPreview(props: PreviewProps) {
+  const key = JSON.stringify([props.table.name, props.api, props.filter, props.columns])
+  return <LocalFilterSetupPreview key={key} {...props} />
+}
+
+/**
+ * Keeps preview interactions local so they never write to the saved report.
+ * @param props - Initial saved configuration.
+ * @returns The paged preview grid.
+ */
+function LocalFilterSetupPreview({ filter, columns, ...props }: PreviewProps) {
+  const [previewFilter, setPreviewFilter] = useState(filter)
+  const [previewColumns, setPreviewColumns] = useState(columns)
+  return <FilterSetupGrid {...props} filter={previewFilter} onFilterChange={setPreviewFilter}
+    columns={previewColumns} onColumnsChange={setPreviewColumns} />
+}
+
+/**
+ * Report views and editors use the same server-side grid controls as Record Query.
  * @param root0 - Draft report filter, columns, and change callbacks.
  * @returns The paged, sortable preview grid.
  */
-function FilterSetupEditorPreview({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName }: {
+function FilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName }: {
   table: QTableMetaData; filter: QQueryFilter; onFilterChange: (filter: QQueryFilter) => void
   columns: ColumnsState; onColumnsChange: (columns: ColumnsState) => void
   api: ReturnType<typeof resolveApiVersion>; widgetName: string
@@ -235,7 +232,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
         </> : <ColumnConfig tableMetaData={table} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
           onOrderChange={(order) => setColumns((current) => ({ ...current, columnOrder: order }))} embedded />}
-        {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupEditorPreview table={table} filter={filter} onFilterChange={setFilter}
+        {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupGrid table={table} filter={filter} onFilterChange={setFilter}
           columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} /></section>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
