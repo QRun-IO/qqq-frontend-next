@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render as renderWithoutProviders, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 // Override next/navigation for this file so we can control pathname per test
@@ -31,6 +31,16 @@ vi.mock('next/navigation', () => ({
 }))
 
 import Sidebar from './Sidebar'
+import { ThemeProvider } from '@/lib/theme/theme-provider'
+
+/**
+ * Renders the sidebar with the same appearance context as the application.
+ * @param ui - Sidebar or drawer harness.
+ * @returns Testing Library render result.
+ */
+function render(ui: React.ReactElement) {
+  return renderWithoutProviders(ui, { wrapper: ThemeProvider })
+}
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
 import { md5Hex } from '@/lib/utils/gravatar'

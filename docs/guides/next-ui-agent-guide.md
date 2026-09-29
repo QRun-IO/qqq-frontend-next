@@ -191,3 +191,7 @@ Read [acceptance setup](../../tests/acceptance/README.md) and [browser matrix](.
 5. Focused tests and the applicable real-server matrix row pass. The final browser claim names the projects actually run.
 6. Static export or standalone build, as applicable, works on refresh and direct deep link.
 7. Docs and the parity ledger reflect the observed behavior; any open Partial/Missing rows remain visible until proven closed.
+
+### Appearance preferences
+
+Use the real ThemeProvider when rendering UserPreferencesDialog or a sidebar with its user footer. The saved `darkModePreference` is distinct from effective `isDarkMode`: an application theme overrides dark mode without erasing the choice. Preferences exposes Light/Dark, explains a theme lock, and resets both saved appearance and layout defaults. Preserve `qqq-dark-mode` storage compatibility. Verify changes through the actual Preferences flow and reload (NAV-056), including phone drawer layering/focus (NAV-038); injecting localStorage alone does not exercise the user control. There is currently no system appearance choice or account/device synchronization.

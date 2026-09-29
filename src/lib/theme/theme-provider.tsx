@@ -38,6 +38,10 @@ export interface ThemeContextType {
   setTheme: (theme: QThemeMetaData | null) => void
   /** Whether dark mode is currently active (never while an application theme is applied). */
   isDarkMode: boolean
+  /** Saved choice, including when an application theme overrides it. */
+  darkModePreference: boolean
+  /** Saves an explicit appearance choice for this browser and site. */
+  setDarkMode: (dark: boolean) => void
   /**
    * Toggles between light and dark mode, persisting the preference in
    * `localStorage` under the key {@link DARK_MODE_KEY}.
@@ -102,16 +106,16 @@ export function ThemeProvider({
 
   const setTheme = useCallback((next: QThemeMetaData | null) => setThemeState(next), [])
 
+  const setDarkMode = useCallback((dark: boolean) => {
+    setPrefersDark(dark)
+    localStorage.setItem(DARK_MODE_KEY, String(dark))
+  }, [])
+
   /**
-   * Toggles the dark-mode flag and persists the new value to `localStorage`.
+   * Toggles the saved preference, including when an application theme overrides it.
+   * @returns Nothing.
    */
-  const toggleDarkMode = () => {
-    setPrefersDark((prev) => {
-      const next = !prev
-      localStorage.setItem(DARK_MODE_KEY, String(next))
-      return next
-    })
-  }
+  const toggleDarkMode = () => setDarkMode(!prefersDark)
 
   return (
     <ThemeContext.Provider
@@ -119,6 +123,8 @@ export function ThemeProvider({
         theme,
         setTheme,
         isDarkMode,
+        darkModePreference: prefersDark,
+        setDarkMode,
         toggleDarkMode,
       }}
     >

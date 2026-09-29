@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, widget width and acceptance setup
+## Latest checkpoint — September 29, appearance preferences
+
+The user-facing Preferences dialog now exposes Light and Dark choices using native radio controls within its existing layout. The choice applies immediately and persists under the existing `qqq-dark-mode` browser/origin key; a fresh profile remains light. An application theme still requires light mode, now with a visible explanation and disabled choices. The saved preference is retained under that override; Reset to Defaults clears it to light along with table and record defaults. No system-following or account synchronization is claimed.
+
+The initial two integration tests failed because the controls were absent. The completed change passes **1,803 unit tests** and **15 real-backend browser cases across all five profiles** (NAV-056 appearance and NAV-038 shell touch/focus). The browser audit initially caught transitional colors while switching palettes; it now waits for actual CSS animation completion before checking the whole visible dialog against WCAG A/AA rules. A subsequent tablet diagnostic caught a metadata request interrupted by the test's immediate reload; the scenario now waits for the application theme to load before reloading. Failure logs/traces are retained under `appearance-transition-*` and `appearance-reload-*`. Build, types, changed-file lint, license and bundle budget pass (1,034.5 KB / 1,050 KB).
+
+Refreshed original/current Preferences captures in both themes at desktop, tablet and phone sizes, including the dialog's own scroll region. Inspected current light desktop/phone top and dark phone bottom: controls remain within the viewport, the footer remains available, and lower layout options are reachable by scrolling. The screenshot tool was corrected to target the Preferences scroll area rather than the phone navigation drawer. Current export fingerprint: `d87518fddea70bd830c3fb10ea3ebaae41410feca77f6b6df2daf56a24370c1a`. The gallery still has 106 light / 87 dark states per viewport; this refresh adds no new state IDs. No whole screen family is approved. Full remote acceptance on the previous pushed head is still running; this targeted result is not release acceptance.
+
+## Earlier checkpoint — September 29, widget width and acceptance setup
 
 The remote phone failure reproduced with a wider native font: the standalone choice stayed 224px while its neighboring scalar input measured 230px. The original width assertion is retained. The metadata-editor minimum is now `min(15rem, 100%)`: 240px where available, capped to 230px at the tested 320px phone viewport. A browser-only trial preceded the one-line source correction; the final export reproduces the trial without injected styles. System, Arial and monospace measurements and 320/393/810/1440px viewports show no document overflow. Plain scalar controls are unchanged.
 

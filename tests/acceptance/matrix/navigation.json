@@ -771,6 +771,8 @@
         "v1 metaData publishes the selected Material theme settings",
         "the rendered dashboard applies its primary token, branded header colors and tagline, and custom CSS",
         "Every theme scenario resets instance metadata before navigation",
+        "Preferences exposes accessible Light and Dark choices; keyboard changes, real reload persistence, reset and light/dark dialog accessibility are verified",
+        "Application theme override is explained in Preferences without erasing the saved browser appearance choice",
         "Pivot validation meets text contrast in default light, default dark and a configured orange error theme"
       ],
       "negative": [],

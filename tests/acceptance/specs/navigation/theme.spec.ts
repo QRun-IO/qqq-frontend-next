@@ -6,6 +6,8 @@
  */
 
 import AxeBuilder from '@axe-core/playwright'
+import type { Page } from '@playwright/test'
+import { appNavigation } from './nav-helpers'
 import { expect, open, test } from '../../support/fixtures'
 
 // Theme metadata is instance-wide; every scenario needs the backend reset before navigation.
@@ -93,4 +95,65 @@ test('[NAV-056] Material theme metadata drives CSS tokens, custom CSS and the br
   await expect(page.locator('body')).toHaveClass(/qqq-themed/)
   await expect.poll(() => page.locator('html').evaluate((root) =>
     getComputedStyle(root).getPropertyValue('--qqq-primary-color').trim())).toBe('#0f766e')
+})
+
+/** Opens the same user preferences from either the sidebar or the phone drawer. */
+async function openPreferences(page: Page) {
+  await appNavigation(page)
+  await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+  await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Preferences', exact: true })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+test('[NAV-056] appearance preferences apply immediately and survive a reload @mobile', async ({ page, diagnostics }) => {
+  void diagnostics
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await open(page, '/app/person')
+  let dialog = await openPreferences(page)
+  const light = dialog.getByRole('radio', { name: 'Light', exact: true })
+  await expect(light).toBeChecked()
+  await light.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  for (const mode of ['dark', 'light'] as const) {
+    await dialog.getByRole('radio', { name: mode === 'dark' ? 'Dark' : 'Light', exact: true }).check()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', mode)
+    // Audit the selected palette after the existing control color transitions settle.
+    await dialog.evaluate(async element => {
+      await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})))
+    })
+    const results = await new AxeBuilder({ page }).include('[data-qqq-id="dialog-user-preferences"]')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+    expect(results.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+  }
+  await dialog.getByRole('radio', { name: 'Dark', exact: true }).check()
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  dialog = await openPreferences(page)
+  await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
+  await dialog.getByRole('button', { name: 'Reset to Defaults' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+})
+
+test('[NAV-056] appearance preferences explain an application theme override @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await backend.enableTheme()
+  await open(page, '/app/person')
+  await expect(page.locator('body')).toHaveClass(/qqq-themed/)
+  await page.evaluate(() => localStorage.setItem('qqq-dark-mode', 'true'))
+  await page.reload()
+  const dialog = await openPreferences(page)
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(dialog.getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
+  await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeDisabled()
+  await expect(dialog.getByText(/application theme requires light mode/i)).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBe('true')
+  await dialog.getByRole('button', { name: 'Reset to Defaults' }).click()
+  expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBe('false')
 })
