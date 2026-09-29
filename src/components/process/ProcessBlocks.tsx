@@ -158,19 +158,27 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
   const values = blockValues(block)
   const field = values.fieldMetaData as QFieldMetaData | undefined
   if (!field || typeof field.name !== 'string' || field.isHidden) return null
+  const submitInput = (entered: string) => {
+    if (values.submitOnEnter !== true) return
+    if (entered.startsWith('->')) {
+      form.setValue(field.name, '')
+      requestSubmit({ actionCode: entered.substring(2) })
+      return
+    }
+    if (['STRING', 'TEXT', 'HTML', 'PASSWORD'].includes(field.type)) form.setValue(field.name, entered, { shouldDirty: true })
+    if (field.isRequired && entered === '') {
+      void form.trigger(field.name)
+      return
+    }
+    requestSubmit()
+  }
   if (field.type === 'BLOB' || needsBlockInputEditor(field)) {
     const processField = formFields.some((item) => item.name === field.name) && !inputFieldNames.has(field.name)
     return <div data-qqq-id={blockQqqId('INPUT_FIELD', widgetName)} data-block-type="INPUT_FIELD" data-block-id={block.blockId}>
       <BlockInputEditor contextValues={processValues} field={field} widgetName={widgetName} form={form} disabled={isWorking}
         autoFocus={values.autoFocus === true} placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
         possibleValueContext={processField || field.adornments?.some((item) => item.type === 'WIDGET') ? { type: 'process', processName } : { type: 'standalone' }}
-        onEnter={(entered) => {
-          if (values.submitOnEnter !== true) return
-          if (entered.startsWith('->')) {
-            form.setValue(field.name, '')
-            requestSubmit({ actionCode: entered.substring(2) })
-          } else requestSubmit()
-        }} />
+        onEnter={submitInput} />
     </div>
   }
   const inputId = `process-block-input-${widgetName}-${field.name}`
@@ -188,18 +196,7 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return
     event.preventDefault()
-    if (values.submitOnEnter !== true) return
-    const entered = String(event.currentTarget.value ?? '').trim()
-    if (entered.startsWith('->')) {
-      form.setValue(field.name, '')
-      requestSubmit({ actionCode: entered.substring(2) })
-      return
-    }
-    if (field.isRequired && entered === '') {
-      void form.trigger(field.name)
-      return
-    }
-    requestSubmit()
+    submitInput(String(event.currentTarget.value ?? '').trim())
   }
 
   return (
@@ -219,6 +216,7 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
         step={field.type === 'DECIMAL' ? 'any' : undefined}
         placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
         autoFocus={values.autoFocus === true}
+        data-qqq-autofocus={values.autoFocus === true || undefined}
         disabled={isWorking}
         aria-required={field.isRequired || undefined}
         aria-invalid={error ? true : undefined}

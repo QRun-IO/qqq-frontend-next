@@ -63,7 +63,7 @@ export function BlockInputEditor({ field, widgetName, form, disabled = false, au
   useEffect(() => {
     if (autoFocus && !readOnly) root.current?.querySelector<HTMLElement>('input:not(:disabled), textarea:not(:disabled), button:not(:disabled)')?.focus()
   }, [autoFocus, readOnly])
-  return <div ref={root} data-qqq-id={`block-input-field-${widgetName}-${field.name}`} onKeyDown={(event) => {
+  return <div ref={root} data-qqq-autofocus={autoFocus && !readOnly || undefined} data-qqq-id={`block-input-field-${widgetName}-${field.name}`} onKeyDown={(event) => {
     if (event.defaultPrevented || event.key !== 'Enter' || readOnly) return
     // Search pickers and multiline/code editors own Enter themselves.
     if (!(event.target instanceof HTMLInputElement) || event.target.name !== field.name || event.target.type === 'file') return
@@ -94,6 +94,7 @@ export function StandaloneBlockInputEditor({ block, widgetName, actionCallback, 
         actionCallback?.(block, { actionCode: entered.substring(2), _fieldToClearIfError: field.name })
         return
       }
+      if (['STRING', 'TEXT', 'HTML', 'PASSWORD'].includes(field.type)) form.setValue(field.name, entered, { shouldDirty: true })
       void form.trigger(field.name).then((valid) => { if (valid) actionCallback?.(block, { [field.name]: entered }) })
     }} />
 }

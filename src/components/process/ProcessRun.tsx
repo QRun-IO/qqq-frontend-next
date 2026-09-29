@@ -184,6 +184,7 @@ export function ProcessRun({
   //////////////////////////////////////////////////////////////////
   useEffect(() => {
     if (state.phase !== 'step' || state.screenInstance <= 1) return
+    if (containerRef.current?.querySelector('[data-qqq-autofocus="true"]:focus-within')) return
     containerRef.current?.querySelector<HTMLElement>('[data-qqq-id="process-step-heading"]')?.focus()
   }, [state.phase, state.screenInstance])
 

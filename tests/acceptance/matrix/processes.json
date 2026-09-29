@@ -1087,6 +1087,16 @@
         "QRun-IO/qqq#728"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-063",
+      "feature": "INPUT_FIELD autofocus and trimmed Enter values on subsequent process screens",
+      "source": ["src/components/process/ProcessRun.tsx", "src/components/process/ProcessBlocks.tsx", "src/components/widgets/blocks/BlockInputEditor.tsx"],
+      "fixture": "prcInputFocus",
+      "scenarios": ["Plain and metadata editors receive configured focus, placeholders and previous process values; Enter saves trimmed text verified in SQL; ordinary result screens receive heading focus"],
+      "negative": ["First blur does not show premature validation; required whitespace cannot advance either input screen"],
+      "issues": ["QRun-IO/qqq#728"],
+      "required": true
     }
   ]
 }

@@ -187,6 +187,27 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ quantity: 7, actionCode: 'approve' }, undefined))
   })
 
+  it.each([undefined, '%20s'])('submits trimmed block text through Enter (format=%s)', async (displayFormat) => {
+    const user = userEvent.setup()
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: field('code', 'Code', { isRequired: true, displayFormat }) } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, {})
+    await user.type(screen.getByLabelText(/Code/), '  SPEC-42  {Enter}')
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ code: 'SPEC-42' }, undefined))
+  })
+
+  it.each([undefined, '%20s'])('rejects whitespace-only required block text on Enter (format=%s)', async (displayFormat) => {
+    const user = userEvent.setup()
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: field('code', 'Code', { isRequired: true, displayFormat }) } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, {})
+    await user.type(screen.getByLabelText(/Code/), '   {Enter}')
+    expect(await screen.findByText('Code is required')).toBeVisible()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('keeps adorned block editors in the process form and submits their typed values', async () => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [

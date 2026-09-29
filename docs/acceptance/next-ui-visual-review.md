@@ -4,7 +4,19 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, record section keyboard review
+## Latest checkpoint — September 29, input configuration review
+
+**VIS-024 corrected:** advancing a process moved focus from a configured autofocus input to the screen heading. A real-browser regression reproduced the inactive Plain Code field on screen two. The process now preserves focus already inside a marked autofocus editor; ordinary result screens still receive heading focus. Plain and shared metadata editors both pass the transition check.
+
+Enter also inspected trimmed text while submitting the untrimmed process form. PRC-044 reproduced surrounding spaces in the actual SQL record. Plain/shared text blocks now normalize their own value before validation and submission. Required whitespace cannot advance; standalone shared blocks validate the normalized value before invoking their callback. Typed numeric/date/checkbox values and multiline, file and picker keyboard behavior retain their existing paths.
+
+Verification: **1,791 unit tests and 25 real-backend cases across all five profiles pass** (PRC-037/044/062/063 and WID-074). Production export, types, changed-file lint, license, whitespace and bundle checks pass; total JavaScript is 1033.6KB gzip against 1050KB. PRC-063 checks placeholders, retained process values, first blur without premature validation, required whitespace, both autofocus paths, result heading focus and stored SQL text. Pre-fix traces remain in `block-enter-red-artifacts` and `block-focus-red-artifacts`; logs use `block-{enter,focus}-red-*` and `block-input-config-*`.
+
+Added paired plain/formatted input focus captures in both themes at three sizes:24entries, no runtime/setup errors or document overflow. Inspected desktop plain pairs, phone formatted pairs and dark tablet formatted focus. These process cards preserve the original geometry; current required markers and focus rings are visible. Inventory is100light/79dark states per size. This closes the reproduced focus/Enter defects, not the full widget/process configuration audit or any whole-family visual approval.
+
+Both previews use the updated fixtures; the original export is unchanged and the current export includes these fixes. Full remote run36573705464 at121468b: WebKit passed, Firefox running, Chromium/touch failed dependency download before tests. The final full release gate remains open; no merge or publication.
+
+## Earlier checkpoint — September 29, record section keyboard review
 
 **VIS-023 corrected:** record tabs had tab roles but no arrow navigation, single tab stop or tab/panel associations. The real-backend regression failed when Right Arrow left focus on Overview. Tabs now use manual activation: Left/Right/Home/End move focus; Enter/Space opens the section through the existing URL callback. This avoids mounting section widgets merely while moving focus. Tab enters the named panel, with a visible focus indicator. Phone accordion behavior is preserved. The approach follows the [WAI tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/).
 

@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -443,6 +443,22 @@ describe('QqqComposite', () => {
     await user.clear(cost)
     await user.type(cost, '24.75{Enter}')
     expect(action).toHaveBeenCalledWith(data.blocks![1], { cost: '24.75' })
+  })
+
+  it('validates trimmed standalone block text before invoking its action', async () => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: {
+        name: 'code', label: 'Code', type: 'STRING', isEditable: true, isRequired: true, displayFormat: '%20s',
+      } } },
+    ] })
+    const input = screen.getByLabelText(/Code/)
+    await user.type(input, '   {Enter}')
+    expect(await screen.findByText('Code is required')).toBeVisible()
+    expect(actionCallback).not.toHaveBeenCalled()
+    await user.clear(input)
+    await user.type(input, '  SPEC-42  {Enter}')
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { code: 'SPEC-42' }))
   })
 
   it('honors hidden and readonly metadata on plain standalone inputs', async () => {

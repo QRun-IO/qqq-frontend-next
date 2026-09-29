@@ -222,6 +222,7 @@ public final class ProcessesFixtures
       instance.addProcess(definePick());
       instance.addProcess(defineFieldWidget());
       instance.addProcess(defineBlockEditors());
+      instance.addProcess(defineInputFocus());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
          .withLabel("Quick Task")
@@ -782,6 +783,32 @@ public final class ProcessesFixtures
             .withLabel("Scanned")
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Specimen Code")));
+   }
+
+
+
+   /*******************************************************************************
+    ** Configured input focus and Enter behavior after advancing a process.
+    *******************************************************************************/
+   private static QProcessMetaData defineInputFocus()
+   {
+      QFieldMetaData plain = new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Plain Code").withIsRequired(true);
+      QFieldMetaData formatted = new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Formatted Code").withIsRequired(true).withDisplayFormat("%20s");
+      return new QProcessMetaData()
+         .withName("prcInputFocus")
+         .withLabel("Input Focus Lab")
+         .withStep(new QFrontendStepMetaData().withName("intro").withLabel("Start")
+            .withComponent(component(QComponentType.HELP_TEXT).withValue("text", "Continue to the focused inputs.")))
+         .withStep(new QFrontendStepMetaData().withName("plain").withLabel("Plain Input")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", new ArrayList<>(List.of(
+               new InputFieldBlockData().withValues(new InputFieldValues(plain).withAutoFocus(true).withSubmitOnEnter(true).withPlaceholder("Scan plain code")))))))
+         .withStep(new QFrontendStepMetaData().withName("formatted").withLabel("Formatted Input")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", new ArrayList<>(List.of(
+               new InputFieldBlockData().withValues(new InputFieldValues(formatted).withAutoFocus(true).withSubmitOnEnter(true).withPlaceholder("Scan formatted code")))))))
+         .withStep(backend("decide", DecideStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Done")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Saved Code")));
    }
 
 
