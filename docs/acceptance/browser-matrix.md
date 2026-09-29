@@ -6,6 +6,12 @@ five configured Playwright projects below. CI runs Chromium separately from phon
 so the primary workflow gate can finish independently. For RC1, prioritize Chromium
 workflow depth; the complete final browser claim still requires all five projects.
 
+## RC1 checkpoint — 2026-09-29
+
+Published candidate `e901df9` / `v1.0.0-RC.1`: Chromium **547 passed**, no failed/skipped/flaky tests, all 389 required rows passed. WebKit **546 passed, 1 failed** in NAV-034 legacy table-process redirect navigation, with an internal WebKit resource-loading error; trace retained for investigation. Firefox and phone/tablet were still running at this checkpoint. [CI run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36601699322). This does not establish a complete cross-browser pass.
+
+The actual Maven Central JAR additionally passed Sleep Interactive defaults/validation/completion and report-context filtered statistics/CSV checks. The published arm64 container passed a runtime/HTML smoke check; its manifest also includes amd64. See [RC1 release evidence](../releases/1.0.0-RC.1.md).
+
 ```bash
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar
 # full gate, all five projects, fresh static export
