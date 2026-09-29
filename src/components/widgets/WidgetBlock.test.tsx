@@ -156,11 +156,11 @@ describe('WidgetBlock labels', () => {
 })
 
 
-describe('widget exports follow visible content', () => {
+describe('widget export availability', () => {
   for (const mode of ['generic', 'specialized']) {
     it.each([
       { name: 'permission denied', data: { hasPermission: false } },
-      { name: 'selection required', data: { dropdownNeedsSelectedText: 'Choose a customer' } },
+      ...(mode === 'specialized' ? [{ name: 'selection required', data: { dropdownNeedsSelectedText: 'Choose a customer' } }] : []),
       { name: 'loading', isLoading: true },
       { name: 'failed reload', isError: true, error: new Error('Reload failed') },
     ])(`hides ${mode} export when $name`, ({ name: _name, ...state }) => {
@@ -173,4 +173,17 @@ describe('widget exports follow visible content', () => {
       expect(screen.queryByText('Private rows')).toBeNull()
     })
   }
+})
+
+
+it('exports a parent payload while its children wait for dropdown selection', () => {
+  const onExport = vi.fn()
+  render(<WidgetBlock widgetMetaData={{ ...base, type: 'parentWidget', showExportButton: true }}
+    data={{ dropdownNeedsSelectedText: 'Choose a customer' }} onExport={onExport}>
+    <p>Child rows</p>
+  </WidgetBlock>)
+  expect(screen.getByText('Choose a customer')).toBeVisible()
+  expect(screen.queryByText('Child rows')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Export Owned Chrome' }))
+  expect(onExport).toHaveBeenCalledOnce()
 })

@@ -202,7 +202,7 @@ export function WidgetBlock({
     toggle()
   }
 
-  const canExport = open && widgetMetaData.showExportButton && !isLoading && !isError && !deniedByData && !data?.dropdownNeedsSelectedText
+  const canExport = open && widgetMetaData.showExportButton && !isLoading && !isError && !deniedByData
   const renderedWidget = (
     <section
       className={cn(
@@ -256,7 +256,7 @@ export function WidgetBlock({
             />
           ))}
 
-          {canExport && exportControl}
+          {canExport && !data?.dropdownNeedsSelectedText && exportControl}
           {canExport && !exportControl && onExport && (
             <button
               type="button"
