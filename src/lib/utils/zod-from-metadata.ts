@@ -79,12 +79,24 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
  */
 function buildLongSchema(isRequired: boolean, label: string, minValue?: number | string | null, maxValue?: number | string | null): z.ZodTypeAny {
   const text = z.union([z.string(), z.number(), z.bigint()]).transform((value) => String(value).trim())
-  const checked = text
+  const integer = text
     .refine((value) => !isRequired || value !== '', `${label} is required`)
     .refine((value) => value === '' || /^[+-]?\d+$/.test(value), `${label} must be a whole number`)
-    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= BigInt(Math.ceil(Number(minValue))), `${label} must be at least ${minValue}`)
-    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= BigInt(Math.floor(Number(maxValue))), `${label} must be at most ${maxValue}`)
+  // Refinements on one schema all run, even after a previous refinement fails.
+  // Pipe only valid integer text into BigInt comparisons so bad input stays a field error.
+  const checked = integer.pipe(z.string()
+    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= longRangeBound(minValue), `${label} must be at least ${minValue}`)
+    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= longRangeBound(maxValue), `${label} must be at most ${maxValue}`))
   return isRequired ? checked : checked.optional()
+}
+
+/**
+ * Keeps integer bounds exact; numeric fractional bounds compare directly with BigInt.
+ * @param value - Numeric bound from field metadata.
+ * @returns An exact integer when supplied as digits, otherwise the numeric bound.
+ */
+function longRangeBound(value: number | string): bigint | number {
+  return typeof value === 'string' && /^[+-]?\d+$/.test(value.trim()) ? BigInt(value) : Number(value)
 }
 
 /**

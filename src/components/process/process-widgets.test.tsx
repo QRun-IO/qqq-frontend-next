@@ -257,6 +257,27 @@ describe('process screens: blocks (#725)', () => {
     })
   })
 
+  it.each(['block', 'form'])('bounded LONG in a %s editor reports invalid text and submits exact corrected digits', async (host) => {
+    const user = userEvent.setup()
+    const quantity = field('quantity', 'Quantity', { type: 'LONG', minValue: '9007199254740993', maxValue: '9007199254740995' })
+    const step: QFrontendStepMetaData = host === 'block'
+      ? { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+        { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: quantity } },
+      ] } }] }
+      : { name: 'edit', label: 'Edit', components: [{ type: 'EDIT_FORM' }], formFields: [quantity] }
+    const { onSubmit } = renderStep(step, { quantity: '1.5' })
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(await screen.findByText('Quantity must be a whole number')).toBeVisible()
+    expect(onSubmit).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '9007199254740992' } })
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(await screen.findByText('Quantity must be at least 9007199254740993')).toBeVisible()
+    expect(onSubmit).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '9007199254740993' } })
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ quantity: '9007199254740993' }, undefined))
+  })
+
   it.each([
     ['TO_UPPER_CASE', 'ABXD', 'Enter'],
     ['TO_LOWER_CASE', 'abxd', 'Enter'],
