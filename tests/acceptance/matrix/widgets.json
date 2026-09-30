@@ -1638,7 +1638,8 @@
         "Seeded text, number, date, boolean and native file controls; currency prefix, named possible values and multiline code editor",
         "Choice width and center-click behavior with system and monospace fonts, including a 320px viewport",
         "Backend uppercase/lowercase metadata preserves middle-of-value edits and caret position in standalone blocks",
-        "Multiline TEXT case conversion preserves the middle-edit caret and inserted newline"
+        "Multiline TEXT case conversion preserves the middle-edit caret and inserted newline",
+        "Desktop wheel scrolling preserves plain and shared numeric block values; intentional ArrowUp edits still work and text inputs retain focus"
       ],
       "negative": [
         "Code-editor Enter leaves the widget on the same page",

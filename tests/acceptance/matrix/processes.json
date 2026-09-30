@@ -1082,7 +1082,8 @@
       ],
       "fixture": "prcBlockEditors",
       "scenarios": [
-        "Choose a labeled possible value, edit currency and multiline code, update a widget filter without changing columns, upload BLOB and FILE_UPLOAD data and verify backend-read content"
+        "Choose a labeled possible value, edit currency and multiline code, update a widget filter without changing columns, upload BLOB and FILE_UPLOAD data and verify backend-read content",
+        "Desktop wheel scrolling over a plain numeric block preserves its value; intentional keyboard edits and touch input changes are returned by the backend process review"
       ],
       "negative": [
         "Required uploads block submission; code-editor Enter does not submit the process"

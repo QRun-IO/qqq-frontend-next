@@ -223,6 +223,7 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
         aria-describedby={error ? errorId : undefined}
         {...form.register(field.name)}
         onKeyDown={onKeyDown}
+        onWheel={(event) => { if (event.currentTarget.type === 'number') event.currentTarget.blur() }}
         className={isBoolean
           ? 'h-4 w-4 pointer-coarse:h-6 pointer-coarse:w-6'
           : cn('rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring', error ? 'border-destructive' : 'border-border')}

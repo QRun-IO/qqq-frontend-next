@@ -444,6 +444,7 @@ function PlainInputFieldBlock({ block, widgetName, actionCallback }: LeafBlockPr
         placeholder={text(values.placeholder)}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={onKeyDown}
+        onWheel={(event) => { if (event.currentTarget.type === 'number') event.currentTarget.blur() }}
         className={INPUT_CLASSES}
       />
     )

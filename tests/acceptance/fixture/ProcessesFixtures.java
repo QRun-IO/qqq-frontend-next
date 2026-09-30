@@ -433,6 +433,7 @@ public final class ProcessesFixtures
       List<QFieldMetaData> fields = List.of(
          new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"),
          new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost").withDisplayFormat("$%.2f"),
+         new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Quantity"),
          new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script")
             .withFieldAdornment(new FieldAdornment(AdornmentType.CODE_EDITOR).withValue("languageMode", "javascript")),
          new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")
@@ -455,6 +456,7 @@ public final class ProcessesFixtures
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category"))
             .withViewField(new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost"))
+            .withViewField(new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Quantity"))
             .withViewField(new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script"))
             .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter"))
             .withViewField(new QFieldMetaData("columnsJson", QFieldType.TEXT).withLabel("Columns"))
@@ -472,6 +474,7 @@ public final class ProcessesFixtures
          output.addValue("tableName", "person");
          output.addValue("category", "Mineral");
          output.addValue("cost", "12.50");
+         output.addValue("quantity", 7);
          output.addValue("script", "const sample = 1;");
          output.addValue("queryFilterJson", "{}");
          output.addValue("columnsJson", "{\"columns\":[{\"name\":\"id\",\"isVisible\":true}]}");

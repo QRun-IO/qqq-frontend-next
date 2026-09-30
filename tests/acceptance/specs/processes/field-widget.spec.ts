@@ -34,7 +34,7 @@ test('[WID-071] a WIDGET-adorned process field edits only its own value @mobile'
 })
 
 
-test('[PRC-062] composite metadata editors submit choices, code, filter JSON and uploaded bytes @mobile', async ({ page, diagnostics }) => {
+test('[PRC-062] composite metadata editors submit choices, code, filter JSON and uploaded bytes @mobile', async ({ page, diagnostics, isMobile }) => {
   void diagnostics
   await openProcess(page, 'prcBlockEditors')
   const edit = await expectScreen(page, 'edit', 'Edit Blocks')
@@ -44,6 +44,21 @@ test('[PRC-062] composite metadata editors submit choices, code, filter JSON and
   await edit.getByRole('combobox', { name: 'Category' }).click()
   await page.getByRole('option', { name: 'Plant', exact: true }).click()
   await edit.getByLabel('Cost', { exact: true }).fill('24.75')
+  const quantity = edit.getByLabel('Quantity', { exact: true })
+  await expect(quantity).toHaveValue('7')
+  // Touch browsers do not have a mouse wheel; mobile WebKit rejects wheel commands.
+  if (!isMobile) {
+    await quantity.click()
+    await quantity.hover()
+    await page.mouse.wheel(0, -100)
+    await expect(quantity).not.toBeFocused()
+    await expect(quantity).toHaveValue('7')
+    await quantity.click()
+    await quantity.press('ArrowUp')
+  } else {
+    await quantity.fill('8')
+  }
+  await expect(quantity).toHaveValue('8')
   const script = edit.getByRole('textbox', { name: 'Script', exact: true })
   await script.fill('const sample = 2;')
   await script.press('End')
@@ -66,6 +81,7 @@ test('[PRC-062] composite metadata editors submit choices, code, filter JSON and
   const review = await expectScreen(page, 'review', 'Review Blocks')
   await expect(viewValue(review, 'category')).toHaveText('Plant')
   await expect(viewValue(review, 'cost')).toHaveText('24.75')
+  await expect(viewValue(review, 'quantity')).toHaveText('8')
   await expect(viewValue(review, 'script')).toHaveText('const sample = 2;\n// second line')
   expect(JSON.parse(await viewValue(review, 'queryFilterJson').textContent() ?? '{}').orderBys).toEqual([{ fieldName: 'firstName', isAscending: true }])
   expect(JSON.parse(await viewValue(review, 'columnsJson').textContent() ?? '{}')).toEqual({ columns: [{ name: 'id', isVisible: true }] })

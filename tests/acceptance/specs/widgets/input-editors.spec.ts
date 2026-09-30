@@ -101,3 +101,30 @@ test('[WID-074] multiline block case behaviors preserve newlines and the edit ca
     await expect(input).toHaveValue(expected)
   }
 })
+
+
+test('[WID-074] scrolling over numeric input blocks preserves the entered value', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await open(page, '/app/widgetInputEditors')
+  await expectLoaded(page, 'accTypedInputs')
+  const card = widget(page, 'accTypedInputs')
+  for (const label of ['Owned Count', 'Owned Amount']) {
+    const input = card.getByLabel(label, { exact: true })
+    await input.fill('7')
+    await input.click()
+    await input.hover()
+    await page.mouse.wheel(0, -100)
+    await expect(input).not.toBeFocused()
+    await expect(input).toHaveValue('7')
+    await input.click()
+    await input.press('ArrowUp')
+    await expect(input).toHaveValue('8')
+  }
+  const text = card.getByLabel('Owned Text', { exact: true })
+  await text.click()
+  await text.hover()
+  await page.mouse.wheel(0, -100)
+  await expect(text).toBeFocused()
+  await expect(text).toHaveValue('Owned seeded text')
+})
