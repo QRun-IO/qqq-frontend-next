@@ -500,3 +500,17 @@ Inventory completion is **not** whole-product visual approval. Fifty-two gallery
 Existing Next Lucide mappings, widget overrides and image priority are preserved. Additional legacy names use the pinned local Material Icons inventory. Six formerly unmapped block icons, navigation and the raised main tile were checked in light/dark desktop/mobile views. Four workflows passed against the actual development JAR; its font and exported files were verified byte-for-byte. Saved desktop/mobile tile regions contain identical light/dark glyph pixels; the earlier suspected blank tile was an inspection error, and no repaint workaround was introduced.
 
 The full local Chromium suite passed 589 tests and all 391 required rows, with zero failures, skips, flaky outcomes or report errors and three approved external-service exclusions. Independent code review approved the change. Evidence is retained under `test-results/visual-review/icon-compatibility-investigation/` in the original checkout. This checkpoint covers the icon change; whole-product visual approval remains open. RC5 is immutable and does not include this follow-up.
+
+
+## September30: fresh RC6 dark desktop developer and miscellaneous review
+
+Twelve original/current captures across apphome, tabledeveloper, recorddeveloper and notfound were directly reviewed, including lower scroll positions. The fresh manifest records capture times and export fingerprints. No new layout regression was found in those states. Evidence: `test-results/visual-review/rc6-dark-developer-review/review.md` in the originalcheckout.
+
+An inherited RapiDoc dark-link contrast defect is confirmed at2.12:1 in both original andRC6; subsequent browser checks also find light-mode contact/authentication text below4.5:1. A separate correction is being tested. This closes the missing desktop darkcapture evidence for the four entry states; phone/tablet dark coverage, expanded endpoint interactions and whole-product approval remainopen.
+
+
+## September 30 — phone developer view comparison
+
+Eight fresh original/RC6 phone screenshots in light/dark were directly inspected (initial and lower scroll positions). Four capture entries had no runtime/state errors or body horizontal overflow. Evidence: `test-results/visual-review/rc6-phone-developer-review/` in the original checkout, including export fingerprints and provenance.
+
+The main composition matches the original. RapiDoc's inner clipping is inherited: its 360px minimum exceeds the 343px phone panel, and hidden overflow clips controls. This remains open for a separate responsive correction. The added command button also reduces breadcrumb space; the trail scrolls to the current page, but header crowding remains a visual-review consideration. This is scoped evidence, not full visual approval.
