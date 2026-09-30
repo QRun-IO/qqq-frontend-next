@@ -362,7 +362,7 @@ function FilterAndColumnsSetupView({ widgetMetaData, data, recordContext }: Widg
         <section className="space-y-2" aria-labelledby={`preview-heading-${widgetName}`}>
           <h4 id={`preview-heading-${widgetName}`} className="text-sm font-semibold">Preview</h4>
           <FilterSetupPreview table={table} filter={filter}
-            columns={columnsStateFromEntries(table, columns) ?? DEFAULT_COLUMNS_STATE} api={api} widgetName={widgetName} hideColumns={data?.hideColumns} />
+            columns={columnsStateFromEntries(table, columns) ?? DEFAULT_COLUMNS_STATE} api={api} widgetName={widgetName} hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} />
         </section>
       )}
     </div>

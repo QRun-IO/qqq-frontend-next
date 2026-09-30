@@ -90,6 +90,8 @@ export interface FilterField {
   behaviors?: string[]
   /** Whether the field is a virtual (backend-computed) field. */
   isVirtual?: boolean
+  /** False hides a field from new choices while retaining existing criteria metadata. */
+  isSelectable?: boolean
 }
 
 /**
@@ -155,6 +157,8 @@ interface FilterBuilderProps {
    * literal, as in Material's report setup (`AssignFilterVariable`). Defaults to false.
    */
   allowVariables?: boolean
+  /** Joined table names omitted from field choices, without discarding saved criteria. */
+  omittedJoinTables?: string[]
 }
 
 // ------------------------------------------------------------------
@@ -167,8 +171,10 @@ interface FilterBuilderProps {
  * @param props - Component properties.
  * @returns The rendered filter builder panel.
  */
-export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClear, allowVariables = false }: FilterBuilderProps) {
-  const fields = useMemo(() => buildFilterFields(tableMetaData), [tableMetaData])
+export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClear, allowVariables = false, omittedJoinTables }: FilterBuilderProps) {
+  const fields = useMemo(() => buildFilterFields(tableMetaData).map((field) => ({
+    ...field, isSelectable: field.tableName === tableMetaData.name || !omittedJoinTables?.includes(field.tableName),
+  })), [tableMetaData, omittedJoinTables])
 
   return (
     <div className="flex flex-col gap-3 p-4" data-qqq-id="filter-builder">
@@ -258,7 +264,7 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
   }, [depth])
 
   const addCriterion = useCallback(() => {
-    const firstField = fields[0]
+    const firstField = fields.find((field) => field.isSelectable !== false)
     if (!firstField) return
     onChange({ ...filter, criteria: [...filter.criteria, newCriterionForField(firstField.name, firstField)] })
   }, [fields, filter, onChange])
@@ -405,13 +411,13 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
   const status = validateCriterion(criterion)
   const groups = useMemo(() => {
     const byGroup = new Map<string, FilterField[]>()
-    for (const f of fields) byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
+    for (const f of fields) if (f.isSelectable !== false) byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
     return [...byGroup.entries()]
   }, [fields])
 
   const handleFieldChange = (fieldName: string) => {
     const field = fields.find((f) => f.name === fieldName)
-    if (!field) return
+    if (!field || field.isSelectable === false) return
     const sameKind = selectedField && selectedField.type === field.type && selectedField.possibleValueSourceName === field.possibleValueSourceName
       && selectedField.tableName === field.tableName
     if (!sameKind) {
@@ -437,6 +443,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
         data-qqq-id={`filter-field-${depth}-${index}`}
       >
         {!selectedField && <option value="">{criterion.fieldName} (unavailable)</option>}
+        {selectedField?.isSelectable === false && <option value={selectedField.name} disabled>{selectedField.label}</option>}
         {groups.length === 1
           ? groups[0][1].map((f) => <option key={f.name} value={f.name}>{f.label}</option>)
           : groups.map(([group, groupFields]) => (

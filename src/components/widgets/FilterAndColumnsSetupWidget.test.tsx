@@ -16,12 +16,15 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+
+const { previewRecords } = vi.hoisted(() => ({ previewRecords: [] as QRecord[] }))
 
 vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: vi.fn(), useMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/hooks/use-filter-setup', () => ({
   useApiTableMetaData: () => ({ data: undefined, isLoading: false, isError: false }),
-  useFilterSetupPreview: () => ({ records: [], totalCount: 0, isLoading: false, error: null }),
+  useFilterSetupPreview: () => ({ records: previewRecords, totalCount: previewRecords.length, isLoading: false, error: null }),
 }))
 
 import type { QRecord, QTableMetaData, QWidgetMetaData } from '@/types'
@@ -62,6 +65,62 @@ function mockTable(value: QTableMetaData | undefined, state: { isLoading?: boole
 }
 
 describe('FilterAndColumnsSetupWidget', () => {
+
+  it.each([false, true])('limits preview field choices by omitted joins (%s) while retaining saved joined columns', async (omitted) => {
+    const user = userEvent.setup()
+    const joined = { ...person, exposedJoins: [{ label: 'Pet Species', isMany: false, joinTable: petSpecies, joinPath: [] }] }
+    mockTable(joined)
+    previewRecords.push({ tableName: 'person', values: { id: 1, firstName: 'Ada', 'petSpecies.possibleValueLabel': 'Cat' } })
+    const record = savedReport({ tableName: 'person', queryFilterJson: '{}', columnsJson: JSON.stringify({ columns: [
+      { name: 'firstName', isVisible: true }, { name: 'petSpecies.possibleValueLabel', isVisible: true },
+    ] }) })
+    render(<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ ...payload, omitExposedJoins: omitted ? ['petSpecies'] : [] }} recordContext={{ tableName: 'savedReport', record }} />)
+    expect(screen.getByRole('columnheader', { name: /Pet Species: Species/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Configure preview columns' }))
+    const choices = within(screen.getByRole('group', { name: 'Configure columns' }))
+    expect(choices.getByRole('button', { name: 'Hide column First Name' })).toBeVisible()
+    expect(choices.queryByRole('button', { name: 'Hide column Pet Species: Species' }) !== null).toBe(!omitted)
+    await user.click(screen.getByRole('button', { name: 'Configure preview columns' }))
+    await user.click(screen.getByRole('button', { name: 'First Name column menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Filter' }))
+    const fields = within(screen.getByLabelText('Filter field'))
+    expect(fields.getByRole('option', { name: 'First Name' })).toBeInTheDocument()
+    expect(fields.queryByRole('option', { name: 'Pet Species: Species' }) !== null).toBe(!omitted)
+    expect(screen.getByRole('columnheader', { name: /Pet Species: Species/ })).toBeInTheDocument()
+    expect(JSON.parse(record.values.columnsJson as string).columns).toHaveLength(2)
+  })
+
+  it('keeps an existing omitted-join filter value visible when opening preview filters', async () => {
+    const user = userEvent.setup()
+    mockTable({ ...person, exposedJoins: [{ label: 'Pet Species', isMany: false, joinTable: petSpecies, joinPath: [] }] })
+    previewRecords.push({ tableName: 'person', values: { id: 1, firstName: 'Ada' } })
+    const record = savedReport({ tableName: 'person', queryFilterJson: JSON.stringify({ criteria: [
+      { fieldName: 'petSpecies.possibleValueLabel', operator: 'EQUALS', values: ['Cat'] },
+    ] }), columnsJson: JSON.stringify({ columns: [{ name: 'firstName', isVisible: true }] }) })
+    render(<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ ...payload, omitExposedJoins: ['petSpecies'] }} recordContext={{ tableName: 'savedReport', record }} />)
+    await user.click(screen.getByRole('button', { name: 'First Name column menu' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Filter' }))
+    expect(screen.getByRole('textbox', { name: 'Filter value for Pet Species: Species' })).toHaveValue('Cat')
+    const added = within(screen.getAllByLabelText('Filter field')[1])
+    expect(added.queryByRole('option', { name: 'Pet Species: Species' })).not.toBeInTheDocument()
+  })
+
+  it('keeps saved omitted joined columns in place when reordering preview choices', async () => {
+    const user = userEvent.setup()
+    mockTable({ ...person, primaryKeyField: 'id', exposedJoins: [{ label: 'Pet Species', isMany: false, joinTable: petSpecies, joinPath: [] }] })
+    previewRecords.push({ tableName: 'person', values: { id: 1, firstName: 'Ada', lastName: 'Lovelace', 'petSpecies.possibleValueLabel': 'Cat' } })
+    const record = savedReport({ tableName: 'person', queryFilterJson: '{}', columnsJson: JSON.stringify({ columns:
+      ['id', 'firstName', 'petSpecies.possibleValueLabel', 'lastName'].map(name => ({ name, isVisible: true })),
+    }) })
+    render(<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ ...payload, omitExposedJoins: ['petSpecies'] }} recordContext={{ tableName: 'savedReport', record }} />)
+    await user.click(screen.getByRole('button', { name: 'Configure preview columns' }))
+    screen.getByRole('button', { name: 'Drag to reorder Last Name' }).focus()
+    await user.keyboard('{ArrowUp}')
+    expect(screen.getAllByRole('columnheader').map(header => header.querySelector('[data-qqq-id^="grid-header-"]')?.getAttribute('data-qqq-id'))).toEqual([
+      'grid-header-id', 'grid-header-lastName', 'grid-header-petSpecies.possibleValueLabel', 'grid-header-firstName',
+    ])
+  })
+
   it('omits the legacy selection column from saved report summaries', () => {
     mockTable(petSpecies)
     const record = savedReport({ tableName: 'petSpecies', columnsJson: JSON.stringify({ columns: [
@@ -73,6 +132,7 @@ describe('FilterAndColumnsSetupWidget', () => {
 
   beforeEach(() => {
     tableMetaData.mockReset()
+    previewRecords.length = 0
   })
 
   it('shows the sample saved report: no filters and its columns by label, in order', () => {

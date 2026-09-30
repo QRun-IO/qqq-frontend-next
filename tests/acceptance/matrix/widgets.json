@@ -639,7 +639,8 @@
         "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged",
         "a table without COUNT still shows real preview rows and page copy matches SQL",
         "variant-backed report previews choose, switch and remember the backend variant for query/count, copy and statistics on ordinary and application-API routes",
-        "complete nested criteria mark preview column headers; opening the indicator edits the existing condition and real preview rows match SQL"
+        "complete nested criteria mark preview column headers; opening the indicator edits the existing condition and real preview rows match SQL",
+        "configured omitted joins disappear from new preview column/filter choices while saved joined values, editable criteria and column positions survive; changed results and reload match SQL"
       ],
       "negative": [
         "selection pseudo-column and incompatible previous-table fields are excluded from saved reports",

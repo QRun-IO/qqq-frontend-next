@@ -30,7 +30,7 @@ import type { Density, PageSize } from '@/lib/hooks/use-record-query'
 import { queryApiRecords } from '@/lib/api/api-versioned'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT } from '@/lib/constants'
-import { getQueryColumns, hasCapability, pinColumn } from '@/lib/utils/query-columns'
+import { arrangePinnedColumns, effectivePins, getQueryColumns, hasCapability, orderColumns, pinColumn } from '@/lib/utils/query-columns'
 import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from '@/components/query/ColumnStatsDialog'
 import { FilterSettingsProvider, filterSettingsFrom } from '@/lib/context/filter-settings-context'
 import { useQContext } from '@/lib/context/q-context'
@@ -111,6 +111,8 @@ interface PreviewProps {
   api: ReturnType<typeof resolveApiVersion>
   widgetName: string
   hideColumns?: boolean
+  /** Joined tables omitted from field choices; saved preview data remains intact. */
+  omittedJoins?: string[]
 }
 
 /**
@@ -139,7 +141,7 @@ function LocalFilterSetupPreview({ filter, columns, ...props }: PreviewProps) {
 interface FilterSetupGridProps {
   table: QTableMetaData; filter: QQueryFilter; onFilterChange: (filter: QQueryFilter) => void
   columns: ColumnsState; onColumnsChange: (columns: ColumnsState) => void
-  api: ReturnType<typeof resolveApiVersion>; widgetName: string; editable?: boolean; onEditFilter?: () => void; hideColumns?: boolean
+  api: ReturnType<typeof resolveApiVersion>; widgetName: string; editable?: boolean; onEditFilter?: () => void; hideColumns?: boolean; omittedJoins?: string[]
 }
 
 /**
@@ -176,7 +178,7 @@ function FilterSetupGrid(props: FilterSetupGridProps) {
  * @param props - Preview configuration and selected variant.
  * @returns The paged report grid.
  */
-function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName, editable = false, onEditFilter, hideColumns = false, tableVariant }: FilterSetupGridProps & { tableVariant: TableVariant | null }) {
+function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColumnsChange, api, widgetName, editable = false, onEditFilter, hideColumns = false, omittedJoins, tableVariant }: FilterSetupGridProps & { tableVariant: TableVariant | null }) {
   const [density, setDensity] = useState<Density>('standard')
   const [showColumns, setShowColumns] = useState(false)
   const [showFilter, setShowFilter] = useState(false)
@@ -203,7 +205,15 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
     if (onEditFilter) onEditFilter()
     else setShowFilter(true)
   }
+  const selectionTable = useMemo(() => omitExposedJoins(table, omittedJoins), [table, omittedJoins])
   const queryColumns = getQueryColumns(table)
+  const changeColumnOrder = (columnOrder: string[]) => {
+    const selectable = new Set(columnOrder)
+    const current = arrangePinnedColumns(orderColumns(queryColumns, columns.columnOrder),
+      effectivePins(queryColumns.map((column) => column.name), columns.columnPins ?? null, table.primaryKeyField))
+    let next = 0
+    onColumnsChange({ ...columns, columnOrder: current.map((column) => selectable.has(column.name) ? columnOrder[next++] : column.name) })
+  }
   const names = visibleColumnNames(table, columns)
   const joins = previewJoins(table, names, filter)
   const queryKey = JSON.stringify({ booleanOperator: filter.booleanOperator, criteria: filter.criteria, subFilters: filter.subFilters, orderBys: filter.orderBys, names })
@@ -275,11 +285,11 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
           <a href={openInNewWindowHref(table.name, toBackendFilter(table, filter))} target="_blank" rel="noopener noreferrer"
             data-qqq-id={`filter-preview-open-${widgetName}`} className="inline-flex min-h-11 items-center text-sm text-primary underline">Open in new window</a>}
       </div>
-      {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={table}
+      {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={selectionTable}
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
         onVisibilityChange={(columnVisibility) => onColumnsChange({ ...columns, columnVisibility })}
-        onOrderChange={(columnOrder) => onColumnsChange({ ...columns, columnOrder })} embedded /></div>}
-      {showFilter && <div className="border-b border-border p-3"><FilterSettingsProvider value={filterSettingsFrom(metaData)}><FilterBuilder tableMetaData={table} filter={filter} onChange={onFilterChange} /></FilterSettingsProvider></div>}
+        onOrderChange={changeColumnOrder} embedded /></div>}
+      {showFilter && <div className="border-b border-border p-3"><FilterSettingsProvider value={filterSettingsFrom(metaData)}><FilterBuilder tableMetaData={table} omittedJoinTables={omittedJoins} filter={filter} onChange={onFilterChange} /></FilterSettingsProvider></div>}
       {notice && <p role="status" className="p-3 text-sm" data-qqq-id={`filter-preview-notice-${widgetName}`}>{notice}</p>}
       {result.error && <p role="alert" className="p-3 text-sm text-destructive">Preview could not be loaded. Use Refresh preview to try again.</p>}
       <DataGrid tableName={table.name} tableMetaData={table} records={result.records}
