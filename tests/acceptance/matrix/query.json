@@ -497,7 +497,9 @@
       ],
       "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier",
       "scenarios": [
-        "Banners and counts for page, all and subset"
+        "Banners and counts for page, all and subset",
+        "Touch opens and toggles the density menu without synthetic trigger focus dismissing it; Enter, Escape and outside search focus retain their normal behavior",
+        "Pinned selection targets remain exposed and respond at both edges for every density"
       ],
       "negative": [
         "Subset dialog rejects invalid N"

@@ -74,6 +74,7 @@ export function DensitySelector({
   density: Density
   onSelect: (d: Density) => void
 }) {
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   return (
     <DropdownMenuPrimitive.Root modal={false}>
       <DropdownMenuPrimitive.Trigger asChild>
@@ -83,6 +84,7 @@ export function DensitySelector({
           className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
           aria-label="Select display density"
           data-qqq-id="button-density"
+          ref={triggerRef}
         >
           <LayoutList className="h-4 w-4" aria-hidden="true" />
           <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -93,6 +95,11 @@ export function DensitySelector({
           align="end" sideOffset={4} collisionPadding={8}
           className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-36 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover shadow-sm"
           aria-label="Display density" aria-labelledby={undefined}
+          onInteractOutside={event => {
+            // Touch can return focus to the trigger after pointer-down opens the menu.
+            const target = event.detail.originalEvent.target
+            if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+          }}
         >
           <DropdownMenuPrimitive.RadioGroup value={density} onValueChange={value => {
             const selected = DENSITY_OPTIONS.find(option => option.value === value)

@@ -229,3 +229,31 @@ Fixed:
   one of its items closes.
 
 The fixes above describe earlier checkpoints. Open failures from the RC1 runs are recorded in the RC1 checkpoint and release notes; they have not been waived.
+
+
+## Local density touch correction after the prepared RC4 candidate
+
+The recurring QRY-030 density-menu failure was reproduced in Linux WebKit using
+Playwright 1.58.2's official Noble image. Instrumented events showed that touch
+pointer-down opened the menu, then synthetic mouse focus returned to its trigger;
+Radix treated that focus as outside the non-modal menu and dismissed it. macOS
+WebKit did not reproduce this event sequence.
+
+The follow-up source applies the existing Selection/Views/Export trigger guard to
+Density. It ignores outside interactions only when they target that same trigger;
+other controls still dismiss the menu. No layout, dependency or timeout changed.
+
+Both the existing density-selection test and the new touch/keyboard/outside-dismissal
+regression passed with the selection-menu workflow: **nine checks across Linux
+WebKit, tablet WebKit and Chromium, zero failures/skips/flaky results**. The new
+regression failed before the fix. An initial added-test run used an incorrect
+`textbox` locator for the searchbox; it was interrupted, retained, corrected and
+rerun. The full unit suite passed 1,884 tests; production export, types, affected
+lint and independent review also passed. Full Chromium verification of this density
+correction remains pending. The preceding numeric-wheel correction passed its full
+576-test Chromium gate and all 391 required rows.
+
+This correction is on the isolated follow-up branch, not in published RC3 or
+prepared RC4 candidate `1dbe1d9`. Historical RC3/precursor failures above remain
+valid evidence for those revisions; this focused result does not certify the whole
+browser matrix.

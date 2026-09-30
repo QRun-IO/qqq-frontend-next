@@ -40,3 +40,27 @@ test('[QRY-030] pinned grid selection targets remain fully exposed at every dens
     }
   }
 })
+
+test('[QRY-030] density menu supports touch toggling, keyboard and outside dismissal @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await open(page, '/app/qryItem')
+  await showTable(page)
+  const trigger = page.getByRole('button', { name: 'Select display density', exact: true })
+  const menu = page.getByRole('menu', { name: 'Display density', exact: true })
+  await trigger.tap()
+  await expect(menu).toBeVisible()
+  await trigger.tap()
+  await expect(menu).toHaveCount(0)
+  await trigger.press('Enter')
+  await expect(menu).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+  await trigger.tap()
+  await expect(menu).toBeVisible()
+  const search = page.getByRole('searchbox', { name: 'Quick search Query Item', exact: true })
+  await search.tap()
+  await expect(menu).toHaveCount(0)
+  await expect(search).toBeFocused()
+})
