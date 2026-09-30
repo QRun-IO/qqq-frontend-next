@@ -502,11 +502,11 @@ Existing Next Lucide mappings, widget overrides and image priority are preserved
 The full local Chromium suite passed 589 tests and all 391 required rows, with zero failures, skips, flaky outcomes or report errors and three approved external-service exclusions. Independent code review approved the change. Evidence is retained under `test-results/visual-review/icon-compatibility-investigation/` in the original checkout. This checkpoint covers the icon change; whole-product visual approval remains open. RC5 is immutable and does not include this follow-up.
 
 
-## September30: fresh RC6 dark desktop developer and miscellaneous review
+## September 30: fresh RC6 dark desktop developer and miscellaneous review
 
-Twelve original/current captures across apphome, tabledeveloper, recorddeveloper and notfound were directly reviewed, including lower scroll positions. The fresh manifest records capture times and export fingerprints. No new layout regression was found in those states. Evidence: `test-results/visual-review/rc6-dark-developer-review/review.md` in the originalcheckout.
+Twelve original/current captures across app home, table developer, record developer and not-found pages were directly reviewed, including lower scroll positions. The fresh manifest records capture times and export fingerprints. No new layout regression was found in those states. Evidence: `test-results/visual-review/rc6-dark-developer-review/review.md` in the original checkout.
 
-An inherited RapiDoc dark-link contrast defect is confirmed at2.12:1 in both original andRC6; subsequent browser checks also find light-mode contact/authentication text below4.5:1. A separate correction is being tested. This closes the missing desktop darkcapture evidence for the four entry states; phone/tablet dark coverage, expanded endpoint interactions and whole-product approval remainopen.
+An inherited RapiDoc dark-link contrast defect is confirmed at 2.12:1 in both original and RC6; subsequent browser checks also find light-mode contact/authentication text below 4.5:1. A separate correction is being tested. This closes the missing desktop dark capture evidence for the four entry states; phone/tablet dark coverage, expanded endpoint interactions and whole-product approval remain open.
 
 
 ## September 30 — phone developer view comparison
@@ -514,3 +514,9 @@ An inherited RapiDoc dark-link contrast defect is confirmed at2.12:1 in both ori
 Eight fresh original/RC6 phone screenshots in light/dark were directly inspected (initial and lower scroll positions). Four capture entries had no runtime/state errors or body horizontal overflow. Evidence: `test-results/visual-review/rc6-phone-developer-review/` in the original checkout, including export fingerprints and provenance.
 
 The main composition matches the original. RapiDoc's inner clipping is inherited: its 360px minimum exceeds the 343px phone panel, and hidden overflow clips controls. This remains open for a separate responsive correction. The added command button also reduces breadcrumb space; the trail scrolls to the current page, but header crowding remains a visual-review consideration. This is scoped evidence, not full visual approval.
+
+## September 30 — API playground contrast follow-up
+
+Original Next and RC6 both have an inherited dark playground link contrast defect (2.12:1). Focused browser checks also reproduced light contact/status contrast defects. An isolated follow-up applies existing theme tokens without changing layout. Four final desktop/mobile light/dark cases pass, including hovered controls and Preferences changes, with no failures, skips, flaky outcomes or report errors. All four final screenshots were directly inspected after transitions settled. Evidence is retained under `test-results/visual-review/api-playground-contrast/` in the original checkout.
+
+This is scoped color verification, not whole-product visual approval. Narrow-screen inner clipping, expanded endpoint states and additional application palettes remain open. RC6 is unchanged.

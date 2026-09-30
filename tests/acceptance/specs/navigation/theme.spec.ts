@@ -14,7 +14,7 @@ import { expect, open, test } from '../../support/fixtures'
 test.beforeEach(async ({ backend }) => { void backend })
 
 for (const mode of ['light', 'dark'] as const) {
-  test(`[NAV-056] branded report links and controls remain readable in ${mode} mode @mobile`, async ({ page, diagnostics }) => {
+  test(`[NAV-056] branded report links and controls remain readable in ${mode} mode @mobile`, async ({ page, diagnostics }, testInfo) => {
     void diagnostics
     await page.emulateMedia({ colorScheme: mode === 'dark' ? 'light' : 'dark' })
     await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
@@ -157,3 +157,34 @@ test('[NAV-056] appearance preferences explain an application theme override @mo
   await dialog.getByRole('button', { name: 'Reset to Defaults' }).click()
   expect(await page.evaluate(() => localStorage.getItem('qqq-dark-mode'))).toBe('false')
 })
+
+for (const mode of ['light', 'dark'] as const) {
+  test(`[NAV-056] API playground text and hovered controls remain readable in ${mode} mode @mobile`, async ({ page, diagnostics }, testInfo) => {
+    void diagnostics
+    await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+    await open(page, '/app/person/dev')
+    const docs = page.locator('rapi-doc')
+    await expect(docs.getByText('Expand all', { exact: true })).toBeVisible()
+    // RapiDoc animates button colors; audit each rendered state after transitions settle.
+    const settlePalette = () => docs.evaluate(async element => {
+      await (element as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete
+      await Promise.all((element.shadowRoot?.getAnimations() ?? []).map(animation => animation.finished.catch(() => {})))
+    })
+    for (const hovered of [false, true]) {
+      if (hovered) await docs.getByRole('button', { name: 'Download OpenAPI spec', exact: true }).hover()
+      await settlePalette()
+      const result = await new AxeBuilder({ page }).include('rapi-doc').withRules(['color-contrast']).analyze()
+      expect(result.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+    }
+    await settlePalette()
+    await testInfo.attach(`api-playground-${mode}`, { body: await page.screenshot(), contentType: 'image/png' })
+    const dialog = await openPreferences(page)
+    const oppositeMode = mode === 'dark' ? 'Light' : 'Dark'
+    await dialog.getByRole('radio', { name: oppositeMode, exact: true }).check()
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(docs).toHaveJSProperty('theme', oppositeMode.toLowerCase())
+    await settlePalette()
+    const changed = await new AxeBuilder({ page }).include('rapi-doc').withRules(['color-contrast']).analyze()
+    expect(changed.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
+  })
+}

@@ -240,6 +240,13 @@ function RapiDocViewer({ specUrl, primaryColor }: { specUrl: string; primaryColo
     'load-fonts': 'false',
     'regular-font': "var(--font-inter, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)",
     'mono-font': 'Monaco, Menlo, Consolas, source-code-pro, monospace',
-    style: { display: 'block', height: '75vh', width: '100%' },
+    style: {
+      display: 'block', height: '75vh', width: '100%',
+      // RapiDoc's shadow theme cannot inherit dashboard utility text colors.
+      // Keep its accent and inverse button text paired when adapting dark mode.
+      ...(isDarkMode
+        ? { '--primary-color': 'var(--text-color-primary)', '--primary-color-invert': 'var(--color-background)' }
+        : { '--blue': 'var(--text-color-primary)', '--red': 'var(--qqq-error-dark)' }),
+    },
   })
 }

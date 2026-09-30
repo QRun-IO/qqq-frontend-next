@@ -479,3 +479,7 @@ Google SDK responses; PRC-039 retains the approved real-account testing exclusio
 ### Post-RC4 table appearance correction
 
 RC5 restores the original Next uniform row background; RC4 has alternating row shading. Selection highlighting and opaque pinned cells are retained. Applications can target `data-row-parity="odd"` or `"even"` through their configured CSS if they explicitly want alternating colors.
+
+### API playground theme integration (unpublished follow-up)
+
+The embedded RapiDoc viewer uses its own shadow DOM. Next applies existing dashboard color tokens to its dark accent/inverse pair and light contact/status colors, preserving the surrounding layout. Preferences theme changes apply without reloading the page. Focused Chromium desktop/mobile checks cover the fixture's visible text, hovered controls and live theme changes; expanded endpoint states, arbitrary custom palettes and narrow-screen inner layout still require review. This correction is not included in RC6.
