@@ -17,12 +17,12 @@ Each row gives the Material source (`material:` is the Material repo root; `qqq:
 | Area | Done | Done (different UX) | Partial | Missing | N/A | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | Shell and navigation | 97 | 3 | 0 | 1 | 10 | 111 |
-| Query | 122 | 6 | 1 | 0 | 2 | 131 |
+| Query | 121 | 7 | 1 | 0 | 2 | 131 |
 | Records | 126 | 4 | 0 | 0 | 8 | 138 |
 | Processes and reports | 120 | 5 | 0 | 0 | 3 | 128 |
 | Widgets and blocks | 225 | 4 | 3 | 0 | 4 | 236 |
 | Supplemental metadata and theme | 40 | 0 | 0 | 0 | 11 | 51 |
-| **Total** | **730** | **22** | **4** | **1** | **38** | **795** |
+| **Total** | **729** | **23** | **4** | **1** | **38** | **795** |
 | Windows, menus, dialogs, popovers, drawers and modals (cross-cutting view, not in the total) | 104 | 10 | 1 | 0 | 12 | 127 |
 
 The overlay section repeats abilities from the area sections from the point of view of each window, menu or dialog, so its rows are not added to the total or to the issue counts.
@@ -275,7 +275,7 @@ The record query screen: header and toolbar, Go To, Actions menu, alerts, grid c
 | Virtual fields: no sort/filter when not queryCriteria | material:src/qqq/pages/records/query/RecordQuery.tsx:2322-2336 | src/lib/utils/query-columns.ts; src/components/query/ColumnHeaderMenu.tsx | none | Done: selectable virtual columns render; sort and filter require query criteria capability. |
 | Header filter icon for active criteria | material:src/qqq/pages/records/query/RecordQuery.tsx:2413-2445 | src/components/query/DataGrid.tsx | none | Done: a header filter icon marks active criteria. |
 | Density selector, LS qqq.density (global) | material:src/qqq/pages/records/query/RecordQuery.tsx:1309-1316,2586 | src/lib/hooks/use-record-query.ts; src/components/query/RecordQueryToolbar.tsx | QRY-005 | Done: all tables share the Material density key. |
-| Even/odd striping | material:src/qqq/pages/records/query/RecordQuery.tsx:3362 | src/components/query/DataGrid.tsx | none | Done: alternating rows retain opaque pinned cells. |
+| Even/odd striping | material:src/qqq/pages/records/query/RecordQuery.tsx:3362 | src/components/query/DataGrid.tsx | QRY-001 | Done (different UX): after RC4, restore the original uniform Next row background. Selected rows still highlight; pinned cells remain opaque. Applications retain the data-row-parity CSS hook for explicit striping. |
 | Long values trimmed to 2048 + "…" | material:src/qqq/utils/DataGridUtils.tsx:75-88 | src/components/query/DataGrid.tsx:trimValue | none | Done: values are trimmed before cell rendering. |
 | Row click opens record (drag/double-click guard) | material:src/qqq/pages/records/query/RecordQuery.tsx:1321-1340; material:src/qqq/utils/DataGridUtils.tsx:44-70 | src/components/query/DataGrid.tsx | QRY-006 | Done: pointer movement and double-click cancel pending row navigation. |
 | Ctrl/Cmd-click new tab | material:src/qqq/utils/DataGridUtils.tsx:311 (PK Link only) | src/components/query/DataCell.tsx (Links) | REL-001 | Done: neither UI does it on rows; links work |

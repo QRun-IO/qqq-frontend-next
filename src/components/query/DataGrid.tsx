@@ -17,7 +17,7 @@
 /**
  * @file DataGrid — TanStack Table v8 data grid for the QQQ Record Query page: sortable, resizable
  * and pinnable columns with Material's column menu, active-filter and field-help header icons,
- * row selection, striped rows and density support.
+ * row selection, pinned columns and density support.
  */
 
 'use client'
@@ -137,9 +137,6 @@ const DENSITY_CELL_CLASS: Record<Density, string> = {
 const SELECT_COLUMN_WIDTH = 44
 /** Room for a sort label, statistics action and column menu without covering the next header. */
 const MIN_COLUMN_WIDTH = 60
-
-/** Opaque background of odd (striped) rows, so pinned cells cover what scrolls under them. */
-const STRIPE_BG = 'bg-[color-mix(in_oklch,var(--color-muted)_55%,var(--color-card))]'
 
 /** How far (px) the pointer may move between press and release for a row click to count. */
 const CLICK_SLOP = 5
@@ -966,10 +963,10 @@ interface GridRowProps {
  * @returns The table row.
  */
 const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellClass, pinStyles, onRowMouseDown, onRowClick, onRowDoubleClick, onOpenRecord, onCellKeyDown }: GridRowProps) {
-  // Material stripes the rows (even / odd); a selected row is highlighted instead
+  // Preserve the original Next background; parity hooks allow application-specific styling.
   const odd = row.index % 2 === 1
-  const background = isSelected ? 'bg-primary/5' : odd ? STRIPE_BG : ''
-  const stickyBackground = odd && !isSelected ? STRIPE_BG : 'bg-card'
+  const background = isSelected ? 'bg-primary/5' : ''
+  const stickyBackground = 'bg-card'
   return (
     <tr
       className={`border-b border-border transition-colors hover:bg-muted/50 ${onRowClick ? 'cursor-pointer' : ''} ${rowClass} ${background}`}

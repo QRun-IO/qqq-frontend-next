@@ -474,3 +474,8 @@ in screen memory and are submitted to the backend process; they are not persiste
 localStorage or sessionStorage. Without configuration the picker stays disabled while
 other inputs remain usable. PRC-065 verifies the browser/backend contract with controlled
 Google SDK responses; PRC-039 retains the approved real-account testing exclusion.
+
+
+### Post-RC4 table appearance correction
+
+The current branch restores the original Next uniform row background; published RC4 still has alternating row shading. Selection highlighting and opaque pinned cells are retained. Applications can target `data-row-parity="odd"` or `"even"` through their configured CSS if they explicitly want alternating colors.

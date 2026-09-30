@@ -87,7 +87,8 @@
       "scenarios": [
         "Headers use field labels",
         "Rows equal SQL select ordered by id desc",
-        "Possible-value cells show labels, booleans Yes/No, money/decimals formatted"
+        "Possible-value cells show labels, booleans Yes/No, money/decimals formatted",
+        "Original Next uniform row backgrounds in light and dark mode, with opaque pinned cells and selection highlighting"
       ],
       "negative": [
         "Null boolean renders empty, not No",

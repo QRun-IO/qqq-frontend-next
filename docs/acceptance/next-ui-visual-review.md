@@ -1,10 +1,18 @@
 # Next UI visual review
 
-Status: in progress, September 29, 2026. This review is a release requirement. Captured screenshots are not approvals or evidence that a surface has passed review.
+Status: in progress, September 30, 2026. This review is a release requirement. Captured screenshots are not approvals or evidence that a surface has passed review.
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, report omitted-join preservation
+## Latest checkpoint — September 30, query rows and filter review
+
+Compared 14 desktop query/filter states in both themes between the original Next export and the published RC4 JAR: 56 entries, no unexpected setup/page errors or document overflow. The retained baseline export fingerprint matches the earlier review. Inspected table, Basic/Advanced, populated/nested filter, quick editor, columns, column-menu, relative-date, density, selection, Views and Export captures. Three added controls have no equivalent original state and are marked accordingly. Evidence: `rc4-query-review/` under the local visual-review directory. This is a desktop subset, not whole-query or whole-product approval.
+
+Found VIS-009: unconditional alternating row shading added by parity commit `4c7918f` changes the original Next table, especially in dark mode. Restored the original uniform default while retaining selected-row highlighting, opaque pinned cells, theme overrides and the `data-row-parity` customization hook. The correction is on the post-RC4 branch and is not in published RC4. Both new rendered-color tests failed against unchanged RC4, then passed on the corrected export. All 1,884 unit tests, production export/types, changed-file lint and 13 existing Chromium theme/density/pinning workflows passed.
+
+The first browser attempt had a stopped server; a subsequent temporary symlink was not discoverable by the backend classpath scanner. Those setup failures are retained separately. The new pinned-cell test initially matched nested transparent text spans as well as table cells; correcting its selector produced two passing light/dark cases without further product changes. Corrected-build screenshots from that selector-failure run were inspected and show uniform rows with opaque pinned cells; their origin remains explicit. Fresh corrected-export captures are now complete and inspected for the small table, Person table, populated filters and selected rows in both themes (eight entries). Their manifests contain no setup or page errors. Evidence: `row-appearance-fixed-review/` under the local visual-review directory. Broader visual review remains open.
+
+## Earlier checkpoint — September 29, report omitted-join preservation
 
 Inspected the corrected report editor's Filters and sort and Columns tabs in desktop light and dark mode. The existing dialog, tabs, typed filter controls, sort controls, column picker, preview grid and footer remain in use. Saved joined fields remain labelled and editable even when omitted from new choices; the preview still shows their values. This inspection covers the affected state and does not approve the whole report family or the broader original-Next comparison.
 
