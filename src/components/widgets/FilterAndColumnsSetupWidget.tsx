@@ -48,6 +48,7 @@ export interface FilterAndColumnsSetupPayload {
   /** Alternate spelling of {@link columnFieldName}. */
   columnsFieldName?: string
   hideColumns?: boolean
+  /** Hides the read-only summary preview; the editor retains its query grid. */
   hidePreview?: boolean
   hideSortBy?: boolean
   allowVariables?: boolean

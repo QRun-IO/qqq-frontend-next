@@ -468,8 +468,9 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
         </> : <ColumnConfig tableMetaData={selectionTable} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
           onOrderChange={(order) => setColumns((current) => reorderOfferedColumns(table, current, order))} embedded />}
-        {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupGrid table={table} filter={filter} onFilterChange={setFilter}
-          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>}
+        {/* hidePreview applies to the read-only summary; editing retains the query grid. */}
+        <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupGrid table={table} filter={filter} onFilterChange={setFilter}
+          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
         <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open in new window</a>

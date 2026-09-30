@@ -4,7 +4,19 @@ Status: in progress, September 30, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 30, record detail review
+## Latest checkpoint — September 30, forms, processes and dark widgets
+
+At post-RC4 source `9fb613d`, inspected all 88 images from 64 desktop entries for 16 form/process states in both themes. These include Create, validation, Edit, Copy, Field Lab, process components/help/validation/review, route details/validation/confirmation, cancellation and widget results. All entries have export fingerprints, no setup/page errors and no document overflow. Layouts retain the original Next composition. The broken image in Lab briefing is the deliberate script/onerror sanitization fixture, not a newly broken image feature. A focused axe scan of the default process stepper reports no color-contrast violations or incomplete checks in either theme; its colors were not changed. Evidence: `post-rc4-form-process-review/`. This does not cover all process interactions, bulk-load/progress/error variants or responsive states.
+
+Also inspected 22 fresh dark desktop images (eight entries) covering the full scrolled Widget Gallery, Blocks, Parents, and Tables and Charts pages. Every requested scroll reached its target; no setup/page errors or document overflow occurred. The existing Next card composition remains. Changes include functional maps, typed table cells, chart colors/legends, supplied footer metadata and native dark audio controls. No new visual regression was found in this inventory. This closes the current dark desktop lower-page gap for these four pages only. Evidence: `post-rc4-widget-review/` (11 directly inspected paired sheets). Other themes, responsive layouts, interactive widget states and whole-product approval remain open.
+
+## September 30 — report summary preview flag compatibility
+
+Source comparison found that Material's `hidePreview` hides the read-only summary preview but leaves the editing query available (`FilterAndColumnsSetupWidget.tsx:483-526`). Next incorrectly applied the flag inside the editor too. The bounded correction retains the existing Next editor and scopes this flag to the summary. It is not in published RC4.
+
+A real-backend regression failed for the hidden-summary case while the ordinary case passed. After correction, eight Chromium report scenarios pass with zero failures/skips/flaky results, covering hidden/shown summaries, editor sorting/Refresh, Cancel, OK, host Save/reopen, query permissions, filter indicators and saved omitted joins. All 1,884 units, production export, types, changed-file lint and license checks pass. Four fresh editor images were directly inspected (both themes, flag enabled/disabled); dialog and preview bounds are identical, with no page errors or document overflow. Evidence: `report-preview-{red,green}-report.json`, `report-preview-{unit,build}.log`, and `report-preview-fixed-review/`. Broader embedded-query equivalence is still open.
+
+## Earlier checkpoint — September 30, record detail review
 
 Captured and inspected six desktop record states in light and dark themes against the original Next: small record, Person, selected section with keyboard focus, the field/adornment lab (including its lower scroll position), empty Audit and Delete confirmation. The 24 manifest entries contain 28 images, with no setup/page errors or document overflow. Evidence: `post-rc4-record-review/` under the local visual-review directory. Card placement and dialog composition are retained; added audit sort controls, code expansion and widget chrome remain visible. These captures do not approve populated audits, every field interaction or responsive record states.
 
