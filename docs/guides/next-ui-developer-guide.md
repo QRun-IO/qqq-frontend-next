@@ -1,6 +1,6 @@
 # Next UI developer guide
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-09-30. It explains the current frontend and backend metadata contract. The latest published prerelease is [1.0.0-RC.6](../releases/1.0.0-RC.6.md) (commit `7ddf45f`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-09-30. It explains the current frontend and backend metadata contract. The latest published prerelease is [1.0.0-RC.7](../releases/1.0.0-RC.7.md) (commit `f65cf6b`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 The visual baseline is the September 25 Next UI design (`e42ad2b2`). Material remains the reference for backend contracts and functional behavior. The layout defaults below describe current source; they do not certify a completed visual review.
 
@@ -42,7 +42,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Use version `1.0.0-RC.6` for the published prerelease, overriding an older BOM-managed frontend. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Use version `1.0.0-RC.7` for the published prerelease, overriding an older BOM-managed frontend. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
 
 | Setting | Behavior in this checkout |
 |---|---|
@@ -480,10 +480,10 @@ Google SDK responses; PRC-039 retains the approved real-account testing exclusio
 
 RC5 restores the original Next uniform row background; RC4 has alternating row shading. Selection highlighting and opaque pinned cells are retained. Applications can target `data-row-parity="odd"` or `"even"` through their configured CSS if they explicitly want alternating colors.
 
-### API playground theme integration (RC7 candidate)
+### API playground theme integration (RC7)
 
 The embedded RapiDoc viewer uses its own shadow DOM. Next applies existing dashboard color tokens to its dark accent/inverse pair and light contact/status colors, preserving the surrounding layout. Preferences theme changes apply without reloading the page. Focused Chromium desktop/mobile checks cover the fixture's visible text, hovered controls and live theme changes; expanded endpoint states, arbitrary custom palettes and narrow-screen inner layout still require review. This correction is not included in RC6.
 
-### TIME block correction (RC7 candidate)
+### TIME block correction (RC7)
 
-Plain process and standalone TIME blocks now use a one-second native input step, matching regular/shared form fields. This permits second-level clock values without a minute-step validation error and makes native stepping advance one second. TIME values remain local clock strings, with no timezone conversion. This separate follow-up is not included in RC5 or the RC6 at `7ddf45f`.
+Plain process and standalone TIME blocks now use a one-second native input step, matching regular/shared form fields. This permits second-level clock values without a minute-step validation error and makes native stepping advance one second. TIME values remain local clock strings, with no timezone conversion. This correction is published in RC7 at `f65cf6b`; earlier RCs remain unchanged.
