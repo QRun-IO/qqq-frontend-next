@@ -253,7 +253,7 @@ lint and independent review also passed. The combined candidate at `f2cdf03` pas
 required rows**, with zero failures/skips/flaky results and three approved exclusions.
 The preceding numeric-wheel correction separately passed its 576-test Chromium gate.
 
-Both corrections were integrated into the unpublished RC4 release branch at
+Both corrections were integrated before RC4 publication at
 `f2cdf03`, superseding its earlier preparation checkpoint `1dbe1d9`. Published
 RC3 does not contain them. Historical RC3/precursor failures above remain
 valid evidence for those revisions; this focused result does not certify the whole
@@ -271,4 +271,24 @@ All profiles had zero skips or flaky outcomes; general CI and image checks passe
 These results predate the report-editor, numeric-wheel and density corrections.
 The Linux density regression is corrected and locally verified as described above;
 other secondary failures remain open pending diagnosis or new candidate evidence.
-Exact-head hosted checks for the integrated RC4 candidate remain pending.
+Hosted checks for the integrated RC4 candidate and tag are complete; see the RC4 published checkpoint below.
+
+
+## RC4 published checkpoint — 2026-09-30
+
+Published source `3c409f9` / `v1.0.0-RC.4` passed **577 Chromium tests and all 391 required rows** in both [candidate](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36664932061) and [tag](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36714593674) acceptance. Both used backend `e0d57dd31b979b17215370546ef4e26cd8a38d21`; the candidate merge tree matches the tagged source.
+
+Both acceptance runs completed and failed overall because of secondary-browser failures. All profiles had zero skips or flaky outcomes; failures were retained, not waived or silently retried.
+
+| Browser | Candidate result | Tag result |
+| --- | --- | --- |
+| Chromium | 577 passed | 577 passed |
+| Mobile | 547 passed, 1 failed: REC-054 script-suggestion listbox bounding-box timeout in dark mode | 548 passed |
+| Firefox | 576 passed, 1 failed: WID-026 record-heading timeout | 576 passed, 1 failed: WID-019 dashboard-heading timeout |
+| WebKit | 576 passed, 1 failed: REC-046 internal navigation error on a read-only user's copy route | 576 passed, 1 failed: REL-005 internal navigation error returning to the pet list |
+| Tablet | 547 passed, 1 failed: NAV-026 widget-request access-control errors during drawer navigation | 547 passed, 1 failed: SEC-002 internal navigation error opening a denied ledger create route |
+
+Density scenarios passed in every profile of both runs. The other failures remain open; a later pass does not erase the earlier failure or prove full browser compatibility.
+
+
+The actual public Maven JAR passed signature/checksum verification, fresh-consumer dependency resolution and 17 affected real-backend Chromium workflows. The public ARM64 container served the application and all 21 referenced JavaScript assets. These checks establish artifact delivery and the stated workflow coverage, not full compatibility or visual approval. See [RC4 release notes](../releases/1.0.0-RC.4.md) for checksums and remaining requirements. Final 1.0 remains on hold for owner testing and renewed approval.
