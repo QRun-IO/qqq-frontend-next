@@ -110,3 +110,28 @@ for (const submission of ['Enter', 'Submit'] as const) {
     ])
   })
 }
+
+test('[PRC-066] multiline case behaviors preserve newlines and persist transformed process values @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await openProcess(page, 'prcTextCase')
+  const edit = await expectScreen(page, 'edit', 'Edit Codes')
+  for (const [label, expected] of [['Upper Code', 'ABX\nED'], ['Lower Code', 'abx\ned']]) {
+    const input = edit.getByRole('textbox', { name: label, exact: true })
+    await expect(input).toHaveValue('abCd')
+    await input.focus()
+    await input.evaluate((node: HTMLTextAreaElement) => node.setSelectionRange(2, 3))
+    await input.pressSequentially('X')
+    expect(await input.evaluate((node: HTMLTextAreaElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+    await input.press('Enter')
+    await input.pressSequentially('E')
+    await expect(input).toHaveValue(expected)
+  }
+  await expect(edit).toBeVisible()
+  expect(await backend.sql('select action_code, scan_code from prc_decision_log')).toEqual([])
+  await advance(page, 'Submit')
+  await expectScreen(page, 'done', 'Stored Codes')
+  expect(await backend.sql('select action_code, scan_code from prc_decision_log order by action_code')).toEqual([
+    { action_code: 'lowerCode', scan_code: 'abx\ned' },
+    { action_code: 'upperCode', scan_code: 'ABX\nED' },
+  ])
+})

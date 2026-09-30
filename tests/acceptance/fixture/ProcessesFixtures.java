@@ -224,7 +224,8 @@ public final class ProcessesFixtures
       instance.addProcess(defineFieldWidget());
       instance.addProcess(defineBlockEditors());
       instance.addProcess(defineInputFocus());
-      instance.addProcess(defineInputCase());
+      instance.addProcess(defineInputCase(QFieldType.STRING));
+      instance.addProcess(defineInputCase(QFieldType.TEXT));
       instance.addProcess(defineInputDateTimes());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
@@ -819,22 +820,22 @@ public final class ProcessesFixtures
    /*******************************************************************************
     ** Case behaviors travel through real process metadata and persist unchanged.
     *******************************************************************************/
-   private static QProcessMetaData defineInputCase()
+   private static QProcessMetaData defineInputCase(QFieldType type)
    {
       ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
-      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("upperCode", QFieldType.STRING)
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("upperCode", type)
          .withLabel("Upper Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_UPPER_CASE)).withSubmitOnEnter(true)));
-      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("lowerCode", QFieldType.STRING)
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("lowerCode", type)
          .withLabel("Lower Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_LOWER_CASE)).withSubmitOnEnter(true)));
-      return new QProcessMetaData().withName("prcInputCase").withLabel("Input Case Lab")
+      return new QProcessMetaData().withName(type == QFieldType.TEXT ? "prcTextCase" : "prcInputCase").withLabel("Input Case Lab")
          .withStep(backend("prepare", PrepareInputCaseStep.class))
          .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Codes")
             .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
          .withStep(backend("store", StoreInputCaseStep.class))
          .withStep(new QFrontendStepMetaData().withName("done").withLabel("Stored Codes")
             .withComponent(component(QComponentType.VIEW_FORM))
-            .withViewField(new QFieldMetaData("upperCode", QFieldType.STRING).withLabel("Upper Code"))
-            .withViewField(new QFieldMetaData("lowerCode", QFieldType.STRING).withLabel("Lower Code")));
+            .withViewField(new QFieldMetaData("upperCode", type).withLabel("Upper Code"))
+            .withViewField(new QFieldMetaData("lowerCode", type).withLabel("Lower Code")));
    }
 
 

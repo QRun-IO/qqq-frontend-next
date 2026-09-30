@@ -36,7 +36,7 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
-import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
+import { caseTransform, numberAdornments, transformInputValue } from '@/lib/utils/form-layout'
 import { selectSlotHelpContent } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from '@/components/records/HelpContent'
@@ -413,7 +413,9 @@ export function DynamicFormField({
         </DirtyWrapper>
       )
 
-    case 'TEXT':
+    case 'TEXT': {
+      const textRegistration = registration()
+      const transform = caseTransform(field)
       return (
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
@@ -434,7 +436,11 @@ export function DynamicFormField({
               <textarea
                 placeholder={placeholder}
                 id={fieldId}
-                {...registration()}
+                {...textRegistration}
+                onChange={(event) => {
+                  if (transform) transformInputValue(event.currentTarget, transform)
+                  void textRegistration.onChange(event)
+                }}
                 disabled={isDisabled}
                 aria-required={field.isRequired}
                 aria-invalid={fieldError ? true : undefined}
@@ -458,6 +464,7 @@ export function DynamicFormField({
           </FieldWithHelp>
         </DirtyWrapper>
       )
+    }
 
     case 'HTML':
       return (

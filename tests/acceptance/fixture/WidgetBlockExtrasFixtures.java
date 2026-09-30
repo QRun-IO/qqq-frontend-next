@@ -431,6 +431,8 @@ final class WidgetBlockExtrasFixtures
             new SeededInputValues(new QFieldMetaData("ownedText", QFieldType.STRING).withLabel("Owned Text"), "Owned seeded text"),
             new SeededInputValues(new QFieldMetaData("ownedUpper", QFieldType.STRING).withLabel("Owned Upper").withBehavior(CaseChangeBehavior.TO_UPPER_CASE), "abCd"),
             new SeededInputValues(new QFieldMetaData("ownedLower", QFieldType.STRING).withLabel("Owned Lower").withBehavior(CaseChangeBehavior.TO_LOWER_CASE), "abCd"),
+            new SeededInputValues(new QFieldMetaData("ownedUpperText", QFieldType.TEXT).withLabel("Owned Upper Text").withBehavior(CaseChangeBehavior.TO_UPPER_CASE), "abCd"),
+            new SeededInputValues(new QFieldMetaData("ownedLowerText", QFieldType.TEXT).withLabel("Owned Lower Text").withBehavior(CaseChangeBehavior.TO_LOWER_CASE), "abCd"),
             new SeededInputValues(new QFieldMetaData("ownedCount", QFieldType.INTEGER).withLabel("Owned Count"), 7),
             new InputFieldValues(new QFieldMetaData("ownedAmount", QFieldType.DECIMAL).withLabel("Owned Amount").withDisplayFormat(DisplayFormat.CURRENCY)),
             new SeededInputValues(new QFieldMetaData("ownedChoice", QFieldType.STRING).withLabel("Owned Choice").withPossibleValueSourceName(WidgetsFixtures.CHOICE_PVS), "alpha"),

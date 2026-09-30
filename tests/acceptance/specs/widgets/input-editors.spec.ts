@@ -82,3 +82,22 @@ test('[WID-074] backend case behaviors preserve standalone block edits and caret
     expect(await input.evaluate((node: HTMLInputElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
   }
 })
+
+test('[WID-074] multiline block case behaviors preserve newlines and the edit caret @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await open(page, '/app/widgetInputEditors')
+  await expectLoaded(page, 'accTypedInputs')
+  const card = widget(page, 'accTypedInputs')
+  for (const [label, expected] of [['Owned Upper Text', 'ABX\nED'], ['Owned Lower Text', 'abx\ned']]) {
+    const input = card.getByRole('textbox', { name: label, exact: true })
+    await expect(input).toHaveValue('abCd')
+    await input.focus()
+    await input.evaluate((node: HTMLTextAreaElement) => node.setSelectionRange(2, 3))
+    await input.pressSequentially('X')
+    expect(await input.evaluate((node: HTMLTextAreaElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+    await input.press('Enter')
+    await input.pressSequentially('E')
+    await expect(input).toHaveValue(expected)
+  }
+})

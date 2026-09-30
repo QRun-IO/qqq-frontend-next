@@ -226,6 +226,26 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ code: expected }, undefined))
   })
 
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD'],
+    ['TO_LOWER_CASE', 'abxd'],
+  ])('submits %s multiline block edits through the process form', async (behavior, expected) => {
+    const user = userEvent.setup()
+    const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: field('notes', 'Notes', { type: 'TEXT', behaviors: [behavior] }) } },
+    ] } }] }
+    const { onSubmit } = renderStep(step, { notes: 'abCd' })
+    const input = screen.getByRole('textbox', { name: 'Notes' }) as HTMLTextAreaElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ notes: expected }, undefined))
+  })
+
   it.each([undefined, '%20s'])('submits trimmed block text through Enter (format=%s)', async (displayFormat) => {
     const user = userEvent.setup()
     const step: QFrontendStepMetaData = { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [

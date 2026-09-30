@@ -480,6 +480,28 @@ describe('QqqComposite', () => {
     await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { code: expected }))
   })
 
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD', 'ABXD\nE'],
+    ['TO_LOWER_CASE', 'abxd', 'abxd\ne'],
+  ])('applies %s to multiline input blocks while Enter remains a newline', async (behavior, expected, multiline) => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'abCd', submitOnEnter: true, fieldMetaData: {
+        name: 'notes', label: 'Notes', type: 'TEXT', isEditable: true, behaviors: [behavior],
+      } } },
+    ] })
+    const input = screen.getByRole('textbox', { name: 'Notes' }) as HTMLTextAreaElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    await user.keyboard('{End}{Enter}E')
+    expect(input).toHaveValue(multiline)
+    expect(actionCallback).not.toHaveBeenCalled()
+  })
+
   it('validates trimmed standalone block text before invoking its action', async () => {
     const user = userEvent.setup()
     const { actionCallback } = renderComposite({ blocks: [

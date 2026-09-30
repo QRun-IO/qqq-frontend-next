@@ -1149,12 +1149,14 @@
         "src/components/process/ProcessBlocks.tsx",
         "src/components/widgets/blocks/BlockInputEditor.tsx"
       ],
-      "fixture": "prcInputCase",
+      "fixture": "prcInputCase / prcTextCase",
       "scenarios": [
-        "Backend uppercase/lowercase metadata transforms a middle-of-value edit without moving the caret; Enter and Submit persist exact values verified through independent SQL"
+        "Backend uppercase/lowercase metadata transforms a middle-of-value edit without moving the caret; Enter and Submit persist exact values verified through independent SQL",
+        "Multiline TEXT case conversion preserves the middle-edit caret and inserted newline; Submit persists the exact transformed text through independent SQL"
       ],
       "negative": [
-        "Typing alone does not submit or persist the process"
+        "Typing alone does not submit or persist the process",
+        "Multiline Enter does not submit or navigate away"
       ],
       "issues": [
         "QRun-IO/qqq#728"
