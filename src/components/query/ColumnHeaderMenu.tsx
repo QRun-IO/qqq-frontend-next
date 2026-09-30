@@ -91,7 +91,8 @@ export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilt
         <DropdownMenuPrimitive.Content
           align="start"
           sideOffset={4}
-          className="z-[160] min-w-[200px] overflow-hidden rounded-md border border-border bg-popover py-1 shadow-lg"
+          collisionPadding={8}
+          className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[200px] overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
           aria-label={`${column.label} column menu`}
           data-qqq-id={`column-menu-${column.name}`}
         >

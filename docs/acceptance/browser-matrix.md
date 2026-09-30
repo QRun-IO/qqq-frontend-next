@@ -1,5 +1,12 @@
 # Browser matrix — real-backend acceptance (QRun-IO/qqq#649, #708)
 
+## September 30 — post-RC4 report and menu checkpoint
+
+Local production export at `a8e4d3b`:583 Chromium tests and all391 required feature rows passed, zero failures/skips/flaky results, three approved external-service exclusions. This includes the uniform table backgrounds, record overview spacing and hidePreview compatibility fixes. Retained full report/gate: `report-preview-full-chromium/` in local visual-review evidence.
+
+The subsequent column-menu height correction passes28 targeted Chromium/WebKit cases. The valid red run failed both320px-window cases and passed both720px cases; final checks cover bounds, keyboard/focus, Copy/sort, standalone query actions and variants. Hosted predecessor36739388053 WebKit remains failed578/1: Copy full query values was outside the viewport before variant switching. Its exact scenario passed locally before correction; hosted resolution is unproven. Other predecessor jobs remain pending at this checkpoint. These scoped results do not establish complete browser compatibility.
+
+
 The acceptance suite runs against the owned sample backend and the production static
 export (javalin mode). The default gate runs Chromium only; the documented matrix is the
 five configured Playwright projects below. CI runs Chromium separately from phone/tablet

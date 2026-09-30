@@ -4,7 +4,17 @@ Status: in progress, September 30, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 30, forms, processes and dark widgets
+## Latest checkpoint — September 30, reachable column menus
+
+VIS-031: column menus were not constrained to available viewport height. A browser probe on the report preview measured a 352px menu starting at y=-147 in a 320px window in both Chromium and WebKit. The shared menu now uses Radix's available-height limit, an 8px collision margin and vertical scrolling, matching existing query menus. Its labels, ordering, typography and normal-height presentation are preserved.
+
+The corrected regression first failed at 320px and passed at 720px in both engines. All 28 final Chromium/WebKit checks pass, including bounded placement, End/Escape and focus return, pointer Copy, sorting, standalone column actions and report variant workflows. Four final menu screenshots were directly inspected. Seven grid component tests, production export, types/lint/license and bundle budgets pass. Evidence: `column-menu-{probe.json,corrected-red-report.json,green-report.json,green-artifacts,unit.log,build.log,budget.log}` under local visual-review evidence. The first regression incorrectly expected a statistics action absent from Person metadata; that test assumption was corrected before the valid red run. No product change addressed that test-only error.
+
+Hosted WebKit run36739388053 failed WID-073 before copying: the trace repeatedly reports Copy full query values outside the viewport. Its report and trace are retained in `row-appearance-ci-webkit/`. The exact workflow passed locally before the change, so this reproduced short-window defect does not by itself prove that hosted failure resolved. A fresh hosted result is still required.
+
+The prior combined table, record-spacing and report hidePreview source `a8e4d3b` separately passed **583 Chromium tests/all 391 required rows**, zero failures/skips/flaky results and three approved external-service exclusions. That full run predates this menu correction; evidence is `report-preview-full-chromium/`. RC4 remains the published version; final 1.0 and whole-product visual approval remain held.
+
+## Earlier checkpoint — September 30, forms, processes and dark widgets
 
 At post-RC4 source `9fb613d`, inspected all 88 images from 64 desktop entries for 16 form/process states in both themes. These include Create, validation, Edit, Copy, Field Lab, process components/help/validation/review, route details/validation/confirmation, cancellation and widget results. All entries have export fingerprints, no setup/page errors and no document overflow. Layouts retain the original Next composition. The broken image in Lab briefing is the deliberate script/onerror sanitization fixture, not a newly broken image feature. A focused axe scan of the default process stepper reports no color-contrast violations or incomplete checks in either theme; its colors were not changed. Evidence: `post-rc4-form-process-review/`. This does not cover all process interactions, bulk-load/progress/error variants or responsive states.
 
