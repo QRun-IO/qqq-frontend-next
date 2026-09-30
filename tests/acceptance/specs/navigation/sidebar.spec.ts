@@ -18,7 +18,13 @@ test.describe('sidebar', () => {
 
     await open(page, '/app')
     const nav = await appNavigation(page)
-    await expect(topLevelLinks(nav)).toHaveText(['Dashboard', ...expected])
+    await expect(nav.locator('[data-qqq-id="sidebar-item-widgetBlocks"] svg text')).toHaveText('\ue8f1')
+    // Decorative SVG glyphs are DOM text, but must not enter link names.
+    const links = topLevelLinks(nav)
+    const labels = ['Dashboard', ...expected]
+    await expect(links).toHaveCount(labels.length)
+    for (const [index, label] of labels.entries()) await expect(links.nth(index)).toHaveAccessibleName(label)
+    for (const icon of await nav.locator('svg:has(text)').all()) await expect(icon).toHaveAttribute('aria-hidden', 'true')
     // Nested apps appear only under their parent: Greetings App is inside People App, not beside it
     await expect(nav.locator('[data-qqq-id="sidebar-collapse-greetingsApp"]')).toHaveCount(0)
     await nav.getByRole('button', { name: 'Expand People App' }).click()
