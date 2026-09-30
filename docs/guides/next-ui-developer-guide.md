@@ -1,6 +1,6 @@
 # Next UI developer guide
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-09-29. It explains the current frontend and backend metadata contract. The published prerelease is `1.0.0-RC.1` (commit `e901df9`); final `1.0.0` work continues in this worktree. Features described from later source, including Google Drive selection, must not be assumed present in RC1. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-09-29. It explains the current frontend and backend metadata contract. The latest published prerelease is [1.0.0-RC.3](../releases/1.0.0-RC.3.md) (commit `f1a6a3a`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 The visual baseline is the September 25 Next UI design (`e42ad2b2`). Material remains the reference for backend contracts and functional behavior. The layout defaults below describe current source; they do not certify a completed visual review.
 
@@ -29,7 +29,7 @@ The preferred QQQ-hosted distribution is the `com.kingsrook.qqq:qqq-frontend-nex
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.1</version>
+    <version>1.0.0-RC.3</version>
 </dependency>
 ```
 
@@ -42,7 +42,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Use version `1.0.0-RC.1` for the published prerelease; use a matching local backend/frontend build to test changes made after RC1.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Use version `1.0.0-RC.3` for the published prerelease, overriding an older BOM-managed frontend. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
 
 | Setting | Behavior in this checkout |
 |---|---|

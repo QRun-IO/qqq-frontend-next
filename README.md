@@ -2,7 +2,7 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-[Next UI 1.0.0-RC.1 is published](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.1) for application testing. Installation requirements, verified artifacts and known gaps are in the [RC1 notes](docs/releases/1.0.0-RC.1.md). Final 1.0 work remains open.
+[Next UI 1.0.0-RC.3 is published](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.3) for application testing. Installation requirements, verified artifacts and known gaps are in the [RC3 notes](docs/releases/1.0.0-RC.3.md). Final 1.0 work remains open.
 
 ## Use it in a QQQ application
 
@@ -12,8 +12,11 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
+    <version>1.0.0-RC.3</version>
 </dependency>
 ```
+
+The explicit version overrides an older BOM-managed frontend. RC3 requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for the verified backend commit. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
 
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 

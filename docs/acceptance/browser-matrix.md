@@ -18,6 +18,14 @@ For example, WID-073 checks report column totals and the exported value distribu
 against SQL for the active filter, then verifies cancellation leaves saved data unchanged.
 Opening the statistics dialog alone is insufficient evidence of that workflow.
 
+## RC3 published checkpoint — 2026-09-29
+
+Published source `f1a6a3a` / `v1.0.0-RC.3` passed **570 Chromium tests and all 391 required rows** in the [candidate run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36652168977), with zero failures, skips or flaky results. The tested PR merge has the same Git tree as the tag; backend commit was `cba758507dcc54cf282a6638ab50a7d3a1904c7c`.
+
+WebKit finished with **568 passes and two failures**: NAV-056 application-theme override diagnostics reported access-control errors for application requests, and QRY-030 density-menu coverage timed out. Traces are retained and causes remain unproven. Candidate Firefox and mobile/tablet are still running; the [tag run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36654410984) is also running. These pending results do not establish a cross-browser pass.
+
+The public Maven JAR passed signature/checksum checks, normal dependency resolution in a separate consumer, and seven affected Chromium workflows with independent database readback. Both image architectures are published; the actual arm64 image passed app-route and all 21 referenced JavaScript asset checks. See [RC3 release notes](../releases/1.0.0-RC.3.md) for immutable artifact checksums and limitations. Final 1.0 remains on hold.
+
 ## RC2 published checkpoint — 2026-09-29
 
 Published source `0905cfb` / `v1.0.0-RC.2` passed **563 Chromium tests and all 390 required rows** in both its PR and tag runs. The [completed tag run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36642612560) also passed all **538 mobile tests**. WebKit passed 561 and failed QRY-030 (density menu) and RPT-012 (internal navigation error); Firefox passed 561 and failed PRC-061 (bulk-load default selection) and INT-011 (failed-save feedback); tablet passed 537 and failed QRY-030. No tests skipped or passed through retries. The overall run failed, and failure causes remain under investigation.
