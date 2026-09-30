@@ -108,19 +108,25 @@ export function caseTransform(field: QFieldMetaData): ((value: string) => string
 
 /**
  * Applies a case change to a text input or textarea as the user types, keeping the caret and selection
- * where they were (a case change can alter the length, so they are clamped).
+ * at the same text boundaries even when case conversion expands characters.
  *
  * @param input - The input that changed.
  * @param transform - The case change.
  */
 export function transformInputValue(input: HTMLInputElement | HTMLTextAreaElement, transform: (value: string) => string): void {
-  const next = transform(input.value)
-  if (next === input.value) return
+  const previous = input.value
+  const next = transform(previous)
+  if (next === previous) return
   const start = input.selectionStart
   const end = input.selectionEnd
+  const direction = input.selectionDirection
   input.value = next
   if (start !== null && end !== null && document.activeElement === input) {
-    input.setSelectionRange(Math.min(start, next.length), Math.min(end, next.length))
+    input.setSelectionRange(
+      transform(previous.slice(0, start)).length,
+      transform(previous.slice(0, end)).length,
+      direction ?? undefined,
+    )
   }
 }
 

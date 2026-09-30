@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
 
 import type { QFieldMetaData } from '@/types'
 import {
@@ -48,6 +49,47 @@ describe('metadata driven form layout', () => {
     expect(input.value).toBe('MIXED')
     expect([input.selectionStart, input.selectionEnd]).toEqual([1, 3])
     input.remove()
+  })
+
+  describe.each(['input', 'textarea'] as const)('%s case conversion', (tag) => {
+    it.each([
+      { behavior: 'TO_UPPER_CASE', initial: 'ßcd', converted: 'SSXD', continued: 'SSXYD' },
+      { behavior: 'TO_LOWER_CASE', initial: 'İCD', converted: 'i\u0307xd', continued: 'i\u0307xyd' },
+    ])('keeps subsequent typing after the insertion when $behavior expands a character', async ({ behavior, initial, converted, continued }) => {
+      const user = userEvent.setup()
+      const input = document.createElement(tag)
+      const transform = caseTransform(field({ behaviors: [behavior] }))!
+      input.addEventListener('input', () => transformInputValue(input, transform))
+      document.body.appendChild(input)
+      try {
+        input.value = initial
+        input.focus()
+        input.setSelectionRange(1, 2)
+        await user.keyboard('X')
+        expect(input.value).toBe(converted)
+        expect([input.selectionStart, input.selectionEnd]).toEqual([3, 3])
+        await user.keyboard('Y')
+        expect(input.value).toBe(continued)
+        expect([input.selectionStart, input.selectionEnd]).toEqual([4, 4])
+      } finally {
+        input.remove()
+      }
+    })
+
+    it('keeps a backward selection over expanded characters', () => {
+      const input = document.createElement(tag)
+      document.body.appendChild(input)
+      try {
+        input.value = 'aßcﬃd'
+        input.focus()
+        input.setSelectionRange(1, 4, 'backward')
+        transformInputValue(input, caseTransform(field({ behaviors: ['TO_UPPER_CASE'] }))!)
+        expect(input.value).toBe('ASSCFFID')
+        expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([1, 7, 'backward'])
+      } finally {
+        input.remove()
+      }
+    })
   })
 
   it('blocks only implicit Enter submits from single-line inputs', () => {

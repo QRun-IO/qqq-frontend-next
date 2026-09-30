@@ -135,3 +135,34 @@ test('[PRC-066] multiline case behaviors preserve newlines and persist transform
     { action_code: 'upperCode', scan_code: 'ABX\nED' },
   ])
 })
+
+for (const process of ['prcInputCase', 'prcTextCase']) {
+  test(`[PRC-066] Unicode case expansion preserves continued typing and persisted values in ${process} @mobile`, async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    await openProcess(page, process)
+    const edit = await expectScreen(page, 'edit', 'Edit Codes')
+    for (const [label, inserted, expanded, continued] of [
+      ['Upper Code', 'ß', 'ASSCD', 'ASSXCD'],
+      ['Lower Code', 'İ', 'ai\u0307cd', 'ai\u0307xcd'],
+    ]) {
+      const input = edit.getByRole('textbox', { name: label, exact: true })
+      await input.fill('abcd')
+      await input.focus()
+      await input.evaluate((node: HTMLInputElement | HTMLTextAreaElement) => node.setSelectionRange(1, 2))
+      await page.keyboard.insertText(inserted)
+      await expect(input).toHaveValue(expanded)
+      expect(await input.evaluate((node: HTMLInputElement | HTMLTextAreaElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+      await input.pressSequentially('X')
+      await expect(input).toHaveValue(continued)
+      expect(await input.evaluate((node: HTMLInputElement | HTMLTextAreaElement) => [node.selectionStart, node.selectionEnd])).toEqual([4, 4])
+    }
+    await advance(page, 'Submit')
+    const done = await expectScreen(page, 'done', 'Stored Codes')
+    await expect(viewValue(done, 'upperCode')).toHaveText('ASSXCD')
+    await expect(viewValue(done, 'lowerCode')).toHaveText('ai\u0307xcd')
+    expect(await backend.sql('select action_code, scan_code from prc_decision_log order by action_code')).toEqual([
+      { action_code: 'lowerCode', scan_code: 'ai\u0307xcd' },
+      { action_code: 'upperCode', scan_code: 'ASSXCD' },
+    ])
+  })
+}
