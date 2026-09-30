@@ -231,7 +231,7 @@ Fixed:
 The fixes above describe earlier checkpoints. Open failures from the RC1 runs are recorded in the RC1 checkpoint and release notes; they have not been waived.
 
 
-## Local density touch correction after the prepared RC4 candidate
+## RC4 candidate density touch correction
 
 The recurring QRY-030 density-menu failure was reproduced in Linux WebKit using
 Playwright 1.58.2's official Noble image. Instrumented events showed that touch
@@ -239,7 +239,7 @@ pointer-down opened the menu, then synthetic mouse focus returned to its trigger
 Radix treated that focus as outside the non-modal menu and dismissed it. macOS
 WebKit did not reproduce this event sequence.
 
-The follow-up source applies the existing Selection/Views/Export trigger guard to
+The RC4 candidate source applies the existing Selection/Views/Export trigger guard to
 Density. It ignores outside interactions only when they target that same trigger;
 other controls still dismiss the menu. No layout, dependency or timeout changed.
 
@@ -249,11 +249,26 @@ WebKit, tablet WebKit and Chromium, zero failures/skips/flaky results**. The new
 regression failed before the fix. An initial added-test run used an incorrect
 `textbox` locator for the searchbox; it was interrupted, retained, corrected and
 rerun. The full unit suite passed 1,884 tests; production export, types, affected
-lint and independent review also passed. Full Chromium verification of this density
-correction remains pending. The preceding numeric-wheel correction passed its full
-576-test Chromium gate and all 391 required rows.
+lint and independent review also passed. The combined candidate at `f2cdf03` passed **577 Chromium tests and all 391
+required rows**, with zero failures/skips/flaky results and three approved exclusions.
+The preceding numeric-wheel correction separately passed its 576-test Chromium gate.
 
-This correction is on the isolated follow-up branch, not in published RC3 or
-prepared RC4 candidate `1dbe1d9`. Historical RC3/precursor failures above remain
+Both corrections were integrated into the unpublished RC4 release branch at
+`f2cdf03`, superseding its earlier preparation checkpoint `1dbe1d9`. Published
+RC3 does not contain them. Historical RC3/precursor failures above remain
 valid evidence for those revisions; this focused result does not certify the whole
 browser matrix.
+
+
+## Completed precursor CI before RC4 integration
+
+Run `36658766595` at `1283bac07e81741bfadc34bf7fe1c7805604d16f` is terminal.
+Chromium passed 574 tests and all 391 required rows. Mobile passed 547; tablet
+passed 544 and failed three: NAV-015 internal WebKit navigation, NAV-056 API
+access-control errors, and QRY-030 density touch. Firefox passed 573 and failed
+WID-024 waiting for the record heading. WebKit passed 573 and failed QRY-030.
+All profiles had zero skips or flaky outcomes; general CI and image checks passed.
+These results predate the report-editor, numeric-wheel and density corrections.
+The Linux density regression is corrected and locally verified as described above;
+other secondary failures remain open pending diagnosis or new candidate evidence.
+Exact-head hosted checks for the integrated RC4 candidate remain pending.
