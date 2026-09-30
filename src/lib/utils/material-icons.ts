@@ -312,9 +312,9 @@ const VARIANT_SUFFIX = /_(outline|outlined|rounded|sharp|two_tone|icon)$/
  */
 export function normalizeMaterialIconName(name: string): string {
   const trimmed = name.trim().toLowerCase()
-  if (MATERIAL_TO_LUCIDE[trimmed]) return trimmed
+  if (Object.prototype.hasOwnProperty.call(MATERIAL_TO_LUCIDE, trimmed)) return trimmed
   const base = trimmed.replace(VARIANT_SUFFIX, '')
-  return MATERIAL_TO_LUCIDE[base] ? base : trimmed
+  return Object.prototype.hasOwnProperty.call(MATERIAL_TO_LUCIDE, base) ? base : trimmed
 }
 
 /**
@@ -325,5 +325,6 @@ export function normalizeMaterialIconName(name: string): string {
  */
 export function materialIconComponent(name: string | undefined | null): LucideIcon | undefined {
   if (!name) return undefined
-  return MATERIAL_TO_LUCIDE[normalizeMaterialIconName(name)]
+  const normalized = normalizeMaterialIconName(name)
+  return Object.prototype.hasOwnProperty.call(MATERIAL_TO_LUCIDE, normalized) ? MATERIAL_TO_LUCIDE[normalized] : undefined
 }

@@ -238,3 +238,22 @@
     color: CanvasText;
   }
 }
+
+/* Legacy names absent from the Lucide map. Loaded only when a legacy glyph is used. */
+@font-face {
+  font-family: 'QQQ Legacy Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-icons/MaterialIcons-Regular.ttf') format('truetype');
+}
+
+.qqq-legacy-material-glyph {
+  font-family: 'QQQ Legacy Material Icons';
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  direction: ltr;
+}

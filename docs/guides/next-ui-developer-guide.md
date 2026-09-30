@@ -376,7 +376,7 @@ A host evaluates `conditional` as the truthiness of the named host value and int
 {"type":"composite","blocks":[{"blockTypeName":"BUTTON","values":{"label":"Details","controlCode":"showModal:details"}},{"blockTypeName":"COMPOSITE","blockId":"details","modalMode":"dialog","blocks":[{"blockTypeName":"TEXT","values":{"text":"Details appear here."}}]}]}
 ```
 
-See [`QqqComposite`](../../src/components/widgets/blocks/QqqComposite.tsx), [`QqqBlocks`](../../src/components/widgets/blocks/QqqBlocks.tsx), and [`BlockSlot`](../../src/components/widgets/blocks/BlockSlot.tsx). Some Material icon names still fall back to a circle; do not promise arbitrary ligature support. The parity ledger also retains open INPUT_FIELD configuration and visual review work.
+See [`QqqComposite`](../../src/components/widgets/blocks/QqqComposite.tsx), [`QqqBlocks`](../../src/components/widgets/blocks/QqqBlocks.tsx), and [`BlockSlot`](../../src/components/widgets/blocks/BlockSlot.tsx). The unpublished icon compatibility follow-up preserves existing Lucide mappings and adds a locally served glyph for valid unmapped names from the pinned 2,234-name legacy Material Icons inventory. Examples include `3d_rotation`, `account_balance_wallet`, `battery_6_bar`, and `60fps`. Unknown names retain their fallback; this does not include every Material Symbols name or distinct outlined/rounded font variants. Metadata image paths still take precedence. The font and Apache license ship with the static export/JAR; no Google Fonts request is needed at runtime. See the [font provenance](../../public/fonts/material-icons/README.md). This behavior is not in RC5. The parity ledger also retains open INPUT_FIELD configuration and visual review work.
 
 ## 8. Theme, branding, and customization
 

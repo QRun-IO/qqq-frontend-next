@@ -76,10 +76,16 @@ test('[REC-062] inline possible values search locally, render chip options and p
   await expect(priority).toHaveText(/^Medium/)
   await priority.click()
   const list = page.getByRole('listbox', { name: 'Priority options' })
-  await expect(list.getByRole('option')).toHaveText(['Low', 'Medium', 'High', 'Locked'])
+  const options = list.getByRole('option')
+  await expect(options).toHaveCount(4)
+  // Decorative font glyphs are DOM text, but must not enter the option's accessible name.
+  for (const [index, label] of ['Low', 'Medium', 'High', 'Locked'].entries()) {
+    await expect(options.nth(index)).toHaveAccessibleName(label)
+  }
   const highChip = list.getByRole('option', { name: 'High' }).locator('[data-chip-color]')
   await expect(highChip).toHaveAttribute('data-chip-color', 'error')
   await expect(highChip).toHaveAttribute('data-chip-icon', 'warning')
+  await expect(highChip.locator('svg')).toHaveAttribute('aria-hidden', 'true')
   const search = page.getByRole('textbox', { name: 'Search Priority options' })
   await search.fill('lo')
   await expect(list.getByRole('option')).toHaveText(['Low', 'Locked'])

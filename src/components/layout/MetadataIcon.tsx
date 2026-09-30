@@ -18,12 +18,14 @@
  * @file MetadataIcon — renders a QQQ `QIcon` (name, path, color) declared in backend metadata.
  */
 
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { FileBarChart, FolderOpen, LayoutGrid, Table2, Workflow, type LucideIcon } from 'lucide-react'
 
 import type { QIcon } from '@/types'
 import { cn } from '@/lib/utils/cn'
 import { materialIconComponent, normalizeMaterialIconName } from '@/lib/utils/material-icons'
+
+const LegacyMaterialIcon = lazy(() => import('@/components/ui/LegacyMaterialIcon').then((module) => ({ default: module.LegacyMaterialIcon })))
 
 /** Kind of metadata object the icon belongs to; selects the fallback glyph. */
 export type MetadataIconKind = 'app' | 'table' | 'process' | 'report' | 'section'
@@ -55,7 +57,8 @@ export interface MetadataIconProps {
  *
  * - `icon.path` renders an `<img>` (as Material Dashboard does).
  * - `icon.name` renders the matching Lucide glyph; `icon.color` sets its color.
- * - No icon, or a name without a mapping, renders the fallback for `kind`.
+ * - Valid names without a Lucide mapping use a locally served legacy glyph.
+ * - No icon, or an unknown name, renders the fallback for `kind`.
  *
  * The element is decorative (`aria-hidden`); the adjacent label names the item.
  * `data-qqq-icon` carries the declared name (or `path`/`none`), and
@@ -91,6 +94,13 @@ export function MetadataIcon({ icon, iconName, kind = 'section', className, qqqI
     'data-qqq-icon': name ? normalizeMaterialIconName(name) : 'none',
     'data-qqq-icon-fallback': Icon ? undefined : 'true',
     'data-qqq-id': qqqId,
+  }
+  if (!Icon && name) {
+    return (
+      <Suspense fallback={React.createElement(FALLBACK[kind], props)}>
+        <LegacyMaterialIcon name={name} fallback={FALLBACK[kind]} {...props} />
+      </Suspense>
+    )
   }
   return React.createElement(Icon ?? FALLBACK[kind], props)
 }

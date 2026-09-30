@@ -19,7 +19,7 @@
  */
 'use client'
 
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import {
   AlertTriangle, ArrowDown, ArrowUp, BarChart3, BadgeAlert, BellPlus, Blocks, Braces, Calendar, Check,
   Circle, Clock, FileText, Info, Lock, MapPin, Package, Settings, Star, Trophy, User, Users,
@@ -28,6 +28,8 @@ import type { LucideIcon } from 'lucide-react'
 
 import { materialIconComponent } from '@/lib/utils/material-icons'
 import { cn } from '@/lib/utils/cn'
+
+const LegacyMaterialIcon = lazy(() => import('@/components/ui/LegacyMaterialIcon').then((module) => ({ default: module.LegacyMaterialIcon })))
 
 /** Material icon names used by QQQ widgets, mapped to the closest Lucide glyph. */
 const ICONS: Record<string, LucideIcon> = {
@@ -74,13 +76,30 @@ interface WidgetIconProps {
 
 /**
  * The glyph for a Material Icons name: the widget map first, then the shared metadata
- * icon map (any name QQQ metadata uses), else a neutral circle.
+ * icon map. The renderer handles legacy font names and genuinely unknown names.
  *
  * @param name - Material Icons name.
- * @returns The Lucide glyph.
+ * @returns The existing Lucide glyph, or undefined when there is no mapping.
  */
-export function widgetGlyph(name: string): LucideIcon {
-  return ICONS[name] ?? materialIconComponent(name) ?? Circle
+export function widgetGlyph(name: string): LucideIcon | undefined {
+  return Object.prototype.hasOwnProperty.call(ICONS, name) ? ICONS[name] : materialIconComponent(name)
+}
+
+/**
+ * Renders an existing widget glyph, a valid legacy glyph, or the unknown-name circle.
+ * @param props - Backend icon name and SVG sizing properties.
+ * @returns A decorative widget glyph.
+ */
+function WidgetGlyph({ name, ...props }: React.SVGProps<SVGSVGElement> & { name: string }) {
+  const Glyph = widgetGlyph(name)
+  if (!Glyph && name) {
+    return (
+      <Suspense fallback={React.createElement(Circle, props)}>
+        <LegacyMaterialIcon name={name} fallback={Circle} {...props} />
+      </Suspense>
+    )
+  }
+  return React.createElement(Glyph ?? Circle, props)
 }
 
 /**
@@ -91,7 +110,6 @@ export function widgetGlyph(name: string): LucideIcon {
  * @returns An `aria-hidden` span wrapping the glyph.
  */
 export function WidgetIcon({ name, color, className, qqqId, style }: WidgetIconProps) {
-  const Glyph = widgetGlyph(name)
   return (
     <span
       aria-hidden="true"
@@ -100,7 +118,7 @@ export function WidgetIcon({ name, color, className, qqqId, style }: WidgetIconP
       data-qqq-id={qqqId}
       style={{ color, display: 'inline-flex', alignItems: 'center', ...style }}
     >
-      {React.createElement(Glyph, { className: 'h-full w-full', style: { width: '1em', height: '1em' } })}
+      <WidgetGlyph name={name} className="h-full w-full" style={{ width: '1em', height: '1em' }} />
     </span>
   )
 }
@@ -144,7 +162,6 @@ export function WidgetIconTile({ name, path, color, className, filled = true, qq
       </span>
     )
   }
-  const Glyph = widgetGlyph(name ?? '')
   return (
     <span
       aria-hidden="true"
@@ -153,7 +170,7 @@ export function WidgetIconTile({ name, path, color, className, filled = true, qq
       data-qqq-id={qqqId}
       data-icon-name={name}
     >
-      {React.createElement(Glyph, { style: { width: '1em', height: '1em' } })}
+      <WidgetGlyph name={name ?? ''} style={{ width: '1em', height: '1em' }} />
     </span>
   )
 }

@@ -487,8 +487,9 @@ final class WidgetsFixtures
       add(qInstance, widget("accBlocks", WidgetType.COMPOSITE, "Owned Blocks").withGridColumns(12));
       add(qInstance, widget("accBlocksUnknown", WidgetType.COMPOSITE, "Owned Unknown Block").withGridColumns(6));
       add(qInstance, widget("accLeafBlock", WidgetType.COMPOSITE, "Owned Leaf Block").withGridColumns(6));
+      add(qInstance, widget("accLegacyIcons", WidgetType.COMPOSITE, "Owned Legacy Icons").withGridColumns(12).withIcon("account_balance_wallet"));
       qInstance.addApp(new QAppMetaData().withName(BLOCKS_APP).withLabel("Widget Blocks").withIcon(new QIcon("view_quilt"))
-         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accLeafBlock", "accHealthy")));
+         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accLeafBlock", "accHealthy", "accLegacyIcons")));
    }
 
 
@@ -1067,6 +1068,7 @@ final class WidgetsFixtures
                yield (parent);
             }
             case "accBlocks" -> allBlocks();
+            case "accLegacyIcons" -> legacyIcons();
             case "accBlocksUnknown" -> new CompositeWidgetData().withBlock(new BigNumberBlockData()
             {
                /*******************************************************************************
@@ -1228,6 +1230,24 @@ final class WidgetsFixtures
          throw (new QException("Owned host record not found"));
       }
       return (record);
+   }
+
+
+
+   /*******************************************************************************
+    ** Valid legacy names absent from the Next Lucide map, supplied by real metadata.
+    *******************************************************************************/
+   private static CompositeWidgetData legacyIcons()
+   {
+      CompositeWidgetData data = new CompositeWidgetData().withLayout(CompositeWidgetData.Layout.FLEX_COLUMN);
+      for(String name : List.of("3d_rotation", "account_balance_wallet", "airline_seat_flat", "battery_6_bar", "filter_9_plus", "60fps"))
+      {
+         data.addBlock(new CompositeWidgetData().withLayout(CompositeWidgetData.Layout.FLEX_ROW)
+            .withBlock(new IconBlockData().withBlockId("legacy-" + name).withValues(new IconValues().withName(name))
+               .withStyles(new IconStyles().withColor("#2563eb").withFontSize("24px")))
+            .withBlock(new TextBlockData().withValues(new TextValues().withText(name))));
+      }
+      return (data);
    }
 
 

@@ -1016,9 +1016,10 @@
         "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/blocks/"
       ],
-      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks",
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks and accLegacyIcons",
       "scenarios": [
-        "TEXT, BIG_NUMBER, UP_OR_DOWN_NUMBER, NUMBER_ICON_BADGE, ICON, TABLE_SUB_ROW_DETAIL_ROW, PROGRESS_BAR, DIVIDER, IMAGE, AUDIO, INPUT_FIELD, BUTTON"
+        "TEXT, BIG_NUMBER, UP_OR_DOWN_NUMBER, NUMBER_ICON_BADGE, ICON, TABLE_SUB_ROW_DETAIL_ROW, PROGRESS_BAR, DIVIDER, IMAGE, AUDIO, INPUT_FIELD, BUTTON",
+        "Unmapped legacy icon names render local glyphs in light/dark desktop/mobile modes; metadata navigation and main tiles preserve color, sizing, existing Lucide mappings and same-origin font delivery"
       ],
       "negative": [],
       "issues": [
