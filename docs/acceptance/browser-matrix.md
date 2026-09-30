@@ -18,6 +18,14 @@ For example, WID-073 checks report column totals and the exported value distribu
 against SQL for the active filter, then verifies cancellation leaves saved data unchanged.
 Opening the statistics dialog alone is insufficient evidence of that workflow.
 
+## RC2 published checkpoint — 2026-09-29
+
+Published source `0905cfb` / `v1.0.0-RC.2` passed **563 Chromium tests and all 390 required rows** in both its PR and tag runs. The [completed tag run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36642612560) also passed all **538 mobile tests**. WebKit passed 561 and failed QRY-030 (density menu) and RPT-012 (internal navigation error); Firefox passed 561 and failed PRC-061 (bulk-load default selection) and INT-011 (failed-save feedback); tablet passed 537 and failed QRY-030. No tests skipped or passed through retries. The overall run failed, and failure causes remain under investigation.
+
+The earlier PR run had a different set of secondary-browser failures. Both sets remain recorded in the [RC2 release notes](../releases/1.0.0-RC.2.md); a passing later scenario does not establish why an earlier failure occurred. The published Maven JAR was independently downloaded, signature/checksum verified, resolved by a fresh consumer and exercised in five Chromium workflows. Both container architectures are published; the arm64 image passed runtime HTML/JavaScript checks. RC2 is immutable and final 1.0 remains on hold.
+
+The preparation checkpoints below are historical results and do not supersede this published-artifact evidence.
+
 ## Post-RC1 checkpoint — 2026-09-29
 
 The report capability candidate `2221999` passed **562 Chromium tests**, all 390 required rows, zero failures/skips/flaky tests in [CI](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36633453712). WebKit passed 561 with one QRY-030 failure: the density option did not appear after a trigger tap. Its trace is retained and the cause remains unproven. Firefox passed 560 with two failures: NAV-014 reported an owned embedded-page request failure during navigation; SEC-003 timed out awaiting its initial record row, before the create-restriction assertions. The final screenshot shows the row, and the trace shows a roughly 15-second delay before the query was sent; the cause remains unproven. Mobile passed all 537 tests; tablet passed 536 with one QRY-030 density-menu timeout matching the desktop WebKit symptom. The run is complete and failed overall. These results precede the child-export correction.
