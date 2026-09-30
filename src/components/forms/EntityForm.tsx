@@ -759,7 +759,10 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     setAssociations((current) => ({ ...current, [name]: records }))
   }, [])
   const setFormValues = useCallback((values: Record<string, unknown>) => {
-    for (const [name, value] of Object.entries(values)) setValue(name, value, { shouldDirty: true })
+    // Widgets clear fields with null; keep the same form representation as field adjusters.
+    for (const [name, value] of Object.entries(values)) {
+      setValue(name, value === null ? clearedValue(formTableRef.current, name) : value, { shouldDirty: true })
+    }
   }, [setValue])
   const registerValidator = useCallback((key: string, validate: (() => string[]) | null) => {
     if (validate) validatorsRef.current.set(key, validate)

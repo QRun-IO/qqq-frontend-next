@@ -526,7 +526,7 @@
     },
     {
       "id": "WID-029",
-      "feature": "pivotTableSetup widget shows the saved report's pivot definition",
+      "feature": "pivotTableSetup widget shows, edits and clears the saved report's pivot definition",
       "source": [
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/SavedReportsMetaDataProvider.java",
@@ -534,10 +534,16 @@
       ],
       "fixture": "prime-sharing savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java owned pivot saved report",
       "scenarios": [
-        "rows/values labels from the source table"
+        "rows/values labels from the source table",
+        "modal OK updates only the host draft; host Save persists rows, columns and aggregate values with SQL readback and reopen",
+        "keyboard row reorder and value move preserve saved configuration",
+        "turning the pivot off clears the stored definition on host Save"
       ],
       "negative": [
-        "report without pivot shows message"
+        "report without pivot shows message",
+        "missing row fields and aggregate functions keep the editor open",
+        "Cancel discards added fields without changing the database",
+        "used group/value fields are excluded from choices; changing a numeric value to text clears an incompatible aggregate"
       ],
       "issues": [
         "#550"
