@@ -1108,10 +1108,11 @@
         "qqq-frontend-material-dashboard/src/qqq/pages/records/developer/RapiDocReact.tsx",
         "qqq-middleware-api/src/main/java/com/kingsrook/qqq/api/javalin/QJavalinApiHandler.java (/apis.json, versions.json, openapi.json)"
       ],
-      "fixture": "stock sample tables (the sample classpath has no qqq-middleware-api, so no application APIs)",
+      "fixture": "recordLab has no application APIs; person is exposed through the owned Acceptance API",
       "scenarios": [
         "developer page for a table keeps its metadata sections and shows the API Docs & Playground section",
-        "with no application APIs it shows \"This table is not available in any APIs.\" and no API or Version selectors"
+        "with no application APIs it shows \"This table is not available in any APIs.\" and no API or Version selectors",
+        "OpenAPI download and new-tab buttons remain fully visible before interaction at desktop, phone and 320px widths in light/dark modes; pointer/touch downloads yield the real specification and keyboard navigation opens its URL"
       ],
       "negative": [
         "a viewer persona sees the same empty state and cannot fetch any table spec"

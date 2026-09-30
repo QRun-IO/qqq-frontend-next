@@ -520,3 +520,11 @@ The main composition matches the original. RapiDoc's inner clipping is inherited
 Original Next and RC6 both have an inherited dark playground link contrast defect (2.12:1). Focused browser checks also reproduced light contact/status contrast defects. An isolated follow-up applies existing theme tokens without changing layout. Four final desktop/mobile light/dark cases pass, including hovered controls and Preferences changes, with no failures, skips, flaky outcomes or report errors. All four final screenshots were directly inspected after transitions settled. Evidence is retained under `test-results/visual-review/api-playground-contrast/` in the original checkout.
 
 This is scoped color verification, not whole-product visual approval. Narrow-screen inner clipping, expanded endpoint states and additional application palettes remain open. RC6 is unchanged.
+
+## September 30 — API specification controls in narrow panels
+
+Reproduced clipped specification buttons against the packaged RC7 candidate before any focus/click could conceal overflow by scrolling hidden ancestors. The follow-up lets RapiDoc fit its panel and uses a named overview container plus public CSS parts to wrap only the specification actions at narrow widths. It adds no dependency and does not mutate the shadow DOM.
+
+Twelve real-backend desktop/mobile workflows pass: default device and 320px widths, light/dark themes, complete visibility, actual specification download, keyboard new-tab action, contrast and live Preferences changes. Final phone screenshots were directly inspected. At 1440px, the full playground screenshot is byte-identical to RC7 (SHA256 `ec6d108d5d632d1ee0b3a3ecd6c61ae9279bee705facd2a3b9e422d2e0f1ae37`), and overview/button geometry matches exactly.
+
+All 1,904 units, types, lint/license, default production export and unchanged bundle budgets pass. Evidence, including earlier test/setup failures, is retained under original-checkout `test-results/visual-review/api-playground-width/`. This is a separate follow-up, not part of frozen RC7. Expanded endpoint states, additional application palettes and whole-product visual approval remain open.

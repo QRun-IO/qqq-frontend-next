@@ -121,7 +121,7 @@ export function TableApiDocs({ tableName, primaryColor }: TableApiDocsProps) {
 
   return (
     <section
-      className="overflow-hidden rounded-xl border border-border bg-card"
+      className="@container overflow-hidden rounded-xl border border-border bg-card"
       aria-labelledby="table-dev-api-docs-heading"
       data-qqq-id="table-dev-api-docs"
     >
@@ -241,7 +241,7 @@ function RapiDocViewer({ specUrl, primaryColor }: { specUrl: string; primaryColo
     'regular-font': "var(--font-inter, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)",
     'mono-font': 'Monaco, Menlo, Consolas, source-code-pro, monospace',
     style: {
-      display: 'block', height: '75vh', width: '100%',
+      display: 'block', height: '75vh', width: '100%', minWidth: 0,
       // RapiDoc's shadow theme cannot inherit dashboard utility text colors.
       // Keep its accent and inverse button text paired when adapting dark mode.
       ...(isDarkMode

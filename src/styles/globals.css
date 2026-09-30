@@ -3,6 +3,24 @@
 /* ThemeProvider owns the mode; the OS must not independently restyle components. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* RapiDoc's overview has a negative info margin and fixed-width action buttons.
+   Use its public CSS parts to keep the controls inside narrow dashboard panels. */
+@container (max-width: 767px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(section-overview) {
+    padding-inline: 16px;
+    container: qqq-api-overview / inline-size;
+  }
+}
+
+@container qqq-api-overview (max-width: 767px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(btn) {
+    min-width: 0;
+    flex: 1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* Register semantic colors with Tailwind v4's utility system */
 @theme {
   /* Surface colors */
