@@ -487,3 +487,10 @@ The embedded RapiDoc viewer uses its own shadow DOM. Next applies existing dashb
 ### TIME block correction (RC7)
 
 Plain process and standalone TIME blocks now use a one-second native input step, matching regular/shared form fields. This permits second-level clock values without a minute-step validation error and makes native stepping advance one second. TIME values remain local clock strings, with no timezone conversion. This correction is published in RC7 at `f65cf6b`; earlier RCs remain unchanged.
+
+
+### Narrow API controls and LONG validation (RC8 candidate)
+
+The API specification Download and View actions fit narrow panels, including 320px phones, and wrap their labels when necessary. Their download/new-tab behavior and the original wide layout are preserved. This correction is not included in RC7.
+
+When the frontend receives LONG range bounds, invalid integer text produces a field error before range comparisons run. Integer-string bounds retain exact precision beyond JavaScript's safe-number range; optional blanks and required-field messages retain their existing behavior. This describes the frontend schema's supported inputs, not a new backend metadata contract. The RC8 candidate includes this correction; RC7 does not.

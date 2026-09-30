@@ -225,3 +225,9 @@ Never log or persist the access token, and never publish OAuth client secrets in
 ### Script editor suggestions
 
 `CodeEditor` autocomplete is opt-in from `ScriptEditorDialog`; keep other metadata code fields unchanged unless their contract calls for it. QQQ helpers, language keywords and file identifiers are local suggestions. Preserve native undo/redo, composition input, read-only behavior, caret/selection validation, and Escape-then-Tab focus escape. `records/script-completions.spec.ts` verifies loaded-revision undo/redo, prefix and pointer/touch insertion, both-theme accessibility, and SQL-backed save/reload. Native browsers group consecutive edits differently; do not claim every insertion creates a separate undo transaction.
+
+
+### RC8 candidate implementation notes
+
+- Keep RapiDoc width handling on its public CSS parts. The named `qqq-api-overview` container restricts button sizing/wrapping to overview specification actions; do not apply it to authentication or endpoint controls. Test full visibility before focus can scroll a clipped control into view, real JSON downloads, keyboard new-tab behavior, both themes, and unchanged wide layout.
+- LONG range validation must run only after integer syntax succeeds. Preserve integer-string bounds as `BigInt` values; converting through `Number` rounds large bounds. Keep the mixed numeric comparison for fractional numeric bounds. Test `safeParse` error results without exceptions, exact positive/negative boundaries, optional blanks, and correction/submission through block and shared process forms. These changes do not introduce a backend range-metadata contract.
