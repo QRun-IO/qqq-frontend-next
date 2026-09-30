@@ -773,7 +773,8 @@
         "Every theme scenario resets instance metadata before navigation",
         "Preferences exposes accessible Light and Dark choices; keyboard changes, real reload persistence, reset and light/dark dialog accessibility are verified",
         "Application theme override is explained in Preferences without erasing the saved browser appearance choice",
-        "Pivot validation meets text contrast in default light, default dark and a configured orange error theme"
+        "Pivot validation meets text contrast in default light, default dark and a configured orange error theme",
+        "API playground visible text and hovered controls meet contrast in light/dark themes; Preferences changes update the rendered palette without reload"
       ],
       "negative": [],
       "issues": [
