@@ -674,6 +674,7 @@ export function DynamicFormField({
               required={field.isRequired}
               placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : placeholder}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}

@@ -166,3 +166,38 @@ for (const process of ['prcInputCase', 'prcTextCase']) {
     ])
   })
 }
+
+for (const submission of ['Enter', 'Submit'] as const) {
+  test(`[PRC-066] configured password case behaviors preserve masking and persist through ${submission} @mobile`, async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    await openProcess(page, 'prcPasswordCase')
+    const edit = await expectScreen(page, 'edit', 'Edit Codes')
+    for (const [label, inserted, expected] of [
+      ['Upper Code', 'ß', 'ASSXCD'],
+      ['Lower Code', 'İ', 'ai\u0307xcd'],
+    ]) {
+      const input = edit.getByLabel(new RegExp(`^${label}\\s*\\*?$`))
+      await expect(input).toHaveAttribute('type', 'password')
+      await input.fill('abcd')
+      await input.focus()
+      await input.evaluate((node: HTMLInputElement) => node.setSelectionRange(1, 2))
+      await page.keyboard.insertText(inserted)
+      expect(await input.evaluate((node: HTMLInputElement) => [node.selectionStart, node.selectionEnd])).toEqual([3, 3])
+      await input.pressSequentially('X')
+      await expect(input).toHaveValue(expected)
+      const control = input.locator('..')
+      await control.getByRole('button', { name: 'Show password' }).click()
+      await expect(input).toHaveAttribute('type', 'text')
+      await expect(input).toHaveValue(expected)
+      await control.getByRole('button', { name: 'Hide password' }).click()
+      await expect(input).toHaveAttribute('type', 'password')
+    }
+    if (submission === 'Enter') await edit.getByLabel(/^Lower Code\s*\*?$/).press('Enter')
+    else await advance(page, 'Submit')
+    await expectScreen(page, 'done', 'Stored Codes')
+    expect(await backend.sql('select action_code, scan_code from prc_decision_log order by action_code')).toEqual([
+      { action_code: 'lowerCode', scan_code: 'ai\u0307xcd' },
+      { action_code: 'upperCode', scan_code: 'ASSXCD' },
+    ])
+  })
+}

@@ -202,6 +202,43 @@ describe('process screens: blocks (#725)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ stamp: instant }, undefined))
   })
 
+  describe.each(['block', 'form'])('password behavior in a %s editor', (host) => {
+    it.each([
+      ['TO_UPPER_CASE', 'ABCD', 'ß', 'ASSCD', 'ASSXCD'],
+      ['TO_LOWER_CASE', 'abcd', 'İ', 'ai\u0307cd', 'ai\u0307xcd'],
+      [undefined, 'abcD', 'ß', 'aßcD', 'aßXcD'],
+    ])('applies only the configured %s behavior while preserving masking and submitted text', async (behavior, initial, inserted, expanded, submitted) => {
+      const user = userEvent.setup()
+      const secret = field('secret', 'Secret', { type: 'PASSWORD', behaviors: behavior ? [behavior] : [] })
+      const step: QFrontendStepMetaData = host === 'block'
+        ? { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+          { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: secret } },
+        ] } }] }
+        : { name: 'edit', label: 'Edit', components: [{ type: 'EDIT_FORM' }], formFields: [secret] }
+      const { onSubmit } = renderStep(step, {})
+      const input = screen.getByLabelText('Secret') as HTMLInputElement
+      expect(input).toHaveAttribute('type', 'password')
+      await user.type(input, 'abcD')
+      expect(input).toHaveValue(initial)
+      input.setSelectionRange(1, 2)
+      await user.keyboard(inserted!)
+      expect(input).toHaveValue(expanded)
+      const insertionPoint = behavior ? 3 : 2
+      expect([input.selectionStart, input.selectionEnd]).toEqual([insertionPoint, insertionPoint])
+      await user.keyboard('X')
+      expect(input).toHaveValue(submitted)
+      if (host === 'form' || behavior) {
+        await user.click(screen.getByRole('button', { name: 'Show password' }))
+        expect(input).toHaveAttribute('type', 'text')
+        expect(input).toHaveValue(submitted)
+        await user.click(screen.getByRole('button', { name: 'Hide password' }))
+        expect(input).toHaveAttribute('type', 'password')
+      }
+      await user.click(screen.getByRole('button', { name: 'Submit' }))
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ secret: submitted }, undefined))
+    })
+  })
+
   it.each([
     ['TO_UPPER_CASE', 'ABXD', 'Enter'],
     ['TO_LOWER_CASE', 'abxd', 'Enter'],

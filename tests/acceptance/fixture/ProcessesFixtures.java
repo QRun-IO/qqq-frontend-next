@@ -226,6 +226,7 @@ public final class ProcessesFixtures
       instance.addProcess(defineInputFocus());
       instance.addProcess(defineInputCase(QFieldType.STRING));
       instance.addProcess(defineInputCase(QFieldType.TEXT));
+      instance.addProcess(defineInputCase(QFieldType.PASSWORD));
       instance.addProcess(defineInputDateTimes());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
@@ -827,7 +828,13 @@ public final class ProcessesFixtures
          .withLabel("Upper Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_UPPER_CASE)).withSubmitOnEnter(true)));
       blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("lowerCode", type)
          .withLabel("Lower Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_LOWER_CASE)).withSubmitOnEnter(true)));
-      return new QProcessMetaData().withName(type == QFieldType.TEXT ? "prcTextCase" : "prcInputCase").withLabel("Input Case Lab")
+      String name = switch(type)
+      {
+         case TEXT -> "prcTextCase";
+         case PASSWORD -> "prcPasswordCase";
+         default -> "prcInputCase";
+      };
+      return new QProcessMetaData().withName(name).withLabel("Input Case Lab")
          .withStep(backend("prepare", PrepareInputCaseStep.class))
          .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Codes")
             .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
