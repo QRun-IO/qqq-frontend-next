@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -200,6 +200,24 @@ describe('process screens: blocks (#725)', () => {
     expect((screen.getByLabelText('Timestamp') as HTMLInputElement).value).toMatch(/^2024-03-10T01:30:07(?:\.000)?$/)
     await user.click(screen.getByRole('button', { name: 'Submit' }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ stamp: instant }, undefined))
+  })
+
+  it.each(['block', 'form'])('accepts and submits seconds through a %s time editor', async (host) => {
+    const user = userEvent.setup()
+    const clock = field('clock', 'Clock', { type: 'TIME' })
+    const step: QFrontendStepMetaData = host === 'block'
+      ? { name: 'edit', label: 'Edit', components: [{ type: 'WIDGET', values: { isAdHocWidget: true, blocks: [
+        { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: clock } },
+      ] } }] }
+      : { name: 'edit', label: 'Edit', components: [{ type: 'EDIT_FORM' }], formFields: [clock] }
+    const { onSubmit } = renderStep(step, { clock: '09:30:07' })
+    const input = screen.getByLabelText('Clock') as HTMLInputElement
+    expect(input.value).toBe('09:30:07')
+    expect(input.validity.stepMismatch).toBe(false)
+    fireEvent.change(input, { target: { value: '14:25:43' } })
+    expect(input.checkValidity()).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ clock: '14:25:43' }, undefined))
   })
 
   describe.each(['block', 'form'])('password behavior in a %s editor', (host) => {

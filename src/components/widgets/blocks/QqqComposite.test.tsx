@@ -432,6 +432,24 @@ describe('QqqComposite', () => {
     await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { stamp: instant }))
   })
 
+  it('accepts seconds in a standalone time block and submits the entered time', async () => {
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: '09:30:07', submitOnEnter: true, fieldMetaData: {
+        name: 'clock', label: 'Clock', type: 'TIME', isEditable: true,
+      } } },
+    ] })
+    const input = screen.getByLabelText('Clock') as HTMLInputElement
+    expect(input.value).toBe('09:30:07')
+    expect(input.validity.stepMismatch).toBe(false)
+    fireEvent.change(input, { target: { value: '14:25:43' } })
+    expect(input.checkValidity()).toBe(true)
+    const beforeStep = input.valueAsNumber
+    input.stepUp()
+    expect(input.valueAsNumber).toBe(beforeStep + 1000)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { clock: expect.stringMatching(/^14:25:44(?:\.000)?$/) }))
+  })
+
   it('uses metadata choice and formatted number editors in standalone input blocks', async () => {
     const user = userEvent.setup()
     const action = vi.fn()

@@ -128,3 +128,21 @@ test('[WID-074] scrolling over numeric input blocks preserves the entered value'
   await expect(text).toBeFocused()
   await expect(text).toHaveValue('Owned seeded text')
 })
+
+
+test('[WID-074] standalone time blocks support second-level native edits @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await open(page, '/app/widgetInputEditors')
+  await expectLoaded(page, 'accTypedInputs')
+  const clock = widget(page, 'accTypedInputs').getByLabel('Owned Clock', { exact: true })
+  await clock.fill('14:25:43')
+  await expect(clock).toHaveValue('14:25:43')
+  expect(await clock.evaluate((node: HTMLInputElement) => {
+    const before = node.valueAsNumber
+    node.stepUp()
+    return node.valueAsNumber - before
+  })).toBe(1000)
+  await expect(clock).toHaveValue('14:25:44')
+  expect(await clock.evaluate((node: HTMLInputElement) => node.checkValidity())).toBe(true)
+})

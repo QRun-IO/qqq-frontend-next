@@ -884,12 +884,15 @@ public final class ProcessesFixtures
       ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
       blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("plainStamp", QFieldType.DATE_TIME).withLabel("Plain Timestamp"))));
       blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("sharedStamp", QFieldType.DATE_TIME).withLabel("Shared Timestamp").withDisplayFormat("%tF %<tT"))));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("plainClock", QFieldType.TIME).withLabel("Plain Clock"))));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("sharedClock", QFieldType.TIME).withLabel("Shared Clock").withDisplayFormat("%tT"))));
       return new QProcessMetaData().withName("prcInputDateTimes").withLabel("Input Date Times")
          .withStep(backend("prepare", PrepareDateTimesStep.class))
          .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Timestamps")
             .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks))
             .withComponent(component(QComponentType.EDIT_FORM))
             .withFormField(new QFieldMetaData("formStamp", QFieldType.DATE_TIME).withLabel("Form Timestamp"))
+            .withFormField(new QFieldMetaData("formClock", QFieldType.TIME).withLabel("Form Clock"))
             .withFormField(new QFieldMetaData("foldStamp", QFieldType.DATE_TIME).withLabel("Repeated Hour Timestamp")))
          .withStep(backend("store", StoreDateTimesStep.class))
          .withStep(new QFrontendStepMetaData().withName("done").withLabel("Stored Timestamps")
@@ -909,6 +912,10 @@ public final class ProcessesFixtures
             output.addValue(name, "2024-03-10T06:30:07Z");
          }
          output.addValue("foldStamp", "2024-11-03T06:30:07Z");
+         for(String name : List.of("plainClock", "sharedClock", "formClock"))
+         {
+            output.addValue(name, "09:30:07");
+         }
       }
    }
 
@@ -919,7 +926,7 @@ public final class ProcessesFixtures
       @Override
       public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
       {
-         for(String name : List.of("plainStamp", "sharedStamp", "formStamp", "foldStamp"))
+         for(String name : List.of("plainStamp", "sharedStamp", "formStamp", "foldStamp", "plainClock", "sharedClock", "formClock"))
          {
             insert("INSERT INTO prc_decision_log (action_code, scan_code) VALUES (?, ?)", name, input.getValueString(name));
          }

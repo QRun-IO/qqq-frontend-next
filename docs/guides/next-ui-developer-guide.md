@@ -483,3 +483,7 @@ RC5 restores the original Next uniform row background; RC4 has alternating row s
 ### API playground theme integration (unpublished follow-up)
 
 The embedded RapiDoc viewer uses its own shadow DOM. Next applies existing dashboard color tokens to its dark accent/inverse pair and light contact/status colors, preserving the surrounding layout. Preferences theme changes apply without reloading the page. Focused Chromium desktop/mobile checks cover the fixture's visible text, hovered controls and live theme changes; expanded endpoint states, arbitrary custom palettes and narrow-screen inner layout still require review. This correction is not included in RC6.
+
+### Unpublished TIME block correction
+
+Plain process and standalone TIME blocks now use a one-second native input step, matching regular/shared form fields. This permits second-level clock values without a minute-step validation error and makes native stepping advance one second. TIME values remain local clock strings, with no timezone conversion. This separate follow-up is not included in RC5 or the RC6 candidate at `7ddf45f`.

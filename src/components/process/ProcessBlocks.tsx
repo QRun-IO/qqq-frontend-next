@@ -213,7 +213,7 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
       <input
         id={inputId}
         type={isBoolean ? 'checkbox' : inputType(field.type)}
-        step={field.type === 'DECIMAL' ? 'any' : field.type === 'DATE_TIME' ? 1 : undefined}
+        step={field.type === 'DECIMAL' ? 'any' : field.type === 'DATE_TIME' || field.type === 'TIME' ? 1 : undefined}
         placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
         autoFocus={values.autoFocus === true}
         data-qqq-autofocus={values.autoFocus === true || undefined}

@@ -26,13 +26,23 @@ for (const edit of [false, true]) {
       await expect(input).toHaveValue('2024-03-10T01:30:07')
       if (edit) await input.fill('2024-03-10T03:30:09')
     }
+    for (const label of ['Plain Clock', 'Shared Clock', 'Form Clock']) {
+      const input = form.getByLabel(label, { exact: true })
+      await expect(input).toHaveValue('09:30:07')
+      expect(await input.evaluate((node: HTMLInputElement) => node.validity.stepMismatch)).toBe(false)
+      if (edit) await input.fill('14:25:43')
+      expect(await input.evaluate((node: HTMLInputElement) => node.checkValidity())).toBe(true)
+    }
     await expect(form.getByLabel('Repeated Hour Timestamp', { exact: true })).toHaveValue('2024-11-03T01:30:07')
     await advance(page, 'Submit')
     await expectScreen(page, 'done', 'Stored Timestamps')
     expect(await backend.sql('select action_code, scan_code from prc_decision_log order by action_code')).toEqual([
       { action_code: 'foldStamp', scan_code: '2024-11-03T06:30:07Z' },
+      { action_code: 'formClock', scan_code: edit ? '14:25:43' : '09:30:07' },
       { action_code: 'formStamp', scan_code: edit ? '2024-03-10T07:30:09Z' : '2024-03-10T06:30:07Z' },
+      { action_code: 'plainClock', scan_code: edit ? '14:25:43' : '09:30:07' },
       { action_code: 'plainStamp', scan_code: edit ? '2024-03-10T07:30:09Z' : '2024-03-10T06:30:07Z' },
+      { action_code: 'sharedClock', scan_code: edit ? '14:25:43' : '09:30:07' },
       { action_code: 'sharedStamp', scan_code: edit ? '2024-03-10T07:30:09Z' : '2024-03-10T06:30:07Z' },
     ])
   })

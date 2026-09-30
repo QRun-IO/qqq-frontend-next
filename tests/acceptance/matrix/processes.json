@@ -1114,7 +1114,8 @@
       "fixture": "prcInputDateTimes with browser timezone America/New_York",
       "scenarios": [
         "Unchanged seeded timestamps preserve seconds and instant across plain/shared blocks and regular form fields, including the repeated autumn DST hour",
-        "Edited timestamps crossing daylight saving submit UTC values verified from backend SQL"
+        "Edited timestamps crossing daylight saving submit UTC values verified from backend SQL",
+        "TIME inputs in plain/shared blocks and forms retain seconds for unchanged and edited submissions, verified through SQL readback."
       ],
       "negative": [
         "Zoned values must not disappear from datetime-local controls or lose their timezone on submission"

@@ -440,7 +440,7 @@ function PlainInputFieldBlock({ block, widgetName, actionCallback }: LeafBlockPr
         {...common}
         type={control}
         value={value}
-        step={control === 'number' && field.type === 'DECIMAL' ? 'any' : control === 'datetime-local' ? 1 : undefined}
+        step={control === 'number' && field.type === 'DECIMAL' ? 'any' : control === 'datetime-local' || control === 'time' ? 1 : undefined}
         placeholder={text(values.placeholder)}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={onKeyDown}
