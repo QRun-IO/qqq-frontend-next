@@ -104,6 +104,22 @@ function initialFilter(value: unknown, table: QTableMetaData, data: FilterAndCol
   return removeUnknownCriteria(table, seeded)
 }
 
+/**
+ * Reorders the offered columns without moving saved columns omitted from the picker.
+ * @param table - Complete metadata, including existing joined columns.
+ * @param columns - Current saved or draft column state.
+ * @param order - New order of the columns offered by the picker.
+ * @returns Column state with omitted columns kept in their current slots.
+ */
+function reorderOfferedColumns(table: QTableMetaData, columns: ColumnsState, order: string[]): ColumnsState {
+  const offered = new Set(order)
+  const queryColumns = getQueryColumns(table)
+  const current = arrangePinnedColumns(orderColumns(queryColumns, columns.columnOrder),
+    effectivePins(queryColumns.map((column) => column.name), columns.columnPins ?? null, table.primaryKeyField))
+  let next = 0
+  return { ...columns, columnOrder: current.map((column) => offered.has(column.name) ? order[next++] : column.name) }
+}
+
 interface PreviewProps {
   table: QTableMetaData
   filter: QQueryFilter
@@ -207,13 +223,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
   }
   const selectionTable = useMemo(() => omitExposedJoins(table, omittedJoins), [table, omittedJoins])
   const queryColumns = getQueryColumns(table)
-  const changeColumnOrder = (columnOrder: string[]) => {
-    const selectable = new Set(columnOrder)
-    const current = arrangePinnedColumns(orderColumns(queryColumns, columns.columnOrder),
-      effectivePins(queryColumns.map((column) => column.name), columns.columnPins ?? null, table.primaryKeyField))
-    let next = 0
-    onColumnsChange({ ...columns, columnOrder: current.map((column) => selectable.has(column.name) ? columnOrder[next++] : column.name) })
-  }
+
   const names = visibleColumnNames(table, columns)
   const joins = previewJoins(table, names, filter)
   const queryKey = JSON.stringify({ booleanOperator: filter.booleanOperator, criteria: filter.criteria, subFilters: filter.subFilters, orderBys: filter.orderBys, names })
@@ -288,7 +298,7 @@ function VariantFilterSetupGrid({ table, filter, onFilterChange, columns, onColu
       {showColumns && !hideColumns && <div className="border-b border-border p-3"><ColumnConfig tableMetaData={selectionTable}
         columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
         onVisibilityChange={(columnVisibility) => onColumnsChange({ ...columns, columnVisibility })}
-        onOrderChange={changeColumnOrder} embedded /></div>}
+        onOrderChange={(order) => onColumnsChange(reorderOfferedColumns(table, columns, order))} embedded /></div>}
       {showFilter && <div className="border-b border-border p-3"><FilterSettingsProvider value={filterSettingsFrom(metaData)}><FilterBuilder tableMetaData={table} omittedJoinTables={omittedJoins} filter={filter} onChange={onFilterChange} /></FilterSettingsProvider></div>}
       {notice && <p role="status" className="p-3 text-sm" data-qqq-id={`filter-preview-notice-${widgetName}`}>{notice}</p>}
       {result.error && <p role="alert" className="p-3 text-sm text-destructive">Preview could not be loaded. Use Refresh preview to try again.</p>}
@@ -361,10 +371,13 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
   const { data: metaData } = useMetaData()
   const { userId } = useQContext()
   const savedViews = useSavedViews(table.name, metaData, userId)
+  const selectionTable = useMemo(() => omitExposedJoins(table, data?.omitExposedJoins), [table, data?.omitExposedJoins])
   const fields = buildFilterFields(table)
-  const defaults = getDefaultQuickFilterFieldNames(table)
+  const offeredFields = buildFilterFields(selectionTable)
+  const offeredNames = new Set(offeredFields.map((field) => field.name))
+  const defaults = getDefaultQuickFilterFieldNames(selectionTable).filter((name) => offeredNames.has(name))
   const basicCheck = canFilterWorkAsBasic(table, filter)
-  const quickNames = [...new Set([...defaults, ...quickFields, ...filter.criteria.map((criterion) => criterion.fieldName)])]
+  const quickNames = [...new Set([...defaults, ...quickFields.filter((name) => offeredNames.has(name)), ...filter.criteria.map((criterion) => criterion.fieldName)])]
   const selectView = (view: SavedView) => {
     const cleaned = removeUnknownCriteria(table, normalizeFilter(view.view.queryFilter, PREVIEW_PAGE_SIZE))
     setFilter(cleaned.filter)
@@ -391,7 +404,7 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
     return { ...current, orderBys }
   })
   const addSort = () => {
-    const field = fields.find(({ name }) => !sorts.some((sort) => sort.fieldName === name))
+    const field = offeredFields.find(({ name }) => !sorts.some((sort) => sort.fieldName === name))
     if (field) changeSort(sorts.length, field.name)
   }
   const backend = toBackendFilter(table, filter)
@@ -428,17 +441,17 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
                 className="min-h-11 text-sm text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring">Reset to New View</button>
             </>}
           </div>
-          {mode === 'basic' ? <QuickFilterBar key={viewRevision} fields={fields.filter((field) => quickNames.includes(field.name))} allFields={fields}
+          {mode === 'basic' ? <QuickFilterBar key={viewRevision} fields={fields.filter((field) => quickNames.includes(field.name))} allFields={offeredFields}
             defaultFieldNames={defaults} customFieldNames={quickNames.filter((name) => !defaults.includes(name))}
             filter={filter} onChange={setFilter} onCustomFieldsChange={setQuickFields} onOpenAdvanced={() => setMode('advanced')} /> :
-            <FilterBuilder tableMetaData={table} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />}
+            <FilterBuilder tableMetaData={table} omittedJoinTables={data?.omitExposedJoins} filter={filter} onChange={setFilter} allowVariables={data?.allowVariables} />}
           {!data?.hideSortBy && <div className="space-y-2 border-t border-border pt-3">
             {(sorts.length ? sorts : [undefined]).map((sort, index) => (
               <div key={index} className="flex flex-wrap items-center gap-3">
                 <label htmlFor={`report-sort-${widgetName}-${index}`} className="text-sm font-medium">{index === 0 ? 'Sort by' : `Then by ${index + 1}`}</label>
                 <select id={`report-sort-${widgetName}-${index}`} value={sort?.fieldName ?? ''} onChange={(event) => changeSort(index, event.target.value)} className="rounded border border-input bg-background p-2 text-sm">
-                  <option value="">No sort</option>{fields.filter((field) => field.name === sort?.fieldName || !sorts.some((used) => used.fieldName === field.name))
-                    .map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+                  <option value="">No sort</option>{fields.filter((field) => field.name === sort?.fieldName || (offeredNames.has(field.name) && !sorts.some((used) => used.fieldName === field.name)))
+                    .map((field) => <option key={field.name} value={field.name} disabled={!offeredNames.has(field.name)}>{field.label}</option>)}
                 </select>
                 {sort && <>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sort.isAscending !== false}
@@ -449,14 +462,14 @@ function EditorDialog({ table, data, values, widgetMetaData, widgetName, onCance
                 </>}
               </div>
             ))}
-            {sorts.length > 0 && sorts.length < fields.length && <button type="button" onClick={addSort}
+            {sorts.length > 0 && offeredFields.some((field) => !sorts.some((sort) => sort.fieldName === field.name)) && <button type="button" onClick={addSort}
               className="rounded px-2 py-2 text-sm text-primary hover:underline" data-qqq-id={`filter-editor-add-sort-${widgetName}`}>+ Add sort</button>}
           </div>}
-        </> : <ColumnConfig tableMetaData={table} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
+        </> : <ColumnConfig tableMetaData={selectionTable} columnVisibility={columns.columnVisibility} columnOrder={columns.columnOrder}
           onVisibilityChange={(visibility) => setColumns((current) => ({ ...current, columnVisibility: visibility }))}
-          onOrderChange={(order) => setColumns((current) => ({ ...current, columnOrder: order }))} embedded />}
+          onOrderChange={(order) => setColumns((current) => reorderOfferedColumns(table, current, order))} embedded />}
         {!data?.hidePreview && <section className="mt-5 space-y-2"><h3 className="text-sm font-semibold">Preview</h3><FilterSetupGrid table={table} filter={filter} onFilterChange={setFilter}
-          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>}
+          columns={columns} onColumnsChange={setColumns} api={api} widgetName={widgetName} editable hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} onEditFilter={() => { setTab('filters'); setMode('advanced') }} /></section>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-4">
         <a href={openInNewWindowHref(table.name, backend)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open in new window</a>
@@ -540,7 +553,7 @@ export function FilterAndColumnsSetupEditor({ widgetMetaData, data, formContext,
         <DialogPrimitive.Portal><DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <DialogPrimitive.Content aria-describedby={undefined} onCloseAutoFocus={restoreFocus} onInteractOutside={(event) => event.preventDefault()}
             data-qqq-id={`filter-editor-${name}`} className="fixed inset-2 z-50 flex flex-col rounded-lg border border-border bg-card shadow-lg focus:outline-none sm:inset-8">
-            <EditorDialog table={omitExposedJoins(table, data?.omitExposedJoins)} data={data} values={values} widgetMetaData={widgetMetaData} widgetName={name}
+            <EditorDialog table={table} data={data} values={values} widgetMetaData={widgetMetaData} widgetName={name}
               initialTab={initialTab}
               onCancel={() => setOpen(false)} onSave={save} disabled={disabled} helpRoles={helpRoles} api={api} />
           </DialogPrimitive.Content>

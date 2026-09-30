@@ -4,7 +4,15 @@ Status: in progress, September 29, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 29, script suggestions
+## Latest checkpoint — September 29, report omitted-join preservation
+
+Inspected the corrected report editor's Filters and sort and Columns tabs in desktop light and dark mode. The existing dialog, tabs, typed filter controls, sort controls, column picker, preview grid and footer remain in use. Saved joined fields remain labelled and editable even when omitted from new choices; the preview still shows their values. This inspection covers the affected state and does not approve the whole report family or the broader original-Next comparison.
+
+Four captures and geometry/runtime results are retained in the local visual-review directory: `report-editor-omission-{light,dark}.png`, `report-editor-omission-columns-{light,dark}.png`, and `report-editor-omission-visual-result.json`. At 1440×1000 the dialog is 1376×936 with 32px margins in both themes, no document overflow and no page errors. The Columns tab keeps its existing internal scrolling. The isolated visual server used a separate sample database and was stopped after capture; owner previews were untouched.
+
+The destructive open-and-OK regression was observed failing before the correction. Current verification: 1,884 unit tests, production export, types, affected lint and three real-backend Chromium report workflows pass; independent review found no further defects. The full current Chromium gate passed 575 tests and all 391 required rows, with zero failures, skips or flaky results. RC3 does not include this follow-up.
+
+## Earlier checkpoint — September 29, script suggestions
 
 Added caret-adjacent suggestions inside the existing script editor: QQQ API/logger helpers, language keywords and file identifiers. The parent dialog, textarea, split panes and syntax overlay are retained. Inspected desktop light/dark captures under `test-results/acceptance/script-completion-evidence`; list bounds and both-theme axe checks pass across all five profiles. This focused review does not approve the whole developer-tools family.
 

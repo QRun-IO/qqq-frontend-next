@@ -23,7 +23,7 @@ import type { QTableMetaData, QWidgetMetaData } from '@/types'
 import type { WidgetFormContext } from './widget-types'
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
-vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: (name: string) => ({ data: name === 'audit' ? audit : table }), useMetaData: () => ({ data: undefined }) }))
+vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: (name: string) => ({ data: name === 'audit' ? audit : name === 'joinedPerson' ? joinedPerson : table }), useMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/context/q-context', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/context/q-context')>()), useQContext: () => ({ userId: 'alice' }) }))
 vi.mock('@/lib/hooks/use-saved-views', () => ({ useSavedViews: () => ({
   isAvailable: true, canStore: true, canDelete: true, isLoading: false, error: null,
@@ -52,20 +52,38 @@ const table = {
   },
 } as unknown as QTableMetaData
 const audit = { ...table, name: 'audit', label: 'Audit', fields: { id: table.fields.id, action: { ...table.fields.firstName, name: 'action', label: 'Action' } } } as QTableMetaData
+const joinedPerson = { ...table, name: 'joinedPerson', exposedJoins: [{ label: 'Team', isMany: false, joinPath: [], joinTable: { name: 'team', label: 'Team', fields: { name: { name: 'name', label: 'Name', type: 'STRING' } } } }] } as unknown as QTableMetaData
 const meta = { name: 'reportSetupWidget', label: 'Filters and Columns' } as QWidgetMetaData
 
 /** Form harness applies only the values passed by the widget's OK action. */
-function FormHarness({ onSetValues, hidePreview = true, hideColumns = false, switchTable = false }: { switchTable?: boolean; onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean; hideColumns?: boolean }) {
-  const [values, setValues] = useState<Record<string, unknown>>({ tableName: 'person', queryFilterJson: '{}', columnsJson: '' })
+function FormHarness({ onSetValues, hidePreview = true, hideColumns = false, switchTable = false, initialValues, omittedJoins }: { initialValues?: Record<string, unknown>; omittedJoins?: string[]; switchTable?: boolean; onSetValues: (next: Record<string, unknown>) => void; hidePreview?: boolean; hideColumns?: boolean }) {
+  const [values, setValues] = useState<Record<string, unknown>>({ tableName: 'person', queryFilterJson: '{}', columnsJson: '', ...initialValues })
   const context: WidgetFormContext = {
     screen: 'recordEdit', values,
     setValues: (next) => { onSetValues(next); setValues((current) => ({ ...current, ...next })) },
     setAssociation: vi.fn(), registerValidator: vi.fn(), tableMetaData: table,
   }
-  return <>{switchTable && <button onClick={() => setValues(current => ({ ...current, tableName: 'audit' }))}>Switch to Audit</button>}<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview, hideColumns }} formContext={context} /></>
+  return <>{switchTable && <button onClick={() => setValues(current => ({ ...current, tableName: 'audit' }))}>Switch to Audit</button>}<FilterAndColumnsSetupWidget widgetMetaData={meta} data={{ type: 'filterAndColumnsSetup', hidePreview, hideColumns, omitExposedJoins: omittedJoins }} formContext={context} /></>
 }
 
 describe('FilterAndColumnsSetupWidget form editor', () => {
+  it('preserves saved omitted-join filters, sorts and columns when accepting the editor', async () => {
+    const user = userEvent.setup()
+    const onSetValues = vi.fn()
+    render(<FormHarness onSetValues={onSetValues} omittedJoins={['team']} initialValues={{
+      tableName: 'joinedPerson',
+      queryFilterJson: JSON.stringify({ criteria: [{ fieldName: 'team.name', operator: 'EQUALS', values: ['Alpha'] }], orderBys: [{ fieldName: 'team.name', isAscending: true }] }),
+      columnsJson: JSON.stringify({ columns: [{ name: 'id', isVisible: true }, { name: 'team.name', isVisible: true, width: 240 }, { name: 'firstName', isVisible: true }] }),
+    }} />)
+    await user.click(screen.getByRole('button', { name: 'Edit Filters and Columns' }))
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    const saved = onSetValues.mock.lastCall![0] as Record<string, string>
+    expect(JSON.parse(saved.queryFilterJson)).toMatchObject({ criteria: [{ fieldName: 'team.name', operator: 'EQUALS', values: ['Alpha'] }], orderBys: [{ fieldName: 'team.name', isAscending: true }] })
+    const visible = JSON.parse(saved.columnsJson).columns.filter((column: { isVisible: boolean }) => column.isVisible)
+    expect(visible.map((column: { name: string }) => column.name)).toEqual(['id', 'team.name', 'firstName'])
+    expect(visible[1].width).toBe(240)
+  })
+
   it('removes incompatible nested criteria, comparison fields and sorts after a table change', () => {
     const groupDefaults = { booleanOperator: 'AND' as const, skip: 0, limit: 20 }
     const { filter, removed } = removeUnknownCriteria(audit, {

@@ -196,7 +196,8 @@ export const filterHasVariables = hasFilterVariables
 
 /**
  * The table without the exposed joins the widget omits (`omitExposedJoins`, by join table name),
- * so the filter builder, sort, column picker and grid do not offer them (Material `FieldListMenu`).
+ * for field choices only (Material `FieldListMenu`). Keep full metadata when reading saved
+ * filters, columns or query results so this restriction cannot discard existing report data.
  *
  * @param table - The table metadata.
  * @param omitExposedJoins - Join table names to omit.
