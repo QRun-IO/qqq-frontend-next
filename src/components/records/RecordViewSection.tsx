@@ -290,7 +290,7 @@ export function RecordViewSection({
                 <dt className="text-sm font-semibold text-foreground">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
-                <dd className="min-w-0 [overflow-wrap:anywhere]">
+                <dd className={cn('min-w-0 [overflow-wrap:anywhere]', defaultFieldColumns === 1 && 'text-sm text-foreground')}>
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>

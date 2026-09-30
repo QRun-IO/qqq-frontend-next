@@ -47,3 +47,24 @@ test('[REC-004] an unconfigured selected section fills its panel with responsive
   }
   await expectNoSidewaysScroll(page)
 })
+
+for (const mode of ['light', 'dark']) {
+  test(`[REC-004] overview fields retain original Next spacing in ${mode} mode`, async ({ page, backend, diagnostics }) => {
+    void backend
+    void diagnostics
+    await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+    await open(page, '/app/person/1')
+    await expect(page.locator('html')).toHaveAttribute('data-theme', mode)
+    const panel = page.getByRole('tabpanel', { name: 'Overview', exact: true })
+    const email = panel.locator('[data-qqq-id="record-field-email"]')
+    const birthDate = panel.locator('[data-qqq-id="record-field-birthDate"]')
+    await expect(email).toContainText('avery@example.invalid')
+    await expect(birthDate).toContainText('1990-01-15')
+    await expect(email.locator('dd')).toHaveCSS('line-height', '20px')
+    const emailBox = (await email.boundingBox())!
+    const birthDateBox = (await birthDate.boundingBox())!
+    expect(emailBox.height).toBe(42)
+    expect(birthDateBox.y - emailBox.y).toBe(58)
+    await expectNoSidewaysScroll(page)
+  })
+}
