@@ -118,7 +118,7 @@ describe('ProcessStepScreen', () => {
       formFields: [field('category', 'Category'), field('color', 'Color', { possibleValueSourceName: 'colors' })],
     }
     renderScreen({ step: pick, values: { category: 'warm', color: 'green', records: [{ id: 1 }] } })
-    expect(await screen.findByText('Green')).toBeInTheDocument()
+    expect(await screen.findByText('Green', { selector: '[data-qqq-id="process-view-value-color"]' })).toBeInTheDocument()
     expect(fetchProcessPossibleValues).toHaveBeenCalledWith('lab', 'color', { ids: 'green', formValues: { category: 'warm', color: 'green' } })
     vi.mocked(fetchProcessPossibleValues).mockClear()
     await user.click(screen.getByRole('combobox', { name: /Color/ }))
