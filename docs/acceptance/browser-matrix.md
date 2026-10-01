@@ -71,11 +71,11 @@ QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet \
 QQQ_ACCEPTANCE_BROWSERS=mobile,tablet node scripts/acceptance.mjs --skip-build
 ```
 
-| Project  | Playwright device | Engine (Playwright 1.58.2) | Runs |
+| Project  | Playwright device | Engine (Playwright 1.64.0-alpha-2026-10-01) | Runs |
 |----------|-------------------|----------------------------|------|
-| chromium | Desktop Chrome    | Chrome for Testing 145     | every spec |
-| firefox  | Desktop Firefox   | Firefox 146                | every spec |
-| webkit   | Desktop Safari    | WebKit 26.0                | every spec |
+| chromium | Desktop Chrome    | Chrome for Testing 155     | every spec |
+| firefox  | Desktop Firefox   | Firefox 156                | every spec |
+| webkit   | Desktop Safari    | WebKit 26.6                | every spec |
 | mobile   | Pixel 7 (412 × 839, touch) | Chromium          | tests tagged `@mobile` |
 | tablet   | iPad (gen 7) (810 × 1080, touch) | WebKit      | tests tagged `@mobile` or `@tablet` |
 

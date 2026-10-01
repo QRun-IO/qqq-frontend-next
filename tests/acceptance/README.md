@@ -113,3 +113,7 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
 - **Matrix.** Each area owns `matrix/<area>.json` and its ID prefixes. A row has
   `id, feature, source[], fixture, scenarios[], negative[], issues[], required`.
   `docs/acceptance/feature-matrix.md` is generated from these files.
+
+## Pinned Linux WebKit crash fix
+
+The test runner is temporarily pinned to `@playwright/test@1.64.0-alpha-2026-10-01`: its WebKit 2369 bundle contains libsoup 3.6.6. The previous 1.58.2/WebKit 2248 bundle contains 3.6.5 and reproduced heap corruption during navigation; the same browser using the fixed library passed 110 targeted cases, and the official replacement passed 72 repeated WebKit/tablet cases against the native Linux fixture. The 110-case comparison also corrected an unrelated iframe forwarding problem; the reproduced heap crash occurred outside that iframe workflow. See [QQQ#904](https://github.com/QRun-IO/qqq/issues/904) and [upstream#42803](https://github.com/microsoft/playwright/issues/42803). This is test infrastructure, not a browser shipped with Next UI. Replace the dated pin with a stable release containing the fix after running the acceptance gate ([QQQ#973](https://github.com/QRun-IO/qqq/issues/973)); do not downgrade to the affected stable 1.63 merely to remove the prerelease suffix.
