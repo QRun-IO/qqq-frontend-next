@@ -81,7 +81,9 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
       setRecentRecords(getRecentRecords().slice(0, 10))
       setSearchTerm('')
       setSelectedIndex(-1)
-      const frame = requestAnimationFrame(() => inputRef.current?.focus())
+      const frame = requestAnimationFrame(() => {
+        if (!dialogRef.current?.contains(document.activeElement)) inputRef.current?.focus()
+      })
       return () => {
         cancelAnimationFrame(frame)
         if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus()
