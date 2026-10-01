@@ -102,7 +102,7 @@ export interface AuthUser {
 export interface AuthContextType {
   /** Whether the current user has an active, validated session. */
   isAuthenticated: boolean
-  /** Whether an auth check or sign-in is in flight. */
+  /** True while checking authentication, signing in or signing out. */
   isLoading: boolean
   /** The authenticated user, or `null` while unauthenticated. */
   user: AuthUser | null
@@ -385,50 +385,58 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
   }, [applySession])
 
   const handleLogout = useCallback(async () => {
-    const metadata = authMetadata
-    const loginPath = `/login?returnTo=${encodeURIComponent(currentReturnTo())}`
-    const providerLogout = Boolean(metadata && PROVIDER_TYPES.has(metadata.type))
-    // Signed out first: protected pages unmount (no refetch with an ending session) and the
-    // login page shows the signed-out state instead of signing in again. Provider logouts
-    // leave the page for the identity provider instead, so no in-app navigation is started.
-    redirectingToLogin.current = true
-    setSignedOut(true)
-    setSessionHint(false)
-    if (!providerLogout) {
+    // Do not offer another sign-in until the old response has expired its cookies (#984).
+    let leavingForProvider = false
+    setIsLoading(true)
+    try {
+      const metadata = authMetadata
+      const loginPath = `/login?returnTo=${encodeURIComponent(currentReturnTo())}`
+      const providerLogout = Boolean(metadata && PROVIDER_TYPES.has(metadata.type))
+      // Signed out first: protected pages unmount (no refetch with an ending session) and the
+      // login page shows the signed-out state instead of signing in again. Provider logouts
+      // leave the page for the identity provider instead, so no in-app navigation is started.
+      redirectingToLogin.current = true
+      setSignedOut(true)
+      setSessionHint(false)
+      if (!providerLogout) {
+        setSignedOutState(true)
+        setIsAuthenticated(false)
+        setUser(null)
+      }
+      try {
+        // the backend also expires both session cookies (QRun-IO/qqq#674)
+        await apiLogout()
+      } catch (error) {
+        // The local sign-out still happens; the backend session is left to expire, and the
+        // next sign-in replaces its cookies (QRun-IO/qqq#733).
+        console.warn('[Auth] Backend logout failed:', error instanceof Error ? error.message : error)
+      }
+      resetReauthAttempts()
+      clearUserClientData()
+      // Forget the analytics identity with the session (Material resets its providers on logout)
+      analytics.reset()
+      clearAuthMetadataCache()
+      queryClient.clear()
+
+      if (metadata && PROVIDER_TYPES.has(metadata.type)) {
+        try {
+          const endSession = await buildEndSessionUrl(metadata, `${window.location.origin}/login`)
+          if (endSession) {
+            window.location.assign(endSession)
+            leavingForProvider = true
+            return
+          }
+        } catch (error) {
+          console.warn('[Auth] Identity provider sign-out unavailable:', error instanceof Error ? error.message : error)
+        }
+      }
       setSignedOutState(true)
       setIsAuthenticated(false)
       setUser(null)
+      router.push(loginPath)
+    } finally {
+      if (!leavingForProvider) setIsLoading(false)
     }
-    try {
-      // the backend also expires both session cookies (QRun-IO/qqq#674)
-      await apiLogout()
-    } catch (error) {
-      // The local sign-out still happens; the backend session is left to expire, and the
-      // next sign-in replaces its cookies (QRun-IO/qqq#733).
-      console.warn('[Auth] Backend logout failed:', error instanceof Error ? error.message : error)
-    }
-    resetReauthAttempts()
-    clearUserClientData()
-    // Forget the analytics identity with the session (Material resets its providers on logout)
-    analytics.reset()
-    clearAuthMetadataCache()
-    queryClient.clear()
-
-    if (metadata && PROVIDER_TYPES.has(metadata.type)) {
-      try {
-        const endSession = await buildEndSessionUrl(metadata, `${window.location.origin}/login`)
-        if (endSession) {
-          window.location.assign(endSession)
-          return
-        }
-      } catch (error) {
-        console.warn('[Auth] Identity provider sign-out unavailable:', error instanceof Error ? error.message : error)
-      }
-    }
-    setSignedOutState(true)
-    setIsAuthenticated(false)
-    setUser(null)
-    router.push(loginPath)
   }, [authMetadata, router])
 
   const handleOAuthCallback = useCallback(async (code: string, state: string, codeVerifier?: string) => {
