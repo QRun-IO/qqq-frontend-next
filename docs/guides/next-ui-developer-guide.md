@@ -1,5 +1,7 @@
 # Next UI developer guide
 
+> **RC9:** application code is unchanged from RC8. See [RC9 notes](../releases/1.0.0-RC.9.md) and [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for versioned verification and public delivery status. Earlier RC8 receipts below remain historical evidence.
+
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
 This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The latest published prerelease is [1.0.0-RC.8](../releases/1.0.0-RC.8.md) (commit `cd3d473`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
