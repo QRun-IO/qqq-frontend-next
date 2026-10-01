@@ -1,5 +1,7 @@
 # Next UI visual review
 
+> **Current status lives in GitHub:** [Next UI 1.0 roadmap](https://github.com/QRun-IO/qqq/issues/713). This document records scoped evidence and historical checkpoints; older open/closed wording and summary counts do not override current issue status. See [tracking policy](../ISSUE-TRACKING.md). Final 1.0 remains held for owner testing and explicit approval.
+
 Status: in progress, September 30, 2026. This review is a release requirement. Captured screenshots are not approvals or evidence that a surface has passed review.
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.

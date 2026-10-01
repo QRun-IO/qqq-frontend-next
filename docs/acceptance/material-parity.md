@@ -1,5 +1,7 @@
 # Material Dashboard parity (QRun-IO/qqq#714)
 
+> **Current status lives in GitHub:** [Next UI 1.0 roadmap](https://github.com/QRun-IO/qqq/issues/713). This document records scoped evidence and historical checkpoints; older open/closed wording and summary counts do not override current issue status. See [tracking policy](../ISSUE-TRACKING.md). Final 1.0 remains held for owner testing and explicit approval.
+
 This is the full inventory of what the Material Dashboard can do and where each ability stands in Next. The audit covered Material `origin/develop` at `8ec1be7a`: every route, page, component, widget, block, process component, supplemental metadata class and theme property. The ledger is being reconciled against `feature/next-1.0` after the integrated parity work; the Query, theme and form adjuster sections include the 2026-09-26 implementation.
 
 Each row gives the Material source (`material:` is the Material repo root; `qqq:` is the backend repo root), the Next implementation (paths relative to this repo), the acceptance rows in `tests/acceptance/matrix/*.json` that cover it, and a status. Every Partial or Missing row names the issue that tracks it. A row that came up in more than one area is listed once, in the most specific area.

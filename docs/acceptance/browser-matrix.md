@@ -1,5 +1,7 @@
 # Browser matrix — real-backend acceptance (QRun-IO/qqq#649, #708)
 
+> **Current status lives in GitHub:** [Next UI 1.0 roadmap](https://github.com/QRun-IO/qqq/issues/713). This document records scoped evidence and historical checkpoints; older open/closed wording and summary counts do not override current issue status. See [tracking policy](../ISSUE-TRACKING.md). Final 1.0 remains held for owner testing and explicit approval.
+
 ## September 30 — post-RC4 report and menu checkpoint
 
 Local production export at `a8e4d3b`:583 Chromium tests and all391 required feature rows passed, zero failures/skips/flaky results, three approved external-service exclusions. This includes the uniform table backgrounds, record overview spacing and hidePreview compatibility fixes. Retained full report/gate: `report-preview-full-chromium/` in local visual-review evidence.
