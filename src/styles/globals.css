@@ -21,6 +21,20 @@
   }
 }
 
+/* Wide overview labels must also fit application fonts with larger glyphs.
+   Naming the overview container confines this rule to its specification actions. */
+@container (min-width: 768px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(section-overview) {
+    container: qqq-api-overview-wide / inline-size;
+  }
+}
+
+@container qqq-api-overview-wide (min-width: 0px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(btn) {
+    min-width: max-content;
+  }
+}
+
 /* Register semantic colors with Tailwind v4's utility system */
 @theme {
   /* Surface colors */

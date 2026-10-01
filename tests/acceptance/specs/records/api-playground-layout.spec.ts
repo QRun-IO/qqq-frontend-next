@@ -29,7 +29,8 @@ for (const mode of ['light', 'dark'] as const) {
       await expect(downloadButton).toBeInViewport({ ratio: 1 })
       await expect(viewButton).toBeInViewport({ ratio: 1 })
       for (const button of [downloadButton, viewButton]) {
-        expect(await button.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+        const size = await button.evaluate(element => ({ scroll: element.scrollWidth, client: element.clientWidth }))
+        expect(size.scroll, `Specification button content must fit: ${await button.textContent()}`).toBeLessThanOrEqual(size.client)
       }
       await testInfo.attach(`api-controls-${mode}-${narrow ? '320' : 'device'}`, { body: await page.screenshot(), contentType: 'image/png' })
 
@@ -54,3 +55,30 @@ for (const mode of ['light', 'dark'] as const) {
     })
   }
 }
+
+
+test('[REC-053] API specification labels fit wider application font metrics on desktop and phone @mobile', async ({ page, backend, diagnostics }) => {
+  void backend
+  void diagnostics
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await open(page, '/app/person/dev')
+  const docs = page.locator('rapi-doc')
+  const view = docs.getByRole('button', { name: 'View OpenAPI spec (New Tab)', exact: true })
+  await expect(view).toBeVisible()
+  // An application theme can supply different font metrics; fixed 200px labels clipped in hosted Linux too.
+  await page.addStyleTag({ content: '[data-qqq-id="table-dev-api-docs"] rapi-doc { --font-inter: monospace; }' })
+  await expect(view).toHaveCSS('font-family', 'monospace')
+  for (const width of [1280, 320]) {
+    await page.setViewportSize({ width, height: 850 })
+    await docs.evaluate(element => {
+      const main = document.getElementById('main-content')!
+      main.scrollTop += element.getBoundingClientRect().top - main.getBoundingClientRect().top - 16
+    })
+    for (const label of ['Download OpenAPI spec', 'View OpenAPI spec (New Tab)']) {
+      const button = docs.getByRole('button', { name: label, exact: true })
+      await expect(button).toBeInViewport({ ratio: 1 })
+      const size = await button.evaluate(element => ({ scroll: element.scrollWidth, client: element.clientWidth }))
+      expect(size.scroll, `${label} must fit at ${width}px with wider glyphs`).toBeLessThanOrEqual(size.client)
+    }
+  }
+})
