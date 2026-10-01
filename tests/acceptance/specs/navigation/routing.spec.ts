@@ -55,6 +55,8 @@ test.describe('routing', () => {
     await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Greetings App' }).click()
     await expect(page).toHaveURL(/\/app\/greetingsApp\/?$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Greetings App' })).toBeVisible()
+    // Complete this destination before the next hard navigation tears down its owned iframe (#972).
+    await expect(page.frameLocator('[data-qqq-id="quicksight-QuickSightChartRenderer"]').getByRole('heading', { name: 'Owned embedded chart' })).toBeVisible()
 
     // The dashboard root has no breadcrumbs
     await open(page, '/app')
