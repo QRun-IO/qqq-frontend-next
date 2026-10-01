@@ -93,6 +93,8 @@ test.describe('routing', () => {
   test('[NAV-016] the site root replaces itself with the dashboard @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/person')
     await waitForShell(page)
+    // Let the initial document finish rendering its fonts before navigation tears it down (#951).
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
     await open(page, '/')
     await expect(page).toHaveURL(/\/app\/?$/)
     await expect(page.getByText(/Here's an overview of your QQQ Sample system\./)).toBeVisible()
