@@ -4,7 +4,13 @@ Status: in progress, September 30, 2026. This review is a release requirement. C
 
 The visual reference is the working Next UI before the September 26 parity integrations, commit `e42ad2b2bcdc76311e13002a22dd70e3ec437192`. Material Dashboard remains the reference for supported workflows and metadata contracts. The user's September 27–28 correction requires preserving the earlier Next design while completing those workflows.
 
-## Latest checkpoint — September 30, reachable column menus
+## Latest checkpoint — September 30, phone process states
+
+Compared original Next `e42ad2b2bcdc76311e13002a22dd70e3ec437192` with the packaged RC8 candidate `f0f0eae98e4b6c883475956a7c59e060d2e5f0a5`, using the same fresh fixture classes and backend. All 24 phone images were inspected: light/dark, original/current, bulk-load mapping at four scroll positions, process progress and expanded internal error. All requested scroll positions were reached, with no setup errors, page errors or document horizontal overflow. Evidence: `rc8-phone-process-review/` manifests and review.
+
+Progress and expanded-error composition retain the original arrangement. Bulk-load field cards and footer retain their arrangement, but saved-profile/reset controls, metadata help and larger touch targets make the upper section taller. Grouped Add Fields and the red removal icon also differ from the original. These are recorded differences, not owner approval. Header breadcrumb crowding remains open. This checkpoint covers these phone states only; whole-product visual and interaction approval remain open.
+
+## Earlier checkpoint — September 30, reachable column menus
 
 VIS-031: column menus were not constrained to available viewport height. A browser probe on the report preview measured a 352px menu starting at y=-147 in a 320px window in both Chromium and WebKit. The shared menu now uses Radix's available-height limit, an 8px collision margin and vertical scrolling, matching existing query menus. Its labels, ordering, typography and normal-height presentation are preserved.
 
