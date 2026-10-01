@@ -2,7 +2,7 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-This branch prepares Next UI **1.0.0-RC.9** for application testing. Check the [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for artifact availability; requirements, verification scope and known gaps are in the [RC9 notes](docs/releases/1.0.0-RC.9.md). Final 1.0 remains held for owner application testing and explicit approval.
+[Next UI **1.0.0-RC.9** is published](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.9) for application testing. Public Maven and AMD64/ARM64 container delivery are verified; requirements, verification scope and known gaps are in the [RC9 notes](docs/releases/1.0.0-RC.9.md). Final 1.0 remains held for owner application testing and explicit approval.
 
 **Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
 
