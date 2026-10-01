@@ -1,6 +1,6 @@
 # Next UI agent guide
 
-This is an implementation playbook for coding agents working on the QQQ Next UI. Read the [developer guide](./next-ui-developer-guide.md) for user and integrator behavior, the repository [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) for scoped conventions, and the [real-server feature matrix](../acceptance/feature-matrix.md) plus [Material parity ledger](../acceptance/material-parity.md) before claiming compatibility. This guide reflects the `feature/next-1.0` release worktree as of 2026-09-30; the latest published prerelease is [1.0.0-RC.7](../releases/1.0.0-RC.7.md) at `f65cf6b`, and final `1.0.0` remains on hold. Later branch changes must not be attributed to that immutable release. Some ledger entries predate integrated changes, so reconcile them with source and real-server evidence. A green subset of tests is evidence for that subset, not proof of complete Material parity or a published 1.0 release.
+This is an implementation playbook for coding agents working on the QQQ Next UI. Read the [developer guide](./next-ui-developer-guide.md) for user and integrator behavior, the repository [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) for scoped conventions, and the [real-server feature matrix](../acceptance/feature-matrix.md) plus [Material parity ledger](../acceptance/material-parity.md) before claiming compatibility. This guide reflects the `feature/next-1.0` release worktree as of 2026-10-01; the latest published prerelease is [1.0.0-RC.8](../releases/1.0.0-RC.8.md) at `cd3d473`, and final `1.0.0` remains on hold. Later branch changes must not be attributed to that immutable release. Some ledger entries predate integrated changes, so reconcile them with source and real-server evidence. A green subset of tests is evidence for that subset, not proof of complete Material parity or a published 1.0 release.
 
 ## Operating rule: metadata is the product boundary
 
@@ -229,6 +229,8 @@ Never log or persist the access token, and never publish OAuth client secrets in
 
 
 ### RC8 implementation notes
+
+Public JAR checksum/signature/fresh-consumer checks and 28 affected desktop/mobile workflows passed. Full tag Chromium passed 602 and mobile 563; Firefox, WebKit and tablet retain failures, including tablet Clear-search focus. Consult the release notes before claiming cross-browser completion.
 
 - Search must contain the entire Tab/Shift+Tab cycle, handle Escape from every dialog control, restore the opener after dismissal, and move focus to the input before Clear removes its own button. Explicitly focus a phone pointer opener because WebKit does not necessarily focus clicked buttons. Cancel delayed autofocus when closing. `navigation/search-focus.spec.ts` covers light/dark and pointer/keyboard openings; preserve the existing layout.
 - Keep RapiDoc width handling on its public CSS parts. The named `qqq-api-overview` and `qqq-api-overview-wide` containers restrict narrow wrapping and wide content sizing to overview specification actions; do not apply it to authentication or endpoint controls. Test full visibility before focus can scroll a clipped control into view, real JSON downloads, keyboard new-tab behavior, both themes, and label fit with wider application fonts at desktop and phone widths.
