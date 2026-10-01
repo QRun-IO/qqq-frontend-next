@@ -311,13 +311,16 @@ public class SecurityAcceptanceServer
    static Set<String> permissionsFor(String persona)
    {
       Collection<AvailablePermission> all = PermissionsHelper.getAllAvailablePermissions(instance);
+      // Remove permission names, including grants shared by an app and a widget.
+      Set<String> appPermissions = all.stream().filter(permission -> "App".equals(permission.getObjectType()))
+         .map(AvailablePermission::getName).collect(Collectors.toSet());
       Predicate<AvailablePermission> keep = switch(persona)
       {
          case "viewer" -> permission -> !"Process".equals(permission.getObjectType())
             && !permission.getName().matches(".*\\.(insert|edit|delete)$");
          case "noPets" -> permission -> !permission.getName().startsWith("pet.") && !permission.getName().startsWith("petNote.");
          case "noProcesses" -> permission -> !"Process".equals(permission.getObjectType());
-         case "noApps" -> permission -> !"App".equals(permission.getObjectType());
+         case "noApps" -> permission -> !appPermissions.contains(permission.getName());
          default -> permission -> true;
       };
       return all.stream().filter(keep).map(AvailablePermission::getName).collect(Collectors.toSet());

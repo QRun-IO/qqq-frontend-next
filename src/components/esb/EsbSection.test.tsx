@@ -17,12 +17,18 @@
 // Tests for the table Developer-view ESB section
 
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { axe } from 'jest-axe'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { processInit } from '@/lib/api/processes'
 
-import { fulfillOrderEsb, orderEsb } from '@/mocks/fixtures/esb'
+vi.mock('@/lib/api/processes', () => ({ processInit: vi.fn(), processStatus: vi.fn() }))
+
+import { fulfillOrderEsb, orderEsb, orderFulfillmentMessages } from '@/mocks/fixtures/esb'
 import { EsbSection } from './EsbSection'
 
 /**
@@ -47,6 +53,201 @@ function bodyRows(name: string): HTMLElement[] {
 }
 
 describe('EsbSection', () => {
+  beforeEach(() => {
+    vi.mocked(processInit).mockReset()
+    vi.mocked(processInit).mockResolvedValue({
+      type: 'COMPLETE',
+      processUUID: 'queue-run',
+      values: { message: 'Done.' },
+    })
+  })
+
+  it.each([
+    ['subscription', false],
+    ['subscription', true],
+    ['subscription', null],
+    ['subscription', undefined],
+    ['deadLetter', false],
+    ['deadLetter', true],
+    ['deadLetter', null],
+    ['deadLetter', undefined],
+  ] as const)('uses %s paused=%s for broker queue controls', async (kind, paused) => {
+    const user = userEvent.setup()
+    const original = orderEsb.subscribers[kind === 'subscription' ? 1 : 0]
+    const brokerName = 'serialized.custom.queue'
+    const brokerQueue = { brokerName, messageCount: 9, ...(paused === undefined ? {} : { paused }) }
+    const trigger = { ...original, [kind]: brokerQueue }
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <EsbSection
+          data={{
+            ...orderEsb,
+            publications: [],
+            subscribers: [trigger],
+            permissions: { canOperate: true, canDelete: true },
+          }}
+        />
+      </QueryClientProvider>
+    )
+    if (kind === 'deadLetter') {
+      await user.click(
+        screen.getByRole('button', { name: `Browse dead letters for ${trigger.processLabel}` })
+      )
+      await screen.findByRole('dialog')
+    }
+    if (paused == null) {
+      expect(
+        screen.queryByRole('button', { name: `Pause queue ${brokerName}` })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: `Resume queue ${brokerName}` })
+      ).not.toBeInTheDocument()
+      expect(processInit).not.toHaveBeenCalled()
+    } else {
+      const action = paused ? 'Resume' : 'Pause'
+      expect(
+        screen.queryByRole('button', { name: `${paused ? 'Pause' : 'Resume'} queue ${brokerName}` })
+      ).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: `${action} queue ${brokerName}` }))
+      await waitFor(() =>
+        expect(processInit).toHaveBeenCalledWith(paused ? 'esbResumeQueue' : 'esbPauseQueue', {
+          values: { providerName: 'artemis', brokerQueueName: brokerName },
+        })
+      )
+    }
+  })
+
+  it.each([
+    ['subscription', 'permission'],
+    ['subscription', 'capability'],
+    ['deadLetter', 'permission'],
+    ['deadLetter', 'capability'],
+  ] as const)(
+    'hides %s pause/resume without %s even when state is known',
+    async (kind, missing) => {
+      const user = userEvent.setup()
+      const original = orderEsb.subscribers[kind === 'subscription' ? 1 : 0]
+      const brokerName = 'restricted.queue'
+      const trigger = {
+        ...original,
+        [kind]: { brokerName, messageCount: 9, paused: false },
+        destination: {
+          ...original.destination,
+          capabilities: {
+            ...original.destination.capabilities,
+            pauseQueue: missing !== 'capability',
+          },
+        },
+      }
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <EsbSection
+            data={{
+              ...orderEsb,
+              publications: [],
+              subscribers: [trigger],
+              permissions: { canOperate: missing !== 'permission', canDelete: true },
+            }}
+          />
+        </QueryClientProvider>
+      )
+      if (kind === 'deadLetter') {
+        await user.click(
+          screen.getByRole('button', { name: `Browse dead letters for ${trigger.processLabel}` })
+        )
+        await screen.findByRole('dialog')
+      }
+      expect(
+        screen.queryByRole('button', { name: `Pause queue ${brokerName}` })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: `Resume queue ${brokerName}` })
+      ).not.toBeInTheDocument()
+      expect(processInit).not.toHaveBeenCalled()
+    }
+  )
+
+  it('uses the serialized subscription name for controls and trigger for browsing', async () => {
+    let requestedTrigger: string | null = null
+    server.use(
+      http.get('/qqq/v1/esb/messages/orderEvents', ({ request }) => {
+        requestedTrigger = new URL(request.url).searchParams.get('trigger')
+        return HttpResponse.json(orderFulfillmentMessages)
+      })
+    )
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <EsbSection
+          data={{
+            ...orderEsb,
+            subscribers: [
+              {
+                ...orderEsb.subscribers[1],
+                subscription: { brokerName: 'custom.subscription.queue', messageCount: 9 },
+              },
+            ],
+            permissions: { canOperate: true, canDelete: true },
+          }}
+        />
+      </QueryClientProvider>
+    )
+    expect(screen.getByText('custom.subscription.queue')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Purge custom.subscription.queue' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Pause queue custom.subscription.queue' })
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Browse subscription for Cancel Order' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Messages in custom.subscription.queue',
+    })
+    await within(dialog).findByRole('table', { name: 'Messages' })
+    await waitFor(() => expect(requestedTrigger).toBe('cancelOrder.orderEvents'))
+    expect(
+      within(dialog).queryByRole('button', { name: 'Replay selected' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('hides browsing and broker controls when the trigger destination has no capabilities', () => {
+    const trigger = orderEsb.subscribers[1]
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EsbSection
+          data={{
+            ...orderEsb,
+            publications: [],
+            subscribers: [
+              {
+                ...trigger,
+                destination: {
+                  ...trigger.destination,
+                  capabilities: {
+                    browse: false,
+                    pauseQueue: false,
+                    purge: false,
+                    deleteSelected: false,
+                    deleteOlderThan: false,
+                    move: false,
+                  },
+                },
+              },
+            ],
+            permissions: { canOperate: true, canDelete: true },
+          }}
+        />
+      </QueryClientProvider>
+    )
+    expect(screen.queryByRole('button', { name: /Browse/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Purge/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Resume Cancel Order' })).toBeInTheDocument()
+  })
+
   it('renders nothing when the table has no ESB section', () => {
     const { container } = render(<EsbSection data={null} />)
     expect(container).toBeEmptyDOMElement()
@@ -88,7 +289,7 @@ describe('EsbSection', () => {
     const fulfillCells = within(fulfill).getAllByRole('cell')
     expect(within(fulfillCells[0]).getByRole('link', { name: 'Fulfill Order' })).toHaveAttribute(
       'href',
-      '/app/fulfillOrder'
+      '/app/fulfillOrder/dev'
     )
     expect(fulfillCells[0]).toHaveTextContent('Single, concurrency 2, 3 attempts')
     expect(fulfillCells[1]).toHaveTextContent('orderFulfillment')
@@ -107,7 +308,7 @@ describe('EsbSection', () => {
     const cancelCells = within(cancel).getAllByRole('cell')
     expect(within(cancelCells[0]).getByRole('link', { name: 'Cancel Order' })).toHaveAttribute(
       'href',
-      '/app/cancelOrder'
+      '/app/cancelOrder/dev'
     )
     expect(cancelCells[1]).toHaveTextContent('orderEvents')
     expect(cancelCells[2]).toHaveTextContent('Paused')
@@ -124,11 +325,13 @@ describe('EsbSection', () => {
     ).toBeInTheDocument()
   })
 
-  it('offers browsing a queue and a trigger\'s dead letters to anyone who sees them', () => {
+  it("offers browsing a queue and a trigger's dead letters to anyone who sees them", () => {
     render(<EsbSection data={orderEsb} />)
     const [topic, queue] = bodyRows('Publications')
     expect(within(topic).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(queue).getByRole('button', { name: 'Browse orderFulfillment' })).toBeInTheDocument()
+    expect(
+      within(queue).getByRole('button', { name: 'Browse orderFulfillment' })
+    ).toBeInTheDocument()
     expect(within(queue).queryByRole('button', { name: /^Purge/ })).not.toBeInTheDocument()
     const [fulfill] = bodyRows('Subscribers')
     expect(
@@ -145,7 +348,9 @@ describe('EsbSection', () => {
     )
     const [topic, queue] = bodyRows('Publications')
     expect(within(topic).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(queue).getByRole('button', { name: 'Purge orderFulfillment' })).toBeInTheDocument()
+    expect(
+      within(queue).getByRole('button', { name: 'Purge orderFulfillment' })
+    ).toBeInTheDocument()
     expect(
       within(queue).getByRole('button', { name: 'Pause queue orderFulfillment' })
     ).toBeInTheDocument()
@@ -154,7 +359,7 @@ describe('EsbSection', () => {
     expect(within(cancel).getByRole('button', { name: 'Resume Cancel Order' })).toBeInTheDocument()
   })
 
-  it('renders a process\'s publications and the triggers that start it', () => {
+  it("renders a process's publications and the triggers that start it", () => {
     render(<EsbSection data={fulfillOrderEsb} />)
     expect(bodyRows('Publications')).toHaveLength(1)
     expect(bodyRows('Triggers')).toHaveLength(1)
@@ -163,7 +368,9 @@ describe('EsbSection', () => {
 
   it('says so when a process has no publications or triggers', () => {
     render(<EsbSection data={{ ...fulfillOrderEsb, publications: [], triggers: [] }} />)
-    expect(screen.getByText('This process does not publish to any destination.')).toBeInTheDocument()
+    expect(
+      screen.getByText('This process does not publish to any destination.')
+    ).toBeInTheDocument()
     expect(screen.getByText('No destinations trigger this process.')).toBeInTheDocument()
   })
 

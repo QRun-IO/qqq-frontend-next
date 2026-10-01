@@ -39,7 +39,14 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   Set `QQQ_MIDDLEWARE_API_JAR` to another path when Maven uses a different local repository.
   The fixture registers one API-aware v1 version so WID-072 uses real metadata, query and count routes.
 - **Ports.** Set them with `QQQ_ACCEPTANCE_BACKEND_PORT` (default 18765) and
-  `QQQ_ACCEPTANCE_FRONTEND_PORT` (default 13765). Use distinct ports for concurrent runs.
+  `QQQ_ACCEPTANCE_FRONTEND_PORT` (default 13765). The sample's embedded Artemis broker uses
+  `QQQ_ACCEPTANCE_ESB_PORT` (default 61616, passed as `qqq.sample.esb.port`). Use distinct
+  HTTP and broker ports for concurrent runs. The security variant uses
+  `QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT` (default backend HTTP port + 10),
+  `QQQ_ACCEPTANCE_SECURITY_ESB_PORT` (default main ESB port + 1, normally 61617),
+  and `QQQ_ACCEPTANCE_SECURITY_IDP_PORT` (default frontend HTTP port + 10).
+  Its broker setting is passed as `qqq.sample.esb.port`; explicit variant
+  `options.properties` retain precedence over these defaults.
 - **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
   per-project counts in `byProject`), the HTML report, and a trace, video and screenshot for
   each failure.
@@ -76,7 +83,9 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
 - **Use `test` and `expect` from `support/fixtures`.** Each test gets a freshly reset
   database, its own mock session, and a persona (`test.use({ persona: 'viewer' })`).
   - Personas are `admin`, `viewer` (reads only, no processes), `noPets`, `noProcesses`,
-    `noApps` and `expired` (401 with the cookie cleared). The sample sharing demo is enabled;
+    `noApps` and `expired` (401 with the cookie cleared). ESB personas are `noPersonRead`
+    (all permissions except `person.read`), `noEsbView`, `noEsbOperate`, `noEsbDelete`,
+    and `noSyncPerson` (each removes only its named access permission). The sample sharing demo is enabled;
     choose its identity with `test.use({ user: 'bob' })` (alice by default).
   - `backend.sql(select)` reads the owned H2 database directly. Use it to verify persisted
     values independently of the UI and API.
@@ -117,3 +126,39 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
 ## Pinned Linux WebKit crash fix
 
 The test runner is temporarily pinned to `@playwright/test@1.64.0-alpha-2026-10-01`: its WebKit 2369 bundle contains libsoup 3.6.6. The previous 1.58.2/WebKit 2248 bundle contains 3.6.5 and reproduced heap corruption during navigation; the same browser using the fixed library passed 110 targeted cases, and the official replacement passed 72 repeated WebKit/tablet cases against the native Linux fixture. The 110-case comparison also corrected an unrelated iframe forwarding problem; the reproduced heap crash occurred outside that iframe workflow. See [QQQ#904](https://github.com/QRun-IO/qqq/issues/904) and [upstream#42803](https://github.com/microsoft/playwright/issues/42803). This is test infrastructure, not a browser shipped with Next UI. Replace the dated pin with a stable release containing the fix after running the acceptance gate ([QQQ#973](https://github.com/QRun-IO/qqq/issues/973)); do not downgrade to the affected stable 1.63 merely to remove the prerelease suffix.
+## ESB (QRun-IO/qqq#986)
+
+The sample JAR must include its embedded Artemis broker, `personEvents` topic,
+`syncPerson` subscriber, ESB app/widget, all nine management processes, and the ESB
+module's real v1 routes. `EsbFixtures` requires that production wiring and fails startup
+if it is absent; it never registers replacements. Its application step runs the sample subscriber, then writes an owned H2
+receipt of the processed event; the failure control makes that step fail to exercise
+real dead-lettering and replay. Production API responses and broker operations are
+never mocked. All control routes remain on the loopback-only acceptance server.
+
+Before each test, reset stops consumers, verifies they stopped, resumes then drains the owned
+subscription and dead-letter queue, closes pooled connections, clears counters and
+reseeds H2, then waits for both the subscriber and control channel to be ready.
+Teardown stops and drains even when the test fails. The readiness route returns 200
+only after initial fixture reset completes. The sample owns broker startup/shutdown.
+The pause scenario reads actual Artemis consumer, delivery and message counts through
+an owned support route: a PAUSED runner can still finish its outstanding receive,
+so publishing waits until its broker consumer has closed. No fixed sleep or client
+prefetch override is used.
+
+```bash
+# After building the sample JAR and production export; set QQQ_SAMPLE_JAR and
+# QQQ_MIDDLEWARE_API_JAR as described above. Reserve both ports before starting.
+QQQ_ACCEPTANCE_BACKEND_PORT=18961 QQQ_ACCEPTANCE_ESB_PORT=18962 \
+  QQQ_ACCEPTANCE_BROWSERS=chromium \
+  node scripts/acceptance.mjs --skip-build specs/esb --max-failures=1
+```
+
+`ESB-001`–`ESB-010` are required matrix rows. The sample has no management URL, so
+these tests verify real trigger pause/resume/restart, topic-subscription browsing,
+dead-letter replay, application/process/table permissions and unsupported-capability
+hiding. Replay confirmation explicitly reports the unavailable broker count.
+Successful broker-level purge/delete/move/pause and a numeric dead-letter count need
+a broker management endpoint; this fixture does not claim to prove those operations.
+The ESB table-probe blanket 404 diagnostic exemption is removed: unexpected failed
+requests fail acceptance, and negative cases allow only their specific denial.

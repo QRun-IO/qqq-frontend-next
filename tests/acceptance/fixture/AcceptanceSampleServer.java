@@ -64,6 +64,7 @@ public class AcceptanceSampleServer
    private static final Map<String, String> USERS    = new ConcurrentHashMap<>();
    private static final ThreadLocal<String> REQUEST_SESSION_COOKIE = new ThreadLocal<>();
    private static volatile QInstance        instance;
+   private static volatile boolean ready;
 
 
 
@@ -108,6 +109,7 @@ public class AcceptanceSampleServer
             QInstance defined = super.defineQInstance();
             defined.setDefaultPermissionRules(QPermissionRules.defaultInstance().withLevel(PermissionLevel.READ_INSERT_EDIT_DELETE_PERMISSIONS));
             defined.getAuthentication().setCustomizer(new QCodeReference(PersonaCustomizer.class));
+            EsbFixtures.define(defined);
             NavigationFixtures.define(defined);
             RecordsFixtures.define(defined);
             FormAdjusterFixtures.define(defined);
@@ -126,7 +128,17 @@ public class AcceptanceSampleServer
       server.withJavalinConfigCustomizer(config ->
       {
          config.jetty.host = "127.0.0.1";
-         config.routes.get("/acceptance/ready", context -> context.result("ready"));
+         config.routes.get("/acceptance/ready", context -> context.status(ready ? 200 : 503).result(ready ? "ready" : "starting"));
+         config.routes.post("/acceptance/esb/failure", context ->
+         {
+            EsbFixtures.setFailure(new JSONObject(context.body()).getBoolean("fail"));
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/esb/stop", context ->
+         {
+            EsbFixtures.stopAndDrain(instance);
+            context.contentType("application/json").result("{}");
+         });
          //////////////////////////////////////////////////////////////////////////////
          // manageSession creates a new mock session; keep the test's persona and user //
          // by resolving them from the request's sessionId cookie for that request.    //
@@ -160,6 +172,10 @@ public class AcceptanceSampleServer
             }
             context.contentType("application/json").result(new JSONObject().put("rows", select(query)).toString());
          });
+         config.routes.post("/acceptance/esb/subscription-state", context ->
+         {
+            context.contentType("application/json").result(new JSONObject(EsbFixtures.subscriptionState(instance)).toString());
+         });
          config.routes.post("/acceptance/quick-view", context ->
          {
             seedQuickView();
@@ -190,8 +206,18 @@ public class AcceptanceSampleServer
       //////////////////////////////////////////////////////////////////////////////////
       server.withNextDashboardSecurityHeadersCustomizer(WidgetsFixtures::allowFakeService);
       Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
-      server.start();
-      primeFixtures();
+      try
+      {
+         server.start();
+         EsbFixtures.awaitReady();
+         reset();
+         ready = true;
+      }
+      catch(Exception e)
+      {
+         server.stop();
+         throw e;
+      }
    }
 
 
@@ -220,6 +246,7 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    private static synchronized void reset() throws Exception
    {
+      EsbFixtures.stopAndDrain(instance);
       instance.getEnvironmentValues().remove("GOOGLE_APP_CLIENT_ID");
       instance.getEnvironmentValues().remove("GOOGLE_APP_API_KEY");
       if(instance.getSupplementalMetaData() != null)
@@ -229,6 +256,7 @@ public class AcceptanceSampleServer
       SampleMetaDataProvider.primeTestDatabase("prime-test-database.sql");
       SampleMetaDataProvider.primeTestDatabase("prime-sharing-database.sql");
       primeFixtures();
+      EsbFixtures.start(instance);
    }
 
 
@@ -244,6 +272,7 @@ public class AcceptanceSampleServer
          {
             throw new IllegalStateException("Acceptance fixtures require the sample in-memory H2 database.");
          }
+         EsbFixtures.prime(connection);
          NavigationFixtures.prime(connection);
          RecordsFixtures.prime(connection);
          FormAdjusterFixtures.prime(connection);
@@ -386,13 +415,22 @@ public class AcceptanceSampleServer
       {
          all.add(new AvailablePermission().withName(process + ".hasAccess").withObjectName(process).withObjectType("Process").withPermissionType("hasAccess"));
       }
+      all.add(new AvailablePermission().withName("syncPerson.hasAccess").withObjectName("syncPerson").withObjectType("Process").withPermissionType("hasAccess"));
+      // Remove permission names, including grants shared by an app and a widget.
+      Set<String> appPermissions = all.stream().filter(permission -> "App".equals(permission.getObjectType()))
+         .map(AvailablePermission::getName).collect(Collectors.toSet());
       Predicate<AvailablePermission> keep = switch(persona)
       {
          case "viewer" -> permission -> !"Process".equals(permission.getObjectType())
             && !permission.getName().matches(".*\\.(insert|edit|delete)$");
+         case "noPersonRead" -> permission -> !"person.read".equals(permission.getName());
+         case "noEsbView" -> permission -> !"esbView.hasAccess".equals(permission.getName());
+         case "noEsbOperate" -> permission -> !"esbOperate.hasAccess".equals(permission.getName());
+         case "noEsbDelete" -> permission -> !"esbDelete.hasAccess".equals(permission.getName());
+         case "noSyncPerson" -> permission -> !"syncPerson.hasAccess".equals(permission.getName());
          case "noPets" -> permission -> !permission.getName().startsWith("pet.") && !permission.getName().startsWith("petNote.");
          case "noProcesses" -> permission -> !"Process".equals(permission.getObjectType());
-         case "noApps" -> permission -> !"App".equals(permission.getObjectType());
+         case "noApps" -> permission -> !appPermissions.contains(permission.getName());
          default -> permission -> true;
       };
       return all.stream().filter(keep).map(AvailablePermission::getName).collect(Collectors.toSet());

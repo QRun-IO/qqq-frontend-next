@@ -29,7 +29,11 @@ import { server } from '@/mocks/node'
 import { EsbOverviewWidget } from './EsbOverviewWidget'
 import { WidgetRenderer } from './WidgetRenderer'
 
-const widgetMetaData = { name: 'esbOverview', label: 'ESB', type: 'ESB_OVERVIEW' } as QWidgetMetaData
+const widgetMetaData = {
+  name: 'esbOverview',
+  label: 'ESB',
+  type: 'ESB_OVERVIEW',
+} as QWidgetMetaData
 
 /**
  * Renders an element inside a fresh query client.
@@ -73,13 +77,16 @@ describe('EsbOverviewWidget', () => {
     expect(bodyRows('Destinations')).toHaveLength(3)
     expect(events).toHaveTextContent('orderEvents')
     expect(events).toHaveTextContent('Topic')
-    expect(within(events).getByRole('link', { name: 'order' })).toHaveAttribute('href', '/app/order')
+    expect(within(events).getByRole('link', { name: 'order' })).toHaveAttribute(
+      'href',
+      '/app/order'
+    )
     expect(events).toHaveTextContent('INSERT, UPDATE, DELETE')
     expect(fulfillment).toHaveTextContent('Queue')
     expect(within(fulfillment).getAllByRole('cell')[3]).toHaveTextContent(/^7$/)
     expect(within(results).getByRole('link', { name: 'fulfillOrder' })).toHaveAttribute(
       'href',
-      '/app/fulfillOrder'
+      '/app/fulfillOrder/dev'
     )
   })
 
@@ -105,7 +112,9 @@ describe('EsbOverviewWidget', () => {
     )
     renderWithClient(<EsbOverviewWidget widgetMetaData={widgetMetaData} />)
     await screen.findByRole('table', { name: 'Triggers' })
-    expect(screen.queryByRole('button', { name: /^(Pause|Resume|Restart|Purge)/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /^(Pause|Resume|Restart|Purge)/ })
+    ).not.toBeInTheDocument()
   })
 
   it('says so when the ESB status is not available', async () => {
@@ -119,7 +128,9 @@ describe('EsbOverviewWidget', () => {
   })
 
   it('is rendered for the ESB_OVERVIEW widget type', async () => {
-    renderWithClient(<WidgetRenderer widgetMetaData={widgetMetaData} data={{ type: 'ESB_OVERVIEW' }} />)
+    renderWithClient(
+      <WidgetRenderer widgetMetaData={widgetMetaData} data={{ type: 'ESB_OVERVIEW' }} />
+    )
     expect(await screen.findByRole('table', { name: 'Destinations' })).toBeInTheDocument()
   })
 

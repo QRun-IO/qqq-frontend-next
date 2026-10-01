@@ -17,7 +17,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { QContextProvider } from '@/lib/context/q-context'
 import { qInstance } from '@/mocks/fixtures/q-instance'
@@ -124,6 +124,11 @@ const greeting = {
 }
 
 describe('SlugPage process initialization', () => {
+  beforeAll(async () => {
+    // Keep cold screen compilation outside the metadata-readiness assertion deadline.
+    await import('@/components/process/ProcessRun')
+  })
+
   beforeEach(() => {
     vi.restoreAllMocks()
     params.slug = greeting.name

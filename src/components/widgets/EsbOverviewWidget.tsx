@@ -25,7 +25,12 @@ import React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 
-import type { EsbOverviewDestination, EsbPermissions, EsbProviderType, QWidgetMetaData } from '@/types'
+import type {
+  EsbOverviewDestination,
+  EsbPermissions,
+  EsbProviderType,
+  QWidgetMetaData,
+} from '@/types'
 import { getEsbOverview } from '@/lib/api/esb'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import { CHIP_COLOR_CLASSES } from '@/lib/utils/adornment-utils'
@@ -126,7 +131,11 @@ export function EsbOverviewWidget({ widgetMetaData }: { widgetMetaData: QWidgetM
         ))}
       </EsbList>
 
-      <EsbList title="Triggers" columns={TRIGGER_COLUMNS} empty="No triggers on processes you can access.">
+      <EsbList
+        title="Triggers"
+        columns={TRIGGER_COLUMNS}
+        empty="No triggers on processes you can access."
+      >
         {triggers.map((trigger) => (
           <EsbTriggerRow key={trigger.name} trigger={trigger} permissions={data.permissions} />
         ))}
@@ -174,12 +183,14 @@ function DestinationRow({
                   {publisher.kind === 'TABLE' ? 'Table' : 'Process'}{' '}
                 </span>
                 <Link
-                  href={`/app/${encodeURIComponent(publisher.name)}`}
+                  href={`/app/${encodeURIComponent(publisher.name)}${publisher.kind === 'PROCESS' ? '/dev' : ''}`}
                   className="font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   {publisher.name}
                 </Link>
-                <span className="text-xs text-muted-foreground">: {publisher.events.join(', ')}</span>
+                <span className="text-xs text-muted-foreground">
+                  : {publisher.events.join(', ')}
+                </span>
               </li>
             ))}
           </ul>
