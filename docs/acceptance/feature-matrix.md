@@ -12,6 +12,8 @@ Recorded runs: `/Users/james.maes/Git.Local/QRunIO/qqq-frontend-next/test-result
 
 Corrected RC8 source cd3d473: 602 local and 602 hosted Chromium cases passed, with zero failed/skipped/flaky cases or report errors. Hosted run 36798799502. Three approved external-service exclusions remain. Earlier failed runs are retained and described in docs/releases/1.0.0-RC.8.md; this matrix records the corrected primary runs only. Other browser profiles and whole-product compatibility/visual approval remain separate.
 
+The additional ESB integration scenarios and their focused three-browser results are recorded in [ESB acceptance](esb.md). The historical full-suite counts above predate those ten new matrix rows.
+
 ## Navigation, application structure, branding and icons
 
 | ID | Feature | Scenarios | Negative | Fixture | Result | Issues |

@@ -10,7 +10,7 @@ import { test as base, expect, type APIRequestContext, type Page, type Response 
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
-export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired'
+export type Persona = 'admin' | 'viewer' | 'noPets' | 'noProcesses' | 'noApps' | 'expired' | 'noPersonRead' | 'noEsbView' | 'noEsbOperate' | 'noEsbDelete' | 'noSyncPerson'
 
 /** Sample sharing-demo identities (owners of the seeded saved view and report). */
 export type SampleUser = 'alice' | 'bob' | 'casey'
@@ -40,6 +40,10 @@ export interface Backend {
   /** Direct backend HTTP call with this test's session, for independent enforcement checks. */
   api: APIRequestContext
   sessionId: string
+  /** Make the owned subscriber fail so a real publication goes through dead-lettering. */
+  failEsbSync: (fail: boolean) => Promise<void>
+  /** Actual Artemis counts on the owned topic subscription, for pause readiness. */
+  esbSubscriptionState: () => Promise<{ consumerCount: number; deliveringCount: number; messageCount: number }>
   setPersona: (persona: Persona, user?: SampleUser) => Promise<void>
   /** Marks the seeded Alice People saved view as a counted quick view. */
   seedQuickView: () => Promise<void>
@@ -62,7 +66,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
   persona: ['admin', { option: true }],
   user: ['alice', { option: true }],
 
-  backend: async ({ context, persona, user, playwright }, use) => {
+  backend: async ({ context, persona, user, playwright }, provide) => {
     const sessionId = randomUUID()
     await control('reset', {})
     await control('persona', { sessionId, persona, user })
@@ -71,19 +75,25 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     const api = await playwright.request.newContext({
       baseURL: ACCEPTANCE_BACKEND_URL, extraHTTPHeaders: { Cookie: `sessionId=${sessionId}` },
     })
-    await use({
-      sessionId,
-      api,
-      sql: async (query) => (await control('sql', { query })).rows,
-      seedQuickView: async () => { await control('quick-view', {}) },
-      seedStaleView: async () => { await control('stale-view', {}) },
-      enableTheme: async () => { await control('theme', {}) },
-      setPersona: async (next, nextUser = user) => { await control('persona', { sessionId, persona: next, user: nextUser }) },
-    })
-    await api.dispose()
+    try {
+      await provide({
+        sessionId,
+        failEsbSync: async (fail) => { await control('esb/failure', { fail }) },
+        esbSubscriptionState: async () => control('esb/subscription-state', {}),
+        api,
+        sql: async (query) => (await control('sql', { query })).rows,
+        seedQuickView: async () => { await control('quick-view', {}) },
+        seedStaleView: async () => { await control('stale-view', {}) },
+        enableTheme: async () => { await control('theme', {}) },
+        setPersona: async (next, nextUser = user) => { await control('persona', { sessionId, persona: next, user: nextUser }) },
+      })
+    } finally {
+      await api.dispose()
+      await control('esb/stop', {})
+    }
   },
 
-  diagnostics: async ({ page }, use, testInfo) => {
+  diagnostics: async ({ page }, provide, testInfo) => {
     const allowed: (string | RegExp)[] = []
     const matches = (text: string) => allowed.some((pattern) => typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text))
     const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], legacyRequests: [], allow: (pattern) => { allowed.push(pattern) } }
@@ -154,13 +164,8 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     const truncatedImage = /^\[JavaScript Error: "Image corrupt or truncated\." \{file: "([^"]+)"/
     const truncatedImages: { text: string; url: string }[] = []
     page.on('pageerror', (error) => report(error.message, () => diagnostics.pageErrors.push(error.message)))
-    // The table developer view asks GET /qqq/v1/esb/table/{table} for its ESB section and treats a
-    // 404 as "nothing to show" (QRun-IO/qqq#739). The acceptance sample has no qqq-esb module, so
-    // that one 404, and the browser's console report of it, are expected; nothing else on the route is.
-    const esbTableProbe = (url: string) => /^\/qqq\/v1\/esb\/table\/[^/]+$/.test(new URL(url, 'http://local').pathname)
     page.on('console', (message) => {
       if (message.type() !== 'error') return
-      if (/status of 404/.test(message.text()) && esbTableProbe(message.location().url || '/')) return
       const image = truncatedImage.exec(message.text())?.[1]
       if (image) truncatedImages.push({ text: message.text(), url: image })
       else report(message.text(), () => diagnostics.consoleErrors.push(message.text()))
@@ -180,10 +185,9 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       }
     }
     page.on('response', (response: Response) => {
-      if (response.status() === 404 && response.request().method() === 'GET' && esbTableProbe(response.url())) return
       if (response.status() >= 400) diagnostics.failedRequests.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`)
     })
-    await use(diagnostics)
+    await provide(diagnostics)
     // One round trip delivers violation reports still queued in the page.
     if (!page.isClosed()) await page.evaluate(() => 0).catch(() => undefined)
     classifyInterruptedRouteReports()

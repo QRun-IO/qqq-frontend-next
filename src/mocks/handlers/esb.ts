@@ -71,9 +71,18 @@ export const esbHandlers = [
     esbResponse(esbProcesses, String(params.processName), 'Process')
   ),
   http.get(`${BASE}/esb/overview`, () => HttpResponse.json(esbOverview)),
-  http.get(`${BASE}/esb/messages/:destination`, ({ params }) =>
-    esbResponse(esbMessages, String(params.destination), 'Destination')
-  ),
+  http.get(`${BASE}/esb/messages/:destination`, ({ params, request }) => {
+    if (params.destination === 'orderEvents') {
+      const trigger = new URL(request.url).searchParams.get('trigger')
+      if (!trigger)
+        return HttpResponse.json({ error: 'A topic requires a trigger.' }, { status: 400 })
+      if (trigger !== 'cancelOrder.orderEvents') {
+        return HttpResponse.json({ error: 'Trigger not found on orderEvents.' }, { status: 404 })
+      }
+      return HttpResponse.json(orderFulfillmentMessages)
+    }
+    return esbResponse(esbMessages, String(params.destination), 'Destination')
+  }),
   http.get(`${BASE}/esb/deadLetters/:trigger`, ({ params }) =>
     esbResponse(esbDeadLetters, String(params.trigger), 'Trigger')
   ),

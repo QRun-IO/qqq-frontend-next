@@ -26,7 +26,7 @@ import type {
 } from '@/types'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
-import { processInit } from './processes'
+import { processInit, processStatus } from './processes'
 
 /** Messages per page when browsing, the backend's default. */
 export const ESB_PAGE_SIZE = 50
@@ -87,15 +87,22 @@ export async function getEsbOverview(): Promise<EsbOverviewResponse | null> {
  * @param destinationName - QQQ destination name.
  * @param offset - Messages to skip.
  * @param limit - Messages to return.
+ * @param triggerName - Required for a topic: the trigger whose subscription to browse.
  * @returns The page of messages.
  * @throws The request error, or an error when the body is not a message page.
  */
 export async function getEsbMessages(
   destinationName: string,
   offset = 0,
-  limit = ESB_PAGE_SIZE
+  limit = ESB_PAGE_SIZE,
+  triggerName?: string
 ): Promise<EsbMessagePage> {
-  return getMessagePage(`/esb/messages/${encodeURIComponent(destinationName)}`, offset, limit)
+  return getMessagePage(
+    `/esb/messages/${encodeURIComponent(destinationName)}`,
+    offset,
+    limit,
+    triggerName
+  )
 }
 
 /**
@@ -120,19 +127,26 @@ export async function getEsbDeadLetters(
  *
  * @param processName - The operate process, e.g. `esbPurgeQueue`.
  * @param values - Its input values, e.g. `providerName` and `brokerQueueName`.
- * @returns The process's `count` and `message`; a generic message while it continues as a job.
+ * @returns The completed process's `count` and `message`.
  * @throws An error with the process's user-facing message when it fails or is refused.
  */
 export async function runEsbAction(
   processName: string,
   values: Record<string, string | boolean>
 ): Promise<EsbActionResult> {
-  const response = await processInit(processName, { values })
+  let response = await processInit(processName, { values })
+  let jobUUID: string | undefined
+  while (response.type === 'JOB_STARTED' || response.type === 'RUNNING') {
+    if (response.type === 'JOB_STARTED') jobUUID = response.jobUUID
+    if (!jobUUID) throw new Error('The action returned no job identifier to check its outcome.')
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    response = await processStatus(processName, response.processUUID, jobUUID)
+  }
   if (response.type === 'ERROR') {
     throw new Error(response.userFacingError ?? response.error)
   }
-  if (response.type !== 'COMPLETE') {
-    return { count: null, message: 'The action is still running.' }
+  if (response.nextStep) {
+    throw new Error('The action requires an unexpected additional step.')
   }
   const count = Number(response.values.count)
   const message = response.values.message
@@ -165,11 +179,19 @@ async function getOrNull(path: string): Promise<unknown> {
  * @param path - Path under the API base URL.
  * @param offset - Messages to skip.
  * @param limit - Messages to return.
+ * @param triggerName - Optional topic trigger name.
  * @returns The page.
  * @throws The request error, or an error when the body is not a message page.
  */
-async function getMessagePage(path: string, offset: number, limit: number): Promise<EsbMessagePage> {
-  const data = await apiClient.get<unknown>(path, { params: { offset, limit } })
+async function getMessagePage(
+  path: string,
+  offset: number,
+  limit: number,
+  triggerName?: string
+): Promise<EsbMessagePage> {
+  const data = await apiClient.get<unknown>(path, {
+    params: { offset, limit, ...(triggerName ? { trigger: triggerName } : {}) },
+  })
   if (!hasArrays<EsbMessagePage>(data, 'messages')) {
     throw new Error('Invalid ESB message page')
   }

@@ -24,11 +24,16 @@ import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { EsbCapabilities, EsbPermissions } from '@/types'
-import { processInit } from '@/lib/api/processes'
+import { processInit, processStatus } from '@/lib/api/processes'
 import { orderEsb } from '@/mocks/fixtures/esb'
-import { EsbQueueActions, EsbTriggerActions, destinationQueue, type EsbQueueRef } from './EsbActions'
+import {
+  EsbQueueActions,
+  EsbTriggerActions,
+  destinationQueue,
+  type EsbQueueRef,
+} from './EsbActions'
 
-vi.mock('@/lib/api/processes', () => ({ processInit: vi.fn() }))
+vi.mock('@/lib/api/processes', () => ({ processInit: vi.fn(), processStatus: vi.fn() }))
 vi.mock('sonner', async (importOriginal) => ({
   ...(await importOriginal<typeof import('sonner')>()),
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
@@ -102,28 +107,44 @@ describe('EsbActions', () => {
   it('needs esbOperate for pausing a queue and esbDelete for purging and deleting', () => {
     const { unmount } = render(
       <QueryClientProvider client={new QueryClient()}>
-        <EsbQueueActions queue={fulfillmentQueue()} permissions={{ canOperate: true, canDelete: false }} />
+        <EsbQueueActions
+          queue={fulfillmentQueue()}
+          permissions={{ canOperate: true, canDelete: false }}
+        />
       </QueryClientProvider>
     )
     expect(screen.getByRole('button', { name: 'Pause queue orderFulfillment' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Purge orderFulfillment' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Delete older messages in orderFulfillment' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Delete older messages in orderFulfillment' })
+    ).not.toBeInTheDocument()
     unmount()
 
     renderWithClient(
-      <EsbQueueActions queue={fulfillmentQueue()} permissions={{ canOperate: false, canDelete: true }} />
+      <EsbQueueActions
+        queue={fulfillmentQueue()}
+        permissions={{ canOperate: false, canDelete: true }}
+      />
     )
-    expect(screen.queryByRole('button', { name: 'Pause queue orderFulfillment' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Pause queue orderFulfillment' })
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Purge orderFulfillment' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete older messages in orderFulfillment' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Delete older messages in orderFulfillment' })
+    ).toBeInTheDocument()
   })
 
   it('offers resume instead of pause for a paused queue', () => {
     renderWithClient(
       <EsbQueueActions queue={{ ...fulfillmentQueue(), paused: true }} permissions={ALL} />
     )
-    expect(screen.getByRole('button', { name: 'Resume queue orderFulfillment' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Pause queue orderFulfillment' })).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Resume queue orderFulfillment' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Pause queue orderFulfillment' })
+    ).not.toBeInTheDocument()
   })
 
   it('offers pause for a running trigger and resume for a paused one', () => {
@@ -150,10 +171,29 @@ describe('EsbActions', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Done.'))
   })
 
-  it('replays all dead letters with esbReplayDeadLetters', async () => {
+  it.each([1, null])('confirms replay-all with a safe count of %s', async (count) => {
     const user = userEvent.setup()
-    renderWithClient(<EsbTriggerActions trigger={fulfillTrigger} permissions={ALL} />)
+    renderWithClient(
+      <EsbTriggerActions
+        trigger={{
+          ...fulfillTrigger,
+          deadLetter: { ...fulfillTrigger.deadLetter, messageCount: count },
+        }}
+        permissions={ALL}
+      />
+    )
     await user.click(screen.getByRole('button', { name: 'Replay dead letters for Fulfill Order' }))
+    let dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('orderFulfillment.dlq')
+    expect(dialog).toHaveTextContent(
+      count === null ? 'all dead letters (count unknown)' : '1 message'
+    )
+    expect(processInit).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(processInit).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Replay dead letters for Fulfill Order' }))
+    dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Replay dead letters' }))
     await waitFor(() =>
       expect(processInit).toHaveBeenCalledWith('esbReplayDeadLetters', {
         values: { triggerName: 'fulfillOrder.orderFulfillment', all: true },
@@ -188,7 +228,9 @@ describe('EsbActions', () => {
     const user = userEvent.setup()
     renderWithClient(<EsbQueueActions queue={fulfillmentQueue()} permissions={ALL} />)
 
-    await user.click(screen.getByRole('button', { name: 'Delete older messages in orderFulfillment' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Delete older messages in orderFulfillment' })
+    )
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('orderFulfillment')
     expect(dialog).toHaveTextContent('7 messages')
@@ -226,6 +268,86 @@ describe('EsbActions', () => {
     await user.click(screen.getByRole('button', { name: 'Restart Fulfill Order' }))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Broker unavailable'))
   })
+
+  it.each([
+    ['Resume Cancel Order', 'esbResumeTrigger', 'cancelOrder.orderEvents'],
+    ['Restart Fulfill Order', 'esbRestartTrigger', 'fulfillOrder.orderFulfillment'],
+  ])('sends the exact trigger input for %s', async (label, processName, triggerName) => {
+    const user = userEvent.setup()
+    renderWithClient(
+      <EsbTriggerActions
+        trigger={triggerName === cancelTrigger.name ? cancelTrigger : fulfillTrigger}
+        permissions={ALL}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: label }))
+    await waitFor(() =>
+      expect(processInit).toHaveBeenCalledWith(processName, { values: { triggerName } })
+    )
+  })
+
+  it('sends provider and broker queue when resuming delivery', async () => {
+    const user = userEvent.setup()
+    renderWithClient(
+      <EsbQueueActions queue={{ ...fulfillmentQueue(), paused: true }} permissions={ALL} />
+    )
+    await user.click(screen.getByRole('button', { name: 'Resume queue orderFulfillment' }))
+    await waitFor(() =>
+      expect(processInit).toHaveBeenCalledWith('esbResumeQueue', {
+        values: { providerName: 'artemis', brokerQueueName: 'orderFulfillment' },
+      })
+    )
+  })
+
+  it('hides replay for an empty dead-letter queue and pause when queue state is unknown', () => {
+    renderWithClient(
+      <>
+        <EsbTriggerActions
+          trigger={{
+            ...fulfillTrigger,
+            deadLetter: { ...fulfillTrigger.deadLetter, messageCount: 0 },
+          }}
+          permissions={ALL}
+        />
+        <EsbQueueActions queue={{ ...fulfillmentQueue(), paused: null }} permissions={ALL} />
+      </>
+    )
+    expect(screen.queryByRole('button', { name: /Replay/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Pause queue|Resume queue/ })
+    ).not.toBeInTheDocument()
+  })
+
+  it.each(['COMPLETE', 'ERROR'] as const)(
+    'keeps controls pending and reports only the final async %s outcome',
+    async (type) => {
+      vi.mocked(processInit).mockResolvedValue({
+        type: 'JOB_STARTED',
+        processUUID: 'uuid',
+        jobUUID: 'job',
+      })
+      vi.mocked(processStatus).mockResolvedValue(
+        type === 'COMPLETE'
+          ? { type, processUUID: 'uuid', values: { message: 'Restarted 2 consumers.', count: 2 } }
+          : { type, error: 'Restart failed.' }
+      )
+      const user = userEvent.setup()
+      renderWithClient(<EsbTriggerActions trigger={fulfillTrigger} permissions={ALL} />)
+      await user.click(screen.getByRole('button', { name: 'Restart Fulfill Order' }))
+      expect(screen.getByRole('button', { name: 'Restart Fulfill Order' })).toBeDisabled()
+      expect(toast.success).not.toHaveBeenCalled()
+      expect(toast.error).not.toHaveBeenCalled()
+      await waitFor(
+        () =>
+          expect(type === 'COMPLETE' ? toast.success : toast.error).toHaveBeenCalledWith(
+            type === 'COMPLETE' ? 'Restarted 2 consumers.' : 'Restart failed.'
+          ),
+        { timeout: 2500 }
+      )
+      expect(type === 'COMPLETE' ? toast.error : toast.success).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Restart Fulfill Order' })).toBeEnabled()
+    }
+  )
 
   it('treats a topic as having no broker queue', () => {
     expect(destinationQueue(orderEsb.publications[0].destination)).toBeNull()

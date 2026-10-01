@@ -41,6 +41,7 @@ import {
 /** What to browse: the queue behind a destination, or a trigger's dead letters. */
 export type EsbMessageSource =
   | { kind: 'destination'; name: string }
+  | { kind: 'subscription'; name: string; triggerName: string }
   | { kind: 'deadLetters'; triggerName: string }
 
 /** Props for {@link EsbMessageList}. */
@@ -70,11 +71,19 @@ export function EsbMessageList({ source, queue, permissions }: EsbMessageListPro
   const selectable = available.replay || available.move || available.delete
 
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.esbMessages(source.kind, name, offset),
+    queryKey:
+      source.kind === 'subscription'
+        ? [...queryKeys.esbMessages('destination', source.name, offset), source.triggerName]
+        : queryKeys.esbMessages(source.kind, name, offset),
     queryFn: () =>
-      source.kind === 'destination'
-        ? getEsbMessages(source.name, offset)
-        : getEsbDeadLetters(source.triggerName, offset),
+      source.kind === 'deadLetters'
+        ? getEsbDeadLetters(source.triggerName, offset)
+        : getEsbMessages(
+            source.name,
+            offset,
+            ESB_PAGE_SIZE,
+            source.kind === 'subscription' ? source.triggerName : undefined
+          ),
     meta: HANDLES_OWN_ERRORS,
   })
 
@@ -84,12 +93,16 @@ export function EsbMessageList({ source, queue, permissions }: EsbMessageListPro
   }
   const toggle = (messageId: string) =>
     setSelected((current) =>
-      current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId]
+      current.includes(messageId)
+        ? current.filter((id) => id !== messageId)
+        : [...current, messageId]
     )
 
   return (
     <div className="space-y-3" data-qqq-id={`esb-message-list-${name}`}>
-      {source.kind === 'deadLetters' && <EsbQueueActions queue={queue} permissions={permissions} />}
+      {source.kind !== 'destination' && (
+        <EsbQueueActions queue={queue} permissions={permissions} onDone={() => setSelected([])} />
+      )}
       {selectable && (
         <EsbSelectionActions
           queue={queue}

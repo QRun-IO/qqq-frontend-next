@@ -105,14 +105,17 @@ async function revisions(backend: Backend) {
 
 test.describe('table developer view', () => {
   test('[REC-053] keeps the metadata sections and shows API Docs & Playground with no application APIs @mobile', async ({ page, backend, diagnostics }) => {
-    void diagnostics
+    diagnostics.allow(/^request: GET \/qqq\/v1\/esb\/table\/recordLab 404$/)
+    diagnostics.allow(/^console: Failed to load resource: the server responded with a status of 404 \(Not Found\)$/)
     const table = await (await backend.api.get('/qqq/v1/metaData/table/recordLab')).json()
     const catalog = await backend.api.get('/apis.json?tableName=recordLab')
     expect(catalog.status()).toBe(200)
     expect(await catalog.json()).toEqual({ apis: [] })
     const specRequests = requestsMatching(page, /(versions|openapi)\.json$/)
 
+    const esbResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/esb/table/recordLab')
     await open(page, '/app/recordLab/dev')
+    expect((await esbResponse).status()).toBe(404)
     await expect(page.getByRole('heading', { level: 2, name: `Table Developer View: ${table.label}` })).toBeVisible()
     await expectNoSidewaysScroll(page)
     await expectTouchTargets(page.locator('#main-content'))
@@ -144,7 +147,7 @@ test.describe('table developer view', () => {
     expect(json.label).toBe(table.label)
     expect(Object.keys(json.fields).sort()).toEqual(Object.keys(table.fields).sort())
 
-    expect(diagnostics.failedRequests).toEqual([])
+    expect(diagnostics.failedRequests).toEqual(['GET /qqq/v1/esb/table/recordLab 404'])
     expect(specRequests.map((request) => request.url())).toEqual([])
   })
 
@@ -152,7 +155,8 @@ test.describe('table developer view', () => {
     test.use({ persona: 'viewer' })
 
     test('[REC-053] a viewer sees the same empty state and cannot fetch any table spec @mobile', async ({ page, backend, diagnostics }) => {
-      void diagnostics
+      diagnostics.allow(/^request: GET \/qqq\/v1\/esb\/table\/recordLab 404$/)
+      diagnostics.allow(/^console: Failed to load resource: the server responded with a status of 404 \(Not Found\)$/)
       const table = await (await backend.api.get('/qqq/v1/metaData/table/recordLab')).json()
       expect([table.insertPermission, table.editPermission, table.deletePermission]).toEqual([false, false, false])
       // No API lists the table for this session either, so there is no spec URL to fetch.
@@ -161,7 +165,9 @@ test.describe('table developer view', () => {
       expect(await catalog.json()).toEqual({ apis: [] })
       const specRequests = requestsMatching(page, /(versions|openapi)\.json$/)
 
+      const esbResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/esb/table/recordLab')
       await open(page, '/app/recordLab/dev')
+      expect((await esbResponse).status()).toBe(404)
       await expect(page.getByRole('heading', { level: 2, name: `Table Developer View: ${table.label}` })).toBeVisible()
       await expect(page.locator('p', { hasText: /^Capabilities$/ }).locator('xpath=following-sibling::p')).toHaveText('Read-only')
       const docs = byId(page, 'table-dev-api-docs')
@@ -172,7 +178,7 @@ test.describe('table developer view', () => {
       await expect(byId(page, 'table-dev-api-reference')).toHaveCount(0)
       await expect(page.locator('rapi-doc')).toHaveCount(0)
 
-      expect(diagnostics.failedRequests).toEqual([])
+      expect(diagnostics.failedRequests).toEqual(['GET /qqq/v1/esb/table/recordLab 404'])
       expect(specRequests.map((request) => request.url())).toEqual([])
     })
   })
