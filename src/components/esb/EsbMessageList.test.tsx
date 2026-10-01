@@ -17,7 +17,7 @@
 // Tests for browsing ESB messages and acting on selected ones
 
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
@@ -72,7 +72,7 @@ describe('EsbMessageList', () => {
     })
   })
 
-  it('lists a queue\'s messages with their event type and subject', async () => {
+  it("lists a queue's messages with their event type and subject", async () => {
     renderWithClient(
       <EsbMessageList source={QUEUE_SOURCE} queue={fulfillmentQueue()} permissions={NONE} />
     )
@@ -80,12 +80,24 @@ describe('EsbMessageList', () => {
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveTextContent('ID:msg-1')
-    expect(rows[0]).toHaveTextContent('qqq.table.order.INSERT')
+    expect(rows[0]).toHaveTextContent('qqq.table.order.inserted')
     expect(rows[0]).toHaveTextContent('1001')
     expect(rows[1]).toHaveTextContent('ID:msg-2')
   })
 
-  it('shows a dead letter\'s error and raw body when it is not a CloudEvent', async () => {
+  it('browses CloudEvents with the backend event type and source in both parsed and raw bodies', async () => {
+    renderWithClient(
+      <EsbMessageList source={QUEUE_SOURCE} queue={fulfillmentQueue()} permissions={NONE} />
+    )
+    const table = await screen.findByRole('table', { name: 'Messages' })
+    expect(table).toHaveTextContent('qqq.table.order.inserted')
+    for (const message of orderFulfillmentMessages.messages) {
+      expect(message.event?.source).toBe('qqq://demo/table/order')
+      expect(JSON.parse(message.rawBody)).toEqual(message.event)
+    }
+  })
+
+  it("shows a dead letter's error and raw body when it is not a CloudEvent", async () => {
     renderWithClient(
       <EsbMessageList
         source={DEAD_LETTER_SOURCE}
@@ -166,7 +178,11 @@ describe('EsbMessageList', () => {
     const dialog = await screen.findByRole('alertdialog')
     const confirm = within(dialog).getByRole('button', { name: 'Move messages' })
     expect(confirm).toBeDisabled()
-    await user.type(within(dialog).getByLabelText('Target queue'), 'orderFulfillment.hold')
+    await user.type(within(dialog).getByLabelText('Target queue'), '   ')
+    expect(confirm).toBeDisabled()
+    expect(processInit).not.toHaveBeenCalled()
+    await user.clear(within(dialog).getByLabelText('Target queue'))
+    await user.type(within(dialog).getByLabelText('Target queue'), '  orderFulfillment.hold  ')
     await user.click(confirm)
     await waitFor(() =>
       expect(processInit).toHaveBeenCalledWith('esbMoveMessages', {
@@ -197,6 +213,78 @@ describe('EsbMessageList', () => {
         values: { triggerName: 'fulfillOrder.orderFulfillment', messageIds: 'ID:dlq-1' },
       })
     )
+  })
+
+  it.each(['purge', 'deleteOlder'])('clears the selection after %s succeeds', async (operation) => {
+    const user = userEvent.setup()
+    renderWithClient(
+      <EsbMessageList
+        source={DEAD_LETTER_SOURCE}
+        queue={deadLetterQueue(fulfillTrigger)}
+        permissions={ALL}
+      />
+    )
+    await user.click(await screen.findByRole('checkbox', { name: 'Select ID:dlq-1' }))
+    await user.click(
+      screen.getByRole('button', {
+        name:
+          operation === 'purge'
+            ? 'Purge orderFulfillment.dlq'
+            : 'Delete older messages in orderFulfillment.dlq',
+      })
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    if (operation === 'deleteOlder') {
+      fireEvent.change(within(dialog).getByLabelText('Older than'), {
+        target: { value: '2026-09-25T10:00' },
+      })
+    }
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: operation === 'purge' ? 'Purge queue' : 'Delete messages',
+      })
+    )
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: 'Select ID:dlq-1' })).not.toBeChecked()
+    )
+    expect(screen.getByRole('button', { name: 'Replay selected' })).toBeDisabled()
+  })
+
+  it('offers no selection when move and delete are unsupported even with permissions', async () => {
+    renderWithClient(
+      <EsbMessageList
+        source={QUEUE_SOURCE}
+        queue={{
+          ...fulfillmentQueue(),
+          capabilities: { ...fulfillmentQueue().capabilities, move: false, deleteSelected: false },
+        }}
+        permissions={ALL}
+      />
+    )
+    await screen.findByRole('table', { name: 'Messages' })
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /selected/ })).not.toBeInTheDocument()
+  })
+
+  it('retains selection and confirmation after a failed purge', async () => {
+    vi.mocked(processInit).mockResolvedValue({ type: 'ERROR', error: 'Purge refused.' })
+    const user = userEvent.setup()
+    renderWithClient(
+      <EsbMessageList
+        source={DEAD_LETTER_SOURCE}
+        queue={deadLetterQueue(fulfillTrigger)}
+        permissions={ALL}
+      />
+    )
+    const checkbox = await screen.findByRole('checkbox', { name: 'Select ID:dlq-1' })
+    await user.click(checkbox)
+    await user.click(screen.getByRole('button', { name: 'Purge orderFulfillment.dlq' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Purge queue' }))
+    await waitFor(() => expect(processInit).toHaveBeenCalled())
+    expect(dialog).toBeInTheDocument()
+    expect(checkbox).toBeChecked()
   })
 
   it('opens the list in a dialog from the browse button', async () => {

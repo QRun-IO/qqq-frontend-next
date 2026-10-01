@@ -25,7 +25,7 @@ import Link from 'next/link'
 import type { EsbPermissions, EsbTrigger, EsbTriggerMode, EsbTriggerState } from '@/types'
 import { CHIP_COLOR_CLASSES, type ChipColor } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
-import { EsbTriggerActions, deadLetterQueue } from './EsbActions'
+import { EsbTriggerActions, EsbQueueActions, deadLetterQueue, type EsbQueueRef } from './EsbActions'
 import { EsbCounters } from './EsbCounters'
 import { EsbBrowseButton } from './EsbMessageList'
 
@@ -59,6 +59,15 @@ export function EsbTriggerRow({
   trigger: EsbTrigger
   permissions: EsbPermissions
 }) {
+  const subscription: EsbQueueRef | null = trigger.subscription
+    ? {
+        providerName: trigger.destination.provider,
+        brokerQueueName: trigger.subscription.brokerName,
+        capabilities: trigger.destination.capabilities,
+        messageCount: trigger.subscription.messageCount,
+        paused: trigger.subscription.paused ?? null,
+      }
+    : null
   const state = STATES[trigger.state] ?? { label: trigger.state, color: 'default' }
   const attempts = `${trigger.maxAttempts} ${trigger.maxAttempts === 1 ? 'attempt' : 'attempts'}`
 
@@ -69,7 +78,7 @@ export function EsbTriggerRow({
     >
       <td className="px-2 py-2">
         <Link
-          href={`/app/${encodeURIComponent(trigger.processName)}`}
+          href={`/app/${encodeURIComponent(trigger.processName)}/dev`}
           className="font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {trigger.processLabel}
@@ -78,7 +87,11 @@ export function EsbTriggerRow({
           {MODES[trigger.mode] ?? trigger.mode}, concurrency {trigger.concurrency}, {attempts}
         </p>
       </td>
-      <td className="px-2 py-2 font-mono text-xs text-foreground">{trigger.destination.name}</td>
+      <td className="px-2 py-2 font-mono text-xs text-foreground">
+        {trigger.destination.name}
+        {subscription && <p className="text-muted-foreground">{subscription.brokerQueueName}</p>}
+        {subscription && <p>Subscription depth: {subscription.messageCount ?? '—'}</p>}
+      </td>
       <td className="px-2 py-2">
         <span
           className={cn(
@@ -97,14 +110,35 @@ export function EsbTriggerRow({
       </td>
       <td className="space-y-1 px-2 py-2">
         <EsbTriggerActions trigger={trigger} permissions={permissions} />
-        <EsbBrowseButton
-          label="Browse dead letters"
-          ariaLabel={`Browse dead letters for ${trigger.processLabel}`}
-          title={`Dead letters for ${trigger.processLabel}`}
-          source={{ kind: 'deadLetters', triggerName: trigger.name }}
-          queue={deadLetterQueue(trigger)}
-          permissions={permissions}
-        />
+        {subscription && (
+          <>
+            {subscription.capabilities.browse && (
+              <EsbBrowseButton
+                label="Browse subscription"
+                ariaLabel={`Browse subscription for ${trigger.processLabel}`}
+                title={`Messages in ${subscription.brokerQueueName}`}
+                source={{
+                  kind: 'subscription',
+                  name: trigger.destination.name,
+                  triggerName: trigger.name,
+                }}
+                queue={subscription}
+                permissions={permissions}
+              />
+            )}
+            <EsbQueueActions queue={subscription} permissions={permissions} />
+          </>
+        )}
+        {trigger.destination.capabilities.browse && (
+          <EsbBrowseButton
+            label="Browse dead letters"
+            ariaLabel={`Browse dead letters for ${trigger.processLabel}`}
+            title={`Dead letters for ${trigger.processLabel}`}
+            source={{ kind: 'deadLetters', triggerName: trigger.name }}
+            queue={deadLetterQueue(trigger)}
+            permissions={permissions}
+          />
+        )}
       </td>
     </tr>
   )

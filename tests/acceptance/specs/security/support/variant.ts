@@ -22,6 +22,7 @@ import { resolveFixtureClasspath } from '../../../../../scripts/acceptance-paths
 export type AuthMode = 'MOCK' | 'OAUTH2' | 'AUTH_0' | 'FULLY_ANONYMOUS' | 'TABLE_BASED' | 'UNSUPPORTED'
 
 export const SECURITY_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? ACCEPTANCE_BACKEND_PORT + 10)
+export const SECURITY_ESB_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_ESB_PORT ?? Number(process.env.QQQ_ACCEPTANCE_ESB_PORT ?? 61616) + 1)
 export const IDP_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_IDP_PORT ?? ACCEPTANCE_FRONTEND_PORT + 10)
 export const SECURITY_URL = `http://127.0.0.1:${SECURITY_PORT}`
 export const IDP_URL = `http://127.0.0.1:${IDP_PORT}`
@@ -97,6 +98,7 @@ export async function startVariant(mode: AuthMode, options: { env?: Record<strin
     `-Dqqq.sample.mockAuthentication=${mock}`,
     `-Dqqq.sample.sharing=${mode === 'MOCK'}`,
     `-Dqqq.sample.port=${SECURITY_PORT}`,
+    `-Dqqq.sample.esb.port=${SECURITY_ESB_PORT}`,
     `-Dqqq.security.auth=${mode}`,
     '-Duser.timezone=UTC',
     '-Dqqq.javalin.frontend=next',

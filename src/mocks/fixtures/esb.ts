@@ -107,6 +107,7 @@ const fulfillOrderTrigger: EsbTrigger = {
     lastError: 'Warehouse API timed out',
   }),
   deadLetter: { brokerName: 'orderFulfillment.dlq', messageCount: 1 },
+  subscription: null,
 }
 
 const cancelOrderTrigger: EsbTrigger = {
@@ -126,6 +127,7 @@ const cancelOrderTrigger: EsbTrigger = {
     maxMs: 80,
   }),
   deadLetter: { brokerName: 'orderEvents.cancelOrder.orderEvents.dlq', messageCount: null },
+  subscription: { brokerName: 'cancelOrder.orderEvents', messageCount: null },
 }
 
 const fulfillmentResults: EsbDestination = {
@@ -189,11 +191,12 @@ export const orderFulfillmentMessages: EsbMessagePage = {
       event: {
         specversion: '1.0',
         id: 'evt-1',
-        source: 'qqq/table/order',
-        type: 'qqq.table.order.INSERT',
+        source: 'qqq://demo/table/order',
+        type: 'qqq.table.order.inserted',
         subject: '1001',
       },
-      rawBody: '{"specversion":"1.0","id":"evt-1","type":"qqq.table.order.INSERT","subject":"1001"}',
+      rawBody:
+        '{"specversion":"1.0","id":"evt-1","source":"qqq://demo/table/order","type":"qqq.table.order.inserted","subject":"1001"}',
       properties: {},
     },
     {
@@ -203,11 +206,12 @@ export const orderFulfillmentMessages: EsbMessagePage = {
       event: {
         specversion: '1.0',
         id: 'evt-2',
-        source: 'qqq/table/order',
-        type: 'qqq.table.order.INSERT',
+        source: 'qqq://demo/table/order',
+        type: 'qqq.table.order.inserted',
         subject: '1002',
       },
-      rawBody: '{"specversion":"1.0","id":"evt-2","type":"qqq.table.order.INSERT","subject":"1002"}',
+      rawBody:
+        '{"specversion":"1.0","id":"evt-2","source":"qqq://demo/table/order","type":"qqq.table.order.inserted","subject":"1002"}',
       properties: {},
     },
   ],
@@ -222,7 +226,10 @@ export const fulfillOrderDeadLetters: EsbMessagePage = {
       deliveryCount: 3,
       event: null,
       rawBody: 'not json',
-      properties: { qqqError: 'unparseable message', qqqFailedTrigger: 'fulfillOrder.orderFulfillment' },
+      properties: {
+        qqqError: 'unparseable message',
+        qqqFailedTrigger: 'fulfillOrder.orderFulfillment',
+      },
     },
   ],
   hasMore: false,

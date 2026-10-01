@@ -78,7 +78,7 @@ export function deadLetterQueue(trigger: EsbTrigger): EsbQueueRef {
     brokerQueueName: trigger.deadLetter.brokerName,
     capabilities: trigger.destination.capabilities,
     messageCount: trigger.deadLetter.messageCount,
-    paused: null,
+    paused: trigger.deadLetter.paused ?? null,
   }
 }
 
@@ -144,14 +144,19 @@ export function EsbTriggerActions({
  * @returns A group of buttons.
  */
 function TriggerButtons({ trigger }: { trigger: EsbTrigger }) {
-  const action = useEsbAction()
+  const [confirmReplay, setConfirmReplay] = useState(false)
+  const action = useEsbAction(() => setConfirmReplay(false))
   const run = (processName: string, values: EsbActionValues = {}) =>
     action.mutate({ processName, values: { triggerName: trigger.name, ...values } })
   const paused = trigger.state === 'PAUSED'
   const id = trigger.name
 
   return (
-    <div className="flex flex-wrap gap-1" role="group" aria-label={`Actions for ${trigger.processLabel}`}>
+    <div
+      className="flex flex-wrap gap-1"
+      role="group"
+      aria-label={`Actions for ${trigger.processLabel}`}
+    >
       {paused ? (
         <ActionButton
           label="Resume"
@@ -182,9 +187,25 @@ function TriggerButtons({ trigger }: { trigger: EsbTrigger }) {
           ariaLabel={`Replay dead letters for ${trigger.processLabel}`}
           qqqId={`button-esb-replay-dead-letters-${id}`}
           disabled={action.isPending}
-          onClick={() => run('esbReplayDeadLetters', { all: true })}
+          onClick={() => setConfirmReplay(true)}
         />
       )}
+      <EsbConfirmDialog
+        open={confirmReplay}
+        title="Replay dead letters"
+        confirmLabel="Replay dead letters"
+        destructive={false}
+        pending={action.isPending}
+        onCancel={() => setConfirmReplay(false)}
+        onConfirm={() => run('esbReplayDeadLetters', { all: true })}
+      >
+        Replay{' '}
+        {trigger.deadLetter.messageCount === null
+          ? 'all dead letters (count unknown)'
+          : `all ${messageCountText(trigger.deadLetter.messageCount)}`}{' '}
+        from queue {trigger.deadLetter.brokerName} through {trigger.processLabel}? Successful
+        messages will be removed.
+      </EsbConfirmDialog>
     </div>
   )
 }
@@ -196,14 +217,17 @@ function TriggerButtons({ trigger }: { trigger: EsbTrigger }) {
  * @param props - Component props.
  * @param props.queue - The broker queue.
  * @param props.permissions - The current user's ESB permissions.
+ * @param props.onDone - Called after success to clear any browsed selection.
  * @returns The buttons, or `null` when none is available.
  */
 export function EsbQueueActions({
   queue,
   permissions,
+  onDone,
 }: {
   queue: EsbQueueRef
   permissions: EsbPermissions
+  onDone?: () => void
 }) {
   const canPause = permissions.canOperate && queue.capabilities.pauseQueue && queue.paused !== null
   const canPurge = permissions.canDelete && queue.capabilities.purge
@@ -215,6 +239,7 @@ export function EsbQueueActions({
       canPause={canPause}
       canPurge={canPurge}
       canDeleteOlder={canDeleteOlder}
+      onDone={onDone}
     />
   )
 }
@@ -227,6 +252,7 @@ export function EsbQueueActions({
  * @param props.canPause - Whether to offer pause or resume.
  * @param props.canPurge - Whether to offer purge.
  * @param props.canDeleteOlder - Whether to offer deleting messages older than a time.
+ * @param props.onDone - Called after an action succeeds.
  * @returns A group of buttons.
  */
 function QueueButtons({
@@ -234,11 +260,13 @@ function QueueButtons({
   canPause,
   canPurge,
   canDeleteOlder,
+  onDone,
 }: {
   queue: EsbQueueRef
   canPause: boolean
   canPurge: boolean
   canDeleteOlder: boolean
+  onDone?: () => void
 }) {
   const [dialog, setDialog] = useState<'purge' | 'deleteOlder' | null>(null)
   const [olderThan, setOlderThan] = useState('')
@@ -247,7 +275,10 @@ function QueueButtons({
     setDialog(null)
     setOlderThan('')
   }
-  const action = useEsbAction(close)
+  const action = useEsbAction(() => {
+    close()
+    onDone?.()
+  })
   const target = { providerName: queue.providerName, brokerQueueName: queue.brokerQueueName }
   const name = queue.brokerQueueName
   const inQueue =
@@ -613,7 +644,12 @@ export function EsbConfirmDialog({
   onCancel: () => void
 }) {
   return (
-    <AlertDialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel() }}>
+    <AlertDialogPrimitive.Root
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onCancel()
+      }}
+    >
       <AlertDialogPrimitive.Portal>
         <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <AlertDialogPrimitive.Content

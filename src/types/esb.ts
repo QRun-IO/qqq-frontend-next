@@ -79,6 +79,8 @@ export type EsbTriggerState = 'RUNNING' | 'PAUSED' | 'CONNECTING' | 'STOPPED'
 /** A trigger's dead-letter queue. */
 export interface EsbDeadLetter {
   brokerName: string
+  /** Broker delivery state; absent on older backends, null without management data. */
+  paused?: boolean | null
   /** Messages waiting in the dead-letter queue, or `null` when the broker cannot report it. */
   messageCount: number | null
 }
@@ -96,6 +98,8 @@ export interface EsbTrigger {
   state: EsbTriggerState
   counters: EsbCounter
   deadLetter: EsbDeadLetter
+  /** Broker queue for a topic subscription; null for queue triggers. */
+  subscription: EsbDeadLetter | null
 }
 
 /** What the current user may do with the ESB objects in a response. */

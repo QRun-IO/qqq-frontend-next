@@ -29,6 +29,7 @@ const server = spawn('java', [
   '-Dqqq.sample.mockAuthentication=true',
   '-Dqqq.sample.sharing=true',
   `-Dqqq.sample.port=${port}`,
+  `-Dqqq.sample.esb.port=${process.env.QQQ_ACCEPTANCE_ESB_PORT ?? '61616'}`,
   '-Duser.timezone=UTC',
   // javalin mode: the fresh export shadows any dashboard bundled in the sample jar
   '-cp', [...(ACCEPTANCE_MODE === 'javalin' ? [EXPORT_CLASSPATH] : []), classes, fixtureClasspath].join(path.delimiter),
