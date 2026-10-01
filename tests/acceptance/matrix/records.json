@@ -1112,7 +1112,8 @@
       "scenarios": [
         "developer page for a table keeps its metadata sections and shows the API Docs & Playground section",
         "with no application APIs it shows \"This table is not available in any APIs.\" and no API or Version selectors",
-        "OpenAPI download and new-tab buttons remain fully visible before interaction at desktop, phone and 320px widths in light/dark modes; pointer/touch downloads yield the real specification and keyboard navigation opens its URL"
+        "OpenAPI download and new-tab buttons remain fully visible before interaction at desktop, phone and 320px widths in light/dark modes; pointer/touch downloads yield the real specification and keyboard navigation opens its URL",
+        "specification labels fit wider application font metrics at desktop and phone widths without content clipping"
       ],
       "negative": [
         "a viewer persona sees the same empty state and cannot fetch any table spec"

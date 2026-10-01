@@ -534,3 +534,12 @@ Reproduced clipped specification buttons against the packaged RC7 candidate befo
 Twelve real-backend desktop/mobile workflows pass: default device and 320px widths, light/dark themes, complete visibility, actual specification download, keyboard new-tab action, contrast and live Preferences changes. Final phone screenshots were directly inspected. At 1440px, the full playground screenshot is byte-identical to RC7 (SHA256 `ec6d108d5d632d1ee0b3a3ecd6c61ae9279bee705facd2a3b9e422d2e0f1ae37`), and overview/button geometry matches exactly.
 
 All 1,904 units, types, lint/license, default production export and unchanged bundle budgets pass. Evidence, including earlier test/setup failures, is retained under original-checkout `test-results/visual-review/api-playground-width/`. This is a separate follow-up, not part of frozen RC7. Expanded endpoint states, additional application palettes and whole-product visual approval remain open.
+
+
+## September 30 — desktop and tablet process comparison
+
+Compared original Next `e42ad2b2` with the actual RC8 candidate JAR in 32 light/dark desktop/tablet screenshots: bulk file mapping at two scroll positions, running process progress, and expanded internal-error details. Both builds used fresh isolated instances of the same fixture/backend. Capture manifests include export fingerprints and report zero runtime/state errors or body/main horizontal overflow.
+
+Progress and error panel composition are retained. Bulk mapping visibly changes the saved-profile actions and Add Fields control and introduces explanatory text. Main scroll height increases from 1330 to 1390px on desktop and 1556 to 1748px on tablet. This added density/height remains an owner-review item. Tablet breadcrumb ancestors are more crowded with the added command control; the current page remains visible. Dark mode retains the existing composition with revised readable accent colors. No screen redesign was applied during this review.
+
+Evidence: original-checkout `test-results/visual-review/rc8-desktop-tablet-process-review/`, including four inspected contact sheets and all 32 source images. This is scoped process evidence, not whole-product approval; the existing uncaptured states and compatibility gaps remain open.

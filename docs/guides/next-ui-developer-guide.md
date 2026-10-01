@@ -491,6 +491,6 @@ Plain process and standalone TIME blocks now use a one-second native input step,
 
 ### Narrow API controls and LONG validation (RC8 candidate)
 
-The API specification Download and View actions fit narrow panels, including 320px phones, and wrap their labels when necessary. Their download/new-tab behavior and the original wide layout are preserved. This correction is not included in RC7.
+The API specification Download and View actions fit narrow panels, including 320px phones, and wrap their labels when necessary. Their download/new-tab behavior is preserved. On wide panels, buttons grow to fit the rendered font instead of clipping labels at a fixed width. This correction is not included in RC7.
 
 When the frontend receives LONG range bounds, invalid integer text produces a field error before range comparisons run. Integer-string bounds retain exact precision beyond JavaScript's safe-number range; optional blanks and required-field messages retain their existing behavior. This describes the frontend schema's supported inputs, not a new backend metadata contract. The RC8 candidate includes this correction; RC7 does not.
