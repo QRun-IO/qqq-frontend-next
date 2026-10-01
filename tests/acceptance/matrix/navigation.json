@@ -453,7 +453,8 @@
       "scenarios": [
         "typing a label lists matching pages with app context; choosing one navigates",
         "a viewed record is offered as a recent record",
-        "Enter without a selection opens /app/search?q= with the matches, surviving refresh"
+        "Enter without a selection opens /app/search?q= with the matches, surviving refresh",
+        "search dialog contains Tab and Shift+Tab with empty or populated results; Clear returns to the input; Escape and backdrop dismissal restore keyboard and pointer openers"
       ],
       "negative": [
         "no search request fails (regression: every keystroke produced a 404 from a missing /search endpoint); with no searchable tables no request is made at all (NAV-032)"

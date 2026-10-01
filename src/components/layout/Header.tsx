@@ -110,7 +110,11 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
       <div className="ml-2 md:ml-3 flex flex-shrink-0 items-center gap-0 md:gap-3">
         {/* Mobile search icon — only visible below md breakpoint */}
         <button
-          onClick={onSearchOpen}
+          onClick={(event) => {
+            // WebKit can activate a button without focusing it; preserve this dialog's opener.
+            event.currentTarget.focus({ preventScroll: true })
+            onSearchOpen?.()
+          }}
           className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open search"
           data-qqq-id="button-mobile-search"

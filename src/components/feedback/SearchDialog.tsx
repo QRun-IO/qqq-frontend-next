@@ -68,6 +68,7 @@ interface SearchDialogProps {
 export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEARCH_TABLES }: SearchDialogProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -76,10 +77,15 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
   // Load recent records when the dialog opens; reset state
   useEffect(() => {
     if (open) {
+      const returnTo = document.activeElement
       setRecentRecords(getRecentRecords().slice(0, 10))
       setSearchTerm('')
       setSelectedIndex(-1)
-      requestAnimationFrame(() => inputRef.current?.focus())
+      const frame = requestAnimationFrame(() => inputRef.current?.focus())
+      return () => {
+        cancelAnimationFrame(frame)
+        if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus()
+      }
     }
   }, [open])
 
@@ -130,14 +136,33 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
             handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)
           }
           break
-        case 'Escape':
-          e.preventDefault()
-          onClose()
-          break
       }
     },
-    [selectedIndex, items, searchTerm, handleNavigate, onClose]
+    [selectedIndex, items, searchTerm, handleNavigate]
   )
+
+  /**
+   * Handles dismissal from every control and keeps keyboard focus inside the modal.
+   *
+   * @param event - The key pressed in the dialog.
+   */
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onClose()
+      return
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('input, button, [href], [tabindex]'))
+      .filter((element) => !element.hasAttribute('disabled') && element.tabIndex >= 0)
+    if (focusable.length === 0) return
+    // Handle each step: WebKit's native Tab order can omit buttons and leave the modal.
+    const current = focusable.indexOf(document.activeElement as HTMLElement)
+    const next = current < 0 ? (event.shiftKey ? focusable.length - 1 : 0)
+      : (current + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length
+    event.preventDefault()
+    focusable[next].focus()
+  }
 
   if (!open) return null
 
@@ -155,11 +180,13 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
       />
 
       <div
+        ref={dialogRef}
         className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card shadow-lg overflow-hidden"
         data-qqq-id="search-dialog"
         role="dialog"
         aria-label="Search"
         aria-modal="true"
+        onKeyDown={handleDialogKeyDown}
       >
         {/* Search input */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -172,7 +199,6 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
             onKeyDown={handleKeyDown}
             placeholder={recordSearch.available ? 'Search pages and records...' : 'Jump to a page or recent record...'}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-            autoFocus
             aria-label={recordSearch.available ? 'Search pages and records' : 'Search pages and recent records'}
             aria-expanded={true}
             aria-controls="search-dialog-results"
@@ -184,7 +210,10 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
           {searchTerm && (
             <button
               type="button"
-              onClick={() => setSearchTerm('')}
+              onClick={() => {
+                inputRef.current?.focus()
+                setSearchTerm('')
+              }}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
