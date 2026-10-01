@@ -11,7 +11,7 @@ import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import { navigation } from '../security/support/ui'
-import { downloadBytes, downloadText, parseCsv, readZip, sqlRows, xlsxRows } from './widget-support'
+import { allowMissingExtension, downloadBytes, downloadText, parseCsv, readZip, sqlRows, xlsxRows } from './widget-support'
 
 /** Runs a report in a format and returns the downloaded file. */
 async function runReport(page: Page, reportName: string, format: 'CSV' | 'XLSX' | 'JSON'): Promise<Download> {
@@ -145,8 +145,7 @@ test('[RPT-011] a report without a process streams from the report route @mobile
 })
 
 test('[RPT-008] reports appear in app navigation and open their run page @mobile', async ({ page, diagnostics }) => {
-  diagnostics.allow('/missing-extension.js 404')
-  diagnostics.allow('Failed to load resource: the server responded with a status of 404')
+  allowMissingExtension(page, diagnostics)
   await open(page, '/app/widgetGallery')
   const nav = await navigation(page)
   await nav.getByRole('button', { name: 'Expand Acceptance Reports' }).click()

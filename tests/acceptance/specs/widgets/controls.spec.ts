@@ -11,7 +11,7 @@ import { expectedDownloadFilename, nextDownloadAttribute } from '../../support/d
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import {
-  chooseOption, downloadText, dropdown, dropdownOptions, expectLoaded, localeDay, requestParam, widget, widgetBody,
+  allowMissingExtension, chooseOption, downloadText, dropdown, dropdownOptions, expectLoaded, localeDay, requestParam, widget, widgetBody,
 } from './widget-support'
 
 const EXPECTED_CSV = '"Label","Value"\n"A,""B""",7\n"Beta","0"\n'
@@ -201,8 +201,7 @@ test.describe('on a phone', () => {
 
 test('[WID-041] plain (non-card) widgets drop the card chrome and show metadata footers; payload sublabels render @mobile', async ({ page, diagnostics }) => {
   // the gallery deliberately includes a custom component whose bundle is missing
-  diagnostics.allow('/missing-extension.js 404')
-  diagnostics.allow('Failed to load resource: the server responded with a status of 404')
+  allowMissingExtension(page, diagnostics)
   await openControls(page)
   await expectLoaded(page, 'accPlain')
   const plain = widget(page, 'accPlain')
