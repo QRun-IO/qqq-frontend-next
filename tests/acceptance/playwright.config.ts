@@ -15,12 +15,16 @@ import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_FRONTEND_PORT, ACCEPTANCE_MODE, ACC
  */
 const browsers = (process.env.QQQ_ACCEPTANCE_BROWSERS ?? 'chromium').split(',')
 const MOBILE_TAG = /@mobile\b/
+// The tablet runs the phone scenarios too (WebKit touch, as on an iPad) plus tablet-layout tests.
+const TABLET_TAG = /@(mobile|tablet)\b/
 const deviceFor: Record<string, (typeof devices)[string]> = {
   chromium: devices['Desktop Chrome'],
   firefox: devices['Desktop Firefox'],
   webkit: devices['Desktop Safari'],
   mobile: devices['Pixel 7'],
+  tablet: devices['iPad (gen 7)'],
 }
+const grepFor: Record<string, RegExp> = { mobile: MOBILE_TAG, tablet: TABLET_TAG }
 
 export default defineConfig({
   testDir: './specs',
@@ -43,11 +47,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  // The phone project runs the specs that prove phone behavior (tagged @mobile in the title):
-  // navigation drawer, card list, record view, form, process run, dialogs and sign-in. The
-  // desktop projects run everything; desktop-only layouts (grid columns, resizing, grid
-  // keyboard navigation) are not phone scenarios. See docs/acceptance/browser-matrix.md.
-  projects: browsers.map((name) => ({ name, use: { ...deviceFor[name] }, ...(name === 'mobile' ? { grep: MOBILE_TAG } : {}) })),
+  // The phone project runs the specs that prove phone behavior (tagged @mobile in the title);
+  // the tablet project (iPad, WebKit, touch) runs those and the @tablet specs. The desktop
+  // projects run everything; desktop-only layouts (grid columns, resizing, grid keyboard
+  // navigation) are not phone scenarios. See docs/acceptance/browser-matrix.md.
+  projects: browsers.map((name) => ({ name, use: { ...deviceFor[name] }, ...(grepFor[name] ? { grep: grepFor[name] } : {}) })),
   webServer: [
     {
       command: 'node scripts/acceptance-backend.mjs',

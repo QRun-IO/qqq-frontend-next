@@ -18,7 +18,9 @@
 
 import React from 'react'
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import type { QWidgetMetaData } from '@/types'
 import type { QqqCompositeData } from '../widget-types'
@@ -286,6 +288,13 @@ describe('QqqComposite', () => {
     expect(screen.getByText('Still here')).toBeInTheDocument()
   })
 
+  it('renders a single leaf block payload as that block (Material block widget and table cell)', () => {
+    const { container } = renderComposite({ blockTypeName: 'TEXT', values: { text: 'Leaf only' } } as unknown as QqqCompositeData, 'accLeafBlock')
+    expect(screen.getByText('Leaf only')).toBeInTheDocument()
+    expect(container.querySelector('[data-block-type="COMPOSITE"]')).toBeNull()
+    expect(container.querySelector('[data-block-type="TEXT"]')).toBeInTheDocument()
+  })
+
   it('renders a payload notice instead of throwing for malformed blocks', () => {
     renderComposite({ blocks: { invalidShape: true } as unknown as QqqCompositeData['blocks'] }, 'accMalformedComposite')
     expect(screen.getByRole('alert')).toHaveTextContent('The composite widget data is not in the expected format (blocks).')
@@ -327,6 +336,217 @@ describe('QqqComposite', () => {
     expect(container.querySelector('[data-icon-name="star"]')).toBeInTheDocument()
     fireEvent.focus(screen.getByText('Hover me').closest('[tabindex="0"]') as HTMLElement)
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Nested tooltip text')
+  })
+
+  it('opens and closes a modal composite from button control codes and tells the host when it closes (WID-072)', () => {
+    const data: QqqCompositeData = {
+      blockTypeName: 'COMPOSITE', layout: 'FLEX_COLUMN',
+      blocks: [
+        { blockTypeName: 'BUTTON', values: { label: 'Open owned details', controlCode: 'showModal:ownedModal' } },
+        { blockTypeName: 'BUTTON', values: { label: 'Toggle owned details', controlCode: 'toggleModal:ownedModal' } },
+        {
+          blockTypeName: 'COMPOSITE', blockId: 'ownedModal', modalMode: 'MODAL',
+          blocks: [
+            { blockTypeName: 'TEXT', values: { text: 'Owned modal content' } },
+            { blockTypeName: 'BUTTON', values: { label: 'Close owned details', controlCode: 'hideModal:ownedModal' } },
+          ],
+        },
+      ],
+    }
+    const { actionCallback } = renderComposite(data, 'accModalComposite')
+    // closed until a control code opens it
+    expect(screen.queryByText('Owned modal content')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open owned details' }))
+    const dialog = screen.getByRole('dialog', { name: 'accModalComposite' })
+    expect(within(dialog).getByText('Owned modal content')).toBeInTheDocument()
+    expect(actionCallback).toHaveBeenLastCalledWith(expect.objectContaining({ blockTypeName: 'BUTTON' }), { label: 'Open owned details', controlCode: 'showModal:ownedModal' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close owned details' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle owned details' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Escape closes it and sends the host hideModal, as Material's modal onClose does
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(actionCallback).toHaveBeenLastCalledWith({ blockTypeName: 'BUTTON', values: {} }, { controlCode: 'hideModal:ownedModal' })
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle owned details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens a modal composite initially when the host values say so, and never one without a block id', () => {
+    const data: QqqCompositeData = {
+      blocks: [
+        { blockTypeName: 'COMPOSITE', blockId: 'seeded', modalMode: 'MODAL', blocks: [{ blockTypeName: 'TEXT', values: { text: 'Seeded open' } }] },
+        { blockTypeName: 'COMPOSITE', modalMode: 'MODAL', blocks: [{ blockTypeName: 'TEXT', values: { text: 'No id' } }] },
+      ],
+    }
+    render(<QqqComposite widgetMetaData={meta('accSeeded')} data={data} values={{ seeded: true }} />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Seeded open')
+    expect(screen.queryByText('No id')).toBeNull()
+  })
+
+  it.each([undefined, '%s'])('preserves plain INPUT_FIELD controls and seeded values (displayFormat=%s)', (displayFormat) => {
+    const field = (name: string, type: string, extra: Record<string, unknown> = {}) =>
+      ({ blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name, label: `Owned ${name}`, type, displayFormat, ...extra }, ...('value' in extra ? { value: extra.value } : {}) } })
+    const data: QqqCompositeData = {
+      blocks: [
+        field('text', 'STRING', { value: 'seeded text' }), field('count', 'INTEGER', { value: 7 }), field('amount', 'DECIMAL'), field('longId', 'LONG'),
+        field('day', 'DATE', { value: '2026-03-04' }), field('stamp', 'DATE_TIME', { value: new Date(2026, 2, 4, 5, 6, 7).toISOString() }), field('clock', 'TIME'),
+        field('secret', 'PASSWORD'), field('flag', 'BOOLEAN', { value: true }), field('file', 'BLOB'), field('body', 'TEXT'), field('markup', 'HTML'),
+        field('script', 'STRING', { adornments: [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }] }),
+      ],
+    }
+    renderComposite(data)
+    const control = (label: string) => screen.getByLabelText(label)
+    expect(control('Owned text')).toHaveAttribute('type', 'text')
+    expect(control('Owned text')).toHaveValue('seeded text')
+    expect(control('Owned count')).toHaveAttribute('type', 'number')
+    expect(control('Owned count')).toHaveValue(7)
+    expect(control('Owned amount')).toHaveAttribute('step', 'any')
+    expect(control('Owned longId')).toHaveAttribute('type', 'number')
+    expect(control('Owned day')).toHaveAttribute('type', 'date')
+    expect(control('Owned day')).toHaveValue('2026-03-04')
+    expect(control('Owned stamp')).toHaveAttribute('type', 'datetime-local')
+    expect((control('Owned stamp') as HTMLInputElement).value).toMatch(/^2026-03-04T05:06:07(?:\.000)?$/)
+    expect(control('Owned clock')).toHaveAttribute('type', 'time')
+    expect(control('Owned secret')).toHaveAttribute('type', 'password')
+    expect(control('Owned flag')).toHaveAttribute('type', 'checkbox')
+    expect(control('Owned flag')).toBeChecked()
+    expect(control('Owned file')).toHaveAttribute('type', 'file')
+    expect(control('Owned body')).toHaveAttribute('type', 'text')
+    expect(control('Owned markup')).toHaveAttribute('type', 'text')
+    expect(control('Owned script').tagName).toBe('TEXTAREA')
+    expect(screen.getByText('JavaScript')).toBeVisible()
+  })
+
+  it.each([undefined, '%tF %<tT'])('round-trips a standalone date-time instant on Enter (format=%s)', async (displayFormat) => {
+    const instant = new Date(2024, 2, 10, 1, 30, 7).toISOString().replace('.000Z', 'Z')
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: instant, submitOnEnter: true, fieldMetaData: {
+        name: 'stamp', label: 'Timestamp', type: 'DATE_TIME', isEditable: true, displayFormat,
+      } } },
+    ] })
+    const input = screen.getByLabelText('Timestamp')
+    expect((input as HTMLInputElement).value).toMatch(/^2024-03-10T01:30:07(?:\.000)?$/)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { stamp: instant }))
+  })
+
+  it('accepts seconds in a standalone time block and submits the entered time', async () => {
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: '09:30:07', submitOnEnter: true, fieldMetaData: {
+        name: 'clock', label: 'Clock', type: 'TIME', isEditable: true,
+      } } },
+    ] })
+    const input = screen.getByLabelText('Clock') as HTMLInputElement
+    expect(input.value).toBe('09:30:07')
+    expect(input.validity.stepMismatch).toBe(false)
+    fireEvent.change(input, { target: { value: '14:25:43' } })
+    expect(input.checkValidity()).toBe(true)
+    const beforeStep = input.valueAsNumber
+    input.stepUp()
+    expect(input.valueAsNumber).toBe(beforeStep + 1000)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { clock: expect.stringMatching(/^14:25:44(?:\.000)?$/) }))
+  })
+
+  it('uses metadata choice and formatted number editors in standalone input blocks', async () => {
+    const user = userEvent.setup()
+    const action = vi.fn()
+    const data: QqqCompositeData = { blockTypeName: 'COMPOSITE', blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 1, fieldMetaData: {
+        name: 'species', label: 'Species', type: 'INTEGER', isEditable: true,
+        inlinePossibleValueSource: { enumValues: [{ id: 1, label: 'Dog' }, { id: 2, label: 'Cat' }] },
+      } } },
+      { blockTypeName: 'INPUT_FIELD', values: { value: '12.50', submitOnEnter: true, placeholder: 'Enter cost', fieldMetaData: {
+        name: 'cost', label: 'Cost', type: 'DECIMAL', isEditable: true, displayFormat: '$%.2f',
+      } } },
+    ] }
+    render(<QueryClientProvider client={new QueryClient()}><QqqComposite widgetMetaData={meta('editors')} data={data} actionCallback={action} /></QueryClientProvider>)
+    const choices = screen.getByRole('combobox', { name: 'Species' })
+    expect(choices).toHaveTextContent('Dog')
+    await user.click(choices)
+    await user.click(await screen.findByRole('option', { name: 'Cat' }))
+    expect(choices).toHaveTextContent('Cat')
+    expect(screen.getByText('$')).toBeVisible()
+    const cost = screen.getByRole('spinbutton', { name: 'Cost' })
+    expect(cost).toHaveAttribute('placeholder', 'Enter cost')
+    await user.clear(cost)
+    await user.type(cost, '24.75{Enter}')
+    expect(action).toHaveBeenCalledWith(data.blocks![1], { cost: '24.75' })
+  })
+
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD'],
+    ['TO_LOWER_CASE', 'abxd'],
+  ])('applies %s in standalone input blocks without moving the edit caret', async (behavior, expected) => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'abCd', submitOnEnter: true, fieldMetaData: {
+        name: 'code', label: 'Code', type: 'STRING', isEditable: true, behaviors: [behavior],
+      } } },
+    ] })
+    const input = screen.getByLabelText('Code') as HTMLInputElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    expect(actionCallback).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { code: expected }))
+  })
+
+  it.each([
+    ['TO_UPPER_CASE', 'ABXD', 'ABXD\nE'],
+    ['TO_LOWER_CASE', 'abxd', 'abxd\ne'],
+  ])('applies %s to multiline input blocks while Enter remains a newline', async (behavior, expected, multiline) => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'abCd', submitOnEnter: true, fieldMetaData: {
+        name: 'notes', label: 'Notes', type: 'TEXT', isEditable: true, behaviors: [behavior],
+      } } },
+    ] })
+    const input = screen.getByRole('textbox', { name: 'Notes' }) as HTMLTextAreaElement
+    await user.click(input)
+    input.setSelectionRange(2, 3)
+    await user.keyboard('X')
+    expect(input).toHaveValue(expected)
+    expect(input.selectionStart).toBe(3)
+    expect(input.selectionEnd).toBe(3)
+    await user.keyboard('{End}{Enter}E')
+    expect(input).toHaveValue(multiline)
+    expect(actionCallback).not.toHaveBeenCalled()
+  })
+
+  it('validates trimmed standalone block text before invoking its action', async () => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { submitOnEnter: true, fieldMetaData: {
+        name: 'code', label: 'Code', type: 'STRING', isEditable: true, isRequired: true, displayFormat: '%20s',
+      } } },
+    ] })
+    const input = screen.getByLabelText(/Code/)
+    await user.type(input, '   {Enter}')
+    expect(await screen.findByText('Code is required')).toBeVisible()
+    expect(actionCallback).not.toHaveBeenCalled()
+    await user.clear(input)
+    await user.type(input, '  SPEC-42  {Enter}')
+    await waitFor(() => expect(actionCallback).toHaveBeenCalledWith(expect.anything(), { code: 'SPEC-42' }))
+  })
+
+  it('honors hidden and readonly metadata on plain standalone inputs', async () => {
+    const user = userEvent.setup()
+    const { actionCallback } = renderComposite({ blocks: [
+      { blockTypeName: 'INPUT_FIELD', values: { fieldMetaData: { name: 'hidden', label: 'Hidden Field', type: 'STRING', isHidden: true } } },
+      { blockTypeName: 'INPUT_FIELD', values: { value: 'fixed', submitOnEnter: true, fieldMetaData: { name: 'locked', label: 'Locked Field', type: 'STRING', isEditable: false } } },
+    ] })
+    expect(screen.queryByLabelText('Hidden Field')).toBeNull()
+    expect(screen.getByLabelText('Locked Field')).toBeDisabled()
+    await user.type(screen.getByLabelText('Locked Field'), 'changed{Enter}')
+    expect(screen.getByLabelText('Locked Field')).toHaveValue('fixed')
+    expect(actionCallback).not.toHaveBeenCalled()
   })
 
   it('maps standard and hex color names', () => {

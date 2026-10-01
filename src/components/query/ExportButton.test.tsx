@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 import type { QTableMetaData, QQueryFilter } from '@/types'
@@ -48,6 +48,27 @@ const filter: QQueryFilter = {
 }
 
 describe('ExportButton', () => {
+  it('keeps the menu open when touch focus returns to its trigger and still dismisses outside', async () => {
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    const trigger = screen.getByRole('button', { name: 'Export records' })
+    await userEvent.click(trigger)
+    expect(screen.getByRole('menu', { name: 'Export options' })).toBeInTheDocument()
+    act(() => trigger.focus())
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('opens from the keyboard and chooses an export format with arrow keys', async () => {
+    mockExport.mockResolvedValue(new Blob(['data']))
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    screen.getByRole('button', { name: 'Export records' }).focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toHaveFocus())
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(mockExport).toHaveBeenCalledTimes(1))
+    expect(mockExport.mock.calls[0][1]).toMatch(/\.xlsx$/)
+  })
   beforeEach(() => {
     mockExport.mockReset()
     vi.mocked(toast.error).mockReset()
@@ -77,6 +98,15 @@ describe('ExportButton', () => {
     expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toBeDisabled()
     rerender(<ExportButton tableName="person" tableMetaData={table(['TABLE_QUERY'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
     expect(screen.getByRole('button', { name: /exports are not allowed/ })).toBeDisabled()
+  })
+
+  it('closes on Escape and returns focus to its button (#708)', async () => {
+    render(<ExportButton tableName="person" tableMetaData={table(['TABLE_QUERY', 'TABLE_EXPORT'])} exportFilter={filter} columnNames={['id']} totalCount={2} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Export records' }))
+    expect(screen.getByRole('menuitem', { name: /Export CSV/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menuitem', { name: /Export CSV/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export records' })).toHaveFocus()
   })
 
   it('reports backend export errors', async () => {

@@ -12,6 +12,8 @@
  */
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,15 +25,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
+import com.kingsrook.qqq.backend.core.actions.metadata.MetaDataActionCustomizerInterface;
 import com.kingsrook.qqq.backend.core.actions.processes.ProcessFileDownload;
+import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
+import com.kingsrook.qqq.backend.core.actions.tables.StorageAction;
+import com.kingsrook.qqq.backend.core.model.actions.tables.storage.StorageInput;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.exceptions.QUserFacingException;
+import com.kingsrook.qqq.backend.core.model.actions.metadata.MetaDataInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.ProcessMetaDataAdjustment;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryOutput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetOutput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.CompositeWidgetData;
@@ -48,6 +63,10 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaDataInterface;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.CaseChangeBehavior;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAdornment;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.help.HelpFormat;
@@ -69,11 +88,17 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.ProcessStepFlow;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QStateMachineStep;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QRecordListMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.reporting.QReportMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.savedbulkloadprofiles.SavedBulkLoadProfileMetaDataProvider;
+import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.model.session.QUser;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
+import com.kingsrook.qqq.backend.core.instances.QInstanceHelpContentManager;
+import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardInstanceMetaData;
 import com.kingsrook.qqq.middleware.javalin.QJavalinMetaData;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 
@@ -106,6 +131,9 @@ public final class ProcessesFixtures
    static final String PROCESS_SCANNER     = "prcScanner";
    static final String PROCESS_LOOP        = "prcLoop";
    static final String PROCESS_QUICK       = "prcQuickTask";
+   static final String PROCESS_TAG         = "prcTagRecords";
+   static final String PROCESS_PICK        = "prcSpecimenPick";
+   static final String PROCESS_FIELD_WIDGET = "prcFieldWidget";
 
    static final AtomicInteger FLAKY_CALLS = new AtomicInteger();
 
@@ -126,6 +154,7 @@ public final class ProcessesFixtures
       // saved bulk load profiles (store/query/delete processes) on owned  //
       // snake_case tables that prime() recreates                         //
       ///////////////////////////////////////////////////////////////////////
+      BULK_LOAD_HELP_INSTANCE.set(instance);
       new SavedBulkLoadProfileMetaDataProvider().defineAll(instance, SampleMetaDataProvider.RDBMS_BACKEND_NAME, table ->
       {
          table.setBackendDetails(new RDBMSTableBackendDetails().withTableName(QInstanceEnricher.inferBackendName(table.getName())));
@@ -164,6 +193,9 @@ public final class ProcessesFixtures
          new QPossibleValue<>("short", "Short route"), new QPossibleValue<>("long", "Long route"))));
       instance.addPossibleValueSource(enumSource("prcFailureMode", "Failure Mode", List.of(
          new QPossibleValue<>("userFacing", "User-facing failure"), new QPossibleValue<>("internal", "Internal failure"))));
+      instance.addPossibleValueSource(enumSource("prcSpecimenCategory", "Specimen Category", List.of(
+         new QPossibleValue<>("Mineral", "Mineral"), new QPossibleValue<>("Plant", "Plant"), new QPossibleValue<>("Fungus", "Fungus"))));
+      instance.addPossibleValueSource(QPossibleValueSource.newForTable(TABLE_SPECIMEN));
 
       instance.addWidget(new QWidgetMetaData()
          .withName(WIDGET_HTML)
@@ -188,15 +220,32 @@ public final class ProcessesFixtures
       instance.addProcess(defineManyRows());
       instance.addProcess(defineScanner());
       instance.addProcess(defineLoop());
+      instance.addProcess(definePick());
+      instance.addProcess(defineFieldWidget());
+      instance.addProcess(defineBlockEditors());
+      instance.addProcess(defineInputFocus());
+      instance.addProcess(defineInputCase(QFieldType.STRING));
+      instance.addProcess(defineInputCase(QFieldType.TEXT));
+      instance.addProcess(defineInputCase(QFieldType.PASSWORD));
+      instance.addProcess(defineInputDateTimes());
       instance.addProcess(new QProcessMetaData()
          .withName(PROCESS_QUICK)
          .withLabel("Quick Task")
          .withIcon(new QIcon().withName("bolt"))
          .withStep(backend("run", QuickTaskStep.class)));
 
+      //////////////////////////////////////////////////////////////////////////////////////
+      // a table-less process in no app, which the Material dashboard instance metadata     //
+      // adds to every table's query and record screens (like runRecordScript). Only the    //
+      // sample user casey receives it in metadata, so other areas' screens are unchanged.  //
+      //////////////////////////////////////////////////////////////////////////////////////
+      instance.addProcess(defineTagRecords());
+      MaterialDashboardInstanceMetaData.ofOrWithNew(instance).addProcessNameToAddToAllQueryAndViewScreens(PROCESS_TAG);
+      instance.setMetaDataActionCustomizer(new QCodeReference(TagRecordsAudience.class));
+
       List<QAppChildMetaData> children = new ArrayList<>();
       children.add(instance.getTable(TABLE_SPECIMEN));
-      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK))
+      for(String processName : List.of(PROCESS_COMPONENTS, PROCESS_WIZARD, PROCESS_PROGRESS, PROCESS_BOUNDS, PROCESS_FLAKY, PROCESS_FAILURES, PROCESS_WIDGETS, PROCESS_DRIVE, PROCESS_EARLY, PROCESS_MANY, PROCESS_SCANNER, PROCESS_LOOP, PROCESS_QUICK, PROCESS_PICK, PROCESS_FIELD_WIDGET))
       {
          children.add(instance.getProcess(processName));
       }
@@ -229,7 +278,7 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, label VARCHAR(250), table_name VARCHAR(250), user_id VARCHAR(250), mapping_json TEXT, is_bulk_edit BOOLEAN)");
          statement.execute("CREATE TABLE shared_saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, saved_bulk_load_profile_id INTEGER, user_id VARCHAR(250), scope VARCHAR(30), UNIQUE(saved_bulk_load_profile_id, user_id))");
 
-         for(String table : List.of("prc_lab_run", "prc_route_log", "prc_progress_log", "prc_cancel_log", "prc_decision_log", "prc_drive_log"))
+         for(String table : List.of("prc_lab_run", "prc_route_log", "prc_progress_log", "prc_cancel_log", "prc_decision_log", "prc_drive_log", "prc_pick_log"))
          {
             statement.execute("DROP TABLE IF EXISTS " + table);
          }
@@ -238,8 +287,12 @@ public final class ProcessesFixtures
          statement.execute("CREATE TABLE prc_progress_log (id INT AUTO_INCREMENT PRIMARY KEY, item_count INT)");
          statement.execute("CREATE TABLE prc_cancel_log (id INT AUTO_INCREMENT PRIMARY KEY, item_count INT, note VARCHAR(80))");
          statement.execute("CREATE TABLE prc_decision_log (id INT AUTO_INCREMENT PRIMARY KEY, action_code VARCHAR(40), scan_code VARCHAR(80))");
-         statement.execute("CREATE TABLE prc_drive_log (id INT AUTO_INCREMENT PRIMARY KEY, note VARCHAR(200), folder_id VARCHAR(200))");
+         statement.execute("CREATE TABLE prc_drive_log (id INT AUTO_INCREMENT PRIMARY KEY, note VARCHAR(200), folder_id VARCHAR(200), folder_name VARCHAR(200), token_present BOOLEAN)");
+         statement.execute("DROP TABLE IF EXISTS prc_tag_log");
+         statement.execute("CREATE TABLE prc_tag_log (id INT AUTO_INCREMENT PRIMARY KEY, table_name VARCHAR(80), record_id VARCHAR(80))");
+         statement.execute("CREATE TABLE prc_pick_log (id INT AUTO_INCREMENT PRIMARY KEY, category VARCHAR(80), specimen_id INT)");
       }
+      primeBulkLoadHelp();
    }
 
 
@@ -347,6 +400,141 @@ public final class ProcessesFixtures
 
 
    /*******************************************************************************
+    ** A form field that hosts Material's filter-and-columns setup widget.
+    *******************************************************************************/
+   private static QProcessMetaData defineFieldWidget()
+   {
+      return new QProcessMetaData()
+         .withName(PROCESS_FIELD_WIDGET)
+         .withLabel("Field Widget")
+         .withStep(new QFrontendStepMetaData()
+            .withName("edit")
+            .withLabel("Edit Filter")
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("tableName", QFieldType.STRING).withLabel("Table Name"))
+            .withFormField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")
+               .withFieldAdornment(new FieldAdornment(AdornmentType.WIDGET)
+                  .withValue(AdornmentType.WidgetValues.WIDGET_NAME, "reportSetupWidget"))))
+         .withStep(new QFrontendStepMetaData()
+            .withName("review")
+            .withLabel("Review Filter")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")));
+   }
+
+
+
+   /*******************************************************************************
+    ** Metadata editors inside composite blocks share process validation and values.
+    *******************************************************************************/
+   private static QProcessMetaData defineBlockEditors()
+   {
+      ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
+      List<QFieldMetaData> fields = List.of(
+         new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"),
+         new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost").withDisplayFormat("$%.2f"),
+         new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Quantity"),
+         new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script")
+            .withFieldAdornment(new FieldAdornment(AdornmentType.CODE_EDITOR).withValue("languageMode", "javascript")),
+         new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter")
+            .withFieldAdornment(new FieldAdornment(AdornmentType.WIDGET).withValue(AdornmentType.WidgetValues.WIDGET_NAME, "reportSetupWidget")),
+         new QFieldMetaData("attachment", QFieldType.BLOB).withLabel("Attachment").withIsRequired(true),
+         new QFieldMetaData("adornedUpload", QFieldType.STRING).withLabel("Supporting File").withIsRequired(true)
+            .withFieldAdornment(new FieldAdornment(AdornmentType.FILE_UPLOAD).withValue("format", "dragAndDrop")));
+      for(QFieldMetaData field : fields)
+      {
+         blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(field).withSubmitOnEnter(true)));
+      }
+      return new QProcessMetaData()
+         .withName("prcBlockEditors")
+         .withLabel("Block Editors")
+         .withStep(backend("prepare", PrepareBlockEditorsStep.class))
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Blocks")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
+         .withStep(backend("readUploads", ReadBlockUploadsStep.class))
+         .withStep(new QFrontendStepMetaData().withName("review").withLabel("Review Blocks")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category"))
+            .withViewField(new QFieldMetaData("cost", QFieldType.DECIMAL).withLabel("Cost"))
+            .withViewField(new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Quantity"))
+            .withViewField(new QFieldMetaData("script", QFieldType.TEXT).withLabel("Script"))
+            .withViewField(new QFieldMetaData("queryFilterJson", QFieldType.TEXT).withLabel("Query Filter"))
+            .withViewField(new QFieldMetaData("columnsJson", QFieldType.TEXT).withLabel("Columns"))
+            .withViewField(new QFieldMetaData("attachmentContents", QFieldType.TEXT).withLabel("Attachment Contents"))
+            .withViewField(new QFieldMetaData("adornedUploadContents", QFieldType.TEXT).withLabel("Supporting Contents")));
+   }
+
+
+
+   public static class PrepareBlockEditorsStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output)
+      {
+         output.addValue("tableName", "person");
+         output.addValue("category", "Mineral");
+         output.addValue("cost", "12.50");
+         output.addValue("quantity", 7);
+         output.addValue("script", "const sample = 1;");
+         output.addValue("queryFilterJson", "{}");
+         output.addValue("columnsJson", "{\"columns\":[{\"name\":\"id\",\"isVisible\":true}]}");
+      }
+   }
+
+
+
+   public static class ReadBlockUploadsStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         for(String name : List.of("attachment", "adornedUpload"))
+         {
+            List<?> uploads = (List<?>) input.getValue(name);
+            try(InputStream stream = new StorageAction().getInputStream((StorageInput) uploads.get(0)))
+            {
+               output.addValue(name + "Contents", new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            catch(IOException e)
+            {
+               throw new QException("Could not read block upload", e);
+            }
+         }
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** A screen whose Specimen choices are filtered to its Category through
+    ** ${input.category} (the screen's values sent with the possible-value search),
+    ** a step that records the pick, and a result screen (PRC-051).
+    *******************************************************************************/
+   private static QProcessMetaData definePick()
+   {
+      return new QProcessMetaData()
+         .withName(PROCESS_PICK)
+         .withLabel("Specimen Pick")
+         .withIcon(new QIcon().withName("checklist"))
+         .withStep(new QFrontendStepMetaData()
+            .withName("pick")
+            .withLabel("Pick a Specimen")
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"))
+            .withFormField(new QFieldMetaData("specimenId", QFieldType.INTEGER).withLabel("Specimen").withIsRequired(true).withPossibleValueSourceName(TABLE_SPECIMEN)
+               .withPossibleValueSourceFilter(new QQueryFilter(new QFilterCriteria("category", QCriteriaOperator.EQUALS, "${input.category}")))))
+         .withStep(backend("recordPick", RecordPickStep.class))
+         .withStep(new QFrontendStepMetaData()
+            .withName("picked")
+            .withLabel("Specimen Picked")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("category", QFieldType.STRING).withLabel("Category").withPossibleValueSourceName("prcSpecimenCategory"))
+            .withViewField(new QFieldMetaData("specimenId", QFieldType.INTEGER).withLabel("Specimen").withPossibleValueSourceName(TABLE_SPECIMEN)));
+   }
+
+
+
+   /*******************************************************************************
     ** A slow step that reports progress, with a cancel step.
     *******************************************************************************/
    private static QProcessMetaData defineProgress()
@@ -368,6 +556,28 @@ public final class ProcessesFixtures
             .withLabel("Finished")
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("processedCount", QFieldType.INTEGER).withLabel("Processed Count")));
+   }
+
+
+
+   /*******************************************************************************
+    ** A process with no table: it runs over the records of the screen it is launched
+    ** from (the Material dashboard's processes added to every query and view screen).
+    *******************************************************************************/
+   private static QProcessMetaData defineTagRecords()
+   {
+      return new QProcessMetaData()
+         .withName(PROCESS_TAG)
+         .withLabel("Tag Records")
+         .withIcon(new QIcon().withName("sell"))
+         .withStep(backend("tag", TagRecordsStep.class))
+         .withStep(new QFrontendStepMetaData()
+            .withName("tagged")
+            .withLabel("Tagged")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("taggedTable", QFieldType.STRING).withLabel("Tagged Table"))
+            .withViewField(new QFieldMetaData("taggedCount", QFieldType.INTEGER).withLabel("Tagged Count"))
+            .withViewField(new QFieldMetaData("taggedIds", QFieldType.STRING).withLabel("Tagged Ids")));
    }
 
 
@@ -586,6 +796,146 @@ public final class ProcessesFixtures
 
 
    /*******************************************************************************
+    ** Configured input focus and Enter behavior after advancing a process.
+    *******************************************************************************/
+   private static QProcessMetaData defineInputFocus()
+   {
+      QFieldMetaData plain = new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Plain Code").withIsRequired(true);
+      QFieldMetaData formatted = new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Formatted Code").withIsRequired(true).withDisplayFormat("%20s");
+      return new QProcessMetaData()
+         .withName("prcInputFocus")
+         .withLabel("Input Focus Lab")
+         .withStep(new QFrontendStepMetaData().withName("intro").withLabel("Start")
+            .withComponent(component(QComponentType.HELP_TEXT).withValue("text", "Continue to the focused inputs.")))
+         .withStep(new QFrontendStepMetaData().withName("plain").withLabel("Plain Input")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", new ArrayList<>(List.of(
+               new InputFieldBlockData().withValues(new InputFieldValues(plain).withAutoFocus(true).withSubmitOnEnter(true).withPlaceholder("Scan plain code")))))))
+         .withStep(new QFrontendStepMetaData().withName("formatted").withLabel("Formatted Input")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", new ArrayList<>(List.of(
+               new InputFieldBlockData().withValues(new InputFieldValues(formatted).withAutoFocus(true).withSubmitOnEnter(true).withPlaceholder("Scan formatted code")))))))
+         .withStep(backend("decide", DecideStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Done")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("scanCode", QFieldType.STRING).withLabel("Saved Code")));
+   }
+
+
+
+   /*******************************************************************************
+    ** Case behaviors travel through real process metadata and persist unchanged.
+    *******************************************************************************/
+   private static QProcessMetaData defineInputCase(QFieldType type)
+   {
+      ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("upperCode", type)
+         .withLabel("Upper Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_UPPER_CASE)).withSubmitOnEnter(true)));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("lowerCode", type)
+         .withLabel("Lower Code").withIsRequired(true).withBehavior(CaseChangeBehavior.TO_LOWER_CASE)).withSubmitOnEnter(true)));
+      String name = switch(type)
+      {
+         case TEXT -> "prcTextCase";
+         case PASSWORD -> "prcPasswordCase";
+         default -> "prcInputCase";
+      };
+      return new QProcessMetaData().withName(name).withLabel("Input Case Lab")
+         .withStep(backend("prepare", PrepareInputCaseStep.class))
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Codes")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks)))
+         .withStep(backend("store", StoreInputCaseStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Stored Codes")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("upperCode", type).withLabel("Upper Code"))
+            .withViewField(new QFieldMetaData("lowerCode", type).withLabel("Lower Code")));
+   }
+
+
+
+   public static class PrepareInputCaseStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output)
+      {
+         output.addValue("upperCode", "abCd");
+         output.addValue("lowerCode", "abCd");
+      }
+   }
+
+
+
+   public static class StoreInputCaseStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         for(String name : List.of("upperCode", "lowerCode"))
+         {
+            insert("INSERT INTO prc_decision_log (action_code, scan_code) VALUES (?, ?)", name, input.getValueString(name));
+         }
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Timestamp round trips through plain blocks, shared blocks and regular forms.
+    *******************************************************************************/
+   private static QProcessMetaData defineInputDateTimes()
+   {
+      ArrayList<AbstractBlockWidgetData<?, ?, ?, ?>> blocks = new ArrayList<>();
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("plainStamp", QFieldType.DATE_TIME).withLabel("Plain Timestamp"))));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("sharedStamp", QFieldType.DATE_TIME).withLabel("Shared Timestamp").withDisplayFormat("%tF %<tT"))));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("plainClock", QFieldType.TIME).withLabel("Plain Clock"))));
+      blocks.add(new InputFieldBlockData().withValues(new InputFieldValues(new QFieldMetaData("sharedClock", QFieldType.TIME).withLabel("Shared Clock").withDisplayFormat("%tT"))));
+      return new QProcessMetaData().withName("prcInputDateTimes").withLabel("Input Date Times")
+         .withStep(backend("prepare", PrepareDateTimesStep.class))
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Timestamps")
+            .withComponent(component(QComponentType.WIDGET).withValue("isAdHocWidget", true).withValue("blocks", blocks))
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("formStamp", QFieldType.DATE_TIME).withLabel("Form Timestamp"))
+            .withFormField(new QFieldMetaData("formClock", QFieldType.TIME).withLabel("Form Clock"))
+            .withFormField(new QFieldMetaData("foldStamp", QFieldType.DATE_TIME).withLabel("Repeated Hour Timestamp")))
+         .withStep(backend("store", StoreDateTimesStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Stored Timestamps")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("plainStamp", QFieldType.DATE_TIME).withLabel("Plain Timestamp")));
+   }
+
+
+
+   public static class PrepareDateTimesStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output)
+      {
+         for(String name : List.of("plainStamp", "sharedStamp", "formStamp"))
+         {
+            output.addValue(name, "2024-03-10T06:30:07Z");
+         }
+         output.addValue("foldStamp", "2024-11-03T06:30:07Z");
+         for(String name : List.of("plainClock", "sharedClock", "formClock"))
+         {
+            output.addValue(name, "09:30:07");
+         }
+      }
+   }
+
+
+
+   public static class StoreDateTimesStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         for(String name : List.of("plainStamp", "sharedStamp", "formStamp", "foldStamp", "plainClock", "sharedClock", "formClock"))
+         {
+            insert("INSERT INTO prc_decision_log (action_code, scan_code) VALUES (?, ?)", name, input.getValueString(name));
+         }
+      }
+   }
+
+
+
+   /*******************************************************************************
     ** A state-machine process whose backend step can repeat a screen.
     *******************************************************************************/
    private static QProcessMetaData defineLoop()
@@ -750,6 +1100,17 @@ public final class ProcessesFixtures
 
 
 
+   public static class RecordPickStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         insert("INSERT INTO prc_pick_log (category, specimen_id) VALUES (?, ?)", input.getValueString("category"), input.getValueInteger("specimenId"));
+      }
+   }
+
+
+
    public static class ProgressWorkStep implements BackendStep
    {
       @Override
@@ -862,7 +1223,9 @@ public final class ProcessesFixtures
       @Override
       public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
       {
-         insert("INSERT INTO prc_drive_log (note, folder_id) VALUES (?, ?)", input.getValueString("exportNote"), input.getValueString("googleDriveFolderId"));
+         insert("INSERT INTO prc_drive_log (note, folder_id, folder_name, token_present) VALUES (?, ?, ?, ?)", input.getValueString("exportNote"),
+            input.getValueString("googleDriveFolderId"), input.getValueString("googleDriveFolderName"),
+            input.getValueString("googleDriveAccessToken") != null && !input.getValueString("googleDriveAccessToken").isBlank());
       }
    }
 
@@ -875,6 +1238,117 @@ public final class ProcessesFixtures
       {
          output.addValue("noMoreSteps", true);
          output.addValue("notice", "This process stops here by design.");
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Metadata customizer: the all-screens tag process is listed only for the sample
+    ** user casey; everything else is left to the permission rules.
+    *******************************************************************************/
+   public static class TagRecordsAudience implements MetaDataActionCustomizerInterface
+   {
+      @Override
+      public boolean allowTable(MetaDataInput input, QTableMetaData table)
+      {
+         return (true);
+      }
+
+
+
+      @Override
+      public boolean allowProcess(MetaDataInput input, QProcessMetaData process)
+      {
+         if(!PROCESS_TAG.equals(process.getName()))
+         {
+            return (true);
+         }
+
+         ////////////////////////////////////////////////////////////////////////
+         // QInstance builds its table paths through MetaDataAction in a        //
+         // temporary context whose session may have no user: deny it there.   //
+         ////////////////////////////////////////////////////////////////////////
+         QSession session = QContext.getQSession();
+         QUser    user    = session == null ? null : session.getUser();
+         return (user != null && "sample:casey".equals(user.getIdReference()));
+      }
+
+
+
+      @Override
+      public boolean allowReport(MetaDataInput input, QReportMetaData report)
+      {
+         return (true);
+      }
+
+
+
+      @Override
+      public boolean allowApp(MetaDataInput input, QAppMetaData app)
+      {
+         return (true);
+      }
+
+
+
+      @Override
+      public boolean allowWidget(MetaDataInput input, QWidgetMetaDataInterface widget)
+      {
+         return (true);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Tags the records of whichever table launched it: the launching screen sends the
+    ** table name and its selection (record ids or a filter) as process values.
+    *******************************************************************************/
+   public static class TagRecordsStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         QTableMetaData table = QContext.getQInstance().getTable(input.getValueString("tableName"));
+         if(table == null)
+         {
+            throw (new QUserFacingException("No table was given to tag records from."));
+         }
+         QQueryFilter filter;
+         String       recordsParam = input.getValueString("recordsParam");
+         if("recordIds".equals(recordsParam))
+         {
+            List<Serializable> ids = new ArrayList<>(List.of(input.getValueString("recordIds").split(",")));
+            filter = new QQueryFilter(new QFilterCriteria(table.getPrimaryKeyField(), QCriteriaOperator.IN, ids));
+         }
+         else if("filterJSON".equals(recordsParam))
+         {
+            try
+            {
+               filter = JsonUtils.toObject(input.getValueString("filterJSON"), QQueryFilter.class);
+            }
+            catch(Exception e)
+            {
+               throw (new QUserFacingException("The record filter could not be read."));
+            }
+         }
+         else
+         {
+            throw (new QUserFacingException("No records were selected to tag."));
+         }
+         filter.setOrderBys(new ArrayList<>(List.of(new QFilterOrderBy(table.getPrimaryKeyField()))));
+         QueryOutput  queryOutput = new QueryAction().execute(new QueryInput(table.getName()).withFilter(filter));
+         List<String> tagged      = new ArrayList<>();
+         for(QRecord record : queryOutput.getRecords())
+         {
+            String id = String.valueOf(record.getValue(table.getPrimaryKeyField()));
+            insert("INSERT INTO prc_tag_log (table_name, record_id) VALUES (?, ?)", table.getName(), id);
+            tagged.add(id);
+         }
+         output.addValue("taggedTable", table.getLabel());
+         output.addValue("taggedCount", tagged.size());
+         output.addValue("taggedIds", String.join(", ", tagged));
       }
    }
 
@@ -950,6 +1424,43 @@ public final class ProcessesFixtures
       {
          return new RenderWidgetOutput(new CompositeWidgetData()
             .withBlock(new TextBlockData().withValues(new TextValues("Fetched composite"))));
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Bulk load file mapping help (QRun-IO/qqq#726, PRC-060): help content for the
+    ** screen's own fields (hasHeaderRow, layout, tableKeyFields) of the bulk
+    ** processes the enricher defines, keyed as the help content table keys it
+    ** ("process:<name>;field:<field>"). The bulk processes exist only after the
+    ** instance is enriched, so this runs from prime(), after the server started.
+    *******************************************************************************/
+   static final AtomicReference<QInstance> BULK_LOAD_HELP_INSTANCE = new AtomicReference<>();
+
+
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   static void primeBulkLoadHelp()
+   {
+      QInstance instance = BULK_LOAD_HELP_INSTANCE.get();
+      if(instance == null || instance.getProcess("person.bulkInsert") == null)
+      {
+         return;
+      }
+      List<List<String>> helpContents = List.of(
+         List.of("process:person.bulkInsert;field:hasHeaderRow", "Uncheck this box when the first row of the file holds data instead of column headers."),
+         List.of("process:person.bulkInsert;field:layout", "Flat files hold one person per row."),
+         List.of("process:person.bulkEditWithFile;field:tableKeyFields", "The key fields find the person each row of the file updates."));
+      for(List<String> helpContent : helpContents)
+      {
+         QInstanceHelpContentManager.processHelpContentRecord(instance, new QRecord()
+            .withValue("key", helpContent.get(0))
+            .withValue("content", helpContent.get(1))
+            .withValue("format", "TEXT")
+            .withValue("role", "PROCESS_SCREEN"));
       }
    }
 }

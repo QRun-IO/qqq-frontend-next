@@ -20,12 +20,14 @@
 
 'use client'
 
-import React, { useState } from 'react'
-import { Bell, Menu, Search, HelpCircle } from 'lucide-react'
+import React, { useRef, useState } from 'react'
+import { Bell, Command, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
+import { useToastTopBelow } from '@/components/feedback/Toast'
 import type { NavTarget, ParentAppInfo } from '@/lib/hooks/use-routes'
+import type { SearchableTable } from '@/lib/utils/record-search'
 
 /**
  * Props for the Header component.
@@ -35,16 +37,26 @@ export interface HeaderProps {
   appName?: string
   /** Called when the mobile hamburger menu button is clicked to open the sidebar drawer. */
   onMenuOpen?: () => void
+  /** Whether the mobile navigation drawer is open (reflected on the menu button). */
+  menuOpen?: boolean
+  /** Ref to the mobile menu button, so the drawer can return focus to it when it closes. */
+  menuButtonRef?: React.Ref<HTMLButtonElement>
   /** Called when the mobile search icon button is clicked to open the search dialog. */
   onSearchOpen?: () => void
+  /** Called when the command palette button is clicked (Material's navbar search icon opens its palette). */
+  onCommandOpen?: () => void
   /** Called when the keyboard shortcuts help button is clicked to open the help dialog. */
   onHelpOpen?: () => void
+  /** Ref to the keyboard shortcuts help button, so the help dialog can return focus to it when it closes. */
+  helpButtonRef?: React.Ref<HTMLButtonElement>
   /** Path-to-label map passed through to the Breadcrumbs component. */
   pathToLabelMap?: Record<string, string>
   /** Maps node paths to their enclosing apps, passed through to Breadcrumbs. */
   ancestorAppMap?: Record<string, ParentAppInfo[]>
   /** Navigable app-tree nodes for the header search. */
   navTargets?: NavTarget[]
+  /** Tables the backend record search covers, for the header search (empty: local search only). */
+  searchTables?: SearchableTable[]
 }
 
 /**
@@ -63,22 +75,30 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [] }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, navTargets = [], searchTables }: HeaderProps) {
   const [notificationCount] = useState(0)
+  // toasts appear below the header, never over its controls
+  const headerRef = useRef<HTMLElement>(null)
+  useToastTopBelow(headerRef)
 
   return (
     <header
+      ref={headerRef}
       className="flex items-center justify-between border-b border-border bg-card px-4 md:px-6"
       style={{ height: 'var(--qqq-header-height)' }}
       data-qqq-id="header"
     >
-      {/* Left: mobile menu + breadcrumbs */}
-      <div className="flex items-center gap-3">
+      {/* Left: mobile menu + breadcrumbs (the trail scrolls sideways on its own when it is too long) */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
         {/* Mobile hamburger — only visible below md breakpoint */}
         <button
+          ref={menuButtonRef}
+          type="button"
           onClick={onMenuOpen}
           className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open navigation menu"
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
           data-qqq-id="button-mobile-menu"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
@@ -87,10 +107,14 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
       </div>
 
       {/* Right section: search + help + notifications */}
-      <div className="flex items-center gap-3">
+      <div className="ml-2 md:ml-3 flex flex-shrink-0 items-center gap-0 md:gap-3">
         {/* Mobile search icon — only visible below md breakpoint */}
         <button
-          onClick={onSearchOpen}
+          onClick={(event) => {
+            // WebKit can activate a button without focusing it; preserve this dialog's opener.
+            event.currentTarget.focus({ preventScroll: true })
+            onSearchOpen?.()
+          }}
           className="flex md:hidden items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Open search"
           data-qqq-id="button-mobile-search"
@@ -99,10 +123,26 @@ export default function Header({ onMenuOpen, onSearchOpen, onHelpOpen, pathToLab
         </button>
 
         {/* Global search — hidden on mobile */}
-        <GlobalSearch navTargets={navTargets} className="hidden md:block" />
+        <GlobalSearch navTargets={navTargets} searchTables={searchTables} className="hidden md:block" />
+
+        {/* Command palette (Material's navbar search icon opens its "." menu) */}
+        {onCommandOpen && (
+          <button
+            type="button"
+            onClick={onCommandOpen}
+            className="flex items-center justify-center rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Open command palette (.)"
+            aria-haspopup="dialog"
+            data-qqq-id="button-command-palette"
+          >
+            <Command className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+          </button>
+        )}
 
         {/* Keyboard shortcuts hint */}
         <button
+          ref={helpButtonRef}
+          type="button"
           onClick={onHelpOpen}
           className="rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Keyboard shortcuts (?)"

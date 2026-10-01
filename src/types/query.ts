@@ -72,6 +72,21 @@ export interface QFilterCriteria {
   )[]
   /** When set, compares `fieldName` against another field rather than a literal value. */
   otherFieldName?: string
+  /** A backend field function applied to the field before it is compared (for example its weekday). */
+  fieldFunction?: QFieldFunction
+}
+
+/**
+ * A backend field function in a criterion (`FieldFunction`): the function named by
+ * `functionTypeIdentifierName` is applied to `fieldName`, with optional arguments.
+ */
+export interface QFieldFunction {
+  /** The field the function reads. */
+  fieldName: string
+  /** The registered function name, for example `WeekdayOfDate` or `WeekdayOfDateTime`. */
+  functionTypeIdentifierName: string
+  /** Function arguments (for example a `timeZoneId`). */
+  arguments?: Record<string, unknown>
 }
 
 /**
@@ -116,8 +131,16 @@ export interface QueryJoin {
 export interface FilterVariableExpression {
   /** Discriminant: the backend expression class name. */
   type: 'FilterVariableExpression'
-  /** The name of the runtime variable whose value is substituted at query time. */
-  variableName: string
+  /**
+   * The name of the runtime variable whose value is substituted at query time. The backend
+   * assigns it when a saved report is stored; a variable just assigned in the filter editor
+   * (Material's `AssignFilterVariable`) has only `fieldName` and `valueIndex`.
+   */
+  variableName?: string
+  /** The criterion field the variable supplies a value for. */
+  fieldName?: string
+  /** Which of the criterion's values the variable supplies (0, or 1 for the second value of "is between"). */
+  valueIndex?: number
 }
 
 /**

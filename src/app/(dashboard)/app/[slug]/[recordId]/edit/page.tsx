@@ -29,7 +29,7 @@
  * - `recordId` — the primary-key value of the record to edit.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -38,9 +38,11 @@ import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
 import { useRecord } from '@/lib/hooks/use-record'
 import { recordLoadFailure } from '@/lib/utils/error-utils'
-import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
+
+const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
 
 /**
  * Renders the record-edit form for the record identified by `slug` and `recordId`.
@@ -56,7 +58,7 @@ import { canEditRecords, hasCapability } from '@/lib/auth/permissions'
  *   - A permission-error banner when the user lacks `editPermission`
  *   - A destructive error panel when the record cannot be fetched
  *   - `<EntityForm>` in edit mode (pre-populated with the existing record values)
- *     wrapped in a centered `max-w-4xl` container
+ *     wrapped in a centered `max-w-6xl` container
  */
 export default function EntityEditPage() {
   const params = useRouteParams<{ slug: string; recordId: string }>()
@@ -70,12 +72,14 @@ export default function EntityEditPage() {
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
 
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
     enabled: canEditRecords(tableMetaData),
     includeAssociations: false,
+    tableVariant,
   })
 
   useEffect(() => {
@@ -127,8 +131,8 @@ export default function EntityEditPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
-      <EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} />
+    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-edit-${slug}-${recordId}`}>
+      <Suspense fallback={<div role="status" aria-label="Loading form" className="py-12 text-center">Loading form…</div>}><EntityForm tableMetaData={tableMetaData} record={record} widgets={metaData?.widgets} /></Suspense>
     </div>
   )
 }

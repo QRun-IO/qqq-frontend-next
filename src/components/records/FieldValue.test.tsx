@@ -53,13 +53,30 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(chip).toHaveTextContent('Active')
     expect(chip).toHaveAttribute('data-chip-color', 'success')
     expect(chip).toHaveAttribute('data-chip-icon', 'check')
+    // the chip draws the icon, not only names it (Material ValueUtils CHIP icons)
+    const glyph = chip.querySelector('svg[data-qqq-icon="check"]')
+    expect(glyph).not.toBeNull()
+    expect(glyph).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('draws no chip icon for a value without one', () => {
+    const chip = show(field('status', [{ type: 'CHIP', values: { 'color.DRAFT': 'info', 'icon.ACTIVE': 'check' } }]), { status: 'DRAFT' }, { status: 'Draft' })
+    expect(chip).not.toHaveAttribute('data-chip-icon')
+    expect(chip.querySelector('svg')).toBeNull()
+  })
+
+  it('keeps the line breaks of a multi-line STRING value', () => {
+    const value = show(field('address'), { address: '1 Main St\nSpringfield' })
+    expect(value.textContent).toBe('1 Main St\nSpringfield')
+    expect(value).toHaveClass('whitespace-pre-wrap')
+    expect(show(field('city'), { city: 'Springfield' })).not.toHaveClass('whitespace-pre-wrap')
   })
 
   it('offers open and download links for FILE_DOWNLOAD values', () => {
     const file = show(field('doc', [{ type: 'FILE_DOWNLOAD' }], { type: 'BLOB' }), { doc: '/data/lab/1/doc/a.txt' }, { doc: 'a.txt' })
     expect(file).toHaveTextContent('a.txt')
-    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveAttribute('href', '/data/lab/1/doc/a.txt')
-    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveAttribute('href', '/data/lab/1/doc/a.txt?download=1')
+    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt')
+    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveAttribute('href', '/qqq/v1/table/lab/1/doc/a.txt?download=1')
   })
 
   it('reveals REVEAL values on request', () => {
@@ -73,6 +90,18 @@ describe('FieldValue adornments use the backend value keys', () => {
     const widget = { name: 'summary', label: 'Summary', type: 'html' } as unknown as QWidgetMetaData
     const rendered = show(field('summary', [{ type: 'WIDGET', values: { widgetName: 'summary' } }]), { summary: { type: 'html', html: '<b>Hi</b>' } }, {}, { summary: widget })
     expect(rendered.querySelector('b')).toHaveTextContent('Hi')
+  })
+
+  it('renders a WIDGET value in the full widget chrome (label, tooltip, icons, export) as Material does', () => {
+    const widget = {
+      name: 'summary', label: 'Owned Summary', type: 'html', hasPermission: true, tooltip: 'Owned tip', showExportButton: true,
+      icons: { topRightInsideCard: { name: 'star', color: 'rgb(143, 0, 216)' } },
+    } as unknown as QWidgetMetaData
+    const rendered = show(field('summary', [{ type: 'WIDGET', values: { widgetName: 'summary' } }]), { summary: { type: 'html', html: '<b>Hi</b>', csvData: [['A'], ['1']] } }, {}, { summary: widget })
+    expect(rendered.querySelector('b')).toHaveTextContent('Hi')
+    expect(screen.getByRole('heading', { name: 'Owned Summary' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export Owned Summary' })).toBeInTheDocument()
+    expect(rendered.querySelector('[data-qqq-id="widget-icon-topRightInsideCard-summary"]')).toHaveAttribute('data-icon-name', 'star')
   })
 
   it('reports a WIDGET adornment whose widget is not in the metadata', () => {
@@ -93,5 +122,71 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(html.querySelector('i')).toHaveTextContent('ok')
     expect(html.querySelector('script')).toBeNull()
     expect(show(field('empty'), { empty: null })).toHaveTextContent('—')
+  })
+})
+
+describe('FieldValue links on touch screens', () => {
+  const TOUCH = ['pointer-coarse:inline-flex', 'pointer-coarse:min-h-11', 'pointer-coarse:items-center']
+
+  it('gives record, URL, email and file links a 44 px touch target', () => {
+    expect(show(field('owner', [{ type: 'LINK', values: { toRecordFromTable: 'person' } }]), { owner: 3 }, { owner: 'Casey Sample' })).toHaveClass(...TOUCH)
+    expect(show(field('site', [{ type: 'LINK', values: { target: '_blank' } }]), { site: 'https://example.invalid' })).toHaveClass(...TOUCH)
+    expect(show(field('home'), { home: 'https://example.invalid/home' })).toHaveClass(...TOUCH)
+    expect(show(field('email'), { email: 'kay@example.invalid' })).toHaveClass(...TOUCH)
+    show(field('doc', [{ type: 'FILE_DOWNLOAD' }], { type: 'BLOB' }), { doc: '/data/lab/1/doc/a.txt' }, { doc: 'a.txt' })
+    expect(document.querySelector('[data-qqq-id="field-value-doc-open"]')).toHaveClass(...TOUCH)
+    expect(document.querySelector('[data-qqq-id="field-value-doc-download"]')).toHaveClass(...TOUCH)
+  })
+
+  it('leaves plain text values unchanged', () => {
+    expect(show(field('name'), { name: 'Plain' })).not.toHaveClass('pointer-coarse:min-h-11')
+  })
+})
+
+describe('FieldValue CODE_EDITOR (Material CodeViewer, QRun-IO/qqq#723/#724)', () => {
+  const sqlField = field('query', [{ type: 'CODE_EDITOR', values: { languageMode: 'sql' } }], { type: 'TEXT' })
+  const sql = "SELECT id, name FROM person WHERE id > 1 AND name = 'A'"
+
+  it('colors the code and formats SQL one clause per line, and back', () => {
+    const viewer = show(sqlField, { query: sql })
+    const code = viewer.querySelector('code') as HTMLElement
+    expect(code.textContent).toBe(sql)
+    expect(Array.from(code.querySelectorAll('.qqq-code-keyword')).map((token) => token.textContent)).toEqual(['SELECT', 'FROM', 'WHERE', 'AND'])
+    fireEvent.click(screen.getByRole('button', { name: 'Format SQL' }))
+    expect(code.textContent).toBe("SELECT\n   id,\n   name\nFROM\n   person\nWHERE\n   id > 1\n   AND name = 'A'")
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Format' }))
+    expect(code.textContent).toBe(sql)
+  })
+
+  it('expands and collapses the code box', () => {
+    const viewer = show(sqlField, { query: sql })
+    const expand = screen.getByRole('button', { name: 'Expand' })
+    expect(expand).toHaveAttribute('aria-expanded', 'false')
+    const box = viewer.querySelector('pre') as HTMLElement
+    expect(expand).toHaveAttribute('aria-controls', box.id)
+    expect(box.className).toContain('max-h-[200px]')
+    fireEvent.click(expand)
+    expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-expanded', 'true')
+    expect(box.className).toContain('max-h-[80vh]')
+  })
+
+  it('shows a JSON formatting error for five seconds and keeps the text', () => {
+    vi.useFakeTimers()
+    try {
+      const viewer = show(field('config', [{ type: 'CODE_EDITOR', values: { languageMode: 'json' } }]), { config: '{not json' })
+      fireEvent.click(screen.getByRole('button', { name: 'Format JSON' }))
+      expect(screen.getByRole('alert')).toHaveTextContent(/^Error formatting code:/)
+      expect(viewer.querySelector('code')?.textContent).toBe('{not json')
+      React.act(() => { vi.advanceTimersByTime(5000) })
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('offers no format button for languages it cannot format', () => {
+    show(field('script', [{ type: 'CODE_EDITOR', values: { languageMode: 'javascript' } }]), { script: 'return 1;' })
+    expect(screen.queryByRole('button', { name: /^Format/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument()
   })
 })

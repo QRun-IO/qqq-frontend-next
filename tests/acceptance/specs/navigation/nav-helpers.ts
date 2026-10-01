@@ -21,7 +21,7 @@ export interface TreeNode {
 export interface V1MetaData {
   appTree: TreeNode[]
   apps: Record<string, { name: string; label: string; widgets?: string[]; sections?: Array<{ name: string; label: string; tables?: string[]; processes?: string[]; reports?: string[] }> }>
-  tables: Record<string, { name: string; label: string; isHidden?: boolean; insertPermission?: boolean; capabilities?: string[] }>
+  tables: Record<string, { name: string; label: string; isHidden?: boolean; insertPermission?: boolean; capabilities?: string[]; searchFields?: string[] }>
   processes: Record<string, { name: string; label: string; isHidden?: boolean }>
   branding?: Record<string, unknown>
 }
@@ -67,7 +67,9 @@ export async function waitForShell(page: Page) {
 export async function appNavigation(page: Page): Promise<Locator> {
   await waitForShell(page)
   const menu = page.getByRole('button', { name: 'Open navigation menu' })
-  if (await menu.isVisible()) {
+  // The drawer is a modal dialog: once open, the menu button behind it is inert, so never click it again
+  const drawerOpen = await page.locator('[data-qqq-id="sidebar-mobile-drawer"]').isVisible()
+  if (!drawerOpen && await menu.isVisible()) {
     await menu.click()
   }
   const nav = page.getByRole('navigation', { name: 'App navigation' })
@@ -88,7 +90,8 @@ export function groupChildLinks(nav: Locator, appName: string): Locator {
 /** Asserts the breadcrumb trail (links and current page), retrying until it matches. */
 export async function expectBreadcrumbs(page: Page, labels: string[]) {
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
-  await expect(trail.locator('a, [aria-current="page"]')).toHaveText(labels)
+  // the leading home crumb (an icon link to the dashboard, NAV-044) is not a labelled crumb
+  await expect(trail.locator('a:not([data-qqq-id="breadcrumb-home"]), [aria-current="page"]')).toHaveText(labels)
 }
 
 /**

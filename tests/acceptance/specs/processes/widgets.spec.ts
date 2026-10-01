@@ -6,10 +6,11 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess, viewValue } from './process-helpers'
+import { installGoogleDriveProvider } from '../../support/google-drive-provider'
+import { advance, expectRunTouchReady, expectScreen, openProcess, viewValue } from './process-helpers'
 
 test.describe('Widget Lab', () => {
-  test('[PRC-035] a named widget is fetched with the process UUID and values', async ({ page, diagnostics }) => {
+  test('[PRC-035] a named widget is fetched with the process UUID and values @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const widgetRequests: string[] = []
     page.on('request', (request) => { if (request.url().includes('/widget/')) widgetRequests.push(request.url()) })
@@ -17,14 +18,15 @@ test.describe('Widget Lab', () => {
     const interact = await expectScreen(page, 'interact', 'Interact')
     const widget = interact.getByRole('region', { name: 'Lab Status Widget' })
     await expect(widget).toContainText('Lab status for Casey Operator (linked)')
+    await expectRunTouchReady(page, 'prcWidgets')
     expect(widgetRequests).toHaveLength(1)
     const url = new URL(widgetRequests[0])
-    expect(url.pathname).toBe('/widget/prcHtmlWidget')
+    expect(url.pathname).toBe('/qqq/v1/widget/prcHtmlWidget')
     expect(url.searchParams.get('operator')).toBe('Casey Operator')
     expect(url.searchParams.get('processUUID')).toMatch(/^[0-9a-f-]{36}$/)
   })
 
-  test('[PRC-036] a named composite widget renders the data seeded in process values', async ({ page, diagnostics }) => {
+  test('[PRC-036] a named composite widget renders the data seeded in process values @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const widgetRequests: string[] = []
     page.on('request', (request) => { if (request.url().includes('/widget/prcCompositeWidget')) widgetRequests.push(request.url()) })
@@ -36,7 +38,7 @@ test.describe('Widget Lab', () => {
     expect(widgetRequests).toEqual([])
   })
 
-  test('[PRC-037] ad hoc widget blocks interpolate, hide conditionals and submit actions', async ({ page, backend, diagnostics }) => {
+  test('[PRC-037] ad hoc widget blocks interpolate, hide conditionals and submit actions @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcWidgets')
     const interact = await expectScreen(page, 'interact', 'Interact')
@@ -44,7 +46,14 @@ test.describe('Widget Lab', () => {
     await expect(adhoc).toContainText('Scan or choose for Casey Operator')
     await expect(adhoc).not.toContainText('Secret block that must stay hidden')
     await expect(adhoc.getByPlaceholder('Scan a code')).toBeVisible()
-    await adhoc.getByRole('button', { name: 'Approve' }).click()
+    await expectRunTouchReady(page, 'prcWidgets')
+    const approve = adhoc.getByRole('button', { name: 'Approve' })
+    const buttonBounds = await approve.boundingBox()
+    const containerBounds = await adhoc.boundingBox()
+    expect(buttonBounds).not.toBeNull()
+    expect(containerBounds).not.toBeNull()
+    expect(buttonBounds!.width).toBeLessThan(containerBounds!.width * 0.8)
+    await approve.click()
     const decided = await expectScreen(page, 'decided', 'Decided')
     await expect(viewValue(decided, 'decision')).toHaveText('approve')
     expect(await backend.sql('select action_code, scan_code from prc_decision_log')).toEqual([{ action_code: 'approve', scan_code: null }])
@@ -64,7 +73,7 @@ test.describe('Widget Lab', () => {
 })
 
 test.describe('Drive Export', () => {
-  test('[PRC-038] a Google Drive folder step still collects and submits its other inputs', async ({ page, backend, diagnostics }) => {
+  test('[PRC-038] a Google Drive folder step still collects and submits its other inputs @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'prcDrive')
     const pick = await expectScreen(page, 'pickFolder', 'Pick Folder')
@@ -75,10 +84,57 @@ test.describe('Drive Export', () => {
     await expect(pick.locator('[data-qqq-id="process-google-drive-note"]')).toHaveText('Google Drive folder selection is not configured for this application.')
     await advance(page, 'Submit')
     await expect(pick.getByText('Export Note is required')).toBeVisible()
+    await expectRunTouchReady(page, 'prcDrive')
     await pick.getByLabel('Export Note').fill('Quarterly export')
     await advance(page, 'Submit')
     const exported = await expectScreen(page, 'exported', 'Exported')
     await expect(viewValue(exported, 'exportNote')).toHaveText('Quarterly export')
     expect(await backend.sql('select note, folder_id from prc_drive_log')).toEqual([{ note: 'Quarterly export', folder_id: '' }])
   })
+})
+
+
+test('[PRC-065] configured Drive folder and other inputs reach the backend together @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  expect((await backend.api.post('/acceptance/google-drive')).status()).toBe(200)
+  await installGoogleDriveProvider(page)
+  await openProcess(page, 'prcDrive')
+  const pick = await expectScreen(page, 'pickFolder', 'Pick Folder')
+  await advance(page, 'Submit')
+  await expect(pick.getByText('Export Note is required')).toBeVisible()
+  await pick.getByRole('button', { name: 'Select Google Drive Folder' }).click()
+  await page.getByRole('dialog', { name: 'Google provider fixture' }).getByRole('button', { name: 'Exports folder' }).click()
+  await expect(pick.getByText('Selected folder: Exports')).toBeVisible()
+  await pick.getByLabel('Export Note').fill('Configured export')
+  await advance(page, 'Submit')
+  await expectScreen(page, 'exported', 'Exported')
+  expect(await backend.sql("select note, folder_id, folder_name, case when token_present then 'yes' else 'no' end as token_present from prc_drive_log")).toEqual([
+    { note: 'Configured export', folder_id: 'folder-owned', folder_name: 'Exports', token_present: 'yes' },
+  ])
+})
+
+test('[PRC-065] invalid file recovers and cancelling a replacement clears the destination @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  expect((await backend.api.post('/acceptance/google-drive')).status()).toBe(200)
+  await installGoogleDriveProvider(page)
+  await openProcess(page, 'prcDrive')
+  const pick = await expectScreen(page, 'pickFolder', 'Pick Folder')
+  const select = pick.getByRole('button', { name: 'Select Google Drive Folder' })
+  const provider = page.getByRole('dialog', { name: 'Google provider fixture' })
+  await select.click()
+  await provider.getByRole('button', { name: 'A file', exact: true }).click()
+  await expect(pick.getByRole('alert')).toContainText('folder is required')
+  await select.click()
+  await provider.getByRole('button', { name: 'Exports folder' }).click()
+  await expect(pick.getByText('Selected folder: Exports')).toBeVisible()
+  await expect(pick.getByRole('alert')).toHaveCount(0)
+  await select.click()
+  await provider.getByRole('button', { name: 'Cancel selection' }).click()
+  await expect(pick.getByText('Selected folder: Exports')).toHaveCount(0)
+  await pick.getByLabel('Export Note').fill('Cancelled destination')
+  await advance(page, 'Submit')
+  await expectScreen(page, 'exported', 'Exported')
+  expect(await backend.sql("select note, folder_id, folder_name, case when token_present then 'yes' else 'no' end as token_present from prc_drive_log")).toEqual([
+    { note: 'Cancelled destination', folder_id: '', folder_name: '', token_present: 'no' },
+  ])
 })

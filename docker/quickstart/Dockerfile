@@ -16,7 +16,10 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=frontend --chown=node:node /app/.next/standalone ./
 COPY --from=frontend --chown=node:node /app/.next/static ./.next/static
 COPY --from=frontend --chown=node:node /app/public ./public
+# server.js wrapped with the dashboard security headers (QRun-IO/qqq#734); add origins the
+# dashboard must reach (QuickSight, custom component bundles) with QQQ_DASHBOARD_CSP_SOURCES
+COPY --from=frontend --chown=node:node /app/standalone/qqq-server.mjs /app/standalone/security-headers.mjs /app/standalone/backend-prefixes.json ./
 COPY LICENSE ./LICENSE
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "qqq-server.mjs"]

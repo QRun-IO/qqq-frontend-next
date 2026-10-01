@@ -93,8 +93,62 @@ describe('PossibleValueSelect — initial value label', () => {
     mockFetchProcess.mockResolvedValue([{ id: 2, label: 'Bob' }])
     render(<Wrapper context={{ type: 'process', processName: 'prcWizard' }} defaultValue={2} />)
     expect(await screen.findByText('Bob')).toBeInTheDocument()
-    expect(mockFetchProcess).toHaveBeenCalledWith('prcWizard', 'person', { ids: '2' })
+    expect(mockFetchProcess).toHaveBeenCalledWith('prcWizard', 'person', { ids: '2', formValues: { testField: 2 } })
     expect(screen.getByRole('combobox', { name: 'Person' })).not.toHaveTextContent(/^2$/)
+  })
+})
+
+/** Harness with a source field the select's filter reads; exposes the form's setter. */
+function DependentWrapper({ onForm, context = { type: 'table' as const, tableName: 'order' } }: {
+  onForm: (setValue: (name: string, value: unknown) => void) => void
+  context?: { type: 'table'; tableName: string } | { type: 'process'; processName: string }
+}) {
+  const { control, setValue } = useForm<Record<string, unknown>>({ defaultValues: { categoryId: 1, itemId: null } })
+  onForm((name, value) => setValue(name, value))
+  return <PossibleValueSelect id="test-item" label="Item" name="itemId" control={control} fieldName="itemId" context={context} />
+}
+
+describe('PossibleValueSelect — dependent filters (form values)', () => {
+  const byCategory = (request?: { formValues?: Record<string, unknown> }) =>
+    Promise.resolve(request?.formValues?.categoryId === 2 ? [{ id: 3, label: 'Carrot' }] : [{ id: 1, label: 'Apple' }])
+
+  it('sends the form values with the search and reloads an open list when the source field changes', async () => {
+    const user = userEvent.setup()
+    mockFetchTable.mockImplementation((_table, _field, request) => byCategory(request))
+    let setValue!: (name: string, value: unknown) => void
+    render(<DependentWrapper onForm={(setter) => { setValue = setter }} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    expect(await screen.findByRole('option', { name: 'Apple' })).toBeVisible()
+    expect(mockFetchTable).toHaveBeenLastCalledWith('order', 'itemId', { formValues: { categoryId: 1, itemId: null } })
+
+    act(() => setValue('categoryId', 2))
+    expect(await screen.findByRole('option', { name: 'Carrot' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: 'Apple' })).not.toBeInTheDocument()
+    expect(mockFetchTable).toHaveBeenLastCalledWith('order', 'itemId', { formValues: { categoryId: 2, itemId: null } })
+  })
+
+  it('does not reload its choices when only its own value changes', async () => {
+    const user = userEvent.setup()
+    mockFetchTable.mockImplementation((_table, _field, request) => byCategory(request))
+    render(<DependentWrapper onForm={() => {}} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    await user.click(await screen.findByRole('option', { name: 'Apple' }))
+    expect(screen.getByRole('combobox', { name: 'Item' })).toHaveTextContent('Apple')
+    expect(mockFetchTable).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends the form values with a process field search and a label lookup', async () => {
+    const user = userEvent.setup()
+    mockFetchProcess.mockImplementation((_process, _field, request) => byCategory(request))
+    let setValue!: (name: string, value: unknown) => void
+    render(<DependentWrapper onForm={(setter) => { setValue = setter }} context={{ type: 'process', processName: 'prcPick' }} />)
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+    expect(await screen.findByRole('option', { name: 'Apple' })).toBeVisible()
+    expect(mockFetchProcess).toHaveBeenLastCalledWith('prcPick', 'itemId', { formValues: { categoryId: 1, itemId: null } })
+    await user.click(screen.getByRole('combobox', { name: 'Item' }))
+
+    act(() => setValue('itemId', 3))
+    await waitFor(() => expect(mockFetchProcess).toHaveBeenLastCalledWith('prcPick', 'itemId', { ids: '3', formValues: { categoryId: 1, itemId: 3 } }))
   })
 })
 
@@ -369,7 +423,7 @@ describe('PossibleValueSelect — search', () => {
     await waitFor(
       () => {
         // Should have been called with the search term after the debounce fires
-        expect(mockFetchTable).toHaveBeenCalledWith('person', 'person', { searchTerm: 'Al' })
+        expect(mockFetchTable).toHaveBeenCalledWith('person', 'person', { searchTerm: 'Al', formValues: { testField: null } })
       },
       { timeout: 2000 }
     )
@@ -394,7 +448,7 @@ describe('PossibleValueSelect — error state', () => {
     expect(screen.getByRole('option', { name: 'Bob' })).toBeVisible()
     expect(screen.queryByRole('option', { name: 'Alice' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo' })
+    expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo', formValues: { testField: null } })
   })
 
   it('distinguishes a failed request from empty choices and retries on reopen', async () => {
@@ -468,5 +522,93 @@ describe('PossibleValueSelect — error state', () => {
     )
 
     expect(screen.getByRole('combobox')).toHaveAttribute('aria-invalid', 'true')
+  })
+})
+
+describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const INLINE: QPossibleValue[] = [
+    { id: 'LOW', label: 'Low' },
+    { id: 'MEDIUM', label: 'Medium' },
+    { id: 'HIGH', label: 'High' },
+    { id: 'LOCKED', label: 'Locked' },
+  ]
+
+  function InlineWrapper({ defaultValue, chipField, initialLabel }: { defaultValue?: unknown; chipField?: Parameters<typeof PossibleValueSelect>[0]['chipField']; initialLabel?: string }) {
+    const { control, watch } = useForm<Record<string, unknown>>({ defaultValues: { priority: defaultValue ?? null } })
+    return (
+      <>
+        <PossibleValueSelect
+          id="field-priority"
+          label="Priority"
+          name="priority"
+          control={control}
+          fieldName="priority"
+          context={{ type: 'table', tableName: 'task' }}
+          inlineOptions={INLINE}
+          chipField={chipField}
+          initialLabel={initialLabel}
+          data-qqq-id="priority"
+        />
+        <output data-testid="held">{String(watch('priority'))}</output>
+      </>
+    )
+  }
+
+  it('offers the inline values without any request and filters them by label prefix', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper />)
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Low', 'Medium', 'High', 'Locked'])
+    const search = screen.getByRole('textbox', { name: 'Search Priority options' })
+    await user.type(search, 'lo')
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Low', 'Locked'])
+    // a prefix, not a substring: "ed" starts no label
+    await user.clear(search)
+    await user.type(search, 'ed')
+    expect(screen.getByText('No options found')).toBeInTheDocument()
+    await user.clear(search)
+    await user.click(screen.getByRole('option', { name: 'High' }))
+    expect(screen.getByTestId('held')).toHaveTextContent('HIGH')
+    expect(screen.getByRole('combobox')).toHaveTextContent('High')
+    expect(mockFetchTable).not.toHaveBeenCalled()
+    expect(mockFetchProcess).not.toHaveBeenCalled()
+    expect(mockFetchStandalone).not.toHaveBeenCalled()
+  })
+
+  it('shows the label of a held inline value without a request', async () => {
+    render(<InlineWrapper defaultValue="MEDIUM" />)
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Medium'))
+    expect(mockFetchTable).not.toHaveBeenCalled()
+  })
+
+  it('prefers the inline label when the record display value is the raw ID', async () => {
+    render(<InlineWrapper defaultValue="MEDIUM" initialLabel="MEDIUM" />)
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Medium'))
+    expect(screen.getByRole('combobox')).not.toHaveTextContent('MEDIUM')
+    expect(mockFetchTable).not.toHaveBeenCalled()
+  })
+
+  it('styles options as chips with the CHIP adornment color and icon of each value', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper chipField={{
+      name: 'priority', label: 'Priority', type: 'STRING', isRequired: false, isEditable: true, isHeavy: false, isHidden: false,
+      adornments: [{ type: 'CHIP', values: { 'color.HIGH': 'error', 'icon.HIGH': 'warning', 'color.LOW': 'success' } }],
+    }} />)
+    await user.click(screen.getByRole('combobox'))
+    const high = screen.getByRole('option', { name: 'High' }).querySelector('[data-chip-color]')
+    expect(high).toHaveAttribute('data-chip-color', 'error')
+    expect(high).toHaveAttribute('data-chip-icon', 'warning')
+    expect(high?.querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('option', { name: 'Low' }).querySelector('[data-chip-color]')).toHaveAttribute('data-chip-color', 'success')
+    expect(screen.getByRole('option', { name: 'Medium' }).querySelector('[data-chip-color]')).toHaveAttribute('data-chip-color', 'default')
+  })
+
+  it('renders plain options when the field has no CHIP adornment', async () => {
+    const user = userEvent.setup()
+    render(<InlineWrapper />)
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('option', { name: 'Low' }).querySelector('[data-chip-color]')).toBeNull()
   })
 })

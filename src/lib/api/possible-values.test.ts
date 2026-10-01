@@ -16,56 +16,69 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const defaults = vi.hoisted(() => ({ baseURL: 'https://sample.invalid/prefix/qqq/v1/' }))
-vi.mock('./client', () => ({ default: { get: vi.fn(), getInstance: () => ({ defaults }) } }))
+vi.mock('./client', () => ({ default: { post: vi.fn() } }))
 import apiClient from './client'
 import { fetchPossibleValues, fetchProcessPossibleValues, fetchTablePossibleValues } from './possible-values'
 
-describe('Native possible-value contracts', () => {
+describe('v1 possible-value contracts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    defaults.baseURL = 'https://sample.invalid/prefix/qqq/v1/'
-    vi.mocked(apiClient.get).mockResolvedValue({ options: [] })
+    vi.mocked(apiClient.post).mockResolvedValue({ options: [] })
   })
 
-  it('uses the actual table route, query parameters and options envelope', async () => {
+  it('posts to the v1 table route with a JSON search body and reads the options envelope', async () => {
     const options = [{ id: 0, label: 'Zero' }, { id: 'a/b', label: 'Text key', isNotFound: false }]
-    vi.mocked(apiClient.get).mockResolvedValue({ options })
+    vi.mocked(apiClient.post).mockResolvedValue({ options })
     expect(await fetchTablePossibleValues('some table', 'field/name', { searchTerm: 'A&B', ids: '0,a/b', labels: 'Zero', useCase: 'filter' })).toEqual(options)
-    expect(apiClient.get).toHaveBeenCalledWith('/data/some%20table/possibleValues/field%2Fname', {
-      baseURL: 'https://sample.invalid/prefix', params: { searchTerm: 'A&B', ids: '0,a/b', labels: 'Zero', useCase: 'filter' },
-    })
+    expect(apiClient.post).toHaveBeenCalledWith('/table/some%20table/possibleValues/field%2Fname', { searchTerm: 'A&B', ids: ['0', 'a/b'], useCase: 'filter' })
   })
 
-  it('uses the registered process route and encodes both identifiers', async () => {
+  it('posts to the v1 process route and encodes both identifiers', async () => {
     await fetchProcessPossibleValues('process/name', 'field#1')
-    expect(apiClient.get).toHaveBeenCalledWith('/processes/process%2Fname/possibleValues/field%231', { baseURL: 'https://sample.invalid/prefix', params: {} })
+    expect(apiClient.post).toHaveBeenCalledWith('/processes/process%2Fname/possibleValues/field%231', {})
   })
 
-  it('uses standalone source lookup and maps values to native ids', async () => {
+  it('posts to the v1 standalone route and maps values to ids', async () => {
     await fetchPossibleValues('source/name', { values: '0,1' })
-    expect(apiClient.get).toHaveBeenCalledWith('/possibleValues/source%2Fname', { baseURL: 'https://sample.invalid/prefix', params: { ids: '0,1' } })
+    expect(apiClient.post).toHaveBeenCalledWith('/possibleValues/source%2Fname', { ids: ['0', '1'] })
   })
 
-  it('keeps explicit ids authoritative and a custom non-V1 prefix intact', async () => {
-    defaults.baseURL = 'https://sample.invalid/custom'
+  it('keeps explicit ids authoritative over values', async () => {
     await fetchPossibleValues('source', { values: '1', ids: '2' })
-    expect(apiClient.get).toHaveBeenCalledWith('/possibleValues/source', { baseURL: 'https://sample.invalid/custom', params: { ids: '2' } })
+    expect(apiClient.post).toHaveBeenCalledWith('/possibleValues/source', { ids: ['2'] })
+  })
+
+  it('sends labels only when no ids are given, like the legacy lookup', async () => {
+    await fetchPossibleValues('source', { labels: 'Red,Green' })
+    expect(apiClient.post).toHaveBeenCalledWith('/possibleValues/source', { labels: ['Red', 'Green'] })
+  })
+
+  it('posts form values as the v1 values map that ${input.field} filters read, beside search and ids', async () => {
+    const options = [{ id: 3, label: 'Carrot' }]
+    vi.mocked(apiClient.post).mockResolvedValue({ options })
+    const formValues = { categoryId: 2, note: 'a&b=c', itemId: null }
+    expect(await fetchTablePossibleValues('order', 'itemId', { searchTerm: 'Ca', ids: '3', formValues })).toEqual(options)
+    expect(apiClient.post).toHaveBeenCalledWith('/table/order/possibleValues/itemId', { searchTerm: 'Ca', ids: ['3'], values: formValues })
+  })
+
+  it('posts empty form values for a process field as an empty values map', async () => {
+    await fetchProcessPossibleValues('prcPick', 'itemId', { formValues: {} })
+    expect(apiClient.post).toHaveBeenCalledWith('/processes/prcPick/possibleValues/itemId', { values: {} })
   })
 
   it('accepts the native NON_EMPTY serialization of an empty option list', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({})
+    vi.mocked(apiClient.post).mockResolvedValue({})
     expect(await fetchPossibleValues('source')).toEqual([])
   })
 
   it.each(['<html>fallback</html>', [], { records: [] }, { options: null }, { options: [{ id: 1 }] }, { options: [{ id: {}, label: 'Invalid key' }] }])('rejects an invalid native response instead of presenting it as empty: %j', async (response) => {
-    vi.mocked(apiClient.get).mockResolvedValue(response)
+    vi.mocked(apiClient.post).mockResolvedValue(response)
     await expect(fetchPossibleValues('source')).rejects.toThrow()
   })
 
   it('preserves an HTTP failure', async () => {
     const failure = new Error('404')
-    vi.mocked(apiClient.get).mockRejectedValue(failure)
+    vi.mocked(apiClient.post).mockRejectedValue(failure)
     await expect(fetchTablePossibleValues('pet', 'speciesId')).rejects.toBe(failure)
   })
 })

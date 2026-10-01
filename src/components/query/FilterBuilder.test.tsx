@@ -39,12 +39,12 @@ const table: QTableMetaData = {
 
 let latest: QQueryFilter = emptyFilter()
 
-function Harness({ initial }: { initial: QQueryFilter }) {
+function Harness({ initial, tableMetaData = table }: { initial: QQueryFilter; tableMetaData?: QTableMetaData }) {
   const [filter, setFilter] = useState(initial)
   latest = filter
   return (
     <QueryClientProvider client={new QueryClient()}>
-      <FilterBuilder tableMetaData={table} filter={filter} onChange={(f) => { latest = f; setFilter(f) }} />
+      <FilterBuilder tableMetaData={tableMetaData} filter={filter} onChange={(f) => { latest = f; setFilter(f) }} />
     </QueryClientProvider>
   )
 }
@@ -88,5 +88,34 @@ describe('FilterBuilder', () => {
     render(<Harness initial={{ ...emptyFilter(), criteria: [{ fieldName: 'name', operator: 'LIKE', values: ['A%'] }] }} />)
     expect((screen.getByLabelText('Filter operator') as HTMLSelectElement).selectedOptions[0].textContent).toBe('is like')
     expect(screen.getByLabelText('Filter value for Name')).toHaveValue('A%')
+  })
+
+  it('builds a weekday condition with the backend field function and ISO day value', async () => {
+    render(<Harness initial={{ ...emptyFilter(), criteria: [{ fieldName: 'when', operator: 'EQUALS', values: [] }] }} />)
+    await userEvent.selectOptions(screen.getByLabelText('Filter operator'), 'day is any of')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Filter weekdays for When' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Friday' }))
+    expect(latest.criteria[0]).toEqual({
+      fieldName: 'when', operator: 'IN', values: [5],
+      fieldFunction: { fieldName: 'when', functionTypeIdentifierName: 'WeekdayOfDate' },
+    })
+  })
+
+  it('adds distinct pasted values from a detected separator to a list condition', async () => {
+    render(<Harness initial={{ ...emptyFilter(), criteria: [{ fieldName: 'name', operator: 'IN', values: [] }] }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Bulk add filter values for Name' }))
+    const dialog = screen.getByRole('dialog', { name: 'Bulk Add Filter Values' })
+    await userEvent.type(screen.getByLabelText('Paste text'), 'Alpha|Beta|Alpha')
+    expect(dialog).toHaveTextContent('3 values (2 unique)')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Values' }))
+    expect(latest.criteria[0].values).toEqual(['Alpha', 'Beta'])
+  })
+
+  it('applies a field case behavior while the user types a filter value', async () => {
+    const tableMetaData = { ...table, fields: { ...table.fields, name: { ...table.fields.name, behaviors: ['TO_UPPER_CASE'] } } }
+    render(<Harness tableMetaData={tableMetaData} initial={{ ...emptyFilter(), criteria: [{ fieldName: 'name', operator: 'EQUALS', values: [] }] }} />)
+    await userEvent.type(screen.getByRole('textbox', { name: 'Filter value for Name' }), 'abc')
+    expect(screen.getByRole('textbox', { name: 'Filter value for Name' })).toHaveValue('ABC')
+    expect(latest.criteria[0].values).toEqual(['ABC'])
   })
 })

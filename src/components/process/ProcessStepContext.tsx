@@ -25,7 +25,7 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 
-import type { QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
 import type { ProcessFiles } from '@/lib/api/processes'
 
 /** What a component adds to (or blocks in) a screen submission. */
@@ -52,7 +52,21 @@ export interface ProcessStepContextValue {
   previewTableMetaData?: QTableMetaData
   /** Instance metadata (widgets, table labels), when loaded. */
   instance?: QInstance
+  /** JSON of the table variant the run uses (sent with record requests). */
+  tableVariant?: string
   step: QFrontendStepMetaData
+  /**
+   * The screen's form fields: the step's `formFields`, then the fields a backend step
+   * listed in the `inputFieldList` process value (report inputs), as Material's
+   * `getFullFieldList` does.
+   */
+  formFields: QFieldMetaData[]
+  /** Names of the fields that came from `inputFieldList` (no process field backs them). */
+  inputFieldNames: ReadonlySet<string>
+  /** `true` when the run is embedded in a dashboard `process` widget (Material `isWidget`). */
+  isEmbedded: boolean
+  /** Use the compact report input layout in the shared form. */
+  compactReportInputs?: boolean
   /** Current process values from the backend. */
   values: Record<string, unknown>
   /** The screen's single form (every component's inputs live here). */

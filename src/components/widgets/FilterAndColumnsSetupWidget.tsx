@@ -15,9 +15,8 @@
  */
 
 /**
- * @file FilterAndColumnsSetupWidget — read-only view of a record's saved query
- * filter, sort and column selection (the `filterAndColumnsSetup` widget type,
- * used by saved reports).
+ * @file FilterAndColumnsSetupWidget — saved report filter and column summary,
+ * with form editing through the hosting form's values.
  */
 'use client'
 
@@ -25,11 +24,17 @@ import React from 'react'
 
 import type { QTableMetaData } from '@/types'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { useApiTableMetaData } from '@/lib/hooks/use-filter-setup'
+import { normalizeFilter } from '@/lib/utils/filter-utils'
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { WidgetPayloadNotice } from './WidgetNotice'
 import { formatPlainValue, parseJsonValue, recordValue, resolveFieldLabel } from './record-widget-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import type { WidgetComponentProps } from './widget-types'
+import { WidgetSlotHelp } from './WidgetSlotHelp'
+import { FilterAndColumnsSetupEditor, FilterSetupPreview } from './FilterAndColumnsSetupEditor'
+import { columnsStateFromEntries, DEFAULT_COLUMNS_STATE, resolveApiVersion, seedDefaultCriteria } from './filter-and-columns-utils'
 
 /** Payload of the `filterAndColumnsSetup` widget (`FilterAndColumnsSetupData`). */
 export interface FilterAndColumnsSetupPayload {
@@ -43,9 +48,20 @@ export interface FilterAndColumnsSetupPayload {
   /** Alternate spelling of {@link columnFieldName}. */
   columnsFieldName?: string
   hideColumns?: boolean
+  /** Hides the read-only summary preview; the editor retains its query grid. */
   hidePreview?: boolean
   hideSortBy?: boolean
   allowVariables?: boolean
+  overrideIsEditable?: boolean
+  isApiVersioned?: boolean
+  apiName?: string
+  apiPath?: string
+  apiVersion?: string
+  filterDefaultFieldNames?: string[]
+  filterDefaultFieldNameSourceFieldNames?: Record<string, string>
+  omitExposedJoins?: string[]
+  editButtonLabel?: string
+  modalHeader?: string
 }
 
 /** A criterion as stored in query filter JSON. */
@@ -158,13 +174,15 @@ function criterionValues(criterion: StoredCriterion): string {
  * @param parsed - Parsed columns JSON.
  * @returns The entries in order, or undefined when the shape is not recognized.
  */
-function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean }> | undefined {
+function columnEntries(parsed: unknown): Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> | undefined {
   const list = isPlainObject(parsed) ? asList(parsed.columns) : asList(parsed)
   if (list === undefined) return undefined
-  const entries: Array<{ name: string; isVisible: boolean }> = []
+  const entries: Array<{ name: string; isVisible: boolean; width?: number; pinned?: 'left' | 'right' }> = []
   for (const item of list) {
     if (typeof item === 'string') entries.push({ name: item, isVisible: true })
-    else if (isPlainObject(item) && typeof item.name === 'string') entries.push({ name: item.name, isVisible: item.isVisible !== false })
+    else if (isPlainObject(item) && typeof item.name === 'string') entries.push({ name: item.name, isVisible: item.isVisible !== false,
+      ...((item.pinned === 'left' || item.pinned === 'right') ? { pinned: item.pinned } : {}),
+      ...(typeof item.width === 'number' ? { width: item.width } : {}) })
     else return undefined
   }
   return entries
@@ -252,30 +270,38 @@ function FilterList({ filter, table, tableKnown, widgetName, path }: FilterListP
  * @param props - Widget metadata, payload and the hosting record context.
  * @returns The rendered filter/columns summary.
  */
-export function FilterAndColumnsSetupWidget({ widgetMetaData, data, recordContext }: WidgetComponentProps<FilterAndColumnsSetupPayload>) {
+function FilterAndColumnsSetupView({ widgetMetaData, data, recordContext }: WidgetComponentProps<FilterAndColumnsSetupPayload>) {
   const widgetName = widgetMetaData.name
   const filterFieldName = data?.filterFieldName ?? 'queryFilterJson'
-  const columnsFieldName = data?.columnFieldName ?? data?.columnsFieldName ?? 'columnsJson'
+  const columnsFieldName = data?.columnsFieldName ?? data?.columnFieldName ?? 'columnsJson'
   const recordTableName = recordValue(recordContext, 'tableName')
   const tableName = data?.tableName ?? (typeof recordTableName === 'string' && recordTableName ? recordTableName : undefined)
-  const { data: table, isLoading, isError } = useTableMetaData(tableName)
+  const api = resolveApiVersion(data, recordContext?.record?.values ?? {})
+  const plainTable = useTableMetaData(data?.isApiVersioned ? undefined : tableName)
+  const apiTable = useApiTableMetaData(data?.isApiVersioned ? api : undefined, tableName)
+  const { data: table, isLoading, isError } = data?.isApiVersioned ? apiTable : plainTable
 
   const filterJson = parseJsonValue(recordValue(recordContext, filterFieldName))
   const columnsJson = parseJsonValue(recordValue(recordContext, columnsFieldName))
   if (!filterJson.ok || (filterJson.value !== undefined && !isPlainObject(filterJson.value))) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('filter and columns', 'the saved filter is not valid JSON')} />
   }
-  const filter = (filterJson.value ?? {}) as StoredFilter
-  const criteria = asList(filter.criteria)
-  const subFilters = asList(filter.subFilters)
-  const orderBys = asList(filter.orderBys)
+  const storedFilter = (filterJson.value ?? {}) as StoredFilter
+  const validCriteria = asList(storedFilter.criteria)
+  const validSubFilters = asList(storedFilter.subFilters)
+  const validOrderBys = asList(storedFilter.orderBys)
   const columns = columnsJson.ok ? (columnsJson.value === undefined ? [] : columnEntries(columnsJson.value)) : undefined
-  if (criteria === undefined || subFilters === undefined || orderBys === undefined) {
+  if (validCriteria === undefined || validSubFilters === undefined || validOrderBys === undefined) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('filter and columns', 'the saved filter has an unexpected shape')} />
   }
   if (columns === undefined) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('filter and columns', 'the saved columns are not valid')} />
   }
+  const filter = seedDefaultCriteria(normalizeFilter(storedFilter), data?.filterDefaultFieldNames,
+    recordContext?.record?.values ?? {}, data?.filterDefaultFieldNameSourceFieldNames)
+  const criteria = filter.criteria
+  const subFilters = filter.subFilters ?? []
+  const orderBys = filter.orderBys ?? []
   if (tableName && isLoading) {
     return (
       <div className="space-y-2 animate-pulse" aria-busy="true" aria-label="Loading filter and columns" data-qqq-id={`widget-filterAndColumnsSetup-${widgetName}`}>
@@ -286,12 +312,14 @@ export function FilterAndColumnsSetupWidget({ widgetMetaData, data, recordContex
   }
 
   const tableKnown = Boolean(table)
-  const visibleColumns = columns.filter((column) => column.isVisible)
+  const visibleColumns = columns.filter((column) => column.isVisible && column.name !== '__check__')
   const sortedBy = (orderBys.filter(isPlainObject) as Array<{ fieldName?: unknown; isAscending?: unknown }>)
     .filter((orderBy) => typeof orderBy.fieldName === 'string')
 
   return (
     <div className="space-y-4" data-qqq-id={`widget-filterAndColumnsSetup-${widgetName}`}>
+      {/* Material's "sectionSubhead" help slot, above the filter and columns */}
+      <WidgetSlotHelp widgetMetaData={widgetMetaData} slot="sectionSubhead" roles={VIEW_SCREEN_HELP_ROLES} className="text-sm text-muted-foreground" />
       {tableName && isError && (
         <WidgetPayloadNotice widgetName={widgetName} message={`Field labels for ${tableName} could not be loaded.`} />
       )}
@@ -331,6 +359,31 @@ export function FilterAndColumnsSetupWidget({ widgetMetaData, data, recordContex
           )}
         </section>
       )}
+      {!data?.hidePreview && table && (
+        <section className="space-y-2" aria-labelledby={`preview-heading-${widgetName}`}>
+          <h4 id={`preview-heading-${widgetName}`} className="text-sm font-semibold">Preview</h4>
+          <FilterSetupPreview table={table} filter={filter}
+            columns={columnsStateFromEntries(table, columns) ?? DEFAULT_COLUMNS_STATE} api={api} widgetName={widgetName} hideColumns={data?.hideColumns} omittedJoins={data?.omitExposedJoins} />
+        </section>
+      )}
     </div>
   )
+}
+
+/**
+ * Uses form values when editing and record values when viewing a saved report.
+ * @param props - Widget payload and hosting context.
+ * @returns The editable or read-only widget.
+ */
+export function FilterAndColumnsSetupWidget(props: WidgetComponentProps<FilterAndColumnsSetupPayload>) {
+  if (props.formContext && props.data?.overrideIsEditable !== false) {
+    return <FilterAndColumnsSetupEditor {...props} formContext={props.formContext} renderSummary={(values) => (
+      <FilterAndColumnsSetupView
+        widgetMetaData={props.widgetMetaData}
+        data={{ ...props.data, hidePreview: true }}
+        recordContext={{ tableName: props.formContext!.tableMetaData?.name ?? '', record: { tableName: props.formContext!.tableMetaData?.name ?? '', values } }}
+      />
+    )} />
+  }
+  return <FilterAndColumnsSetupView {...props} />
 }

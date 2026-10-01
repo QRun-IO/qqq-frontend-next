@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
@@ -34,8 +34,11 @@ import type { CopyNode } from '@/lib/utils/copy-tree'
 import { copyTableNames, prepareCopyTree } from '@/lib/utils/copy-tree'
 import { getErrorStatusCode, recordLoadFailure } from '@/lib/utils/error-utils'
 import { canInsertRecords, canReadRecords, hasCapability } from '@/lib/auth/permissions'
-import { EntityForm, type EntityFormProps } from '@/components/forms/EntityForm'
-import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
+import type { EntityFormProps } from '@/components/forms/EntityForm'
+
+const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
+const FullCopyDraft = lazy(() => import('@/components/forms/FullCopyDraft').then((module) => ({ default: module.FullCopyDraft })))
 
 /**
  * Renders the entity copy form for the record identified by `slug` and `recordId`.
@@ -51,7 +54,7 @@ import { FullCopyDraft } from '@/components/forms/FullCopyDraft'
  *   - A permission-error banner when the user lacks `insertPermission`
  *   - A destructive error panel when the source record cannot be fetched
  *   - `<EntityForm>` in copy mode (`isCopy=true`, pre-populated with source values)
- *     wrapped in a centered `max-w-4xl` container; submitting creates a new record
+ *     wrapped in a centered `max-w-6xl` container; submitting creates a new record
  */
 export default function EntityCopyPage() {
   const params = useRouteParams<{ slug: string; recordId: string }>()
@@ -76,15 +79,18 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
 
   const { record, isLoading, isError, error } = useRecord({
     tableName: slug,
     primaryKey: recordId,
     enabled: canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
     includeAssociations: false,
+    tableVariant,
   })
 
   const expanded = useRecord({ tableName: slug, primaryKey: recordId, includeAssociations: true,
+    tableVariant,
     enabled: mode === 'full' && !tree && canInsertRecords(tableMetaData) && canReadRecords(tableMetaData),
   })
   const sourceTables = useMemo(() => {
@@ -175,15 +181,19 @@ function CopyPageContent({ slug, recordId }: { slug: string; recordId: string })
         <label className="flex items-center gap-2"><input type="radio" name="copy-mode" checked={mode === 'full'} onChange={() => setMode('full')} data-qqq-id="copy-mode-full" />Full copy</label>
       </fieldset>
       <p className="mb-4 text-sm text-muted-foreground">{mode === 'base' ? 'Copy this record’s editable fields. Associated records are not copied.' : 'Copy editable fields and every loaded named association. A record reached through two named paths is copied twice. Normal insert defaults and validation apply. Limited to 64 association levels and 1000 associated records in this form.'}</p>
-      <EntityForm
+      <Suspense fallback={<div role="status" aria-label="Loading form" className="py-12 text-center">Loading form…</div>}><EntityForm
         tableMetaData={tableMetaData}
         widgets={metaData?.widgets}
         record={record}
         isCopy={true}
         copyAssociations={mode === 'full' ? fullState : undefined}
       >
-        {tree && <fieldset hidden={mode !== 'full'} disabled={mode !== 'full'} className="min-w-0"><FullCopyDraft tree={tree} onChange={setCopyState} /></fieldset>}
-      </EntityForm>
+        {tree && <fieldset hidden={mode !== 'full'} disabled={mode !== 'full'} className="min-w-0">
+          <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">Loading full copy draft…</p>}>
+            <FullCopyDraft tree={tree} onChange={setCopyState} />
+          </Suspense>
+        </fieldset>}
+      </EntityForm></Suspense>
     </div>
   )
 }

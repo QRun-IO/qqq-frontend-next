@@ -6,10 +6,11 @@
  */
 
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchTargets } from '../../support/touch'
 import { allowQuickSight, appNavigation, expectRecords, findNode, groupChildLinks, recordCollection, topLevelLinks, v1MetaData } from './nav-helpers'
 
 test.describe('sidebar', () => {
-  test('[NAV-002] sidebar lists every permitted top-level app once, by label, in backend order', async ({ page, backend, diagnostics }) => {
+  test('[NAV-002] sidebar lists every permitted top-level app once, by label, in backend order @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     const expected = meta.appTree.map((node) => node.label)
     // Other areas' fixtures add apps; the sample and navigation apps must be present, and the sidebar must match the backend order exactly.
@@ -17,7 +18,13 @@ test.describe('sidebar', () => {
 
     await open(page, '/app')
     const nav = await appNavigation(page)
-    await expect(topLevelLinks(nav)).toHaveText(['Dashboard', ...expected])
+    await expect(nav.locator('[data-qqq-id="sidebar-item-widgetBlocks"] svg text')).toHaveText('\ue8f1')
+    // Decorative SVG glyphs are DOM text, but must not enter link names.
+    const links = topLevelLinks(nav)
+    const labels = ['Dashboard', ...expected]
+    await expect(links).toHaveCount(labels.length)
+    for (const [index, label] of labels.entries()) await expect(links.nth(index)).toHaveAccessibleName(label)
+    for (const icon of await nav.locator('svg:has(text)').all()) await expect(icon).toHaveAttribute('aria-hidden', 'true')
     // Nested apps appear only under their parent: Greetings App is inside People App, not beside it
     await expect(nav.locator('[data-qqq-id="sidebar-collapse-greetingsApp"]')).toHaveCount(0)
     await nav.getByRole('button', { name: 'Expand People App' }).click()
@@ -29,7 +36,7 @@ test.describe('sidebar', () => {
   test.describe('without pet permissions', () => {
     test.use({ persona: 'noPets' })
 
-    test('[NAV-002] denied tables are absent from the sidebar and denied by the backend', async ({ page, backend, diagnostics }) => {
+    test('[NAV-002] denied tables are absent from the sidebar and denied by the backend @mobile', async ({ page, backend, diagnostics }) => {
       const meta = await v1MetaData(backend)
       expect(findNode(meta.appTree, 'greetingsApp')?.children?.map((node) => node.name)).toEqual(['person', 'greetInteractive'])
       expect((await backend.api.get('/qqq/v1/metaData/table/pet')).status()).toBe(404)
@@ -43,7 +50,7 @@ test.describe('sidebar', () => {
     })
   })
 
-  test('[NAV-003] apps nested three levels deep render as nested groups and navigate', async ({ page, backend, diagnostics }) => {
+  test('[NAV-003] apps nested three levels deep render as nested groups and navigate @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     expect(findNode(meta.appTree, 'navLevelOne')?.children?.[0]?.children?.[0]?.children?.[0]?.name).toBe('navDeepItem')
 
@@ -60,7 +67,7 @@ test.describe('sidebar', () => {
     await expectRecords(page, 'Nav Deep Item', rows.map((row) => row.name!))
   })
 
-  test('[NAV-003] a deep link expands every enclosing app group and marks the page active', async ({ page, backend, diagnostics }) => {
+  test('[NAV-003] a deep link expands every enclosing app group and marks the page active @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/navDeepItem')
     const nav = await appNavigation(page)
     for (const app of ['Nav Level One', 'Nav Level Two', 'Nav Level Three']) {
@@ -69,11 +76,13 @@ test.describe('sidebar', () => {
     await expect(nav.getByRole('link', { name: 'Nav Deep Item', exact: true })).toHaveAttribute('aria-current', 'page')
   })
 
-  test('[NAV-004] sidebar clicks open an app home, a table and a process, highlighting the active entry', async ({ page, backend, diagnostics }) => {
+  test('[NAV-004] sidebar clicks open an app home, a table and a process, highlighting the active entry @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
     await open(page, '/app')
     let nav = await appNavigation(page)
     await expect(nav.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute('aria-current', 'page')
+    // Sidebar (tablet) and drawer (phone) entries are touch targets
+    await expectTouchTargets(nav)
 
     await nav.getByRole('link', { name: 'Miscellaneous', exact: true }).click()
     await expect(page).toHaveURL(/\/app\/miscellaneous\/?$/)
@@ -100,7 +109,7 @@ test.describe('sidebar', () => {
     await expect(nav.getByRole('link', { name: 'Carrier', exact: true })).toBeVisible()
   })
 
-  test('[NAV-005] declared icons render in the sidebar: named glyphs, colors, image paths and fallbacks', async ({ page, backend, diagnostics }) => {
+  test('[NAV-005] declared icons render in the sidebar: named glyphs, colors, image paths and fallbacks @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     expect(findNode(meta.appTree, 'miscellaneous')?.icon).toEqual({ name: 'stars' })
     expect(findNode(meta.appTree, 'navLevelOne')?.icon).toEqual({ path: '/kr-icon.png' })
@@ -136,7 +145,7 @@ test.describe('sidebar', () => {
     await expect(glyph('sidebar-item-sleepInteractive')).toHaveClass(/lucide-workflow/)
   })
 
-  test('[NAV-006] hidden tables and processes never appear in the sidebar', async ({ page, backend, diagnostics }) => {
+  test('[NAV-006] hidden tables and processes never appear in the sidebar @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     // city and greet (hidden, denied) are omitted by the backend; navHiddenNote (hidden, permitted) is sent with isHidden
     expect(meta.tables.city).toBeUndefined()
@@ -157,7 +166,7 @@ test.describe('sidebar', () => {
     }
   })
 
-  test('[NAV-005] record view and form section headings show the section icons the table declares', async ({ page, backend, diagnostics }) => {
+  test('[NAV-005] record view and form section headings show the section icons the table declares @mobile', async ({ page, backend, diagnostics }) => {
     const table = await (await backend.api.get('/qqq/v1/metaData/table/carrier')).json()
     const sections = (table.sections ?? []).filter((section: { icon?: { name?: string } }) => section.icon?.name)
     expect(sections.map((section: { name: string; icon: { name: string } }) => [section.name, section.icon.name])).toEqual([['identity', 'badge'], ['basicInfo', 'dataset']])
@@ -170,12 +179,12 @@ test.describe('sidebar', () => {
     await expect(viewIcon).toHaveClass(/lucide-database/)
 
     await open(page, `/app/carrier/${carrier.id}/edit`)
-    for (const [label, name] of [['Identity', 'badge'], ['Basic Info', 'dataset']]) {
-      await expect(page.getByRole('main').getByRole('heading', { name: label, exact: true }).first().locator('svg')).toHaveAttribute('data-qqq-icon', name)
-    }
+    const identityIcon = page.getByRole('main').getByRole('heading', { name: 'Identity' }).locator('svg')
+    await expect(identityIcon).toHaveAttribute('data-qqq-icon', 'badge')
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Basic Info', exact: true }).first().locator('svg')).toHaveAttribute('data-qqq-icon', 'dataset')
   })
 
-  test('[NAV-028] a report in the app tree is listed under its app and opens the report page', async ({ page, backend, diagnostics }) => {
+  test('[NAV-028] a report in the app tree is listed under its app and opens the report page @mobile', async ({ page, backend, diagnostics }) => {
     const meta = await v1MetaData(backend)
     expect(findNode(meta.appTree, 'navDeepItemReport')?.type).toBe('REPORT')
     // v1 carries no report metadata; the full metadata route does
@@ -189,7 +198,7 @@ test.describe('sidebar', () => {
     await expect(page.getByRole('heading', { name: 'Nav Deep Item Report' })).toBeVisible()
     await expect(page).toHaveTitle('Nav Deep Item Report | Nav Level Three | Nav Level Two | Nav Level One | QQQ Sample')
     const trail = page.getByRole('navigation', { name: 'Breadcrumb' })
-    await expect(trail.locator('a, [aria-current="page"]')).toHaveText(['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item Report'])
+    await expect(trail.locator('a:not([data-qqq-id="breadcrumb-home"]), [aria-current="page"]')).toHaveText(['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item Report'])
     await expect((await appNavigation(page)).getByRole('link', { name: 'Nav Deep Item Report', exact: true })).toHaveAttribute('aria-current', 'page')
   })
 })

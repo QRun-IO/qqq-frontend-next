@@ -20,13 +20,16 @@
  */
 'use client'
 
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle, CircleDot, Circle, Info, XCircle } from 'lucide-react'
 
-import type { QRecord } from '@/types'
+import { useMetaData } from '@/lib/hooks/use-metadata'
 import { cn } from '@/lib/utils/cn'
+import { FieldValue } from '@/components/records/FieldValue'
 import type { WidgetComponentProps } from './widget-types'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
+import { widgetField, widgetRecord } from './widget-field-values'
+import { projectUsLatLng, US_MAP_HEIGHT, US_MAP_WIDTH } from './us-map-projection'
 import { SafeHtml } from './SafeHtml'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { WidgetIcon } from './WidgetIcon'
@@ -108,7 +111,9 @@ export interface QqqStepperPayload {
 
 /**
  * Renders a canonical QQQ `stepper`: steps before `activeStep` are complete, the
- * active step shows its link, later steps are upcoming.
+ * active step shows its link, later steps are upcoming. As in Material, a step's
+ * `iconOverride` replaces its state glyph and its `colorOverride` colors both the
+ * icon and the label.
  *
  * @param props - Widget props.
  * @returns The stepper.
@@ -126,6 +131,9 @@ export function QqqStepperWidget({ widgetMetaData, data }: WidgetComponentProps<
       {steps.map((step, index) => {
         const state = index < active ? 'complete' : index === active ? 'current' : 'upcoming'
         const Icon = state === 'complete' ? CheckCircle : state === 'current' ? CircleDot : Circle
+        const color = typeof step.colorOverride === 'string' && step.colorOverride ? step.colorOverride : undefined
+        const iconOverride = typeof step.iconOverride === 'string' && step.iconOverride ? step.iconOverride : undefined
+        const iconClass = state === 'complete' ? 'text-emerald-600' : state === 'current' ? 'text-primary' : 'text-muted-foreground/60'
         return (
           <li
             key={index}
@@ -134,12 +142,28 @@ export function QqqStepperWidget({ widgetMetaData, data }: WidgetComponentProps<
             data-step-state={state}
             data-qqq-id={`stepper-step-${name}-${index}`}
           >
-            <Icon
-              className={cn('h-7 w-7', state === 'complete' ? 'text-emerald-600' : state === 'current' ? 'text-primary' : 'text-muted-foreground/60')}
-              style={step.colorOverride ? { color: step.colorOverride } : undefined}
-              aria-hidden="true"
-            />
-            <span className={cn(state === 'upcoming' ? 'text-muted-foreground' : 'font-medium text-foreground')}>{step.label}</span>
+            {iconOverride ? (
+              <WidgetIcon
+                name={iconOverride}
+                color={color}
+                className={cn('text-[1.75rem] leading-none', color ? undefined : iconClass)}
+                qqqId={`stepper-icon-${name}-${index}`}
+              />
+            ) : (
+              <Icon
+                className={cn('h-7 w-7', color ? undefined : iconClass)}
+                style={color ? { color } : undefined}
+                aria-hidden="true"
+                data-qqq-id={`stepper-icon-${name}-${index}`}
+              />
+            )}
+            <span
+              className={cn(state === 'upcoming' ? 'text-muted-foreground' : 'font-medium text-foreground', color && 'font-medium')}
+              style={color ? { color } : undefined}
+              data-qqq-id={`stepper-label-${name}-${index}`}
+            >
+              {step.label}
+            </span>
             {state === 'current' && step.linkURL && (
               <WidgetLink href={step.linkURL} className="text-xs text-primary" qqqId={`stepper-link-${name}-${index}`}>{step.linkText ?? step.linkURL}</WidgetLink>
             )}
@@ -161,39 +185,29 @@ export interface QqqFieldValueListPayload {
 }
 
 /**
- * Display text for one value: the record's display value, else the raw value
- * (0 and false are shown), else an em dash.
- *
- * @param record - Record with values/displayValues.
- * @param fieldName - Field name.
- * @returns Display text.
- */
-function valueText(record: Partial<QRecord>, fieldName: string): string {
-  const display = record.displayValues?.[fieldName]
-  if (display !== undefined && display !== null && display !== '') return String(display)
-  const value = record.values?.[fieldName]
-  if (value === undefined || value === null || value === '') return '—'
-  return String(value)
-}
-
-/**
  * Renders a canonical QQQ `fieldValueList`: `Label: value` pairs with optional
- * prefix icons and indentation.
+ * prefix icons and indentation. Each value is formatted as a record view formats
+ * it (Material `ValueUtils.getDisplayValue`): by type (Yes/No, date-times in the
+ * viewer's zone, text line breaks), `displayFormat` and adornments (links, chips,
+ * HTML, reveal, code, file downloads), with possible values linking to their record.
  *
  * @param props - Widget props.
  * @returns The value list.
  */
 export function QqqFieldValueListWidget({ widgetMetaData, data }: WidgetComponentProps<QqqFieldValueListPayload>) {
   const name = widgetMetaData.name
+  const { data: instance } = useMetaData()
   const fields = asList<{ name: string; label?: string }>(data.fields)
-  if (!fields || fields.some((field) => !isPlainObject(field)) || (data.record !== undefined && !isPlainObject(data.record))) {
+  const valid = Boolean(fields) && !fields!.some((field) => !isPlainObject(field)) && (data.record === undefined || isPlainObject(data.record))
+  const typedFields = useMemo(() => (valid ? fields!.map((field) => widgetField(field as Record<string, unknown>)) : []), [valid, fields])
+  const record = useMemo(() => widgetRecord(data.record, typedFields), [data.record, typedFields])
+  if (!fields || !valid) {
     return <WidgetPayloadNotice widgetName={name} message={payloadProblem('field value list', 'fields/record')} />
   }
   if (fields.length === 0) return <WidgetEmpty widgetName={name}>No values to show</WidgetEmpty>
-  const record = (data.record ?? {}) as Partial<QRecord>
   return (
     <dl className="space-y-1.5 text-sm" data-qqq-id={`field-value-list-${name}`}>
-      {fields.map((field) => (
+      {typedFields.map((field) => (
         <div
           key={field.name}
           className="flex items-baseline gap-2"
@@ -204,9 +218,11 @@ export function QqqFieldValueListWidget({ widgetMetaData, data }: WidgetComponen
             {data.fieldLabelPrefixIconNames?.[field.name] && (
               <WidgetIcon name={data.fieldLabelPrefixIconNames[field.name]} color={data.fieldLabelPrefixIconColors?.[field.name]} qqqId={`field-value-icon-${name}-${field.name}`} />
             )}
-            {field.label ?? field.name}:
+            {field.label}:
           </dt>
-          <dd className="text-muted-foreground">{valueText(record, field.name)}</dd>
+          <dd className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
+            <FieldValue field={field} record={record} allTables={instance?.tables} widgetMetaDataMap={instance?.widgets} className="text-muted-foreground" />
+          </dd>
         </div>
       ))}
     </dl>
@@ -252,45 +268,73 @@ export interface QqqUsaMapPayload {
   mapMarkerList?: unknown
 }
 
-/** Contiguous-US bounding box used to place markers (longitude / latitude). */
-const US_BOUNDS = { west: -125, east: -66.5, north: 49.5, south: 24.5 }
+/** The lazily loaded state outlines (see `us-states-map.ts`). */
+interface UsStatesBasemap {
+  source: string
+  states: Array<[string, string, string]>
+}
 
 /**
- * Renders a canonical QQQ `usaMap`: an equirectangular plot of the contiguous
- * United States with one marker per `mapMarkerList` entry, plus a list of the
- * markers with their coordinates for screen readers and keyboard users.
+ * Loads the US states basemap on first use; the outlines are a chunk of their own, so
+ * only screens with a map download them.
+ *
+ * @returns The basemap, or `null` until it has loaded.
+ */
+function useUsStatesBasemap(): UsStatesBasemap | null {
+  const [basemap, setBasemap] = useState<UsStatesBasemap | null>(null)
+  useEffect(() => {
+    let active = true
+    import('./us-states-map')
+      .then((module) => { if (active) setBasemap({ source: module.US_STATES_MAP_SOURCE, states: module.US_STATES }) })
+      .catch(() => { /* the markers and the location list still render without the outlines */ })
+    return () => { active = false }
+  }, [])
+  return basemap
+}
+
+/**
+ * Renders a canonical QQQ `usaMap`: the US states basemap the Material dashboard
+ * draws (Albers equal-area, with Alaska and Hawaii insets) with one marker per
+ * `mapMarkerList` entry at its latitude and longitude, plus a list of the markers
+ * with their coordinates for screen readers and keyboard users.
  *
  * @param props - Widget props.
  * @returns The map.
  */
 export function QqqUsaMapWidget({ widgetMetaData, data }: WidgetComponentProps<QqqUsaMapPayload>) {
   const name = widgetMetaData.name
+  const basemap = useUsStatesBasemap()
   const markers = asList<{ name?: string; latitude?: number; longitude?: number }>(data.mapMarkerList)
   if (!markers || markers.some((marker) => !isPlainObject(marker))) {
     return <WidgetPayloadNotice widgetName={name} message={payloadProblem('USA map', 'mapMarkerList')} />
   }
-  const width = 600
-  const height = 360
-  const x = (longitude: number) => ((longitude - US_BOUNDS.west) / (US_BOUNDS.east - US_BOUNDS.west)) * width
-  const y = (latitude: number) => ((US_BOUNDS.north - latitude) / (US_BOUNDS.north - US_BOUNDS.south)) * height
   const placed = markers.filter((marker) => typeof marker.latitude === 'number' && typeof marker.longitude === 'number')
   return (
     <figure className="space-y-2" data-qqq-id={`usa-map-${name}`}>
       <svg
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${US_MAP_WIDTH} ${US_MAP_HEIGHT}`}
         role="img"
         aria-label={`${widgetMetaData.label}: ${placed.length} location${placed.length === 1 ? '' : 's'}`}
-        className="w-full rounded-md border border-border bg-muted/40"
+        className="w-full"
         style={data.height ? { maxHeight: data.height } : undefined}
+        data-basemap={basemap ? basemap.source : undefined}
       >
-        <rect x="0" y="0" width={width} height={height} fill="transparent" />
-        {placed.map((marker, index) => (
-          <g key={index} data-qqq-id={`usa-map-marker-${name}-${index}`} data-marker-name={marker.name}>
-            <circle cx={x(marker.longitude as number)} cy={y(marker.latitude as number)} r="7" className="fill-primary stroke-background" strokeWidth="2">
-              <title>{marker.name}</title>
-            </circle>
+        {basemap && (
+          <g data-qqq-id={`usa-map-states-${name}`} className="fill-[#dee2e7] dark:fill-muted" stroke="none">
+            {basemap.states.map(([code, , path]) => <path key={code} d={path} data-state-code={code} />)}
           </g>
-        ))}
+        )}
+        {placed.map((marker, index) => {
+          const point = projectUsLatLng(marker.latitude as number, marker.longitude as number)
+          if (!point) return null
+          return (
+            <g key={index} data-qqq-id={`usa-map-marker-${name}-${index}`} data-marker-name={marker.name}>
+              <circle cx={point.x} cy={point.y} r="7" className="fill-primary stroke-background" strokeWidth="2">
+                <title>{marker.name}</title>
+              </circle>
+            </g>
+          )
+        })}
       </svg>
       {placed.length === 0
         ? <WidgetEmpty widgetName={name}>No locations to show</WidgetEmpty>

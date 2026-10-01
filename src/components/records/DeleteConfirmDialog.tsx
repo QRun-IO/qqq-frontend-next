@@ -27,10 +27,13 @@ import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
 
 import type { QTableMetaData, QRecord } from '@/types'
 import { deleteRecord } from '@/lib/api/tables'
+import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { forgetDeletedRecord } from '@/lib/utils/record-cache'
+import { isWarningMessage } from '@/lib/utils/save-warning'
+import { removeRecentRecord } from '@/lib/utils/recent-records'
 import { toast } from '@/lib/hooks/use-toast'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 
@@ -66,21 +69,40 @@ export function DeleteConfirmDialog({
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
   const recordLabel = record.recordLabel || `${tableMetaData.label} #${primaryKey}`
 
+  /**
+   * Reports the deletion and leaves the record, with the backend's warning when it gave one.
+   *
+   * @param warning - A "warning..." message the delete returned, if any.
+   */
+  async function finishDelete(warning?: string) {
+    // #541: never refetch the deleted record while its view is still mounted.
+    await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
+    removeRecentRecord(tableMetaData.name, primaryKey)
+    toast.success(`${recordLabel} deleted successfully.`)
+    if (warning) toast.warning(warning, { duration: 10_000 })
+    onDeleted()
+  }
+
   const deleteMutation = useMutation({
-    mutationFn: () => deleteRecord(tableMetaData.name, primaryKey),
-    meta: HANDLES_OWN_ERRORS,
-    onSuccess: async () => {
-      // #541: never refetch the deleted record while its view is still mounted.
-      await forgetDeletedRecord(queryClient, tableMetaData.name, primaryKey)
-      toast.success(`${recordLabel} deleted successfully.`)
-      onDeleted()
+    mutationFn: () => {
+      recordAnalytics({ category: 'tableEvents', action: 'delete', label: tableMetaData.label, recordLabel: record.recordLabel })
+      return deleteRecord(tableMetaData.name, primaryKey)
     },
-    onError: (err: Error) => {
-      toast.error(`Failed to delete: ${getErrorMessage(err)}`)
+    meta: HANDLES_OWN_ERRORS,
+    onSuccess: () => finishDelete(),
+    onError: async (err: Error) => {
+      const message = getErrorMessage(err)
+      // Material: a delete error starting with "warning" is a success with that warning
+      if (isWarningMessage(message)) {
+        await finishDelete(message)
+        return
+      }
+      toast.error(`Failed to delete: ${message}`)
     },
   })
 
-  const mutationError = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
+  const failureMessage = deleteMutation.error ? getErrorMessage(deleteMutation.error, 'Failed to delete record. Please try again.') : null
+  const mutationError = failureMessage && !isWarningMessage(failureMessage) ? failureMessage : null
   const restoreFocus = useRestoreFocus(true)
 
   return (
@@ -94,7 +116,7 @@ export function DeleteConfirmDialog({
           data-qqq-id="delete-confirm-dialog"
           aria-describedby="delete-dialog-description"
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto',
             'rounded-lg border border-border bg-card shadow-lg',
             'focus:outline-none'
           )}
@@ -104,87 +126,91 @@ export function DeleteConfirmDialog({
             Delete {tableMetaData.label}
           </DialogPrimitive.Title>
 
-          {/* Header */}
-          <div className="flex items-start justify-between p-6 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
+          {/* Material's delete-confirmation-* hooks (QRun-IO/qqq#731); the wrapper is layout-neutral */}
+          <div className="contents" data-qqq-id="delete-confirmation-dialog">
+            {/* Header */}
+            <div className="flex items-start justify-between p-6 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
+                </div>
+                <h2
+                  className="text-lg font-semibold text-foreground"
+                  data-qqq-id="delete-confirmation-title"
+                >
+                  Delete {tableMetaData.label}
+                </h2>
               </div>
-              <h2
-                className="text-lg font-semibold text-foreground"
-              >
-                Delete {tableMetaData.label}
-              </h2>
+              <DialogPrimitive.Close asChild>
+                <button
+                  type="button"
+                  aria-label="Close dialog"
+                  className={cn(
+                    'rounded-md p-1 text-muted-foreground hover:text-foreground',
+                    'focus:outline-none focus:ring-2 focus:ring-ring'
+                  )}
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </DialogPrimitive.Close>
             </div>
-            <DialogPrimitive.Close asChild>
+
+            {/* Body */}
+            <div className="px-6 pb-4">
+              <p id="delete-dialog-description" className="text-sm text-muted-foreground" data-qqq-id="delete-confirmation-text">
+                Are you sure you want to delete{' '}
+                <strong className="text-foreground">{recordLabel}</strong>?
+                This action cannot be undone.
+              </p>
+
+              {mutationError && (
+                <div
+                  role="alert"
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+                >
+                  {mutationError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 rounded-b-lg bg-muted px-6 py-4" data-qqq-id="delete-confirmation-actions">
               <button
                 type="button"
-                aria-label="Close dialog"
+                onClick={onClose}
+                disabled={deleteMutation.isPending}
+                data-qqq-id="button-delete-no"
                 className={cn(
-                  'rounded-md p-1 text-muted-foreground hover:text-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-ring'
+                  'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-card hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'transition-colors duration-150'
                 )}
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                Cancel
               </button>
-            </DialogPrimitive.Close>
-          </div>
-
-          {/* Body */}
-          <div className="px-6 pb-4">
-            <p id="delete-dialog-description" className="text-sm text-muted-foreground">
-              Are you sure you want to delete{' '}
-              <strong className="text-foreground">{recordLabel}</strong>?
-              This action cannot be undone.
-            </p>
-
-            {mutationError && (
-              <div
-                role="alert"
-                className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                data-qqq-id="button-delete-yes"
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
+                  'text-destructive-foreground bg-destructive hover:bg-destructive/90',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  'transition-colors duration-150'
+                )}
               >
-                {mutationError}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 rounded-b-lg bg-muted px-6 py-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={deleteMutation.isPending}
-              data-qqq-id="button-cancel"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
-                'text-foreground bg-card hover:bg-accent',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'transition-colors duration-150'
-              )}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              data-qqq-id="button-delete-confirm"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium',
-                'text-destructive-foreground bg-destructive hover:bg-destructive/90',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'transition-colors duration-150'
-              )}
-            >
-              {deleteMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              )}
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-            </button>
+                {deleteMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                )}
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

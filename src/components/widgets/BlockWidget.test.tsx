@@ -20,21 +20,21 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-// Mock DOMPurify before importing the component
-vi.mock('dompurify', () => ({
-  default: { sanitize: vi.fn() },
+// Mock the shared sanitizer (DOMPurify-based) before importing the component
+vi.mock('@/lib/utils/sanitize-html', () => ({
+  sanitizeHtml: vi.fn(),
 }))
 
 import { BlockWidget } from './BlockWidget'
 import type { BlockData } from '@/types'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
-const sanitizeMock = vi.mocked(DOMPurify.sanitize)
+const sanitizeMock = vi.mocked(sanitizeHtml)
 
 describe('BlockWidget', () => {
   beforeEach(() => {
     sanitizeMock.mockClear()
-    sanitizeMock.mockImplementation((s: string | Node) => (typeof s === 'string' ? s : ''))
+    sanitizeMock.mockImplementation((s) => s ?? '')
   })
 
   // ─── Empty / fallback states ────────────────────────────────────────────────

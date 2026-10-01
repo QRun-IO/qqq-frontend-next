@@ -95,6 +95,19 @@ const defaultVisibility: Record<string, boolean> = {
 const defaultOrder = ['id', 'firstName', 'lastName']
 
 describe('ColumnConfig — rendering', () => {
+  it('focuses the named popup when it opens', () => {
+    render(<ColumnConfig tableMetaData={makeTableMeta()} columnVisibility={defaultVisibility} columnOrder={defaultOrder}
+      onVisibilityChange={vi.fn()} onOrderChange={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('dialog', { name: 'Configure columns' })).toHaveFocus()
+  })
+
+  it('does not take focus when embedded inside an editor', () => {
+    render(<><button autoFocus>Report field</button><ColumnConfig embedded tableMetaData={makeTableMeta()}
+      columnVisibility={defaultVisibility} columnOrder={defaultOrder}
+      onVisibilityChange={vi.fn()} onOrderChange={vi.fn()} onClose={vi.fn()} /></>)
+    expect(screen.getByRole('button', { name: 'Report field' })).toHaveFocus()
+  })
+
   it('renders the "Configure Columns" heading', () => {
     render(
       <ColumnConfig
@@ -485,9 +498,9 @@ describe('ColumnConfig — column order (display order)', () => {
       return btn?.textContent?.trim()
     })
 
-    expect(labels[0]).toContain('Last Name')
-    expect(labels[1]).toContain('First Name')
-    expect(labels[2]).toContain('ID')
+    expect(labels[0]).toContain('ID')
+    expect(labels[1]).toContain('Last Name')
+    expect(labels[2]).toContain('First Name')
   })
 })
 
@@ -496,6 +509,13 @@ describe('ColumnConfig — viewport bound', () => {
     // a button pushed down by banners leaves 720 - (292 + 4) - 8 = 416px for the panel
     expect(columnConfigPosition({ bottom: 292, right: 1000 }, 1280, 720)).toEqual({ top: 296, right: 280, maxHeight: 416 })
     expect(columnConfigPosition({ bottom: 800, right: 1280 }, 1280, 720).maxHeight).toBe(0)
+  })
+
+  it('keeps the panel inside a phone viewport when the button sits near the left edge (#708)', () => {
+    // 412 px phone, wrapped toolbar: the 320 px panel ends 8 px from the right edge instead of running off the left
+    expect(columnConfigPosition({ bottom: 200, right: 100 }, 412, 839)).toMatchObject({ top: 204, right: 84 })
+    // near the right edge the panel keeps the 8 px margin
+    expect(columnConfigPosition({ bottom: 200, right: 412 }, 412, 839).right).toBe(8)
   })
 
   it('applies the height limit and keeps the column list as the shrinking scroll area', () => {

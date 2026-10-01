@@ -7,11 +7,12 @@
 
 // Exposed joins on the Query Item fixture: joined columns, filters, sorts and many-side counts.
 import { expect, open, test } from '../../support/fixtures'
-import { addCondition, captureQueries, columnCells, expectColumn, grid, nextQuery, openFilter, sqlColumn } from './query-helpers'
+import { addCondition, captureQueries, closeFilterSheet, columnCells, expectColumn, grid, nextQuery, openFilter, showTable, sqlColumn } from './query-helpers'
 
-test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts that match SQL', async ({ page, backend, diagnostics }) => {
+test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts that match SQL @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
   const bodies = captureQueries(page, 'qryItem')
   await page.getByRole('button', { name: 'Configure columns' }).click()
@@ -25,6 +26,7 @@ test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts
   await expectColumn(page, 'person.firstName', await sqlColumn(backend,
     "select coalesce(p.first_name, '—') from qry_item i left join person p on p.id = i.owner_id order by i.id desc"))
   await expect.poll(() => (bodies.at(-1) as { joins?: unknown[] } | undefined)?.joins).toEqual([{ joinTable: 'person', select: true, type: 'LEFT', joinName: 'qryItemJoinPerson' }])
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Query Item, joined with Person')
 
   // Filter on a joined field ("Person: Last Name" style labels, joinTable.field names)
   await openFilter(page)
@@ -35,6 +37,7 @@ test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts
   await expectColumn(page, 'name', await sqlColumn(backend,
     "select i.name from qry_item i join person p on p.id = i.owner_id where p.first_name = 'Blair' order by i.id desc"))
   await page.getByRole('button', { name: 'Remove filter condition 1' }).click()
+  await closeFilterSheet(page)
 
   // Sort by the joined column
   await table.getByRole('button', { name: 'Sort by Person: First Name' }).click()
@@ -52,11 +55,13 @@ test('[QRY-020] a one-side exposed join adds labelled columns, filters and sorts
   const fresh = nextQuery(page, 'qryItem')
   await page.getByLabel('Rows per page').selectOption('10')
   expect((await fresh).joins).toBeUndefined()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Query Item')
 })
 
-test('[QRY-021] a many-side exposed join repeats rows and reports the distinct count', async ({ page, backend, diagnostics }) => {
+test('[QRY-021] a many-side exposed join repeats rows and reports the distinct count @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   await expectColumn(page, 'id', await sqlColumn(backend, 'select id from qry_item order by id desc'))
   const countUrls: string[] = []
   page.on('request', (r) => { if (r.url().includes('/qqq/v1/table/qryItem/count')) countUrls.push(r.url()) })

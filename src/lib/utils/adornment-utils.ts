@@ -20,6 +20,24 @@
  */
 
 import type { AdornmentType, FieldAdornment, QFieldMetaData, QRecord } from '@/types'
+import { apiUrl } from '@/lib/api/client'
+
+/** The field-download path the backend writes into record values: `/data/{table}/{pk}/{field}/{fileName}`. */
+const FIELD_DOWNLOAD_PATH = /^\/data\/([^/?#]+)\/([^/?#]+)\/([^/?#]+)\/([^?#]+)(\?[^#]*)?$/
+
+/**
+ * Serve a backend field-download path from the v1 record field download route
+ * (`/table/{table}/{pk}/{field}/{fileName}` under the API base URL); other URLs are unchanged.
+ *
+ * @param url - A download URL from a record value.
+ * @returns The v1 URL for a field download, or the URL as given.
+ */
+export function fieldDownloadUrl(url: string): string {
+  const match = FIELD_DOWNLOAD_PATH.exec(url)
+  if (!match) return url
+  const [, table, primaryKey, field, fileName, query = ''] = match
+  return apiUrl(`/table/${table}/${primaryKey}/${field}/${fileName}${query}`)
+}
 
 /**
  * Returns the first adornment of a type on a field.
@@ -118,13 +136,15 @@ export function linkTarget(field: QFieldMetaData, record: QRecord): LinkTarget |
 /**
  * The download of a FILE_DOWNLOAD-adorned value. The backend replaces the value with
  * `/data/{table}/{pk}/{field}/{fileName}` (or supplies `<field>:downloadUrlDynamic`)
- * and puts the file name in the display value.
+ * and puts the file name in the display value; field downloads are served from the
+ * v1 route (see {@link fieldDownloadUrl}).
  *
  * @param field - Field metadata with a FILE_DOWNLOAD adornment.
  * @param record - The record holding the value.
+ * @param tableVariant - Selected table variant as v1 JSON, for backend field URLs.
  * @returns The URL and file name, or `null` when there is no file.
  */
-export function fileDownload(field: QFieldMetaData, record: QRecord): { url: string; fileName: string } | null {
+export function fileDownload(field: QFieldMetaData, record: QRecord, tableVariant?: string): { url: string; fileName: string } | null {
   const adornment = findAdornment(field, 'FILE_DOWNLOAD')
   if (!adornment) return null
   const dynamic = adornment.values?.downloadUrlDynamic ? record.displayValues?.[`${field.name}:downloadUrlDynamic`] : undefined
@@ -132,7 +152,12 @@ export function fileDownload(field: QFieldMetaData, record: QRecord): { url: str
   if (typeof url !== 'string' || !url || (!url.startsWith('/') && !/^https?:\/\//i.test(url)) || url.startsWith('//')) return null
   const display = record.displayValues?.[field.name]
   const fileName = typeof display === 'string' && display ? display : safeDecode(url.split('?')[0].split('/').pop() || field.label)
-  return { url, fileName }
+  const backendUrl = FIELD_DOWNLOAD_PATH.test(url) && !dynamic
+  const resolvedUrl = fieldDownloadUrl(url)
+  const variant = backendUrl && tableVariant
+    ? `${resolvedUrl.includes('?') ? '&' : '?'}tableVariant=${encodeURIComponent(tableVariant)}`
+    : ''
+  return { url: resolvedUrl + variant, fileName }
 }
 
 /**

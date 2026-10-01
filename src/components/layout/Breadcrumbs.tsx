@@ -20,9 +20,10 @@
 
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Home } from 'lucide-react'
 
 import type { ParentAppInfo } from '@/lib/hooks/use-routes'
 
@@ -70,12 +71,34 @@ function decodeSegment(segment: string): string {
 }
 
 /**
+ * Turns a URL segment without a metadata label into a readable one, as Material's
+ * `routeToLabel` does: the first `.`, `-` and `_` become spaces, camelCase words are split
+ * (`personUSA` becomes `person USA`, `USAPerson` becomes `USA Person`) and the first letter
+ * is capitalized.
+ *
+ * @param segment - A decoded URL segment.
+ * @returns The humanized label.
+ */
+export function humanizeSegment(segment: string): string {
+  const label = segment
+    .replace('.', ' ')
+    .replace('-', ' ')
+    .replace('_', ' ')
+    .replace(/([a-z])([A-Z]+)/g, '$1 $2')
+    .replace(/^([A-Z]+)([A-Z])([a-z])/, '$1 $2$3')
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : label
+}
+
+/**
  * Builds the breadcrumb trail for a dashboard path.
  *
  * URLs are flat (`/app/{name}/...`), so the enclosing apps of `{name}` come from
  * `ancestorAppMap` and are placed first, followed by the node itself and any
  * sub-page segments (record id, `edit`, `create`, ...). The `/app` root yields
- * no crumbs. A saved-view path ends with a single "Saved View" crumb.
+ * no crumbs. A saved-view path ends with a single "Saved View" crumb. A segment
+ * naming a process or report under a table (Material's `/app/{table}/{process}`
+ * and `/app/{table}/{id}/{process}` URLs) takes that object's label; other
+ * segments without a label are humanized, except a record id, which stays as is.
  *
  * @param pathname - Current browser path.
  * @param pathToLabelMap - Route path → label.
@@ -92,7 +115,7 @@ export function buildBreadcrumbs(
 
   const nodePath = `/app/${segments[1]}`
   const crumbs: Breadcrumb[] = (ancestorAppMap[nodePath] ?? []).map(({ label, path }) => ({ label, path }))
-  crumbs.push({ path: nodePath, label: pathToLabelMap[nodePath] ?? decodeSegment(segments[1]) })
+  crumbs.push({ path: nodePath, label: pathToLabelMap[nodePath] ?? humanizeSegment(decodeSegment(segments[1])) })
 
   let path = nodePath
   const rest = segments.slice(2)
@@ -103,7 +126,10 @@ export function buildBreadcrumbs(
       break
     }
     path = `${path}/${segment}`
-    crumbs.push({ path, label: pathToLabelMap[path] ?? SEGMENT_LABELS[segment] ?? decodeSegment(segment) })
+    const decoded = decodeSegment(segment)
+    const label = pathToLabelMap[path] ?? SEGMENT_LABELS[segment] ?? pathToLabelMap[`/app/${encodeURIComponent(decoded)}`]
+      ?? (index === 0 ? decoded : humanizeSegment(decoded))
+    crumbs.push({ path, label })
   }
   return crumbs
 }
@@ -135,26 +161,49 @@ export function buildDocumentTitle(crumbs: Breadcrumb[], pageTitle: string | und
 export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: BreadcrumbsProps) {
   const pathname = usePathname()
   const breadcrumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
+  const trailRef = useRef<HTMLElement>(null)
+  const hasLabels = Object.keys(pathToLabelMap).length > 0
+
+  // On a touch screen a long trail scrolls sideways on its own; start at its end, the current page
+  useEffect(() => {
+    const trail = trailRef.current
+    if (!trail) return
+    const revealCurrentPage = () => {
+      if (trail.scrollWidth > trail.clientWidth) trail.scrollLeft = trail.scrollWidth
+    }
+    revealCurrentPage()
+    const observer = new ResizeObserver(revealCurrentPage)
+    observer.observe(trail)
+    return () => observer.disconnect()
+  }, [pathname, breadcrumbs.length, hasLabels])
 
   // Until metadata supplies labels, raw URL segments would flash in place of labels
-  if (breadcrumbs.length === 0 || Object.keys(pathToLabelMap).length === 0) {
+  if (breadcrumbs.length === 0 || !hasLabels) {
     return null
   }
 
   return (
     <nav
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+      ref={trailRef}
+      className="flex min-w-0 flex-1 md:flex-initial flex-wrap items-center gap-x-2 gap-y-1 text-sm pointer-coarse:flex-nowrap pointer-coarse:overflow-x-auto"
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
+      {/* Home crumb (Material's home icon), back to the dashboard */}
+      <Link
+        href="/app"
+        aria-label="Home"
+        className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0"
+        data-qqq-id="breadcrumb-home"
+      >
+        <Home className="h-4 w-4" aria-hidden="true" />
+      </Link>
       {breadcrumbs.map((crumb, index) => (
         <React.Fragment key={crumb.path + index}>
-          {index > 0 && (
-            <span className="text-muted-foreground/60" aria-hidden="true">/</span>
-          )}
+          <span className="text-muted-foreground/60 pointer-coarse:flex-shrink-0" aria-hidden="true">/</span>
           {index === breadcrumbs.length - 1 ? (
             <span
-              className="max-w-[12rem] truncate font-semibold text-foreground"
+              className="max-w-full md:max-w-[12rem] truncate font-semibold text-foreground pointer-coarse:flex-shrink-0"
               aria-current="page"
               data-qqq-id={`breadcrumb-current-${index}`}
             >
@@ -163,7 +212,7 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
           ) : (
             <Link
               href={crumb.path}
-              className="max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="max-w-[10rem] truncate text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0 pointer-coarse:py-3 pointer-coarse:text-center"
               data-qqq-id={`breadcrumb-link-${index}`}
             >
               {crumb.label}

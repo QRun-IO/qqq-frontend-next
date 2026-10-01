@@ -30,7 +30,7 @@ import { queryClient } from '@/lib/query-client'
 import { AuthProvider } from '@/lib/auth/auth-provider'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
 import { injectThemeTokens } from '@/lib/theme/tokens'
-import { Toaster } from '@/components/feedback/Toast'
+import { AppToaster } from '@/components/feedback/Toast'
 
 // Inject default theme tokens on first render
 if (typeof window !== 'undefined') {
@@ -81,14 +81,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider>
         <AuthProvider>{children}</AuthProvider>
       </ThemeProvider>
-      <Toaster
-        position="bottom-right"
-        richColors
-        closeButton
-        toastOptions={{ duration: 4000 }}
-        aria-live="polite"
-        data-qqq-id="toast-container"
-      />
+      <AppToaster />
     </QueryClientProvider>
   )
 }

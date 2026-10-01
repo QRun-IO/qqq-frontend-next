@@ -29,7 +29,7 @@ vi.mock('@/lib/api/widgets', async (importOriginal) => {
 
 import type { QWidgetMetaData, WidgetData } from '@/types'
 import { fetchWidgetData, WidgetRequestError } from '@/lib/api/widgets'
-import { ConnectedWidget } from './ConnectedWidget'
+import { ConnectedWidget, SeededWidget } from './ConnectedWidget'
 
 const fetchMock = vi.mocked(fetchWidgetData)
 
@@ -73,24 +73,31 @@ describe('ConnectedWidget', () => {
     const user = userEvent.setup()
     renderWidget()
     expect(await screen.findByText('Please select a Choice and Day')).toBeInTheDocument()
-    const choice = screen.getByLabelText('Select Choice')
-    expect(Array.from((choice as HTMLSelectElement).options).map((option) => option.textContent)).toEqual(['Select Choice', 'Alpha', 'Beta'])
-    await user.selectOptions(choice, 'beta')
+    const choice = screen.getByRole('combobox', { name: 'Select Choice' })
+    expect(choice).toHaveAttribute('placeholder', 'Select Choice')
+    await user.click(choice)
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Alpha', 'Beta'])
+    await user.click(screen.getByRole('option', { name: 'Beta' }))
     await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta' }))
+    expect(choice).toHaveValue('Beta')
     expect(JSON.parse(localStorage.getItem('qqq.widgets.dropdownData.accControls.accChoice')!)).toEqual({ id: 'beta', label: 'Beta' })
     const day = screen.getByLabelText('Select Day')
     expect(day).toHaveAttribute('type', 'date')
     await user.type(day, '2026-09-24')
-    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta', accDate: '2026-09-24' }))
-    expect(await screen.findByText('choice=beta; day=2026-09-24')).toBeInTheDocument()
+    // Material sends the day's toLocaleDateString()
+    const sent = new Date(2026, 8, 24).toLocaleDateString()
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'beta', accDate: sent }))
+    expect(await screen.findByText(`choice=beta; day=${sent}`)).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('qqq.widgets.dropdownData.accControls.accDate')!)).toEqual({ id: sent, label: sent })
   })
 
   it('starts from stored selections and drops a stored option the payload no longer offers', async () => {
     localStorage.setItem('qqq.widgets.dropdownData.accControls.accDate', JSON.stringify({ id: '2026-01-15' }))
     localStorage.setItem('qqq.widgets.dropdownData.accControls.accChoice', JSON.stringify({ id: 'removed' }))
     renderWidget()
-    expect(fetchMock).toHaveBeenCalledWith('accControls', { accChoice: 'removed', accDate: '2026-01-15' })
-    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accDate: '2026-01-15' }))
+    const day = new Date(2026, 0, 15).toLocaleDateString()
+    expect(fetchMock).toHaveBeenCalledWith('accControls', { accChoice: 'removed', accDate: day })
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accDate: day }))
     expect(screen.getByLabelText('Select Choice')).toHaveValue('')
     expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-15')
     expect(localStorage.getItem('qqq.widgets.dropdownData.accControls.accChoice')).toBeNull()
@@ -121,6 +128,112 @@ describe('ConnectedWidget', () => {
     expect(screen.getByRole('status')).toHaveTextContent('There is no data available to export.')
     expect(click).toHaveBeenCalledTimes(1)
     click.mockRestore()
+  })
+
+  it('exports a table without csvData from its columns and rows, without icon text (Material TableWidget)', async () => {
+    const user = userEvent.setup()
+    const create = vi.fn(() => 'blob:owned')
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    fetchMock.mockImplementation(async () => ({
+      type: 'table',
+      columns: [{ type: 'html', header: 'Name', accessor: 'name' }, { type: 'default', header: 'Count', accessor: 'count' }],
+      rows: [{ name: '<a href="/app/person/1">Darin<span class="material-icons-round MuiIcon-root">open_in_new</span></a>', count: 1234 }],
+    }))
+    renderWidget({ name: 'accTable', label: 'Owned Table', type: 'table', hasPermission: true, showExportButton: true })
+    await screen.findByText('Darin')
+    await user.click(screen.getByRole('button', { name: 'Export Owned Table' }))
+    const blob = (create.mock.calls[0] as unknown as [Blob])[0]
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.readAsText(blob)
+    })
+    expect(text).toBe('"Name","Count"\n"Darin","1234"\n')
+    click.mockRestore()
+  })
+
+  it('leaves export to each table of a multi-table widget', async () => {
+    fetchMock.mockImplementation(async () => ({
+      type: 'multiTable',
+      tableDataList: [{ label: 'First', columns: [{ header: 'Name', accessor: 'name' }], rows: [{ name: 'One' }] }],
+    }))
+    renderWidget({ name: 'accMulti', label: 'Owned Multi', type: 'multiTable', hasPermission: true, showExportButton: true })
+    await screen.findByText('One')
+    expect(screen.queryByRole('button', { name: 'Export Owned Multi' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Export First' })).toBeInTheDocument()
+  })
+
+  it.each(['connected', 'seeded'] as const)('keeps one working child-record export in the %s widget', async (mode) => {
+    const user = userEvent.setup()
+    const data: WidgetData = {
+      type: 'childRecordList',
+      childFrontendTableMetaData: {
+        name: 'child', label: 'Child', primaryKeyField: 'id',
+        fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' }, name: { name: 'name', label: 'Name', type: 'STRING' } },
+        sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'name'], isHidden: false }],
+      },
+      queryOutput: { records: [{ tableName: 'child', values: { id: 1, name: 'Child one' } }] },
+    }
+    const metadata: QWidgetMetaData = { name: 'children', label: 'Owned Children', type: 'childRecordList', hasPermission: true, showExportButton: true }
+    const create = vi.fn(() => 'blob:owned')
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      if (mode === 'connected') {
+        fetchMock.mockResolvedValue(data)
+        renderWidget(metadata)
+      } else {
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        render(<QueryClientProvider client={client}><SeededWidget widgetMetaData={metadata} data={data} /></QueryClientProvider>)
+      }
+      await screen.findByText('Child one')
+      expect(screen.getAllByRole('button', { name: /^Export/ })).toHaveLength(1)
+      const exportButton = screen.getByRole('button', { name: /^Export/ })
+      expect(exportButton.closest('[data-qqq-id="widget-content-children"]')).toBeNull()
+      await user.click(exportButton)
+      expect(click).toHaveBeenCalledTimes(1)
+      const blob = (create.mock.calls[0] as unknown as [Blob])[0]
+      const csv = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.readAsText(blob)
+      })
+      expect(csv).toBe('"Id","Name"\n"1","Child one"\n')
+      expect(screen.queryByText('There is no data available to export.')).toBeNull()
+    } finally {
+      click.mockRestore()
+    }
+  })
+
+  it('contains malformed child metadata and retries with corrected backend data', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const data: WidgetData = {
+      type: 'childRecordList',
+      childFrontendTableMetaData: { name: 'child', fields: {}, sections: [null] },
+      queryOutput: { records: [{ values: { id: 1 } }] },
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    try {
+      render(<QueryClientProvider client={client}>
+        <p>Unaffected dashboard content</p>
+        <SeededWidget widgetMetaData={{ name: 'brokenChild', label: 'Broken Child', type: 'childRecordList', hasPermission: true, showExportButton: true }} data={data} />
+      </QueryClientProvider>)
+      expect(screen.getByText('Unaffected dashboard content')).toBeInTheDocument()
+      expect(screen.getAllByText('Widget failed to render')).toHaveLength(1)
+      expect(screen.queryByRole('button', { name: /^Export/ })).toBeNull()
+      fetchMock.mockResolvedValue({
+        type: 'childRecordList',
+        childFrontendTableMetaData: { name: 'child', fields: { name: { name: 'name', label: 'Name', type: 'STRING' } }, sections: [] },
+        queryOutput: { records: [{ values: { name: 'Recovered child' } }] },
+      })
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
+      expect(await screen.findByText('Recovered child')).toBeInTheDocument()
+      expect(screen.queryByText('Widget failed to render')).toBeNull()
+      expect(screen.getAllByRole('button', { name: /^Export/ })).toHaveLength(1)
+    } finally {
+      error.mockRestore()
+    }
   })
 
   it('shows the backend error message with a retry, without throwing', async () => {

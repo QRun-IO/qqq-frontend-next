@@ -38,7 +38,7 @@ describe('Explicit fixed relationship submission', () => {
   beforeEach(() => vi.restoreAllMocks())
 
   it('validates fixed values and merges them last without mutating caller data', async () => {
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 7 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 7 } } })
     const fixed = { owner: 2 }
     renderForm(fixed)
     fireEvent.change(screen.getByLabelText(/Owner/), { target: { value: '99' } })
@@ -60,6 +60,20 @@ describe('Explicit fixed relationship submission', () => {
 describe('Base copy starts a new record identity', () => {
   beforeEach(() => vi.restoreAllMocks())
 
+  it('copies an unchanged timestamp with its original subsecond precision', async () => {
+    const table = structuredClone(qInstance.tables.company)
+    table.fields = { name: table.fields.name, stamp: { ...table.fields.name, name: 'stamp', label: 'Timestamp', type: 'DATE_TIME', isRequired: false } }
+    table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'stamp'] }]
+    const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', stamp: '2024-11-03T06:30:07.123456Z' } }
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy /></QueryClientProvider>)
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Copy' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(post).toHaveBeenCalledOnce())
+    expect((post.mock.calls[0][1] as FormData).get('stamp')).toBe('2024-11-03T06:30:07.123456Z')
+  })
+
   it('clears inherited manual keys on initial load and source reset, then submits a fresh key', async () => {
     const table = structuredClone(qInstance.tables.company)
     table.primaryKeyField = 'code'
@@ -70,7 +84,7 @@ describe('Base copy starts a new record identity', () => {
     const nextSource: QRecord = { tableName: 'company', values: { code: 'other/key', name: 'Another' } }
     const sourceSnapshot = structuredClone(source)
     const nextSnapshot = structuredClone(nextSource)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { code: 'new/key' } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { code: 'new/key' } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     const view = (record: QRecord) => <QueryClientProvider client={client}>
@@ -101,7 +115,7 @@ describe('Base copy starts a new record identity', () => {
     const table = structuredClone(qInstance.tables.company)
     table.fields = { name: table.fields.name, id: { ...table.fields.id, isEditable: true, isRequired: false } }
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['id', 'name'] }]
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table}
@@ -122,7 +136,7 @@ describe('Base copy starts a new record identity', () => {
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: ['name', 'attachment'] }]
     const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', attachment: encoded, fileName: 'original.bin' } }
     const snapshot = structuredClone(source)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy onSuccess={onSuccess} /></QueryClientProvider>)
@@ -174,7 +188,7 @@ describe('Base copy starts a new record identity', () => {
     table.sections = [{ name: 'identity', label: 'Identity', isHidden: false, fieldNames: Object.keys(table.fields) }]
     const source: QRecord = { tableName: 'company', values: { id: 1, name: 'Original', unknownFlag: null, flag: false, note: null, amount: null, quantity: 0 } }
     const snapshot = structuredClone(source)
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 99 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 99 } } })
     const onSuccess = vi.fn()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy onSuccess={onSuccess} /></QueryClientProvider>)
@@ -206,7 +220,7 @@ describe('Copy never submits native password masks', () => {
     }
     table.sections = []
     const source = { tableName: 'company', values: { id: 1, name: '********', secret: '********', revealed: 'available' } }
-    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ records: [{ tableName: 'company', values: { id: 2 } }] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: { id: 2 } } })
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} record={source} isCopy /></QueryClientProvider>)
     expect(screen.getByLabelText(/New secret/)).toHaveValue('')
@@ -220,5 +234,60 @@ describe('Copy never submits native password masks', () => {
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
     expect((post.mock.calls[0][1] as FormData).get('secret')).toBe('new-explicit-value')
     expect(source.values.secret).toBe('********')
+  })
+})
+
+describe('Material CSS hooks (QRun-IO/qqq#731)', () => {
+  function renderHooksForm(props: { record?: QRecord; isCopy?: boolean; isModal?: boolean } = {}) {
+    const table = structuredClone(qInstance.tables.company)
+    table.name = 'salesOrder'
+    table.fields = {
+      id: table.fields.id,
+      name: table.fields.name,
+      isActive: { ...table.fields.name, name: 'isActive', label: 'Active', type: 'BOOLEAN', isRequired: false },
+      ownerId: { ...table.fields.id, name: 'ownerId', label: 'Owner', isEditable: true, possibleValueSourceName: 'person' },
+    }
+    table.sections = [{ name: 'employmentInfo', label: 'Employment Info', isHidden: false, fieldNames: ['name', 'isActive', 'ownerId'] }]
+    const client = new QueryClient()
+    return render(<QueryClientProvider client={client}><EntityForm tableMetaData={table} {...props} /></QueryClientProvider>)
+  }
+
+  it('wraps a create form in entityForm with record-create hooks for the header, title and sticky button bar', () => {
+    renderHooksForm()
+    const root = document.querySelector('[data-qqq-id="record-create-salesorder"]')
+    expect(root).toHaveClass('entityForm')
+    expect(root?.querySelector('[data-qqq-id="entity-form-salesOrder"]')).not.toBeNull()
+    expect(document.querySelector('[data-qqq-id="record-create-header-salesorder"]')).toContainElement(
+      document.querySelector('[data-qqq-id="record-create-title-salesorder"]') as HTMLElement)
+    expect(screen.getByRole('heading', { name: /^Create / })).toHaveAttribute('data-qqq-id', 'record-create-title-salesorder')
+    const bar = document.querySelector('[data-qqq-id="record-create-button-bar-salesorder"]')
+    expect(bar).toHaveClass('stickyBottomButtonBar')
+    expect(bar?.querySelector('[data-qqq-id="button-save"]')).toHaveAttribute('data-button-variant', 'gradient')
+    expect(bar?.querySelector('[data-qqq-id="button-cancel"]')).toHaveAttribute('data-button-variant', 'outlined')
+  })
+
+  it('names the mode edit or copy', () => {
+    const record: QRecord = { tableName: 'company', values: { id: 1, name: 'Acme' } }
+    const { unmount } = renderHooksForm({ record })
+    expect(document.querySelector('[data-qqq-id="record-edit-salesorder"]')).toHaveClass('entityForm')
+    unmount()
+    renderHooksForm({ record, isCopy: true })
+    expect(document.querySelector('[data-qqq-id="record-copy-salesorder"]')).toHaveClass('entityForm')
+  })
+
+  it('uses the modal button bar class in a modal form', () => {
+    renderHooksForm({ isModal: true })
+    expect(document.querySelector('[data-qqq-id="record-create-button-bar-salesorder"]')).toHaveClass('modalBottomButtonBar')
+  })
+
+  it('marks sections and field wrappers with Material ids and visibility classes', () => {
+    renderHooksForm()
+    const section = document.querySelector('[data-qqq-id="form-section-employmentinfo"]')
+    expect(section).toHaveClass('form-section-wrapper', 'is-visible')
+    expect(section?.querySelector('[data-qqq-id="form-section-header-employmentinfo"]')).toHaveTextContent('Employment Info')
+    const wrappers = [...document.querySelectorAll('.field-wrapper')]
+    expect(wrappers.map((wrapper) => wrapper.getAttribute('data-qqq-id'))).toEqual(['input-name', 'switch-isactive', 'select-ownerid'])
+    expect(wrappers.every((wrapper) => wrapper.classList.contains('is-visible'))).toBe(true)
+    expect(wrappers[0]).toContainElement(screen.getByLabelText(/Name/))
   })
 })

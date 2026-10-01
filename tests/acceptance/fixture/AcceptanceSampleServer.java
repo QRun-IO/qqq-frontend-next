@@ -14,6 +14,9 @@
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,17 +26,25 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import com.kingsrook.qqq.api.middleware.specs.v1.ApiAwareMiddlewareVersionV1;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.actions.permissions.AvailablePermission;
 import com.kingsrook.qqq.backend.core.actions.permissions.PermissionsHelper;
 import com.kingsrook.qqq.backend.core.exceptions.QAuthenticationException;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.model.dashboard.widgets.WidgetType;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
+import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaDataInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModuleCustomizerInterface;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
+import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardThemeMetaData;
+import com.kingsrook.qqq.middleware.javalin.specs.v1.MiddlewareVersionV1;
+import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardRouteProvider;
+import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.SampleJavalinServer;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 import com.kingsrook.sampleapp.metadata.SampleSharingMetaDataProvider;
@@ -57,10 +68,38 @@ public class AcceptanceSampleServer
 
 
    /*******************************************************************************
+    ** H2 equivalent of MySQL WEEKDAY(), used by QQQ's generic RDBMS date
+    ** function adapter: Monday is zero and Sunday is six.
+    *******************************************************************************/
+   public static Integer weekday(java.sql.Date date)
+   {
+      return date == null ? null : date.toLocalDate().getDayOfWeek().getValue() - 1;
+   }
+
+
+
+   /*******************************************************************************
+    ** H2 equivalent of MySQL CONVERT_TZ(), used by QQQ's date-time weekday
+    ** function. The fixture configures UTC but the helper accepts any zone.
+    *******************************************************************************/
+   public static Timestamp convertTimeZone(Timestamp value, String sourceZoneId, String targetZoneId)
+   {
+      if(value == null || sourceZoneId == null || targetZoneId == null)
+      {
+         return null;
+      }
+      return Timestamp.valueOf(value.toLocalDateTime().atZone(ZoneId.of(sourceZoneId))
+         .withZoneSameInstant(ZoneId.of(targetZoneId)).toLocalDateTime());
+   }
+
+
+
+   /*******************************************************************************
     **
     *******************************************************************************/
    public static void main(String[] args) throws Exception
    {
+      ApiAwareMiddlewareVersionV1 apiAwareVersion = new ApiAwareMiddlewareVersionV1();
       SampleJavalinServer server = new SampleJavalinServer(new SampleMetaDataProvider()
       {
          @Override
@@ -71,13 +110,19 @@ public class AcceptanceSampleServer
             defined.getAuthentication().setCustomizer(new QCodeReference(PersonaCustomizer.class));
             NavigationFixtures.define(defined);
             RecordsFixtures.define(defined);
+            FormAdjusterFixtures.define(defined);
             QueryFixtures.define(defined);
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
+            ApiVersionFixtures.define(defined);
+            QContext.setQInstance(defined);
+            apiAwareVersion.addVersion(ApiVersionFixtures.NAME, new com.kingsrook.qqq.api.model.APIVersion(ApiVersionFixtures.VERSION));
+            PerformanceFixtures.define(defined);
             instance = defined;
             return defined;
          }
       });
+      server.withMiddlewareVersionList(List.of(new MiddlewareVersionV1(), apiAwareVersion));
       server.withJavalinConfigCustomizer(config ->
       {
          config.jetty.host = "127.0.0.1";
@@ -94,8 +139,10 @@ public class AcceptanceSampleServer
          config.routes.post("/acceptance/reset", context ->
          {
             reset();
+            server.getAdditionalRouteProviders().forEach(provider -> provider.setQInstance(instance));
             context.contentType("application/json").result("{}");
          });
+         config.routes.get("/acceptance/dashboard-csp-sources", context -> context.contentType("text/plain").result(dashboardCspSources()));
          config.routes.post("/acceptance/persona", context ->
          {
             JSONObject body = new JSONObject(context.body());
@@ -113,10 +160,57 @@ public class AcceptanceSampleServer
             }
             context.contentType("application/json").result(new JSONObject().put("rows", select(query)).toString());
          });
+         config.routes.post("/acceptance/quick-view", context ->
+         {
+            seedQuickView();
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/stale-view", context ->
+         {
+            seedStaleView();
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/google-drive", context ->
+         {
+            instance.getEnvironmentValues().put("GOOGLE_APP_CLIENT_ID", "owned-test-client");
+            instance.getEnvironmentValues().put("GOOGLE_APP_API_KEY", "owned-test-key");
+            server.getAdditionalRouteProviders().forEach(provider -> provider.setQInstance(instance));
+            context.contentType("application/json").result("{}");
+         });
+         config.routes.post("/acceptance/theme", context ->
+         {
+            enableTheme();
+            context.contentType("application/json").result("{}");
+         });
       });
+      //////////////////////////////////////////////////////////////////////////////////
+      // The dashboard's Content-Security-Policy (QRun-IO/qqq#695) allows only this    //
+      // origin; the application override hook adds the widgets fixture's loopback    //
+      // service, which stands in for QuickSight and serves an image and audio clip.  //
+      //////////////////////////////////////////////////////////////////////////////////
+      server.withNextDashboardSecurityHeadersCustomizer(WidgetsFixtures::allowFakeService);
       Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
       server.start();
       primeFixtures();
+   }
+
+
+
+   /*******************************************************************************
+    ** Opt one test into a real Material theme.  The next reset removes it.
+    *******************************************************************************/
+   private static synchronized void enableTheme()
+   {
+      MaterialDashboardThemeMetaData.ofOrWithNew(instance)
+         .withPrimaryColor("#0f766e")
+         .withErrorColor("#f97316")
+         .withSidebarBackgroundColor("#1f2937")
+         .withTableHeaderBackgroundColor("#e0f2f1")
+         .withBrandedHeaderEnabled(true)
+         .withBrandedHeaderBackgroundColor("#123456")
+         .withBrandedHeaderTextColor("#ffffff")
+         .withBrandedHeaderTagline("Owned acceptance theme")
+         .withCustomCss("body.qqq-themed [data-qqq-id=\"branded-header-tagline\"] { letter-spacing: 2px; }");
    }
 
 
@@ -126,6 +220,12 @@ public class AcceptanceSampleServer
     *******************************************************************************/
    private static synchronized void reset() throws Exception
    {
+      instance.getEnvironmentValues().remove("GOOGLE_APP_CLIENT_ID");
+      instance.getEnvironmentValues().remove("GOOGLE_APP_API_KEY");
+      if(instance.getSupplementalMetaData() != null)
+      {
+         instance.getSupplementalMetaData().remove(MaterialDashboardThemeMetaData.class.getName());
+      }
       SampleMetaDataProvider.primeTestDatabase("prime-test-database.sql");
       SampleMetaDataProvider.primeTestDatabase("prime-sharing-database.sql");
       primeFixtures();
@@ -146,9 +246,15 @@ public class AcceptanceSampleServer
          }
          NavigationFixtures.prime(connection);
          RecordsFixtures.prime(connection);
+         FormAdjusterFixtures.prime(connection);
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
+         /////////////////////////////////////////////////////////////////////
+         // after WidgetsFixtures.prime, which recreates the scripts tables //
+         /////////////////////////////////////////////////////////////////////
+         RecordsFixtures.primeScripts(connection);
+         PerformanceFixtures.prime(connection);
       }
    }
 
@@ -188,12 +294,98 @@ public class AcceptanceSampleServer
 
 
    /*******************************************************************************
+    ** Mark the stock Alice People View as a counted quick view for query acceptance.
+    *******************************************************************************/
+   private static void seedQuickView() throws Exception
+   {
+      try(Connection connection = ConnectionManager.getConnection(SampleMetaDataProvider.defineRdbmsBackend()))
+      {
+         if(!"jdbc:h2:mem:test_database".equals(connection.getMetaData().getURL()))
+         {
+            throw new IllegalStateException("Acceptance quick views require the sample in-memory H2 database.");
+         }
+         try(PreparedStatement statement = connection.prepareStatement(
+            "INSERT INTO quick_saved_view (saved_view_id, user_id, label, sort_order, do_count) " +
+               "SELECT id, 'sample:alice', 'Avery People', 1, TRUE FROM saved_view WHERE label = 'Alice People View'"))
+         {
+            statement.executeUpdate();
+         }
+      }
+   }
+
+
+   /*******************************************************************************
+    ** Replace the stock view with references to a removed field. Every test resets H2.
+    *******************************************************************************/
+   private static void seedStaleView() throws Exception
+   {
+      String viewJson = "{\"queryFilter\":{\"criteria\":[{\"fieldName\":\"retiredField\",\"operator\":\"EQUALS\",\"values\":[\"old\"]}],\"orderBys\":[{\"fieldName\":\"retiredField\",\"isAscending\":true}]},\"queryColumns\":{\"columns\":[{\"name\":\"retiredField\",\"isVisible\":true}]},\"quickFilterFieldNames\":[\"retiredField\"],\"rowsPerPage\":25}";
+      try(Connection connection = ConnectionManager.getConnection(SampleMetaDataProvider.defineRdbmsBackend()))
+      {
+         if(!"jdbc:h2:mem:test_database".equals(connection.getMetaData().getURL()))
+         {
+            throw new IllegalStateException("Acceptance saved-view mutation requires the sample in-memory H2 database.");
+         }
+         try(PreparedStatement statement = connection.prepareStatement("UPDATE saved_view SET view_json = ? WHERE label = 'Alice People View'"))
+         {
+            statement.setString(1, viewJson);
+            statement.executeUpdate();
+         }
+      }
+   }
+
+
+   /*******************************************************************************
+    ** The origins the QQQ server adds to the dashboard's Content-Security-Policy
+    ** for this application (a QuickSight embed and custom component bundles from
+    ** metadata, then the override hook's), written as QQQ_DASHBOARD_CSP_SOURCES:
+    ** in standalone mode the container image's Node server serves the dashboard
+    ** and takes them from that variable (QRun-IO/qqq#734).
+    *******************************************************************************/
+   private static String dashboardCspSources()
+   {
+      NextDashboardSecurityHeaders defaults = new NextDashboardSecurityHeaders();
+      NextDashboardSecurityHeaders headers  = new NextDashboardSecurityHeaders();
+      for(QWidgetMetaDataInterface widget : instance.getWidgets().values())
+      {
+         if(WidgetType.QUICK_SIGHT_CHART.getType().equals(widget.getType()))
+         {
+            headers.withSources("frame-src", NextDashboardRouteProvider.QUICKSIGHT_FRAME_SOURCE);
+         }
+         Object sourceUrl = widget.getDefaultValues() == null ? null : widget.getDefaultValues().get("componentSourceUrl");
+         String origin    = sourceUrl == null ? null : NextDashboardSecurityHeaders.originOf(String.valueOf(sourceUrl));
+         if(WidgetType.CUSTOM_COMPONENT.getType().equals(widget.getType()) && origin != null)
+         {
+            headers.withSources(NextDashboardSecurityHeaders.SCRIPT_SRC, origin);
+         }
+      }
+      WidgetsFixtures.allowFakeService(headers);
+
+      List<String> parts = new ArrayList<>();
+      for(String directive : List.of("default-src", "script-src", "style-src", "img-src", "font-src", "connect-src", "frame-src", "worker-src", "manifest-src", "media-src", "object-src", "base-uri", "form-action", "frame-ancestors"))
+      {
+         List<String> added = headers.getSources(directive).stream().filter(source -> !defaults.getSources(directive).contains(source)).toList();
+         if(!added.isEmpty())
+         {
+            parts.add(directive + " " + String.join(" ", added));
+         }
+      }
+      return (String.join("; ", parts));
+   }
+
+
+
+   /*******************************************************************************
     ** Permission sets per persona; unknown sessions (such as the initial
     ** manageSession call) receive the full administrator set.
     *******************************************************************************/
    static Set<String> permissionsFor(String persona)
    {
-      Collection<AvailablePermission> all = PermissionsHelper.getAllAvailablePermissions(instance);
+      Collection<AvailablePermission> all = new ArrayList<>(PermissionsHelper.getAllAvailablePermissions(instance));
+      for(String process : WidgetsFixtures.GRANTED_HIDDEN_PROCESSES)
+      {
+         all.add(new AvailablePermission().withName(process + ".hasAccess").withObjectName(process).withObjectType("Process").withPermissionType("hasAccess"));
+      }
       Predicate<AvailablePermission> keep = switch(persona)
       {
          case "viewer" -> permission -> !"Process".equals(permission.getObjectType())

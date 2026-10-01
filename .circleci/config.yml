@@ -29,6 +29,14 @@ jobs:
           install_node: true
           node_version: "22"
       - run:
+          name: Verify the immutable release version
+          command: |
+            release_version="${CIRCLE_TAG#v}"
+            frontend_version=$(node -p "require('./package.json').version")
+            maven_version=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+            test "$frontend_version" = "$release_version"
+            test "$maven_version" = "$release_version"
+      - run:
           name: Build the static export
           command: |
             corepack enable
@@ -37,7 +45,6 @@ jobs:
             pnpm lint
             pnpm test
             pnpm build:export
-      - qqq-orb/mvn_manage_version
       - qqq-orb/mvn_jar_deploy
 
 # ─── Workflows ───────────────────────────────────────────────────────────────

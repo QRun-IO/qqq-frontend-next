@@ -8,6 +8,7 @@
 // Sessions and MOCK authentication against the shared acceptance backend.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { allowExternalQuickSightWidget, listCell, navigation, openUserMenu } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
@@ -41,6 +42,7 @@ test.describe('MOCK sessions', () => {
     expect((await logoutCall).status()).toBe(200)
     await expect(page).toHaveURL(/\/login\/?\?returnTo=%2Fapp%2Fperson/)
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+    await expectTouchReady(page)
     expect((await context.cookies()).map((cookie) => cookie.name)).not.toContain('sessionUUID')
 
     // a protected page after logout (full load) stays on the login page and reads no data
@@ -58,7 +60,7 @@ test.describe('MOCK sessions', () => {
     await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toHaveText('Alice (sample)')
   })
 
-  test('[SEC-021] logout clears cached data so the next user never sees the previous user\'s pages', async ({ page, backend, diagnostics, context }) => {
+  test('[SEC-021] logout clears cached data so the next user never sees the previous user\'s pages @mobile', async ({ page, backend, diagnostics, context }) => {
     allowExternalQuickSightWidget(diagnostics)
     await open(page, '/app/pet/1')
     await expect(page.getByRole('heading', { name: /Charlie/ }).first()).toBeVisible()
@@ -113,7 +115,7 @@ test.describe('MOCK sessions', () => {
     await expect(page.getByRole('heading', { name: /Blair/ }).first()).toBeVisible()
   })
 
-  test('[SEC-023] a denied login keeps the user out with an explanation and no dashboard access', async ({ page, backend, diagnostics }) => {
+  test('[SEC-023] a denied login keeps the user out with an explanation and no dashboard access @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     diagnostics.allow('/qqq/v1/manageSession 401')
     diagnostics.allow('status of 401')
@@ -126,12 +128,13 @@ test.describe('MOCK sessions', () => {
     expect((await denied).status()).toBe(401)
     await expect(page).toHaveURL(/\/login\/?\?/)
     await expect(page.locator('[data-qqq-id="login-error"]')).toContainText('Sign-in was denied')
+    await expectTouchReady(page)
     await expect(page.getByRole('grid')).toHaveCount(0)
     await expect(page.locator('[data-qqq-id="sidebar-desktop"]')).toHaveCount(0)
     await expect(page.locator('[data-qqq-id="button-mobile-menu"]')).toHaveCount(0)
   })
 
-  test('[SEC-024] login returnTo never redirects off-site', async ({ page, backend, diagnostics }) => {
+  test('[SEC-024] login returnTo never redirects off-site @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     allowExternalQuickSightWidget(diagnostics)
     for (const target of ['https://evil.example/steal', '//evil.example/steal', '/\\evil.example', 'javascript:alert(1)']) {

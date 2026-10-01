@@ -9,7 +9,7 @@
 // related-record navigation, child creation and edits/deletes without stale screens.
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { columnCells, expectColumn, sqlColumn } from './query-helpers'
+import { columnCells, expectColumn, showTable, sqlColumn } from './query-helpers'
 
 /** A visible association panel on a record view. */
 function panel(page: Page, association: string) {
@@ -21,9 +21,10 @@ async function panelNames(page: Page, association: string, column = 'name') {
   return panel(page, association).locator(`tbody td[data-qqq-id="grid-cell-${column}"]`).allTextContents()
 }
 
-test('[REL-001] possible-value cells show the related record label and link to that record', async ({ page, backend, diagnostics }) => {
+test('[REL-001] possible-value cells show the related record label and link to that record @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
+  await showTable(page)
   const rows = await backend.sql("select i.id as id, i.owner_id as owner, p.first_name || ' ' || p.last_name as label from qry_item i left join person p on p.id = i.owner_id order by i.id desc")
   await expectColumn(page, 'id', rows.map((r) => String(r.id)))
   for (const [index, row] of rows.entries()) {
@@ -39,10 +40,10 @@ test('[REL-001] possible-value cells show the related record label and link to t
   const casey = rows.find((r) => r.label === 'Casey Sample')!
   await columnCells(page, 'ownerId').nth(rows.indexOf(casey)).getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`/app/person/${casey.owner}/?$`))
-  await expect(page.getByText('casey@example.invalid').first()).toBeVisible()
+  await expect(page.getByText('casey@example.invalid').filter({ visible: true }).first()).toBeVisible()
 })
 
-test('[REL-002] a parent lists exactly its own children, with View All opening the filtered child list', async ({ page, backend, diagnostics }) => {
+test('[REL-002] a parent lists exactly its own children, with View All opening the filtered child list @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person/1?tab=related')
   const pets = await sqlColumn(backend, 'select name from pet where person_id = 1 order by id')
@@ -63,7 +64,7 @@ test('[REL-002] a parent lists exactly its own children, with View All opening t
   await expect(panel(page, 'pets')).not.toContainText('Related records are unavailable.')
 })
 
-test('[REL-003] adding a child from its parent links it to that parent and shows it immediately', async ({ page, backend, diagnostics }) => {
+test('[REL-003] adding a child from its parent links it to that parent and shows it immediately @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await backend.sql('select id, name, person_id, species_id from pet order by id')
   await open(page, '/app/person/2?tab=related')
@@ -83,7 +84,7 @@ test('[REL-003] adding a child from its parent links it to that parent and shows
   expect(after.filter((p) => p.name !== 'Acceptance Pup')).toEqual(before)
 })
 
-test('[REL-004] three-level associations: each pet shows only its own notes', async ({ page, backend, diagnostics }) => {
+test('[REL-004] three-level associations: each pet shows only its own notes @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/pet/1?tab=related')
   await expect.poll(() => panelNames(page, 'notes', 'note')).toEqual(await sqlColumn(backend, 'select note from pet_note where pet_id = 1 order by id'))
@@ -92,7 +93,7 @@ test('[REL-004] three-level associations: each pet shows only its own notes', as
   await expect(panel(page, 'notes')).not.toContainText('Target note')
 })
 
-test('[REL-005] editing and deleting a child leaves no stale parent, list or unexpected rows', async ({ page, backend, diagnostics }) => {
+test('[REL-005] editing and deleting a child leaves no stale parent, list or unexpected rows @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/person/1?tab=related')
   await expect.poll(() => panelNames(page, 'pets')).toEqual(await sqlColumn(backend, 'select name from pet where person_id = 1 order by id'))
@@ -127,7 +128,7 @@ test('[REL-005] editing and deleting a child leaves no stale parent, list or une
 test.describe('without pet permissions', () => {
   test.use({ persona: 'noPets' })
 
-  test('[REL-006] denied child reads show an unavailable panel without data or actions', async ({ page, backend, diagnostics }) => {
+  test('[REL-006] denied child reads show an unavailable panel without data or actions @mobile', async ({ page, backend, diagnostics }) => {
     // Shelter Pet is denied to this persona with DenyBehavior.DISABLED: it stays listed in the
     // metadata without read permission, so the shelter keeps its panel. (Tables denied with
     // HIDDEN, like the sample pet table, are absent from the record instead: SEC-001.)
@@ -149,7 +150,7 @@ test.describe('without pet permissions', () => {
   })
 })
 
-test('[REL-007] aliased and composite associations bind to their widgets and list the right members', async ({ page, backend, diagnostics }) => {
+test('[REL-007] aliased and composite associations bind to their widgets and list the right members @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   // Maple House: members by id are Ari and Bo; the composite (code, review date) join matches only Bo
   await open(page, '/app/qryHousehold/1?tab=section-companions')
@@ -169,7 +170,7 @@ test('[REL-007] aliased and composite associations bind to their widgets and lis
   await expect(panel(page, 'members')).toContainText(/No .* records/)
 })
 
-test('[REL-008] adding through a composite association stores every join value from the parent', async ({ page, backend, diagnostics }) => {
+test('[REL-008] adding through a composite association stores every join value from the parent @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const before = await backend.sql('select id, name, household_id, household_code, review_date from qry_member order by id')
   await open(page, '/app/qryHousehold/1?tab=section-reviewSchedule')
@@ -190,12 +191,12 @@ test('[REL-008] adding through a composite association stores every join value f
   await expect.poll(() => panelNames(page, 'care group / primary')).toEqual(['Ari', 'Bo'])
 })
 
-test('[REL-009] deleting a parent removes its associated children and leaves other parents intact', async ({ page, backend, diagnostics }) => {
+test('[REL-009] deleting a parent removes its associated children and leaves other parents intact @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const otherPets = await backend.sql('select id, name, person_id from pet where person_id <> 3 order by id')
   const otherNotes = await backend.sql('select id, note from pet_note order by id')
   await open(page, '/app/person/3')
-  await expect(page.getByText('casey@example.invalid').first()).toBeVisible()
+  await expect(page.getByText('casey@example.invalid').filter({ visible: true }).first()).toBeVisible()
   const response = await backend.api.delete('/data/person/3')
   expect(response.status()).toBe(200)
   expect(await backend.sql('select id from person where id = 3')).toEqual([])

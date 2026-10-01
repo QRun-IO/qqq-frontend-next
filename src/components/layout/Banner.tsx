@@ -21,7 +21,7 @@
 'use client'
 
 import React from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 
 import type { Banner } from '@/types'
@@ -72,7 +72,7 @@ export interface BannerProps {
 export default function BannerComponent({ banners, slot, className }: BannerProps) {
   const banner = banners?.[slot]
   if (!banner || (!banner.messageHTML && !banner.messageText)) return null
-  const html = banner.messageHTML ? DOMPurify.sanitize(banner.messageHTML) : ''
+  const html = banner.messageHTML ? sanitizeHtml(banner.messageHTML) : ''
 
   const config = severityConfig[banner.severity ?? 'INFO'] ?? severityConfig.INFO
   const Icon = config.icon
@@ -83,14 +83,16 @@ export default function BannerComponent({ banners, slot, className }: BannerProp
     ...(banner.additionalStyles as React.CSSProperties | undefined),
   }
 
+  const severity = (banner.severity ?? 'INFO').toLowerCase()
   return (
     <div
       role="region"
       aria-label={BANNER_SLOTS[slot]}
-      className={cn('flex items-center justify-center gap-3 border px-4 py-2 text-sm font-medium', className)}
+      // `banner {severity}`: Material's class hook for app custom CSS (QRun-IO/qqq#731)
+      className={cn('banner', severity, 'flex items-center justify-center gap-3 border px-4 py-2 text-sm font-medium', className)}
       style={style}
       data-qqq-id={`banner-${slot}`}
-      data-severity={(banner.severity ?? 'INFO').toLowerCase()}
+      data-severity={severity}
     >
       <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
       {html ? (

@@ -27,16 +27,21 @@ import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import DOMPurify from 'dompurify'
 import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
 import type { ProcessFiles } from '@/lib/api/processes'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
+import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
+import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
+import { HelpContent } from '@/components/records/HelpContent'
 
+import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
-import { inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
+import { ProcessCompositeHost, inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
 import {
   ProcessStepContext,
   type ProcessStepContextValue,
@@ -54,10 +59,19 @@ export interface ProcessStepScreenProps {
   values: Record<string, unknown>
   backStep: string | null
   isWorking: boolean
+  /** JSON of the table variant the run uses, for record requests made by components. */
+  tableVariant?: string
   tableMetaData?: QTableMetaData
   sourceTableMetaData?: QTableMetaData
   previewTableMetaData?: QTableMetaData
   instance?: QInstance
+  /**
+   * `true` when the run is embedded in a dashboard `process` widget (Material `isWidget`):
+   * no Cancel, and Return (on the last screen) is whatever `onReturn` does in place.
+   */
+  isEmbedded?: boolean
+  /** Compact presentation for a report process screen containing only report inputs. */
+  compactReportInputs?: boolean
   onSubmit: (values: Record<string, unknown>, files?: ProcessFiles) => void
   onBack: () => void
   onCancel: () => void
@@ -69,14 +83,45 @@ const secondaryButton = cn(buttonBase, 'border border-border bg-card text-foregr
 const primaryButton = cn(buttonBase, 'bg-primary text-primary-foreground hover:bg-primary/90')
 
 /**
- * Every field whose input lives in the screen form: declared form fields plus
- * input fields of ad hoc and seeded composite widgets.
+ * The fields a backend step listed in the `inputFieldList` process value (the basic
+ * report process lists the report's input fields there). Material adds them to the
+ * form of any screen; here they join a screen that has an EDIT_FORM to show them.
+ * @param step - The screen.
+ * @param values - Process values.
+ * @returns The listed fields that have a name, or none.
+ */
+export function inputListFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
+  if (!(step.components ?? []).some((component) => component.type === 'EDIT_FORM')) return []
+  const list = values.inputFieldList
+  if (!Array.isArray(list)) return []
+  return list.filter((candidate): candidate is QFieldMetaData => Boolean(candidate) && typeof candidate === 'object' && typeof (candidate as QFieldMetaData).name === 'string')
+    .map((candidate) => ({ ...candidate, label: candidate.label || candidate.name }))
+}
+
+/**
+ * The screen's form fields as Material's `getFullFieldList` builds them: the step's
+ * form fields, then `inputFieldList` fields it does not already declare.
+ * @param step - The screen.
+ * @param values - Process values.
+ * @returns The form fields.
+ */
+export function stepFormFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
+  const fields = [...(step.formFields ?? [])]
+  for (const field of inputListFields(step, values)) {
+    if (!fields.some((existing) => existing.name === field.name)) fields.push(field)
+  }
+  return fields
+}
+
+/**
+ * Every field whose input lives in the screen form: declared form fields, report
+ * input fields, plus input fields of ad hoc and seeded composite widgets.
  * @param step - The screen.
  * @param values - Process values (seeded widget data).
  * @returns Form fields.
  */
 function screenFields(step: QFrontendStepMetaData, values: Record<string, unknown>): QFieldMetaData[] {
-  const fields = [...(step.formFields ?? [])]
+  const fields = stepFormFields(step, values)
   for (const component of step.components ?? []) {
     if (component.type !== 'WIDGET') continue
     const widgetName = typeof component.values?.widgetName === 'string' ? component.values.widgetName : ''
@@ -89,19 +134,32 @@ function screenFields(step: QFrontendStepMetaData, values: Record<string, unknow
 }
 
 /**
- * Step help text for process screens (roles PROCESS_SCREEN or ALL_SCREENS, or none).
- * @param step - The screen.
+ * Whether two field lists would validate and submit alike (a widget re-registering the
+ * same fields must not re-render the screen).
+ * @param a - One list.
+ * @param b - The other.
+ * @returns `true` when they match.
+ */
+function sameFields(a: QFieldMetaData[], b: QFieldMetaData[]): boolean {
+  const key = (fields: QFieldMetaData[]) => JSON.stringify(fields.map((field) => [field.name, field.type, field.label, field.isRequired, field.isEditable, field.possibleValueSourceName]))
+  return key(a) === key(b)
+}
+
+/**
+ * Step help text for process screens: the entry for the PROCESS_SCREEN or ALL_SCREENS role (or
+ * one without roles), in its format; in help-authoring mode with the `process:{p};step:{s}` key.
+ * @param props - Component properties.
+ * @param props.step - The screen.
+ * @param props.processName - The process, for the help key.
  * @returns The help element, or `null`.
  */
-function StepHelp({ step }: { step: QFrontendStepMetaData }) {
-  const contents = (step.helpContents ?? []).filter((help) => help.content && (!help.roles?.length || help.roles.some((role) => role === 'PROCESS_SCREEN' || role === 'ALL_SCREENS')))
-  if (contents.length === 0) return null
+function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processName: string }) {
+  const help = selectSlotHelpContent(step.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};step:${step.name}`, useHelpHelpActive())
+  if (!help) return null
   return (
-    <div className="space-y-1 text-sm text-muted-foreground" data-qqq-id="process-step-help">
-      {contents.map((help, index) => help.format === 'HTML'
-        ? <div key={index} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(help.content ?? '') }} />
-        : <p key={index}>{help.content}</p>)}
-    </div>
+    <p className="text-sm text-muted-foreground" data-qqq-id="process-step-help">
+      <HelpContent helpContent={help} />
+    </p>
   )
 }
 
@@ -111,12 +169,13 @@ function StepHelp({ step }: { step: QFrontendStepMetaData }) {
  * @returns The screen.
  */
 export function ProcessStepScreen({
-  processName, processMetaData, processUUID, step, steps, values, backStep, isWorking,
-  tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
+  processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
+  tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false, compactReportInputs = false,
   onSubmit, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
   const [overrideOnLastStep, setOverrideOnLastStep] = useState<boolean | null>(null)
   const [stepLabel, setStepLabel] = useState<string | null>(null)
+  const [widgetFields, setWidgetFields] = useState<Record<string, QFieldMetaData[]>>({})
   const contributorsRef = useRef(new Map<string, ProcessSubmitContributor>())
   const extraValuesRef = useRef<Record<string, unknown>>({})
 
@@ -124,7 +183,28 @@ export function ProcessStepScreen({
   const hasComponent = useCallback((type: string) => components.some((component) => component.type === type), [components])
   const isBulkEdit = hasComponent('BULK_EDIT_FORM')
   const hasValidationReview = hasComponent('VALIDATION_REVIEW_SCREEN')
-  const fields = useMemo(() => screenFields(step, values).filter((field) => !field.isHidden), [step, values])
+  ////////////////////////////////////////////////////////////////////////////
+  // fields that widgets add to the form (a dynamicForm's report variables, //
+  // a rowBuilder's cells) are validated and submitted with the screen      //
+  ////////////////////////////////////////////////////////////////////////////
+  const registerWidgetFields = useCallback((owner: string, list: QFieldMetaData[]) => {
+    setWidgetFields((previous) => {
+      if (sameFields(previous[owner] ?? [], list)) return previous
+      const next = { ...previous }
+      if (list.length > 0) next[owner] = list
+      else delete next[owner]
+      return next
+    })
+  }, [])
+  const fields = useMemo(() => {
+    const base = screenFields(step, values).filter((field) => !field.isHidden)
+    for (const field of Object.values(widgetFields).flat()) {
+      if (!field.isHidden && !base.some((existing) => existing.name === field.name)) base.push(field)
+    }
+    return base
+  }, [step, values, widgetFields])
+  const formFields = useMemo(() => stepFormFields(step, values), [step, values])
+  const inputFieldNames = useMemo(() => new Set(inputListFields(step, values).map((field) => field.name)), [step, values])
 
   const defaultValues = useMemo(() => {
     const defaults: Record<string, unknown> = {}
@@ -186,6 +266,10 @@ export function ProcessStepScreen({
       Object.assign(files, contribution.files ?? {})
     }
     Object.assign(payload, extraValuesRef.current)
+    for (const field of fields) {
+      const value = payload[field.name]
+      if (field.type === 'DATE_TIME' && typeof value === 'string') payload[field.name] = fromLocalDateTimeInput(value, values[field.name])
+    }
     extraValuesRef.current = {}
     onSubmit(payload, Object.keys(files).length > 0 ? files : undefined)
   }, [fields, hasValidationReview, isBulkEdit, onSubmit, values])
@@ -196,9 +280,14 @@ export function ProcessStepScreen({
     void form.handleSubmit(submitValues)()
   }, [form, isWorking, submitValues])
 
+  const widgetFormHost = useMemo<WidgetFormHost>(() => ({
+    form, disabled: isWorking, editableByDefault: false, registerFields: registerWidgetFields,
+  }), [form, isWorking, registerWidgetFields])
+
   const context: ProcessStepContextValue = {
     processName, processUUID, processMetaData, tableMetaData, sourceTableMetaData, previewTableMetaData, instance,
-    step, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep, setStepLabel,
+    step, formFields, inputFieldNames, isEmbedded, compactReportInputs, values, form, isWorking, registerContributor, requestSubmit, setOverrideOnLastStep,
+    setStepLabel, tableVariant,
   }
 
   const index = steps.findIndex((candidate) => candidate.name === step.name)
@@ -212,57 +301,72 @@ export function ProcessStepScreen({
   //////////////////////////////////////////////////////////////////////////
   const isScanner = step.format?.toLowerCase() === 'scanner'
 
+  const nextButton = (
+    <button type="submit" disabled={isWorking} className={cn(primaryButton, compactReportInputs && 'px-5 pointer-coarse:min-h-11')} data-qqq-id="button-next" data-button-variant={MATERIAL_BUTTON_VARIANTS.next}>
+      {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        : !compactReportInputs && (isSubmitLabel ? <Check className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />)}
+      {compactReportInputs ? 'Generate Report' : isSubmitLabel ? 'Submit' : 'Next'}
+    </button>
+  )
+
   return (
     <ProcessStepContext.Provider value={context}>
+     <WidgetFormHostContext.Provider value={widgetFormHost}>
+      {/* no browser autofill on process screens (Material autoComplete="off") */}
       <form
         noValidate
+        autoComplete="off"
+        className={compactReportInputs ? 'space-y-4 p-6' : undefined}
         onSubmit={(event) => { event.preventDefault(); requestSubmit() }}
         aria-labelledby={`process-step-heading-${step.name}`}
         data-qqq-id={`process-step-${step.name}`}
       >
-        <div className={isScanner ? 'sr-only' : 'border-b border-border px-6 py-4'}>
+        <div className={isScanner || compactReportInputs ? 'sr-only' : 'border-b border-border px-6 py-4'}>
           <h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
             {stepLabel ?? step.label}
           </h3>
-          {isLinear && steps.length > 1 && index >= 0 && (
+          {!compactReportInputs && isLinear && steps.length > 1 && index >= 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">{`Step ${index + 1} of ${steps.length}`}</p>
           )}
         </div>
-        <div className="space-y-6 p-6">
-          <StepHelp step={step} />
-          {components.map((component, componentIndex) => (
-            <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
-              <ProcessComponent component={component} index={componentIndex} />
-            </div>
-          ))}
+        <div className={compactReportInputs ? 'space-y-4' : 'space-y-6 p-6'}>
+          <StepHelp step={step} processName={processName} />
+          <ProcessCompositeHost>
+            {components.map((component, componentIndex) => (
+              <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
+                <ProcessComponent component={component} index={componentIndex} />
+              </div>
+            ))}
+          </ProcessCompositeHost>
         </div>
-        {!isScanner && <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3" data-qqq-id="process-actions">
+        {!isScanner && <div className={compactReportInputs ? 'flex flex-wrap items-center gap-3' : 'flex flex-wrap items-center justify-end gap-3 border-t border-border px-6 py-3'} data-qqq-id="process-actions">
           {noMoreSteps ? (
-            <button type="button" onClick={onReturn} disabled={isWorking} className={secondaryButton} data-qqq-id="button-return">
+            <button type="button" onClick={onReturn} disabled={isWorking} className={secondaryButton} data-qqq-id="button-return" data-button-variant={MATERIAL_BUTTON_VARIANTS.return}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Return
             </button>
           ) : (
             <>
-              <button type="button" onClick={onCancel} disabled={isWorking} className={secondaryButton} data-qqq-id="button-cancel">
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancel
-              </button>
+              {compactReportInputs && nextButton}
+              {/* an embedded (widget) run has no Cancel: there is nowhere to leave to (Material isWidget) */}
+              {!isEmbedded && (
+                <button type="button" onClick={onCancel} disabled={isWorking} className={compactReportInputs ? cn(buttonBase, 'text-muted-foreground underline hover:text-foreground pointer-coarse:min-h-11') : secondaryButton} data-qqq-id="button-cancel" data-button-variant={MATERIAL_BUTTON_VARIANTS.cancel}>
+                  {!compactReportInputs && <X className="h-4 w-4" aria-hidden="true" />}
+                  Cancel
+                </button>
+              )}
               {backStep && (
-                <button type="button" onClick={onBack} disabled={isWorking} className={secondaryButton} data-qqq-id="button-back">
+                <button type="button" onClick={onBack} disabled={isWorking} className={secondaryButton} data-qqq-id="button-back" data-button-variant={MATERIAL_BUTTON_VARIANTS.back}>
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                   Back
                 </button>
               )}
-              <button type="submit" disabled={isWorking} className={primaryButton} data-qqq-id="button-next">
-                {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  : isSubmitLabel ? <Check className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                {isSubmitLabel ? 'Submit' : 'Next'}
-              </button>
+              {!compactReportInputs && nextButton}
             </>
           )}
         </div>}
       </form>
+     </WidgetFormHostContext.Provider>
     </ProcessStepContext.Provider>
   )
 }

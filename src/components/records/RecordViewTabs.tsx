@@ -20,10 +20,12 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { QTableMetaData, QRecord, QWidgetMetaData, QAssociation } from '@/types'
+import { PHONE_MEDIA_QUERY, useMediaQuery } from '@/lib/hooks/use-media-query'
 import { cn } from '@/lib/utils/cn'
+import { recordSectionGridSpan } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
 import { RecordViewAssociated } from './RecordViewAssociated'
@@ -82,14 +84,21 @@ function AccordionSection({
   id,
   label,
   defaultOpen = false,
+  openOnPhone = false,
   children,
 }: {
   id: string
   label: string
   defaultOpen?: boolean
+  /** Opens the section on a phone, where the URL's tab names it. */
+  openOnPhone?: boolean
   children: React.ReactNode
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  // On a phone (accordion layout) a deep link (?tab=...) naming this section opens it
+  useEffect(() => {
+    if (openOnPhone && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)')?.matches) setIsOpen(true)
+  }, [openOnPhone])
   const panelId = `accordion-panel-${id}`
   const triggerId = `accordion-trigger-${id}`
 
@@ -140,11 +149,11 @@ function AccordionSection({
  * same content is rendered as collapsible accordion sections.
  *
  * @param props - See {@link RecordViewTabsProps}.
- * @returns A React fragment containing two parallel layout trees: a desktop
- *   pill-style tab bar with `role="tablist"` (visible at `md+`) and the
- *   corresponding tab panels; and a stacked set of {@link AccordionSection}
- *   items (visible below `md`). Both trees render the same content so there
- *   is no hydration mismatch between server and client.
+ * Only the layout for the current viewport is mounted, so each section widget
+ * mounts (and loads its data) once.
+ *
+ * @returns At `md` and wider, a pill-style tab bar with `role="tablist"` and the
+ *   active tab panel; below `md`, a stacked set of {@link AccordionSection} items.
  */
 export function RecordViewTabs({
   tableMetaData,
@@ -160,50 +169,82 @@ export function RecordViewTabs({
   allTables,
   navigateFrom,
 }: RecordViewTabsProps) {
-  return (
-    <>
-      {/* ============================================================
-          Desktop layout: pill-style tab bar (hidden below md) — MED-18
-      ============================================================ */}
-      <div className="hidden md:contents">
+  const isPhone = useMediaQuery(PHONE_MEDIA_QUERY)
+  const tabId = useId()
+  const panelAttributes = {
+    id: `${tabId}-panel`,
+    role: 'tabpanel',
+    tabIndex: 0,
+    'aria-labelledby': `${tabId}-${activeTab}`,
+  }
+  const panelFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+  /**
+   * Moves focus without loading another section; Enter or Space activates the button.
+   * @param event - Keyboard event from a tab.
+   * @param index - Focused tab index.
+   */
+  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number | undefined
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = tabs.length - 1
+    if (next === undefined) return
+    event.preventDefault()
+    document.getElementById(`${tabId}-${tabs[next].id}`)?.focus()
+  }
+  if (!isPhone) {
+    return (
+      <>
+        {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
         {/* Tab bar — pill-style */}
-        <div
-          className="flex rounded-xl border border-border bg-muted/50 p-1"
-          role="tablist"
-          data-qqq-id="record-view-tabs"
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              data-qqq-id={`record-tab-${tab.id}`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
+        <div data-qqq-id="record-tabs-container">
+          <div
+            className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
+            role="tablist"
+            aria-label={`${tableMetaData.label} sections`}
+            data-qqq-id="record-view-tabs"
+          >
+            {tabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`${tabId}-${tab.id}`}
+                aria-controls={`${tabId}-panel`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onKeyDown={(event) => handleTabKey(event, index)}
+                aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'sidebar-section is-visible flex-[1_0_auto] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                  activeTab === tab.id
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                data-qqq-id={`record-tab-${tab.id}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Tab content: Overview — all T2 sections in 2-column card grid */}
+        {/* Tab content: Overview — Material's 12-column card widths */}
         {activeTab === 'overview' && (
           <div
-            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-            role="tabpanel"
+            className={cn('grid grid-cols-12 gap-6', panelFocus)}
+            {...panelAttributes}
             data-qqq-id="record-tab-panel-overview"
           >
             {secondarySections.map((section) => (
               <div
                 key={section.name}
                 className={cn(
-                  'rounded-xl border border-border bg-card p-6 shadow-sm',
-                  (section.gridColumns ?? 0) >= 3 ? 'lg:col-span-2' : undefined
+                  'min-w-0 rounded-xl border border-border bg-card p-6 shadow-sm',
+                  recordSectionGridSpan(section, widgetMetaDataMap)
                 )}
               >
                 <RecordViewSection
@@ -214,7 +255,6 @@ export function RecordViewTabs({
                   widgetMetaDataMap={widgetMetaDataMap}
                   allTables={allTables}
                   navigateFrom={navigateFrom}
-                  stacked
                 />
               </div>
             ))}
@@ -226,19 +266,23 @@ export function RecordViewTabs({
           activeTab === `section-${section.name}` && (
             <div
               key={section.name}
-              role="tabpanel"
+              {...panelAttributes}
+              className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                />
+              <div className="grid grid-cols-12 gap-6">
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    defaultFieldColumns={2}
+                  />
+                </div>
               </div>
             </div>
           )
@@ -249,19 +293,23 @@ export function RecordViewTabs({
           activeTab === `section-${section.name}` && (
             <div
               key={section.name}
-              role="tabpanel"
+              {...panelAttributes}
+              className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                />
+              <div className="grid grid-cols-12 gap-6">
+                <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    defaultFieldColumns={2}
+                  />
+                </div>
               </div>
             </div>
           )
@@ -269,16 +317,18 @@ export function RecordViewTabs({
 
         {/* Tab content: unbound named associations */}
         {activeTab === 'related' && (
-          <div className="space-y-6" role="tabpanel" data-qqq-id="record-tab-panel-related">
+          <div className={cn('space-y-6', panelFocus)} {...panelAttributes} data-qqq-id="record-tab-panel-related">
             <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
           </div>
         )}
-      </div>
+      </>
+    )
+  }
 
-      {/* ============================================================
-          Mobile layout: collapsible accordion sections (shown below md) — MED-18
-      ============================================================ */}
-      <div className="flex flex-col gap-3 md:hidden" data-qqq-id="record-view-accordion">
+  return (
+    <>
+      {/* Mobile layout: collapsible accordion sections (below md) — MED-18 */}
+      <div className="flex flex-col gap-3" data-qqq-id="record-view-accordion">
         {/* T2 sections as individual accordion items; first open by default */}
         {secondarySections.map((section, idx) => (
           <AccordionSection
@@ -286,6 +336,7 @@ export function RecordViewTabs({
             id={`section-${section.name}`}
             label={section.label}
             defaultOpen={idx === 0}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -306,7 +357,7 @@ export function RecordViewTabs({
             key={section.name}
             id={`section-${section.name}`}
             label={section.label}
-            defaultOpen={false}
+            openOnPhone={activeTab === `section-${section.name}`}
           >
             <RecordViewSection
               section={section}
@@ -322,7 +373,7 @@ export function RecordViewTabs({
 
         {/* Unbound named associations */}
         {associations.map((association) => (
-          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name}>
+          <AccordionSection key={association.name} id={`related-${encodeURIComponent(association.name)}`} label={association.name} openOnPhone={activeTab === 'related'}>
             {renderAssociation(association.name)}
           </AccordionSection>
         ))}

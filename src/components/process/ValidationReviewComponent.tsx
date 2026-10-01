@@ -18,7 +18,11 @@
  * @file ValidationReviewComponent — renders a VALIDATION_REVIEW_SCREEN process
  * component (streamed ETL review): the input count, the choice to validate
  * every record first or process immediately, the validation summary lines once
- * validated, and a record-by-record preview from the process state.
+ * validated, and a record-by-record preview from the process state. A preview laid
+ * out by a table (`formatPreviewRecordUsingTableLayout`) shows each field section
+ * and, for the table's child-record sections that the backend named in
+ * `previewRecordAssociated*`, a grid of the record's associated child records
+ * (Material ValidationReview association previews).
  */
 
 'use client'
@@ -29,6 +33,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import type { QFieldMetaData, QRecord, QTableMetaData } from '@/types'
 import { processRecords } from '@/lib/api/processes'
+import { useTableMetaData } from '@/lib/hooks/use-metadata'
+import { childColumns } from '@/components/widgets/ChildRecordListWidget'
+import { displayText } from '@/components/widgets/record-lookup-utils'
 
 import { useProcessStep } from './ProcessStepContext'
 import { ProcessSummaryLines, readSummaryLines } from './ProcessSummaryLines'
@@ -51,17 +58,91 @@ function recordPhrase(count: number, table: QTableMetaData): string {
   return `${count.toLocaleString('en-US')} ${table.label} record${count === 1 ? '' : 's'}`
 }
 
+/** A child-record section of the preview table whose records the preview shows (`previewRecordAssociated*`). */
+export interface AssociationPreview {
+  tableName: string
+  widgetName: string
+  associationName: string
+}
+
+/**
+ * The association previews the backend described, by widget name.
+ * @param values - Process values.
+ * @returns Previews keyed by the child-record widget they fill.
+ */
+export function associationPreviews(values: Record<string, unknown>): Record<string, AssociationPreview> {
+  const list = (name: string) => (Array.isArray(values[name]) ? (values[name] as unknown[]).map(String) : [])
+  const tables = list('previewRecordAssociatedTableNames')
+  const widgets = list('previewRecordAssociatedWidgetNames')
+  const associations = list('previewRecordAssociationNames')
+  const previews: Record<string, AssociationPreview> = {}
+  for (let i = 0; i < Math.min(tables.length, widgets.length, associations.length); i++) {
+    previews[widgets[i]] = { tableName: tables[i], widgetName: widgets[i], associationName: associations[i] }
+  }
+  return previews
+}
+
+/**
+ * The associated child records of a previewed record, as a compact grid.
+ * @param props - Section label, the preview and the record.
+ * @returns The labeled grid.
+ */
+function AssociationPreviewGrid({ label, preview, record }: { label: string; preview: AssociationPreview; record: QRecord }) {
+  const { data: table } = useTableMetaData(preview.tableName)
+  const children = record.associatedRecords?.[preview.associationName] ?? []
+  const columns = table ? childColumns(table) : []
+  return (
+    <div data-qqq-id={`process-preview-association-${preview.associationName}`}>
+      <h5 className="mb-1 text-sm font-semibold text-foreground">{label}</h5>
+      <div className="ml-3 overflow-x-auto">
+        {!table ? (
+          <p role="status" className="text-sm text-muted-foreground">Loading...</p>
+        ) : children.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{`No ${table.label} records`}</p>
+        ) : (
+          <table className="w-full text-sm" aria-label={label}>
+            <thead>
+              <tr className="border-b border-border text-left">
+                {columns.map((field) => <th key={field.name} scope="col" className="px-2 py-1 font-medium text-muted-foreground">{field.label ?? field.name}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {children.map((child, index) => (
+                <tr key={index} className="border-b border-border/50 last:border-0" data-qqq-id={`process-preview-association-row-${preview.associationName}-${index}`}>
+                  {columns.map((field) => {
+                    const display = child.displayValues?.[field.name]
+                    return <td key={field.name} className="px-2 py-1 text-foreground">{displayText(display !== undefined && display !== null ? display : child.values?.[field.name])}</td>
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /**
  * One previewed record: either the step's record-list fields, or the fields of
- * the table named by `formatPreviewRecordUsingTableLayout`, grouped by section.
- * @param props - The record, the fields and the optional table layout.
+ * the table named by `formatPreviewRecordUsingTableLayout`, grouped by section, with
+ * the associated child records of the sections the backend named.
+ * @param props - The record, the fields, the optional table layout and association previews.
  * @returns The preview body.
  */
-function PreviewRecord({ record, fields, layoutTable }: { record: QRecord; fields: QFieldMetaData[]; layoutTable?: QTableMetaData }) {
+function PreviewRecord({ record, fields, layoutTable, previews = {} }: {
+  record: QRecord
+  fields: QFieldMetaData[]
+  layoutTable?: QTableMetaData
+  previews?: Record<string, AssociationPreview>
+}) {
   if (layoutTable) {
     return (
       <div className="space-y-3">
-        {layoutTable.sections.filter((section) => !section.isHidden && section.fieldNames?.length).map((section) => {
+        {layoutTable.sections.filter((section) => !section.isHidden && !section.hidden && (section.fieldNames?.length || (section.widgetName && previews[section.widgetName]))).map((section) => {
+          if (!section.fieldNames?.length && section.widgetName) {
+            return <AssociationPreviewGrid key={section.name} label={section.label} preview={previews[section.widgetName]} record={record} />
+          }
           const sectionFields = section.fieldNames.map((name) => layoutTable.fields[name]).filter((field): field is QFieldMetaData => Boolean(field))
           return (
             <div key={section.name}>
@@ -96,7 +177,7 @@ function PreviewRecord({ record, fields, layoutTable }: { record: QRecord; field
  * @returns The review panel.
  */
 export function ValidationReviewComponent({ index }: ValidationReviewComponentProps) {
-  const { step, values, form, processName, processUUID, sourceTableMetaData, previewTableMetaData, setOverrideOnLastStep } = useProcessStep()
+  const { step, values, form, processName, processUUID, sourceTableMetaData, previewTableMetaData, setOverrideOnLastStep, tableVariant } = useProcessStep()
   const [previewIndex, setPreviewIndex] = useState(0)
   const radioName = useId()
   const validationSummary = readSummaryLines(values.validationSummary)
@@ -116,7 +197,7 @@ export function ValidationReviewComponent({ index }: ValidationReviewComponentPr
 
   const previewQuery = useQuery({
     queryKey: ['qqq', 'processPreviewRecords', processName, processUUID, step.name],
-    queryFn: () => processRecords(processName, processUUID!, 0, PREVIEW_LIMIT),
+    queryFn: () => processRecords(processName, processUUID!, 0, PREVIEW_LIMIT, tableVariant),
     enabled: Boolean(processUUID) && Boolean(step.recordListFields?.length),
     retry: false,
   })
@@ -124,6 +205,7 @@ export function ValidationReviewComponent({ index }: ValidationReviewComponentPr
   const previewRecord = previewRecords[previewIndex]
   const previewMessage = typeof values.previewMessage === 'string' ? values.previewMessage : ''
   const layoutTable = typeof values.formatPreviewRecordUsingTableLayout === 'string' ? previewTableMetaData : undefined
+  const previews = associationPreviews(values)
 
   return (
     <div className="grid gap-6 lg:grid-cols-2" data-qqq-id={`process-validation-review-${index}`}>
@@ -177,7 +259,7 @@ export function ValidationReviewComponent({ index }: ValidationReviewComponentPr
           </p>
           {previewRecord && (
             <>
-              <PreviewRecord record={previewRecord} fields={step.recordListFields ?? []} layoutTable={layoutTable} />
+              <PreviewRecord record={previewRecord} fields={step.recordListFields ?? []} layoutTable={layoutTable} previews={previews} />
               <div className="mt-4 flex items-center justify-between text-sm">
                 <button
                   type="button"

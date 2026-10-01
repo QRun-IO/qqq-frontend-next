@@ -4,10 +4,25 @@ Executable acceptance for every supported QQQ UI feature, against the QRun-owned
 application and the production Next build. Mocked unit and e2e tests complement this
 suite; they never replace it.
 
+## RC1 priority: workflow depth in Chromium
+
+For RC1, prioritize complete real-application workflows in Chromium before expanding
+browser and viewport coverage. Exercise normal entry paths, defaults, validation,
+editing and cancellation, saving and reopening, changing dependent selections,
+permissions, failure recovery, and the resulting records or downloaded files.
+Check persisted values independently through the owned backend where applicable.
+Scenario counts and passing page-load checks are not evidence that every workflow works.
+
+Use the default Chromium project for focused diagnosis and the full Chromium acceptance
+gate for the candidate. Preserve existing cross-browser tests and record failures;
+additional browser and responsive work follows the workflow depth pass.
+
 ## Run
 
 ```bash
-# Build the sample jar (qqq repo, qqq-sample-project) and point at it:
+# Install the QQQ Maven modules, build the sample jar, and point at it:
+# mvn -DskipTests -Djacoco.skip=true install  # from the qqq repo root
+# mvn -DskipTests -Djacoco.skip=true -Dcheckstyle.skip=true package  # from qqq/qqq-sample-project
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar
 pnpm test:acceptance                          # static export + full suite + gate
 node scripts/acceptance.mjs --skip-build specs/records   # reuse out/, filtered (partial gate)
@@ -19,6 +34,10 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   classpath as `next-dashboard/`, ahead of the sample jar. `QApplicationJavalinServer` then
   serves it at `/`, which is exactly what a fresh application gets.
 - **standalone mode.** Tests the Node standalone build that the container image uses.
+- **API-versioned report setup.** The acceptance server loads the matching
+  `qqq-middleware-api` JAR from `~/.m2/repository/com/kingsrook/qqq/qqq-middleware-api/<version>/`.
+  Set `QQQ_MIDDLEWARE_API_JAR` to another path when Maven uses a different local repository.
+  The fixture registers one API-aware v1 version so WID-072 uses real metadata, query and count routes.
 - **Ports.** Set them with `QQQ_ACCEPTANCE_BACKEND_PORT` (default 18765) and
   `QQQ_ACCEPTANCE_FRONTEND_PORT` (default 13765). Use distinct ports for concurrent runs.
 - **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
@@ -64,12 +83,21 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   - `backend.api` calls the backend over HTTP as the same session. Use it to prove
     server-side enforcement.
 - **Include the `diagnostics` fixture in every test.** It fails the test on page errors,
-  console errors and failed or ≥400 application requests. Negative scenarios whitelist
-  their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
+  console errors, failed or ≥400 application requests, and Content-Security-Policy
+  violations (every frame forwards `securitypolicyviolation` events; they are listed as
+  `cspViolations` in `diagnostics.json`). The dashboard is served with a strict policy
+  (QRun-IO/qqq#695, SEC-038 to SEC-040), so a feature that needs another origin must get it
+  from metadata or the application's `withNextDashboardSecurityHeadersCustomizer` hook
+  (see `WidgetsFixtures.allowFakeService`), never from a loosened test. Negative scenarios
+  whitelist their expected failures with `diagnostics.allow('/data/person/99 404')`. Requests that
   a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under
   `interruptedFetches` in the attached `diagnostics.json`).
+- **v1 only.** The `diagnostics` fixture also fails a test whose page calls an unversioned API
+  route of a QQQ server (`/data`, `/processes`, `/widget`, `/possibleValues`, `/download`,
+  `/reports`, `/metaData`, `/manageSession`, `/logout` outside `/qqq/v1`; QRun-IO/qqq#699).
+  `allow()` does not waive it. Node-side `backend.api` calls may still exercise legacy routes.
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;

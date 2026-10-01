@@ -29,7 +29,7 @@ describe('useUserPreferences', () => {
 
   it('returns default preferences when storage is empty', () => {
     const { result } = renderHook(() => useUserPreferences())
-    expect(result.current.preferences.tableDefaultPageSize).toBe(25)
+    expect(result.current.preferences.tableDefaultPageSize).toBe(50)
     expect(result.current.preferences.tableDefaultDensity).toBe('standard')
     expect(result.current.preferences.tableDefaultViewMode).toBe('grid')
     expect(result.current.preferences.recordDefaultViewMode).toBe('tabs')
@@ -38,10 +38,10 @@ describe('useUserPreferences', () => {
   it('reads persisted preferences from localStorage', () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ tableDefaultPageSize: 50, tableDefaultDensity: 'compact', tableDefaultViewMode: 'card', recordDefaultViewMode: 'list' })
+      JSON.stringify({ tableDefaultPageSize: 25, tableDefaultDensity: 'compact', tableDefaultViewMode: 'card', recordDefaultViewMode: 'list' })
     )
     const { result } = renderHook(() => useUserPreferences())
-    expect(result.current.preferences.tableDefaultPageSize).toBe(50)
+    expect(result.current.preferences.tableDefaultPageSize).toBe(25)
     expect(result.current.preferences.tableDefaultDensity).toBe('compact')
   })
 
@@ -79,13 +79,13 @@ describe('useUserPreferences', () => {
       result.current.resetPreferences()
     })
 
-    expect(result.current.preferences.tableDefaultPageSize).toBe(25)
+    expect(result.current.preferences.tableDefaultPageSize).toBe(50)
     expect(result.current.preferences.tableDefaultDensity).toBe('standard')
   })
 
   it('exposes defaults constant', () => {
     const { result } = renderHook(() => useUserPreferences())
-    expect(result.current.defaults.tableDefaultPageSize).toBe(25)
+    expect(result.current.defaults.tableDefaultPageSize).toBe(50)
     expect(result.current.defaults.tableDefaultViewMode).toBe('grid')
   })
 })

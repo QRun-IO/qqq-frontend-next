@@ -27,8 +27,8 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  GlobalSearchResultSchema,
-  GlobalSearchResponseSchema,
+  RecordSearchResultSchema,
+  RecordSearchResponseSchema,
   QInstanceMinimalSchema,
 } from './schemas'
 
@@ -157,12 +157,12 @@ describe('CountRecordsResponseSchema', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GlobalSearchResultSchema
+// RecordSearchResultSchema
 // ---------------------------------------------------------------------------
 
-describe('GlobalSearchResultSchema', () => {
+describe('RecordSearchResultSchema', () => {
   it('accepts a full search result entry', () => {
-    const result = GlobalSearchResultSchema.safeParse({
+    const result = RecordSearchResultSchema.safeParse({
       tableName: 'person',
       tableLabel: 'People',
       recordId: '123',
@@ -172,7 +172,7 @@ describe('GlobalSearchResultSchema', () => {
   })
 
   it('accepts an entry without optional tableLabel', () => {
-    const result = GlobalSearchResultSchema.safeParse({
+    const result = RecordSearchResultSchema.safeParse({
       tableName: 'person',
       recordId: '123',
       recordLabel: 'Alice Smith',
@@ -181,7 +181,7 @@ describe('GlobalSearchResultSchema', () => {
   })
 
   it('fails when tableName is missing', () => {
-    const result = GlobalSearchResultSchema.safeParse({
+    const result = RecordSearchResultSchema.safeParse({
       tableLabel: 'People',
       recordId: '123',
       recordLabel: 'Alice Smith',
@@ -190,7 +190,7 @@ describe('GlobalSearchResultSchema', () => {
   })
 
   it('fails when recordId is missing', () => {
-    const result = GlobalSearchResultSchema.safeParse({
+    const result = RecordSearchResultSchema.safeParse({
       tableName: 'person',
       recordLabel: 'Alice Smith',
     })
@@ -198,7 +198,7 @@ describe('GlobalSearchResultSchema', () => {
   })
 
   it('fails when recordLabel is missing', () => {
-    const result = GlobalSearchResultSchema.safeParse({
+    const result = RecordSearchResultSchema.safeParse({
       tableName: 'person',
       recordId: '123',
     })
@@ -207,32 +207,31 @@ describe('GlobalSearchResultSchema', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GlobalSearchResponseSchema (array of results)
+// RecordSearchResponseSchema ({ results: [...] })
 // ---------------------------------------------------------------------------
 
-describe('GlobalSearchResponseSchema', () => {
-  it('accepts an array of valid search result entries', () => {
-    const result = GlobalSearchResponseSchema.safeParse([
+describe('RecordSearchResponseSchema', () => {
+  it('accepts a list of valid search results', () => {
+    const result = RecordSearchResponseSchema.safeParse({ results: [
       { tableName: 'person', recordId: '1', recordLabel: 'Alice' },
       { tableName: 'order', tableLabel: 'Orders', recordId: '42', recordLabel: 'Order #42' },
-    ])
+    ] })
     expect(result.success).toBe(true)
   })
 
-  it('accepts an empty array', () => {
-    const result = GlobalSearchResponseSchema.safeParse([])
-    expect(result.success).toBe(true)
+  it('accepts an empty list', () => {
+    expect(RecordSearchResponseSchema.safeParse({ results: [] }).success).toBe(true)
   })
 
-  it('fails when input is not an array', () => {
-    const result = GlobalSearchResponseSchema.safeParse({ results: [] })
-    expect(result.success).toBe(false)
+  it('fails for a bare array or a missing list', () => {
+    expect(RecordSearchResponseSchema.safeParse([]).success).toBe(false)
+    expect(RecordSearchResponseSchema.safeParse({}).success).toBe(false)
   })
 
-  it('fails when an entry in the array is missing required fields', () => {
-    const result = GlobalSearchResponseSchema.safeParse([
+  it('fails when a result is missing required fields', () => {
+    const result = RecordSearchResponseSchema.safeParse({ results: [
       { tableName: 'person' }, // missing recordId and recordLabel
-    ])
+    ] })
     expect(result.success).toBe(false)
   })
 })

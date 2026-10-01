@@ -30,7 +30,7 @@ function TestConsumer() {
       <span data-testid="dark-mode">{String(isDarkMode)}</span>
       <span data-testid="theme">{theme?.primaryColor ?? 'none'}</span>
       <button onClick={toggleDarkMode}>Toggle Dark</button>
-      <button onClick={() => setTheme({ primaryColor: '#ff0000', accentColor: '#00ff00' })}>
+      <button onClick={() => setTheme({ primaryColor: '#ff0000' })}>
         Set Theme
       </button>
     </div>
@@ -53,6 +53,18 @@ describe('ThemeProvider', () => {
     )
 
     expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
+  })
+
+  it('opens in light mode even when the operating system prefers dark', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as typeof window.matchMedia
+    try {
+      render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+      expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+    } finally {
+      window.matchMedia = original
+    }
   })
 
   it('should toggle dark mode', async () => {
@@ -106,6 +118,45 @@ describe('ThemeProvider', () => {
     await user.click(screen.getByText('Toggle Dark'))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('marks the body themed while a theme is applied and keeps the UI light', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem('qqq-dark-mode', 'true')
+    render(
+      <ThemeProvider>
+        <TestConsumer />
+      </ThemeProvider>
+    )
+    expect(screen.getByTestId('dark-mode')).toHaveTextContent('true')
+    expect(document.body.classList.contains('qqq-themed')).toBe(false)
+
+    await user.click(screen.getByText('Set Theme'))
+    expect(document.body.classList.contains('qqq-themed')).toBe(true)
+    expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(document.documentElement.style.getPropertyValue('--qqq-primary-color')).toBe('#ff0000')
+  })
+
+  it('removes the theme when it is cleared', async () => {
+    const user = userEvent.setup()
+    function Clearer() {
+      const { setTheme } = useTheme()
+      return <button onClick={() => setTheme(null)}>Clear Theme</button>
+    }
+    render(
+      <ThemeProvider>
+        <TestConsumer />
+        <Clearer />
+      </ThemeProvider>
+    )
+    await user.click(screen.getByText('Set Theme'))
+    expect(document.getElementById('qqq-theme')).not.toBeNull()
+    await user.click(screen.getByText('Clear Theme'))
+    expect(document.body.classList.contains('qqq-themed')).toBe(false)
+    expect(document.getElementById('qqq-theme')).toBeNull()
+    expect(document.documentElement.style.getPropertyValue('--qqq-primary-color')).toBe('')
+    expect(screen.getByTestId('theme')).toHaveTextContent('none')
   })
 
   it('should throw when useTheme is used outside provider', () => {

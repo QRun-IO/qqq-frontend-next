@@ -39,6 +39,8 @@ export interface UseRecordOptions {
   includeAssociations?: boolean
   /** Optional alternate backend table configuration to use. */
   tableVariant?: string
+  /** JSON-encoded joins required by record-view sections. */
+  queryJoins?: string
   /** How long the cached record is considered fresh (default 5 minutes). */
   staleTime?: number
 }
@@ -60,7 +62,7 @@ export interface UseRecordResult {
 }
 
 /**
- * Fetches a single record by primary key via the legacy `GET /data/{tableName}/{primaryKey}` route.
+ * Fetches a single record by primary key via the v1 `GET /table/{tableName}/{primaryKey}` route.
  *
  * Disabled when `tableName` is empty or `primaryKey` is undefined/empty.
  *
@@ -73,14 +75,16 @@ export function useRecord({
   enabled = true,
   includeAssociations = true,
   tableVariant,
+  queryJoins,
   staleTime = 0, // revalidate on every mount; cached data shows while refetching
 }: UseRecordOptions): UseRecordResult {
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...queryKeys.tableRecord(tableName, primaryKey), { includeAssociations, tableVariant }],
+    queryKey: [...queryKeys.tableRecord(tableName, primaryKey), { includeAssociations, tableVariant, queryJoins }],
     queryFn: () =>
       getRecord(tableName, primaryKey, {
         includeAssociations,
         tableVariant,
+        queryJoins,
       }),
     enabled: enabled && Boolean(tableName) && primaryKey !== undefined && primaryKey !== '',
     staleTime,

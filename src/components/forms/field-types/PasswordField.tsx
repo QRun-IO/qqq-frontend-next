@@ -25,6 +25,7 @@ import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { transformInputValue } from '@/lib/utils/form-layout'
 
 /**
  * Props for the {@link PasswordField} component.
@@ -50,6 +51,8 @@ interface PasswordFieldProps {
   'data-qqq-id'?: string
   /** Id of help text that describes this control. */
   describedBy?: string
+  /** Explicit metadata case behavior; omitted passwords retain their entered case. */
+  transform?: (value: string) => string
 }
 
 /**
@@ -73,8 +76,15 @@ export function PasswordField({
   required = false,
   'data-qqq-id': dataQqqId,
   describedBy,
+  transform,
 }: PasswordFieldProps) {
   const [showPassword, setShowPassword] = useState(false)
+  const onChange: UseFormRegisterReturn['onChange'] = transform
+    ? (event) => {
+        transformInputValue(event.target as HTMLInputElement, transform)
+        return registration.onChange(event)
+      }
+    : registration.onChange
 
   return (
     <div className="flex flex-col gap-1">
@@ -91,6 +101,7 @@ export function PasswordField({
           id={id}
           type={showPassword ? 'text' : 'password'}
           {...registration}
+          onChange={onChange}
           disabled={disabled}
           placeholder={placeholder}
           maxLength={maxLength}

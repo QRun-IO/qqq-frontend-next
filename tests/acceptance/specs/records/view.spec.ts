@@ -6,16 +6,19 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { VIEWER, fieldValue, openRecord, sqlOne, toasts } from './helpers'
+import { expectTouchReady, expectTouchTargets } from '../../support/touch'
+import { recordCollection } from '../navigation/nav-helpers'
+import { VIEWER, expandOnPhone, expectNoSidewaysScroll, fieldValue, isPhone, openRecord, showSection, sqlOne, toasts } from './helpers'
 
 test.use(VIEWER)
 
-test('[REC-001] record view shows the label, tiered sections and formatted values', async ({ page, backend, diagnostics }) => {
+test('[REC-001] record view shows the label, tiered sections and formatted values @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const person = await sqlOne(backend, 'select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed from person where id = 1')
   await openRecord(page, 'person', 1, `${person.first_name} ${person.last_name}`)
 
-  // T2 sections render as labelled cards with the backend's display formatting.
+  // T2 sections render as labelled cards (phone: accordion items) with the backend's display formatting.
+  await expandOnPhone(page, 'Basic Info', 'Employment Info')
   await expect(page.getByRole('heading', { level: 3, name: 'Basic Info' })).toBeVisible()
   await expect(page.getByRole('heading', { level: 3, name: 'Employment Info' })).toBeVisible()
   await expect(fieldValue(page, 'email')).toHaveText(person.email!)
@@ -29,16 +32,36 @@ test('[REC-001] record view shows the label, tiered sections and formatted value
 
   // Morgan is not employed: BOOLEAN false renders as No.
   await openRecord(page, 'person', 5, 'Morgan Sample')
+  await expandOnPhone(page, 'Employment Info')
   await expect(fieldValue(page, 'isEmployed')).toHaveText('No')
 
-  // The T1 header shows T1 fields that are not already part of the label (Record Lab: status).
+  // The compact Next header shows T1 fields that add information beyond the record label.
   await openRecord(page, 'recordLab', 1, 'Lab: Alpha')
   const header = page.locator('[data-qqq-id="record-primary-sections"]')
   await expect(header.locator('[data-qqq-id="record-field-status"]')).toContainText('Active')
   await expect(header.locator('[data-qqq-id="record-field-title"]')).toHaveCount(0)
 })
 
-test('[REC-002] empty values show a placeholder; hidden fields and sections never render', async ({ page, backend, diagnostics }) => {
+test('[REC-064] record sections load and render readable joined fields @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const owner = await sqlOne(backend, 'select first_name from person where id = 1')
+  const requests: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === '/qqq/v1/table/qryItem/1') {
+      requests.push(new URL(request.url()).searchParams.get('queryJoins') ?? '')
+    }
+  })
+
+  await openRecord(page, 'qryItem', 1, 'Alpha Widget')
+  await expandOnPhone(page, 'Details')
+  await expect(fieldValue(page, 'person.firstName')).toHaveText(owner.first_name!)
+  expect(requests.some((encoded) => {
+    const joins = JSON.parse(encoded || '[]') as Array<{ joinTable: string; joinName?: string; select: boolean }>
+    return joins.some(({ joinTable, joinName, select }) => joinTable === 'person' && joinName === 'qryItemJoinPerson' && select)
+  })).toBe(true)
+})
+
+test('[REC-002] empty values show a placeholder; hidden fields and sections never render @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await sqlOne(backend, 'select birth_date from person where id = 4')).birth_date).toBeNull()
   await openRecord(page, 'person', 4, 'Drew Sample')
@@ -62,8 +85,8 @@ test('[REC-002] empty values show a placeholder; hidden fields and sections neve
   expect(JSON.stringify(body)).not.toContain('H-ALPHA')
 })
 
-test('[REC-003] a missing record shows Record Not Found and returns to its table', async ({ page, backend, diagnostics }) => {
-  diagnostics.allow('/data/person/999 404')
+test('[REC-003] a missing record shows Record Not Found and returns to its table @mobile', async ({ page, backend, diagnostics }) => {
+  diagnostics.allow('/qqq/v1/table/person/999 404')
   diagnostics.allow('Failed to load resource: the server responded with a status of 404')
   expect((await backend.sql('select id from person where id = 999'))).toHaveLength(0)
   await page.goto('/app/person/999', { waitUntil: 'domcontentloaded' })
@@ -75,8 +98,8 @@ test('[REC-003] a missing record shows Record Not Found and returns to its table
   await expect(toasts(page)).toHaveCount(0)
   await panel.getByRole('button', { name: 'Back to Person' }).click()
   await expect(page).toHaveURL(/\/app\/person\/?$/)
-  await expect(page.getByRole('grid', { name: 'Person records' })).toBeVisible()
-  expect(diagnostics.failedRequests).toEqual(['GET /data/person/999 404'])
+  await expect(recordCollection(page, 'Person')).toBeVisible()
+  expect(diagnostics.failedRequests).toEqual(['GET /qqq/v1/table/person/999 404'])
 })
 
 test('[REC-004] tabs and list view expose every visible section', async ({ page, backend, diagnostics }) => {
@@ -92,6 +115,9 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
   for (const section of ['Date Defaults', 'Field Types', 'Time Zones', 'Length Policies', 'Case and Whitespace', 'Numeric Bounds']) {
     await expect(overview.getByRole('heading', { level: 3, name: section })).toBeVisible()
   }
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await expect(page.locator('[data-qqq-id="record-sidebar"]')).toHaveCount(0)
+  }
 
   await page.getByRole('tab', { name: 'Case and Whitespace' }).click()
   await expect(page).toHaveURL(/tab=section-normalization/)
@@ -104,4 +130,146 @@ test('[REC-004] tabs and list view expose every visible section', async ({ page,
     await expect(list.getByRole('heading', { name: section })).toBeVisible()
   }
   await expect(fieldValue(page, 'boundedValue')).toHaveText('12.50')
+})
+
+test('[REC-049] pages of a table outside the app tree use its label in the document title and breadcrumbs @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  type Node = { name: string; children?: Node[] }
+  const meta = await (await backend.api.get('/qqq/v1/metaData')).json()
+  const names = (nodes: Node[]): string[] => nodes.flatMap((node) => [node.name, ...names(node.children ?? [])])
+  expect(names(meta.appTree)).not.toContain('scheduledReport')
+  const label = meta.tables.scheduledReport.label
+  expect(label).toBe('Scheduled Report')
+  const breadcrumbs = page.getByRole('navigation', { name: 'Breadcrumb' })
+
+  await page.goto('/app/scheduledReport/create', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { level: 2, name: `Create ${label}` })).toBeVisible()
+  await expect(page).toHaveTitle(`Create ${label} | ${label} | QQQ Sample`)
+  await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
+  await expect(breadcrumbs).not.toContainText('scheduledReport')
+  // The label crumbs fit a phone and are tappable (no sideways scroll, 44 px targets on touch)
+  await expectNoSidewaysScroll(page)
+  await expectTouchTargets(breadcrumbs)
+
+  const created = await backend.api.post('/data/scheduledReport', { multipart: {
+    savedReportId: '1', isActive: 'true', format: 'CSV', toAddresses: 'owned-title@example.com', subject: 'Owned title', cronExpression: '0 0 9 * * ?', cronTimeZoneId: 'UTC',
+  } })
+  expect(created.status()).toBe(200)
+  const record = (await created.json()).records[0]
+  await page.goto(`/app/scheduledReport/${record.values.id}`, { waitUntil: 'domcontentloaded' })
+  const heading = page.getByRole('heading', { level: 1 })
+  await expect(heading).toHaveText(/\S/)
+  const recordLabel = (await heading.textContent())!.trim()
+  expect(recordLabel).toContain('Pet Species Report')
+  await expect(page).toHaveTitle(`${recordLabel} | ${label} | QQQ Sample`)
+  await expect(breadcrumbs.getByRole('link', { name: label })).toBeVisible()
+  await expectNoSidewaysScroll(page)
+  await expectTouchTargets(breadcrumbs)
+  // The crumb opens the table's list by tap or click, still under its label
+  await breadcrumbs.getByRole('link', { name: label }).click()
+  await expect(page).toHaveURL(/\/app\/scheduledReport\/?$/)
+  await expect(page).toHaveTitle(`${label} | QQQ Sample`)
+})
+
+test('[REC-004] every visible section opens by touch on phones and tablets @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const created = await backend.api.post('/data/fieldLab', { multipart: { name: 'Touch Sections', longValue: '42', timeZone: 'UTC',
+    truncateValue: 'abcdefghij', upperValue: 'abc', boundedValue: '12.5' } })
+  expect(created.status()).toBe(200)
+  const id = (await created.json()).records[0].values.id
+  expect(await sqlOne(backend, `select long_value, truncate_value, upper_value, bounded_value from field_lab where id = ${id}`))
+    .toEqual({ long_value: '42', truncate_value: 'abcdefgh', upper_value: 'ABC', bounded_value: '12.50' })
+  await openRecord(page, 'fieldLab', id, 'Touch Sections')
+
+  // Phone: one accordion item per section, the first open; wider screens: the tab bar.
+  const sections = ['Date Defaults', 'Field Types', 'Time Zones', 'Length Policies', 'Case and Whitespace', 'Numeric Bounds']
+  if (isPhone(page)) {
+    const triggers = page.locator('[data-qqq-id="record-view-accordion"] [data-qqq-id^="accordion-trigger-"]')
+    await expect(triggers).toHaveText(sections)
+    await expect(triggers.first()).toHaveAttribute('aria-expanded', 'true')
+    await expect(fieldValue(page, 'manualDateTime')).toHaveText('—')
+  } else {
+    const tabs = page.locator('[data-qqq-id="record-view-tabs"]').getByRole('tab')
+    await expect(tabs).toHaveText(['Overview', ...sections])
+    const labels = await tabs.evaluateAll((nodes) => nodes.map((node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const text = range.getBoundingClientRect()
+      const button = node.getBoundingClientRect()
+      return { label: node.textContent, left: text.left - button.left, right: button.right - text.right }
+    }))
+    for (const label of labels) {
+      expect(label.left, `${label.label} starts inside its tab`).toBeGreaterThanOrEqual(0)
+      expect(label.right, `${label.label} ends inside its tab`).toBeGreaterThanOrEqual(0)
+    }
+  }
+  await expectNoSidewaysScroll(page)
+  await expectTouchReady(page, page.locator('[data-qqq-id="record-view-fieldLab"]'))
+
+  const values: [string, string, string][] = [['Field Types', 'longValue', '42'], ['Time Zones', 'timeZone', 'UTC'],
+    ['Length Policies', 'truncateValue', 'abcdefgh'], ['Case and Whitespace', 'upperValue', 'ABC'], ['Numeric Bounds', 'boundedValue', '12.50']]
+  for (const [section, field, text] of values) {
+    await showSection(page, section)
+    await expect(fieldValue(page, field)).toHaveText(text)
+  }
+  await expectNoSidewaysScroll(page)
+
+  // A deep link to a section opens it in either layout.
+  await page.goto(`/app/fieldLab/${id}?tab=section-normalization`, { waitUntil: 'domcontentloaded' })
+  await expect(fieldValue(page, 'upperValue')).toHaveText('ABC')
+})
+
+
+test('[REC-004] record sections support keyboard navigation and named panels @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  const created = await backend.api.post('/data/fieldLab', { multipart: { name: 'Keyboard Sections', boundedValue: '12.5', timeZone: 'UTC' } })
+  expect(created.status()).toBe(200)
+  const id = (await created.json()).records[0].values.id
+  await openRecord(page, 'fieldLab', id, 'Keyboard Sections')
+
+  if (isPhone(page)) {
+    const trigger = page.getByRole('button', { name: 'Numeric Bounds', exact: true })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`)
+    await expect(panel).toHaveAccessibleName('Numeric Bounds')
+    await expect(panel).toContainText('12.50')
+    await page.keyboard.press('Space')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(trigger).toBeFocused()
+    return
+  }
+
+  const tabs = page.locator('[data-qqq-id="record-view-tabs"]')
+  const overview = tabs.getByRole('tab', { name: 'Overview', exact: true })
+  const dates = tabs.getByRole('tab', { name: 'Date Defaults', exact: true })
+  const bounds = tabs.getByRole('tab', { name: 'Numeric Bounds', exact: true })
+  await overview.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(dates).toBeFocused()
+  await expect(overview).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Enter')
+  await expect(dates).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: 'Date Defaults', exact: true })).toBeVisible()
+  await page.keyboard.press('End')
+  await expect(bounds).toBeFocused()
+  await expect(dates).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Space')
+  await expect(bounds).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: 'Numeric Bounds', exact: true })).toContainText('12.50')
+  await page.keyboard.press('Home')
+  await expect(overview).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(overview).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowLeft')
+  await expect(bounds).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(overview).toBeFocused()
+  await expect(tabs.locator('[role="tab"][tabindex="0"]')).toHaveCount(1)
+  await page.keyboard.press('Tab')
+  const panel = page.getByRole('tabpanel', { name: 'Overview', exact: true })
+  await expect(panel).toBeFocused()
+  await expect(overview).toHaveAttribute('aria-controls', await panel.getAttribute('id') ?? '')
+  await expectNoSidewaysScroll(page)
 })

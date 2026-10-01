@@ -15,277 +15,216 @@
  */
 
 /**
- * @file RecordActions — edit/delete/copy action buttons for a record view page.
+ * @file RecordActions — the record view's action controls: Edit and Delete buttons, the
+ * table's additional menus, and the Actions menu (the table's own or the Material default).
  */
 
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
-import { Pencil, Copy, Trash2, MoreVertical, Play } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 
-import type { QTableMetaData, QRecord, QProcessMetaData } from '@/types'
+import type { QTableMetaData, QRecord, QTableMenu } from '@/types'
 import { cn } from '@/lib/utils/cn'
+import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { recordAdditionalMenus, hasMenuItems, type RecordMenuAction, type RecordMenuEntry } from '@/lib/utils/record-menu-utils'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
-import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { RecordMenuIcon } from './RecordMenuIcon'
 
+/** Props for {@link RecordActions}. */
 interface RecordActionsProps {
   tableMetaData: QTableMetaData
   record: QRecord
-  processes?: QProcessMetaData[]
+  /** The resolved Actions menu (see `resolveRecordMenu`). */
+  actionEntries: RecordMenuEntry[]
+  /** Resolves one of the table's additional menus into entries. */
+  resolveMenu: (menu: QTableMenu) => RecordMenuEntry[]
+  /** Runs a chosen action (navigation, the delete and audit dialogs, downloads, processes). */
+  onAction: (action: RecordMenuAction) => void
   className?: string
 }
 
+const BUTTON_CLASSES = cn(
+  'inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm font-medium',
+  'text-foreground bg-card hover:bg-accent',
+  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'transition-colors duration-150'
+)
+
+const ITEM_CLASSES = cn(
+  'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm text-foreground',
+  'outline-none data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+  'transition-colors duration-100'
+)
+
+const CONTENT_CLASSES = cn(
+  'z-50 min-w-[200px] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg',
+  'animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2'
+)
+
 /**
- * RecordActions — renders edit, copy, delete, and process action buttons for a record.
- *
- * When processes are available, actions are grouped into a Radix dropdown menu
- * with Edit as a standalone button for quick access. Without processes, all
- * permitted actions are shown as individual buttons.
+ * Whether a secondary action already has an enabled item in the Actions menu.
+ * @param entries - Resolved menu entries, including nested menus.
+ * @param type - The action being considered for a standalone button.
+ * @returns Whether the action remains accessible through the menu.
+ */
+function menuOffersAction(entries: RecordMenuEntry[], type: 'copy' | 'delete'): boolean {
+  return entries.some((entry) => entry.kind === 'submenu'
+    ? menuOffersAction(entry.entries, type)
+    : entry.kind === 'item' && !entry.disabled && entry.action.type === type)
+}
+
+/**
+ * Menu entries as Radix dropdown items, with sub-menus and separators.
  *
  * @param props - Component properties.
- * @returns A React fragment with a `<div>` of action controls followed by an
- *   optional {@link DeleteConfirmDialog} portal. When processes are present,
- *   the layout is Edit button + "Actions" dropdown (Copy, processes, Delete).
- *   When no processes exist, all permitted actions are rendered as individual
- *   buttons in a row.
+ * @param props.entries - Resolved entries.
+ * @param props.onAction - Runs a chosen action.
+ * @returns The items.
  */
-export function RecordActions({ tableMetaData, record, processes, className }: RecordActionsProps) {
-  const router = useRouter()
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-
-  const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
-
-  const canEdit = canEditRecords(tableMetaData)
-  const canDelete = canDeleteRecords(tableMetaData)
-  const canInsert = canInsertRecords(tableMetaData)
-
-  // Filter to visible, permitted processes that accept single records
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
-  )
-
-  const hasProcesses = availableProcesses.length > 0
-
+export function RecordMenuItems({ entries, onAction }: { entries: RecordMenuEntry[]; onAction: (action: RecordMenuAction) => void }) {
   return (
     <>
-      <div
-        className={cn('flex items-center gap-2', className)}
-        data-qqq-id={`record-actions-${tableMetaData.name}`}
-      >
-        {/* Standalone buttons shown when no processes exist */}
-        {!hasProcesses && (
-          <>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
-                data-qqq-id="button-edit"
-                aria-label={`Edit ${tableMetaData.label} record`}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
-                  'text-foreground bg-card hover:bg-accent',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                  'transition-colors duration-150'
-                )}
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                Edit
-              </button>
-            )}
-
-            {canInsert && (
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    `/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`
-                  )
-                }
-                data-qqq-id="button-copy"
-                aria-label={`Copy ${tableMetaData.label} record`}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
-                  'text-foreground bg-card hover:bg-accent',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                  'transition-colors duration-150'
-                )}
-              >
-                <Copy className="h-4 w-4" aria-hidden="true" />
-                Copy
-              </button>
-            )}
-
-            {canDelete && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteDialog(true)}
-                data-qqq-id="button-delete"
-                aria-label={`Delete ${tableMetaData.label} record`}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-destructive/30 px-3 py-2 text-sm font-medium',
-                  'text-destructive bg-card hover:bg-destructive/10',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                  'transition-colors duration-150'
-                )}
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Delete
-              </button>
-            )}
-          </>
-        )}
-
-        {/* Dropdown menu shown when processes are available */}
-        {hasProcesses && (
-          <>
-            {/* Keep Edit as a standalone button for quick access */}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
-                data-qqq-id="button-edit"
-                aria-label={`Edit ${tableMetaData.label} record`}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium',
-                  'text-foreground bg-card hover:bg-accent',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                  'transition-colors duration-150'
-                )}
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                Edit
-              </button>
-            )}
-
-            <DropdownMenuPrimitive.Root>
-              <DropdownMenuPrimitive.Trigger asChild>
-                <button
-                  type="button"
-                  data-qqq-id="record-action-menu"
-                  aria-label="Record actions menu"
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm font-medium',
-                    'text-foreground bg-card hover:bg-accent',
-                    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                    'transition-colors duration-150'
-                  )}
-                >
-                  Actions
-                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </DropdownMenuPrimitive.Trigger>
-
+      {entries.map((entry) => {
+        if (entry.kind === 'divider') {
+          return <DropdownMenuPrimitive.Separator key={entry.key} className="my-1 h-px bg-border" />
+        }
+        if (entry.kind === 'submenu') {
+          return (
+            <DropdownMenuPrimitive.Sub key={entry.key}>
+              <DropdownMenuPrimitive.SubTrigger className={cn(ITEM_CLASSES, 'justify-between')} data-qqq-id={`menu-item-${sanitizeQqqId(entry.id)}`}>
+                <span className="flex items-center gap-2">
+                  {entry.iconName ? <MetadataIcon iconName={entry.iconName} /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                  {entry.label}
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              </DropdownMenuPrimitive.SubTrigger>
               <DropdownMenuPrimitive.Portal>
-                <DropdownMenuPrimitive.Content
-                  align="end"
-                  sideOffset={4}
-                  className={cn(
-                    'z-50 min-w-[180px] overflow-hidden rounded-md border border-border bg-card shadow-lg',
-                    'animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2'
-                  )}
-                >
-                  {/* Edit */}
-                  {canEdit && (
-                    <DropdownMenuPrimitive.Item
-                      onSelect={() => router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)}
-                      data-qqq-id="record-action-edit"
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-foreground',
-                        'outline-none data-[highlighted]:bg-accent',
-                        'transition-colors duration-100'
-                      )}
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                      Edit
-                    </DropdownMenuPrimitive.Item>
-                  )}
-
-                  {/* Copy */}
-                  {canInsert && (
-                    <DropdownMenuPrimitive.Item
-                      onSelect={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)}
-                      data-qqq-id="record-action-copy"
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-foreground',
-                        'outline-none data-[highlighted]:bg-accent',
-                        'transition-colors duration-100'
-                      )}
-                    >
-                      <Copy className="h-4 w-4" aria-hidden="true" />
-                      Copy
-                    </DropdownMenuPrimitive.Item>
-                  )}
-
-                  {/* Separator before processes — only if there are menu items above */}
-                  {(canEdit || canInsert) && (
-                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />
-                  )}
-
-                  {/* Processes */}
-                  {availableProcesses.map((process) => (
-                    <DropdownMenuPrimitive.Item
-                      key={process.name}
-                      onSelect={() =>
-                        router.push(
-                          `/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`
-                        )
-                      }
-                      data-qqq-id={`record-action-${process.name}`}
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-foreground',
-                        'outline-none data-[highlighted]:bg-accent',
-                        'transition-colors duration-100'
-                      )}
-                    >
-                      <Play className="h-4 w-4" aria-hidden="true" />
-                      {process.label}
-                    </DropdownMenuPrimitive.Item>
-                  ))}
-
-                  {/* Separator before delete — only if there are menu items above */}
-                  {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
-                    <DropdownMenuPrimitive.Separator className="my-1 h-px bg-border" />
-                  )}
-
-                  {/* Delete (destructive) */}
-                  {canDelete && (
-                    <DropdownMenuPrimitive.Item
-                      onSelect={() => setShowDeleteDialog(true)}
-                      data-qqq-id="record-action-delete"
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm',
-                        'text-destructive',
-                        'outline-none data-[highlighted]:bg-destructive/10',
-                        'transition-colors duration-100'
-                      )}
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Delete
-                    </DropdownMenuPrimitive.Item>
-                  )}
-                </DropdownMenuPrimitive.Content>
+                <DropdownMenuPrimitive.SubContent className={CONTENT_CLASSES} sideOffset={2} data-qqq-id={`record-submenu-${entry.id}`}>
+                  <RecordMenuItems entries={entry.entries} onAction={onAction} />
+                </DropdownMenuPrimitive.SubContent>
               </DropdownMenuPrimitive.Portal>
-            </DropdownMenuPrimitive.Root>
-          </>
-        )}
-      </div>
-
-      {showDeleteDialog && (
-        <DeleteConfirmDialog
-          tableMetaData={tableMetaData}
-          record={record}
-          onClose={() => setShowDeleteDialog(false)}
-          onDeleted={() => {
-            router.push(`/app/${tableMetaData.name}`)
-          }}
-        />
-      )}
+            </DropdownMenuPrimitive.Sub>
+          )
+        }
+        return (
+          <DropdownMenuPrimitive.Item
+            key={entry.key}
+            disabled={entry.disabled}
+            onSelect={() => onAction(entry.action)}
+            data-qqq-id={`menu-item-${sanitizeQqqId(entry.id)}`}
+            className={cn(ITEM_CLASSES, entry.action.type === 'delete' && 'text-destructive data-[highlighted]:bg-destructive/10')}
+          >
+            <RecordMenuIcon entry={entry} />
+            {entry.label}
+          </DropdownMenuPrimitive.Item>
+        )
+      })}
     </>
+  )
+}
+
+/**
+ * The record view's compact Next controls: Edit, secondary actions when the Actions menu
+ * does not already offer them, and each metadata-defined additional menu.
+ *
+ * @param props - {@link RecordActionsProps}
+ * @returns The controls.
+ */
+export function RecordActions({ tableMetaData, record, actionEntries, resolveMenu, onAction, className }: RecordActionsProps) {
+  const router = useRouter()
+
+  const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
+  const canEdit = canEditRecords(tableMetaData)
+  const canCopy = canInsertRecords(tableMetaData)
+  const canDelete = canDeleteRecords(tableMetaData)
+
+  const additionalMenus = recordAdditionalMenus(tableMetaData)
+    .map((menu, index) => ({ menu, index, entries: resolveMenu(menu) }))
+    .filter(({ entries }) => hasMenuItems(entries))
+
+  return (
+    <div className={cn('flex items-center gap-2', className)} data-qqq-id={`record-view-button-bar-${sanitizeQqqId(tableMetaData.name)}`}>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/edit`)}
+          data-qqq-id="button-edit"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.edit}
+          aria-label={`Edit ${tableMetaData.label} record`}
+          className={BUTTON_CLASSES}
+        >
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+          Edit
+        </button>
+      )}
+
+      {canCopy && !menuOffersAction(actionEntries, 'copy') && (
+        <button
+          type="button"
+          onClick={() => router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)}
+          data-qqq-id="button-copy"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.edit}
+          aria-label={`Copy ${tableMetaData.label} record`}
+          className={BUTTON_CLASSES}
+        >
+          <Copy className="h-4 w-4" aria-hidden="true" />
+          Copy
+        </button>
+      )}
+
+      {canDelete && !menuOffersAction(actionEntries, 'delete') && (
+        <button
+          type="button"
+          onClick={() => onAction({ type: 'delete' })}
+          data-qqq-id="button-delete"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS.delete}
+          aria-label={`Delete ${tableMetaData.label} record`}
+          className={cn(BUTTON_CLASSES, 'border-destructive/30 text-destructive hover:bg-destructive/10')}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          Delete
+        </button>
+      )}
+
+      {additionalMenus.map(({ menu, index, entries }) => (
+        <DropdownMenuPrimitive.Root key={index}>
+          <DropdownMenuPrimitive.Trigger asChild>
+            <button type="button" data-qqq-id={`record-additional-menu-${index}`} className={BUTTON_CLASSES}>
+              {menu.icon?.name && <MetadataIcon icon={menu.icon} />}
+              {menu.label || 'More'}
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </DropdownMenuPrimitive.Trigger>
+          <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content align="end" sideOffset={4} className={CONTENT_CLASSES}>
+              <RecordMenuItems entries={entries} onAction={onAction} />
+            </DropdownMenuPrimitive.Content>
+          </DropdownMenuPrimitive.Portal>
+        </DropdownMenuPrimitive.Root>
+      ))}
+
+      {hasMenuItems(actionEntries) && (
+        <span className="contents" data-qqq-id="record-view-actions-menu-button">
+        <DropdownMenuPrimitive.Root>
+          <DropdownMenuPrimitive.Trigger asChild>
+            <button type="button" data-qqq-id="button-actions-menu" data-button-variant={MATERIAL_BUTTON_VARIANTS['actions-menu']} aria-label="Record actions menu" className={BUTTON_CLASSES}>
+              Actions
+              <MoreVertical className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </DropdownMenuPrimitive.Trigger>
+          <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content align="end" sideOffset={4} className={CONTENT_CLASSES} data-qqq-id="record-view-actions-menu">
+              <RecordMenuItems entries={actionEntries} onAction={onAction} />
+            </DropdownMenuPrimitive.Content>
+          </DropdownMenuPrimitive.Portal>
+        </DropdownMenuPrimitive.Root>
+        </span>
+      )}
+    </div>
   )
 }

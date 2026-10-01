@@ -50,6 +50,11 @@ describe('datetime-local conversion', () => {
     expect(fromLocalDateTimeInput('2024-03-10T09:15:00Z')).toBe('2024-03-10T09:15:00Z')
   })
 
+  it('preserves the original instant and precision when local text is unchanged', () => {
+    const original = '2024-11-03T06:30:15.123456Z'
+    expect(fromLocalDateTimeInput(toLocalDateTimeInput(original), original)).toBe(original)
+  })
+
   it('leaves an empty or unreadable stored value empty', () => {
     expect(toLocalDateTimeInput(null)).toBe('')
     expect(toLocalDateTimeInput('garbage')).toBe('')

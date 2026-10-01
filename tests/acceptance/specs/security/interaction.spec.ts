@@ -11,6 +11,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Locator, Page, Route } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { listCell, navigation, openUserMenu, tabKey } from './support/ui'
 
 const personGrid = (page: Page) => page.getByRole('grid', { name: 'Person records' })
@@ -77,7 +78,7 @@ test.describe('keyboard operation', () => {
     expect(await backend.sql('select first_name from person where id = 2')).toEqual([{ first_name: 'Blake' }])
   })
 
-  test('[INT-002] run a process through its steps using only the keyboard', async ({ page, backend, diagnostics }) => {
+  test('[INT-002] run a process through its steps using only the keyboard @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     await open(page, '/app/greetInteractive?recordsParam=recordIds&recordIds=1,2')
@@ -110,15 +111,24 @@ test.describe('dialogs and focus', () => {
       await expect(menuItem.or(sheetItem).first()).toBeVisible()
       const inMenu = await menuItem.isVisible()
       const deleteItem = inMenu ? menuItem : sheetItem
-      for (let presses = 0; presses < 12 && !(await deleteItem.evaluate((element) => element === document.activeElement)); presses++) {
-        await page.keyboard.press(inMenu ? 'ArrowDown' : tabKey(page))
+      if (inMenu) {
+        await page.keyboard.press('Home')
+        for (const label of ['New', 'Copy', 'Edit', 'Delete']) {
+          const item = page.getByRole('menuitem', { name: label, exact: true })
+          await expect(item).toBeFocused()
+          if (label !== 'Delete') await page.keyboard.press('ArrowDown')
+        }
+      } else {
+        await tabTo(page, deleteItem, 20)
       }
       await expect(deleteItem).toBeFocused()
-      await page.keyboard.press('Enter')
+      await deleteItem.press('Enter')
     }
     await tabTo(page, trigger)
     await chooseDelete()
     const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expectTouchReady(page, dialog)
     await expect(dialog).toBeVisible()
     expect(await isFocusedWithin(dialog)).toBe(true)
     for (let presses = 0; presses < 8; presses++) {
@@ -138,7 +148,7 @@ test.describe('dialogs and focus', () => {
     expect(await backend.sql('select id from person where id = 5')).toEqual([])
   })
 
-  test('[INT-004] command menu and shortcut dialogs open by keyboard, keep focus inside and restore it on Escape', async ({ page, backend, diagnostics }) => {
+  test('[INT-004] command menu and shortcut dialogs open by keyboard, keep focus inside and restore it on Escape @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     await open(page, '/app/person')
@@ -148,6 +158,8 @@ test.describe('dialogs and focus', () => {
     await page.keyboard.press('ControlOrMeta+k')
     const palette = page.getByRole('dialog')
     await expect(palette).toBeVisible()
+    await expectTouchReady(page, palette)
+    await expect(palette).toBeVisible()
     expect(await isFocusedWithin(palette)).toBe(true)
     await page.keyboard.press('Escape')
     await expect(palette).toHaveCount(0)
@@ -155,6 +167,8 @@ test.describe('dialogs and focus', () => {
 
     await page.keyboard.press('?')
     const shortcuts = page.getByRole('dialog')
+    await expect(shortcuts).toBeVisible()
+    await expectTouchReady(page, shortcuts)
     await expect(shortcuts).toBeVisible()
     expect(await isFocusedWithin(shortcuts)).toBe(true)
     await page.keyboard.press('Escape')
@@ -176,32 +190,36 @@ test.describe('accessibility', () => {
       .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).slice(0, 5).join(' | ')}`)
   }
 
-  test('[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations @mobile', async ({ page, backend, diagnostics }) => {
-    void diagnostics
-    void backend
-    const pages: Array<[string, (page: Page) => Promise<unknown>]> = [
-      ['/app/miscellaneous', (p) => expect(p.getByRole('heading', { name: 'Miscellaneous', level: 1 })).toBeVisible()],
-      ['/app/person', (p) => expect(listCell(p, 'Person', 'Avery')).toBeVisible()],
-      ['/app/person/1', (p) => expect(p.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()],
-      ['/app/person/1/edit', (p) => expect(p.getByRole('textbox', { name: 'First Name' })).toHaveValue('Avery')],
-      ['/app/greetInteractive?recordsParam=recordIds&recordIds=1', (p) => expect(p.getByRole('textbox', { name: 'Greeting Prefix' })).toBeVisible()],
-    ]
-    const found: Record<string, string[]> = {}
-    for (const [path, ready] of pages) {
-      await open(page, path)
-      await ready(page)
-      const violations = await scan(page)
-      if (violations.length) found[path] = violations
-    }
-    const menu = await openUserMenu(page)
-    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
-    await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
-    const loginViolations = await scan(page)
-    if (loginViolations.length) found['/login'] = loginViolations
-    expect(found).toEqual({})
-  })
+  for (const mode of ['light', 'dark'] as const) {
+    test(`[INT-005] login, app home, list, record, edit form and process step have no serious WCAG 2.1 AA violations in ${mode} mode @mobile`, async ({ page, backend, diagnostics }) => {
+      void diagnostics
+      void backend
+      await page.emulateMedia({ colorScheme: mode === 'dark' ? 'light' : 'dark' })
+      await page.addInitScript((dark) => localStorage.setItem('qqq-dark-mode', String(dark)), mode === 'dark')
+      const pages: Array<[string, (page: Page) => Promise<unknown>]> = [
+        ['/app/miscellaneous', (p) => expect(p.getByRole('heading', { name: 'Miscellaneous', level: 1 })).toBeVisible()],
+        ['/app/person', (p) => expect(listCell(p, 'Person', 'Avery')).toBeVisible()],
+        ['/app/person/1', (p) => expect(p.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()],
+        ['/app/person/1/edit', (p) => expect(p.getByRole('textbox', { name: 'First Name' })).toHaveValue('Avery')],
+        ['/app/greetInteractive?recordsParam=recordIds&recordIds=1', (p) => expect(p.getByRole('textbox', { name: 'Greeting Prefix' })).toBeVisible()],
+      ]
+      const found: Record<string, string[]> = {}
+      for (const [path, ready] of pages) {
+        await open(page, path)
+        await ready(page)
+        const violations = await scan(page)
+        if (violations.length) found[path] = violations
+      }
+      const menu = await openUserMenu(page)
+      await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+      await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+      const loginViolations = await scan(page)
+      if (loginViolations.length) found['/login'] = loginViolations
+      expect(found).toEqual({})
+    })
+  }
 
-  test('[INT-006] form fields carry their metadata labels, required state and announced errors', async ({ page, backend, diagnostics }) => {
+  test('[INT-006] form fields carry their metadata labels, required state and announced errors @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     await open(page, '/app/person/create')
@@ -237,9 +255,9 @@ test.describe('validation', () => {
     expect(await backend.sql('select count(*) as n from person')).toEqual(before)
   })
 
-  test('[INT-007] a backend validation rejection is shown and nothing is saved', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/fieldLab 400')
-    diagnostics.allow('/data/fieldLab 500')
+  test('[INT-007] a backend validation rejection is shown and nothing is saved @mobile', async ({ page, backend, diagnostics }) => {
+    diagnostics.allow('/qqq/v1/table/fieldLab 400')
+    diagnostics.allow('/qqq/v1/table/fieldLab 500')
     diagnostics.allow(/status of (400|500)/)
     await open(page, '/app/fieldLab/create')
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Range check')
@@ -286,6 +304,36 @@ test.describe('phone layout', () => {
     expect(await backend.sql('select first_name from person where id = 2')).toEqual([{ first_name: 'Blaine' }])
   })
 
+  test('[INT-001] with a keyboard on a phone: open a card, the record actions sheet and the edit form, and save @mobile', async ({ page, backend, diagnostics }) => {
+    void diagnostics
+    // the drawer part of this row is proven by tap (INT-008) and by keyboard on wider screens: the
+    // phone drawer does not yet move focus in when opened from the keyboard (QRun-IO/qqq#708)
+    await open(page, '/app/person')
+    const blair = listCell(page, 'Person', 'Blair')
+    await tabTo(page, blair, 120)
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
+
+    await tabTo(page, page.locator('[data-qqq-id="button-mobile-actions"]'))
+    await page.keyboard.press('Enter')
+    const sheet = page.getByRole('dialog', { name: 'Record actions' })
+    await expect(sheet).toBeVisible()
+    await tabTo(page, sheet.getByRole('button', { name: 'Edit Person' }))
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/app\/person\/2\/edit\/?$/)
+    const firstName = page.getByRole('textbox', { name: 'First Name' })
+    await tabTo(page, firstName)
+    await expect(firstName).toHaveValue('Blair')
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.type('Blake', { delay: 30 })
+    await expect(firstName).toHaveValue('Blake')
+    await tabTo(page, page.locator('[data-qqq-id="button-save"]'))
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
+    await expect(page.getByRole('heading', { name: /Blake/ }).first()).toBeVisible()
+    expect(await backend.sql('select first_name from person where id = 2')).toEqual([{ first_name: 'Blake' }])
+  })
+
   test('[INT-009] a held list request shows busy placeholder cards on a phone, then the real cards @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     // QRun-IO/qqq#694: the card list rendered "No records found" while the records loaded
@@ -320,7 +368,7 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(page.locator('[data-qqq-id="grid-loading"]')).toHaveCount(0)
   })
 
-  test('[INT-010] a failing list request explains the failure and Retry recovers', async ({ page, backend, diagnostics }) => {
+  test('[INT-010] a failing list request explains the failure and Retry recovers @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     diagnostics.allow('/qqq/v1/table/person/query 500')
     diagnostics.allow('status of 500')
@@ -335,9 +383,9 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(failure).toHaveCount(0)
   })
 
-  test('[INT-011] a slow save disables the submit control and a double submit creates one record', async ({ page, backend, diagnostics }) => {
+  test('[INT-011] a slow save disables the submit control and a double submit creates one record @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
-    await page.route('**/data/person', async (route: Route) => {
+    await page.route('**/qqq/v1/table/person', async (route: Route) => {
       if (route.request().method() === 'POST') await new Promise((resolve) => setTimeout(resolve, 1500))
       await route.continue()
     })
@@ -353,11 +401,11 @@ test.describe('loading, failure, delay and stale data', () => {
     expect(await backend.sql("select count(*) as n from person where first_name = 'Quinn'")).toEqual([{ n: '1' }])
   })
 
-  test('[INT-011] a failed save is reported and not silently re-sent', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/person 500')
+  test('[INT-011] a failed save is reported and not silently re-sent @mobile', async ({ page, backend, diagnostics }) => {
+    diagnostics.allow('/qqq/v1/table/person 500')
     diagnostics.allow('status of 500')
     let attempts = 0
-    await page.route('**/data/person', async (route: Route) => {
+    await page.route('**/qqq/v1/table/person', async (route: Route) => {
       if (route.request().method() !== 'POST') return route.continue()
       attempts++
       if (attempts === 1) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Connection reset' }) })
@@ -375,12 +423,14 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(page).toHaveURL(/\/app\/person\/create\/?$/)
   })
 
-  test('[INT-012] records changed or deleted elsewhere are not shown stale after navigation', async ({ page, backend, diagnostics }) => {
-    diagnostics.allow('/data/person/3 404')
+  test('[INT-012] records changed or deleted elsewhere are not shown stale after navigation @mobile', async ({ page, backend, diagnostics }) => {
+    diagnostics.allow('/qqq/v1/table/person/3 404')
     diagnostics.allow('status of 404')
     await open(page, '/app/person')
     await expect(listCell(page, 'Person', 'Blair')).toBeVisible()
     await listCell(page, 'Person', 'Blair').click()
+    // on a phone the card titles are headings too: wait for the record page before reading its heading
+    await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
     await expect(page.getByRole('heading', { name: /Blair/ }).first()).toBeVisible()
     await page.goBack()
     await expect(listCell(page, 'Person', 'Casey')).toBeVisible()
@@ -395,13 +445,14 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(listCell(page, 'Person', 'Bryn')).toBeVisible()
     await expect(listCell(page, 'Person', 'Casey')).toHaveCount(0)
     await listCell(page, 'Person', 'Bryn').click()
+    await expect(page).toHaveURL(/\/app\/person\/2\/?$/)
     await expect(page.getByRole('heading', { name: /Bryn/ }).first()).toBeVisible()
 
     await open(page, '/app/person/3')
     await expect(page.locator('[data-qqq-id="record-view-not-found-person"]')).toContainText('Record Not Found')
   })
 
-  test('[INT-013] a query with no results explains it and offers the way back', async ({ page, backend, diagnostics }) => {
+  test('[INT-013] a query with no results explains it and offers the way back @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     void backend
     await open(page, '/app/person')
@@ -414,7 +465,7 @@ test.describe('loading, failure, delay and stale data', () => {
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   })
 
-  test('[INT-014] an unreachable backend at sign-in is explained and Try again recovers', async ({ page, backend, diagnostics }) => {
+  test('[INT-014] an unreachable backend at sign-in is explained and Try again recovers @mobile', async ({ page, backend, diagnostics }) => {
     void backend
     // the aborted request is reported differently per browser (net::ERR_FAILED, NS_ERROR_FAILURE, Web Inspector)
     diagnostics.allow(/POST \S*\/qqq\/v1\/manageSession /)
@@ -423,6 +474,7 @@ test.describe('loading, failure, delay and stale data', () => {
     await page.route('**/qqq/v1/manageSession', (route: Route) => fail ? route.abort('failed') : route.continue())
     await open(page, '/app/person')
     await expect(page.locator('[data-qqq-id="login-error"]')).toContainText('Sign-in failed')
+    await expectTouchReady(page)
     fail = false
     await page.getByRole('button', { name: 'Try again' }).click()
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()

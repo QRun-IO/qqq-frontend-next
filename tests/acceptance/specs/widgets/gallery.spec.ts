@@ -7,6 +7,7 @@
 
 // Owned widgets of the remaining canonical display types (WidgetsFixtures widgetGallery).
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { chartTable, expectLoaded, widget, widgetPayload } from './widget-support'
 
 test.describe('widget gallery', () => {
@@ -18,7 +19,7 @@ test.describe('widget gallery', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Widget Gallery' })).toBeVisible()
   })
 
-  test('[WID-001] alert renders its severity, sanitized HTML and bullet list', async ({ page, backend, diagnostics }) => {
+  test('[WID-001] alert renders its severity, sanitized HTML and bullet list @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accAlert')
     expect(payload.alertType).toBe('WARNING')
@@ -31,7 +32,7 @@ test.describe('widget gallery', () => {
     await expect(alert.locator('li').nth(1)).toHaveText('Second owned bullet')
   })
 
-  test('[WID-063] a hidden alert renders nothing at all', async ({ page, backend, diagnostics }) => {
+  test('[WID-063] a hidden alert renders nothing at all @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     expect((await widgetPayload(backend.api, 'accAlertHidden')).hideWidget).toBe(true)
     await expectLoaded(page, 'accAlert')
@@ -40,7 +41,7 @@ test.describe('widget gallery', () => {
     await expect(page.getByText('Hidden owned alert')).toHaveCount(0)
   })
 
-  test('[WID-004] divider renders a rule without card chrome', async ({ page, diagnostics }) => {
+  test('[WID-004] divider renders a rule without card chrome @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     const divider = widget(page, 'accDivider')
     await expect(divider.locator('hr')).toBeVisible()
@@ -48,7 +49,7 @@ test.describe('widget gallery', () => {
     await expect(divider.locator('[data-qqq-id="widget-label-accDivider"]')).toHaveCount(0)
   })
 
-  test('[WID-005] field value list shows labels, display values, zero, prefix icon and indentation', async ({ page, diagnostics }) => {
+  test('[WID-005] field value list shows labels, display values, zero, prefix icon and indentation @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accFieldValueList')
     const owner = page.locator('[data-qqq-id="field-value-accFieldValueList-owner"]')
@@ -61,7 +62,7 @@ test.describe('widget gallery', () => {
     await expect(page.locator('[data-qqq-id="field-value-accFieldValueList-choice"]')).toHaveText('Choice:Owned choice')
   })
 
-  test('[WID-007] horizontal bar chart draws negative values left of the zero line', async ({ page, backend, diagnostics }) => {
+  test('[WID-007] horizontal bar chart draws negative values left of the zero line @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accHorizontalBarChart')
     await expectLoaded(page, 'accHorizontalBarChart')
@@ -79,7 +80,7 @@ test.describe('widget gallery', () => {
     await expect(card.locator('[data-qqq-id="chart-description-accHorizontalBarChart"] b')).toHaveText('data')
   })
 
-  test('[WID-013] multi-table renders each labelled table with its rows', async ({ page, diagnostics }) => {
+  test('[WID-013] multi-table renders each labelled table with its rows @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accMultiTable')
     const first = page.locator('[data-qqq-id="table-widget-accMultiTable-0"]')
@@ -89,9 +90,10 @@ test.describe('widget gallery', () => {
     await expect(second.getByRole('heading', { name: 'Second' })).toBeVisible()
     await expect(second.getByRole('cell', { name: 'Second owned row' })).toBeVisible()
     await expect(first.getByRole('columnheader')).toHaveText(['Name'])
+    await expectTouchReady(page, page.locator('[data-qqq-id="widget-grid"]'))
   })
 
-  test('[WID-011] location card shows image, title, description, address and footer', async ({ page, backend, diagnostics }) => {
+  test('[WID-011] location card shows image, title, description, address and footer @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accLocation')
     await expectLoaded(page, 'accLocation')
@@ -105,7 +107,7 @@ test.describe('widget gallery', () => {
     await expect(card).toContainText('Owned footer')
   })
 
-  test('[WID-020] USA map plots each marker by longitude and lists the locations', async ({ page, backend, diagnostics }) => {
+  test('[WID-020] USA map plots each marker by longitude and lists the locations @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accUsaMap')
     await expectLoaded(page, 'accUsaMap')
@@ -124,13 +126,13 @@ test.describe('widget gallery', () => {
     }
   })
 
-  test('[WID-025] custom component loads its bundle and renders with the widget metadata and data', async ({ page, diagnostics }) => {
+  test('[WID-025] custom component loads its bundle and renders with the widget metadata and data @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accCustomComponent')
     await expect(page.locator('[data-qqq-id="custom-component-accCustomComponent"]')).toHaveText('Loaded component: Owned Custom Component / Owned component value')
   })
 
-  test('[WID-062] a custom component whose bundle is missing shows a contained error', async ({ page, diagnostics }) => {
+  test('[WID-062] a custom component whose bundle is missing shows a contained error @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accCustomComponentMissing')
     await expect(page.locator('[data-qqq-id="custom-component-error-accCustomComponentMissing"]')).toHaveText('Error loading MissingOwnedComponent')
@@ -138,14 +140,14 @@ test.describe('widget gallery', () => {
     await expect(page.locator('[data-qqq-id="custom-component-accCustomComponent"]')).toContainText('Loaded component')
   })
 
-  test('[WID-006] generic widget renders its sublabel and sanitized footer', async ({ page, diagnostics }) => {
+  test('[WID-006] generic widget renders its sublabel and sanitized footer @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accGeneric')
     await expect(page.locator('[data-qqq-id="widget-sublabel-accGeneric"]')).toHaveText('Owned sublabel')
     await expect(page.locator('[data-qqq-id="widget-footer-accGeneric"] b')).toHaveText('Owned footer')
   })
 
-  test('[WID-016] statistics count links to its URL and an increase is bad when increases are not good', async ({ page, backend, diagnostics }) => {
+  test('[WID-016] statistics count links to its URL and an increase is bad when increases are not good @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accStatisticsGood')
     await expectLoaded(page, 'accStatisticsGood')
@@ -157,7 +159,7 @@ test.describe('widget gallery', () => {
     await expect(change).toHaveClass(/text-red-600/)
   })
 
-  test('[WID-017] stacked bars use each dataset color', async ({ page, diagnostics }) => {
+  test('[WID-017] stacked bars use each dataset color @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accStackedBars')
     await expect(widget(page, 'accStackedBars').locator('.recharts-bar-rectangle path')).toHaveCount(4)

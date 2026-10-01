@@ -45,6 +45,8 @@ interface PaginationProps {
   totalPages: number
   /** Whether a background fetch is in progress; navigation buttons are disabled when true. */
   isFetching: boolean
+  /** Whether the matching count is still being computed (Material shows "Counting..."). */
+  isCounting?: boolean
   /** Callback invoked when the user navigates to a different page. */
   onPageChange: (page: number) => void
   /** Callback invoked when the user changes the rows-per-page setting. */
@@ -71,6 +73,7 @@ export function Pagination({
   pageRowCount = 0,
   totalPages,
   isFetching,
+  isCounting = false,
   onPageChange,
   onPageSizeChange,
 }: PaginationProps) {
@@ -112,19 +115,21 @@ export function Pagination({
 
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-3 py-3"
       data-qqq-id="pagination"
     >
       {/* Left: record count summary */}
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span aria-live="polite" aria-atomic="true">
-          {shown === 0 ? (
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <span aria-live="polite" aria-atomic="true" data-qqq-id="pagination-summary">
+          {isCounting && !uncounted ? (
+            'Counting...'
+          ) : shown === 0 ? (
             'No records'
           ) : (
             <>
               Showing{' '}
               <span className="font-medium text-foreground">
-                {startRecord}–{endRecord}
+                {startRecord.toLocaleString()}–{endRecord.toLocaleString()}
               </span>
               {!uncounted && (
                 <>
@@ -163,7 +168,7 @@ export function Pagination({
       </div>
 
       {/* Right: navigation controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {/* First page */}
         <button
           type="button"
@@ -189,7 +194,7 @@ export function Pagination({
         </button>
 
         {/* Page indicator */}
-        <span className="px-3 text-sm text-foreground" aria-current="page">
+        <span className="shrink-0 whitespace-nowrap px-1 text-sm text-foreground" aria-current="page">
           {uncounted ? pageNum : `${pageNum} / ${totalPages}`}
         </span>
 

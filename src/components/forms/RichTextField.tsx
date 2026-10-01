@@ -21,7 +21,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import { Bold, Italic, Underline, Link } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { normalizeEditorHtml } from '@/lib/utils/editor-html'
@@ -86,7 +86,7 @@ export function RichTextField({
     const editor = editorRef.current
     if (!editor) return
     if (emitted.current && value === emitted.current.value && editor.innerHTML === emitted.current.html) return
-    if (editor.innerHTML !== value) editor.innerHTML = DOMPurify.sanitize(value)
+    if (editor.innerHTML !== value) editor.innerHTML = sanitizeHtml(value)
   }, [value])
 
   /**

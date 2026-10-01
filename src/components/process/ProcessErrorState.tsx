@@ -26,6 +26,7 @@ import React, { useId, useState } from 'react'
 import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 
 /** Props for {@link ProcessErrorState}. */
 export interface ProcessErrorStateProps {
@@ -36,7 +37,8 @@ export interface ProcessErrorStateProps {
   processName: string
   processLabel: string
   onRetry?: () => void
-  onClose: () => void
+  /** Leaves the run; omitted for a run embedded in a widget, which has nowhere to leave to. */
+  onClose?: () => void
 }
 
 const buttonBase = 'inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
@@ -75,17 +77,19 @@ export function ProcessErrorState({ error, isUserFacing, processName, processLab
               {showDetail ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
               {showDetail ? 'Hide detailed error message' : 'Show detailed error message'}
             </button>
-            <p id={detailId} hidden={!showDetail} className="mx-auto mt-2 max-w-lg break-all font-mono text-xs text-destructive" data-qqq-id="process-error-detail">
+            <p id={detailId} hidden={!showDetail} className="mx-auto mt-2 max-w-lg break-all font-mono text-xs text-red-800 dark:text-red-400" data-qqq-id="process-error-detail">
               {error}
             </p>
           </div>
         )}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Close
-        </button>
+        {onClose && (
+          <button type="button" onClick={onClose} className={cn(buttonBase, 'border border-border bg-card text-foreground hover:bg-accent')} data-qqq-id="button-close" data-button-variant={MATERIAL_BUTTON_VARIANTS.close}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Close
+          </button>
+        )}
         {onRetry && (
           <button type="button" onClick={onRetry} className={cn(buttonBase, 'bg-primary text-primary-foreground hover:bg-primary/90')} data-qqq-id="button-retry">
             <RefreshCw className="h-4 w-4" aria-hidden="true" />

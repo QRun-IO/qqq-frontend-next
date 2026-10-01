@@ -15,28 +15,33 @@
  */
 
 /**
- * @file navigation-search — client-side "jump to" search over navigation targets and
- * recently viewed records. QQQ has no global record-search endpoint, so the header
- * search, the `/` search dialog and the search page match metadata labels locally
- * (as Material Dashboard's history search does) and never call the backend.
+ * @file navigation-search — "jump to" search results for the header search, the `/`
+ * search dialog and the search page: navigation targets and recently viewed records,
+ * matched locally by label, plus the records a backend record search found (only
+ * when the metadata advertises searchable tables; see `record-search.ts`).
  */
 
 import type { QIcon } from '@/types'
 import type { QAppNodeType } from '@/types/enums'
 import type { NavTarget } from '@/lib/hooks/use-routes'
+import type { RecordSearchResult } from '@/lib/api/tables'
 import type { RecentRecord } from './recent-records'
+import { recordSearchResultPath } from './record-search'
 
 /** One selectable search result. */
 export interface NavigationSearchItem {
-  /** `page` = app, table, process or report; `record` = recently viewed record. */
-  kind: 'page' | 'record'
+  /**
+   * `page` = app, table, process or report; `result` = record found by record search;
+   * `record` = recently viewed record.
+   */
+  kind: 'page' | 'result' | 'record'
   /** Destination path. */
   path: string
   /** Primary label. */
   label: string
   /** Secondary context: enclosing apps for pages, table label for records. */
   context: string
-  /** Metadata icon (pages only). */
+  /** Metadata icon: the node's for pages, the table's for recently viewed records. */
   icon?: QIcon
   /** App-tree node type (pages only). */
   nodeType?: QAppNodeType
@@ -84,19 +89,22 @@ export function searchRecentRecords(records: RecentRecord[], term: string): Rece
 }
 
 /**
- * Builds the ordered result list: matching pages, then matching recent records.
+ * Builds the ordered result list: matching pages, then records found by record
+ * search (in backend order), then matching recent records not already found.
  *
  * @param targets - Navigable targets.
  * @param records - Recently viewed records, newest first.
  * @param term - Search text; blank lists only the recent records.
- * @param limit - Maximum results per kind.
+ * @param limit - Maximum pages and recent records (record search limits its own results).
+ * @param found - Records found by record search for `term`.
  * @returns Selectable results.
  */
 export function buildNavigationSearchItems(
   targets: NavTarget[],
   records: RecentRecord[],
   term: string,
-  limit = 8
+  limit = 8,
+  found: RecordSearchResult[] = []
 ): NavigationSearchItem[] {
   const pages: NavigationSearchItem[] = searchNavTargets(targets, term).slice(0, limit).map((target) => ({
     kind: 'page',
@@ -106,11 +114,22 @@ export function buildNavigationSearchItems(
     icon: target.icon,
     nodeType: target.nodeType,
   }))
-  const recent: NavigationSearchItem[] = searchRecentRecords(records, term).slice(0, limit).map((record) => ({
-    kind: 'record',
-    path: record.path,
-    label: record.recordLabel,
-    context: record.tableLabel,
+  const results: NavigationSearchItem[] = found.map((result) => ({
+    kind: 'result',
+    path: recordSearchResultPath(result),
+    label: result.recordLabel,
+    context: result.tableLabel ?? '',
   }))
-  return [...pages, ...recent]
+  const foundPaths = new Set(results.map((result) => result.path))
+  const recent: NavigationSearchItem[] = searchRecentRecords(records, term)
+    .filter((record) => !foundPaths.has(record.path))
+    .slice(0, limit)
+    .map((record) => ({
+      kind: 'record',
+      path: record.path,
+      label: record.recordLabel,
+      context: record.tableLabel,
+      icon: record.tableIcon,
+    }))
+  return [...pages, ...results, ...recent]
 }

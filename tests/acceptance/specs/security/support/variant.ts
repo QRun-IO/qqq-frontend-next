@@ -17,8 +17,9 @@ import { test as base, type APIRequestContext } from '@playwright/test'
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_FRONTEND_PORT } from '../../../support/ports'
 import type { Diagnostics, Persona, SampleUser } from '../../../support/fixtures'
 import { test as acceptanceTest } from '../../../support/fixtures'
+import { resolveFixtureClasspath } from '../../../../../scripts/acceptance-paths.mjs'
 
-export type AuthMode = 'MOCK' | 'OAUTH2' | 'AUTH_0' | 'FULLY_ANONYMOUS' | 'TABLE_BASED'
+export type AuthMode = 'MOCK' | 'OAUTH2' | 'AUTH_0' | 'FULLY_ANONYMOUS' | 'TABLE_BASED' | 'UNSUPPORTED'
 
 export const SECURITY_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? ACCEPTANCE_BACKEND_PORT + 10)
 export const IDP_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_IDP_PORT ?? ACCEPTANCE_FRONTEND_PORT + 10)
@@ -35,13 +36,13 @@ function sampleJar(): string {
 }
 
 let compiled = false
-function compileFixtures(jar: string) {
+function compileFixtures(classpath: string) {
   if (compiled) return
   rmSync(CLASSES, { recursive: true, force: true })
   mkdirSync(CLASSES, { recursive: true })
   const directory = path.resolve('tests/acceptance/fixture')
   const sources = readdirSync(directory).filter((name) => name.endsWith('.java')).map((name) => path.join(directory, name))
-  const result = spawnSync('javac', ['-proc:none', '-encoding', 'UTF-8', '-cp', jar, '-d', CLASSES, ...sources], { encoding: 'utf8' })
+  const result = spawnSync('javac', ['-proc:none', '-encoding', 'UTF-8', '-cp', classpath, '-d', CLASSES, ...sources], { encoding: 'utf8' })
   if (result.status !== 0) throw new Error(`Security fixture compilation failed:\n${result.stderr}`)
   compiled = true
 }
@@ -88,8 +89,8 @@ export async function startVariant(mode: AuthMode, options: { env?: Record<strin
   if (!existsSync(path.join(EXPORT_CLASSPATH, 'next-dashboard', 'index.html'))) {
     throw new Error('No Next export on the acceptance classpath; run node scripts/acceptance.mjs (javalin mode) first.')
   }
-  const jar = sampleJar()
-  compileFixtures(jar)
+  const classpath = resolveFixtureClasspath(sampleJar())
+  compileFixtures(classpath)
   // OAUTH2 uses the sample's own OAuth2 provider (non-mock instance); others start from the mock instance
   const mock = mode !== 'OAUTH2'
   const args = [
@@ -100,7 +101,7 @@ export async function startVariant(mode: AuthMode, options: { env?: Record<strin
     '-Duser.timezone=UTC',
     '-Dqqq.javalin.frontend=next',
     ...Object.entries(options.properties ?? {}).map(([name, value]) => `-D${name}=${value}`),
-    '-cp', [EXPORT_CLASSPATH, CLASSES, jar].join(path.delimiter),
+    '-cp', [EXPORT_CLASSPATH, CLASSES, classpath].join(path.delimiter),
     'SecurityAcceptanceServer',
   ]
   const child = spawn('java', args, { env: { ...process.env, ...options.env }, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -138,21 +139,21 @@ export interface SecurityBackend {
  * personas and sample users as the shared backend, a fresh database per test.
  */
 export const test = acceptanceTest.extend<{ security: SecurityBackend }, { securityVariant: void }>({
-  securityVariant: [async ({}, use) => {
+  securityVariant: [async ({}, provide) => {
     await startVariant('MOCK')
-    await use()
+    await provide()
     await stopVariant()
   }, { scope: 'worker' }],
-  baseURL: async ({ securityVariant }, use) => { void securityVariant; await use(SECURITY_URL) },
-  security: async ({ context, persona, user, playwright, securityVariant }, use) => {
+  baseURL: async ({ securityVariant }, provide) => { void securityVariant; await provide(SECURITY_URL) },
+  security: async ({ context, persona, user, playwright, securityVariant }, provide) => {
     void securityVariant
     await startVariant('MOCK')
     const sessionId = randomUUID()
     await control('reset', {})
     await control('persona', { sessionId, persona, user })
-    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1' }])
+    await context.addCookies([{ name: 'sessionId', value: sessionId, url: 'http://127.0.0.1', httpOnly: true }])
     const api = await playwright.request.newContext({ baseURL: SECURITY_URL, extraHTTPHeaders: { Cookie: `sessionId=${sessionId}` } })
-    await use({
+    await provide({
       url: SECURITY_URL,
       sessionId,
       api,
@@ -171,6 +172,16 @@ export async function variantSql(query: string): Promise<Row[]> {
 /** Restores the running variant's seed data (fresh database per test). */
 export async function resetVariant(): Promise<void> {
   await control('reset', {})
+}
+
+/**
+ * TABLE_BASED variant: makes every stored session idle past the module's inactivity
+ * timeout, so the next request with it fails the module's real expiry check.
+ *
+ * @returns How many sessions were expired.
+ */
+export async function expireTableSessions(): Promise<number> {
+  return (await control('expire-table-sessions', {})).expired
 }
 
 export { expect } from '../../../support/fixtures'

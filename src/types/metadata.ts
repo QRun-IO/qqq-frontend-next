@@ -43,14 +43,28 @@ export interface QInstance {
   widgets: Record<string, QWidgetMetaData>
   /** Branding configuration (logos, colors, banners, custom CSS). */
   branding: QBrandingMetaData
-  /** Map of help content key → help content used for contextual documentation. */
-  helpContents: Record<string, QHelpContent>
-  /** Arbitrary key/value pairs the backend exposes to the frontend environment. */
-  environmentValues: Record<string, string>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Instance-level help content by slot name (for example the query screen's
+   * `bulkAddFilterValues` slot); v1 omits it when the instance defines none.
+   */
+  helpContents?: Record<string, QHelpContent[]>
+  /**
+   * Environment values the backend publishes to the frontend. v1 sends only the analytics
+   * settings (an allow-list, QRun-IO/qqq#730); absent when none are configured.
+   */
+  environmentValues?: Record<string, string>
+  /**
+   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen) and
+   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}).
+   */
   supplementalInstanceMetaData?: Record<string, unknown>
   /** Optional theme overrides for colors and display mode. */
   theme?: QThemeMetaData
+  /**
+   * Material dashboard path redirects from the backend (`from` path, or `from/*`, to `to` path),
+   * e.g. from a table under an app the user may not open to the same table under one they may.
+   */
+  redirects?: Record<string, string>
 }
 
 /**
@@ -63,7 +77,7 @@ export interface QAuthenticationMetaData {
   /** Unique name for this authentication configuration. */
   name: string
   /** The authentication strategy this instance uses. */
-  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK'
+  type: 'AUTH_0' | 'OAUTH2' | 'FULLY_ANONYMOUS' | 'MOCK' | 'TABLE_BASED'
   /** Provider-specific values (client ID, base URL, audience); absent for MOCK and FULLY_ANONYMOUS. */
   values?: {
     /** OAuth2 / Auth0 client ID registered with the identity provider. */
@@ -75,12 +89,24 @@ export interface QAuthenticationMetaData {
     /** Space-separated scopes to request from an OAUTH2 provider. */
     scopes?: string
   }
+  /**
+   * Branding that is safe to show before sign-in (QRun-IO/qqq#703): the login page's
+   * logo, app name and accent. Absent when the backend declares no branding or predates it.
+   */
+  branding?: QLoginBranding
 }
+
+/**
+ * The subset of {@link QBrandingMetaData} the backend exposes before a session exists.
+ * Banners and custom CSS are never included.
+ */
+export type QLoginBranding = Pick<QBrandingMetaData, 'companyName' | 'appName' | 'logo' | 'icon' | 'accentColor' | 'accentColorLight'>
 
 /**
  * Branding configuration that controls the visual identity of the application.
  *
- * Applied globally via the theme provider and injected `<style>` tag.
+ * Applied by the dashboard layout (accent colors, favicon, logo, banners, company footer).
+ * Application CSS belongs to the theme ({@link QThemeMetaData.customCss}).
  */
 export interface QBrandingMetaData {
   /** Human-readable company name; optional in QQQ branding. */
@@ -101,22 +127,144 @@ export interface QBrandingMetaData {
   banners?: Record<string, Banner>
   /** Custom CSS string injected into a <style> tag via data-qqq-id selectors */
   customCss?: string
+  /**
+   * Gravatar default-image setting (the `d` parameter, e.g. `identicon` or `mp`). When declared,
+   * the user entry shows the user's Gravatar, as the Material dashboard does.
+   */
+  gravatarDefault?: string
 }
 
 /**
- * Theme token overrides that allow the backend to adjust color mode and palette.
- *
- * These values are applied on top of the default Tailwind CSS custom properties.
+ * The application theme: the Material Dashboard's `MaterialDashboardThemeMetaData`
+ * (QRun-IO/qqq#719), published by v1 as `supplementalInstanceMetaData.materialDashboardTheme`.
+ * Every property is optional; only the values an application sets change the UI
+ * (`src/lib/theme/material-theme.ts` maps each one onto the Next tokens).
  */
 export interface QThemeMetaData {
-  /** Primary brand color (hex or CSS value). */
   primaryColor?: string
-  /** Accent color (hex or CSS value). */
-  accentColor?: string
-  /** Preferred color scheme; defaults to the OS preference when omitted. */
-  mode?: 'light' | 'dark'
-  /** Additional arbitrary CSS custom property overrides keyed by token name. */
-  customTokens?: Record<string, string>
+  secondaryColor?: string
+  backgroundColor?: string
+  surfaceColor?: string
+  textPrimary?: string
+  textSecondary?: string
+  errorColor?: string
+  warningColor?: string
+  successColor?: string
+  infoColor?: string
+  /** Create, save, stepper, app-home icons and pagination use the info color instead of the primary color. */
+  preferInfoColorToPrimaryColor?: boolean
+
+  fontFamily?: string
+  headerFontFamily?: string
+  monoFontFamily?: string
+  fontSizeBase?: string
+  fontWeightLight?: number
+  fontWeightRegular?: number
+  fontWeightMedium?: number
+  fontWeightBold?: number
+
+  typographyH1FontSize?: string
+  typographyH1FontWeight?: number
+  typographyH1LineHeight?: number | string
+  typographyH1LetterSpacing?: string
+  typographyH1TextTransform?: string
+  typographyH2FontSize?: string
+  typographyH2FontWeight?: number
+  typographyH2LineHeight?: number | string
+  typographyH2LetterSpacing?: string
+  typographyH2TextTransform?: string
+  typographyH3FontSize?: string
+  typographyH3FontWeight?: number
+  typographyH3LineHeight?: number | string
+  typographyH3LetterSpacing?: string
+  typographyH3TextTransform?: string
+  typographyH4FontSize?: string
+  typographyH4FontWeight?: number
+  typographyH4LineHeight?: number | string
+  typographyH4LetterSpacing?: string
+  typographyH4TextTransform?: string
+  typographyH5FontSize?: string
+  typographyH5FontWeight?: number
+  typographyH5LineHeight?: number | string
+  typographyH5LetterSpacing?: string
+  typographyH5TextTransform?: string
+  typographyH6FontSize?: string
+  typographyH6FontWeight?: number
+  typographyH6LineHeight?: number | string
+  typographyH6LetterSpacing?: string
+  typographyH6TextTransform?: string
+  typographyBody1FontSize?: string
+  typographyBody1FontWeight?: number
+  typographyBody1LineHeight?: number | string
+  typographyBody1LetterSpacing?: string
+  typographyBody1TextTransform?: string
+  typographyBody2FontSize?: string
+  typographyBody2FontWeight?: number
+  typographyBody2LineHeight?: number | string
+  typographyBody2LetterSpacing?: string
+  typographyBody2TextTransform?: string
+  typographyButtonFontSize?: string
+  typographyButtonFontWeight?: number
+  typographyButtonLineHeight?: number | string
+  typographyButtonLetterSpacing?: string
+  typographyButtonTextTransform?: string
+  typographyCaptionFontSize?: string
+  typographyCaptionFontWeight?: number
+  typographyCaptionLineHeight?: number | string
+  typographyCaptionLetterSpacing?: string
+  typographyCaptionTextTransform?: string
+
+  /** Absolute radius for every component that has no radius of its own. */
+  borderRadiusGlobal?: string
+  /** Multiplier for each component's default radius (when no global radius is set). */
+  borderRadiusScale?: number | string
+  borderRadiusButton?: string
+  borderRadiusCard?: string
+  borderRadiusChip?: string
+  borderRadiusDialog?: string
+  borderRadiusOutlinedInput?: string
+  borderRadiusLinearProgress?: string
+  borderRadiusMenuPaper?: string
+  borderRadiusPaperRounded?: string
+  borderRadiusPopoverPaper?: string
+  borderRadiusTooltip?: string
+  density?: 'compact' | 'normal' | 'comfortable'
+
+  logoPath?: string
+  iconPath?: string
+  faviconPath?: string
+  /** Application CSS, injected as `<style id="qqq-custom-theme-css">`. */
+  customCss?: string
+  iconStyle?: 'filled' | 'outlined' | 'rounded' | 'sharp' | 'two-tone'
+
+  brandedHeaderEnabled?: boolean
+  brandedHeaderBackgroundColor?: string
+  brandedHeaderTextColor?: string
+  brandedHeaderLogoPath?: string
+  brandedHeaderLogoAltText?: string
+  brandedHeaderHeight?: string
+  brandedHeaderTagline?: string
+
+  appBarBackgroundColor?: string
+  appBarTextColor?: string
+
+  sidebarBackgroundColor?: string
+  sidebarTextColor?: string
+  sidebarIconColor?: string
+  sidebarSelectedBackgroundColor?: string
+  sidebarSelectedTextColor?: string
+  sidebarHoverBackgroundColor?: string
+  sidebarDividerColor?: string
+
+  tableHeaderBackgroundColor?: string
+  tableHeaderTextColor?: string
+  tableRowHoverColor?: string
+  tableRowSelectedColor?: string
+  tableBorderColor?: string
+
+  dividerColor?: string
+  borderColor?: string
+  cardBorderColor?: string
 }
 
 /**
@@ -140,6 +288,12 @@ export interface QTableMetaData {
   primaryKeyField: string
   /** Map of field name → field metadata for every column in this table. */
   fields: Record<string, QFieldMetaData>
+  /**
+   * Fields computed by the backend rather than stored (v1 `virtualFields`). Those with
+   * `isQuerySelectable` are query-screen columns; only `isQueryCriteria` ones can be
+   * sorted and filtered.
+   */
+  virtualFields?: Record<string, QVirtualFieldMetaData>
   /** Ordered list of field-grouping sections shown on the record view/edit pages. */
   sections: QTableSection[]
   /** Joins that have been explicitly exposed for use in queries and views. */
@@ -148,6 +302,12 @@ export interface QTableMetaData {
   capabilities: Capability[]
   /** Whether the current user may read records from this table. */
   readPermission: boolean
+  /**
+   * Fields that record search (`POST /search`) matches for this table. Present only
+   * when the backend supports record search, the table declares search fields and
+   * the user may read the table.
+   */
+  searchFields?: string[]
   /** Whether the current user may create new records in this table. */
   insertPermission: boolean
   /** Whether the current user may update existing records in this table. */
@@ -162,10 +322,47 @@ export interface QTableMetaData {
   helpContent?: QHelpContent
   /** Table help content by slot name, as the backend declares it. */
   helpContents?: Record<string, QHelpContent[]>
-  /** Optional plugin-specific supplemental metadata not covered by the core schema. */
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`),
+   * as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy (non-v1) routes' key. */
   supplementalTableMetaData?: Record<string, unknown>
   /** Optional sharing configuration for this table. */
   shareableTableMetaData?: Record<string, unknown>
+  /**
+   * Menus the table defines for screen slots: the record view's `VIEW_SCREEN_ACTIONS` menu
+   * replaces the default actions menu, `VIEW_SCREEN_ADDITIONAL` menus add buttons beside it.
+   */
+  menus?: QTableMenu[]
+}
+
+/** A menu a table defines for a screen slot (v1 `TableMenu`). */
+export interface QTableMenu {
+  /** Label of the menu's button. */
+  label?: string
+  /** Icon of the menu's button. */
+  icon?: QIcon
+  /** Where the menu goes, e.g. `VIEW_SCREEN_ACTIONS` or `VIEW_SCREEN_ADDITIONAL`. */
+  slot?: string
+  /** The menu's items, in order. */
+  items?: QTableMenuItem[]
+}
+
+/** One item of a table menu (v1 `TableMenuItem`). */
+export interface QTableMenuItem {
+  /** `BUILT_IN`, `RUN_PROCESS`, `DOWNLOAD_FILE`, `SUB_MENU`, `SUB_LIST` or `DIVIDER`. */
+  itemType: string
+  /** Label overriding the default for the item type. */
+  label?: string
+  /** Icon overriding the default for the item type. */
+  icon?: QIcon
+  /**
+   * Item-type values: `option` (BUILT_IN), `processName` (RUN_PROCESS), `fieldName`
+   * (DOWNLOAD_FILE), `items` (SUB_MENU, SUB_LIST: menu items of this same shape).
+   */
+  values?: Record<string, unknown>
 }
 
 /**
@@ -196,6 +393,11 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /**
+   * Possible values declared inline on the field (an ENUM source on the field itself; never
+   * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
+   */
+  inlinePossibleValueSource?: { enumValues?: Array<{ id: string | number; label: string }> }
   /** A printf-style or date-format string used when rendering the field value. */
   displayFormat?: string
   /** Maximum character length enforced during validation (for STRING/TEXT fields). */
@@ -212,6 +414,23 @@ export interface QFieldMetaData {
   helpContents?: QHelpContent[]
   /** Named behaviors (backend extension hooks) attached to this field. */
   behaviors?: string[]
+  /**
+   * Plugin-specific supplemental metadata keyed by type (for example `materialDashboard`, whose
+   * form adjusters run on load and change), as the v1 table metadata route sends it.
+   */
+  supplementalMetaData?: Record<string, unknown>
+  /** The same supplemental metadata under the legacy key (form adjuster output, legacy routes). */
+  supplementalFieldMetaData?: Record<string, unknown>
+}
+
+/**
+ * A virtual (computed, not stored) field of a table (v1 `VirtualFieldMetaData`).
+ */
+export interface QVirtualFieldMetaData extends QFieldMetaData {
+  /** Whether the field may be used in filter criteria and sorts. */
+  isQueryCriteria?: boolean
+  /** Whether the field is returned by queries (a query-screen column). */
+  isQuerySelectable?: boolean
 }
 
 /**
@@ -309,6 +528,8 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  supplementalAppMetaData?: Record<string, unknown>
 }
 
 /**
@@ -375,6 +596,20 @@ export interface QWidgetDropdown {
   labelForNullValue?: string
   /** Preferred control width in pixels. */
   width?: number
+  /** Material icon name shown at the start of the control. */
+  startIconName?: string
+  /** Shows previous/next arrows beside the control (a day either way for a date picker). */
+  allowBackAndForth?: boolean
+  /** Swaps the directions of the previous/next arrows. */
+  backAndForthInverted?: boolean
+  /** Hides the control's clear button. */
+  disableClearable?: boolean
+}
+
+/** Whether a widget can be collapsed, and whether it starts open (`CollapsibleMetaData`). */
+export interface QWidgetCollapsible {
+  isCollapsible?: boolean
+  initiallyOpen?: boolean
 }
 
 /** An icon placed in a widget header, keyed by role (e.g. `topRightInsideCard`). */
@@ -436,6 +671,10 @@ export interface QWidgetMetaData {
   minHeight?: string
   /** Static footer HTML declared in metadata. */
   footerHTML?: string
+  /** Material icon name shown as the widget's main 64 px icon tile. */
+  icon?: string
+  /** Collapsible behavior (the header toggles the body; the state is remembered). */
+  collapsible?: QWidgetCollapsible
 }
 
 /**
@@ -468,8 +707,23 @@ export interface QTableSection {
   hidden?: boolean
   /** Help content shown with the section heading, per each entry's screen roles. */
   helpContents?: QHelpContent[]
-  /** Number of grid columns this section occupies in the record layout. */
+  /** Width of this section's card on large screens, in columns of a 12-column grid. */
   gridColumns?: number
+  /** Whether screens that collapse sections may collapse this one, and whether it starts open. */
+  collapsible?: QSectionCollapsible
+  /**
+   * Alternative definitions of this section for specific screens, keyed by type
+   * (`RECORD_VIEW`, `RECORD_EDIT`); a screen of that type uses its alternative instead.
+   */
+  alternatives?: Record<string, QTableSection>
+}
+
+/** A section's collapsible behavior (v1 `TableSectionCollapsible`). */
+export interface QSectionCollapsible {
+  /** Whether the user may collapse and expand the section. */
+  isCollapsible?: boolean
+  /** Whether a collapsible section starts open before the user toggles it. */
+  initiallyOpen?: boolean
 }
 
 /**
@@ -525,6 +779,8 @@ export interface QReportMetaData {
   hasPermission: boolean
   /** Process that runs this report (e.g. the basic report process). */
   processName?: string
+  /** Table whose records the report reads, when it has one. */
+  tableName?: string
   /** Material Icons name for navigation. */
   iconName?: string
 }

@@ -22,22 +22,33 @@
 
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Copy, Download, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
 import type { QFieldMetaData, QTableMetaData, QRecord, QWidgetMetaData } from '@/types'
 import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
+import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
 import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
 } from '@/lib/utils/adornment-utils'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
+import { HighlightedCode } from '@/components/scripts/HighlightedCode'
+import { SeededWidget } from '@/components/widgets/ConnectedWidget'
 import { RecordHoverCard } from './RecordHoverCard'
+
+/**
+ * Link values are the only control in their row, so on a touch screen they take a 44 px tall
+ * target (WCAG 2.5.5); mouse layouts keep the text-sized link.
+ */
+const TOUCH_LINK = 'pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center'
 
 /**
  * Props for the {@link FieldValue} component.
@@ -81,7 +92,8 @@ export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaD
   return (
     <TooltipPrimitive.Provider delayDuration={300}>
       <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
+        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
+          onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
           <span tabIndex={0} className="cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4"
             data-qqq-id={`field-value-tooltip-trigger-${field.name}`}>
             {content}
@@ -121,7 +133,19 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       </span>
     }
     if (rawValue === null || rawValue === undefined) return <EmptyValue fieldName={field.name} className={className} />
-    return <div className={className} data-qqq-id={dataQqqId}><WidgetRenderer widgetMetaData={widgetMetaData} data={rawValue} /></div>
+    // the full widget chrome (label, tooltip, help, icons, reload, export), as Material's FieldValueAsWidget
+    const primaryKey = tableMetaData ? record.values[tableMetaData.primaryKeyField] : undefined
+    const hasKey = primaryKey !== null && primaryKey !== undefined
+    return (
+      <div className={className} data-qqq-id={dataQqqId}>
+        <SeededWidget
+          widgetMetaData={widgetMetaData}
+          data={rawValue}
+          params={tableMetaData && hasKey ? { id: String(primaryKey), tableName: tableMetaData.name } : undefined}
+          recordContext={tableMetaData ? { tableName: tableMetaData.name, recordId: hasKey ? String(primaryKey) : undefined, record, tableMetaData } : undefined}
+        />
+      </div>
+    )
   }
 
   if (value === null || value === undefined || value === '') {
@@ -142,7 +166,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       if (target.external) {
         return (
           <a href={target.href} target={target.target} rel={target.target === '_blank' ? 'noopener noreferrer' : undefined}
-            className={cn('inline-flex items-center gap-1 text-sm text-primary underline hover:text-primary/80', className)}
+            className={cn('inline-flex items-center gap-1 text-sm text-primary underline hover:text-primary/80', TOUCH_LINK, className)}
             data-qqq-id={dataQqqId}>
             {String(value)}
             {target.target === '_blank' && <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -150,7 +174,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
           </a>
         )
       }
-      return <Link href={target.href} className={cn('text-sm text-primary underline hover:text-primary/80', className)}
+      return <Link href={target.href} className={cn('text-sm text-primary underline hover:text-primary/80', TOUCH_LINK, className)}
         data-qqq-id={dataQqqId}>{String(value)}</Link>
     }
     return <PlainValue value={String(value)} dataQqqId={dataQqqId} className={className} />
@@ -173,6 +197,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         data-chip-color={color}
         data-chip-icon={icon}
       >
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
         {String(value)}
       </span>
     )
@@ -195,7 +220,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
   }
 
   if (findAdornment(field, 'FILE_DOWNLOAD')) {
-    const file = fileDownload(field, record)
+    const file = fileDownload(field, record, storedRecordVariantJson(tableMetaData ?? allTables?.[record.tableName]))
     if (!file) return <EmptyValue fieldName={field.name} className={className} />
     return <FileLinks url={file.url} fileName={file.fileName} dataQqqId={dataQqqId} className={className} />
   }
@@ -260,7 +285,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       if (field.type === 'STRING' && isHttpUrl(strValue)) {
         return (
           <a href={strValue} target="_blank" rel="noopener noreferrer"
-            className={cn('inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline', className)}
+            className={cn('inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)}
             data-qqq-id={dataQqqId}>
             {strValue}
             <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -269,7 +294,7 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         )
       }
       if (field.type === 'STRING' && isEmail(strValue)) {
-        return <a href={`mailto:${strValue}`} className={cn('text-sm text-primary hover:text-primary/80 hover:underline', className)}
+        return <a href={`mailto:${strValue}`} className={cn('text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)}
           data-qqq-id={dataQqqId}>{strValue}</a>
       }
       return <PlainValue value={strValue} dataQqqId={dataQqqId} className={className} />
@@ -301,7 +326,8 @@ function EmptyValue({ fieldName, className }: { fieldName: string; className?: s
  * @returns The span.
  */
 function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId: string; className?: string }) {
-  return <span className={cn('text-sm text-foreground', className)} data-qqq-id={dataQqqId}>{value}</span>
+  // a value with line breaks keeps them, as in the Material dashboard (ValueUtils: any string containing \n)
+  return <span className={cn('text-sm text-foreground', value.includes('\n') && 'whitespace-pre-wrap', className)} data-qqq-id={dataQqqId}>{value}</span>
 }
 
 /**
@@ -314,7 +340,7 @@ function PlainValue({ value, dataQqqId, className }: { value: string; dataQqqId:
  * @returns The rendered HTML container.
  */
 function SanitizedHtml({ html, dataQqqId, className }: { html: string; dataQqqId: string; className?: string }) {
-  const sanitized = useMemo(() => DOMPurify.sanitize(html), [html])
+  const sanitized = useMemo(() => sanitizeHtml(html), [html])
   return <div className={cn('prose prose-sm max-w-none dark:prose-invert text-sm', className)} data-qqq-id={dataQqqId}
     dangerouslySetInnerHTML={{ __html: sanitized }} />
 }
@@ -338,7 +364,7 @@ function RecordLink({ tableName, primaryKey, label, allTables, fromParams, dataQ
 }) {
   const link = (
     <Link href={`/app/${encodeURIComponent(tableName)}/${encodeURIComponent(primaryKey)}${fromParams}`}
-      className={cn('text-sm text-primary hover:text-primary/80 hover:underline', className)} data-qqq-id={dataQqqId}>
+      className={cn('text-sm text-primary hover:text-primary/80 hover:underline', TOUCH_LINK, className)} data-qqq-id={dataQqqId}>
       {label}
     </Link>
   )
@@ -365,13 +391,13 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
     <span className={cn('inline-flex flex-wrap items-center gap-2 text-sm', className)} data-qqq-id={dataQqqId}>
       <span className="text-foreground">{fileName}</span>
       {inline && (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary underline hover:text-primary/80"
+        <a href={url} target="_blank" rel="noopener noreferrer" className={cn('inline-flex items-center gap-1 text-primary underline hover:text-primary/80', TOUCH_LINK)}
           data-qqq-id={`${dataQqqId}-open`}>
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           Open file<span className="sr-only">: {fileName} (opens in a new tab)</span>
         </a>
       )}
-      <a href={inline ? attachmentUrl(url) : url} download={fileName} className="inline-flex items-center gap-1 text-primary underline hover:text-primary/80"
+      <a href={inline ? attachmentUrl(url) : url} download={fileName} className={cn('inline-flex items-center gap-1 text-primary underline hover:text-primary/80', TOUCH_LINK)}
         data-qqq-id={`${dataQqqId}-download`}>
         <Download className="h-3.5 w-3.5" aria-hidden="true" />
         Download file<span className="sr-only">: {fileName}</span>
@@ -380,8 +406,13 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
   )
 }
 
+/** How long a formatting error stays on screen (Material: 5 seconds). */
+const FORMAT_ERROR_MILLIS = 5000
+
 /**
- * Read-only code display for CODE_EDITOR fields, with JSON formatting.
+ * Read-only, syntax-colored code display for CODE_EDITOR fields (Material's CodeViewer):
+ * Format JSON / Format SQL toggles a formatted copy, Expand / Collapse sizes the box, and a
+ * formatting error shows for five seconds.
  *
  * @param props - Component properties.
  * @param props.code - The code text.
@@ -391,36 +422,54 @@ function FileLinks({ url, fileName, dataQqqId, className, inline = true }: {
  * @returns The code block.
  */
 function CodeViewer({ code, languageMode, fieldName, className }: { code: string; languageMode: string; fieldName: string; className?: string }) {
-  const [formatted, setFormatted] = useState(false)
+  const [formatted, setFormatted] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const [formatError, setFormatError] = useState<string | null>(null)
-  const pretty = useMemo(() => {
-    if (!formatted) return code
-    try {
-      return JSON.stringify(JSON.parse(code), null, 2)
-    } catch {
-      return code
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(errorTimer.current), [])
+  const language = languageFor(languageMode)
+  const formattable = language === 'json' || language === 'sql'
+  const codeId = `code-viewer-${fieldName}`
+
+  /** Formats the code, or goes back to the stored text; reports a formatting error for 5 s. */
+  function toggleFormat() {
+    if (formatted !== null) {
+      setFormatted(null)
+      return
     }
-  }, [code, formatted])
+    try {
+      setFormatted(language === 'json' ? formatJson(code) : formatSql(code))
+      setFormatError(null)
+    } catch (error) {
+      setFormatError(`Error formatting code: ${error instanceof Error ? error.message : String(error)}`)
+      clearTimeout(errorTimer.current)
+      errorTimer.current = setTimeout(() => setFormatError(null), FORMAT_ERROR_MILLIS)
+    }
+  }
+
+  const buttonClass = cn('rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring', TOUCH_LINK)
   return (
     <div className={cn('w-full space-y-1', className)} data-qqq-id={`field-value-${fieldName}`} data-language-mode={languageMode}>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
         <span className="rounded bg-muted px-2 py-0.5 font-medium uppercase">{languageMode}</span>
-        {languageMode.toLowerCase() === 'json' && (
-          <button type="button" className="rounded px-2 py-0.5 text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
-            data-qqq-id={`button-format-${fieldName}`}
-            onClick={() => {
-              if (!formatted) {
-                try { JSON.parse(code); setFormatError(null) } catch (error) { setFormatError(`Error formatting code: ${error instanceof Error ? error.message : String(error)}`); return }
-              }
-              setFormatted((current) => !current)
-            }}>
-            {formatted ? 'Reset Format' : 'Format JSON'}
-          </button>
+        {code && (
+          <span className="flex items-center gap-1">
+            {formattable && (
+              <button type="button" className={buttonClass} data-qqq-id={`button-format-${fieldName}`} onClick={toggleFormat}>
+                {formatted !== null ? 'Reset Format' : `Format ${language.toUpperCase()}`}
+              </button>
+            )}
+            <button type="button" className={buttonClass} aria-expanded={expanded} aria-controls={codeId}
+              data-qqq-id={`button-expand-${fieldName}`} onClick={() => setExpanded((current) => !current)}>
+              {expanded ? 'Collapse' : 'Expand'}
+            </button>
+          </span>
         )}
       </div>
       {formatError && <p role="alert" className="text-xs text-destructive">{formatError}</p>}
-      <pre className="max-h-96 overflow-auto rounded-md border border-border bg-muted p-3 text-sm">
-        <code className="whitespace-pre-wrap font-mono text-foreground">{pretty}</code>
+      <pre id={codeId} className={cn('overflow-auto rounded-md border border-border bg-muted p-3 text-sm', expanded ? 'max-h-[80vh]' : 'max-h-[200px]')}
+        data-expanded={expanded}>
+        <code className="whitespace-pre-wrap font-mono text-foreground"><HighlightedCode code={formatted ?? code} language={language} /></code>
       </pre>
     </div>
   )

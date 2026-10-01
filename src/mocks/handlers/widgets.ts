@@ -57,7 +57,7 @@ const widgetData: Record<string, unknown> = {
 
 export const widgetHandlers = [
   // GET /widget/:widgetName
-  http.get('/widget/:widgetName', ({ params }) => {
+  http.post('/qqq/v1/widget/:widgetName', ({ params }) => {
     const { widgetName } = params as { widgetName: string }
     const data = widgetData[widgetName]
 

@@ -46,6 +46,7 @@ describe('oidc helpers (QRun-IO/qqq#670)', () => {
 
   it('uses the Material-compatible /token redirect URI', () => {
     expect(redirectUri()).toBe(`${window.location.origin}/token`)
+    expect(redirectUri(auth0)).toBe(`${window.location.origin}/`)
   })
 
   it('builds the OAUTH2 authorization URL from discovery with the backend scopes', async () => {
@@ -63,6 +64,7 @@ describe('oidc helpers (QRun-IO/qqq#670)', () => {
     const url = new URL(await buildAuthorizationUrl(auth0, 'c', 's'))
     expect(url.origin + url.pathname).toBe('https://tenant.auth0.example/authorize')
     expect(url.searchParams.get('audience')).toBe('https://api.example')
+    expect(url.searchParams.get('redirect_uri')).toBe(`${window.location.origin}/`)
   })
 
   it('rejects metadata without a client id', async () => {

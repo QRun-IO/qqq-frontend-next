@@ -139,7 +139,7 @@ export function ProcessSummaryLines({ lines, table, isResultScreen = false }: Pr
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`See these ${table?.label ?? ''} records in a new tab`}
-                  className="ml-1 inline-flex align-middle text-primary hover:text-primary/80"
+                  className="ml-1 inline-flex items-center justify-center align-middle text-primary hover:text-primary/80 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                   data-qqq-id={`process-summary-records-link-${index}`}
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />

@@ -24,6 +24,9 @@ import { clearRecentRecords } from '@/lib/utils/recent-records'
 const SIGNED_OUT_KEY = 'qqq.signedOut'
 const USER_KEY = 'qqqUser'
 const REAUTH_KEY = 'qqq.reauthAttempts'
+const CLIENT_DATA_OWNER_KEY = 'qqq.clientDataOwner'
+const SESSION_VALUES_KEY = 'qqq.sessionValues'
+const SESSION_HINT_KEY = 'qqq.sessionHint'
 
 /** The displayed identity of the signed-in user. */
 export interface StoredUser {
@@ -67,7 +70,33 @@ export function setSignedOut(signedOut: boolean): void {
 }
 
 /**
+ * Whether this browser signed in to an OAUTH2, AUTH_0 or TABLE_BASED session that has
+ * not ended. The session cookie is HttpOnly (QRun-IO/qqq#733), so the UI cannot see it;
+ * it asks the backend to resume a session only when this is set, instead of sending a
+ * request that is refused on every signed-out visit. The cookie decides: a resume the
+ * backend refuses clears this.
+ *
+ * @returns True when a session may be resumed.
+ */
+export function hasSessionHint(): boolean {
+  return storage('local')?.getItem(SESSION_HINT_KEY) === '1'
+}
+
+/**
+ * Records that a resumable session was established, or that it ended.
+ *
+ * @param present - True after a sign-in or resume; false after logout or a refused session.
+ */
+export function setSessionHint(present: boolean): void {
+  if (present) storage('local')?.setItem(SESSION_HINT_KEY, '1')
+  else storage('local')?.removeItem(SESSION_HINT_KEY)
+}
+
+/**
  * Normalizes a session's `values.user` from `manageSession`.
+ *
+ * `email` is the identity line shown under the name; TABLE_BASED sessions name
+ * their user by `username` instead (QRun-IO/qqq#700), which fills the same line.
  *
  * @param values - The session values for the frontend.
  * @returns The user when it has a name or email.
@@ -75,10 +104,11 @@ export function setSignedOut(signedOut: boolean): void {
 export function userFromSessionValues(values: Record<string, unknown> | undefined): StoredUser | null {
   const user = values?.user
   if (!user || typeof user !== 'object') return null
-  const { name, email } = user as Record<string, unknown>
+  const { name, email, username } = user as Record<string, unknown>
+  const identity = typeof email === 'string' && email ? email : typeof username === 'string' && username ? username : undefined
   const result: StoredUser = {
     name: typeof name === 'string' && name ? name : undefined,
-    email: typeof email === 'string' && email ? email : undefined,
+    email: identity,
   }
   return result.name || result.email ? result : null
 }
@@ -108,6 +138,36 @@ export function storeUser(user: StoredUser | null): void {
 }
 
 /**
+ * Persists the full session values from sign-in (the Material Dashboard keeps them as
+ * `sessionValues`), for analytics identity (QRun-IO/qqq#730). A session resumed without
+ * values keeps the stored ones; sign-out removes them.
+ *
+ * @param values - The session values for the frontend, when the backend sent any.
+ */
+export function storeSessionValues(values: Record<string, unknown> | undefined): void {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return
+  try {
+    storage('local')?.setItem(SESSION_VALUES_KEY, JSON.stringify(values))
+  } catch {
+    // storage full or unavailable: analytics identity is optional
+  }
+}
+
+/**
+ * The session values stored at the last sign-in.
+ *
+ * @returns The values, or null.
+ */
+export function getStoredSessionValues(): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(storage('local')?.getItem(SESSION_VALUES_KEY) ?? 'null') as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Counts an automatic re-authentication and reports whether too many happened
  * recently (a backend that keeps rejecting fresh sessions must not loop forever).
  *
@@ -132,9 +192,28 @@ export function resetReauthAttempts(): void {
   storage('session')?.removeItem(REAUTH_KEY)
 }
 
-/** Removes per-user data kept in the browser (recently viewed records, stored identity). */
+/** Removes per-user data kept in the browser (recently viewed records, stored identity and session values). */
 export function clearUserClientData(): void {
   clearRecentRecords()
   storeUser(null)
+  storage('local')?.removeItem(SESSION_VALUES_KEY)
   storage('local')?.removeItem('accessToken')
+  storage('local')?.removeItem(CLIENT_DATA_OWNER_KEY)
+}
+
+/**
+ * Binds the per-user browser data to the signed-in identity. When someone else
+ * signs in in this browser - for example after the previous user's session
+ * expired without a logout - the previous user's recently viewed records and
+ * stored identity are removed before anything is shown (QRun-IO/qqq#696).
+ * Call it before storing the new identity.
+ *
+ * @param user - The identity that just signed in.
+ */
+export function claimClientData(user: StoredUser | null): void {
+  const owner = user?.email || user?.name
+  if (!owner) return
+  const previous = storage('local')?.getItem(CLIENT_DATA_OWNER_KEY)
+  if (previous && previous !== owner) clearUserClientData()
+  storage('local')?.setItem(CLIENT_DATA_OWNER_KEY, owner)
 }

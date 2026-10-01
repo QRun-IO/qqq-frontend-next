@@ -20,6 +20,7 @@
  */
 
 import type { QFieldMetaData } from '@/types'
+import { toLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 
 /**
  * Apply a QQQ `displayFormat` (a Java format string such as `%,d` or `$%,.2f`) to a number.
@@ -91,6 +92,7 @@ export function initialFormValue(field: QFieldMetaData, value: unknown): unknown
   }
   if (field.type === 'BLOB') return resolved instanceof File ? resolved : undefined
   if (resolved === undefined || resolved === null) return ''
+  if (field.type === 'DATE_TIME') return toLocalDateTimeInput(resolved) || String(resolved)
   if (typeof resolved === 'object') return JSON.stringify(resolved)
   return field.possibleValueSourceName ? resolved : String(resolved)
 }

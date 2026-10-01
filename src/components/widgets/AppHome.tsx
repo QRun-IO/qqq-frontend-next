@@ -29,9 +29,11 @@ import { countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
 import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permissions'
+import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
 import { ConnectedWidget } from './ConnectedWidget'
-import { widgetColumnClasses } from './widget-utils'
+import { WIDGET_ANCHOR, widgetColumnClasses } from './widget-utils'
 
 /** Props accepted by the AppHome component. */
 interface AppHomeProps {
@@ -159,7 +161,9 @@ function EntryGroup({ title, showTitle = true, idPrefix, kind, entries, instance
               </span>
             ) : (
               <Link href={`/app/${entry.name}`} className={CARD_CLASS} data-qqq-id={`${idPrefix}-${entry.name}`}>
-                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary" />
+                {/* Material's app-card-{name}-icon hook on child app cards (QRun-IO/qqq#731) */}
+                <MetadataIcon icon={entry.icon} kind={kind} className="h-5 w-5 text-primary"
+                  qqqId={kind === 'app' ? `app-card-${sanitizeQqqId(entry.name)}-icon` : undefined} />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{entry.label}</span>
                   {kind === 'table' && instance && <TableCount tableName={entry.name} instance={instance} />}
@@ -194,6 +198,8 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
     const meta = widgetRegistry[wName]
     return meta ? [meta] : []
   })
+  // #widgetName deep links scroll to that widget (Material grid items have id=widgetName)
+  useWidgetAnchor(widgetItems.map((meta) => meta.name))
 
   // Apps without explicit sections list their leaf children as one section
   const sections: QAppSection[] = appMetaData.sections ?? (children.some((child) => child.type !== 'APP')
@@ -219,19 +225,30 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
 
   const isEmpty = widgetItems.length === 0 && resolvedSections.length === 0 && childApps.length === 0
 
+  // Material app settings (MaterialDashboardAppMetaData): both default to on
+  const homeSettings = appMetaData.supplementalAppMetaData?.materialDashboard as
+    { showAppLabelOnHomeScreen?: boolean; includeTableCountsOnHomeScreen?: boolean } | undefined
+  const showLabel = homeSettings?.showAppLabelOnHomeScreen !== false
+  const includeTableCounts = homeSettings?.includeTableCountsOnHomeScreen !== false
+
   return (
     <div className="space-y-6" data-qqq-id={`app-home-${name}`}>
       {/* App heading */}
-      <div className="flex items-center gap-3">
-        <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{label}</h1>
-      </div>
+      {showLabel ? (
+        <div className="flex items-center gap-3">
+          <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{label}</h1>
+        </div>
+      ) : (
+        // the page keeps its name for screen readers when the app hides its label
+        <h1 className="sr-only">{label}</h1>
+      )}
 
       {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}
       {widgetItems.length > 0 && (
         <section aria-label="Dashboard widgets" className="grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
           {widgetItems.map((meta) => (
-            <div key={meta.name} className={widgetColumnClasses(meta.gridColumns)} data-qqq-id={`widget-grid-item-${meta.name}`}>
+            <div key={meta.name} id={meta.name} className={`${widgetColumnClasses(meta.gridColumns, meta.defaultValues)} ${WIDGET_ANCHOR}`} data-qqq-id={`widget-grid-item-${meta.name}`}>
               <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
             </div>
           ))}
@@ -252,7 +269,7 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
           </h2>
           <EntryGroup title="Actions" idPrefix="app-section-process" kind="process" entries={processes} />
           <EntryGroup title="Reports" idPrefix="app-section-report" kind="report" entries={reports} />
-          <EntryGroup title="Data" idPrefix="app-section-table" kind="table" entries={tables} instance={instance} />
+          <EntryGroup title="Data" idPrefix="app-section-table" kind="table" entries={tables} instance={includeTableCounts ? instance : undefined} />
         </section>
       ))}
 

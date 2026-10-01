@@ -18,13 +18,20 @@
  * @file Pure helpers for widget export (CSV), dropdown selection storage and grid sizing.
  */
 
-import type { QWidgetDropdown, QWidgetMetaData } from '@/types'
+import type { QHelpContent, QWidgetDropdown, QWidgetHelpContent, QWidgetMetaData } from '@/types'
+import { WIDGET_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
 
 /** Root of the local-storage keys that persist widget dropdown selections (shared with Material). */
 export const WIDGET_DROPDOWN_STORAGE_ROOT = 'qqq.widgets.dropdownData'
 
 /** Root of the local-storage keys that persist the selected tab of a tabbed parent widget. */
 export const WIDGET_SELECTED_TAB_STORAGE_ROOT = 'qqq.widgets.selectedTabs'
+
+/**
+ * Classes that make a widget link (a statistic, a block value, a stepper link) at least a
+ * 44 x 44 px target on touch screens (QRun-IO/qqq#708); mouse layouts are unchanged.
+ */
+export const TOUCH_LINK = 'pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center'
 
 /** A dropdown selection as persisted: the option id and its label. */
 export interface StoredDropdownSelection {
@@ -108,9 +115,127 @@ export function storedDropdownParams(widget: QWidgetMetaData, parent?: QWidgetMe
   for (const dropdown of owner.dropdowns ?? []) {
     const name = dropdownParamName(dropdown)
     const stored = readStoredSelection(dropdownStorageKey(owner.name, name))
-    if (stored) params[name] = stored.id
+    if (stored) params[name] = dropdown.type === 'DATE_PICKER' ? normalizeDropdownDate(stored.id) : stored.id
   }
   return params
+}
+
+/**
+ * The order of day, month and year in the browser locale's short date format.
+ *
+ * @returns Part types in display order (e.g. `['month', 'day', 'year']` for en-US).
+ */
+function localeDateOrder(): Array<'day' | 'month' | 'year'> {
+  return new Intl.DateTimeFormat().formatToParts(new Date(2001, 10, 22))
+    .map((part) => part.type)
+    .filter((type): type is 'day' | 'month' | 'year' => type === 'day' || type === 'month' || type === 'year')
+}
+
+/**
+ * Formats a date-picker selection the way the Material dashboard sends it to the widget
+ * renderer: the local date's `toLocaleDateString()` (e.g. `12/31/2025` in en-US).
+ *
+ * @param date - The chosen day (local time).
+ * @returns The value sent as the dropdown's parameter.
+ */
+export function formatDropdownDate(date: Date): string {
+  return date.toLocaleDateString()
+}
+
+/**
+ * Parses a date-picker value: an ISO day (`2025-12-31`, stored by earlier versions) or a
+ * date in the browser locale's short format (what {@link formatDropdownDate} produces).
+ *
+ * @param value - The stored or sent value.
+ * @returns The local day, or null when the value is not a date.
+ */
+export function parseDropdownDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+  const numbers = value.match(/\d+/g)
+  const order = localeDateOrder()
+  if (!numbers || numbers.length !== 3 || order.length !== 3) return null
+  const part = (type: 'day' | 'month' | 'year') => Number(numbers[order.indexOf(type)])
+  const date = new Date(part('year'), part('month') - 1, part('day'))
+  return Number.isNaN(date.getTime()) || date.getDate() !== part('day') ? null : date
+}
+
+/**
+ * Brings a stored date-picker value to the format the renderer is sent ({@link formatDropdownDate}).
+ *
+ * @param value - Stored value.
+ * @returns The value to send (unchanged when it is not a date).
+ */
+export function normalizeDropdownDate(value: string): string {
+  const date = parseDropdownDate(value)
+  return date ? formatDropdownDate(date) : value
+}
+
+/**
+ * The `yyyy-MM-dd` value of a local day, for a native date input.
+ *
+ * @param date - Local day.
+ * @returns The input value.
+ */
+export function isoDay(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** Name of the dropdown whose `custom` option opens a start/end range (Material `timeframe`). */
+export const TIMEFRAME_DROPDOWN = 'timeframe'
+/** Id of the timeframe option that asks for a custom range. */
+export const CUSTOM_TIMEFRAME = 'custom'
+
+/**
+ * Converts a `datetime-local` value (local time) to the UTC form the backend reads
+ * (`yyyy-MM-ddTHH:mm:ssZ`), as Material's `frontendLocalZoneDateTimeStringToUTCStringForBackend`.
+ *
+ * @param local - A `datetime-local` value.
+ * @returns The UTC instant, or null when the value is not a date-time.
+ */
+export function localDateTimeToUtc(local: string): string | null {
+  const date = new Date(local)
+  if (!local || Number.isNaN(date.getTime())) return null
+  return `${date.toISOString().slice(0, 19)}Z`
+}
+
+/**
+ * Converts a UTC instant (`...Z`) to a `datetime-local` value in local time.
+ *
+ * @param utc - The instant.
+ * @returns The local value (`yyyy-MM-ddTHH:mm`), or an empty string.
+ */
+export function utcToLocalDateTime(utc: string | undefined): string {
+  const date = utc ? new Date(utc) : null
+  if (!date || Number.isNaN(date.getTime())) return ''
+  return `${isoDay(date)}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * The value sent for a custom timeframe: `custom,<utcStart>,<utcEnd>`.
+ *
+ * @param startLocal - Start as a `datetime-local` value.
+ * @param endLocal - End as a `datetime-local` value.
+ * @returns The value, or null until both ends are set.
+ */
+export function customTimeframeValue(startLocal: string, endLocal: string): string | null {
+  const start = localDateTimeToUtc(startLocal)
+  const end = localDateTimeToUtc(endLocal)
+  return start && end ? `${CUSTOM_TIMEFRAME},${start},${end}` : null
+}
+
+/**
+ * Reads a custom timeframe value back into local start and end inputs.
+ *
+ * @param value - A selection id.
+ * @returns The local range, or null when the value is not a custom timeframe.
+ */
+export function parseCustomTimeframe(value: string | null | undefined): { start: string; end: string } | null {
+  if (!value?.startsWith(`${CUSTOM_TIMEFRAME},`)) return null
+  const [, start, end] = value.split(',')
+  return { start: utcToLocalDateTime(start), end: utcToLocalDateTime(end) }
 }
 
 /**
@@ -170,16 +295,96 @@ const COLUMN_SPANS: Record<number, string> = {
   7: 'lg:col-span-7', 8: 'lg:col-span-8', 9: 'lg:col-span-9', 10: 'lg:col-span-10', 11: 'lg:col-span-11', 12: 'lg:col-span-12',
 }
 
+/** Material Dashboard's grid breakpoints (xs 0, sm 576, md 768, lg 992, xl 1200, xxl 1400 px). */
+const SIZE_CLASSES = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const
+
+/** Column-span classes per Material breakpoint (static strings for the JIT). */
+const SIZE_CLASS_SPANS: Record<(typeof SIZE_CLASSES)[number], Record<number, string>> = {
+  xs: { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4', 5: 'col-span-5', 6: 'col-span-6', 7: 'col-span-7', 8: 'col-span-8', 9: 'col-span-9', 10: 'col-span-10', 11: 'col-span-11', 12: 'col-span-12' },
+  sm: { 1: 'min-[576px]:col-span-1', 2: 'min-[576px]:col-span-2', 3: 'min-[576px]:col-span-3', 4: 'min-[576px]:col-span-4', 5: 'min-[576px]:col-span-5', 6: 'min-[576px]:col-span-6', 7: 'min-[576px]:col-span-7', 8: 'min-[576px]:col-span-8', 9: 'min-[576px]:col-span-9', 10: 'min-[576px]:col-span-10', 11: 'min-[576px]:col-span-11', 12: 'min-[576px]:col-span-12' },
+  md: { 1: 'min-[768px]:col-span-1', 2: 'min-[768px]:col-span-2', 3: 'min-[768px]:col-span-3', 4: 'min-[768px]:col-span-4', 5: 'min-[768px]:col-span-5', 6: 'min-[768px]:col-span-6', 7: 'min-[768px]:col-span-7', 8: 'min-[768px]:col-span-8', 9: 'min-[768px]:col-span-9', 10: 'min-[768px]:col-span-10', 11: 'min-[768px]:col-span-11', 12: 'min-[768px]:col-span-12' },
+  lg: { 1: 'min-[992px]:col-span-1', 2: 'min-[992px]:col-span-2', 3: 'min-[992px]:col-span-3', 4: 'min-[992px]:col-span-4', 5: 'min-[992px]:col-span-5', 6: 'min-[992px]:col-span-6', 7: 'min-[992px]:col-span-7', 8: 'min-[992px]:col-span-8', 9: 'min-[992px]:col-span-9', 10: 'min-[992px]:col-span-10', 11: 'min-[992px]:col-span-11', 12: 'min-[992px]:col-span-12' },
+  xl: { 1: 'min-[1200px]:col-span-1', 2: 'min-[1200px]:col-span-2', 3: 'min-[1200px]:col-span-3', 4: 'min-[1200px]:col-span-4', 5: 'min-[1200px]:col-span-5', 6: 'min-[1200px]:col-span-6', 7: 'min-[1200px]:col-span-7', 8: 'min-[1200px]:col-span-8', 9: 'min-[1200px]:col-span-9', 10: 'min-[1200px]:col-span-10', 11: 'min-[1200px]:col-span-11', 12: 'min-[1200px]:col-span-12' },
+  xxl: { 1: 'min-[1400px]:col-span-1', 2: 'min-[1400px]:col-span-2', 3: 'min-[1400px]:col-span-3', 4: 'min-[1400px]:col-span-4', 5: 'min-[1400px]:col-span-5', 6: 'min-[1400px]:col-span-6', 7: 'min-[1400px]:col-span-7', 8: 'min-[1400px]:col-span-8', 9: 'min-[1400px]:col-span-9', 10: 'min-[1400px]:col-span-10', 11: 'min-[1400px]:col-span-11', 12: 'min-[1400px]:col-span-12' },
+}
+
+/**
+ * A column count from metadata, rounded into 1-12.
+ *
+ * @param value - Declared columns.
+ * @returns The span, or undefined when the value is not a usable number.
+ */
+function columnSpan(value: unknown): number | undefined {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN
+  return Number.isFinite(number) && number >= 1 && number <= 12 ? Math.round(number) : undefined
+}
+
 /**
  * Column-span classes for a widget in a 12-column grid: full width on small
  * screens, `gridColumns` of 12 (default 12, as in Material) on large screens.
  *
+ * A widget that declares per-breakpoint sizes (`gridCols:sizeClass:{xs,sm,md,lg,xl,xxl}` in its
+ * `defaultValues`) is sized as Material sizes it: each declared breakpoint (Material's widths)
+ * applies from its width up, `xs` defaults to 12 and `xxl` to `gridColumns`.
+ *
  * @param gridColumns - Widget metadata grid columns.
+ * @param defaultValues - Widget metadata default values (per-breakpoint overrides).
  * @returns Tailwind classes.
  */
-export function widgetColumnClasses(gridColumns?: number): string {
-  const span = gridColumns && gridColumns >= 1 && gridColumns <= 12 ? Math.round(gridColumns) : 12
-  return `col-span-12 ${COLUMN_SPANS[span]}`
+export function widgetColumnClasses(gridColumns?: number, defaultValues?: Record<string, unknown>): string {
+  const sizes = Object.fromEntries(SIZE_CLASSES.map((size) => [size, columnSpan(defaultValues?.[`gridCols:sizeClass:${size}`])]))
+  if (Object.values(sizes).some((span) => span !== undefined)) {
+    sizes.xs ??= 12
+    sizes.xxl ??= columnSpan(gridColumns) ?? 12
+    const classes = SIZE_CLASSES.flatMap((size) => (sizes[size] ? [SIZE_CLASS_SPANS[size][sizes[size]]] : []))
+    return `${classes.join(' ')} min-w-0`
+  }
+  const span = columnSpan(gridColumns) ?? 12
+  return `col-span-12 min-w-0 ${COLUMN_SPANS[span]}`
+}
+
+/** Classes for a dashboard grid item: an in-page anchor target (`#widgetName`) clear of the header. */
+export const WIDGET_ANCHOR = 'scroll-mt-[100px]'
+
+/**
+ * The help entry declared for one of a widget's help slots (Material `WidgetUtils.getHelp`):
+ * the entries under `slot` in the widget's help content, chosen by screen role. A single
+ * `{content}` help (the legacy shape) is the `label` slot's. In help-authoring mode
+ * (`?helpHelp`) every slot returns an entry ending with its key (`widget:{name};slot:{slot}`).
+ *
+ * @param widgetMetaData - Widget metadata.
+ * @param slot - Slot name (`label`, `sectionSubhead`, `top`, `{blockId},{slot}`, ...).
+ * @param roles - The screen's help roles, most specific first.
+ * @param helpHelpActive - Whether help-authoring mode is on.
+ * @returns The entry to show, or undefined.
+ */
+export function widgetSlotHelp(
+  widgetMetaData: QWidgetMetaData | undefined,
+  slot: string,
+  roles: readonly string[] = WIDGET_HELP_ROLES,
+  helpHelpActive = false,
+): QWidgetHelpContent | undefined {
+  if (!widgetMetaData) return undefined
+  const helpContent = widgetMetaData.helpContent
+  let entries: QWidgetHelpContent[] | undefined
+  if (helpContent && 'content' in helpContent && typeof helpContent.content === 'string') {
+    entries = slot === 'label' ? [{ content: helpContent.content, format: 'TEXT' }] : undefined
+  } else if (helpContent) {
+    const slotEntries = (helpContent as Record<string, QWidgetHelpContent[]>)[slot]
+    entries = Array.isArray(slotEntries) ? slotEntries : undefined
+  }
+  return selectSlotHelpContent(entries as QHelpContent[] | undefined, roles, widgetHelpKey(widgetMetaData.name, slot), helpHelpActive) as QWidgetHelpContent | undefined
+}
+
+/**
+ * The help-content key of a widget slot (`widget:{name};slot:{slot}`), shown in help-authoring mode.
+ *
+ * @param widgetName - Widget name.
+ * @param slot - Slot name.
+ * @returns The key.
+ */
+export function widgetHelpKey(widgetName: string, slot: string): string {
+  return `widget:${widgetName};slot:${slot}`
 }
 
 /**

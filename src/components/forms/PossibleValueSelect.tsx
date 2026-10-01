@@ -20,19 +20,21 @@
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
 import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
-import { cn } from '@/lib/utils/cn'
-import type { QPossibleValue } from '@/types'
+import type { QFieldMetaData, QPossibleValue } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import {
   fetchTablePossibleValues,
   fetchProcessPossibleValues,
   fetchPossibleValues,
 } from '@/lib/api/possible-values'
+import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
+import { cn } from '@/lib/utils/cn'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 /**
  * Props for the {@link PossibleValueSelect} component.
@@ -64,6 +66,38 @@ interface PossibleValueSelectProps {
   possibleValueSourceName?: string
   /** Label of the value the field already holds (e.g. the record's display value). */
   initialLabel?: string
+  /**
+   * The field's inline possible values (`inlinePossibleValueSource`): offered without any
+   * request and searched by label prefix, as Material's DynamicSelect does.
+   */
+  inlineOptions?: QPossibleValue[]
+  /** Field metadata whose CHIP adornment styles the options (color and icon per value). */
+  chipField?: QFieldMetaData
+  /** Keep the label for assistive technology only (the host shows its own caption). */
+  hideLabel?: boolean
+}
+
+/**
+ * The inline options whose label starts with the search term (case-insensitive), as in Material.
+ * @param options - Every inline option.
+ * @param term - The search term (empty matches all).
+ * @returns The matching options, in their declared order.
+ */
+export function filterInlineOptions(options: QPossibleValue[], term: string): QPossibleValue[] {
+  const prefix = term.toLowerCase()
+  return options.filter((option) => (option.label ?? '').toLowerCase().startsWith(prefix))
+}
+
+/**
+ * The form's values without the field's own, whose change must not reload its choices.
+ * @param values - Every value of the form.
+ * @param name - The field's form name.
+ * @returns The other fields' values.
+ */
+function otherFieldValues(values: Record<string, unknown> | undefined, name: string): Record<string, unknown> {
+  const others = { ...values }
+  delete others[name]
+  return others
 }
 
 /**
@@ -76,6 +110,10 @@ interface PossibleValueSelectProps {
  * selected. Integrates with React Hook Form via `Controller` — the stored
  * form value is `option.id` (not the display label); the label is only used
  * for rendering the selected state in the trigger button.
+ *
+ * Every request carries the form's current values, as Material does, so a `possibleValueSourceFilter` using `${input.otherField}` offers
+ * only the choices that match what the form holds now; an open list reloads when
+ * another field's value changes.
  *
  * @param props - See {@link PossibleValueSelectProps}.
  * @returns The rendered labeled combobox with a searchable dropdown listbox.
@@ -90,11 +128,14 @@ export function PossibleValueSelect({
   fieldName,
   possibleValueSourceName,
   initialLabel,
+  inlineOptions,
+  chipField,
   context,
   error,
   disabled = false,
   required = false,
   placeholder,
+  hideLabel = false,
   'data-qqq-id': dataQqqId,
 }: PossibleValueSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -109,6 +150,9 @@ export function PossibleValueSelect({
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestSequence = useRef(0)
+  const formValues = useWatch({ control }) as Record<string, unknown> | undefined
+  // What every request carries for the field's filter: the form's current values.
+  const scope = useMemo(() => ({ formValues: formValues ?? {} }), [formValues])
 
   /**
    * Fetches possible values for the given search term from the appropriate
@@ -120,10 +164,16 @@ export function PossibleValueSelect({
   const fetchOptions = useCallback(
     async (term: string) => {
       const sequence = ++requestSequence.current
+      if (inlineOptions) {
+        setOptions(filterInlineOptions(inlineOptions, term))
+        setLoadFailed(false)
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
       setLoadFailed(false)
       try {
-        const request = { searchTerm: term || undefined }
+        const request = { searchTerm: term || undefined, ...scope }
         let results: QPossibleValue[]
         if (context.type === 'table') {
           results = await fetchTablePossibleValues(context.tableName, fieldName, request)
@@ -142,7 +192,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName, possibleValueSourceName]
+    [context, fieldName, possibleValueSourceName, scope, inlineOptions]
   )
 
   /**
@@ -165,14 +215,26 @@ export function PossibleValueSelect({
     }
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A dependent filter follows the other fields: reload an open list when one changes.
+  const otherValuesKey = JSON.stringify(otherFieldValues(formValues, name))
+  useEffect(() => {
+    if (isOpen) fetchOptions(searchTerm)
+  }, [otherValuesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // A value set without its label (e.g. a create-form default) is looked up by id.
   const watchedValue = useWatch({ control, name })
   const contextKey = JSON.stringify(context)
   useEffect(() => {
     const held = watchedValue === null || watchedValue === undefined || watchedValue === '' ? '' : String(watchedValue)
-    if (!held || initialLabel || (selectedOption && String(selectedOption.id) === held)) return
+    if (!held || (selectedOption && String(selectedOption.id) === held)) return
+    if (inlineOptions) {
+      const inline = inlineOptions.find((option) => String(option.id) === held)
+      if (inline) setSelectedOption(inline)
+      return
+    }
+    if (initialLabel) return
     let cancelled = false
-    const request = { ids: held }
+    const request = { ids: held, ...scope }
     const lookup = context.type === 'table'
       ? fetchTablePossibleValues(context.tableName, fieldName, request)
       : context.type === 'process'
@@ -206,7 +268,26 @@ export function PossibleValueSelect({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value
     setSearchTerm(term)
-    debouncedFetch(term)
+    if (inlineOptions) fetchOptions(term)
+    else debouncedFetch(term)
+  }
+
+  // A CHIP adornment styles each option by its value (color and icon), as Material's renderOption does.
+  const hasChips = Boolean(chipField && findAdornment(chipField, 'CHIP'))
+  const optionContent = (option: QPossibleValue) => {
+    if (!hasChips || !chipField) return <span>{option.label}</span>
+    const { color, icon } = chipStyle(chipField, option.id)
+    return (
+      <span
+        className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color])}
+        data-qqq-id={dataQqqId ? `option-chip-${dataQqqId}` : undefined}
+        data-chip-color={color}
+        data-chip-icon={icon}
+      >
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
+        {option.label}
+      </span>
+    )
   }
 
   return (
@@ -214,7 +295,7 @@ export function PossibleValueSelect({
       <label
         id={`${id}-label`}
         htmlFor={id}
-        className="text-sm font-medium text-foreground"
+        className={hideLabel ? 'sr-only' : 'text-sm font-medium text-foreground'}
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
@@ -407,7 +488,7 @@ export function PossibleValueSelect({
                               index === activeIndex && 'ring-2 ring-inset ring-ring'
                             )}
                           >
-                            <span>{option.label}</span>
+                            {optionContent(option)}
                             {isSelected && (
                               <Check className="h-4 w-4 text-primary" aria-hidden="true" />
                             )}

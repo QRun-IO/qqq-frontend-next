@@ -117,7 +117,8 @@ export function FileUploadField({
                 <div className="flex items-center gap-2 text-sm" data-qqq-id={dataQqqId ? `${dataQqqId}-current-file` : undefined}>
                   <span className="text-muted-foreground">Current File:</span>
                   {current.url
-                    ? <a href={current.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{current.name}</a>
+                    ? <a href={current.url} target="_blank" rel="noopener noreferrer"
+                        className="text-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{current.name}</a>
                     : <span className="text-foreground">{current.name}</span>}
                   {!disabled && (
                     <button type="button" aria-label={`Remove current file ${current.name}`} title="Remove current file"

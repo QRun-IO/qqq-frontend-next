@@ -39,7 +39,8 @@ export class WidgetRequestError extends Error {
 }
 
 /**
- * Fetches runtime data for a named widget from `GET /widget/{widgetName}`.
+ * Fetches runtime data for a named widget from the v1 `POST /widget/{widgetName}` route,
+ * with the widget inputs as query parameters (as on the legacy GET route).
  *
  * Widget data is fully dynamic — the shape of the returned object is determined
  * by the widget's backend implementation and described by the `WidgetData` union
@@ -47,7 +48,7 @@ export class WidgetRequestError extends Error {
  * ranges, or other widget-specific context to the server.
  *
  * @param widgetName - Backend-registered name of the widget (e.g. `"salesSummary"`).
- * @param params - Optional key-value pairs forwarded as query parameters to the widget endpoint.
+ * @param params - Optional widget inputs (e.g. the host record `id`, dropdown selections).
  * @returns The widget's runtime data payload.
  * @throws WidgetRequestError with the backend message (e.g. a renderer failure) and status.
  */
@@ -57,10 +58,7 @@ export async function fetchWidgetData(
 ): Promise<WidgetData> {
   let data: WidgetData
   try {
-    data = await apiClient.get<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {
-      params,
-      baseURL: apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, ''),
-    })
+    data = await apiClient.post<WidgetData>(`/widget/${encodeURIComponent(widgetName)}`, {}, { params })
   } catch (error) {
     if (error instanceof AxiosError) {
       const body = error.response?.data as { error?: unknown } | undefined

@@ -28,8 +28,24 @@ vi.mock('@/lib/api/tables', () => ({
   queryRecords: vi.fn(),
 }))
 
+const metaState = vi.hoisted(() => ({ processes: {} as Record<string, unknown> }))
+vi.mock('@/lib/hooks/use-metadata', () => ({
+  useMetaData: () => ({ data: { processes: metaState.processes, tables: {}, apps: {} } }),
+}))
+
+vi.mock('@/lib/api/developer', () => ({
+  storeDataBagVersion: vi.fn(),
+}))
+
+vi.mock('@/lib/hooks/use-toast', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
+}))
+
+import { within } from '@testing-library/react'
 import type { QRecord, QWidgetMetaData } from '@/types'
+import { storeDataBagVersion } from '@/lib/api/developer'
 import { getRecord, queryRecords } from '@/lib/api/tables'
+import { toast } from '@/lib/hooks/use-toast'
 import { DataBagViewerWidget } from './DataBagViewerWidget'
 
 const getRecordMock = vi.mocked(getRecord)
@@ -63,6 +79,10 @@ describe('DataBagViewerWidget', () => {
   beforeEach(() => {
     getRecordMock.mockReset()
     queryRecordsMock.mockReset()
+    vi.mocked(storeDataBagVersion).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
+    metaState.processes = {}
   })
 
   it('lists versions newest first, marks the newest current, and shows its pretty-printed contents', async () => {
@@ -88,7 +108,92 @@ describe('DataBagViewerWidget', () => {
     expect(container.querySelector('[data-qqq-id="data-bag-version-1"]')).not.toHaveTextContent('CURRENT')
     expect(container.querySelector('[data-qqq-id="data-bag-contents-accDataBagViewer"]')?.textContent)
       .toBe(JSON.stringify({ owned: 'second', count: 2 }, null, 2))
-    expect(screen.getByRole('heading', { name: 'Owned data bag — Version 2' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Owned data bag — Version 2 (Current)' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Raw Data', 'Data Preview'])
+    // without the storeDataBagVersion process the session is offered no editing
+    expect(container.querySelector('[data-qqq-id="button-edit-data-bag-accDataBagViewer"]')).toBeNull()
+  })
+
+  it('shows the selected version as an expandable JSON tree on the Data Preview tab', async () => {
+    const user = userEvent.setup()
+    getRecordMock.mockResolvedValue(bag)
+    queryRecordsMock.mockResolvedValue({ records: [{ ...versions[0], values: { ...versions[0].values, data: '{"owned":"second","nested":{"deep":[1,null]}}' } }] })
+    const { container } = renderWidget()
+
+    await screen.findByText('Owned second version')
+    await user.click(screen.getByRole('tab', { name: 'Data Preview' }))
+    expect(screen.getByRole('tab', { name: 'Data Preview' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('heading', { name: 'Data Preview (Version 2)' })).toBeInTheDocument()
+    expect(container.querySelector('[data-qqq-id="json-preview-value-accDataBagViewer-owned"]')).toHaveTextContent('owned: second')
+    const nested = screen.getByRole('button', { name: 'nested:' })
+    expect(nested).toHaveAttribute('aria-expanded', 'false')
+    expect(container.querySelector('[data-qqq-id="json-preview-toggle-accDataBagViewer-nested.deep"]')).toBeNull()
+    nested.focus()
+    await user.keyboard('{Enter}')
+    expect(nested).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'deep:' }))
+    expect(container.querySelector('[data-qqq-id="json-preview-value-accDataBagViewer-nested.deep.0"]')).toHaveTextContent('0: 1')
+    expect(container.querySelector('[data-qqq-id="json-preview-value-accDataBagViewer-nested.deep.1"]')).toHaveTextContent('1: null')
+    await user.click(nested)
+    expect(container.querySelector('[data-qqq-id="json-preview-value-accDataBagViewer-nested.deep.0"]')).toBeNull()
+  })
+
+  it('edits the current version: invalid JSON is blocked, a valid edit is stored as a new version', async () => {
+    const user = userEvent.setup()
+    metaState.processes = { storeDataBagVersion: { name: 'storeDataBagVersion' } }
+    getRecordMock.mockResolvedValue(bag)
+    queryRecordsMock.mockResolvedValue({ records: versions })
+    vi.mocked(storeDataBagVersion).mockResolvedValue({ dataBagVersionId: 3 })
+    renderWidget()
+
+    const edit = await screen.findByRole('button', { name: 'Edit' })
+    expect(edit).toHaveAttribute('title', 'If you make any changes to this data bag, a new version will be created when you hit Save.')
+    await user.click(edit)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Editing Contents of Data Bag: Owned data bag' })).toBeInTheDocument()
+    const editor = within(dialog).getByLabelText('Data bag contents')
+    expect(editor).toHaveValue('{"owned":"second","count":2}')
+
+    await user.clear(editor)
+    await user.type(editor, '{{"broken"')
+    await user.click(within(dialog).getByRole('button', { name: 'Preview' }))
+    expect(within(dialog).getByRole('button', { name: 'Preview' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(dialog).getByText(/^Error parsing JSON:/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(within(dialog).getByText(/^Cannot save Data Bag Contents\. Invalid json: /)).toHaveAttribute('role', 'alert')
+    expect(storeDataBagVersion).not.toHaveBeenCalled()
+
+    await user.clear(editor)
+    await user.type(editor, '{{"owned":"third"}')
+    expect(within(dialog).getByText('third')).toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText('Commit Message'), 'Third version')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(storeDataBagVersion).toHaveBeenCalledWith({ dataBagId: '1', data: '{"owned":"third"}', commitMessage: 'Third version' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(toast.success).toHaveBeenCalledWith('Saved New Data Bag Version')
+  })
+
+  it('keeps the editor open with the error when storing fails, and never closes on Escape', async () => {
+    const user = userEvent.setup()
+    metaState.processes = { storeDataBagVersion: { name: 'storeDataBagVersion' } }
+    getRecordMock.mockResolvedValue(bag)
+    queryRecordsMock.mockResolvedValue({ records: versions })
+    vi.mocked(storeDataBagVersion).mockRejectedValue(new Error('You do not have permission to run this process.'))
+    renderWidget()
+
+    await user.click(await screen.findByRole('button', { name: /Version 1/ }))
+    const edit = screen.getByRole('button', { name: 'Edit and Activate' })
+    await user.click(edit)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Data bag contents')).toHaveValue('{"owned":"first"}')
+    await user.keyboard('{Escape}')
+    expect(dialog).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('You do not have permission to run this process.')
+    expect(toast.error).toHaveBeenCalledWith('You do not have permission to run this process.')
+    expect(storeDataBagVersion).toHaveBeenCalledWith({ dataBagId: '1', data: '{"owned":"first"}', commitMessage: '' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('selects an older version with the keyboard', async () => {
@@ -117,6 +222,23 @@ describe('DataBagViewerWidget', () => {
     queryRecordsMock.mockResolvedValue({ records: [] })
     renderWidget({ type: 'dataBagViewer', queryParams: { id: '2' } })
     expect(await screen.findByText('There are not any versions of this data bag.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create New Version' })).not.toBeInTheDocument()
+  })
+
+  it('initializes the contents of a data bag without versions with Create New Version', async () => {
+    const user = userEvent.setup()
+    metaState.processes = { storeDataBagVersion: { name: 'storeDataBagVersion' } }
+    getRecordMock.mockResolvedValue({ tableName: 'dataBag', values: { id: 2, name: 'Owned empty data bag' } })
+    queryRecordsMock.mockResolvedValue({ records: [] })
+    vi.mocked(storeDataBagVersion).mockResolvedValue({})
+    renderWidget({ type: 'dataBagViewer', queryParams: { id: '2' } })
+
+    await user.click(await screen.findByRole('button', { name: 'Create New Version' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Initializing Contents of Data Bag: Owned empty data bag' })).toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText('Data bag contents'), '[[1]')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(storeDataBagVersion).toHaveBeenCalledWith({ dataBagId: '2', data: '[1]', commitMessage: '' })
   })
 
   it('treats a missing data bag as a contained not-found state without querying versions', async () => {

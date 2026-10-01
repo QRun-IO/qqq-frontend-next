@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render as renderWithoutProviders, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
 // Override next/navigation for this file so we can control pathname per test
@@ -31,8 +31,19 @@ vi.mock('next/navigation', () => ({
 }))
 
 import Sidebar from './Sidebar'
+import { ThemeProvider } from '@/lib/theme/theme-provider'
+
+/**
+ * Renders the sidebar with the same appearance context as the application.
+ * @param ui - Sidebar or drawer harness.
+ * @returns Testing Library render result.
+ */
+function render(ui: React.ReactElement) {
+  return renderWithoutProviders(ui, { wrapper: ThemeProvider })
+}
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
+import { md5Hex } from '@/lib/utils/gravatar'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -247,13 +258,97 @@ describe('Sidebar', () => {
     const onClose = vi.fn()
     renderSidebar(leafRoutes, { open: true, onClose })
 
-    // The backdrop is an aria-hidden div — click it directly
-    const backdrop = document.querySelector('[aria-hidden="true"].absolute.inset-0')
-    if (backdrop) {
-      const callsBefore = onClose.mock.calls.length
-      await user.click(backdrop as HTMLElement)
-      expect(onClose.mock.calls.length).toBeGreaterThan(callsBefore)
+    const backdrop = document.querySelector('[data-qqq-id="sidebar-mobile-backdrop"]')
+    expect(backdrop).not.toBeNull()
+    const callsBefore = onClose.mock.calls.length
+    await user.click(backdrop as HTMLElement)
+    expect(onClose.mock.calls.length).toBeGreaterThan(callsBefore)
+  })
+
+  describe('mobile drawer keyboard use', () => {
+    /** A page with the header menu button, content behind the drawer, and the drawer. */
+    function DrawerPage({ onClose }: { onClose?: () => void }) {
+      const [open, setOpen] = React.useState(false)
+      const menuButtonRef = React.useRef<HTMLButtonElement>(null)
+      return (
+        <>
+          <button ref={menuButtonRef} type="button" onClick={() => setOpen(true)}>Open navigation menu</button>
+          <a href="#behind">Behind the drawer</a>
+          <Sidebar
+            routes={leafRoutes}
+            userName="Avery"
+            logout={() => {}}
+            open={open}
+            onClose={() => { onClose?.(); setOpen(false) }}
+            returnFocusRef={menuButtonRef}
+          />
+        </>
+      )
     }
+
+    async function openFromKeyboard() {
+      const user = userEvent.setup()
+      currentPathname = '/'
+      render(<DrawerPage />)
+      screen.getByRole('button', { name: 'Open navigation menu' }).focus()
+      await user.keyboard('{Enter}')
+      const drawer = document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]') as HTMLElement
+      expect(drawer).not.toBeNull()
+      return { user, drawer }
+    }
+
+    it('is a labelled modal dialog that takes focus on open', async () => {
+      const { drawer } = await openFromKeyboard()
+      expect(drawer).toHaveAttribute('role', 'dialog')
+      expect(drawer).toHaveAccessibleName('Navigation')
+      expect(drawer.contains(document.activeElement)).toBe(true)
+    })
+
+    it('keeps Tab and Shift+Tab inside the drawer', async () => {
+      const { user, drawer } = await openFromKeyboard()
+      const stops = drawer.querySelectorAll('a[href], button').length
+      for (let press = 0; press < stops + 2; press++) {
+        await user.tab()
+        expect(drawer.contains(document.activeElement)).toBe(true)
+      }
+      for (let press = 0; press < stops + 2; press++) {
+        await user.tab({ shift: true })
+        expect(drawer.contains(document.activeElement)).toBe(true)
+      }
+      expect(screen.queryByRole('link', { name: 'Behind the drawer' })).toBeNull() // hidden from assistive technology
+    })
+
+    it('closes on Escape and returns focus to the menu button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.keyboard('{Escape}')
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('returns focus to the menu button when closed by its close button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.click(screen.getByRole('button', { name: 'Close navigation' }))
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('closes when a link is chosen and returns focus to the menu button', async () => {
+      const { user } = await openFromKeyboard()
+      await user.click(screen.getByRole('link', { name: /Companies/ }))
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus()
+    })
+
+    it('lets Escape close an open user menu first and keeps the drawer open', async () => {
+      const { user, drawer } = await openFromKeyboard()
+      await user.click(screen.getByRole('button', { name: /Avery/ }))
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(drawer.isConnected).toBe(true)
+      await user.keyboard('{Escape}')
+      expect(document.querySelector('[data-qqq-id="sidebar-mobile-drawer"]')).toBeNull()
+    })
   })
 
   // ─── data-qqq-id attributes ───────────────────────────────────────────────
@@ -324,5 +419,84 @@ describe('Sidebar', () => {
   it('renders a nav element with accessible label', () => {
     renderSidebar(leafRoutes)
     expect(screen.getByRole('navigation', { name: /app navigation/i })).toBeInTheDocument()
+  })
+
+  // ─── Material CSS hooks (QRun-IO/qqq#731) ─────────────────────────────────
+
+  describe('Material CSS hooks', () => {
+    it('marks the root, logo area and menu list as Material does', () => {
+      renderSidebar(leafRoutes, { branding: { appName: 'Test App', logo: '/logo.png' } })
+      const root = document.querySelector('[data-qqq-id="sidenav-root"]')
+      expect(root?.closest('[data-qqq-id="sidebar"]')).not.toBeNull()
+      expect(root?.querySelector('[data-qqq-id="sidenav-logo-area"] img[src="/logo.png"]')).not.toBeNull()
+      const list = document.querySelector('[data-qqq-id="sidenav-menu-list"]')
+      expect(list?.tagName).toBe('UL')
+      expect(list?.parentElement?.tagName).toBe('NAV')
+      // only the top-level list carries the menu-list hook
+      expect(document.querySelectorAll('[data-qqq-id="sidenav-menu-list"]')).toHaveLength(1)
+    })
+
+    it('gives each navigation item sidenav-{sanitized label}', () => {
+      renderSidebar(collapseRoutes, { pathname: '/app/order' })
+      expect(document.querySelector('li[data-qqq-id="sidenav-sales-app"]')).toContainElement(screen.getByRole('link', { name: 'Sales App' }))
+      expect(document.querySelector('li[data-qqq-id="sidenav-orders"]')).toContainElement(screen.getByRole('link', { name: 'Orders' }))
+    })
+
+    it('puts qqq-sidebar-active on the highlighted item only', () => {
+      renderSidebar(collapseRoutes, { pathname: '/app/order' })
+      const active = document.querySelectorAll('.qqq-sidebar-active')
+      expect(active).toHaveLength(1)
+      expect(active[0]).toBe(screen.getByRole('link', { name: 'Orders' }))
+
+      renderSidebar(collapseRoutes, { pathname: '/app/salesApp' })
+      const exact = document.querySelector('li[data-qqq-id="sidenav-sales-app"] > .qqq-sidebar-active')
+      expect(exact).toContainElement(screen.getAllByRole('link', { name: 'Sales App' }).at(-1)!)
+    })
+
+    it('marks top-level parent apps with data-qqq-sidenav-item-type', () => {
+      renderSidebar(nestedRoutes, { pathname: '/app/deepItem' })
+      const typed = document.querySelectorAll('[data-qqq-sidenav-item-type="top-level-parent-app"]')
+      expect(typed).toHaveLength(1)
+      expect(typed[0]).toContainElement(screen.getByRole('link', { name: 'Level One' }))
+    })
+
+    it('marks the user profile and the logout entry', async () => {
+      currentPathname = '/'
+      render(<Sidebar routes={leafRoutes} userName="Alice" userEmail="alice@example.com" logout={vi.fn()} />)
+      const profile = document.querySelector('[data-qqq-sidenav-item-type="user-profile"]')
+      expect(profile).toHaveAttribute('data-qqq-id', 'sidebar-user-button')
+      await userEvent.setup().click(profile as HTMLElement)
+      expect(screen.getByRole('menuitem', { name: 'Log Out' })).toHaveAttribute('data-qqq-id', 'sidenav-logout-button')
+    })
+  })
+
+  // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
+
+  it('returns preferences focus to the user menu button after the menu item unmounts', async () => {
+    const user = userEvent.setup()
+    render(<Sidebar routes={leafRoutes} userName="Alice" />)
+    const trigger = screen.getByRole('button', { name: 'Alice' })
+    await user.click(trigger)
+    await user.click(screen.getByRole('menuitem', { name: 'Preferences' }))
+    expect(screen.getByRole('dialog', { name: 'Preferences' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
+    render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)
+    expect(document.querySelector('[data-qqq-id="sidebar-user-name"]')).toHaveTextContent('Anonymous')
+    expect(document.querySelector('[data-qqq-id="sidebar-user-email"]')).toHaveTextContent('ann@example.com')
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')?.tagName).toBe('DIV')
+    expect(document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')).toBeNull()
+  })
+
+  it('shows the Gravatar when the branding declares gravatarDefault, and the initial if it fails', () => {
+    const branding: QBrandingMetaData = { companyName: '', companyUrl: '', appName: 'QQQ', gravatarDefault: 'identicon' }
+    render(<Sidebar routes={leafRoutes} branding={branding} userName="Avery" userEmail="avery@example.com" logout={vi.fn()} />)
+    const avatar = document.querySelector('img[data-qqq-id="sidebar-user-avatar"]')!
+    expect(avatar).toHaveAttribute('src', `https://www.gravatar.com/avatar/${md5Hex('avery@example.com')}?d=identicon`)
+    fireEvent.error(avatar)
+    expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
   })
 })

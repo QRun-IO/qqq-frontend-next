@@ -7,6 +7,76 @@
   "description": "Querying, relationships, saved views, export and bulk selection",
   "rows": [
     {
+      "id": "QRY-090",
+      "feature": "Column menu sorts, pins, opens a field filter and hides a column",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Sort matches SQL", "Pin right is reflected in the grid", "Filter opens the field editor", "Hide removes the column"],
+      "negative": [],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-091",
+      "feature": "Column menu copies page or full query values in backend sort order",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample carrier (11 rows)",
+      "scenarios": ["Page copy contains the first ten ids", "Full copy contains all eleven ids"],
+      "negative": [],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-092",
+      "feature": "Column chooser searches, groups, counts and marks changed layouts",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/components/query/FieldListMenu.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Search narrows fields", "Groups collapse and expand", "Hiding a field marks the columns dirty", "Keyboard opening focuses the popup and Tab reaches search", "Explicit close and Escape restore Columns focus; outside click keeps the clicked control focused"],
+      "negative": ["Unknown search shows an empty message"],
+      "issues": [716],
+      "required": true
+    },
+    {
+      "id": "QRY-093",
+      "feature": "Last saved view and unsaved edits survive reopening and reload",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample Alice People View",
+      "scenarios": ["Dirty filter survives reload", "Table route opens the last saved view", "Reset restores the backend view", "Displayed filter updates the URL before a delayed page navigation completes; immediate reload preserves it, along with unrelated parameters, hash and history length"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-094",
+      "feature": "Counted quick views render and open their saved-view route",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/components/query/QuickSavedViews.tsx"],
+      "fixture": "sample Alice People View marked as a quick view in H2",
+      "scenarios": ["Count reflects the backend filter", "Quick-view button opens the filtered view"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-095",
+      "feature": "A new query defaults to fifty rows per page",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "QueryFixtures.java qryManyRow (1,234 rows)",
+      "scenarios": ["Fifty visible rows", "Pagination reports fifty of the full count"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
+      "id": "QRY-096",
+      "feature": "A saved view reconciles removed fields and warns the user",
+      "source": ["qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx"],
+      "fixture": "sample Alice People View with retiredField references in H2",
+      "scenarios": ["Obsolete criteria and sort are removed before querying", "Warning names the removed field", "Heading names the active saved view"],
+      "negative": [],
+      "issues": [717],
+      "required": true
+    },
+    {
       "id": "QRY-001",
       "feature": "Record list renders metadata labels and all records in the default primary-key-descending order",
       "source": [
@@ -17,7 +87,8 @@
       "scenarios": [
         "Headers use field labels",
         "Rows equal SQL select ordered by id desc",
-        "Possible-value cells show labels, booleans Yes/No, money/decimals formatted"
+        "Possible-value cells show labels, booleans Yes/No, money/decimals formatted",
+        "Original Next uniform row backgrounds in light and dark mode, with opaque pinned cells and selection highlighting"
       ],
       "negative": [
         "Null boolean renders empty, not No",
@@ -132,7 +203,10 @@
       "fixture": "QueryFixtures.java qryItem",
       "scenarios": [
         "Backend error text shown",
-        "Retry reloads after the failure clears"
+        "Retry reloads after the failure clears",
+        "Query error text and the front error notification meet text contrast in light, dark and configured application themes",
+        "Retry repeats the backend request; hover remains readable",
+        "Dismiss hides the error; resetting the invalid filter restores SQL-verified records"
       ],
       "negative": [
         "No rows from the failed request are shown"
@@ -424,7 +498,9 @@
       ],
       "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier",
       "scenarios": [
-        "Banners and counts for page, all and subset"
+        "Banners and counts for page, all and subset",
+        "Touch opens and toggles the density menu without synthetic trigger focus dismissing it; Enter, Escape and outside search focus retain their normal behavior",
+        "Pinned selection targets remain exposed and respond at both edges for every density"
       ],
       "negative": [
         "Subset dialog rejects invalid N"
@@ -789,6 +865,367 @@
       ],
       "issues": [
         693
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-065",
+      "feature": "Export streams from the v1 export route",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/components/query/ExportButton.tsx"
+      ],
+      "fixture": "qryItem, qryLedger",
+      "scenarios": [
+        "the export menu posts {format, filename, fieldNames, filter} to /qqq/v1/table/{table}/export and downloads every row",
+        "the v1 route streams the same rows as CSV"
+      ],
+      "negative": [
+        "a table without the export capability is refused (403) by the v1 route"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-066",
+      "feature": "Variant options come from the v1 variants route",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/components/query/VariantPicker.tsx"
+      ],
+      "fixture": "qryStock (qryStore options)",
+      "scenarios": [
+        "the variant picker lists the stores from GET /qqq/v1/table/{table}/variants",
+        "the v1 route lists every option with its type and id; a table without variants lists none"
+      ],
+      "negative": [
+        "an unknown table is refused (403)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-067",
+      "feature": "Go To opens a record by its primary key or a configured unique key (Material gotoFieldNames)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/misc/GotoRecordDialog.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/query/RecordQuery.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordView.tsx",
+        "qqq-frontend-material-dashboard/src/main/java/com/kingsrook/qqq/frontend/materialdashboard/model/metadata/MaterialDashboardTableMetaData.java"
+      ],
+      "fixture": "QueryFixtures.java qryBin (gotoFieldNames [[code], [aisle, shelf]]), qryLocker (GET without QUERY), qryItem (no Go To)",
+      "scenarios": [
+        "v1 table metadata carries supplementalMetaData.materialDashboard.gotoFieldNames (API)",
+        "Go To... on the query toolbar and the record view header offers the primary key, then each key, labelled by field labels",
+        "primary key, single-field and two-field keys each open the one matching record (EQUALS query, id from SQL)",
+        "no match shows \"Record not found.\"; a partial key matching two bins shows \"More than 1 record was found...\" (counts from SQL)",
+        "Enter in an input submits its option; Escape closes and returns focus to the Go To button",
+        "a table with GET but no QUERY capability opens Go To automatically and it cannot be dismissed"
+      ],
+      "negative": [
+        "a table without gotoFieldNames has no Go To button on its query or record screen",
+        "no navigation on no match or several matches"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-068",
+      "feature": "Default grid columns follow the table sections (section order, each field once), not the metadata field order (Material bySection order)",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/utils/DataGridUtils.tsx:145-262 (setupGridColumns bySection)",
+        "src/lib/utils/query-columns.ts fieldsInSectionOrder, getQueryColumns"
+      ],
+      "fixture": "QueryFixtures.java qryOrdered (qry_item rows; fields declared price, quantity, code, id, name; sections identity [id, name, code], details [price], stock [quantity])",
+      "scenarios": [
+        "Headers read Id, Name, Code, Price, Quantity",
+        "Rows equal SQL select ordered by id desc"
+      ],
+      "negative": [
+        "The metadata field-map order (price first) is not used"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-069",
+      "feature": "Pagination numbers are locale formatted in the shown range and the total",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/query/CustomPaginationComponent.tsx:93-112",
+        "src/components/query/Pagination.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryManyRow (1,234 rows)",
+      "scenarios": [
+        "Page 5 at 250 per page reads Showing 1,001–1,234 of 1,234",
+        "The page shows exactly the last 234 ids by SQL"
+      ],
+      "negative": [
+        "No unformatted range such as 1001–1234"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-070",
+      "feature": "Query screen keyboard shortcuts n (new record), r (refresh the query), f (open the filter builder)",
+      "source": [
+        "material-dashboard src/qqq/pages/records/query/RecordQuery.tsx (keyboard shortcuts)",
+        "src/lib/hooks/use-page-shortcuts.ts",
+        "src/components/query/RecordQuery.tsx"
+      ],
+      "fixture": "sample person",
+      "scenarios": [
+        "r sends a new query request and shows a value changed through the API (SQL confirms the change)",
+        "f opens the Advanced Filters panel and a second f keeps it open",
+        "n opens the create form"
+      ],
+      "negative": [
+        "keys typed in quick search are text (no filter panel, no navigation)",
+        "viewer persona: n does nothing (f still works); the backend refuses the insert (403, SQL unchanged)"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-071",
+      "feature": "Processes launched from a variant table run with the chosen variant (tableVariant on init and every step) and return to the query",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/processes/ProcessRun.tsx:1852-1856,2026-2030 (tableVariant from qqq.tableVariant.<table>)",
+        "src/components/process/ProcessRun.tsx",
+        "src/lib/api/processes.ts processInit/processStep",
+        "src/lib/utils/table-variant.ts"
+      ],
+      "fixture": "QueryFixtures.java qryStock (memory backend keyed by qryStore variants)",
+      "scenarios": [
+        "Bulk Delete of the South store's full query result counts its one record",
+        "Every init and step request carries tableVariant {type: qryStore, id: 2}",
+        "Return comes back to the variant query, which is empty for South while North keeps its two rows"
+      ],
+      "negative": [
+        "Without the variant the backend could not read the variant table's records"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-080",
+      "feature": "Basic mode displays default quick filters from table metadata and applies their criteria",
+      "source": ["Material BasicAndAdvancedQueryControls.tsx", "src/components/query/QuickFilterBar.tsx"],
+      "fixture": "sample person and QueryFixtures.java qryItem",
+      "scenarios": ["First Name quick filter finds the SQL-matching records", "Type-specific defaults gate Boolean until chosen, default possible values to any-of and date-time to after", "A multi-value chip summarizes extra values", "A saved Basic view restores its criterion and SQL rows"],
+      "negative": ["No application-specific field names are embedded in the UI", "Cancel discards an un-applied quick-filter draft"],
+      "issues": [715],
+      "required": true
+    },
+    {
+      "id": "QRY-081",
+      "feature": "Add quick filter accepts metadata fields and remembers a chosen field",
+      "source": ["Material BasicAndAdvancedQueryControls.tsx", "src/components/query/QuickFilterBar.tsx"],
+      "fixture": "sample person and QueryFixtures.java qryItem/qryCaseItem",
+      "scenarios": ["A field offered by metadata appears as a chip after selection and reload", "Joined and virtual fields query SQL-backed records"],
+      "negative": ["Field choice is scoped to this table"],
+      "issues": [715],
+      "required": true
+    },
+    {
+      "id": "QRY-082",
+      "feature": "Basic mode cannot simplify repeated or nested advanced conditions and explains why",
+      "source": ["Material FilterUtils.tsx canFilterWorkAsBasic", "src/lib/utils/quick-filter-utils.ts"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Repeated Name conditions disable Basic with a focusable reason tooltip", "URL criteria become chips; OR criteria open Advanced with a reason"],
+      "negative": ["Clicking Basic does not discard either condition"],
+      "issues": [715],
+      "required": true
+    },
+    {
+      "id": "QRY-083",
+      "feature": "Advanced query shows and removes individual conditions (Next inline editor)",
+      "source": ["Material AdvancedQueryPreview.tsx", "src/components/query/FilterBuilder.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Name and Quantity conditions filter SQL rows; deleting Name in the inline editor preserves Quantity"],
+      "negative": ["Removing one condition does not reset the whole query"],
+      "issues": [715],
+      "required": true
+    },
+    {
+      "id": "QRY-084",
+      "feature": "Sort picker changes field and direction; clearing filters requires confirmation and keeps the sort",
+      "source": ["Material BasicAndAdvancedQueryControls.tsx", "src/components/query/RecordQuery.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Name ascending order matches SQL before and after confirmed clear", "Condition status explains missing and complete values on keyboard focus"],
+      "negative": ["Cancel leaves conditions in place"],
+      "issues": [715],
+      "required": true
+    },
+    {
+      "id": "QRY-085",
+      "feature": "Weekday criteria use the metadata-enabled date function and ISO weekday values",
+      "source": ["Material weekday criteria", "src/components/query/FilterBuilder.tsx"],
+      "fixture": "QueryFixtures.java qryItem with dated rows and Material weekday settings; AcceptanceSampleServer.java H2 date functions",
+      "scenarios": ["Selecting a weekday sends WeekdayOfDate and returns the SQL-matching rows", "Date-time weekday sends WeekdayOfDateTime with configured UTC arguments and returns matching rows"],
+      "negative": ["The weekday list uses names rather than bare numbers"],
+      "issues": [718],
+      "required": true
+    },
+    {
+      "id": "QRY-086",
+      "feature": "Relative date presets expose their evaluated date and filter records",
+      "source": ["Material relative date expressions", "src/components/query/RelativeDateMenu.tsx"],
+      "fixture": "QueryFixtures.java qryItem with relative dates",
+      "scenarios": ["Seven days ago renders a live date and returns the recent SQL-backed rows", "A date-time preset retains its relative expression, evaluates on focus and returns recent rows"],
+      "negative": ["A relative value remains an expression instead of fixed text"],
+      "issues": [718],
+      "required": true
+    },
+    {
+      "id": "QRY-087",
+      "feature": "Bulk pasted values become a multi-value filter",
+      "source": ["Material FilterValuePaster", "src/components/query/FilterValuePaster.tsx"],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": ["Two pasted record names return the matching SQL-backed rows"],
+      "negative": ["The dialog previews each value before adding it"],
+      "issues": [718],
+      "required": true
+    },
+    {
+      "id": "QRY-088",
+      "feature": "Instance query help accompanies the bulk paste dialog",
+      "source": ["QQQ v1 instance helpContents", "src/components/query/FilterValuePaster.tsx"],
+      "fixture": "QueryFixtures.java instance-level QUERY_SCREEN help",
+      "scenarios": ["The dialog displays the configured help text"],
+      "negative": ["Help text comes from instance metadata"],
+      "issues": [718],
+      "required": true
+    },
+    {
+      "id": "QRY-089",
+      "feature": "String filter input honors field case behavior from v1 metadata",
+      "source": ["Material field behaviors", "src/components/query/FilterBuilder.tsx"],
+      "fixture": "QueryFixtures.java qryCaseItem code with TO_LOWER_CASE",
+      "scenarios": ["Uppercase typing is normalized and queries the lowercase stored code"],
+      "negative": ["The normalized value remains visible in the input"],
+      "issues": [718],
+      "required": true
+    },
+    {
+      "id": "QRY-008",
+      "feature": "Phone card list: readable records, touch-sized selection, query selections and paging",
+      "source": [
+        "qqq-frontend-next/src/components/query/RecordCardView.tsx",
+        "qqq-frontend-next/src/components/query/RecordQueryContent.tsx"
+      ],
+      "fixture": "sample (person, pet, petNote, carrier, petSpecies) carrier (11 rows), 412 px touch viewport",
+      "scenarios": [
+        "One card per record with the SQL ids and names, values wrap instead of being cut off",
+        "Tapping the 44 px label around a card checkbox selects it without opening the record",
+        "A full-query selection checks every card; paging and rows per page work on cards",
+        "Tapping a card opens its record"
+      ],
+      "negative": [
+        "No horizontal page scroll and no control below 44 x 44 px"
+      ],
+      "issues": [
+        708
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-009",
+      "feature": "Phone filter sheet fits the viewport, scrolls inside and manages focus",
+      "source": [
+        "qqq-frontend-next/src/components/query/RecordQuery.tsx",
+        "qqq-frontend-next/src/components/query/FilterBuilder.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem, 412 px touch viewport",
+      "scenarios": [
+        "Filter opens a modal sheet that takes focus",
+        "Many conditions scroll inside the sheet, which stays inside the viewport",
+        "Cards behind the sheet show the filtered records (SQL)",
+        "Escape or Close closes the sheet and returns focus to Filter, which counts the conditions"
+      ],
+      "negative": [
+        "No horizontal page scroll and no control below 44 x 44 px in the sheet"
+      ],
+      "issues": [
+        708
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-024",
+      "feature": "Column configuration is reachable and usable by touch on phones and tablets",
+      "source": [
+        "qqq-frontend-next/src/components/query/ColumnConfig.tsx",
+        "qqq-frontend-next/src/components/query/RecordQueryToolbar.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem",
+      "scenarios": [
+        "The panel opens inside the viewport with touch-sized controls",
+        "Hiding a column removes it from the cards (phone) or the grid (tablet) and persists",
+        "Escape closes the panel and returns focus to its button"
+      ],
+      "negative": [
+        "The panel never runs off the left edge of a phone"
+      ],
+      "issues": [
+        708
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-036",
+      "feature": "Bulk actions launch from a phone card selection",
+      "source": [
+        "qqq-frontend-next/src/components/query/RecordQueryBulkBar.tsx",
+        "qqq-frontend-next/src/components/query/BulkActionBar.tsx",
+        "qqq-frontend-next/src/components/query/ProcessLauncherMenu.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem, 412 px touch viewport",
+      "scenarios": [
+        "Checked cards show the selection banner",
+        "The Actions menu fits the phone; Bulk Edit launches with exactly the checked ids"
+      ],
+      "negative": [
+        "No horizontal page scroll while the menu is open"
+      ],
+      "issues": [
+        708
+      ],
+      "required": true
+    },
+    {
+      "id": "QRY-055",
+      "feature": "Saved views and export menus fit the phone and are touch-sized",
+      "source": [
+        "qqq-frontend-next/src/components/query/SavedViewsMenu.tsx",
+        "qqq-frontend-next/src/components/query/ExportButton.tsx"
+      ],
+      "fixture": "sample sharing demo (Alice People View), 412 px touch viewport",
+      "scenarios": [
+        "The saved views menu lists your view inside the viewport; Escape closes it",
+        "The export menu fits the phone and downloads a CSV"
+      ],
+      "negative": [
+        "No horizontal page scroll and no control below 44 x 44 px in either menu"
+      ],
+      "issues": [
+        708
       ],
       "required": true
     },

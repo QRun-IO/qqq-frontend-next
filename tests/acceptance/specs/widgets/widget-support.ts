@@ -23,10 +23,7 @@ export async function sqlRows(backend: Backend, query: string): Promise<Array<Re
   return rows as Array<Record<string, string>>
 }
 
-/**
- * The visible element with a data-qqq-id. Record views mount section widgets in
- * both their tab and accordion layouts (one hidden), so tests target the visible one.
- */
+/** The visible element with a data-qqq-id (record views mount one layout; WID-065 proves it). */
 export function byId(page: Page, id: string): Locator {
   return page.locator(`[data-qqq-id="${id}"]`).filter({ visible: true })
 }
@@ -45,6 +42,52 @@ export function widgetBody(page: Page, name: string): Locator {
 export async function expectLoaded(page: Page, name: string) {
   await expect(widget(page, name)).toBeVisible()
   await expect(widget(page, name)).toHaveAttribute('aria-busy', 'false')
+}
+
+/** Whether the page shows the phone layout (below Tailwind's `md` breakpoint, 768 px). */
+export async function isPhoneLayout(page: Page): Promise<boolean> {
+  return page.evaluate(() => matchMedia('(max-width: 767.98px)').matches)
+}
+
+/** Whether the page shows the desktop dashboard grid (Tailwind's `lg` breakpoint, 1024 px). */
+export async function isLargeLayout(page: Page): Promise<boolean> {
+  return page.evaluate(() => matchMedia('(min-width: 1024px)').matches)
+}
+
+/**
+ * Opens a record view and shows every section: on a phone the sections are an accordion with
+ * only the first one open, so widgets in the others render once their section is expanded.
+ */
+export async function openRecord(page: Page, path: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' })
+  await showRecordSections(page)
+}
+
+/** Shows every section of the record view on screen (expands the phone accordion; see {@link openRecord}). */
+export async function showRecordSections(page: Page) {
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  if (!(await isPhoneLayout(page))) return
+  const accordion = page.locator('[data-qqq-id="record-view-accordion"]')
+  await expect(accordion).toBeVisible()
+  const closed = accordion.locator('[data-qqq-id^="accordion-trigger-"][aria-expanded="false"]')
+  for (let count = await closed.count(); count > 0; count = await closed.count()) {
+    await closed.first().click()
+    await expect(closed).toHaveCount(count - 1)
+  }
+}
+
+/**
+ * Runs one of a record's actions: from the Actions menu on wider screens, from the record
+ * actions sheet on a phone.
+ */
+export async function recordAction(page: Page, label: string) {
+  if (await isPhoneLayout(page)) {
+    await page.locator('[data-qqq-id="button-mobile-actions"]').click()
+    await page.getByRole('dialog', { name: 'Record actions' }).getByRole('button', { name: label }).click()
+    return
+  }
+  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('menuitem', { name: label }).click()
 }
 
 /** The backend's own payload for a widget, read with the test's session. */
@@ -149,4 +192,37 @@ export function parseCsv(text: string): string[][] {
   }
   if (cell !== '' || row.length) { row.push(cell); rows.push(row) }
   return rows
+}
+
+/** A widget header dropdown (Material's searchable combobox), by its label. */
+export function dropdown(scope: Locator, label: string): Locator {
+  return scope.getByRole('combobox', { name: `Select ${label}` })
+}
+
+/** Opens a widget dropdown and returns its option labels, then closes it again. */
+export async function dropdownOptions(page: Page, scope: Locator, label: string): Promise<string[]> {
+  await dropdown(scope, label).click()
+  const options = page.getByRole('listbox', { name: `${label} options` }).getByRole('option')
+  await expect(options.first()).toBeVisible()
+  const labels = await options.allTextContents()
+  await dropdown(scope, label).press('Escape')
+  await expect(page.getByRole('listbox', { name: `${label} options` })).toHaveCount(0)
+  return labels
+}
+
+/** Chooses an option of a widget dropdown by its label (open, then click or tap the option). */
+export async function chooseOption(page: Page, scope: Locator, label: string, option: string) {
+  await dropdown(scope, label).click()
+  await page.getByRole('listbox', { name: `${label} options` }).getByRole('option', { name: option, exact: true }).click()
+  await expect(page.getByRole('listbox', { name: `${label} options` })).toHaveCount(0)
+}
+
+/** A day as the dashboard sends a date-picker selection: the browser's `toLocaleDateString()` (Material). */
+export async function localeDay(page: Page, year: number, month: number, day: number): Promise<string> {
+  return page.evaluate(([y, m, d]) => new Date(y, m - 1, d).toLocaleDateString(), [year, month, day])
+}
+
+/** The decoded value of one query parameter of a request URL. */
+export function requestParam(url: string, name: string): string | null {
+  return new URL(url).searchParams.get(name)
 }

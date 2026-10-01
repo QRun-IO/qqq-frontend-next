@@ -21,7 +21,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import DOMPurify from 'dompurify'
+import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 
 import type { QHelpContent } from '@/types'
 import { cn } from '@/lib/utils/cn'
@@ -47,7 +47,7 @@ interface HelpContentProps {
 export function HelpContent({ helpContent, id, 'data-qqq-id': dataQqqId, className }: HelpContentProps) {
   const format = helpContent.format ?? 'TEXT'
   const html = format === 'HTML' ? helpContent.content : format === 'MARKDOWN' ? helpContent.contentAsHtml : undefined
-  const sanitized = useMemo(() => (html ? DOMPurify.sanitize(html) : undefined), [html])
+  const sanitized = useMemo(() => (html ? sanitizeHtml(html) : undefined), [html])
 
   if (sanitized !== undefined) {
     return (

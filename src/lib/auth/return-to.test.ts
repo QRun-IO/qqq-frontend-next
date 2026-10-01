@@ -35,6 +35,24 @@ describe('safeReturnTo (open-redirect guard, QRun-IO/qqq#669)', () => {
     expect(safeReturnTo(value, ORIGIN)).toBe('/')
   })
 
+  // QRun-IO/qqq#696: dot segments normalize to a protocol-relative path.
+  it.each([
+    '/.//evil.example/steal',
+    '/..//evil.example',
+    '/app/..//evil.example',
+    '/%2e//evil.example',
+    '/app/../\\evil.example',
+    '/./\\evil.example',
+    '/\t/evil.example',
+  ])('rejects %j, which normalizes to another origin', (value) => {
+    expect(safeReturnTo(value, ORIGIN)).toBe('/')
+  })
+
+  it('still normalizes harmless dot segments within the app', () => {
+    expect(safeReturnTo('/app/./person/../person?x=1', ORIGIN)).toBe('/app/person?x=1')
+    expect(safeReturnTo('/app/%2Fperson', ORIGIN)).toBe('/app/%2Fperson')
+  })
+
   it('never returns to the sign-in pages themselves', () => {
     expect(safeReturnTo('/login?returnTo=%2Fapp', ORIGIN)).toBe('/')
     expect(safeReturnTo('/token?code=x', ORIGIN)).toBe('/')

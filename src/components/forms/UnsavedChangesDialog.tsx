@@ -39,6 +39,12 @@ interface UnsavedChangesDialogProps {
   onStay: () => void
   /** Called when the user clicks "Leave", confirming that unsaved changes can be discarded. */
   onLeave: () => void
+  /**
+   * Control that gets focus back when the user stays (the button that opened the dialog).
+   * Safari and WebKit do not focus a button on click, so the element focused before the dialog
+   * opened is not always the button the user pressed.
+   */
+  returnFocusRef?: React.RefObject<HTMLElement | null>
 }
 
 /**
@@ -52,7 +58,7 @@ interface UnsavedChangesDialogProps {
  * @param props - See {@link UnsavedChangesDialogProps}.
  * @returns The rendered confirmation dialog, or null when `open` is false.
  */
-export function UnsavedChangesDialog({ open, onStay, onLeave }: UnsavedChangesDialogProps) {
+export function UnsavedChangesDialog({ open, onStay, onLeave, returnFocusRef }: UnsavedChangesDialogProps) {
   // Radix AlertDialog manages focus automatically (focus trap + initial focus).
   // Manual focus management via useEffect/ref.focus() races with Radix's
   // internal focus trap and is intentionally omitted here.
@@ -70,11 +76,17 @@ export function UnsavedChangesDialog({ open, onStay, onLeave }: UnsavedChangesDi
           data-qqq-id="unsaved-changes-dialog"
           aria-describedby="unsaved-changes-description"
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto',
             'rounded-xl border border-border bg-background shadow-lg',
             'focus:outline-none'
           )}
           onEscapeKeyDown={onStay}
+          onCloseAutoFocus={(event) => {
+            const target = returnFocusRef?.current
+            if (!target) return
+            event.preventDefault()
+            target.focus()
+          }}
         >
           <AlertDialogPrimitive.Title className="sr-only">
             Unsaved Changes
@@ -98,19 +110,22 @@ export function UnsavedChangesDialog({ open, onStay, onLeave }: UnsavedChangesDi
           </div>
 
           <div className="flex items-center justify-end gap-3 rounded-b-xl bg-muted px-6 py-4">
-            <button
-              type="button"
-              onClick={onStay}
-              data-qqq-id="unsaved-changes-stay"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
-                'text-foreground bg-background hover:bg-accent',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                'transition-colors duration-150'
-              )}
-            >
-              Stay
-            </button>
+            {/* The AlertDialog Cancel part gets focus when the dialog opens (the safe choice) and
+                closes it through onOpenChange, which calls onStay. */}
+            <AlertDialogPrimitive.Cancel asChild>
+              <button
+                type="button"
+                data-qqq-id="unsaved-changes-stay"
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium',
+                  'text-foreground bg-background hover:bg-accent',
+                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                  'transition-colors duration-150'
+                )}
+              >
+                Stay
+              </button>
+            </AlertDialogPrimitive.Cancel>
             <button
               type="button"
               onClick={onLeave}

@@ -21,6 +21,7 @@
  */
 
 import type { QAuditRecord, QInstance, QRecord } from '@/types'
+import { countRecords } from './tables'
 import apiClient from './client'
 
 /** Name of the backend's standard audit-reading process (`GetAuditsForRecordProcess`). */
@@ -55,18 +56,25 @@ interface ProcessCompleteResponse {
   userFacingError?: string
 }
 
+/** Audit entries plus the optional count when the 1,000-detail cap was reached. */
+export interface AuditHistory {
+  records: QAuditRecord[]
+  total: number | null
+}
+
 /**
- * Loads the audit history of one record, newest first.
+ * Loads the audit history of one record in the requested order.
  *
  * @param source - How to read audits (see {@link auditSource}).
  * @param tableName - The audited table.
  * @param primaryKey - The record's primary key.
- * @returns Audit entries, each with its field-level details.
+ * @param isSortAscending - True for oldest first.
+ * @returns Audit entries and the total when the backend supplies one.
  */
-export async function getAuditRecords(source: Exclude<AuditSource, null>, tableName: string, primaryKey: string | number): Promise<QAuditRecord[]> {
+export async function getAuditRecords(source: Exclude<AuditSource, null>, tableName: string, primaryKey: string | number, isSortAscending = false): Promise<AuditHistory> {
   if (source === 'process') {
     const formData = new FormData()
-    formData.append('values', JSON.stringify({ tableName, recordId: String(primaryKey), isSortAscending: false, limit: AUDIT_LIMIT }))
+    formData.append('values', JSON.stringify({ tableName, recordId: String(primaryKey), isSortAscending, limit: AUDIT_LIMIT }))
     const response = await apiClient.post<ProcessCompleteResponse>(`/processes/${AUDIT_PROCESS_NAME}/init`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -75,18 +83,20 @@ export async function getAuditRecords(source: Exclude<AuditSource, null>, tableN
     }
     const audits = response.values?.audits
     if (!Array.isArray(audits)) throw new Error('Invalid audit response')
-    return groupAuditRows(audits as QRecord[])
+    const total = response.values?.distinctCount
+    return { records: groupAuditRows(audits as QRecord[]), total: typeof total === 'number' ? total : null }
   }
 
+  const criteria = [
+    { fieldName: 'auditTable.name', operator: 'EQUALS' as const, values: [tableName] },
+    { fieldName: 'recordId', operator: 'EQUALS' as const, values: [String(primaryKey)] },
+  ]
   const response = await apiClient.post<{ records?: QRecord[] }>(`/table/${AUDIT_TABLE_NAME}/query`, {
     filter: {
-      criteria: [
-        { fieldName: 'auditTable.name', operator: 'EQUALS', values: [tableName] },
-        { fieldName: 'recordId', operator: 'EQUALS', values: [String(primaryKey)] },
-      ],
+      criteria,
       orderBys: [
-        { fieldName: 'timestamp', isAscending: false },
-        { fieldName: 'id', isAscending: false },
+        { fieldName: 'timestamp', isAscending: isSortAscending },
+        { fieldName: 'id', isAscending: isSortAscending },
         { fieldName: 'auditDetail.id', isAscending: true },
       ],
       limit: AUDIT_LIMIT,
@@ -97,7 +107,12 @@ export async function getAuditRecords(source: Exclude<AuditSource, null>, tableN
     ],
   })
   if (!Array.isArray(response?.records)) throw new Error('Invalid audit response')
-  return groupAuditRows(response.records)
+  let total: number | null = null
+  if (response.records.length === AUDIT_LIMIT) {
+    const count = await countRecords(AUDIT_TABLE_NAME, { filter: { criteria } }, true)
+    total = count.distinctCount ?? count.count
+  }
+  return { records: groupAuditRows(response.records), total }
 }
 
 /**

@@ -28,16 +28,18 @@
  * - `slug` — the QQQ table name for which a new record should be created.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData } from '@/lib/api/metadata'
 import { queryKeys } from '@/lib/query-client'
-import { EntityForm } from '@/components/forms/EntityForm'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
+import { formPresetsFromHash, lockedPresetValues, type HashFormPresets } from '@/lib/utils/material-links'
+
+const EntityForm = lazy(() => import('@/components/forms/EntityForm').then((module) => ({ default: module.EntityForm })))
 
 /**
  * Renders the record-creation form for the table identified by `slug`.
@@ -50,7 +52,7 @@ import { canInsertRecords, hasCapability } from '@/lib/auth/permissions'
  * @returns A composed page that renders one of:
  *   - A full-screen spinner while metadata resolves
  *   - A permission-error banner when the user lacks `insertPermission`
- *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-4xl` container
+ *   - `<EntityForm>` in create mode (no `record` prop) wrapped in a centered `max-w-6xl` container
  */
 export default function EntityCreatePage() {
   const params = useRouteParams<{ slug: string }>()
@@ -65,6 +67,12 @@ export default function EntityCreatePage() {
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
 
+  // Material links preset fields: /create#/defaultValues={json}/disabledFields={json}
+  const [presets, setPresets] = useState<HashFormPresets | null>(null)
+  useEffect(() => {
+    setPresets(formPresetsFromHash(window.location.hash))
+  }, [])
+
   useEffect(() => {
     setPageHeader(`Create ${tableMetaData?.label ?? slug}`)
     if (tableMetaData) {
@@ -76,7 +84,7 @@ export default function EntityCreatePage() {
     return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
   }
 
-  if (!tableMetaData) {
+  if (!tableMetaData || !presets) {
     return (
       <div className="flex items-center justify-center py-16" aria-busy="true" aria-live="polite">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -101,8 +109,14 @@ export default function EntityCreatePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl" data-qqq-id={`entity-create-${slug}`}>
-      <EntityForm tableMetaData={tableMetaData} widgets={metaData?.widgets} />
+    <div className="mx-auto max-w-6xl" data-qqq-id={`entity-create-${slug}`}>
+      <Suspense fallback={<div role="status" aria-label="Loading form" className="py-12 text-center">Loading form…</div>}><EntityForm
+        tableMetaData={tableMetaData}
+        widgets={metaData?.widgets}
+        defaultValues={presets.defaultValues}
+        disabledFieldNames={presets.disabledFields}
+        fixedValues={lockedPresetValues(tableMetaData, presets)}
+      /></Suspense>
     </div>
   )
 }

@@ -26,6 +26,7 @@ import { X, RotateCcw } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useUserPreferences } from '@/lib/hooks/use-user-preferences'
+import { useTheme } from '@/lib/theme/theme-provider'
 
 /**
  * Props for the UserPreferencesDialog component.
@@ -35,6 +36,8 @@ interface UserPreferencesDialogProps {
   open: boolean
   /** Called when the open state should change (e.g. after a close action). */
   onOpenChange: (open: boolean) => void
+  /** The persistent user-menu button, since its Preferences item unmounts on selection. */
+  returnFocusRef?: React.RefObject<HTMLButtonElement | null>
 }
 
 /** Available records-per-page options displayed as toggle chips. */
@@ -67,7 +70,7 @@ const RECORD_VIEW_OPTIONS = [
 /**
  * Modal dialog for editing user display preferences persisted in localStorage.
  *
- * Sections cover: records-per-page, display density, table view mode, and
+ * Sections cover: appearance, records-per-page, display density, table view mode, and
  * record view mode. A "Reset to Defaults" button is enabled only when at
  * least one preference differs from its default value.
  *
@@ -75,12 +78,15 @@ const RECORD_VIEW_OPTIONS = [
  * @returns A Radix Dialog root with an animated overlay and a centered content
  *   panel (max 85 vh). The content scrolls internally if the viewport is short.
  *   Changes take effect immediately via `updatePreference`; there is no Save
- *   button — closing the dialog commits the current selection to localStorage.
+ *   button — each change is saved immediately to localStorage.
  */
-export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDialogProps) {
+export function UserPreferencesDialog({ open, onOpenChange, returnFocusRef }: UserPreferencesDialogProps) {
   const { preferences, updatePreference, resetPreferences, defaults } = useUserPreferences()
 
+  const { theme, isDarkMode, darkModePreference, setDarkMode } = useTheme()
+
   const isDefault = (
+    !darkModePreference &&
     preferences.tableDefaultPageSize === defaults.tableDefaultPageSize &&
     preferences.tableDefaultDensity === defaults.tableDefaultDensity &&
     preferences.tableDefaultViewMode === defaults.tableDefaultViewMode &&
@@ -92,19 +98,26 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-black/50',
+            'fixed inset-0 z-[var(--qqq-z-overlay,400)] bg-black/50',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-[var(--qqq-z-modal,1000)] -translate-x-1/2 -translate-y-1/2',
             'w-full max-w-lg max-h-[85vh] flex flex-col',
             'rounded-xl border border-border bg-card shadow-lg',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
           )}
+          onCloseAutoFocus={event => {
+            const target = returnFocusRef?.current
+            if (target?.isConnected) {
+              event.preventDefault()
+              target.focus()
+            }
+          }}
           aria-describedby={undefined}
           data-qqq-id="dialog-user-preferences"
         >
@@ -126,6 +139,37 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            <fieldset disabled={Boolean(theme)} aria-describedby="appearance-description" className="space-y-3">
+              <legend className="text-sm font-semibold text-foreground">Appearance</legend>
+              <div className="flex gap-2">
+                {(['Light', 'Dark'] as const).map((mode) => (
+                  <label key={mode} className={cn(
+                    'flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm font-medium',
+                    isDarkMode === (mode === 'Dark') ? 'border-primary/40 bg-primary/10' : 'border-border',
+                    theme ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-accent'
+                  )}>
+                    <input
+                      type="radio"
+                      name="appearance"
+                      value={mode.toLowerCase()}
+                      checked={isDarkMode === (mode === 'Dark')}
+                      onChange={() => setDarkMode(mode === 'Dark')}
+                      className="h-4 w-4 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      data-qqq-id={`pref-appearance-${mode.toLowerCase()}`}
+                    />
+                    {mode}
+                  </label>
+                ))}
+              </div>
+              <p id="appearance-description" className="text-xs text-muted-foreground">
+                {theme
+                  ? 'This application theme requires light mode. Your saved appearance choice is kept for when the theme is removed.'
+                  : 'Saved automatically for this site in this browser. Other browsers and devices keep their own choice.'}
+              </p>
+            </fieldset>
+
+            <div className="border-t border-border" />
+
             {/* Table / Query Defaults */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Table View Defaults</h3>
@@ -206,7 +250,7 @@ export function UserPreferencesDialog({ open, onOpenChange }: UserPreferencesDia
           <div className="flex items-center justify-between border-t border-border px-6 py-3">
             <button
               type="button"
-              onClick={resetPreferences}
+              onClick={() => { resetPreferences(); setDarkMode(false) }}
               disabled={isDefault}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',

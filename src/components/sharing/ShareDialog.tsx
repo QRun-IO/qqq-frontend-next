@@ -19,24 +19,26 @@
  *
  * Parity with the Material dashboard's ShareModal: shown on the record view of
  * tables that declare `shareableTableMetaData`; only the record's owner may share
- * (the button is disabled for others, and the backend enforces it); audiences come
- * from the table's audience possible-value source; existing shares are listed with
+ * (the button is disabled for others, and the backend enforces it); the "User or Group" picker
+ * searches the table's audience possible-value source on the server, so every user and group
+ * can be found, not only the first page of them; existing shares are listed with
  * their scope (Read-Only / Read and Edit), which can be changed, and can be removed.
  */
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useForm, useWatch } from 'react-hook-form'
 import { Loader2, Trash2, UserPlus, X } from 'lucide-react'
 
 import type { QRecord, QTableMetaData } from '@/types'
-import { fetchPossibleValues } from '@/lib/api/possible-values'
 import {
   deleteSharedRecord, editSharedRecord, getSharedRecords, insertSharedRecord, splitAudienceOption,
 } from '@/lib/api/sharing'
 import type { RecordShare, ShareableTableMetaData, ShareScope } from '@/lib/api/sharing'
 import { useQContext } from '@/lib/context/q-context'
 import { cn } from '@/lib/utils/cn'
+import { PossibleValueSelect } from '@/components/forms/PossibleValueSelect'
 
 /** Scopes offered when sharing. */
 const SCOPES: Array<{ id: ShareScope; label: string }> = [
@@ -105,8 +107,10 @@ interface ShareDialogProps {
 export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDialogProps) {
   const recordId = record.values[tableMetaData.primaryKeyField] as string | number
   const [shares, setShares] = useState<RecordShare[] | null>(null)
-  const [audiences, setAudiences] = useState<Array<{ id: string; label: string }>>([])
-  const [audience, setAudience] = useState('')
+  // the picker is a searchable possible-value combobox, held in a one-field form
+  const { control, setValue } = useForm<Record<string, unknown>>({ defaultValues: { audience: '' } })
+  const audienceValue = useWatch({ control, name: 'audience' })
+  const audience = typeof audienceValue === 'string' ? audienceValue : audienceValue == null ? '' : String(audienceValue)
   const [scope, setScope] = useState<ShareScope>('READ_ONLY')
   const [status, setStatus] = useState<string | null>('Loading...')
   const [error, setError] = useState<string | null>(null)
@@ -124,13 +128,6 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
   }, [tableMetaData.name, recordId])
 
   useEffect(() => { void load() }, [load])
-
-  useEffect(() => {
-    const source = sharing.audiencePossibleValueSourceName
-    if (!source) return
-    fetchPossibleValues(source).then((options) => setAudiences(options.map((option) => ({ id: String(option.id), label: option.label }))))
-      .catch((failure: Error) => setError(`Error loading users and groups: ${failure.message}`))
-  }, [sharing.audiencePossibleValueSourceName])
 
   /**
    * Runs one change, then reloads the share list.
@@ -159,7 +156,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
     const selected = splitAudienceOption(audience)
     if (!selected) return
     await change('Saving...', () => insertSharedRecord(tableMetaData.name, recordId, selected.audienceType, selected.audienceId, scope), 'Error sharing record')
-    setAudience('')
+    setValue('audience', '')
   }
 
   const title = `Share ${tableMetaData.label}: ${record.recordLabel ?? String(recordId)}`
@@ -189,19 +186,21 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
           </div>
 
           <div className="mt-2 flex flex-wrap items-end gap-3">
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <label htmlFor="share-audience" className="block text-sm font-medium text-foreground">User or Group</label>
-              <select
-                id="share-audience"
-                value={audience}
-                onChange={(event) => setAudience(event.target.value)}
-                disabled={busy}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                data-qqq-id="share-audience"
-              >
-                <option value="">Select a user or group</option>
-                {audiences.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-              </select>
+            <div className="min-w-[12rem] flex-1">
+              {sharing.audiencePossibleValueSourceName && (
+                <PossibleValueSelect
+                  id="share-audience"
+                  label="User or Group"
+                  name="audience"
+                  control={control}
+                  fieldName={sharing.audiencePossibleValueSourceName}
+                  possibleValueSourceName={sharing.audiencePossibleValueSourceName}
+                  context={{ type: 'standalone' }}
+                  disabled={busy}
+                  placeholder="Select a user or group"
+                  data-qqq-id="share-audience"
+                />
+              )}
             </div>
             <div className="space-y-1">
               <label htmlFor="share-scope" className="block text-sm font-medium text-foreground">Scope</label>
@@ -210,7 +209,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                 value={scope}
                 onChange={(event) => setScope(event.target.value as ShareScope)}
                 disabled={busy}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm pointer-coarse:h-11"
                 data-qqq-id="share-scope"
               >
                 {SCOPES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
@@ -244,7 +243,7 @@ export function ShareDialog({ tableMetaData, record, sharing, onClose }: ShareDi
                       value={share.scopeId}
                       disabled={busy}
                       onChange={(event) => change('Saving...', () => editSharedRecord(tableMetaData.name, recordId, share.shareId, event.target.value as ShareScope), 'Error editing shared record')}
-                      className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      className="rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:h-11"
                       data-qqq-id={`share-scope-${share.shareId}`}
                     >
                       {SCOPES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}

@@ -6,8 +6,8 @@
  */
 
 import { act, renderHook } from '@testing-library/react'
-import type { KeyboardEvent } from 'react'
-import { describe, expect, it } from 'vitest'
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 import { FOCUS_SCROLL_GRACE_MS, useFocusSafeTooltip } from './use-focus-safe-tooltip'
 
 describe('useFocusSafeTooltip', () => {
@@ -34,6 +34,37 @@ describe('useFocusSafeTooltip', () => {
     act(() => result.current.onOpenChange(true))
     expect(result.current.open).toBe(true)
     act(() => result.current.onOpenChange(false))
+    expect(result.current.open).toBe(false)
+  })
+
+  it('toggles on a touch or pen tap and leaves mouse clicks to Radix', () => {
+    const { result } = renderHook(() => useFocusSafeTooltip(() => 0))
+    const click = () => {
+      const event = { preventDefault: vi.fn() }
+      act(() => result.current.onClick(event as unknown as MouseEvent))
+      return event
+    }
+    const down = (pointerType: string) => act(() => result.current.onPointerDown({ pointerType } as unknown as PointerEvent))
+
+    // A tap opens it and keeps Radix from closing it on the same click
+    down('touch')
+    const opening = click()
+    expect(result.current.open).toBe(true)
+    expect(opening.preventDefault).toHaveBeenCalled()
+    // A tap that focused the trigger first stays open
+    act(() => result.current.onBlur())
+    down('touch')
+    act(() => result.current.onFocus())
+    click()
+    expect(result.current.open).toBe(true)
+    // A tap on the open tooltip closes it, also right after focus
+    down('pen')
+    click()
+    expect(result.current.open).toBe(false)
+    // A mouse click is not a tap: nothing prevented, state unchanged
+    down('mouse')
+    const mouse = click()
+    expect(mouse.preventDefault).not.toHaveBeenCalled()
     expect(result.current.open).toBe(false)
   })
 })

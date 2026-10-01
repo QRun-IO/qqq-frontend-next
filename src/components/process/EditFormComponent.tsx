@@ -17,7 +17,10 @@
 /**
  * @file EditFormComponent — renders an EDIT_FORM process component: the screen's
  * form fields (or the `includeFieldNames` subset), optionally inside a card titled
- * with `sectionLabel`. Values live in the screen's shared form.
+ * with `sectionLabel`. The screen's fields include the report input fields a backend
+ * step listed in `inputFieldList`; their possible values come from their source
+ * (no process field backs them). Field help uses the process-screen roles, as in
+ * Material. Values live in the screen's shared form.
  */
 
 'use client'
@@ -28,6 +31,9 @@ import type { QFrontendComponent } from '@/types'
 
 import { DynamicForm } from '@/components/forms/DynamicForm'
 import { useProcessStep } from './ProcessStepContext'
+
+/** Field help roles of process screens, most specific first (Material `helpRoles`). */
+export const PROCESS_SCREEN_HELP_ROLES = ['PROCESS_SCREEN', 'ALL_SCREENS'] as const
 
 /** Props for {@link EditFormComponent}. */
 export interface EditFormComponentProps {
@@ -41,23 +47,29 @@ export interface EditFormComponentProps {
  * @returns The form fields, or nothing when the subset is empty.
  */
 export function EditFormComponent({ component, index }: EditFormComponentProps) {
-  const { step, form, isWorking, processName } = useProcessStep()
+  const { formFields, inputFieldNames, form, isWorking, processName, compactReportInputs } = useProcessStep()
   const includeFieldNames = Array.isArray(component.values?.includeFieldNames)
     ? (component.values.includeFieldNames as unknown[]).filter((name): name is string => typeof name === 'string')
     : undefined
   const sectionLabel = typeof component.values?.sectionLabel === 'string' ? component.values.sectionLabel : ''
-  const fields = step.formFields ?? []
+  const processFields = formFields.filter((field) => !inputFieldNames.has(field.name))
+  const inputFields = formFields.filter((field) => inputFieldNames.has(field.name))
+  const common = {
+    register: form.register,
+    control: form.control,
+    errors: form.formState.errors,
+    fieldNamesToInclude: includeFieldNames,
+    disabled: isWorking,
+    compactInputs: compactReportInputs,
+    helpRoles: PROCESS_SCREEN_HELP_ROLES,
+    helpKeyPrefix: `process:${processName};`,
+  }
 
   const body = (
-    <DynamicForm
-      register={form.register}
-      control={form.control}
-      errors={form.formState.errors}
-      fields={fields}
-      fieldNamesToInclude={includeFieldNames}
-      possibleValueContext={{ type: 'process', processName }}
-      disabled={isWorking}
-    />
+    <div className="space-y-4">
+      {processFields.length > 0 && <DynamicForm {...common} fields={processFields} possibleValueContext={{ type: 'process', processName }} />}
+      {inputFields.length > 0 && <DynamicForm {...common} fields={inputFields} possibleValueContext={{ type: 'standalone' }} />}
+    </div>
   )
 
   if (sectionLabel) {

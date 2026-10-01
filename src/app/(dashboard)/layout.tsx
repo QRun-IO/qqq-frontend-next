@@ -22,7 +22,7 @@
 
 /** Dashboard layout — authenticated route group shell providing sidebar, header, banners, command palette, and global keyboard shortcuts. */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
@@ -31,10 +31,19 @@ import { useQContext, QContextProvider } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useDocumentTitle } from '@/lib/hooks/use-document-title'
 import { loadMetaData } from '@/lib/api/metadata'
+import { applyBrandingTheme } from '@/lib/theme/apply-branding'
+import { readMaterialTheme } from '@/lib/theme/material-theme'
+import { useTheme } from '@/lib/theme/theme-provider'
+import { recordAnalytics } from '@/lib/analytics'
+import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
+import { searchableTables } from '@/lib/utils/record-search'
+import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
+import BrandedHeaderBar from '@/components/layout/BrandedHeaderBar'
+import CompanyFooter from '@/components/layout/CompanyFooter'
 import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadcrumbs'
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
@@ -48,7 +57,8 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
  * - Fetches full application metadata via TanStack Query (30-minute stale time).
  * - Generates sidebar routes and path-to-label map from the app tree.
  * - Syncs branding, accent color, favicon, and document title to the DOM.
- * - Sanitizes and injects `customCss` from branding metadata.
+ * - Applies the application theme (tokens, rules, customCss) and the branded header bar.
+ * - Configures analytics and records a page view per screen.
  * - Redirects unauthenticated users to `/login`.
  * - Registers global keyboard shortcuts: Cmd+K (command palette), `/` (search), `?` (help).
  * - Renders the desktop sidebar, mobile sidebar drawer, banners, header, and main content slot.
@@ -64,6 +74,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Mobile sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const helpButtonRef = useRef<HTMLButtonElement>(null)
 
   // Command palette state
   const [commandOpen, setCommandOpen] = useState(false)
@@ -89,6 +101,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Generate sidebar routes and path map from app tree
   const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
 
+  // Every route change starts at the top of the page (Material App scrolls to 0 on each pathname)
+  useEffect(() => {
+    scrollPageToTop()
+  }, [pathname])
+
+  // Tables the backend record search covers for this user (none: search stays local)
+  const searchTables = useMemo(() => searchableTables(metaData), [metaData])
+
   // Sync pathToLabelMap to QContext
   useEffect(() => {
     if (Object.keys(pathToLabelMap).length > 0) {
@@ -100,46 +120,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (metaData?.branding) {
       setBranding(metaData.branding)
-
-      // MED-3: validate color format before applying to CSS custom properties
-      const ACCENT_COLOR_RE = /^#[0-9a-fA-F]{3,8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/
-      if (metaData.branding.accentColor && ACCENT_COLOR_RE.test(metaData.branding.accentColor)) {
-        setAccentColor(metaData.branding.accentColor)
-        document.documentElement.style.setProperty(
-          '--qqq-accent-color',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--color-primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--primary',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--ring',
-          metaData.branding.accentColor
-        )
-        document.documentElement.style.setProperty(
-          '--qqq-sidebar-active-bg',
-          metaData.branding.accentColor
-        )
-      }
-
-      if (metaData.branding.accentColorLight && ACCENT_COLOR_RE.test(metaData.branding.accentColorLight)) {
-        document.documentElement.style.setProperty('--qqq-accent-color-light', metaData.branding.accentColorLight)
-      }
-
-      // Favicon and touch icon from branding (as Material Dashboard does)
-      if (metaData.branding.icon) {
-        for (const selector of ["link[rel~='icon']", "link[rel~='apple-touch-icon']"]) {
-          const linkEl = document.querySelector(selector)
-          if (linkEl instanceof HTMLLinkElement) {
-            linkEl.href = metaData.branding.icon
-          }
-        }
-      }
+      // accent colors (validated, MED-3) and the favicon
+      const accentColor = applyBrandingTheme(metaData.branding)
+      if (accentColor) setAccentColor(accentColor)
     }
   }, [metaData?.branding, setBranding, setAccentColor])
 
@@ -153,30 +136,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     : undefined
   useDocumentTitle(documentTitle)
 
-  // Inject customCss from branding metadata
-  // MED-2: strip known CSS injection vectors before applying
-  useEffect(() => {
-    if (metaData?.branding?.customCss) {
-      const safe = metaData.branding.customCss
-        .replace(/<\/?\s*style[^>]*>/gi, '')   // no embedded style tags
-        .replace(/expression\s*\(/gi, '')       // no IE CSS expressions
-        .replace(/@import\b/gi, '')             // no @import directives
-        .replace(/javascript\s*:/gi, '')        // no javascript: scheme
-        .replace(/url\s*\(\s*["']?\s*data:/gi, '') // no data: URLs
+  // Application theme (MaterialDashboardThemeMetaData, QRun-IO/qqq#719): tokens, rules and its
+  // customCss; removed again when the dashboard unmounts (sign-out)
+  const { theme, setTheme } = useTheme()
+  const applicationTheme = useMemo(() => readMaterialTheme(metaData), [metaData])
+  useEffect(() => { setTheme(applicationTheme) }, [applicationTheme, setTheme])
+  useEffect(() => () => setTheme(null), [setTheme])
 
-      const styleId = 'qqq-custom-css'
-      const existingStyleEl = document.getElementById(styleId)
-      let styleTag: HTMLStyleElement
-      if (existingStyleEl instanceof HTMLStyleElement) {
-        styleTag = existingStyleEl
-      } else {
-        styleTag = document.createElement('style')
-        styleTag.id = styleId
-        document.head.appendChild(styleTag)
-      }
-      styleTag.textContent = safe
-    }
-  }, [metaData?.branding?.customCss])
+  // Analytics (QRun-IO/qqq#730): off unless configured; one page view per screen
+  useAnalytics(metaData, pathname, user?.email ?? user?.name)
 
   // Sync user ID to QContext
   useEffect(() => {
@@ -228,13 +196,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setCommandOpen(false)
       setSearchOpen(false)
       setHelpOpen(false)
-      setSidebarOpen(false)
+      // The navigation drawer is a modal dialog and handles its own Escape
     }
 
     // Single-key shortcuts — only when not focused in a text field
     if (!isInputFocused() && !e.metaKey && !e.ctrlKey && !e.altKey) {
       if (e.key === '.') {
         e.preventDefault()
+        recordAnalytics({ category: 'globalEvents', action: 'dotMenuKeyboardShortcut' })
         setCommandOpen(true)
       }
       if (e.key === '/') {
@@ -289,11 +258,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
+      <BrandedHeaderBar theme={theme} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Skip to main content — accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:inline-flex focus:items-center pointer-coarse:focus:min-h-11 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           data-qqq-id="skip-to-content"
         >
           Skip to main content
@@ -318,6 +288,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           userEmail={user?.email}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          returnFocusRef={menuButtonRef}
           data-qqq-id="sidebar-mobile"
         />
 
@@ -327,11 +298,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <Header
             appName={metaData?.branding?.appName}
             onMenuOpen={() => setSidebarOpen(true)}
+            menuOpen={sidebarOpen}
+            menuButtonRef={menuButtonRef}
             onSearchOpen={() => setSearchOpen(true)}
+            onCommandOpen={() => setCommandOpen(true)}
             onHelpOpen={() => setHelpOpen(true)}
+            helpButtonRef={helpButtonRef}
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
             navTargets={navTargets}
+            searchTables={searchTables}
           />
 
           {/* Page content */}
@@ -349,6 +325,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               <>
                 <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_BODY" className="mb-4 rounded-lg" />
                 {children}
+                <CompanyFooter branding={metaData?.branding} />
               </>
             )}
           </main>
@@ -356,13 +333,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Command Palette */}
-      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} />
+      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} metaData={metaData} />
 
       {/* Search Dialog */}
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} />
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
 
       {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} />
     </div>
   )
 }

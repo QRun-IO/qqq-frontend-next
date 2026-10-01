@@ -13,10 +13,12 @@ async function expectLookupError(page: Page, message: string) {
   await waitForShell(page)
   await expect(page.getByRole('main').getByRole('alert')).toHaveText(message)
   await expect(page).toHaveURL(/\/key\/?\?/)
+  // Finish initial reads before the next deliberate document replacement.
+  await page.waitForLoadState('networkidle')
 }
 
 test.describe('record lookup by key', () => {
-  test('[NAV-023] a unique-key value opens the matching record in place of the key URL', async ({ page, backend, diagnostics }) => {
+  test('[NAV-023] a unique-key value opens the matching record in place of the key URL @mobile', async ({ page, backend, diagnostics }) => {
     const [item] = await backend.sql("select id, name from nav_deep_item where code = 'NAV-B2'")
     expect(item).toEqual({ id: '2', name: 'Tide Chart' })
 
@@ -35,7 +37,7 @@ test.describe('record lookup by key', () => {
     await expect(page).toHaveURL(new RegExp(`/app/person/${person.id}/?$`))
   })
 
-  test('[NAV-023] no match, several matches, an unknown field and no values explain why nothing opened', async ({ page, backend, diagnostics }) => {
+  test('[NAV-023] no match, several matches, an unknown field and no values explain why nothing opened @mobile', async ({ page, backend, diagnostics }) => {
     expect(Number((await backend.sql("select count(*) as n from nav_deep_item where shelf = 'North'"))[0].n)).toBe(2)
     const queries: string[] = []
     page.on('request', (request) => { if (request.url().includes('/table/navDeepItem/query')) queries.push(request.url()) })

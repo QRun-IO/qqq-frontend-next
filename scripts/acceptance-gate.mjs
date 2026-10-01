@@ -71,6 +71,27 @@ for (const row of matrix.rows) {
   } else summary.passed++
 }
 
+// Phone coverage (QRun-IO/qqq#708): when a touch project ran (mobile: phone, tablet: iPad), every
+// required row passes there too, unless the row names why it is not a touch scenario (`desktopOnly`).
+const touchProjects = ['mobile', 'tablet'].filter((project) => byProject[project])
+const phone = { covered: 0, desktopOnly: 0, uncovered: 0 }
+if (touchProjects.length) for (const row of matrix.rows) {
+  if (row.required === false) continue
+  if (row.desktopOnly !== undefined) {
+    if (typeof row.desktopOnly !== 'string' || !row.desktopOnly.trim()) problems.push(`${row.id} desktopOnly needs the reason it is not a touch scenario`)
+    phone.desktopOnly++
+    continue
+  }
+  const list = results.get(row.id) ?? []
+  if (partial && !list.length) continue
+  const missing = touchProjects.filter((project) => !list.some((result) => result.project === project && result.outcome === 'passed'))
+  if (missing.length) {
+    phone.uncovered++
+    problems.push(`${row.id} ${row.feature}: no passing @mobile test in ${missing.join(', ')}`)
+  } else phone.covered++
+}
+if (touchProjects.length) summary.phone = phone
+
 // Every configured project must run something (the phone project runs only @mobile tests).
 if (!partial) for (const [project, counts] of Object.entries(byProject)) {
   if (Object.values(counts).every((count) => count === 0)) problems.push(`Project ${project} ran no tests`)

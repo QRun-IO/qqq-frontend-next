@@ -21,8 +21,9 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { CheckSquare, ChevronDown, X } from 'lucide-react'
 
 import type { SelectionMode } from '@/lib/hooks/use-record-query'
@@ -55,64 +56,75 @@ export function SelectionMenu({ pageRowCount, matchingCount, distinct, onSelectP
   const [open, setOpen] = useState(false)
   const [subsetOpen, setSubsetOpen] = useState(false)
   const [subsetSize, setSubsetSize] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const word = distinct ? 'distinct records' : 'records'
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
 
   const subsetValue = Number(subsetSize)
   const subsetValid = Number.isInteger(subsetValue) && subsetValue >= 1
   const menuItem = 'flex w-full items-center px-4 py-2 text-left text-sm text-popover-foreground hover:bg-accent focus:bg-accent focus:outline-none'
 
   return (
-    <div ref={containerRef} className="relative" data-qqq-id="selection-menu">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        disabled={matchingCount === 0 || pageRowCount === 0}
-        className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-qqq-id="button-selection"
-      >
-        <CheckSquare className="h-4 w-4" aria-hidden="true" />
-        Selection
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-      {open && (
-        <div role="menu" aria-label="Selection" className="absolute left-0 z-20 mt-1 w-72 rounded-xl border border-border bg-popover py-1 shadow-sm">
-          <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-page"
-            onClick={() => { setOpen(false); onSelectPage() }}>
-            This page ({pageRowCount.toLocaleString()} {word})
+    <div className="relative" data-qqq-id="selection-menu">
+      <DropdownMenuPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenuPrimitive.Trigger asChild>
+          <button
+            ref={triggerRef}
+            type="button"
+            disabled={matchingCount === 0 || pageRowCount === 0}
+            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            data-qqq-id="button-selection"
+          >
+            <CheckSquare className="h-4 w-4" aria-hidden="true" />
+            Selection
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          {matchingCount !== null && (
-            <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-all"
-              onClick={() => { setOpen(false); onSelectMode('all') }}>
-              Full query result ({matchingCount.toLocaleString()} {word})
-            </button>
-          )}
-          <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-subset"
-            onClick={() => { setOpen(false); setSubsetSize(''); setSubsetOpen(true) }}>
-            Subset of the query result...
-          </button>
-          <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-clear"
-            onClick={() => { setOpen(false); onClear() }}>
-            Clear selection
-          </button>
-        </div>
-      )}
+        </DropdownMenuPrimitive.Trigger>
+        <DropdownMenuPrimitive.Portal>
+          <DropdownMenuPrimitive.Content aria-label="Selection" aria-labelledby={undefined} align="start" sideOffset={4} collisionPadding={8}
+            onInteractOutside={event => {
+              // A touch can return focus/click to the trigger after pointer-down opens the menu.
+              const target = event.detail.originalEvent.target
+              if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+            }}
+            onCloseAutoFocus={event => { if (subsetOpen) event.preventDefault() }}
+            className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-72 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-sm">
+            <DropdownMenuPrimitive.Item asChild>
+              <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-page"
+                onClick={() => { setOpen(false); onSelectPage() }}>
+                This page ({pageRowCount.toLocaleString()} {word})
+              </button>
+            </DropdownMenuPrimitive.Item>
+            {matchingCount !== null && (
+              <DropdownMenuPrimitive.Item asChild>
+                <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-all"
+                  onClick={() => { setOpen(false); onSelectMode('all') }}>
+                  Full query result ({matchingCount.toLocaleString()} {word})
+                </button>
+              </DropdownMenuPrimitive.Item>
+            )}
+            <DropdownMenuPrimitive.Item asChild>
+              <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-subset"
+                onClick={() => { setOpen(false); setSubsetSize(''); setSubsetOpen(true) }}>
+                Subset of the query result...
+              </button>
+            </DropdownMenuPrimitive.Item>
+            <DropdownMenuPrimitive.Item asChild>
+              <button type="button" role="menuitem" className={menuItem} data-qqq-id="selection-clear"
+                onClick={() => { setOpen(false); onClear() }}>
+                Clear selection
+              </button>
+            </DropdownMenuPrimitive.Item>
+          </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Portal>
+      </DropdownMenuPrimitive.Root>
 
       <DialogPrimitive.Root open={subsetOpen} onOpenChange={setSubsetOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <DialogPrimitive.Content aria-describedby={undefined} data-qqq-id="dialog-selection-subset"
+            onCloseAutoFocus={event => { event.preventDefault(); triggerRef.current?.focus() }}
             className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-lg focus:outline-none">
             <div className="mb-4 flex items-center justify-between">
               <DialogPrimitive.Title className="text-lg font-semibold text-foreground">Subset of the Query Result</DialogPrimitive.Title>

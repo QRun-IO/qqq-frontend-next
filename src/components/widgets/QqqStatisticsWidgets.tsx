@@ -21,13 +21,14 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { ArrowDown, ArrowUp, Minus } from 'lucide-react'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import type { WidgetComponentProps } from './widget-types'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { WidgetIcon } from './WidgetIcon'
+import { TOUCH_LINK } from './widget-utils'
 
 /** `StatisticsData` payload. */
 export interface QqqStatisticsPayload {
@@ -70,47 +71,60 @@ function formatCount(count: string | number | undefined, isCurrency?: boolean): 
  */
 export function WidgetLink({ href, children, className, qqqId }: { href: string; children: React.ReactNode; className?: string; qqqId?: string }) {
   if (href.startsWith('/')) {
-    return <Link href={href} prefetch={false} className={cn('underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</Link>
+    return <Link href={href} prefetch={false} className={cn(TOUCH_LINK, 'underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</Link>
   }
-  return <a href={href} target="_blank" rel="noopener noreferrer" className={cn('underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</a>
+  return <a href={href} target="_blank" rel="noopener noreferrer" className={cn(TOUCH_LINK, 'underline-offset-2 hover:underline', className)} data-qqq-id={qqqId}>{children}</a>
 }
 
 /**
  * Renders a canonical QQQ statistics payload: the count (linked when `countURL`),
  * its context, and the percentage change with an up/down indicator colored good
- * or bad according to `increaseIsGood`.
+ * or bad according to `increaseIsGood`. As in Material, the change row is left out
+ * when the percentage is 0 or absent, and a spinner stands in for a count the
+ * backend has not supplied yet.
  *
  * @param props - Widget props.
  * @returns The statistics body.
  */
 export function QqqStatisticsWidget({ widgetMetaData, data }: WidgetComponentProps<QqqStatisticsPayload>) {
   const name = widgetMetaData.name
+  const hasCount = data.count !== undefined && data.count !== null
   const count = formatCount(data.count, data.isCurrency)
-  const percentage = typeof data.percentageAmount === 'number' ? data.percentageAmount : undefined
+  const percentage = typeof data.percentageAmount === 'number' && data.percentageAmount !== 0 ? data.percentageAmount : undefined
   const increaseIsGood = data.increaseIsGood !== false
-  const direction = percentage === undefined || percentage === 0 ? 'flat' : percentage > 0 ? 'up' : 'down'
-  const isGood = direction === 'flat' ? undefined : (direction === 'up') === increaseIsGood
-  const Arrow = direction === 'up' ? ArrowUp : direction === 'down' ? ArrowDown : Minus
+  const direction = percentage !== undefined && percentage > 0 ? 'up' : 'down'
+  const isGood = (direction === 'up') === increaseIsGood
+  const Arrow = direction === 'up' ? ArrowUp : ArrowDown
   const percentText = percentage === undefined ? '' : `${percentage > 0 ? '+' : ''}${percentage.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
 
   return (
     <div className="space-y-2" data-qqq-id={`statistics-widget-${name}`}>
       <div className="flex items-baseline gap-2">
-        <span
-          className="text-3xl font-bold text-foreground"
-          style={data.countFontSize ? { fontSize: data.countFontSize } : undefined}
-          data-qqq-id={`statistics-count-${name}`}
-        >
-          {data.countURL ? <WidgetLink href={data.countURL}>{count}</WidgetLink> : count}
-        </span>
+        {hasCount ? (
+          <span
+            className="text-3xl font-bold text-foreground"
+            style={data.countFontSize ? { fontSize: data.countFontSize } : undefined}
+            data-qqq-id={`statistics-count-${name}`}
+          >
+            {data.countURL ? <WidgetLink href={data.countURL}>{count}</WidgetLink> : count}
+          </span>
+        ) : (
+          <span
+            role="status"
+            aria-label="Loading count"
+            className="mt-4 inline-block h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground"
+            style={data.countFontSize ? { width: data.countFontSize, height: data.countFontSize } : undefined}
+            data-qqq-id={`statistics-count-loading-${name}`}
+          />
+        )}
         {data.countContext && <span className="text-sm text-muted-foreground" data-qqq-id={`statistics-context-${name}`}>{data.countContext}</span>}
       </div>
       {percentage !== undefined && (
         <p
-          className={cn('flex items-center gap-1 text-sm font-medium', isGood === undefined ? 'text-muted-foreground' : isGood ? 'text-emerald-600' : 'text-red-600')}
+          className={cn('flex items-center gap-1 text-sm font-medium', isGood ? 'text-emerald-600' : 'text-red-600')}
           data-qqq-id={`statistics-percentage-${name}`}
           data-direction={direction}
-          data-good={isGood === undefined ? undefined : String(isGood)}
+          data-good={String(isGood)}
         >
           <Arrow className="h-4 w-4" aria-hidden="true" />
           {data.percentageURL ? <WidgetLink href={data.percentageURL}>{percentText}</WidgetLink> : <span>{percentText}</span>}

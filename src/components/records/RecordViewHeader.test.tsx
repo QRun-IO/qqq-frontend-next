@@ -21,11 +21,15 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { QTableMetaData } from '@/types'
+import type { QProcessMetaData, QTableMetaData } from '@/types'
+import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
 import { RecordViewHeader } from './RecordViewHeader'
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
+vi.mock('@/lib/hooks/use-audit-records', () => ({
+  useAuditRecords: () => ({ auditRecords: [], isLoading: false, isError: false, error: null }),
+}))
 
 const table = {
   name: 'person', label: 'Person', primaryKeyField: 'id', fields: { id: { name: 'id', label: 'Id', type: 'INTEGER' } },
@@ -33,10 +37,11 @@ const table = {
   capabilities: ['TABLE_QUERY', 'TABLE_GET', 'TABLE_INSERT', 'TABLE_UPDATE', 'TABLE_DELETE'],
 } as unknown as QTableMetaData
 
-function renderHeader() {
+function renderHeader(processes?: QProcessMetaData[], actionsPlacement?: RecordViewActionsPlacement) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RecordViewHeader
+        actionsPlacement={actionsPlacement}
         tableMetaData={table}
         record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
         t1Fields={[]}
@@ -44,6 +49,7 @@ function renderHeader() {
         setViewMode={vi.fn()}
         hideActions={false}
         navigateFrom={{ path: '/app/person', label: 'Person' }}
+        processes={processes}
       />
     </QueryClientProvider>
   )
@@ -63,6 +69,30 @@ describe('RecordViewHeader phone action sheet', () => {
     expect(trigger).toHaveFocus()
   })
 
+  it('keeps Tab and Shift+Tab inside the open sheet', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    const close = screen.getByRole('button', { name: 'Close actions menu' })
+    const remove = screen.getByRole('button', { name: 'Delete Person' })
+    expect(close).toHaveFocus()
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(remove).toHaveFocus()
+    await user.tab()
+    expect(close).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Edit Person' })).toHaveFocus()
+  })
+
+  it('scrolls a long action list inside the sheet', async () => {
+    const user = userEvent.setup()
+    renderHeader()
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    const sheet = screen.getByRole('dialog', { name: 'Record actions' })
+    expect(sheet).toHaveClass('max-h-[85vh]', 'flex-col')
+    expect(sheet.querySelector('[data-qqq-id="mobile-actions-list"]')).toHaveClass('overflow-y-auto', 'min-h-0')
+  })
+
   it('returns focus to the trigger when the delete dialog opened from the sheet closes', async () => {
     const user = userEvent.setup()
     renderHeader()
@@ -75,5 +105,122 @@ describe('RecordViewHeader phone action sheet', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(trigger).toHaveFocus()
     expect(document.body).not.toHaveFocus()
+  })
+
+  it('runs a process named by a custom table menu on the phone', async () => {
+    const user = userEvent.setup()
+    const customTable = { ...table, menus: [{ slot: 'VIEW_SCREEN_ACTIONS', label: 'Actions', items: [
+      { itemType: 'RUN_PROCESS', label: 'Tag Records', values: { processName: 'tagRecords' } },
+    ] }] } as QTableMetaData
+    const process = { name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData
+    render(<QueryClientProvider client={new QueryClient()}>
+      <RecordViewHeader tableMetaData={customTable}
+        record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+        t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false}
+        navigateFrom={{ path: '/app/person', label: 'Person' }} allProcesses={{ tagRecords: process }} />
+    </QueryClientProvider>)
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    await user.click(screen.getByRole('button', { name: 'Tag Records' }))
+    expect(push).toHaveBeenCalledWith('/app/tagRecords/?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5')
+  })
+})
+
+describe('RecordViewHeader #/launchProcess= links', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.history.replaceState(null, '', '/app/person/5')
+  })
+
+  it('launches a table process missing from the screen list (hidden) without a tableName', async () => {
+    window.location.hash = '#/launchProcess=person.bulkEdit'
+    renderHeader([])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/person.bulkEdit/?recordsParam=recordIds&recordIds=5&returnTo=%2Fapp%2Fperson%2F5'))
+  })
+
+  it('names this table for a process added to every screen', async () => {
+    window.location.hash = '#/launchProcess=tagRecords'
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/tagRecords/?recordsParam=recordIds&recordIds=5&tableName=person&returnTo=%2Fapp%2Fperson%2F5'))
+  })
+})
+
+describe('RecordViewHeader for a read-only user', () => {
+  it('offers no phone Actions trigger when there is nothing to do', () => {
+    const readOnly = { ...table, insertPermission: false, editPermission: false, deletePermission: false,
+      capabilities: ['TABLE_QUERY', 'TABLE_GET'] } as unknown as QTableMetaData
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RecordViewHeader tableMetaData={readOnly} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+          t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }} />
+      </QueryClientProvider>
+    )
+    expect(screen.queryByRole('button', { name: 'Record actions' })).not.toBeInTheDocument()
+  })
+})
+
+describe('RecordViewHeader layout', () => {
+  it('keeps secondary actions in the process menu without duplicate desktop buttons', async () => {
+    const user = userEvent.setup()
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    expect(screen.queryByRole('button', { name: 'Copy Person record' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete Person record' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Record actions menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Copy' }))
+    expect(push).toHaveBeenCalledWith('/app/person/5/copy')
+  })
+
+  it('keeps standalone secondary actions when there is no process menu', () => {
+    renderHeader()
+    expect(screen.getByRole('button', { name: 'Copy Person record' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Person record' })).toBeInTheDocument()
+  })
+
+  it('lets the controls wrap onto their own row instead of squeezing the title', () => {
+    renderHeader()
+    const header = document.querySelector('[data-qqq-id="record-view-header"]')
+    expect(header).toHaveClass('flex-wrap')
+    const title = screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })
+    expect(title.parentElement?.parentElement).toHaveClass('flex-1', 'basis-56', 'min-w-0')
+    // A full-width row on phones, beside the title from md up when it fits
+    expect(document.querySelector('[data-qqq-id="record-view-controls"]')).toHaveClass('w-full', 'flex-wrap', 'md:w-auto')
+  })
+
+  it('places desktop actions beside the title when metadata requests inline placement', () => {
+    renderHeader(undefined, 'INLINE_WITH_PAGE_TITLE')
+    const title = screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })
+    const actions = document.querySelector('[data-qqq-id="record-view-desktop-actions"]')
+    expect(title.parentElement).toContainElement(actions as HTMLElement)
+    expect(document.querySelector('[data-qqq-id="record-view-controls"]')).not.toContainElement(actions as HTMLElement)
+  })
+})
+
+describe('RecordViewHeader audit history', () => {
+  it('returns focus to the Audit button when the dialog closes, even if the click did not focus it', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RecordViewHeader tableMetaData={table} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+          t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }}
+          auditSource="table" />
+      </QueryClientProvider>
+    )
+    const audit = screen.getByRole('button', { name: 'Audit history for Morgan Sample' })
+    // Safari does not focus a clicked button
+    audit.click()
+    expect(await screen.findByRole('dialog')).toHaveTextContent('No audits were found for this record.')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(audit).toHaveFocus())
+  })
+})
+
+describe('RecordViewHeader Material CSS hooks (QRun-IO/qqq#731)', () => {
+  it('wraps the header in record-view-header-{table} and marks the avatar and title', () => {
+    renderHeader()
+    const wrapper = document.querySelector('[data-qqq-id="record-view-header-person"]')
+    expect(wrapper).toContainElement(document.querySelector('[data-qqq-id="record-view-header"]') as HTMLElement)
+    expect(wrapper?.querySelector('[data-qqq-id="record-view-avatar-person"]')).toHaveTextContent('MS')
+    expect(screen.getByRole('heading', { level: 1, name: 'Morgan Sample' })).toHaveAttribute('data-qqq-id', 'record-view-title-person')
   })
 })

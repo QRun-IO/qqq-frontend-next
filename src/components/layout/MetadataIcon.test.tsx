@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 
 import { MetadataIcon, SectionIcon } from './MetadataIcon'
 import { materialIconComponent, normalizeMaterialIconName } from '@/lib/utils/material-icons'
@@ -45,6 +45,24 @@ describe('MetadataIcon', () => {
     expect(svg).toHaveAttribute('data-qqq-icon', name)
     expect(svg).not.toHaveAttribute('data-qqq-icon-fallback')
     expect(svg).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it.each([
+    ['3d_rotation', '\ue84d'],
+    ['account_balance_wallet', '\ue850'],
+    ['airline_seat_flat', '\ue630'],
+    ['battery_6_bar', '\uebd2'],
+    ['filter_9_plus', '\ue3da'],
+    ['60fps', '\uefd4'],
+  ])('renders the legacy glyph for unmapped name %s', async (name, glyph) => {
+    const { container } = render(<MetadataIcon icon={{ name, color: '#b91c1c' }} qqqId="test-icon" />)
+    await waitFor(() => expect(container.querySelector('text')).toHaveTextContent(glyph))
+    const svg = container.firstElementChild as SVGElement
+    expect(svg).not.toHaveAttribute('data-qqq-icon-fallback')
+    expect(svg.querySelector('text')).toHaveTextContent(glyph)
+    expect(svg).toHaveAttribute('aria-hidden', 'true')
+    expect(svg).toHaveAttribute('data-qqq-id', 'test-icon')
+    expect((svg as SVGElement).style.color).toBe('rgb(185, 28, 28)')
   })
 
   it('applies the declared color', () => {

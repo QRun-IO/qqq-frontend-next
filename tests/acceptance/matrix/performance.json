@@ -1,0 +1,107 @@
+{
+  "area": "performance",
+  "prefixes": [
+    "PRF"
+  ],
+  "description": "Performance budgets on the production export: large tables, heavy dashboards and long processes (QRun-IO/qqq#710). Bundle budgets are checked separately by scripts/perf-budget.mjs.",
+  "rows": [
+    {
+      "id": "PRF-001",
+      "feature": "large table: a 10,000-row, 40-column table opens with every column and the exact first page within budget",
+      "source": [
+        "src/components/query/RecordQuery.tsx",
+        "src/components/query/DataGrid.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/PerformanceFixtures.java prfWide",
+      "scenarios": [
+        "all 40 columns have a sort header; the first 25 rows carry the exact computed values; the total reads 10,000",
+        "time from navigation to the first page is within PERFORMANCE_BUDGET.firstPageMs"
+      ],
+      "negative": [
+        "only one page of rows is in the DOM (25 rows, 1,000 cells), not the table"
+      ],
+      "issues": [
+        "#710"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRF-002",
+      "feature": "large table: 250-row pages of 40 columns render, page and reach the last page within budget",
+      "source": [
+        "src/components/query/Pagination.tsx",
+        "src/components/query/DataGrid.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/PerformanceFixtures.java prfWide",
+      "scenarios": [
+        "page size 250 shows ids 10000..9751 with 10,000 cells within PERFORMANCE_BUDGET.pageMs",
+        "next page shows 9750..9501 and last page 250..1 (page 40), each within PERFORMANCE_BUDGET.pageMs; the backend is asked for skip/limit 250"
+      ],
+      "negative": [
+        "the DOM never holds more than one page (250 rows)"
+      ],
+      "issues": [
+        "#710"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRF-003",
+      "feature": "large table: sorting and filtering 10,000 rows return exact results within budget",
+      "source": [
+        "src/components/query/RecordQuery.tsx",
+        "src/components/query/FilterBuilder.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/PerformanceFixtures.java prfWide",
+      "scenarios": [
+        "sorting by Name ascending shows Row 00001..Row 00025 within PERFORMANCE_BUDGET.queryMs",
+        "Count 04 equals 0 narrows to the 40 matching rows (the SQL answer) within PERFORMANCE_BUDGET.queryMs"
+      ],
+      "negative": [],
+      "issues": [
+        "#710"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRF-004",
+      "feature": "heavy dashboard: 24 widgets (statistics, bar, line and pie charts, 100-row tables) load once each within budget",
+      "source": [
+        "src/components/widgets/AppHome.tsx",
+        "src/components/widgets/WidgetRenderer.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/PerformanceFixtures.java prfDashboard",
+      "scenarios": [
+        "every widget finishes loading within PERFORMANCE_BUDGET.dashboardMs of navigation",
+        "statistics show their exact counts, chart data tables their exact points, tables their 100 rows"
+      ],
+      "negative": [
+        "each widget's data is requested exactly once"
+      ],
+      "issues": [
+        "#710"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRF-005",
+      "feature": "long process: a 10-second job over 10,000 rows reports progress, polls at a bounded rate and shows its result promptly",
+      "source": [
+        "src/lib/hooks/use-process.ts",
+        "src/components/process/ProcessRun.tsx"
+      ],
+      "fixture": "tests/acceptance/fixture/PerformanceFixtures.java prfLongRun",
+      "scenarios": [
+        "progress messages advance while the job runs; the result shows Row Count 10000 and the SQL total",
+        "the result appears within PERFORMANCE_BUDGET.processResultMs of the job finishing"
+      ],
+      "negative": [
+        "status is polled no more than once per POLL_INITIAL_MILLIS (1.5 s) and never concurrently"
+      ],
+      "issues": [
+        "#710"
+      ],
+      "required": true
+    }
+  ]
+}

@@ -79,12 +79,24 @@ function buildDateTimeSchema(isRequired: boolean, label: string): z.ZodTypeAny {
  */
 function buildLongSchema(isRequired: boolean, label: string, minValue?: number | string | null, maxValue?: number | string | null): z.ZodTypeAny {
   const text = z.union([z.string(), z.number(), z.bigint()]).transform((value) => String(value).trim())
-  const checked = text
+  const integer = text
     .refine((value) => !isRequired || value !== '', `${label} is required`)
     .refine((value) => value === '' || /^[+-]?\d+$/.test(value), `${label} must be a whole number`)
-    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= BigInt(Math.ceil(Number(minValue))), `${label} must be at least ${minValue}`)
-    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= BigInt(Math.floor(Number(maxValue))), `${label} must be at most ${maxValue}`)
+  // Refinements on one schema all run, even after a previous refinement fails.
+  // Pipe only valid integer text into BigInt comparisons so bad input stays a field error.
+  const checked = integer.pipe(z.string()
+    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= longRangeBound(minValue), `${label} must be at least ${minValue}`)
+    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= longRangeBound(maxValue), `${label} must be at most ${maxValue}`))
   return isRequired ? checked : checked.optional()
+}
+
+/**
+ * Keeps integer bounds exact; numeric fractional bounds compare directly with BigInt.
+ * @param value - Numeric bound from field metadata.
+ * @returns An exact integer when supplied as digits, otherwise the numeric bound.
+ */
+function longRangeBound(value: number | string): bigint | number {
+  return typeof value === 'string' && /^[+-]?\d+$/.test(value.trim()) ? BigInt(value) : Number(value)
 }
 
 /**
@@ -170,8 +182,14 @@ export function zodFieldFromMetadata(field: QFieldMetaData, { enforceMaxLength =
     case 'DECIMAL':
       return buildNumberSchema(isRequired ?? false, label ?? type, false, field.minValue, field.maxValue)
 
-    case 'BOOLEAN':
-      return z.boolean().optional()
+    case 'BOOLEAN': {
+      // An optional boolean may be unset: a stored null, or the switch cycled back to
+      // unset (QRun-IO/qqq#761). A required one needs true or false, as in Material.
+      const message = `${label ?? type} is required`
+      return isRequired
+        ? z.boolean({ required_error: message, invalid_type_error: message })
+        : z.boolean().nullable().optional()
+    }
 
     case 'DATE':
     case 'TIME':
@@ -338,11 +356,12 @@ export function defaultValuesForCreate(tableMetaData: QTableMetaData): Record<st
  *
  * @param tableMetaData - Table metadata.
  * @param values - Form values keyed by field name.
+ * @param originalValues - Stored values to preserve when their local timestamp text is unchanged.
  * @returns A new object with wire values.
  */
-export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>): Record<string, unknown> {
+export function wireValuesFromForm(tableMetaData: QTableMetaData, values: Record<string, unknown>, originalValues?: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(values).map(([name, value]) => [name,
-    tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value) : value]))
+    tableMetaData.fields[name]?.type === 'DATE_TIME' && typeof value === 'string' ? fromLocalDateTimeInput(value, originalValues?.[name]) : value]))
 }
 
 /**

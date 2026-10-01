@@ -9,7 +9,7 @@ import { expect, open, test } from '../../support/fixtures'
 import { advance, choosePossibleValue, expectScreen, openProcess } from './process-helpers'
 
 test.describe('Refresh and session', () => {
-  test('[PRC-040] reloading mid-process starts a fresh run from the first screen', async ({ page, backend, diagnostics }) => {
+  test('[PRC-040] reloading mid-process starts a fresh run from the first screen @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const runs: string[] = []
     page.on('response', async (response) => {
@@ -30,7 +30,7 @@ test.describe('Refresh and session', () => {
     expect(await backend.sql('select name from prc_lab_run')).toEqual([{ name: 'Before Reload' }])
   })
 
-  test('[PRC-041] an expired session mid-process returns the user to sign in', async ({ page, backend, diagnostics }) => {
+  test('[PRC-041] an expired session mid-process returns the user to sign in @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow(/ 401$/)
     diagnostics.allow('the server responded with a status of 401')
     await openProcess(page, 'prcComponents')
@@ -45,7 +45,7 @@ test.describe('Refresh and session', () => {
     expect(await backend.sql('select count(*) as n from prc_lab_run')).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-042] processes without permission cannot be run and the backend refuses them', async ({ page, backend, diagnostics }) => {
+  test('[PRC-042] processes without permission cannot be run and the backend refuses them @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow('/processes/prcComponents/')
     diagnostics.allow('the server responded with a status of 403')
     await openProcess(page, 'prcComponents')

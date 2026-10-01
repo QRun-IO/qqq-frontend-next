@@ -29,7 +29,7 @@
  * - `slug` — a QQQ app name, table name, process name, or report name.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import type { QInstance } from '@/types'
@@ -41,11 +41,16 @@ import type { ProcessInitRequest } from '@/lib/api/processes'
 import { queryKeys } from '@/lib/query-client'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { canAccessProcess, canReadRecords } from '@/lib/auth/permissions'
-import { RecordQuery } from '@/components/query'
-import { ProcessRun } from '@/components/process'
-import { AppHome } from '@/components/widgets'
-import { ReportRun } from '@/components/reports'
+import { safeReturnTo } from '@/lib/auth/return-to'
 import { NotFoundState } from '@/components/layout/NotFoundState'
+
+// Metadata selects one screen. Keep the other three screens out of this route's first load.
+const RecordQuery = lazy(() => import('@/components/query/RecordQuery').then((module) => ({ default: module.RecordQuery })))
+const ProcessRun = lazy(() => import('@/components/process/ProcessRun').then((module) => ({ default: module.ProcessRun })))
+const AppHome = lazy(() => import('@/components/widgets/AppHome').then((module) => ({ default: module.AppHome })))
+const ReportRun = lazy(() => import('@/components/reports/ReportRun').then((module) => ({ default: module.ReportRun })))
+
+const screenFallback = <div role="status" aria-label="Loading screen" className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
 /**
  * Resolves a URL slug to its QQQ resource type and name.
@@ -62,7 +67,7 @@ import { NotFoundState } from '@/components/layout/NotFoundState'
  * @param metaData - The full QQQ instance metadata fetched from the backend.
  * @returns A `{ type, name }` object describing the resolved resource, or `null`.
  */
-export function resolveSlugTarget(
+function resolveSlugTarget(
   slug: string,
   metaData: QInstance
 ): { type: 'app' | 'table' | 'process' | 'report'; name: string } | null {
@@ -173,18 +178,18 @@ export default function SlugPage() {
   // App dashboard — Package 5 implementation
   if (isApp && app) {
     return (
-      <AppHome
+      <Suspense fallback={screenFallback}><AppHome
         appMetaData={app}
         instance={metaData}
         widgetRegistry={metaData.widgets ?? {}}
-      />
+      /></Suspense>
     )
   }
 
   // Table record query — Package 2 implementation
   if (isTable && table) {
     const tableProcesses = getProcessesForTable(metaData, slug)
-    return <RecordQuery key={slug} tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} metaData={metaData} />
+    return <Suspense fallback={screenFallback}><RecordQuery key={slug} tableName={slug} tableMetaData={table} allTables={metaData.tables} processes={tableProcesses} metaData={metaData} /></Suspense>
   }
 
   // Table loading state (table found but metadata not yet available)
@@ -207,6 +212,9 @@ export default function SlugPage() {
       initialRequest.recordsParam = 'filterJSON'
       initialRequest.filterJSON = searchParams.get('filterJSON') ?? ''
     }
+    // a process added to every screen (no table of its own) runs over the launching table
+    const launchTable = searchParams.get('tableName')
+    if (!process.tableName && launchTable && metaData.tables?.[launchTable]) initialRequest.tableName = launchTable
     ////////////////////////////////////////////////////////////////////////
     // links may preset process inputs, as in the Material dashboard:     //
     // ?defaultProcessValues={"name":"value"}                             //
@@ -218,7 +226,10 @@ export default function SlugPage() {
     } catch {
       initialValues = undefined
     }
-    return <ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} />
+    // a launch from a record or query screen returns there (Material closes its modal over that screen)
+    const rawReturnTo = searchParams.get('returnTo')
+    const returnTo = rawReturnTo ? safeReturnTo(rawReturnTo, undefined, '') || undefined : undefined
+    return <Suspense fallback={screenFallback}><ProcessRun key={`${slug}?${searchParams}`} processName={slug} processMetaData={process} initialRequest={initialRequest} initialValues={initialValues} returnTo={returnTo} /></Suspense>
   }
 
   // Process loading state (process found but metadata not yet available)
@@ -232,7 +243,7 @@ export default function SlugPage() {
 
   // Report run
   if (isReport && report) {
-    return <ReportRun reportName={slug} reportMetaData={report} />
+    return <Suspense fallback={screenFallback}><ReportRun reportName={slug} reportMetaData={report} /></Suspense>
   }
 
   // Report loading state (report found but metadata not yet available)

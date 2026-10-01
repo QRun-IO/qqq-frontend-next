@@ -66,6 +66,16 @@ it('preserves explicit null only in copy defaults while retaining ordinary defau
   expect(values).toEqual({ flag: null, note: null })
 })
 
+it('validates an edit of a record whose optional boolean is null (QRun-IO/qqq#761)', () => {
+  const table = makeTable({
+    flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
+    note: makeField({ name: 'note' }),
+  })
+  const values = defaultValuesFromRecord(table, { flag: null, note: 'Kept' })
+  expect(values).toEqual({ flag: null, note: 'Kept' })
+  expect(zodSchemaFromTableMetadata(table).safeParse(values)).toMatchObject({ success: true, data: { flag: null, note: 'Kept' } })
+})
+
 it('accepts null only for optional copy fields without changing ordinary form schemas', () => {
   const table = makeTable({
     flag: makeField({ name: 'flag', type: 'BOOLEAN' }),
@@ -123,6 +133,34 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse('1.5').success).toBe(false)
       expect(schema.safeParse('12abc').success).toBe(false)
     })
+
+    it.each(['1.5', '12abc', '1e3', '+', '--1'])('bounded LONG rejects %s as a field error without throwing', (value) => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'LONG', minValue: 0, maxValue: 100 }))
+      const result = schema.safeParse(value)
+      expect(result.success).toBe(false)
+      if (!result.success) expect(result.error.issues.map(issue => issue.message)).toContain('Test Field must be a whole number')
+    })
+
+    it('LONG applies exact string bounds beyond the safe-number range', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'LONG', minValue: '9007199254740993', maxValue: '9007199254740995' }))
+      expect(schema.safeParse('9007199254740992').success).toBe(false)
+      expect(schema.parse('9007199254740993')).toBe('9007199254740993')
+      expect(schema.parse('9007199254740995')).toBe('9007199254740995')
+      expect(schema.safeParse('9007199254740996').success).toBe(false)
+    })
+
+    it('LONG preserves negative exact bounds and fractional-bound rounding', () => {
+      const exact = zodFieldFromMetadata(makeField({ type: 'LONG', minValue: '-9007199254740995', maxValue: '-9007199254740993' }))
+      expect(exact.safeParse('-9007199254740996').success).toBe(false)
+      expect(exact.parse('-9007199254740995')).toBe('-9007199254740995')
+      expect(exact.parse('-9007199254740993')).toBe('-9007199254740993')
+      expect(exact.safeParse('-9007199254740992').success).toBe(false)
+      const fractional = zodFieldFromMetadata(makeField({ type: 'LONG', minValue: -1.5, maxValue: '1.5' }))
+      expect(fractional.safeParse('-2').success).toBe(false)
+      expect(fractional.parse('-1')).toBe('-1')
+      expect(fractional.parse('1')).toBe('1')
+      expect(fractional.safeParse('2').success).toBe(false)
+    })
   })
 
   describe('DECIMAL type', () => {
@@ -154,6 +192,23 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse(true).success).toBe(true)
       expect(schema.safeParse(false).success).toBe(true)
       expect(schema.safeParse(undefined).success).toBe(true)
+    })
+
+    // QRun-IO/qqq#761: an optional BOOLEAN stored as null (or cycled back to unset) is a valid value.
+    it('accepts null for an optional boolean', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'BOOLEAN' }))
+      const result = schema.safeParse(null)
+      expect(result.success).toBe(true)
+      expect(result.success && result.data).toBeNull()
+    })
+
+    it('requires a value for a required boolean, with a readable message', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'BOOLEAN', isRequired: true, label: 'Active' }))
+      expect(schema.safeParse(true).success).toBe(true)
+      expect(schema.safeParse(false).success).toBe(true)
+      const missing = schema.safeParse(null)
+      expect(missing.success).toBe(false)
+      expect(missing.error?.issues[0]?.message).toBe('Active is required')
     })
   })
 

@@ -152,6 +152,24 @@ class APIClient {
   }
 
   /**
+   * Performs an HTTP PATCH request and returns the response body.
+   *
+   * On a 401 response the global unauthorized callback is invoked (typically
+   * redirecting to the login page) before this promise rejects.
+   *
+   * @param url - Path relative to the API base URL.
+   * @param data - Request body to serialize and send. Pass `FormData` for
+   *   multipart uploads; pass a plain object for JSON bodies.
+   * @param config - Optional Axios request configuration.
+   * @returns The deserialized `response.data` typed as `T`. Rejects with an
+   *   `AxiosError` on any non-2xx status; on 401 the auth redirect fires first.
+   */
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.patch<T>(url, data, config)
+    return response.data
+  }
+
+  /**
    * Performs an HTTP DELETE request and returns the response body.
    *
    * On a 401 response the global unauthorized callback is invoked (typically
@@ -181,3 +199,14 @@ class APIClient {
 /** Shared singleton instance used by all API modules. */
 const apiClient = new APIClient()
 export default apiClient
+
+/**
+ * URL of a v1 API path for links the browser opens itself (file downloads), rather
+ * than requests made through the client.
+ *
+ * @param path - Path relative to the API base URL, starting with `/` (e.g. `/table/person/1/photo/a.png`).
+ * @returns The path under the configured API base URL (default `/qqq/v1`).
+ */
+export function apiUrl(path: string): string {
+  return `${(apiClient.getInstance().defaults.baseURL ?? API_BASE_URL).replace(/\/+$/, '')}${path}`
+}

@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QTableMetaData } from '@/types'
 import type { QueryRecordsRequest } from '@/lib/api/tables'
@@ -74,7 +75,181 @@ function captureRequests(deny: (body: QueryRecordsRequest, action: string) => bo
 }
 
 describe('RecordQuery joined read permissions', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('keeps phone filters in the sheet and preserves the mode when opening it', async () => {
+    vi.stubGlobal('innerWidth', 393)
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(max-width: 767px)', media: query,
+      addEventListener() {}, removeEventListener() {},
+    }))
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    const requests = captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect((await screen.findAllByText('Alice'))[0]).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Filter mode' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Filters' }))
+    expect(sheet.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+    expect(sheet.getByRole('combobox', { name: 'Sort field' })).toBeVisible()
+    await user.click(sheet.getByRole('button', { name: 'First Name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Bob')
+    await user.click(screen.getByRole('button', { name: 'Apply quick filter' }))
+    await waitFor(() => expect(requests.some(({ action, body }) => action === 'query' &&
+      body.filter.criteria?.some((criterion) => criterion.fieldName === 'firstName' && criterion.values[0] === 'Bob'))).toBe(true))
+    await user.click(sheet.getByRole('button', { name: 'Close filter panel' }))
+    expect(screen.queryByRole('group', { name: 'Filter mode' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+    expect(screen.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /First Name.*Bob/ })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(screen.getByText('Add condition')).toBeVisible()
+  })
+
+  it('offers metadata-configured quick filters in basic mode and opens the advanced builder', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    captureRequests()
+
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+    expect(screen.getByRole('button', { name: 'Basic' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'First Name' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Add condition')).toBeVisible()
+  })
+
+  it('edits a quick filter and sends its criterion to the records API', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    const requests = captureRequests()
+
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+
+    await user.click(screen.getByRole('button', { name: 'First Name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Bob')
+    await user.click(screen.getByRole('button', { name: 'Apply quick filter' }))
+
+    await waitFor(() => expect(requests.some(({ action, body }) => action === 'query' &&
+      body.filter.criteria?.some((criterion) => criterion.fieldName === 'firstName' && criterion.operator === 'EQUALS' && criterion.values[0] === 'Bob'))).toBe(true))
+    expect(screen.getByRole('button', { name: /First Name.*Bob/ })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Clear First Name quick filter' }))
+    await waitFor(() => expect(requests.at(-1)?.body.filter.criteria?.length).toBe(0))
+    expect(screen.getByRole('button', { name: 'First Name' })).toBeVisible()
+  })
+
+  it('adds a metadata field as a quick filter and opens Advanced from the toolbar', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    captureRequests()
+
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Add quick filter' }), 'lastName')
+    expect(screen.getByRole('group', { name: 'Last Name quick filter' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Last Name' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Remove Last Name quick filter' }))
+    expect(screen.queryByRole('button', { name: 'Last Name' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Add condition')).toBeVisible()
+  })
+
+  it('confirms clearing filters and preserves the selected sort', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    const requests = captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+
+    await user.click(screen.getByRole('button', { name: 'First Name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Bob')
+    await user.click(screen.getByRole('button', { name: 'Apply quick filter' }))
+    await waitFor(() => expect(requests.at(-1)?.body.filter.criteria?.length).toBe(1))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort field' }), 'lastName')
+    await user.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    expect(screen.getByRole('alertdialog')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(requests.at(-1)?.body.filter.criteria?.length).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await waitFor(() => expect(requests.filter(({ action }) => action === 'query').at(-1)?.body.filter.criteria?.length).toBe(0))
+    expect(requests.filter(({ action }) => action === 'query').at(-1)?.body.filter.orderBys).toEqual([{ fieldName: 'lastName', isAscending: false }])
+  })
+
+  it('uses one editable condition list and one clear action in Advanced mode', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    options.tableMetaData.supplementalMetaData = {
+      materialDashboard: { defaultQuickFilterFieldNames: ['firstName'] },
+    }
+    const requests = captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+
+    await user.click(screen.getByRole('button', { name: 'First Name' }))
+    await user.type(screen.getByRole('textbox', { name: 'Filter value for First Name' }), 'Bob')
+    await user.click(screen.getByRole('button', { name: 'Apply quick filter' }))
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(screen.queryByLabelText('Advanced filter preview')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear all filters' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Remove filter condition 1' }))
+
+    await waitFor(() => expect(requests.filter(({ action }) => action === 'query').at(-1)?.body.filter.criteria?.length).toBe(0))
+  })
+
+  it('explains why a multi-condition field cannot return to Basic mode', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    await user.click(screen.getByText('Add condition'))
+    await user.click(screen.getByText('Add condition'))
+    const basic = screen.getByRole('button', { name: 'Basic' })
+    expect(basic).toHaveAttribute('aria-disabled', 'true')
+    await user.click(basic)
+    expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-pressed', 'true')
+    basic.focus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('more than 1 condition')
+  })
 
   it('lists base records without joins until a join column, criterion or sort needs one', async () => {
     const options = makeOptions()
@@ -87,8 +262,25 @@ describe('RecordQuery joined read permissions', () => {
     await waitFor(() => expect(requests.length).toBeGreaterThanOrEqual(1))
     expect(requests.every(({ body }) => !body.joins?.length)).toBe(true)
     expect(screen.getByRole('button', { name: 'Create new People record' })).toBeEnabled()
+    // Material CSS hooks (QRun-IO/qqq#731)
+    expect(screen.getByRole('button', { name: 'Create new People record' })).toHaveAttribute('data-qqq-id', 'button-create-new')
+    expect(screen.getByRole('button', { name: 'Create new People record' })).toHaveAttribute('data-button-variant', 'gradient')
+    expect(document.querySelector('[data-qqq-id="button-filter-builder"]')).toContainElement(screen.getByRole('button', { name: 'Toggle advanced filter panel' }))
     expect(options.allTables).toEqual(originalMetadata)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('omits columns behind an unreadable join path from the column chooser', async () => {
+    const user = userEvent.setup()
+    const options = makeOptions()
+    captureRequests()
+    render(<RecordQuery {...options} />, { wrapper: createWrapper() })
+    expect(await screen.findByText('Alice')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Configure columns/i }))
+    const chooser = screen.getByRole('dialog', { name: 'Configure columns' })
+    expect(chooser).toHaveTextContent('Companies Fields')
+    expect(chooser).not.toHaveTextContent('Order Lines Fields')
+    expect(chooser).not.toHaveTextContent('Orders Fields')
   })
 
   it('sends a LEFT join, named for a single-hop path, for a visible readable join column', async () => {

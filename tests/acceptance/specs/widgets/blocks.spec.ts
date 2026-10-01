@@ -7,6 +7,7 @@
 
 // Composite widgets: every QQQ block type and layout (WidgetsFixtures allBlocks()).
 import { expect, open, test } from '../../support/fixtures'
+import { expectTouchReady } from '../../support/touch'
 import { expectLoaded, widget, widgetBody } from './widget-support'
 
 test.beforeEach(async ({ page }) => {
@@ -15,10 +16,11 @@ test.beforeEach(async ({ page }) => {
   await expectLoaded(page, 'accBlocks')
 })
 
-test('[WID-057] every block type renders its values and styles', async ({ page, diagnostics }) => {
+test('[WID-057] every block type renders its values and styles @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   const card = widget(page, 'accBlocks')
   const block = (type: string) => card.locator(`[data-block-type="${type}"]`)
+  await expectTouchReady(page, card)
 
   const text = block('TEXT').first()
   await expect(text).toHaveAttribute('data-block-id', 'ownedText')
@@ -76,7 +78,7 @@ test('[WID-057] every block type renders its values and styles', async ({ page, 
   await expect(block('BUTTON').getByRole('button', { name: 'Submit owned' })).toHaveAttribute('data-format', 'outlined')
 })
 
-test('[WID-058] composite layouts apply their flex rules and slot links carry tooltips', async ({ page, diagnostics }) => {
+test('[WID-058] composite layouts apply their flex rules and slot links carry tooltips @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   const card = widget(page, 'accBlocks')
   const layout = (name: string) => card.locator(`[data-layout="${name}"]`).first()
@@ -105,9 +107,22 @@ test('[WID-058] composite layouts apply their flex rules and slot links carry to
   await expect(page).toHaveURL(/\/app\/person\/?$/)
 })
 
-test('[WID-059] an unsupported block type shows a contained warning and neighbors render', async ({ page, diagnostics }) => {
+test('[WID-059] an unsupported block type shows a contained warning and neighbors render @mobile', async ({ page, diagnostics }) => {
   void diagnostics
   await expectLoaded(page, 'accBlocksUnknown')
   await expect(widget(page, 'accBlocksUnknown').getByRole('alert')).toHaveText('Unsupported block type: OWNED_UNKNOWN')
   await expect(widgetBody(page, 'accHealthy')).toHaveText('Healthy neighbor content')
+})
+
+test('[WID-067] a widget whose payload is a single leaf block renders that block @mobile', async ({ page, backend, diagnostics }) => {
+  void diagnostics
+  await expectLoaded(page, 'accLeafBlock')
+  // the backend sends the block itself (blockTypeName TEXT, no blocks list), as a Material block widget
+  const payload = await (await backend.api.get('/widget/accLeafBlock')).json()
+  expect(payload.blockTypeName).toBe('TEXT')
+  expect(payload.blocks).toBeUndefined()
+  const body = widgetBody(page, 'accLeafBlock')
+  await expect(body.locator('[data-block-type="TEXT"]')).toHaveText('Owned leaf block text')
+  await expect(body.locator('[data-block-type="COMPOSITE"]')).toHaveCount(0)
+  await expectTouchReady(page, widget(page, 'accLeafBlock'))
 })

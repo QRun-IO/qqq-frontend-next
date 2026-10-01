@@ -20,14 +20,20 @@
 
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QQueryFilter, QFilterOrderBy } from '@/types'
 import type { Density, PageSize } from '@/lib/hooks/use-record-query'
+import type { ColumnPins } from '@/lib/utils/query-columns'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { queryKeys } from '@/lib/query-client'
+import { clearStoredQueryState } from '@/lib/utils/query-view-storage'
 
 import { DataGrid } from './DataGrid'
+import type { ColumnMenuActions } from './ColumnHeaderMenu'
 import { Pagination } from './Pagination'
 import { RecordCardView } from './RecordCardView'
 import { EmptyState } from '@/components/feedback/EmptyState'
@@ -86,6 +92,16 @@ export interface RecordQueryContentProps {
   columnWidths: Record<string, number>
   /** Callback to record a resized column's new pixel width. */
   onColumnWidthChange: (fieldName: string, width: number) => void
+  /** Pinned columns; null pins the first column. */
+  columnPins?: ColumnPins | null
+  /** Column menu actions (sort and statistics come from the other props). */
+  columnMenu?: Omit<ColumnMenuActions, 'onSort' | 'onColumnStats'>
+  /** Columns the filter has a complete criterion on. */
+  filteredColumns?: ReadonlySet<string>
+  /** Opens the filter for a column. */
+  onShowFilter?: (columnName: string) => void
+  /** Whether the matching count is still being computed. */
+  isCounting?: boolean
 
   // Density + pagination
   /** Currently active row density for the data grid. */
@@ -139,6 +155,11 @@ export function RecordQueryContent({
   columnOrder,
   columnWidths,
   onColumnWidthChange,
+  columnPins,
+  columnMenu,
+  filteredColumns,
+  onShowFilter,
+  isCounting = false,
   density,
   pageNum,
   pageSize,
@@ -150,19 +171,31 @@ export function RecordQueryContent({
   onPageChange,
   onPageSizeChange,
 }: RecordQueryContentProps) {
+  const router = useRouter()
   const queryClient = useQueryClient()
+  // Material's grid alert can be closed; a new error shows again
+  const [dismissedError, setDismissedError] = useState<Error | null>(null)
 
   return (
     <>
       {/* ============================================================
           Error state
       ============================================================ */}
-      {isError && (
+      {isError && error !== dismissedError && (
         <div
-          className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          className="relative rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 pr-10 text-sm text-red-800 dark:text-red-400"
           role="alert"
           data-qqq-id="grid-error"
         >
+          <button
+            type="button"
+            onClick={() => setDismissedError(error)}
+            aria-label="Dismiss"
+            className="absolute right-2 top-2 rounded p-0.5 hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-ring"
+            data-qqq-id="grid-error-dismiss"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
           <p className="font-medium">
             {getErrorStatusCode(error) === 403
               ? 'You do not have permission to view these records.'
@@ -176,7 +209,7 @@ export function RecordQueryContent({
           <button
             type="button"
             onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.tableRecords(tableName) })}
-            className="mt-2 text-xs underline hover:text-red-900 focus:outline-none"
+            className="mt-2 text-xs underline hover:text-red-900 dark:hover:text-red-300 focus:outline-none"
             data-qqq-id="button-retry"
           >
             Retry
@@ -203,7 +236,11 @@ export function RecordQueryContent({
           Data Grid / Card View
       ============================================================ */}
       {(isLoading || records.length > 0) && (
-        <ErrorBoundary className="rounded-xl">
+        <ErrorBoundary className="rounded-xl" resetLabel="Reset saved query and reload" onReset={() => {
+          clearStoredQueryState(tableName)
+          if (window.location.pathname.includes('/savedView/')) router.replace(`/app/${encodeURIComponent(tableName)}/`)
+          else window.location.reload()
+        }}>
           <div className="overflow-hidden rounded-xl border border-border">
             {/* DataGrid: shown when viewMode is 'grid' */}
             {viewMode === 'grid' && (
@@ -221,12 +258,17 @@ export function RecordQueryContent({
                 columnVisibility={columnVisibility}
                 columnOrder={columnOrder}
                 columnWidths={columnWidths}
+                columnPins={columnPins}
                 onColumnWidthChange={onColumnWidthChange}
                 density={density}
                 pageSize={pageSize}
                 onResetFilter={onResetFilter}
                 isRowSelectedByQuery={isRowSelectedByQuery}
                 onColumnStats={onColumnStats}
+                columnMenu={columnMenu}
+                filteredColumns={filteredColumns}
+                onShowFilter={onShowFilter}
+                scrollResetKey={`${pageNum}:${pageSize}`}
               />
             )}
 
@@ -242,6 +284,7 @@ export function RecordQueryContent({
                   columnVisibility={columnVisibility}
                   columnOrder={columnOrder}
                   isLoading={isLoading}
+                  isRowSelectedByQuery={isRowSelectedByQuery}
                 />
               </div>
             )}
@@ -255,7 +298,11 @@ export function RecordQueryContent({
               pageRowCount={records.length}
               totalPages={totalPages}
               isFetching={isFetching}
-              onPageChange={onPageChange}
+              isCounting={isCounting}
+              onPageChange={(nextPage) => {
+                onPageChange(nextPage)
+                window.scrollTo(0, 0)
+              }}
               onPageSizeChange={onPageSizeChange}
             />
           </div>

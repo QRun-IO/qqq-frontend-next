@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import javax.imageio.ImageIO;
+import org.json.JSONObject;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.ChildRecordListRenderer;
@@ -142,6 +143,7 @@ import com.kingsrook.qqq.backend.core.model.session.QSystemUserSession;
 import com.kingsrook.qqq.backend.core.processes.implementations.reports.BasicRunReportProcess;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
+import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -178,6 +180,13 @@ final class WidgetsFixtures
 
    static final String CHOICE_PVS = "accChoice";
 
+   ////////////////////////////////////////////////////////////////////////////
+   // hidden processes the personas are granted like any other process (QQQ  //
+   // lists no available permission for hidden processes)                    //
+   ////////////////////////////////////////////////////////////////////////////
+   static final List<String> GRANTED_HIDDEN_PROCESSES = List.of(ScriptsMetaDataProvider.STORE_SCRIPT_REVISION_PROCESS_NAME,
+      ScriptsMetaDataProvider.TEST_SCRIPT_PROCESS_NAME);
+
    /////////////////////////////////////////////////////////////////////////
    // render counters, so reload and parameter changes are observable     //
    /////////////////////////////////////////////////////////////////////////
@@ -208,6 +217,9 @@ final class WidgetsFixtures
 
       qInstance.addPossibleValueSource(new QPossibleValueSource().withName(CHOICE_PVS).withLabel("Choice").withType(QPossibleValueSourceType.ENUM)
          .withEnumValues(List.of(new QPossibleValue<>("alpha", "Alpha"), new QPossibleValue<>("beta", "Beta"))));
+      qInstance.addPossibleValueSource(new QPossibleValueSource().withName("accHostTimeZones").withLabel("Time Zone").withType(QPossibleValueSourceType.ENUM)
+         .withEnumValues(List.of(new QPossibleValue<>("UTC", "UTC"), new QPossibleValue<>("America/New_York", "America/New_York"),
+            new QPossibleValue<>("America/Chicago", "America/Chicago"))));
 
       defineGallery(qInstance);
       defineControls(qInstance);
@@ -219,6 +231,9 @@ final class WidgetsFixtures
       defineRecordWidgets(qInstance);
       defineReports(qInstance);
       repointSampleQuickSight(qInstance);
+      WidgetTableChartFixtures.define(qInstance);
+      WidgetChromeFixtures.define(qInstance);
+      WidgetBlockExtrasFixtures.defineInputEditors(qInstance);
    }
 
 
@@ -236,12 +251,12 @@ final class WidgetsFixtures
          statement.execute("DROP TABLE IF EXISTS data_bag_version");
          statement.execute("DROP TABLE IF EXISTS data_bag");
          statement.execute("CREATE TABLE acc_widget_host (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), owner VARCHAR(100), zero INTEGER, "
-            + "cron_expression VARCHAR(100), cron_time_zone_id VARCHAR(100))");
+            + "cron_expression VARCHAR(100), cron_time_zone_id VARCHAR(100), input_values TEXT)");
          statement.execute("CREATE TABLE acc_widget_host_child (id INTEGER AUTO_INCREMENT PRIMARY KEY, host_id INTEGER, name VARCHAR(100))");
-         statement.execute("INSERT INTO acc_widget_host (id, name, owner, zero, cron_expression, cron_time_zone_id) VALUES "
-            + "(1, 'Owned host one', 'Owned owner one', 0, '0 0 9 * * ?', 'America/Chicago'), "
-            + "(2, 'Owned host two', 'Owned owner two', 7, '0 30 12 ? * MON-FRI', 'UTC'), "
-            + "(3, 'Owned host empty', 'Owned owner empty', 0, NULL, NULL)");
+         statement.execute("INSERT INTO acc_widget_host (id, name, owner, zero, cron_expression, cron_time_zone_id, input_values) VALUES "
+            + "(1, 'Owned host one', 'Owned owner one', 0, '0 0 9 * * ?', 'America/Chicago', '{\"region\":\"North\"}'), "
+            + "(2, 'Owned host two', 'Owned owner two', 7, '0 30 12 ? * MON-FRI', 'UTC', '{\"region\":\"West\"}'), "
+            + "(3, 'Owned host empty', 'Owned owner empty', 0, NULL, NULL, NULL)");
          statement.execute("INSERT INTO acc_widget_host_child (id, host_id, name) VALUES (1, 1, 'Owned child alpha'), (2, 1, 'Owned child beta'), "
             + "(3, 1, 'Owned child gamma'), (4, 2, 'Owned child delta')");
          statement.execute("ALTER TABLE acc_widget_host ALTER COLUMN id RESTART WITH 100");
@@ -267,26 +282,62 @@ final class WidgetsFixtures
             + "'{\"columns\":[{\"name\":\"id\",\"isVisible\":true},{\"name\":\"firstName\",\"isVisible\":true},{\"name\":\"email\",\"isVisible\":false},{\"name\":\"lastName\",\"isVisible\":true}]}', "
             + "'{\"rows\":[{\"fieldName\":\"lastName\"}],\"columns\":[{\"fieldName\":\"isEmployed\"}],\"values\":[{\"fieldName\":\"id\",\"function\":\"COUNT\"},{\"fieldName\":\"annualSalary\",\"function\":\"SUM\"}]}')");
          statement.execute("INSERT INTO shared_saved_report (saved_report_id, user_id, scope) VALUES (101, 'sample:alice', 'READ_ONLY')");
+
+         createScriptTables(statement);
       }
       primeScripts();
+      WidgetChromeFixtures.prime(connection);
    }
 
 
 
    /*******************************************************************************
-    ** Scripts and scheduled reports live in the sample memory backend, which the
-    ** database reset does not touch; replace only the owned script rows and clear
-    ** the scheduled reports tests create, so every test starts without them.
+    ** The standard scripts tables (ScriptsMetaDataProvider, snake_case names) in
+    ** the owned H2 database. Identity columns start at 1000, so the explicit ids
+    ** of seeded rows never collide with the ids that inserts generate.
+    *******************************************************************************/
+   private static void createScriptTables(Statement statement) throws Exception
+   {
+      String id = "id INTEGER GENERATED BY DEFAULT AS IDENTITY (START WITH 1000) PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP";
+      for(String table : List.of("table_trigger", "script_log_line", "script_log", "script_revision_file", "script_revision", "script",
+         "script_type_file_schema", "script_type"))
+      {
+         statement.execute("DROP TABLE IF EXISTS " + table);
+      }
+      for(String sql : List.of(
+         "CREATE TABLE script_type (" + id + ", name VARCHAR(100), help_text TEXT, sample_code TEXT, file_mode INTEGER, "
+            + "test_script_interface_name VARCHAR(250))",
+         "CREATE TABLE script_type_file_schema (" + id + ", script_type_id INTEGER, name VARCHAR(100), file_type VARCHAR(50))",
+         "CREATE TABLE script (" + id + ", name VARCHAR(100), script_type_id INTEGER, table_name VARCHAR(100), max_batch_size INTEGER, "
+            + "current_script_revision_id INTEGER)",
+         // api_name and api_version: the sample serves its own API (QRun-IO/qqq#738), so the scripts model has these fields
+         "CREATE TABLE script_revision (" + id + ", script_id INTEGER, sequence_no INTEGER, commit_message VARCHAR(250), author VARCHAR(100), "
+            + "api_name VARCHAR(100), api_version VARCHAR(50))",
+         "CREATE TABLE script_revision_file (" + id + ", script_revision_id INTEGER, file_name VARCHAR(100), contents TEXT)",
+         "CREATE TABLE script_log (" + id + ", script_id INTEGER, script_revision_id INTEGER, start_timestamp TIMESTAMP, end_timestamp TIMESTAMP, "
+            + "run_time_millis INTEGER, had_error BOOLEAN, input TEXT, output TEXT, error TEXT)",
+         "CREATE TABLE script_log_line (" + id + ", script_log_id INTEGER, `timestamp` TIMESTAMP, text TEXT)",
+         "CREATE TABLE table_trigger (" + id + ", table_name VARCHAR(100), filter_id INTEGER, script_id INTEGER, priority INTEGER, "
+            + "post_insert BOOLEAN, post_update BOOLEAN)"))
+      {
+         statement.execute(sql);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** The scripts tables are recreated empty on every reset (createScriptTables);
+    ** insert the owned script rows. Scheduled reports live in the sample memory
+    ** backend, which the database reset does not touch; clear the ones tests
+    ** create, so every test starts without them.
     *******************************************************************************/
    private static void primeScripts() throws QException
    {
       QContext.init(instance, new QSystemUserSession());
       try
       {
-         for(String table : List.of("scheduledReport", "scriptRevisionFile", "scriptRevision", "script", "scriptTypeFileSchema", "scriptType"))
-         {
-            new DeleteAction().execute(new DeleteInput(table).withQueryFilter(new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IS_NOT_BLANK))));
-         }
+         new DeleteAction().execute(new DeleteInput("scheduledReport").withQueryFilter(new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IS_NOT_BLANK))));
          new InsertAction().execute(new InsertInput("scriptType").withRecord(new QRecord().withValue("id", 1).withValue("name", "Owned script type")
             .withValue("fileMode", 1).withValue("helpText", "Owned script help").withValue("sampleCode", "return 'sample';")));
          new InsertAction().execute(new InsertInput("script").withRecord(new QRecord().withValue("id", 1).withValue("name", "Owned script")
@@ -435,8 +486,10 @@ final class WidgetsFixtures
    {
       add(qInstance, widget("accBlocks", WidgetType.COMPOSITE, "Owned Blocks").withGridColumns(12));
       add(qInstance, widget("accBlocksUnknown", WidgetType.COMPOSITE, "Owned Unknown Block").withGridColumns(6));
+      add(qInstance, widget("accLeafBlock", WidgetType.COMPOSITE, "Owned Leaf Block").withGridColumns(6));
+      add(qInstance, widget("accLegacyIcons", WidgetType.COMPOSITE, "Owned Legacy Icons").withGridColumns(12).withIcon("account_balance_wallet"));
       qInstance.addApp(new QAppMetaData().withName(BLOCKS_APP).withLabel("Widget Blocks").withIcon(new QIcon("view_quilt"))
-         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accHealthy")));
+         .withWidgets(List.of("accBlocks", "accBlocksUnknown", "accLeafBlock", "accHealthy", "accLegacyIcons")));
    }
 
 
@@ -480,15 +533,17 @@ final class WidgetsFixtures
          .withField(new QFieldMetaData("owner", QFieldType.STRING))
          .withField(new QFieldMetaData("zero", QFieldType.INTEGER))
          .withField(new QFieldMetaData("cronExpression", QFieldType.STRING).withLabel("Schedule Expression"))
-         .withField(new QFieldMetaData("cronTimeZoneId", QFieldType.STRING).withLabel("Time Zone"))
+         .withField(new QFieldMetaData("cronTimeZoneId", QFieldType.STRING).withLabel("Time Zone").withPossibleValueSourceName("accHostTimeZones"))
+         .withField(new QFieldMetaData("inputValues", QFieldType.TEXT))
          .withSection(new QFieldSection("identity", "Identity", new QIcon("badge"), Tier.T1, List.of("id", "name", "owner", "zero")))
          .withSection(new QFieldSection().withName("hostSchedule").withLabel("Owned Schedule").withTier(Tier.T2).withWidgetName("accHostCron"))
          .withSection(new QFieldSection().withName("hostFieldValues").withLabel("Owned Record Values").withTier(Tier.T2).withWidgetName("accHostFieldValues"))
          .withSection(new QFieldSection().withName("hostHtml").withLabel("Owned Record Html").withTier(Tier.T2).withWidgetName("accHostHtml"))
          .withSection(new QFieldSection().withName("hostDynamicForm").withLabel("Owned Dynamic Form").withTier(Tier.T2).withWidgetName("accHostDynamicForm"))
+         .withSection(new QFieldSection().withName("hostRecordVariables").withLabel("Owned Record Variables").withTier(Tier.T2).withWidgetName("accHostRecordVariables"))
          .withSection(new QFieldSection().withName("hostChildren").withLabel("Owned Children").withTier(Tier.T2).withWidgetName(HOST_CHILD_JOIN))
          .withSection(new QFieldSection().withName("hostRows").withLabel("Owned Rows").withTier(Tier.T2).withWidgetName("accHostRows"))
-         .withSection(new QFieldSection("hostHidden", "Hidden", new QIcon("visibility_off"), Tier.T2, List.of("cronExpression", "cronTimeZoneId")).withIsHidden(true)));
+         .withSection(new QFieldSection("hostHidden", "Hidden", new QIcon("visibility_off"), Tier.T2, List.of("cronExpression", "cronTimeZoneId", "inputValues")).withIsHidden(true)));
       qInstance.addTable(host);
 
       QTableMetaData child = rdbms(new QTableMetaData().withName(HOST_CHILD_TABLE).withLabel("Widget Host Child").withPrimaryKeyField("id")
@@ -509,6 +564,7 @@ final class WidgetsFixtures
       add(qInstance, widget("accHostFieldValues", WidgetType.FIELD_VALUE_LIST, "Owned Record Values"));
       add(qInstance, widget("accHostHtml", WidgetType.HTML, "Owned Record Html"));
       add(qInstance, widget("accHostDynamicForm", WidgetType.DYNAMIC_FORM, "Owned Dynamic Form"));
+      add(qInstance, widget("accHostRecordVariables", WidgetType.DYNAMIC_FORM, "Owned Record Variables").withDefaultValue("isEditable", true));
       add(qInstance, widget("accHostRows", WidgetType.ROW_BUILDER, "Owned Rows")
          .withDefaultValue("fields", new ArrayList<>(List.of(new QFieldMetaData("name", QFieldType.STRING).withLabel("Row Name"),
             new QFieldMetaData("quantity", QFieldType.INTEGER).withLabel("Row Quantity")))));
@@ -534,9 +590,11 @@ final class WidgetsFixtures
       ////////////////////////////////////////////////////////////////////////
       // the scripts provider registers the same tables possible-value      //
       // source the sharing demo already added; let it register its own.   //
+      // Its tables live in the owned H2 database (snake_case), so          //
+      // backend.sql can read back what the script processes store.         //
       ////////////////////////////////////////////////////////////////////////
       qInstance.getPossibleValueSources().remove("tables");
-      new ScriptsMetaDataProvider().defineAll(qInstance, SampleMetaDataProvider.MEMORY_BACKEND_NAME, null);
+      new ScriptsMetaDataProvider().defineAll(qInstance, SampleMetaDataProvider.RDBMS_BACKEND_NAME, WidgetsFixtures::rdbms);
 
       qInstance.addApp(new QAppMetaData().withName(RECORDS_APP).withLabel("Widget Records").withIcon(new QIcon("table_view"))
          .withChild(host).withChild(child).withChild(dataBag).withChild(qInstance.getTable("script")));
@@ -618,6 +676,33 @@ final class WidgetsFixtures
          app.withChild(report);
       }
       qInstance.addApp(app);
+   }
+
+
+
+   /*******************************************************************************
+    ** Content-Security-Policy override (the application hook, QRun-IO/qqq#695):
+    ** the loopback service stands in for QuickSight (frame-src) and serves the
+    ** image and audio blocks (img-src, media-src). The custom component bundle
+    ** needs nothing here: the dashboard allows each customComponent widget's
+    ** componentSourceUrl origin itself.
+    *******************************************************************************/
+   static void allowFakeService(NextDashboardSecurityHeaders headers)
+   {
+      if(fakeBase != null)
+      {
+         headers.withSources("frame-src", fakeBase).withSources("img-src", fakeBase).withSources("media-src", fakeBase);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** Base URL of the loopback fake service (images for other fixture classes).
+    *******************************************************************************/
+   static String fakeServiceBase()
+   {
+      return (fakeBase);
    }
 
 
@@ -983,6 +1068,7 @@ final class WidgetsFixtures
                yield (parent);
             }
             case "accBlocks" -> allBlocks();
+            case "accLegacyIcons" -> legacyIcons();
             case "accBlocksUnknown" -> new CompositeWidgetData().withBlock(new BigNumberBlockData()
             {
                /*******************************************************************************
@@ -994,10 +1080,13 @@ final class WidgetsFixtures
                   return ("OWNED_UNKNOWN");
                }
             }.withValues(new BigNumberValues().withNumber("9")));
+            // a renderer may return one block as the whole widget (Material's `block` payload), not a composite
+            case "accLeafBlock" -> new TextBlockData().withBlockId("ownedLeaf").withValues(new TextValues().withText("Owned leaf block text"));
             case "accDenied" -> new RawHTML("Restricted", "Restricted widget content; renders=" + count);
             case "accHostFieldValues" -> hostFieldValues(input, params);
             case "accHostHtml" -> new RawHTML("Owned Record Html", "Host record " + params.getOrDefault("id", "(none)") + " in " + params.getOrDefault("tableName", "(none)"));
             case "accHostDynamicForm" -> hostDynamicForm(input, params);
+            case "accHostRecordVariables" -> hostRecordVariables(input, params);
             case "accHostRows" -> new RowBuilderData(new ArrayList<>(List.of(new QRecord().withValue("name", "Owned row one").withValue("quantity", 3),
                new QRecord().withValue("name", "Owned row two").withValue("quantity", 0))));
             default -> throw (new QException("Unexpected owned widget " + name));
@@ -1110,6 +1199,22 @@ final class WidgetsFixtures
    }
 
 
+   /*******************************************************************************
+    ** A field in a hidden section remains readable; the renderer supplies
+    ** its current JSON values, as scheduled reports do in production.
+    *******************************************************************************/
+   private static QWidgetData hostRecordVariables(RenderWidgetInput input, Map<String, String> params) throws QException
+   {
+      QRecord record = readHost(input, params);
+      String stored = record.getValueString("inputValues");
+      String region = stored == null || stored.isBlank() ? "North" : new JSONObject(stored).optString("region", "North");
+      return (new DynamicFormWidgetData()
+         .withFieldList(List.of(new QFieldMetaData("region", QFieldType.STRING).withLabel("Region").withIsRequired(true)))
+         .withRecordOfFieldValues(new QRecord().withValue("region", region))
+         .withMergedDynamicFormValuesIntoFieldName("inputValues"));
+   }
+
+
 
    /*******************************************************************************
     **
@@ -1125,6 +1230,24 @@ final class WidgetsFixtures
          throw (new QException("Owned host record not found"));
       }
       return (record);
+   }
+
+
+
+   /*******************************************************************************
+    ** Valid legacy names absent from the Next Lucide map, supplied by real metadata.
+    *******************************************************************************/
+   private static CompositeWidgetData legacyIcons()
+   {
+      CompositeWidgetData data = new CompositeWidgetData().withLayout(CompositeWidgetData.Layout.FLEX_COLUMN);
+      for(String name : List.of("3d_rotation", "account_balance_wallet", "airline_seat_flat", "battery_6_bar", "filter_9_plus", "60fps"))
+      {
+         data.addBlock(new CompositeWidgetData().withLayout(CompositeWidgetData.Layout.FLEX_ROW)
+            .withBlock(new IconBlockData().withBlockId("legacy-" + name).withValues(new IconValues().withName(name))
+               .withStyles(new IconStyles().withColor("#2563eb").withFontSize("24px")))
+            .withBlock(new TextBlockData().withValues(new TextValues().withText(name))));
+      }
+      return (data);
    }
 
 

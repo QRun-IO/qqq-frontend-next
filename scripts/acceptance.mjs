@@ -23,6 +23,10 @@ function run(command, commandArgs, env = {}) {
   return result.status ?? 1
 }
 
+// An acceptance build starts from a clean .next: a Turbopack build reusing its cache after a
+// merge was seen to emit stale CSS (the touch-target rules of globals.css were missing), which
+// would test something other than the source.
+if (!skipBuild) rmSync('.next', { recursive: true, force: true })
 if (!skipBuild && ACCEPTANCE_MODE === 'javalin') {
   const status = run('pnpm', ['build:export'], { NEXT_TELEMETRY_DISABLED: '1' })
   if (status !== 0) process.exit(status)

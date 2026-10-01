@@ -40,3 +40,4 @@ target/
 /playwright-report/
 /log/
 /.playwright-mcp/
+/storybook-static/

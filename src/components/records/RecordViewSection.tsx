@@ -20,12 +20,15 @@
 
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
-import { selectHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionField, storeSectionOpen, twelfths } from '@/lib/utils/record-layout-utils'
+import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
 
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
@@ -48,6 +51,8 @@ interface RecordViewSectionProps {
   compact?: boolean
   /** Stacked mode — single column with vertical field stacking (for card grid layout) */
   stacked?: boolean
+  /** Number of field columns when no field width is declared in metadata. */
+  defaultFieldColumns?: 1 | 2
   className?: string
 }
 
@@ -75,18 +80,46 @@ export function RecordViewSection({
   navigateFrom,
   compact = false,
   stacked = false,
+  defaultFieldColumns = 1,
   className,
 }: RecordViewSectionProps) {
+  const helpHelpActive = useHelpHelpActive()
+  const collapsible = isCollapsibleSection(section)
+  const [open, setOpen] = useState(!collapsible || section.collapsible?.initiallyOpen === true)
+  useEffect(() => {
+    setOpen(initialSectionOpen(tableMetaData.name, section))
+  }, [tableMetaData.name, section])
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    storeSectionOpen(tableMetaData.name, section.name, next)
+  }
   if (section.isHidden || section.hidden) return null
 
   // If this section has a widgetName, render a widget instead of the field list
   if (section.widgetName) {
-    const widgetMeta = widgetMetaDataMap?.[section.widgetName]
+    const declaredWidgetMeta = widgetMetaDataMap?.[section.widgetName]
+    const widgetMeta = declaredWidgetMeta && section.collapsible
+      ? { ...declaredWidgetMeta, collapsible: section.collapsible }
+      : declaredWidgetMeta
     const binding = associationWidgetBinding(widgetMeta)
     if (binding && renderAssociation) {
       if (widgetMeta?.hasPermission === false) return null
       if ('error' in binding) return <p role="alert">{binding.error}</p>
-      return renderAssociation(binding.name, section.label)
+      if (collapsible) return (
+        <section className={cn('space-y-4', className)} data-qqq-id={`section-widget-${section.widgetName}`}>
+          <button type="button" onClick={toggle} aria-expanded={open} aria-controls={`record-section-body-${section.name}`}
+            data-qqq-id={`button-section-collapse-${section.name}`}
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-border p-3 text-left font-semibold focus:outline-none focus:ring-2 focus:ring-ring">
+            <span><SectionIcon section={section} />{section.label}</span>
+            <ChevronDown className={cn('h-5 w-5 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+          </button>
+          <div id={`record-section-body-${section.name}`} hidden={!open}>
+            {open && renderAssociation(binding.name, section.label)}
+          </div>
+        </section>
+      )
+      return <div data-qqq-id={`section-widget-${section.widgetName}`}>{renderAssociation(binding.name, section.label)}</div>
     }
 
     if (widgetMeta) {
@@ -154,13 +187,11 @@ export function RecordViewSection({
 
   // Filter to visible fields. Heavy fields are included: a single-record read returns them.
   const visibleFields = section.fieldNames
-    .map((fn) => tableMetaData.fields[fn])
+    .map((fn) => recordSectionField(tableMetaData, allTables, fn))
     .filter((f) => f && !f.isHidden)
-  const sectionHelp = selectHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES)
+  const sectionHelp = selectSlotHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES, `table:${tableMetaData.name};section:${section.name}`, helpHelpActive)
 
   if (visibleFields.length === 0) return null
-
-  const gridCols = section.gridColumns ?? 2
 
   return (
     <section
@@ -178,31 +209,39 @@ export function RecordViewSection({
                 : 'text-lg font-bold text-foreground'
             )}
           >
-            <SectionIcon section={section} />
-            {section.label}
+            {collapsible ? (
+              <button type="button" onClick={toggle} aria-expanded={open} aria-controls={`record-section-body-${section.name}`}
+                aria-label={`Toggle ${section.label}`} data-qqq-id={`button-section-collapse-${section.name}`}
+                className="flex w-full items-center justify-between gap-2 text-left focus:outline-none focus:ring-2 focus:ring-ring">
+                <span><SectionIcon section={section} />{section.label}</span>
+                <ChevronDown className={cn('h-5 w-5 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+              </button>
+            ) : <><SectionIcon section={section} />{section.label}</>}
           </h3>
-          {sectionHelp && (
+          {open && sectionHelp && (
             <p className="mt-1 text-sm text-muted-foreground" data-qqq-id={`section-help-${section.name}`}>
               <HelpContent helpContent={sectionHelp} />
             </p>
           )}
         </div>
       )}
+      <div id={`record-section-body-${section.name}`} hidden={!open}>
       {compact ? (
-        /* Compact list layout — label: value on each row */
+        /* Compact list layout — label: value on each row (label above value on phones).
+           Values wrap anywhere so a long URL or token stays inside the card. */
         <dl className="divide-y divide-border/40">
           {visibleFields.map((field) => {
             if (!field) return null
             return (
               <div
                 key={field.name}
-                className="flex items-baseline gap-4 py-1.5"
+                className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:items-baseline sm:gap-4"
                 data-qqq-id={`record-field-${field.name}`}
               >
-                <dt className="w-40 flex-shrink-0 text-sm text-muted-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                <dt className="text-sm text-muted-foreground sm:w-40 sm:flex-shrink-0">
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
-                <dd className="flex-1 text-sm text-foreground">
+                <dd className="min-w-0 flex-1 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -217,13 +256,13 @@ export function RecordViewSection({
             return (
               <div
                 key={field.name}
-                className="flex flex-col gap-0.5"
+                className="flex min-w-0 flex-col gap-0.5"
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm font-semibold text-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
-                <dd className="text-sm text-foreground">
+                <dd className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -231,18 +270,9 @@ export function RecordViewSection({
           })}
         </dl>
       ) : (
-        /* Default grid layout */
+        /* Explicit field widths use twelfths; the surrounding view supplies the default layout. */
         <dl
-          className={cn(
-            'grid gap-x-8 gap-y-6',
-            gridCols === 1
-              ? 'grid-cols-1'
-              : gridCols === 2
-                ? 'grid-cols-1 sm:grid-cols-2'
-                : gridCols === 3
-                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-          )}
+          className={cn('grid grid-cols-12 gap-x-8', defaultFieldColumns === 2 ? 'gap-y-6' : 'gap-y-4')}
         >
           {visibleFields.map((field) => {
             if (!field) return null
@@ -250,15 +280,17 @@ export function RecordViewSection({
               <div
                 key={field.name}
                 className={cn(
-                  'flex flex-col gap-0.5',
-                  field.gridColumns === 2 ? 'col-span-1 sm:col-span-2' : undefined
+                  'flex min-w-0 flex-col gap-0.5',
+                  twelfths(field.gridColumns) !== undefined
+                    ? gridSpanClasses(field.gridColumns!)
+                    : defaultFieldColumns === 2 ? 'col-span-12 sm:col-span-6' : 'col-span-12'
                 )}
                 data-qqq-id={`record-field-${field.name}`}
               >
                 <dt className="text-sm font-semibold text-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
-                <dd>
+                <dd className={cn('min-w-0 [overflow-wrap:anywhere]', defaultFieldColumns === 1 && 'text-sm text-foreground')}>
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -266,6 +298,7 @@ export function RecordViewSection({
           })}
         </dl>
       )}
+      </div>
     </section>
   )
 }

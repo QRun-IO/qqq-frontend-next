@@ -15,15 +15,17 @@
  */
 
 /**
- * @file FilterBuilder — advanced filter UI with recursive AND/OR group support. Offers base-table
- * and exposed-join fields, Material's per-type operator lists, typed value inputs, relative date
- * expressions and async possible-value comboboxes.
+ * @file FilterBuilder — advanced filter UI with recursive AND/OR group support. Offers base-table,
+ * exposed-join and virtual fields, Material's per-type operator lists (including weekday
+ * criteria), typed value inputs that follow field case behaviors, relative date expressions
+ * with presets and live values, bulk-pasted values and async possible-value comboboxes. Each
+ * condition shows whether it is complete, and what it still needs.
  */
 
 'use client'
 
 import React, { useState, useCallback, useRef, useMemo, useId } from 'react'
-import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X, CalendarClock } from 'lucide-react'
+import { Plus, Trash2, PlusCircle, Check, ChevronDown, Loader2, X, CalendarClock, CircleCheck, CircleDashed, Variable } from 'lucide-react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { useQuery } from '@tanstack/react-query'
 
@@ -34,22 +36,35 @@ import type {
   QFieldMetaData,
   QPossibleValue,
   ExpressionTimeUnit,
+  FilterVariableExpression,
 } from '@/types'
 import {
   emptyFilter,
   getOperatorOptions,
   selectedOperatorOption,
   newCriterionForField,
+  changeCriterionOperator,
+  validateCriterion,
+  caseBehaviorTransform,
   isFilterExpression,
+  isFilterVariableExpression,
   describeExpression,
+  describeVariable,
   utcToLocalDateTimeInput,
+  weekdayOptions,
   type CriteriaValue,
   type FilterExpression,
   type OperatorOption,
 } from '@/lib/utils/filter-utils'
 import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { useAsyncCombobox } from '@/lib/hooks/use-async-combobox'
+import { useFilterSettings } from '@/lib/context/filter-settings-context'
 import { queryKeys } from '@/lib/query-client'
+
+import { EvaluatedExpression } from './EvaluatedExpression'
+import { FilterValuePaster, type PasterKind } from './FilterValuePaster'
+import { HintTooltip } from './HintTooltip'
+import { RelativeDateMenu } from './RelativeDateMenu'
 
 // ------------------------------------------------------------------
 // Types
@@ -71,6 +86,28 @@ export interface FilterField {
   tableFieldName: string
   /** Group heading, "{Table} Fields". */
   group: string
+  /** Field behaviors that shape typed values (`TO_UPPER_CASE`, `TO_LOWER_CASE`). */
+  behaviors?: string[]
+  /** Whether the field is a virtual (backend-computed) field. */
+  isVirtual?: boolean
+  /** False hides a field from new choices while retaining existing criteria metadata. */
+  isSelectable?: boolean
+}
+
+/**
+ * A table's filterable fields: visible stored fields plus virtual fields marked usable in
+ * criteria (Material `includeVirtualFields="queryCriteria"`), sorted by label.
+ *
+ * @param table - The table.
+ * @returns The fields, each flagged when virtual.
+ */
+function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isVirtual: boolean }[] {
+  const usable = (f: QFieldMetaData) => !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
+  const stored = Object.values(table.fields ?? {}).filter(usable).map((field) => ({ field, isVirtual: false }))
+  const virtual = Object.values(table.virtualFields ?? {})
+    .filter((f) => f.isQueryCriteria && !f.isHidden && !table.fields?.[f.name])
+    .map((field) => ({ field: field as QFieldMetaData, isVirtual: true }))
+  return [...stored, ...virtual].sort((a, b) => a.field.label.localeCompare(b.field.label))
 }
 
 /**
@@ -81,24 +118,20 @@ export interface FilterField {
  * @returns Filterable fields in display order.
  */
 export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] {
-  const usable = (f: QFieldMetaData) => !f.isHidden && (!f.isHeavy || f.type === 'BLOB')
-  const byLabel = (a: QFieldMetaData, b: QFieldMetaData) => a.label.localeCompare(b.label)
-  const fields: FilterField[] = Object.values(tableMetaData.fields)
-    .filter(usable)
-    .sort(byLabel)
-    .map((f) => ({
-      name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName,
-      tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
-    }))
+  const fields: FilterField[] = filterableFieldsOf(tableMetaData).map(({ field: f, isVirtual }) => ({
+    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName,
+    tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
+    ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
+  }))
   for (const join of tableMetaData.exposedJoins ?? []) {
     const joinTable = join.joinTable
     if (!joinTable?.fields || joinTable.readPermission === false) continue
     const joinLabel = join.label || joinTable.label
-    for (const f of Object.values(joinTable.fields).filter(usable).sort(byLabel)) {
+    for (const { field: f, isVirtual } of filterableFieldsOf(joinTable)) {
       fields.push({
         name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type,
         possibleValueSourceName: f.possibleValueSourceName, tableName: joinTable.name, tableFieldName: f.name,
-        group: `${joinTable.label} Fields`,
+        group: `${joinTable.label} Fields`, ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
       })
     }
   }
@@ -117,6 +150,15 @@ interface FilterBuilderProps {
   onChange: (filter: QQueryFilter) => void
   /** Optional callback for the Apply button; when omitted the Apply button is hidden. */
   onClose?: () => void
+  /** Opens the page's clear confirmation, when provided. */
+  onClear?: () => void
+  /**
+   * When true a criterion's value can be a filter variable (`${VARIABLE}`) instead of a
+   * literal, as in Material's report setup (`AssignFilterVariable`). Defaults to false.
+   */
+  allowVariables?: boolean
+  /** Joined table names omitted from field choices, without discarding saved criteria. */
+  omittedJoinTables?: string[]
 }
 
 // ------------------------------------------------------------------
@@ -129,17 +171,19 @@ interface FilterBuilderProps {
  * @param props - Component properties.
  * @returns The rendered filter builder panel.
  */
-export function FilterBuilder({ tableMetaData, filter, onChange, onClose }: FilterBuilderProps) {
-  const fields = useMemo(() => buildFilterFields(tableMetaData), [tableMetaData])
+export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClear, allowVariables = false, omittedJoinTables }: FilterBuilderProps) {
+  const fields = useMemo(() => buildFilterFields(tableMetaData).map((field) => ({
+    ...field, isSelectable: field.tableName === tableMetaData.name || !omittedJoinTables?.includes(field.tableName),
+  })), [tableMetaData, omittedJoinTables])
 
   return (
     <div className="flex flex-col gap-3 p-4" data-qqq-id="filter-builder">
-      <FilterGroup filter={filter} fields={fields} onChange={onChange} depth={0} />
+      <FilterGroup filter={filter} fields={fields} onChange={onChange} depth={0} allowVariables={allowVariables} />
 
       <div className="flex items-center justify-between border-t border-border pt-3">
         <button
           type="button"
-          onClick={() => onChange({ ...emptyFilter(filter.limit), orderBys: filter.orderBys })}
+          onClick={() => onClear ? onClear() : onChange({ ...emptyFilter(filter.limit), orderBys: filter.orderBys })}
           className="text-sm text-muted-foreground underline hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           data-qqq-id="button-clear-filter"
         >
@@ -177,12 +221,14 @@ interface FilterGroupProps {
   onChange: (updated: QQueryFilter) => void
   /** Nesting depth (0 = root group). Sub-groups are capped at depth 2. */
   depth: number
+  /** Whether criterion values may be filter variables. */
+  allowVariables: boolean
 }
 
 /**
  * Renders one AND/OR group of filter criteria with nested sub-group support.
  */
-const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth }: FilterGroupProps) {
+const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth, allowVariables }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
   const criteriaIdCounterRef = useRef(0)
@@ -218,7 +264,7 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
   }, [depth])
 
   const addCriterion = useCallback(() => {
-    const firstField = fields[0]
+    const firstField = fields.find((field) => field.isSelectable !== false)
     if (!firstField) return
     onChange({ ...filter, criteria: [...filter.criteria, newCriterionForField(firstField.name, firstField)] })
   }, [fields, filter, onChange])
@@ -281,12 +327,13 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
           onChange={(updated) => updateCriterion(idx, updated)}
           onRemove={() => removeCriterion(idx)}
           depth={depth}
+          allowVariables={allowVariables}
         />
       ))}
 
       {(filter.subFilters ?? []).map((sub, idx) => (
         <div key={getSubFilterKey(sub)} className="relative">
-          <FilterGroup filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} />
+          <FilterGroup filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} allowVariables={allowVariables} />
           <button
             type="button"
             onClick={() => removeSubFilter(idx)}
@@ -345,49 +392,45 @@ interface CriteriaRowProps {
   onRemove: () => void
   /** Nesting depth, used in data-qqq-id attributes. */
   depth: number
+  /** Whether the value may be a filter variable. */
+  allowVariables?: boolean
 }
 
 /**
- * Number of values an operator option keeps when switching to it.
- *
- * @param option - The option.
- * @returns The count, or undefined for "any number".
- */
-function requiredValueCount(option: OperatorOption): number | undefined {
-  return option.valueMode === 'none' ? 0 : option.valueMode === 'single' ? 1 : option.valueMode === 'double' ? 2 : undefined
-}
-
-/**
- * A single filter condition row: field, operator, value input(s) and a remove button.
+ * A single filter condition row: field, operator, value input(s), a remove button and a status
+ * icon that says whether the condition is complete (and what it still needs, as Material's does).
  * Changing to a field of a different type (or possible value source) resets the operator
  * and values, as in Material; otherwise the operator and values are kept.
  */
-export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth }: CriteriaRowProps) {
+export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, allowVariables = false }: CriteriaRowProps) {
+  const { weekday } = useFilterSettings()
   const selectedField = fields.find((f) => f.name === criterion.fieldName)
-  const options = selectedField ? getOperatorOptions(selectedField) : []
+  const options = selectedField ? getOperatorOptions(selectedField, { weekday }) : []
   const selected = selectedOperatorOption(options, criterion)
   const allOptions = options.some((o) => o.id === selected.id) ? options : [...options, selected]
+  const status = validateCriterion(criterion)
   const groups = useMemo(() => {
     const byGroup = new Map<string, FilterField[]>()
-    for (const f of fields) byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
+    for (const f of fields) if (f.isSelectable !== false) byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
     return [...byGroup.entries()]
   }, [fields])
 
   const handleFieldChange = (fieldName: string) => {
     const field = fields.find((f) => f.name === fieldName)
-    if (!field) return
+    if (!field || field.isSelectable === false) return
     const sameKind = selectedField && selectedField.type === field.type && selectedField.possibleValueSourceName === field.possibleValueSourceName
       && selectedField.tableName === field.tableName
-    onChange(sameKind ? { ...criterion, fieldName } : newCriterionForField(fieldName, field))
+    if (!sameKind) {
+      onChange(newCriterionForField(fieldName, field))
+      return
+    }
+    onChange({ ...criterion, fieldName, ...(criterion.fieldFunction ? { fieldFunction: { ...criterion.fieldFunction, fieldName } } : {}) })
   }
 
   const handleOperatorChange = (optionId: string) => {
     const next = allOptions.find((o) => o.id === optionId)
     if (!next) return
-    let values: CriteriaValue[] = next.implicitValues ? [...next.implicitValues] : selected.implicitValues ? [] : criterion.values.filter((v) => v !== null)
-    const count = next.implicitValues ? undefined : requiredValueCount(next)
-    if (count !== undefined && values.length > count) values = values.slice(0, count)
-    onChange({ ...criterion, operator: next.operator, values })
+    onChange(changeCriterionOperator(criterion, selected, next))
   }
 
   return (
@@ -400,6 +443,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
         data-qqq-id={`filter-field-${depth}-${index}`}
       >
         {!selectedField && <option value="">{criterion.fieldName} (unavailable)</option>}
+        {selectedField?.isSelectable === false && <option value={selectedField.name} disabled>{selectedField.label}</option>}
         {groups.length === 1
           ? groups[0][1].map((f) => <option key={f.name} value={f.name}>{f.label}</option>)
           : groups.map(([group, groupFields]) => (
@@ -427,6 +471,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
           onChange={(values) => onChange({ ...criterion, values })}
           depth={depth}
           index={index}
+          allowVariables={allowVariables}
         />
       )}
 
@@ -439,6 +484,14 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>
+
+      <HintTooltip content={status.message} data-qqq-id={`filter-status-tooltip-${depth}-${index}`}>
+        <span role="img" tabIndex={0} aria-label={`Condition ${index + 1}: ${status.message}`}
+          className={`flex h-7 w-7 items-center justify-center rounded focus:outline-none focus:ring-1 focus:ring-ring ${status.valid ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
+          data-qqq-id={`filter-status-${depth}-${index}`} data-valid={String(status.valid)}>
+          {status.valid ? <CircleCheck className="h-4 w-4" aria-hidden="true" /> : <CircleDashed className="h-4 w-4" aria-hidden="true" />}
+        </span>
+      </HintTooltip>
     </div>
   )
 })
@@ -463,53 +516,181 @@ interface FilterValueInputProps {
   depth: number
   /** Row index within the group, used in data-qqq-id construction. */
   index: number
+  /** Whether a (single or between) value may be a filter variable. */
+  allowVariables?: boolean
+}
+
+/**
+ * Adds pasted values to a list, without duplicates.
+ *
+ * @param values - The current values.
+ * @param added - Values to add.
+ * @returns The combined list.
+ */
+function withAddedValues(values: string[], added: string[]): string[] {
+  const next = [...values]
+  for (const value of added) if (!next.includes(value)) next.push(value)
+  return next
+}
+
+/**
+ * How pasted values are checked for a field: possible values by label, numbers as numbers.
+ *
+ * @param field - The field.
+ * @returns The paster kind.
+ */
+function pasterKindFor(field: FilterField): PasterKind {
+  if (field.possibleValueSourceName) return 'pvs'
+  return field.type === 'INTEGER' || field.type === 'LONG' || field.type === 'DECIMAL' ? 'number' : 'text'
 }
 
 /**
  * Renders the value input widget(s) for a criterion.
  */
-const FilterValueInput = React.memo(function FilterValueInput({ field, valueMode, values, onChange, depth, index }: FilterValueInputProps) {
+export const FilterValueInput = React.memo(function FilterValueInput({ field, valueMode, values, onChange, depth, index, allowVariables = false }: FilterValueInputProps) {
   const hasPossibleValues = Boolean(field.possibleValueSourceName)
   const at = (i: number): CriteriaValue => values[i] ?? ''
 
+  if (valueMode === 'weekdays') {
+    return (
+      <WeekdayMultiSelect fieldLabel={field.label} values={values.map((v) => Number(v)).filter((v) => Number.isInteger(v))}
+        onChange={onChange} data-qqq-id={`filter-value-${depth}-${index}`} />
+    )
+  }
+
+  /**
+   * One value slot: the literal input, or the slot's variable (see {@link VariableSlot}).
+   *
+   * @param valueIndex - Which value (0, or 1 for the second value of "is between").
+   * @param dataId - data-qqq-id of the slot's input.
+   * @param input - The literal value input.
+   * @param setValue - Writes the slot's value.
+   * @returns The slot.
+   */
+  const slot = (valueIndex: number, dataId: string, input: React.ReactNode, setValue: (value: CriteriaValue) => void) => (
+    <VariableSlot field={field} value={at(valueIndex)} valueIndex={valueIndex} allowVariables={allowVariables} dataId={dataId} onChange={setValue}>
+      {input}
+    </VariableSlot>
+  )
+
   if (valueMode === 'double') {
+    const fromId = `filter-value-from-${depth}-${index}`
+    const toId = `filter-value-to-${depth}-${index}`
+    const setFrom = (v: CriteriaValue) => onChange([v, at(1)])
+    const setTo = (v: CriteriaValue) => onChange([at(0), v])
     return (
       <div className="flex items-center gap-1">
-        <SingleValueInput field={field} value={at(0)} onChange={(v) => onChange([v, at(1)])} placeholder="From"
-          ariaLabel={`Filter value from for ${field.label}`} dataId={`filter-value-from-${depth}-${index}`} />
+        {slot(0, fromId, <SingleValueInput field={field} value={at(0)} onChange={setFrom} placeholder="From"
+          ariaLabel={`Filter value from for ${field.label}`} dataId={fromId} />, setFrom)}
         <span className="text-sm text-muted-foreground">and</span>
-        <SingleValueInput field={field} value={at(1)} onChange={(v) => onChange([at(0), v])} placeholder="To"
-          ariaLabel={`Filter value to for ${field.label}`} dataId={`filter-value-to-${depth}-${index}`} />
+        {slot(1, toId, <SingleValueInput field={field} value={at(1)} onChange={setTo} placeholder="To"
+          ariaLabel={`Filter value to for ${field.label}`} dataId={toId} />, setTo)}
       </div>
     )
   }
 
   if (valueMode === 'multi') {
     const scalars = values.filter((v) => !isFilterExpression(v)).map((v) => String(v))
+    const paster = (
+      <FilterValuePaster kind={pasterKindFor(field)} fieldLabel={field.label} tableName={field.tableName} fieldName={field.tableFieldName}
+        onAdd={(added) => onChange(withAddedValues(scalars, added))} dataId={`filter-value-${depth}-${index}`} />
+    )
     if (hasPossibleValues) {
       return (
-        <PossibleValueMultiSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
-          values={scalars} onChange={onChange} data-qqq-id={`filter-value-${depth}-${index}`} />
+        <span className="flex items-center gap-1">
+          <PossibleValueMultiSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
+            values={scalars} onChange={onChange} data-qqq-id={`filter-value-${depth}-${index}`} />
+          {paster}
+        </span>
       )
     }
     return (
-      <TagInput values={scalars} onChange={onChange} placeholder="Add values..."
-        aria-label={`Filter values for ${field.label}`} data-qqq-id={`filter-value-${depth}-${index}`} />
+      <span className="flex items-center gap-1">
+        <TagInput values={scalars} onChange={onChange} placeholder="Add values..."
+          aria-label={`Filter values for ${field.label}`} data-qqq-id={`filter-value-${depth}-${index}`} />
+        {paster}
+      </span>
     )
   }
 
+  const valueId = `filter-value-${depth}-${index}`
+  const setValue = (v: CriteriaValue) => onChange([v])
   if (hasPossibleValues) {
-    return (
+    return slot(0, valueId, (
       <PossibleValueSingleSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
-        value={String(at(0) ?? '')} onChange={(v) => onChange([v])} data-qqq-id={`filter-value-${depth}-${index}`} />
-    )
+        value={String(at(0) ?? '')} onChange={setValue} data-qqq-id={valueId} />
+    ), setValue)
   }
 
-  return (
-    <SingleValueInput field={field} value={at(0)} onChange={(v) => onChange([v])} placeholder="Value..."
-      ariaLabel={`Filter value for ${field.label}`} dataId={`filter-value-${depth}-${index}`} />
-  )
+  return slot(0, valueId, (
+    <SingleValueInput field={field} value={at(0)} onChange={setValue} placeholder="Value..."
+      ariaLabel={`Filter value for ${field.label}`} dataId={valueId} />
+  ), setValue)
 })
+
+// ------------------------------------------------------------------
+// VariableSlot — a value that may be a filter variable (report setup)
+// ------------------------------------------------------------------
+
+/**
+ * Props for {@link VariableSlot}.
+ */
+interface VariableSlotProps {
+  /** The field being filtered. */
+  field: FilterField
+  /** The slot's current value. */
+  value: CriteriaValue
+  /** Which of the criterion's values the slot holds. */
+  valueIndex: number
+  /** Whether the value may be a filter variable. */
+  allowVariables: boolean
+  /** data-qqq-id of the slot's literal input; the variable controls extend it. */
+  dataId: string
+  /** Writes the slot's value. */
+  onChange: (value: CriteriaValue) => void
+  /** The literal value input. */
+  children: React.ReactNode
+}
+
+/**
+ * A criterion value slot. A slot holding a filter variable shows it (`${VARIABLE}`, or
+ * `${NAME}` once the backend has named it) with a clear button; otherwise it shows the literal
+ * input and, when variables are allowed, Material's button that makes the value a variable
+ * (`AssignFilterVariable`: `{fieldName, valueIndex, type: "FilterVariableExpression"}`).
+ *
+ * @param props - Component properties.
+ * @returns The slot.
+ */
+function VariableSlot({ field, value, valueIndex, allowVariables, dataId, onChange, children }: VariableSlotProps) {
+  if (isFilterVariableExpression(value)) {
+    const text = describeVariable(value)
+    return (
+      <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-variable`}>
+        <span>{text}</span>
+        <button type="button" onClick={() => onChange('')} aria-label={`Clear variable for ${field.label}`}
+          className="rounded p-0.5 hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring" data-qqq-id={`${dataId}-variable-clear`}>
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      </span>
+    )
+  }
+  if (!allowVariables) return <>{children}</>
+  const label = `Use a variable as the value for the ${field.label} field`
+  const assign = () => {
+    const expression: FilterVariableExpression = { fieldName: field.tableFieldName, valueIndex, type: 'FilterVariableExpression' }
+    onChange(expression)
+  }
+  return (
+    <span className="flex items-center gap-1">
+      {children}
+      <button type="button" onClick={assign} aria-label={label} title={label}
+        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        data-qqq-id={`${dataId}-assign-variable`}>
+        <Variable className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </span>
+  )
+}
 
 // ------------------------------------------------------------------
 // SingleValueInput — typed input, with relative expressions for dates
@@ -542,11 +723,22 @@ interface SingleValueInputProps {
  */
 function SingleValueInput({ field, value, onChange, placeholder, ariaLabel, dataId }: SingleValueInputProps) {
   const isDate = field.type === 'DATE' || field.type === 'DATE_TIME'
+  const [customOpen, setCustomOpen] = useState(false)
+  const presets = isDate && (
+    <RelativeDateMenu fieldType={field.type} fieldLabel={field.label} onSelect={onChange} onCustom={() => setCustomOpen(true)} dataId={dataId} />
+  )
   if (isDate && isFilterExpression(value)) {
     return (
       <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-expression`}>
-        <span>{describeExpression(value, field.type)}</span>
-        <ExpressionEditor fieldType={field.type} fieldLabel={field.label} expression={value} onApply={onChange} dataId={dataId} />
+        {/* Material shows what the expression means right now in a tooltip on its value */}
+        <HintTooltip content={<EvaluatedExpression expression={value} fieldType={field.type} />} data-qqq-id={`${dataId}-evaluated`}>
+          <span tabIndex={0} className="cursor-help rounded underline decoration-dotted underline-offset-4 focus:outline-none focus:ring-1 focus:ring-ring">
+            {describeExpression(value, field.type)}
+          </span>
+        </HintTooltip>
+        <ExpressionEditor fieldType={field.type} fieldLabel={field.label} expression={value} onApply={onChange} dataId={dataId}
+          open={customOpen} onOpenChange={setCustomOpen} />
+        {presets}
         <button type="button" onClick={() => onChange('')} aria-label={`Clear relative value for ${field.label}`}
           className="rounded p-0.5 hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring" data-qqq-id={`${dataId}-expression-clear`}>
           <X className="h-3 w-3" aria-hidden="true" />
@@ -561,11 +753,13 @@ function SingleValueInput({ field, value, onChange, placeholder, ariaLabel, data
         fieldType={field.type}
         value={field.type === 'DATE_TIME' ? utcToLocalDateTimeInput(text) : text}
         onChange={onChange}
+        transform={caseBehaviorTransform(field.behaviors)}
         placeholder={placeholder}
         aria-label={ariaLabel}
         data-qqq-id={dataId}
       />
-      {isDate && <ExpressionEditor fieldType={field.type} fieldLabel={field.label} onApply={onChange} dataId={dataId} />}
+      {isDate && <ExpressionEditor fieldType={field.type} fieldLabel={field.label} onApply={onChange} dataId={dataId} open={customOpen} onOpenChange={setCustomOpen} />}
+      {presets}
     </span>
   )
 }
@@ -583,16 +777,22 @@ type ExpressionKind = 'Now' | 'NowWithOffset' | 'ThisOrLastPeriod'
  * @param root0.expression - Current expression, if any.
  * @param root0.onApply - Receives the chosen expression.
  * @param root0.dataId - data-qqq-id prefix.
+ * @param root0.open - Controlled open state (the relative date menu's "Custom" opens it).
+ * @param root0.onOpenChange - Controlled open state setter.
  * @returns The editor trigger and popover.
  */
-function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId }: {
+function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, open: controlledOpen, onOpenChange }: {
   fieldType: QFieldMetaData['type']
   fieldLabel: string
   expression?: FilterExpression
   onApply: (expression: FilterExpression) => void
   dataId: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = onOpenChange ?? setUncontrolledOpen
   const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' ? expression.type : 'NowWithOffset'
   const [kind, setKind] = useState<ExpressionKind>(initialKind)
   const [amount, setAmount] = useState(expression?.type === 'NowWithOffset' ? expression.amount : 1)
@@ -690,7 +890,7 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId }
  * @param ids - Selected ids.
  * @returns A map from id to label.
  */
-function useSelectedLabels(tableName: string, fieldName: string, ids: string[]): Record<string, string> {
+export function useSelectedLabels(tableName: string, fieldName: string, ids: string[]): Record<string, string> {
   const key = ids.filter(Boolean).join(',')
   const { data } = useQuery({
     queryKey: [...queryKeys.tablePossibleValues(tableName, fieldName), 'ids', key],
@@ -899,6 +1099,91 @@ function PossibleValueMultiSelect({ tableName, fieldName, fieldLabel, values, on
   )
 }
 
+/**
+ * Props for WeekdayMultiSelect.
+ */
+interface WeekdayMultiSelectProps {
+  fieldLabel: string
+  values: number[]
+  onChange: (values: number[]) => void
+  'data-qqq-id'?: string
+}
+
+/**
+ * Multi-select of weekdays for "day is any of" / "day is none of" (Material's inline weekday
+ * possible values, starting on the locale's first day of the week). Values are ISO day numbers.
+ *
+ * @param root0 - Component properties.
+ * @returns The combobox.
+ */
+function WeekdayMultiSelect({ fieldLabel, values, onChange, 'data-qqq-id': dataId }: WeekdayMultiSelectProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const listboxId = useId()
+  const days = useMemo(() => weekdayOptions(), [])
+  const labelOf = (id: number) => days.find((day) => day.id === id)?.label ?? String(id)
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [isOpen])
+
+  const toggle = (id: number) => onChange(values.includes(id) ? values.filter((v) => v !== id) : [...values, id])
+
+  return (
+    <div ref={containerRef} className="relative" data-qqq-id={dataId}>
+      <div
+        className="flex min-w-[200px] cursor-pointer flex-wrap items-center gap-1 rounded border border-input bg-background p-1 focus:outline-none focus:ring-1 focus:ring-ring"
+        onClick={() => setIsOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); setIsOpen(true) }
+          else if (e.key === 'Escape' && isOpen) { e.stopPropagation(); setIsOpen(false) }
+        }}
+        role="combobox"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={`Filter weekdays for ${fieldLabel}`}
+        aria-controls={listboxId}
+        data-qqq-id={dataId ? `${dataId}-combobox` : undefined}
+      >
+        {values.map((id) => (
+          <span key={id} className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary" data-qqq-id="filter-value-chip">
+            {labelOf(id)}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onChange(values.filter((v) => v !== id)) }}
+              className="text-primary hover:text-primary/70 focus:outline-none" aria-label={`Remove ${labelOf(id)}`}>
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+        {values.length === 0 && <span className="px-1 text-sm text-muted-foreground">Select days...</span>}
+        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </div>
+      {isOpen && (
+        <ul id={listboxId} role="listbox" aria-label={`${fieldLabel} weekdays`} aria-multiselectable="true"
+          className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[180px] rounded border border-border bg-popover py-1 shadow-sm">
+          {days.map((day) => {
+            const isSelected = values.includes(day.id)
+            return (
+              <li key={day.id} role="option" aria-selected={isSelected} onClick={(e) => { e.stopPropagation(); toggle(day.id) }}
+                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent pointer-coarse:min-h-[44px] ${isSelected ? 'bg-primary/5' : ''}`}>
+                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'}`}>
+                  {isSelected && <Check className="h-3 w-3" aria-hidden="true" />}
+                </div>
+                <span className="text-popover-foreground">{day.label}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // ------------------------------------------------------------------
 // TypedInput — renders appropriate <input> based on field type
 // ------------------------------------------------------------------
@@ -910,6 +1195,8 @@ interface TypedInputProps {
   fieldType: QFieldMetaData['type']
   value: string
   onChange: (value: string) => void
+  /** Live transform for typed text (the field's TO_UPPER_CASE / TO_LOWER_CASE behavior). */
+  transform?: (value: string) => string
   placeholder?: string
   'aria-label'?: string
   'data-qqq-id'?: string
@@ -917,13 +1204,29 @@ interface TypedInputProps {
 
 /**
  * Renders the HTML input for a QQQ field type (date, datetime-local, time, number or text).
+ * A text input applies the field's case behavior as the user types, keeping the cursor in
+ * place (Material `makeTextField`).
  *
  * @param root0 - Component properties.
  * @returns The input.
  */
-function TypedInput({ fieldType, value, onChange, placeholder, 'aria-label': ariaLabel, 'data-qqq-id': dataId }: TypedInputProps) {
+function TypedInput({ fieldType, value, onChange, transform, placeholder, 'aria-label': ariaLabel, 'data-qqq-id': dataId }: TypedInputProps) {
   const baseClass = 'rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring'
-  const common = { value, onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value), placeholder, 'aria-label': ariaLabel, 'data-qqq-id': dataId }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    if (!transform || input.type !== 'text') {
+      onChange(input.value)
+      return
+    }
+    const { selectionStart, selectionEnd } = input
+    const next = transform(input.value)
+    if (next !== input.value) {
+      input.value = next
+      if (selectionStart !== null && selectionEnd !== null) input.setSelectionRange(selectionStart, selectionEnd)
+    }
+    onChange(next)
+  }
+  const common = { value, onChange: handleChange, placeholder, 'aria-label': ariaLabel, 'data-qqq-id': dataId }
   if (fieldType === 'DATE') return <input type="date" {...common} className={`${baseClass} w-36`} />
   if (fieldType === 'DATE_TIME') return <input type="datetime-local" {...common} className={`${baseClass} w-48`} />
   if (fieldType === 'TIME') return <input type="time" {...common} className={`${baseClass} w-28`} />

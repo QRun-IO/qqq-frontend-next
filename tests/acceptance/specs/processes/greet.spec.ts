@@ -6,7 +6,7 @@
  */
 
 import { expect, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess, recordRows, viewValue } from './process-helpers'
+import { advance, expectRunTouchReady, expectScreen, openProcess, recordRows, viewValue } from './process-helpers'
 
 test('[PRC-001] selected records flow through edit, backend work and mixed results @mobile', async ({ page, diagnostics }) => {
   void diagnostics
@@ -23,4 +23,5 @@ test('[PRC-001] selected records flow through edit, backend work and mixed resul
     ['1', 'Avery', 'Hello Avery !'],
     ['2', 'Blair', 'Hello Blair !'],
   ])
+  await expectRunTouchReady(page, 'greetInteractive')
 })

@@ -17,7 +17,14 @@
 // Tests for process utility functions
 
 import { describe, it, expect } from 'vitest'
-import { getProcessesForTable, getSingleRecordProcesses, getBulkProcesses } from './process-utils'
+import {
+  getProcessesForTable,
+  getSingleRecordProcesses,
+  getBulkProcesses,
+  getProcessesForAllScreens,
+  getRecordActionProcesses,
+  launchTableName,
+} from './process-utils'
 import type { QInstance, QProcessMetaData } from '@/types'
 
 function makeProcess(overrides: Partial<QProcessMetaData>): QProcessMetaData {
@@ -90,6 +97,57 @@ describe('getProcessesForTable', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(instance as any).processes = undefined
     expect(getProcessesForTable(instance, 'person')).toEqual([])
+  })
+})
+
+describe('processes added to every query and record screen (Material)', () => {
+  const withMaterial = (processes: Record<string, QProcessMetaData>, names: unknown) => ({
+    ...makeInstance(processes),
+    supplementalInstanceMetaData: { materialDashboard: { processNamesToAddToAllQueryAndViewScreens: names } },
+  })
+
+  it('appends the configured processes, in order, after the table\'s own and without duplicates', () => {
+    const instance = withMaterial({
+      own: makeProcess({ name: 'own', label: 'Own', tableName: 'person' }),
+      tag: makeProcess({ name: 'tag', tableName: '', isHidden: true }),
+      audit: makeProcess({ name: 'audit', tableName: '' }),
+    }, ['audit', 'own', 'tag', 'audit'])
+    expect(getProcessesForAllScreens(instance).map((p) => p.name)).toEqual(['audit', 'own', 'tag'])
+    expect(getProcessesForTable(instance, 'person').map((p) => p.name)).toEqual(['own', 'audit', 'tag'])
+    // another table gets them too
+    expect(getProcessesForTable(instance, 'order').map((p) => p.name)).toEqual(['audit', 'own', 'tag'])
+  })
+
+  it('lists only processes present in the metadata and permitted', () => {
+    const instance = withMaterial({
+      denied: makeProcess({ name: 'denied', tableName: '', hasPermission: false }),
+    }, ['absent', 'denied', 42])
+    expect(getProcessesForAllScreens(instance)).toEqual([])
+    expect(getProcessesForAllScreens(withMaterial({}, undefined))).toEqual([])
+  })
+
+  it('falls back to runRecordScript only without Material instance metadata (deprecated)', () => {
+    const script = makeProcess({ name: 'runRecordScript', tableName: '' })
+    expect(getProcessesForAllScreens(makeInstance({ runRecordScript: script }))).toEqual([script])
+    expect(getProcessesForAllScreens(makeInstance({}))).toEqual([])
+    expect(getProcessesForAllScreens(withMaterial({ runRecordScript: script }, []))).toEqual([])
+  })
+
+  it('record actions keep hidden all-screens processes but not the table\'s hidden ones', () => {
+    const processes = [
+      makeProcess({ name: 'own', tableName: 'person' }),
+      makeProcess({ name: 'ownHidden', tableName: 'person', isHidden: true }),
+      makeProcess({ name: 'tag', tableName: '', isHidden: true }),
+      makeProcess({ name: 'bulkOnly', tableName: '', maxInputRecords: 0 }),
+    ]
+    expect(getRecordActionProcesses(processes, 'person').map((p) => p.name)).toEqual(['own', 'tag'])
+    expect(getRecordActionProcesses(undefined, 'person')).toEqual([])
+  })
+
+  it('names the launching table only for processes that are not the table\'s own', () => {
+    expect(launchTableName(makeProcess({ tableName: 'person' }), 'person')).toBeUndefined()
+    expect(launchTableName(makeProcess({ tableName: '' }), 'person')).toBe('person')
+    expect(launchTableName(makeProcess({ tableName: 'order' }), 'person')).toBe('person')
   })
 })
 

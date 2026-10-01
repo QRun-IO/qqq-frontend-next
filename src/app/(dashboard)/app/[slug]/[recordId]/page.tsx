@@ -29,11 +29,13 @@
  * - `recordId` — the primary-key value of the record to display.
  */
 
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
-import { addRecentRecord } from '@/lib/utils/recent-records'
+import { addRecentRecord, removeRecentRecord } from '@/lib/utils/recent-records'
+import { recordAnalytics } from '@/lib/analytics'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { getProcessesForTable } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
@@ -43,7 +45,12 @@ import { useRecord } from '@/lib/hooks/use-record'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import type { AssociationTableState } from '@/lib/utils/association-utils'
 import { canReadRecords } from '@/lib/auth/permissions'
-import { RecordView } from '@/components/records/RecordView'
+import { processRunHref, tableProcessForSegment, tableReportForSegment } from '@/lib/utils/material-links'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
+import { recordSectionQueryJoins } from '@/lib/utils/record-layout-utils'
+import { RouteRedirect } from '@/components/layout/RouteRedirect'
+
+const RecordView = lazy(() => import('@/components/records/RecordView').then((module) => ({ default: module.RecordView })))
 
 /**
  * Renders the detail view for a single record identified by `slug` (table name)
@@ -72,12 +79,21 @@ export default function RecordViewPage() {
   })
 
   const { data: tableMetaData, isError: tableError } = useTableMetaData(metaData?.tables?.[slug] ? slug : undefined)
+  const tableVariant = storedRecordVariantJson(tableMetaData)
+  const joins = tableMetaData && metaData?.tables ? recordSectionQueryJoins(tableMetaData, metaData.tables) : []
+  const queryJoins = joins.length ? JSON.stringify(joins) : undefined
+
+  // Material URL shapes: /app/{table}/{process} runs the process, /app/{table}/{report} runs the report.
+  const scopedProcess = metaData?.tables?.[slug] ? tableProcessForSegment(metaData, slug, recordId) : null
+  const scopedReport = metaData?.tables?.[slug] && !scopedProcess ? tableReportForSegment(metaData, slug, recordId) : null
 
   const { record, isLoading, isError, error, refetch } = useRecord({
     tableName: slug,
     primaryKey: recordId,
-    enabled: canReadRecords(tableMetaData),
+    enabled: canReadRecords(tableMetaData) && Boolean(metaData) && !scopedProcess && !scopedReport,
     includeAssociations: false,
+    tableVariant,
+    queryJoins,
   })
 
   const targetNames = [...new Set(tableMetaData?.associations?.map((association) => association.associatedTableName) ?? [])]
@@ -107,6 +123,7 @@ export default function RecordViewPage() {
     enabled: Boolean(record) && Boolean(tableMetaData?.associations?.length) && Boolean(metaData)
       && deniedTargets.size === 0 && unreadableTargets.length === 0,
     includeAssociations: true,
+    tableVariant,
   })
   const displayRecord = record && associations.record && !associations.isError
     ? { ...record, associatedRecords: associations.record.associatedRecords }
@@ -126,15 +143,33 @@ export default function RecordViewPage() {
   // Track recently viewed records for global search
   useEffect(() => {
     if (record && tableMetaData) {
+      // the record label is sent only when the application allows record data (QRun-IO/qqq#730)
+      recordAnalytics({ category: 'tableEvents', action: 'view', label: tableMetaData.label, recordLabel: record.recordLabel })
       addRecentRecord({
         tableName: tableMetaData.name,
         tableLabel: tableMetaData.label,
         recordId: String(record.values[tableMetaData.primaryKeyField]),
         recordLabel: record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`,
         path: `/app/${tableMetaData.name}/${record.values[tableMetaData.primaryKeyField]}`,
+        tableIcon: tableMetaData.icon,
       })
     }
   }, [record, tableMetaData])
+
+  // A record that no longer exists (404) or may no longer be viewed (403) leaves the recents (Material HistoryUtils)
+  const recordStatus = isError ? getErrorStatusCode(error) : undefined
+  useEffect(() => {
+    if (recordStatus === 404 || recordStatus === 403) removeRecentRecord(slug, recordId)
+  }, [recordStatus, slug, recordId])
+
+  if (metaData && scopedProcess) {
+    const search = typeof window === 'undefined' ? '' : window.location.search
+    const href = processRunHref(scopedProcess, { search, returnTo: `/app/${encodeURIComponent(slug)}` })
+    return <RouteRedirect href={href} label={metaData.processes[scopedProcess]?.label ?? scopedProcess} />
+  }
+  if (metaData && scopedReport) {
+    return <RouteRedirect href={`/app/${encodeURIComponent(scopedReport)}`} label={metaData.reports[scopedReport]?.label ?? scopedReport} />
+  }
 
   if (metadataError || tableError || (metaData && !metaData.tables?.[slug])) {
     return <div role="alert" className="py-12 text-center text-destructive">Table metadata is unavailable.</div>
@@ -164,7 +199,8 @@ export default function RecordViewPage() {
       {record && associations.isError && (
         <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
       )}
-      <RecordView
+      <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
+        instance={metaData}
         tableMetaData={tableMetaData}
         record={displayRecord}
         isLoading={isLoading}
@@ -175,11 +211,12 @@ export default function RecordViewPage() {
           if (tableMetaData.associations?.length) associations.refetch()
         }}
         processes={tableProcesses}
+        allProcesses={metaData?.processes}
         allTables={metaData?.tables}
         widgetMetaDataMap={metaData?.widgets}
         associationTables={associationTables}
         auditSource={auditSource(metaData)}
-      />
+      /></Suspense>
     </>
   )
 }

@@ -16,11 +16,12 @@
 
 // Tests for useRecordQuery hook
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { useRecordQuery } from './use-record-query'
+import { deserializeFilter, emptyFilter } from '@/lib/utils/filter-utils'
 import type { QTableMetaData } from '@/types'
 
 function createWrapper() {
@@ -65,7 +66,7 @@ describe('useRecordQuery — initialization', () => {
     )
 
     expect(result.current.pagination.pageNum).toBe(1)
-    expect(result.current.pagination.pageSize).toBe(25)
+    expect(result.current.pagination.pageSize).toBe(50)
     expect(result.current.filter.filterMode).toBe('basic')
     expect(result.current.filter.quickSearchTerm).toBe('')
     expect(result.current.columns.columnConfigOpen).toBe(false)
@@ -413,5 +414,30 @@ describe('useRecordQuery — data fetching', () => {
     expect(fieldNames).toContain('lastName')
     // Integer field (age) excluded from quick search
     expect(fieldNames).not.toContain('age')
+  })
+})
+
+describe('useRecordQuery — immediate shareable URL', () => {
+  beforeEach(() => window.history.replaceState(null, '', '/?from=%2Fapp%2Flab#filters'))
+  afterEach(() => window.history.replaceState(null, '', '/'))
+
+  it('stores the displayed filter in the current history entry without waiting for navigation', () => {
+    const length = window.history.length
+    const { result } = renderHook(
+      () => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: makeTableMeta() }),
+      { wrapper: createWrapper() }
+    )
+    act(() => result.current.filter.setUserFilter({ ...emptyFilter(50), criteria: [{ fieldName: 'name', operator: 'STARTS_WITH', values: ['B'] }] }))
+    const params = new URLSearchParams(window.location.search)
+    expect(deserializeFilter(params.get('filter') ?? '').criteria).toEqual([{ fieldName: 'name', operator: 'STARTS_WITH', values: ['B'] }])
+    expect(params.get('from')).toBe('/app/lab')
+    expect(window.location.hash).toBe('#filters')
+    expect(window.history.length).toBe(length)
+
+    act(() => result.current.filter.setUserFilter(emptyFilter(50)))
+    expect(new URLSearchParams(window.location.search).has('filter')).toBe(false)
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('/app/lab')
+    expect(window.location.hash).toBe('#filters')
+    expect(window.history.length).toBe(length)
   })
 })

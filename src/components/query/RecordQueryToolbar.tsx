@@ -15,12 +15,13 @@
  */
 
 /**
- * @file RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, process launcher.
+ * @file RecordQueryToolbar — toolbar for the RecordQuery page: search, filter toggle, density, view-mode, column config, refresh, saved views, export, Go To, process launcher.
  */
 
 'use client'
 
 import React from 'react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import {
   Plus,
   Columns,
@@ -33,11 +34,16 @@ import {
   LayoutGrid,
   Table2,
   Tag,
+  Settings,
 } from 'lucide-react'
 
 import type { QTableMetaData, QProcessMetaData, QQueryFilter } from '@/types'
 import type { Density } from '@/lib/hooks/use-record-query'
 import type { TableVariant } from '@/lib/api/tables'
+import type { ColumnPins } from '@/lib/utils/query-columns'
+import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
+
+import { GotoRecordButton } from '@/components/records/GotoRecordDialog'
 
 import { ColumnConfig } from './ColumnConfig'
 import { ExportButton } from './ExportButton'
@@ -56,80 +62,72 @@ const DENSITY_OPTIONS: { value: Density; label: string }[] = [
 ]
 
 /**
- * Toolbar button that opens a listbox for selecting the row density of the data grid.
+ * Toolbar button that opens a menu for selecting the row density of the data grid.
  *
  * @param props - Component properties.
  * @returns The rendered density selector dropdown.
  */
-function DensitySelector({
+export function DensitySelector({
   density,
   onSelect,
 }: {
   density: Density
   onSelect: (d: Density) => void
 }) {
-  const [open, setOpen] = React.useState(false)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    if (!open) return
-    /**
-     * Closes the dropdown when a click occurs outside the container.
-     * @param e - The native mousedown event.
-     */
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
-
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   return (
-    <div className="relative" ref={containerRef}>
-      {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Select display density"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        data-qqq-id="button-density"
-      >
-        <LayoutList className="h-4 w-4" aria-hidden="true" />
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 z-[150] mt-1 w-36 rounded-xl border border-border bg-popover shadow-sm"
-          role="listbox"
-          aria-label="Display density"
+    <DropdownMenuPrimitive.Root modal={false}>
+      <DropdownMenuPrimitive.Trigger asChild>
+        {/* min-h/min-w 44px for HIGH-5 touch target compliance */}
+        <button
+          type="button"
+          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Select display density"
+          data-qqq-id="button-density"
+          ref={triggerRef}
         >
-          {DENSITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={density === opt.value}
-              onClick={() => {
-                onSelect(opt.value)
-                setOpen(false)
-              }}
-              className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
-                density === opt.value
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-popover-foreground hover:bg-accent'
-              }`}
-              data-qqq-id={`density-option-${opt.value}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+          <LayoutList className="h-4 w-4" aria-hidden="true" />
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          align="end" sideOffset={4} collisionPadding={8}
+          className="z-[160] max-h-[var(--radix-dropdown-menu-content-available-height)] w-36 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-border bg-popover shadow-sm"
+          aria-label="Display density" aria-labelledby={undefined}
+          onInteractOutside={event => {
+            // Touch can return focus to the trigger after pointer-down opens the menu.
+            const target = event.detail.originalEvent.target
+            if (target instanceof Node && triggerRef.current?.contains(target)) event.preventDefault()
+          }}
+        >
+          <DropdownMenuPrimitive.RadioGroup value={density} onValueChange={value => {
+            const selected = DENSITY_OPTIONS.find(option => option.value === value)
+            if (selected) onSelect(selected.value)
+          }}>
+            {DENSITY_OPTIONS.map((opt) => (
+              <DropdownMenuPrimitive.RadioItem
+                asChild
+                key={opt.value}
+                value={opt.value}
+              >
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+                    density === opt.value
+                    ? 'bg-primary text-primary-foreground font-medium'
+                      : 'text-popover-foreground hover:bg-accent'
+                  }`}
+                  data-qqq-id={`density-option-${opt.value}`}
+                >
+                  {opt.label}
+                </button>
+              </DropdownMenuPrimitive.RadioItem>
+            ))}
+          </DropdownMenuPrimitive.RadioGroup>
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
   )
 }
 
@@ -201,6 +199,8 @@ export interface RecordQueryToolbarProps {
   localSearchTerm: string
   /** Ref forwarded to the quick-search input element. */
   quickSearchRef: React.RefObject<HTMLInputElement | null>
+  /** The Filter button, where focus returns when the phone filter sheet closes. */
+  filterButtonRef?: React.Ref<HTMLButtonElement>
   /** Callback for quick-search input changes (debounces propagation internally). */
   handleSearchChange: (value: string) => void
   /** Setter for the local search term (used by the clear button). */
@@ -239,6 +239,15 @@ export interface RecordQueryToolbarProps {
   columnVisibility: Record<string, boolean>
   /** Ordered list of column field names. */
   columnOrder: string[]
+  /** Pinned columns. */
+  columnPins?: ColumnPins | null
+  /** How many columns are shown (the "Columns (N)" button). */
+  visibleColumnCount?: number
+  /**
+   * The columns button's state, as Material styles it: `empty` without a saved view and with the
+   * default columns, `clean` for a saved view's own columns, `dirty` when the columns differ.
+   */
+  columnsState?: 'empty' | 'clean' | 'dirty'
   /** Whether the column-config panel is open. */
   columnConfigOpen: boolean
   /** Callback to toggle the column-config panel. */
@@ -279,6 +288,8 @@ export interface ColumnConfigPosition {
 /** Gap between the column-config button and its panel, and the panel's margin from the viewport bottom. */
 const COLUMN_CONFIG_GAP = 4
 const COLUMN_CONFIG_MARGIN = 8
+/** Width of the column configuration panel (w-80), capped to the viewport in ColumnConfig. */
+const COLUMN_CONFIG_WIDTH = 320
 
 /**
  * Place the column-config panel under its button, limited to the viewport height below it.
@@ -291,7 +302,10 @@ const COLUMN_CONFIG_MARGIN = 8
  */
 export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, viewportWidth: number, viewportHeight: number): ColumnConfigPosition {
   const top = button.bottom + COLUMN_CONFIG_GAP
-  return { top, right: viewportWidth - button.right, maxHeight: Math.max(0, viewportHeight - top - COLUMN_CONFIG_MARGIN) }
+  // Keep the whole panel on screen: on a phone the button may sit near the left edge (wrapped toolbar)
+  const widest = Math.max(COLUMN_CONFIG_MARGIN, viewportWidth - COLUMN_CONFIG_WIDTH - COLUMN_CONFIG_MARGIN)
+  const right = Math.min(Math.max(COLUMN_CONFIG_MARGIN, viewportWidth - button.right), widest)
+  return { top, right, maxHeight: Math.max(0, viewportHeight - top - COLUMN_CONFIG_MARGIN) }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -315,6 +329,7 @@ export function RecordQueryToolbar({
   handleCreateRecord,
   localSearchTerm,
   quickSearchRef,
+  filterButtonRef,
   handleSearchChange,
   setLocalSearchTerm,
   clearQuickSearch,
@@ -334,6 +349,9 @@ export function RecordQueryToolbar({
   selectionMenu,
   columnVisibility,
   columnOrder,
+  columnPins,
+  visibleColumnCount,
+  columnsState = 'empty',
   columnConfigOpen,
   toggleColumnConfig,
   setColumnConfigOpen,
@@ -395,7 +413,8 @@ export function RecordQueryToolbar({
           onClick={handleCreateRecord}
           className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
           aria-label={`Create new ${tableMetaData.label} record`}
-          data-qqq-id="button-create"
+          data-qqq-id="button-create-new"
+          data-button-variant={MATERIAL_BUTTON_VARIANTS['create-new']}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Create
@@ -414,17 +433,19 @@ export function RecordQueryToolbar({
           }`}
           aria-label={
             selectedVariantId != null
-              ? `Current variant: ${selectedVariantLabel ?? String(selectedVariantId)}. Click to change.`
+              ? `${tableMetaData.variantTableLabel}: ${selectedVariantLabel ?? String(selectedVariantId)}. Change ${tableMetaData.variantTableLabel}`
               : `Select ${tableMetaData.variantTableLabel}`
           }
+          title={selectedVariantId != null ? `Change ${tableMetaData.variantTableLabel}` : undefined}
           data-qqq-id="button-variant-picker"
         >
           <Tag className="h-4 w-4" aria-hidden="true" />
-          <span className="max-w-[140px] truncate">
+          <span className="max-w-[220px] truncate">
             {selectedVariantId != null
-              ? (selectedVariantLabel ?? String(selectedVariantId))
+              ? `${tableMetaData.variantTableLabel}: ${selectedVariantLabel ?? String(selectedVariantId)}`
               : `Select ${tableMetaData.variantTableLabel}`}
           </span>
+          {selectedVariantId != null && <Settings className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />}
         </button>
       )}
 
@@ -465,27 +486,31 @@ export function RecordQueryToolbar({
         )}
       </div>
 
-      {/* Advanced filter toggle — min 44px touch target (HIGH-5) */}
-      <button
-        type="button"
-        onClick={handleFilterToggle}
-        className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-          filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
-            ? 'border-primary bg-primary/10 text-primary'
-            : 'border-input bg-background text-foreground hover:bg-accent'
-        }`}
-        aria-label="Toggle advanced filter panel"
-        aria-expanded={filterPanelOpen || mobileFilterOpen}
-        data-qqq-id="button-filter"
-      >
-        <Filter className="h-4 w-4" aria-hidden="true" />
-        Filter
-        {activeFilterCount > 0 && (
-          <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
+      {/* Advanced filter toggle — min 44px touch target (HIGH-5); Material's button-filter-builder
+          hook sits on a layout-neutral wrapper (QRun-IO/qqq#731) */}
+      <span className="contents" data-qqq-id="button-filter-builder">
+        <button
+          ref={filterButtonRef}
+          type="button"
+          onClick={handleFilterToggle}
+          className={`flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+            filterPanelOpen || mobileFilterOpen || activeFilterCount > 0
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-input bg-background text-foreground hover:bg-accent'
+          }`}
+          aria-label="Toggle advanced filter panel"
+          aria-expanded={filterPanelOpen || mobileFilterOpen}
+          data-qqq-id="button-filter"
+        >
+          <Filter className="h-4 w-4" aria-hidden="true" />
+          Filter
+          {activeFilterCount > 0 && (
+            <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </span>
 
       {/* Selection menu (this page / full query result / first N) */}
       {selectionMenu}
@@ -493,7 +518,10 @@ export function RecordQueryToolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Actions: bulk processes and table processes */}
+      {/* Go To a record by its key (tables with Material gotoFieldNames) */}
+      <GotoRecordButton tableMetaData={tableMetaData} tableVariant={tableVariant} />
+
+      {/* Actions: bulk processes, table processes and processes added to every screen */}
       <ProcessLauncherMenu
         tableMetaData={tableMetaData}
         allProcesses={allProcesses}
@@ -528,16 +556,22 @@ export function RecordQueryToolbar({
           ref={columnConfigBtnRef}
           type="button"
           onClick={toggleColumnConfig}
+          aria-label={`Configure columns${visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}`}
           className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-            columnConfigOpen
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-input bg-background text-foreground hover:bg-accent'
+            columnsState === 'clean'
+              ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
+              : columnsState === 'dirty'
+                ? 'border-primary/20 bg-primary/15 text-primary hover:bg-primary/20'
+                : columnConfigOpen
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-input bg-background text-foreground hover:bg-accent'
           }`}
-          aria-label="Configure columns"
           aria-expanded={columnConfigOpen}
+          data-button-state={columnsState}
           data-qqq-id="button-column-config"
         >
           <Columns className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only" data-qqq-id="button-column-config-label">Columns{visibleColumnCount !== undefined ? ` (${visibleColumnCount})` : ''}</span>
         </button>
 
         {columnConfigOpen && columnConfigPos && (
@@ -549,9 +583,10 @@ export function RecordQueryToolbar({
               tableMetaData={tableMetaData}
               columnVisibility={columnVisibility}
               columnOrder={columnOrder}
+              columnPins={columnPins}
               onVisibilityChange={setColumnVisibility}
               onOrderChange={setColumnOrder}
-              onClose={() => setColumnConfigOpen(false)}
+              onClose={() => { setColumnConfigOpen(false); columnConfigBtnRef.current?.focus() }}
             />
           </div>
         )}

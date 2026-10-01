@@ -68,7 +68,7 @@ export function FullCopyDraft({ tree, onChange }: { tree: CopyNode; onChange: (s
     }
   }, [tree, revision])
   useEffect(() => { onChange(state) }, [onChange, state])
-  return <CopyGroups node={tree} onChange={change} />
+  return <div data-qqq-id="full-copy-draft"><CopyGroups node={tree} onChange={change} /></div>
 }
 
 /**

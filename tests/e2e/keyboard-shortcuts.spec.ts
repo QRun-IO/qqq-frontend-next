@@ -125,28 +125,21 @@ test.describe('Keyboard shortcuts', () => {
   // ── Suppression — shortcuts don't fire while typing in a text input ────────
 
   test("'/' does not open search dialog when an input is focused", async ({ page }) => {
-    // Focus the quick-search input on the record query page
-    const quickSearch = page.locator('[data-qqq-id="quick-search"] input, [data-qqq-id="quick-search"]').first()
-    if (await quickSearch.isVisible()) {
-      await quickSearch.click()
-      await page.keyboard.press('/')
-      // The search dialog should NOT open because we are in a text field
-      await expect(page.locator('[data-qqq-id="search-dialog"]')).not.toBeVisible({ timeout: 2000 })
-    } else {
-      // If quick-search input not available, skip the check by passing
-      test.skip()
-    }
+    const quickSearch = page.locator('input[data-qqq-id="quick-search"]')
+    await expect(quickSearch).toBeVisible()
+    await quickSearch.click()
+    await page.keyboard.press('/')
+    await expect(quickSearch).toHaveValue('/')
+    await expect(page.locator('[data-qqq-id="search-dialog"]')).not.toBeVisible()
   })
 
   test("'?' does not open help dialog when an input is focused", async ({ page }) => {
-    const quickSearch = page.locator('[data-qqq-id="quick-search"] input, [data-qqq-id="quick-search"]').first()
-    if (await quickSearch.isVisible()) {
-      await quickSearch.click()
-      await page.keyboard.press('?')
-      await expect(page.locator('[data-qqq-id="keyboard-shortcuts-dialog"]')).not.toBeVisible({ timeout: 2000 })
-    } else {
-      test.skip()
-    }
+    const quickSearch = page.locator('input[data-qqq-id="quick-search"]')
+    await expect(quickSearch).toBeVisible()
+    await quickSearch.click()
+    await page.keyboard.press('?')
+    await expect(quickSearch).toHaveValue('?')
+    await expect(page.locator('[data-qqq-id="keyboard-shortcuts-dialog"]')).not.toBeVisible()
   })
 
   // ── Escape closes all overlays ────────────────────────────────────────────

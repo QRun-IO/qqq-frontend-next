@@ -56,6 +56,10 @@ interface NumberFieldProps {
   'data-qqq-id'?: string
   /** Id of help text that describes this control. */
   describedBy?: string
+  /** Text shown before the input (a `$` for a currency display format). */
+  prefix?: string
+  /** Text shown after the input (a `%` for a percent display format). */
+  suffix?: string
 }
 
 /**
@@ -84,9 +88,14 @@ export function NumberField({
   maxValue,
   'data-qqq-id': dataQqqId,
   describedBy,
+  prefix,
+  suffix,
 }: NumberFieldProps) {
   const hintId = (minValue != null || maxValue != null) ? `${id}-hint` : undefined
-  const describedByIds = [hintId, error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined
+  const prefixId = prefix ? `${id}-prefix` : undefined
+  const suffixId = suffix ? `${id}-suffix` : undefined
+  const describedByIds = [prefixId, suffixId, hintId, error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined
+  const adornmentClass = 'inline-flex shrink-0 items-center border border-input bg-muted px-3 text-sm text-muted-foreground'
 
   return (
     <div className="flex flex-col gap-1">
@@ -98,29 +107,45 @@ export function NumberField({
         {label}
         {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
       </label>
-      <input
-        id={id}
-        type="number"
-        step={step}
-        {...registration}
-        disabled={disabled}
-        placeholder={placeholder}
-        aria-required={required}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedByIds}
-        data-qqq-id={dataQqqId}
-        className={cn(
-          'w-full rounded-md border px-3 py-2 text-sm text-foreground',
-          'bg-background',
-          'placeholder:text-muted-foreground',
-          'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring',
-          'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
-          'transition-colors duration-150',
-          error
-            ? 'border-destructive focus:ring-destructive'
-            : 'border-input'
+      <div className="flex">
+        {prefix && (
+          <span id={prefixId} className={cn(adornmentClass, 'rounded-l-md border-r-0')} data-qqq-id={dataQqqId ? `field-prefix-${dataQqqId}` : undefined}>
+            {prefix}
+          </span>
         )}
-      />
+        <input
+          id={id}
+          type="number"
+          step={step}
+          {...registration}
+          // the mouse wheel scrolls the page instead of changing a focused number (as in Material)
+          onWheel={(event) => event.currentTarget.blur()}
+          disabled={disabled}
+          placeholder={placeholder}
+          aria-required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedByIds}
+          data-qqq-id={dataQqqId}
+          className={cn(
+            'w-full min-w-0 border px-3 py-2 text-sm text-foreground',
+            prefix ? 'rounded-l-none' : 'rounded-l-md',
+            suffix ? 'rounded-r-none' : 'rounded-r-md',
+            'bg-background',
+            'placeholder:text-muted-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring',
+            'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
+            'transition-colors duration-150',
+            error
+              ? 'border-destructive focus:ring-destructive'
+              : 'border-input'
+          )}
+        />
+        {suffix && (
+          <span id={suffixId} className={cn(adornmentClass, 'rounded-r-md border-l-0')} data-qqq-id={dataQqqId ? `field-suffix-${dataQqqId}` : undefined}>
+            {suffix}
+          </span>
+        )}
+      </div>
       {(minValue != null || maxValue != null) && (
         <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
           {minValue != null && maxValue != null

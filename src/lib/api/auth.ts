@@ -38,6 +38,9 @@ const AUTH_METADATA_CACHE_KEY = `qqqAuthMetadata:${process.env.NEXT_PUBLIC_API_B
  */
 const AUTH_METADATA_TTL = 600000 // 10 minutes (down from 1 hour)
 
+/** URL query flag that clears the cached authentication metadata (Material `index.tsx`). */
+export const CLEAR_AUTH_METADATA_FLAG = 'clearAuthenticationMetaDataLocalStorage'
+
 /**
  * Fetches authentication metadata from `GET /metaData/authentication`.
  *
@@ -50,6 +53,9 @@ const AUTH_METADATA_TTL = 600000 // 10 minutes (down from 1 hour)
 export async function getAuthenticationMetaData(): Promise<QAuthenticationMetaData> {
   // Check localStorage cache (only in browser)
   if (typeof window !== 'undefined') {
+    // Material's ?clearAuthenticationMetaDataLocalStorage flag drops the cached copy (for example
+    // right after the instance changed its authentication), so the metadata is read again
+    if (new URLSearchParams(window.location.search).has(CLEAR_AUTH_METADATA_FLAG)) clearAuthMetadataCache()
     const cached = localStorage.getItem(AUTH_METADATA_CACHE_KEY)
     if (cached) {
       try {
@@ -96,19 +102,13 @@ export function clearAuthMetadataCache(): void {
  * Shape of the response returned by `POST /manageSession`.
  */
 export interface SessionResponse {
-  /** Server-assigned session UUID, mirrored to the `sessionUUID` cookie. */
-  uuid: string
+  /**
+   * Server-assigned session UUID, mirrored to the `sessionUUID` cookie. Absent when the
+   * cookie is HttpOnly or the session was resumed from it (QRun-IO/qqq#733).
+   */
+  uuid?: string
   /** Session values for the frontend (e.g. `user: { name, email }`), when the backend sets any. */
   values?: Record<string, unknown>
-}
-
-/**
- * Base URL of the unversioned (legacy) middleware routes, e.g. `/manageSession`.
- *
- * @returns The API base URL without its `/qqq/v1` suffix.
- */
-function legacyBaseURL(): string | undefined {
-  return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
 }
 
 /**
@@ -126,39 +126,59 @@ export async function manageSession(accessToken: string): Promise<SessionRespons
 }
 
 /**
+ * Encodes a username and password as HTTP Basic credentials (RFC 7617, UTF-8).
+ *
+ * @param username - The username; it may not contain a colon.
+ * @param password - The password (colons allowed).
+ * @returns The base64 `username:password` value for an `Authorization: Basic` header.
+ */
+export function encodeBasicCredentials(username: string, password: string): string {
+  if (username.includes(':')) throw new Error('A username cannot contain a colon.')
+  const bytes = new TextEncoder().encode(`${username}:${password}`)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+/**
+ * Signs in with a username and password (TABLE_BASED authentication) via
+ * `POST /qqq/v1/manageSession` with an `Authorization: Basic` header. The backend
+ * checks the password against its user table, stores a session row and sets the
+ * `sessionUUID` cookie; a 401 means the credentials were refused.
+ *
+ * @param username - The username.
+ * @param password - The password. It is sent once and never stored.
+ * @returns The session UUID and its frontend values (the signed-in user).
+ */
+export async function createPasswordSession(username: string, password: string): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', {}, {
+    headers: { Authorization: `Basic ${encodeBasicCredentials(username, password)}` },
+  })
+}
+
+/**
  * Completes an OAuth2 authorization-code + PKCE login: the backend exchanges the
  * code with the identity provider (using its client secret) and creates a session.
  *
- * Uses the unversioned `POST /manageSession`, which passes these values to the
- * OAuth2 module; v1 accepts only `accessToken` (QRun-IO/qqq#406).
+ * Uses the v1 `POST /manageSession`, which passes these values to the OAuth2 module
+ * (QRun-IO/qqq#406).
  *
  * @param params - The authorization code, the PKCE verifier and the redirect URI used.
  * @returns The session UUID and its frontend values.
  */
 export async function createOAuth2Session(params: { code: string; codeVerifier: string; redirectUri: string }): Promise<SessionResponse> {
-  return apiClient.post<SessionResponse>('/manageSession', params, { baseURL: legacyBaseURL() })
+  return apiClient.post<SessionResponse>('/manageSession', params)
 }
 
 /**
- * Resumes an existing OAuth2/Auth0 session from its `sessionUUID` cookie value.
+ * Resumes the OAUTH2, AUTH_0 or TABLE_BASED session this browser holds, via the v1
+ * `POST /manageSession` with an empty body: the backend reads the `sessionUUID` cookie
+ * itself. The cookie is HttpOnly, so the UI never reads it (QRun-IO/qqq#733).
  *
- * @param sessionUUID - The session UUID the backend issued at sign-in.
- * @returns The session UUID and its frontend values; rejects with 401 when it is no longer valid.
+ * @returns The session's frontend values; rejects with 401 when there is no valid session.
  */
-export async function resumeSession(sessionUUID: string): Promise<SessionResponse> {
-  return apiClient.post<SessionResponse>('/manageSession', { sessionUUID, uuid: sessionUUID }, { baseURL: legacyBaseURL() })
-}
-
-/**
- * Reads the `sessionUUID` cookie set by the backend at sign-in.
- *
- * @returns The cookie value, or null.
- */
-export function readSessionUUIDCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('sessionUUID='))
-  const value = match ? decodeURIComponent(match.slice('sessionUUID='.length)) : ''
-  return value || null
+export async function resumeSession(): Promise<SessionResponse> {
+  return apiClient.post<SessionResponse>('/manageSession', {})
 }
 
 /**

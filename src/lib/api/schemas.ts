@@ -94,16 +94,14 @@ export const CountRecordsResponseSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// GlobalSearch — POST /search
+// Record search — POST /search
 // ---------------------------------------------------------------------------
 
 /**
- * Zod schema for a single entry in the global search result array.
- *
- * `tableLabel` is optional — some backends omit it when the table has no
- * configured display label. All other fields are required.
+ * Zod schema for one record search result. `tableLabel` is optional (a table
+ * may have no label); the other fields are required.
  */
-export const GlobalSearchResultSchema = z.object({
+export const RecordSearchResultSchema = z.object({
   tableName: z.string(),
   tableLabel: z.string().optional(),
   recordId: z.string(),
@@ -111,9 +109,9 @@ export const GlobalSearchResultSchema = z.object({
 })
 
 /**
- * Zod schema for the full global search response — an array of result entries.
+ * Zod schema for the record search response: `{ results: [...] }`.
  */
-export const GlobalSearchResponseSchema = z.array(GlobalSearchResultSchema)
+export const RecordSearchResponseSchema = z.object({ results: z.array(RecordSearchResultSchema) })
 
 // ---------------------------------------------------------------------------
 // QInstance — GET /metaData (minimal required-field validation)

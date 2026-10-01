@@ -33,7 +33,7 @@
 import React, { useCallback, useLayoutEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, Clock } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -63,7 +63,7 @@ export type QqqChartVariant = 'bar' | 'horizontalBar' | 'stackedBar' | 'line' | 
 export interface QqqChartWidgetProps {
   /** Metadata of the widget; its name scopes `data-qqq-id`s and its label names the chart. */
   widgetMetaData: QWidgetMetaData
-  /** Canonical QQQ chart payload from `GET /widget/{name}`. */
+  /** Canonical QQQ chart payload from `POST /qqq/v1/widget/{name}`. */
   data: QqqChartPayload
   /** How to draw the payload, resolved from the widget type. */
   variant: QqqChartVariant
@@ -87,6 +87,38 @@ interface NormalizedChart {
 
 /** Default series palette (used when the payload supplies no colors). */
 const PALETTE = ['#0062FF', '#10B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316']
+
+/**
+ * Material dashboard theme color names a chart payload may use instead of CSS colors
+ * (Material `colors.gradients[name].state`, as its pie and stacked bar charts resolve them).
+ */
+export const THEME_CHART_COLORS: Record<string, string> = {
+  primary: '#D81B60',
+  secondary: '#495361',
+  info: '#0062FF',
+  success: '#43A047',
+  warning: '#FB8C00',
+  error: '#E53935',
+  light: '#CED4DA',
+  dark: '#191919',
+  custom1: '#8C28C2',
+  custom2: '#FFE120',
+  custom3: '#000000',
+  custom4: '#747474',
+  custom5: '#FFCEFA',
+}
+
+/**
+ * Resolves a payload color: a Material theme color name becomes its color, anything else
+ * (hex, rgb(), a CSS color keyword) is used as given.
+ *
+ * @param color - The payload color, or null.
+ * @returns The CSS color, or null.
+ */
+export function resolveChartColor(color: string | null | undefined): string | null {
+  if (!color) return null
+  return THEME_CHART_COLORS[color] ?? color
+}
 
 /** Colors for good/bad subheader changes; AA contrast on light backgrounds. */
 const GOOD_COLOR = 'var(--qqq-success-color, #2E7D32)'
@@ -164,9 +196,10 @@ export function normalizeQqqChart(data: unknown): { chart: NormalizedChart } | {
     datasets.push({
       label: typeof raw.label === 'string' && raw.label !== '' ? raw.label : `Series ${index + 1}`,
       data: values.map(toNumber),
-      backgroundColors: colors.map(toOptionalString),
+      backgroundColors: colors.map((color) => resolveChartColor(toOptionalString(color))),
       urls: pointUrls.map(toOptionalString),
-      color: toOptionalString(raw.color) ?? undefined,
+      // the series color: `color`, else the singular `backgroundColor` Material's stacked bars read
+      color: resolveChartColor(toOptionalString(raw.color) ?? toOptionalString(raw.backgroundColor)) ?? undefined,
     })
   }
 
@@ -197,9 +230,9 @@ function formatValue(value: number | null, currency: boolean): string {
  * callback ref so the measurement starts whenever the container mounts, e.g. when
  * a reload turns an empty chart into a populated one.
  *
- * @returns A callback ref for the container and its current width.
+ * @returns A callback ref, the current width and the mounted container.
  */
-function useContainerWidth(): [(element: HTMLDivElement | null) => void, number] {
+function useContainerWidth(): [(element: HTMLDivElement | null) => void, number, HTMLDivElement | null] {
   const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -214,7 +247,7 @@ function useContainerWidth(): [(element: HTMLDivElement | null) => void, number]
     observer.observe(element)
     return () => observer.disconnect()
   }, [element])
-  return [setElement, width]
+  return [setElement, width, element]
 }
 
 /**
@@ -307,24 +340,122 @@ function ChartSubheader({ subheader, widgetName }: { subheader: QqqChartPayload[
 }
 
 /**
- * A legend listing each entry's color and (optionally) value.
+ * A legend listing each entry's color and (optionally) value. Each entry is a toggle
+ * button: clicking it hides or shows that series or slice, as Chart.js legends do in the
+ * Material dashboard; a hidden entry is struck through.
  *
  * @param props - Component properties.
  * @param props.items - Legend entries.
  * @param props.widgetName - Widget name for `data-qqq-id` scoping.
+ * @param props.hidden - Indexes of the hidden entries.
+ * @param props.onToggle - Called with the index of the clicked entry.
+ * @param props.placement - `top` for line badges above the chart, else below it.
  * @returns The legend list.
  */
-function ChartLegend({ items, widgetName }: { items: Array<{ label: string; color: string; value?: string }>; widgetName: string }) {
+function ChartLegend({ items, widgetName, hidden, onToggle, placement = 'bottom' }: {
+  items: Array<{ label: string; color: string; value?: string }>
+  widgetName: string
+  hidden: ReadonlySet<number>
+  onToggle: (index: number) => void
+  placement?: 'top' | 'bottom'
+}) {
   return (
-    <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground" data-qqq-id={`chart-legend-${widgetName}`}>
-      {items.map((item, index) => (
-        <li key={`${item.label}-${index}`} className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
-          <span>{item.value !== undefined ? `${item.label}: ${item.value}` : item.label}</span>
-        </li>
-      ))}
+    <ul
+      className={cn('flex flex-wrap justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground', placement === 'top' ? 'mb-2' : 'mt-2')}
+      data-qqq-id={`chart-legend-${widgetName}`}
+      aria-label="Legend"
+    >
+      {items.map((item, index) => {
+        const isHidden = hidden.has(index)
+        return (
+          <li key={`${item.label}-${index}`} className="inline-flex">
+            <button
+              type="button"
+              onClick={() => onToggle(index)}
+              aria-pressed={!isHidden}
+              className={cn('inline-flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring',
+                'pointer-coarse:min-h-11 pointer-coarse:min-w-11', isHidden && 'line-through opacity-60')}
+              data-qqq-id={`button-chart-legend-${widgetName}-${index}`}
+              data-hidden={isHidden ? 'true' : 'false'}
+            >
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
+              <span>{item.value !== undefined ? `${item.label}: ${item.value}` : item.label}</span>
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
+}
+
+/**
+ * The hover tooltip of a chart: one line per entry (Recharts `content`).
+ *
+ * @param props - Component properties.
+ * @param props.active - Whether the tooltip is active.
+ * @param props.lines - Lines to show, from the hovered entries.
+ * @returns The tooltip box, or null when inactive.
+ */
+function ChartTooltipBox({ active, lines }: { active?: boolean; lines: string[] }) {
+  if (!active || lines.length === 0) return null
+  return (
+    <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md" data-qqq-id="chart-tooltip">
+      {lines.map((line, index) => <p key={index}>{line}</p>)}
+    </div>
+  )
+}
+
+/** A Recharts tooltip entry (the subset these charts read). */
+interface TooltipEntry {
+  dataKey?: unknown
+  value?: unknown
+  payload?: unknown
+}
+
+/** A rendered category label's unrotated width and tick position, in SVG pixels. */
+type AxisLabelMeasurement = { width: number; x: number }
+
+/**
+ * Whether neighboring centered category labels would overlap their eight-pixel gap.
+ *
+ * @param labels - Measurements in axis order.
+ * @returns Whether horizontal labels need rotating.
+ */
+export function needsRotatedLabels(labels: readonly AxisLabelMeasurement[]): boolean {
+  return labels.some((label, index) => index > 0 &&
+    (labels[index - 1].width + label.width) / 2 + 8 > Math.abs(label.x - labels[index - 1].x))
+}
+
+/**
+ * Measures the rendered axis so font metrics and line/bar tick spacing decide rotation.
+ *
+ * @param element - Mounted chart container.
+ * @param enabled - Whether this chart has a category x axis.
+ * @returns Rotation and the bounded space required below the plot.
+ */
+function useCategoryAxisLayout(element: HTMLDivElement | null, enabled: boolean) {
+  const [layout, setLayout] = useState({ rotate: false, height: 30 })
+  useLayoutEffect(() => {
+    if (!element || !enabled) return
+    const measure = () => {
+      const ticks = Array.from(element.querySelectorAll<SVGTextElement>('.recharts-xAxis .recharts-cartesian-axis-tick-value'))
+      // Non-rendering DOM environments have no SVG font metrics.
+      if (ticks.some(tick => typeof tick.getComputedTextLength !== 'function')) return
+      const labels = ticks.map(tick => ({ width: tick.getComputedTextLength(), x: Number(tick.getAttribute('x')) }))
+      const rotate = needsRotatedLabels(labels)
+      const longest = Math.max(0, ...labels.map(label => label.width))
+      const height = rotate ? Math.max(30, Math.min(110, Math.ceil(longest / Math.SQRT2) + 16)) : 30
+      setLayout(current => current.rotate === rotate && current.height === height ? current : { rotate, height })
+    }
+    measure()
+    // Recharts may finish its axis layout without rerendering this component.
+    const observer = new MutationObserver(measure)
+    observer.observe(element, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['x', 'font-size', 'font-family', 'font-weight'] })
+    const fonts = element.ownerDocument.fonts
+    fonts?.addEventListener('loadingdone', measure)
+    return () => { observer.disconnect(); fonts?.removeEventListener('loadingdone', measure) }
+  })
+  return layout
 }
 
 /**
@@ -441,13 +572,28 @@ function PointDot({ cx, cy, index = 0, value, stroke, datasetIndex, chart, radiu
  * contained notice for malformed payloads and an empty message when there is no
  * data; never throws.
  *
+ * Material parity: legends (pie, stacked, horizontal bars, line badges above the chart)
+ * toggle their series or slice; pie data uses a doughnut and its tooltip adds the
+ * percent of the total; stacked bars show only the hovered dataset in the tooltip, their
+ * y axis uses whole-number ticks; category labels turn when they do not fit.
+ * Small line charts omit the visible y axis and grid; a `barChart` widget ends with an
+ * "As of" date line.
+ *
  * @param props - See {@link QqqChartWidgetProps}.
  * @returns The rendered chart.
  */
 export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidgetProps) {
   const widgetName = widgetMetaData.name
   const navigate = useChartNavigation()
-  const [containerRef, width] = useContainerWidth()
+  const [containerRef, width, chartElement] = useContainerWidth()
+  const categoryLayout = useCategoryAxisLayout(chartElement, variant === 'bar' || variant === 'stackedBar' || variant === 'line')
+  const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set())
+  const toggleHidden = useCallback((index: number) => setHidden((previous) => {
+    const next = new Set(previous)
+    if (next.has(index)) next.delete(index)
+    else next.add(index)
+    return next
+  }), [])
 
   const normalized = normalizeQqqChart(data)
   if ('problem' in normalized) {
@@ -511,18 +657,44 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
   const axisTick = { fontSize: 11, fill: 'currentColor', opacity: 0.75 }
   const svgLabel = `${chartName} chart`
   const multiSeries = chart.datasets.length > 1
+  const seriesColor = (dataset: NormalizedDataset, index: number) => dataset.color ?? PALETTE[index % PALETTE.length]
+  const seriesLegend = (placement: 'top' | 'bottom' = 'bottom') => (
+    <ChartLegend
+      widgetName={widgetName}
+      hidden={hidden}
+      onToggle={toggleHidden}
+      placement={placement}
+      items={chart.datasets.map((dataset, index) => ({ label: dataset.label, color: dataset.color ?? dataset.backgroundColors.find(Boolean) ?? PALETTE[index % PALETTE.length] }))}
+    />
+  )
+  const { rotate } = categoryLayout
+  const categoryAxis = (
+    <XAxis
+      dataKey="label"
+      tick={rotate ? { ...axisTick, textAnchor: 'end' } : axisTick}
+      axisLine={false}
+      tickLine={false}
+      interval={0}
+      angle={rotate ? -45 : 0}
+      height={categoryLayout.height}
+    />
+  )
 
   let drawing: React.ReactNode = null
   let legend: React.ReactNode = null
+  let topLegend: React.ReactNode = null
 
   if (variant === 'pie') {
     const dataset = chart.datasets[0]
-    const slices = chart.labels.map((label, index) => ({
+    const allSlices = chart.labels.map((label, index) => ({
+      index,
       label,
       value: dataset.data[index] ?? 0,
       color: pointColor(dataset, 0, index, true),
       url: pointUrl(chart, 0, index),
     }))
+    const slices = allSlices.filter((slice) => !hidden.has(slice.index))
+    const total = allSlices.reduce((sum, slice) => sum + slice.value, 0)
     const radius = Math.max(40, Math.min(width, height) / 2 - 8)
     drawing = (
       <PieChart width={width} height={height} role="img" aria-label={svgLabel}>
@@ -535,30 +707,44 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
           innerRadius={Math.round(radius * 0.5)}
           outerRadius={Math.round(radius)}
           paddingAngle={1}
+          stroke="#FFFFFF"
           isAnimationActive={false}
           onClick={(_entry: unknown, index: number) => {
             const url = slices[index]?.url
             if (url) navigate(url)
           }}
         >
-          {slices.map((slice, index) => (
-            <Cell key={`${slice.label}-${index}`} fill={slice.color} style={{ cursor: slice.url ? 'pointer' : 'default' }} />
+          {slices.map((slice) => (
+            <Cell key={`${slice.label}-${slice.index}`} fill={slice.color} style={{ cursor: slice.url ? 'pointer' : 'default' }} />
           ))}
         </Pie>
-        <Tooltip formatter={(value: number) => formatValue(value, currency)} />
+        <Tooltip
+          content={({ active, payload }: { active?: boolean; payload?: TooltipEntry[] }) => {
+            const slice = payload?.[0]?.payload as { label?: string; value?: number } | undefined
+            const percent = total !== 0 && typeof slice?.value === 'number' ? ` (${(100 * slice.value / total).toFixed(1)}%)` : ''
+            return <ChartTooltipBox active={active} lines={slice ? [`${slice.label}: ${formatValue(slice.value ?? null, currency)}${percent}`] : []} />
+          }}
+        />
       </PieChart>
     )
-    legend = <ChartLegend widgetName={widgetName} items={slices.map((slice) => ({ label: slice.label, color: slice.color, value: formatValue(slice.value, currency) }))} />
+    legend = (
+      <ChartLegend
+        widgetName={widgetName}
+        hidden={hidden}
+        onToggle={toggleHidden}
+        items={allSlices.map((slice) => ({ label: slice.label, color: slice.color, value: formatValue(slice.value, currency) }))}
+      />
+    )
   } else if (variant === 'line' || variant === 'smallLine') {
     const small = variant === 'smallLine'
     drawing = (
       <LineChart width={width} height={height} data={rows} role="img" aria-label={svgLabel} margin={{ top: 8, right: 12, left: small ? 12 : 0, bottom: 4 }}>
-        {!small && <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.1} />}
-        <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} hide={false} />
+        {!small && <CartesianGrid strokeDasharray="5 5" stroke="currentColor" strokeOpacity={0.12} />}
+        {small ? <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} /> : categoryAxis}
         <YAxis tick={axisTick} axisLine={false} tickLine={false} width={small ? 0 : 56} hide={small} tickFormatter={tickFormatter} domain={numberDomain} />
         <Tooltip formatter={tooltipFormatter} />
         {chart.datasets.map((dataset, datasetIndex) => {
-          const stroke = dataset.color ?? PALETTE[datasetIndex % PALETTE.length]
+          const stroke = seriesColor(dataset, datasetIndex)
           return (
             <Line
               key={datasetIndex}
@@ -567,6 +753,7 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
               name={`d${datasetIndex}`}
               stroke={stroke}
               strokeWidth={2}
+              hide={hidden.has(datasetIndex)}
               isAnimationActive={false}
               connectNulls={false}
               dot={(props: Omit<PointDotProps, 'datasetIndex' | 'chart' | 'radius' | 'onNavigate'> & { key?: React.Key }) => {
@@ -579,9 +766,9 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
         })}
       </LineChart>
     )
-    if (multiSeries) {
-      legend = <ChartLegend widgetName={widgetName} items={chart.datasets.map((dataset, index) => ({ label: dataset.label, color: dataset.color ?? PALETTE[index % PALETTE.length] }))} />
-    }
+    // a line chart names its series in badges above the chart, one series too (Material DefaultLineChart)
+    if (!small) topLegend = seriesLegend('top')
+    else if (multiSeries) legend = seriesLegend()
   } else {
     const horizontal = variant === 'horizontalBar'
     const stacked = variant === 'stackedBar'
@@ -599,23 +786,41 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
         {/* Recharts discovers axes among direct children only (no fragments) */}
         {horizontal
           ? <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} tickFormatter={tickFormatter} domain={numberDomain} />
-          : <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} interval={0} />}
+          : categoryAxis}
         {horizontal
           ? <YAxis type="category" dataKey="label" tick={axisTick} axisLine={false} tickLine={false} width={88} />
-          : <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={tickFormatter} domain={numberDomain} />}
+          : <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={tickFormatter} domain={numberDomain}
+            allowDecimals={!stacked} />}
         {hasNegative && (horizontal
           ? <ReferenceLine x={0} stroke="currentColor" strokeOpacity={0.4} />
           : <ReferenceLine y={0} stroke="currentColor" strokeOpacity={0.4} />)}
-        <Tooltip formatter={tooltipFormatter} />
+        {stacked ? (
+          // Material's stacked tooltip names only the hovered dataset
+          <Tooltip
+            shared={false}
+            content={({ active, payload }: { active?: boolean; payload?: TooltipEntry[] }) => (
+              <ChartTooltipBox
+                active={active}
+                lines={(payload ?? []).map((entry) => {
+                  const category = String((entry.payload as { label?: unknown } | undefined)?.label ?? '')
+                  const seriesLabel = chart.datasets[Number(String(entry.dataKey).replace(/^d/, ''))]?.label ?? ''
+                  const value = formatValue(typeof entry.value === 'number' ? entry.value : toNumber(entry.value), currency)
+                  return `${seriesLabel.startsWith(category) ? category : seriesLabel}: ${value}`
+                })}
+              />
+            )}
+          />
+        ) : <Tooltip formatter={tooltipFormatter} />}
         {chart.datasets.map((dataset, datasetIndex) => (
           <Bar
             key={datasetIndex}
             dataKey={`d${datasetIndex}`}
             name={`d${datasetIndex}`}
             stackId={stacked ? 'stack' : undefined}
-            fill={dataset.color ?? PALETTE[datasetIndex % PALETTE.length]}
+            fill={seriesColor(dataset, datasetIndex)}
             stroke={stacked ? '#FFFFFF' : undefined}
             strokeWidth={stacked ? 1 : 0}
+            hide={hidden.has(datasetIndex)}
             isAnimationActive={false}
             radius={stacked ? 0 : horizontal ? [0, 3, 3, 0] : [3, 3, 0, 0]}
             onClick={(_entry: unknown, pointIndex: number) => {
@@ -634,14 +839,14 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
         ))}
       </BarChart>
     )
-    if (multiSeries) {
-      legend = <ChartLegend widgetName={widgetName} items={chart.datasets.map((dataset, index) => ({ label: dataset.label, color: dataset.color ?? dataset.backgroundColors.find(Boolean) ?? PALETTE[index % PALETTE.length] }))} />
-    }
+    // stacked and horizontal bars always show their legend (Material), bars only for several series
+    if (stacked || horizontal || multiSeries) legend = seriesLegend()
   }
 
   return (
     <div data-qqq-id={`chart-${variant}-${widgetName}`} className={cn(variant === 'smallLine' && 'flex flex-col')}>
       {header}
+      {topLegend}
       <div ref={containerRef} className="w-full" style={{ height }} data-qqq-id={`chart-canvas-${widgetName}`}>
         {width > 0 && drawing}
       </div>
@@ -650,7 +855,28 @@ export function QqqChartWidget({ widgetMetaData, data, variant }: QqqChartWidget
         <p className="mt-3 text-sm font-semibold text-card-foreground" data-qqq-id={`chart-title-${widgetName}`}>{title}</p>
       )}
       {descriptionElement}
+      {widgetMetaData.type === 'barChart' && <AsOfLine widgetName={widgetName} />}
       <ChartDataTable chart={chart} caption={`${chartName} data`} currency={currency} widgetName={widgetName} />
     </div>
+  )
+}
+
+/**
+ * The "As of" line under a `barChart` widget (Material `BarChart`): a clock and today's date.
+ *
+ * @param props - Component properties.
+ * @param props.widgetName - Widget name for `data-qqq-id` scoping.
+ * @returns The date line.
+ */
+function AsOfLine({ widgetName }: { widgetName: string }) {
+  // the date is read after mount, so the static export and the browser agree
+  const [today, setToday] = useState<string | null>(null)
+  useLayoutEffect(() => setToday(new Date().toDateString()), [])
+  if (!today) return null
+  return (
+    <p className="mt-3 flex items-center gap-1 border-t border-border pt-2 text-sm font-light text-muted-foreground" data-qqq-id={`chart-as-of-${widgetName}`}>
+      <Clock className="h-4 w-4" aria-hidden="true" />
+      <span>As of {today}</span>
+    </p>
   )
 }

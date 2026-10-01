@@ -111,6 +111,7 @@ function StepItem({ step, index, state, isLast, onStepClick }: StepItemProps) {
   const circle = (
     <div
       aria-current={state === 'active' ? 'step' : undefined}
+      data-qqq-step-state={state}
       className={cn(
         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200',
         state === 'completed' && 'bg-primary text-primary-foreground',

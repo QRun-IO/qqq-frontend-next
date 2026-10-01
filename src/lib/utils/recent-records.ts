@@ -16,20 +16,102 @@
 
 /**
  * @file recent-records — recently viewed records tracker persisted to localStorage.
- * Used by GlobalSearch to show recent items when no search term is entered.
+ * Used by the command palette, the header search, the search dialog and the dashboard.
+ * On first use it imports the Material dashboard's history (`qqq.history`), so users
+ * moving from the Material dashboard keep their recently viewed records.
  */
 
+import type { QIcon } from '@/types'
+
+/** One recently viewed record. */
 export interface RecentRecord {
+  /** Backend table name. */
   tableName: string
+  /** Table label when the record was viewed. */
   tableLabel: string
+  /** The table's icon when the record was viewed (Material stores it with each history entry). */
+  tableIcon?: QIcon
+  /** Primary key, as a string. */
   recordId: string
+  /** Record label. */
   recordLabel: string
+  /** Record view path (`/app/{table}/{id}`). */
   path: string
-  viewedAt: number // timestamp
+  /** When the record was last viewed (epoch milliseconds). */
+  viewedAt: number
 }
 
 const STORAGE_KEY = 'qqq-recent-records'
 const MAX_RECORDS = 20
+/** The Material dashboard's history key (`HistoryUtils.LS_KEY`). */
+export const MATERIAL_HISTORY_KEY = 'qqq.history'
+/** Set once the Material history was imported, so it is imported only once. */
+const MIGRATED_KEY = 'qqq-recent-records-migrated'
+
+/** A Material dashboard history entry (`QHistoryEntry`). */
+interface MaterialHistoryEntry {
+  iconName?: string
+  label?: string
+  path?: string
+  date?: string
+}
+
+/**
+ * Converts the Material dashboard's history into recent records. Material paths nest the
+ * table under its apps (`/{app}/{table}/{id}`) and labels read `{table label}: {record label}`;
+ * entries that do not end with a table and a record id are skipped.
+ *
+ * @param raw - The stored `qqq.history` JSON.
+ * @returns Recent records, newest first.
+ */
+export function recentRecordsFromMaterialHistory(raw: string | null): RecentRecord[] {
+  if (!raw) return []
+  let entries: MaterialHistoryEntry[] = []
+  try {
+    const parsed = JSON.parse(raw) as { entries?: unknown }
+    if (Array.isArray(parsed?.entries)) entries = parsed.entries as MaterialHistoryEntry[]
+  } catch {
+    return []
+  }
+  const records: RecentRecord[] = []
+  entries.forEach((entry, index) => {
+    const segments = typeof entry?.path === 'string' ? entry.path.split(/[?#]/)[0].split('/').filter(Boolean) : []
+    if (segments.length < 2 || typeof entry.label !== 'string') return
+    const [tableName, recordId] = segments.slice(-2).map((segment) => {
+      try {
+        return decodeURIComponent(segment)
+      } catch {
+        return segment
+      }
+    })
+    const separator = entry.label.indexOf(': ')
+    const tableLabel = separator > 0 ? entry.label.slice(0, separator) : tableName
+    const recordLabel = separator > 0 ? entry.label.slice(separator + 2) : entry.label
+    const date = entry.date ? Date.parse(entry.date) : NaN
+    records.push({
+      tableName,
+      tableLabel,
+      tableIcon: entry.iconName ? { name: entry.iconName } : undefined,
+      recordId,
+      recordLabel,
+      path: `/app/${encodeURIComponent(tableName)}/${encodeURIComponent(recordId)}`,
+      // Material appends newest last; without a date, keep that order
+      viewedAt: Number.isFinite(date) ? date : index,
+    })
+  })
+  return records.sort((a, b) => b.viewedAt - a.viewedAt).slice(0, MAX_RECORDS)
+}
+
+/**
+ * Imports the Material dashboard history once, when this dashboard has no recent records yet.
+ */
+function migrateMaterialHistory(): void {
+  if (localStorage.getItem(MIGRATED_KEY)) return
+  localStorage.setItem(MIGRATED_KEY, 'true')
+  if (localStorage.getItem(STORAGE_KEY)) return
+  const imported = recentRecordsFromMaterialHistory(localStorage.getItem(MATERIAL_HISTORY_KEY))
+  if (imported.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(imported))
+}
 
 /**
  * Returns recently viewed records sorted by viewedAt descending (most recent first).
@@ -39,6 +121,7 @@ const MAX_RECORDS = 20
 export function getRecentRecords(): RecentRecord[] {
   if (typeof window === 'undefined') return []
   try {
+    migrateMaterialHistory()
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as RecentRecord[]
@@ -76,6 +159,24 @@ export function addRecentRecord(record: Omit<RecentRecord, 'viewedAt'>): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   } catch {
     console.warn('[recent-records] Failed to persist recent record')
+  }
+}
+
+/**
+ * Removes a record from the recently viewed list, as Material does when a record view
+ * answers 404 (deleted) or 403 (no longer permitted), and after the record is deleted.
+ *
+ * @param tableName - Backend table name.
+ * @param recordId - Primary key of the record.
+ */
+export function removeRecentRecord(tableName: string, recordId: string | number): void {
+  if (typeof window === 'undefined') return
+  try {
+    const existing = getRecentRecords()
+    const kept = existing.filter((r) => !(r.tableName === tableName && r.recordId === String(recordId)))
+    if (kept.length !== existing.length) localStorage.setItem(STORAGE_KEY, JSON.stringify(kept))
+  } catch {
+    console.warn('[recent-records] Failed to remove recent record')
   }
 }
 

@@ -16,17 +16,32 @@
 
 /**
  * @file ReportRun — page component for running a QQQ report and downloading its file.
+ *
+ * As in Material (whose ReportRun is a ProcessRun of the report's process), a report
+ * with a process runs through the generic process screens: the report's input fields
+ * (`inputFieldList`) in the full dynamic form (possible values, booleans, dates...),
+ * any other screen the report process shows, and finally its file (by server path or
+ * by storage reference). The output format is chosen from the backend's report formats
+ * before the run, unless the report's process asks for it on a screen.
  */
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Download, FileBarChart } from 'lucide-react'
 
-import type { QFieldMetaData, QReportMetaData } from '@/types'
-import { legacyReportUrl, pollReport, startReport, submitReportInputs } from '@/lib/api/reports'
-import type { ReportFormat, ReportRunState } from '@/lib/api/reports'
-import { cn } from '@/lib/utils/cn'
+import type { QProcessMetaData, QReportMetaData } from '@/types'
+import {
+  DEFAULT_REPORT_FORMAT, REPORT_FORMAT_FIELD, isDownloadStep, loadReportFormats, processDeclaresReportFormat, reportFile, reportFileUrl,
+} from '@/lib/api/reports'
+import type { ReportFile, ReportFormat } from '@/lib/api/reports'
+import { loadMetaData } from '@/lib/api/metadata'
+import { useProcessMetaData } from '@/lib/hooks/use-metadata'
+import { useProcess } from '@/lib/hooks/use-process'
+import { queryKeys } from '@/lib/query-client'
+
+import { ProcessStepScreen, inputListFields } from '@/components/process/ProcessStepScreen'
 
 /**
  * Props for the {@link ReportRun} component.
@@ -38,56 +53,126 @@ export interface ReportRunProps {
   reportMetaData: QReportMetaData
 }
 
-/** Output format options presented in the format selector. */
-const FORMAT_OPTIONS: Array<{ value: ReportFormat; label: string }> = [
-  { value: 'CSV', label: 'CSV' },
-  { value: 'XLSX', label: 'Excel (.xlsx)' },
-  { value: 'JSON', label: 'JSON' },
-]
-
-/** Interval between status polls for asynchronous report jobs. */
-const POLL_INTERVAL_MS = 1000
-
 /**
- * HTML input type for a report input field.
+ * The finished report: a status line and the download link.
  *
- * @param field - Input field metadata.
- * @returns The input type.
+ * @param props - Report name and the file.
+ * @returns The result panel.
  */
-function inputType(field: QFieldMetaData): string {
-  switch (field.type) {
-    case 'INTEGER':
-    case 'DECIMAL':
-    case 'LONG':
-      return 'number'
-    case 'DATE':
-      return 'date'
-    case 'DATE_TIME':
-      return 'datetime-local'
-    default:
-      return 'text'
-  }
+function ReportResult({ reportName, file }: { reportName: string; file: ReportFile }) {
+  return (
+    <div data-qqq-id={`report-result-${reportName}`} className="space-y-4 rounded-xl border border-border bg-card p-6">
+      <div role="status" className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden="true" />
+        Report complete
+      </div>
+      <a
+        href={file.url}
+        download={file.fileName}
+        data-qqq-id={`report-download-link-${reportName}`}
+        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:min-h-11"
+      >
+        <Download className="h-4 w-4" aria-hidden="true" />
+        Download {file.fileName}
+      </a>
+    </div>
+  )
 }
 
 /**
- * Converts form text to the value sent for a report input.
+ * A report error.
  *
- * @param field - Input field metadata.
- * @param text - Entered text.
- * @returns The value to submit.
+ * @param props - Report name and message.
+ * @returns The alert.
  */
-function inputValue(field: QFieldMetaData, text: string): unknown {
-  if (text === '') return null
-  if (field.type === 'INTEGER' || field.type === 'LONG') return Number.parseInt(text, 10)
-  if (field.type === 'DECIMAL') return Number(text)
-  return text
+function ReportError({ reportName, message }: { reportName: string; message: string }) {
+  return (
+    <div role="alert" data-qqq-id={`report-error-${reportName}`} className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+/** Props of {@link ReportProcessRun}. */
+interface ReportProcessRunProps {
+  reportName: string
+  processName: string
+  processMetaData: QProcessMetaData
+  /** Init values: the report name and, when chosen here, its format. */
+  values: Record<string, unknown>
+  /** Ends the run (Cancel or Return on a screen). */
+  onEnd: () => void
+}
+
+/**
+ * One run of the report's process: its screens, progress, errors and file.
+ *
+ * @param props - {@link ReportProcessRunProps}
+ * @returns The run's current state.
+ */
+function ReportProcessRun({ reportName, processName, processMetaData, values, onEnd }: ReportProcessRunProps) {
+  const request = useMemo(() => ({ values }), [values])
+  const { state, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
+  const { data: instance } = useQuery({ queryKey: queryKeys.metadataAll(), queryFn: loadMetaData, staleTime: 1000 * 60 * 30 })
+  const startedRef = useRef(false)
+
+  useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+    start()
+  }, [start])
+
+  if (state.phase === 'error') return <ReportError reportName={reportName} message={state.error?.message || 'The report could not be run.'} />
+  if (state.phase === 'cancelled') return <p role="status" className="text-sm text-muted-foreground" data-qqq-id={`report-cancelled-${reportName}`}>Report cancelled.</p>
+  if (state.phase === 'complete') {
+    const file = reportFile(state.values)
+    return file ? <ReportResult reportName={reportName} file={file} /> : <ReportError reportName={reportName} message="The report did not produce a file." />
+  }
+  if (state.phase === 'step' && state.currentStep) {
+    const file = isDownloadStep(state.currentStep) ? reportFile(state.values) : null
+    if (file) return <ReportResult reportName={reportName} file={file} />
+    return (
+      <div className="overflow-hidden rounded-xl border border-border bg-card" data-qqq-id={`report-screen-${reportName}`}>
+        <ProcessStepScreen
+          key={state.screenInstance}
+          processName={processName}
+          processMetaData={processMetaData}
+          processUUID={state.processUUID}
+          step={state.currentStep}
+          steps={state.steps}
+          values={state.values}
+          backStep={state.backStep}
+          isWorking={false}
+          compactReportInputs={state.steps.length === 2
+            && state.steps[0].name === state.currentStep.name
+            && isDownloadStep(state.steps[1])
+            && state.currentStep.components?.length === 1
+            && state.currentStep.components[0].type === 'EDIT_FORM'
+            && !state.currentStep.components[0].values?.sectionLabel
+            && !state.currentStep.formFields?.length
+            && inputListFields(state.currentStep, state.values).length > 0}
+          instance={instance}
+          onSubmit={submit}
+          onBack={back}
+          onCancel={() => { void cancel().then(onEnd) }}
+          onReturn={onEnd}
+        />
+      </div>
+    )
+  }
+  return (
+    <p role="status" aria-live="polite" className="text-sm text-muted-foreground" data-qqq-id={`report-running-${reportName}`}>
+      {state.progress?.message && state.progress.message !== 'Working...' ? state.progress.message : 'Generating report…'}
+    </p>
+  )
 }
 
 /**
  * Renders the report runner for one QQQ report.
  *
- * - Format selector (CSV / Excel / JSON) and a Run Report button.
- * - When the report declares input fields, a form for them (required fields validated).
+ * - An output format selector (the backend's report formats) and a Run Report button.
+ * - The report process's screens (inputs, any other screens) as generic process screens.
  * - While the report generates, a running indicator (asynchronous jobs are polled).
  * - When done, a download link for the generated file.
  * - Backend errors (including permission denials) are shown inline.
@@ -96,64 +181,35 @@ function inputValue(field: QFieldMetaData, text: string): unknown {
  * @returns The report execution UI container.
  */
 export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
-  const [format, setFormat] = useState<ReportFormat>('CSV')
-  const [state, setState] = useState<ReportRunState | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [inputs, setInputs] = useState<Record<string, string>>({})
-  const [missing, setMissing] = useState<string[]>([])
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const processName = reportMetaData.processName
+  const processName = reportMetaData.processName || undefined
   const permitted = reportMetaData.hasPermission !== false
-
-  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current) }, [])
-
-  /**
-   * Applies a run state, polling while a job runs.
-   *
-   * @param next - The new state.
-   * @param jobUUID - Job being polled, carried across status responses.
-   */
-  function apply(next: ReportRunState, jobUUID?: string) {
-    if (next.kind === 'running' && processName) {
-      const job = next.jobUUID || jobUUID || ''
-      setState(next)
-      setBusy(true)
-      pollTimer.current = setTimeout(async () => apply(await pollReport(processName, next.processUUID, job), job), POLL_INTERVAL_MS)
-      return
-    }
-    setBusy(false)
-    setState(next)
-  }
+  const { data: processMetaData, isError: processError } = useProcessMetaData(permitted ? processName : undefined)
+  const formatOnScreen = processDeclaresReportFormat(processMetaData)
+  const formatsQuery = useQuery({
+    queryKey: ['qqq', 'reportFormats'],
+    queryFn: loadReportFormats,
+    enabled: permitted && !formatOnScreen && (!processName || Boolean(processMetaData)),
+    staleTime: 1000 * 60 * 30,
+    retry: false,
+  })
+  const formats = formatOnScreen ? [] : formatsQuery.data ?? []
+  const [chosenFormat, setChosenFormat] = useState<ReportFormat | null>(null)
+  const format = chosenFormat ?? formats[0]?.id?.toString() ?? null
+  // each run keeps the values it started with (the format chosen when Run Report was clicked)
+  const [run, setRun] = useState<{ id: number; values: Record<string, unknown> } | null>(null)
+  const runCount = useRef(0)
+  const [streamed, setStreamed] = useState<ReportFile | null>(null)
+  const loadingProcess = Boolean(processName) && !processMetaData && !processError
 
   /** Starts the report in the selected format (or builds the streaming link without a process). */
-  async function handleRun() {
-    setMissing([])
+  function handleRun() {
     if (!processName) {
-      setState({ kind: 'done', processUUID: '', fileName: `${reportMetaData.label}.${format.toLowerCase()}`, downloadUrl: legacyReportUrl(reportName, format) })
+      const chosen = format ?? DEFAULT_REPORT_FORMAT
+      setStreamed({ fileName: `${reportMetaData.label}.${chosen.toLowerCase()}`, url: reportFileUrl(reportName, chosen) })
       return
     }
-    setBusy(true)
-    setState(null)
-    setInputs({})
-    apply(await startReport(processName, reportName, format))
-  }
-
-  /**
-   * Validates and submits the report's input values.
-   *
-   * @param event - Form submit event.
-   * @param fields - Input fields.
-   * @param processUUID - Run's process UUID.
-   */
-  async function handleSubmitInputs(event: React.FormEvent, fields: QFieldMetaData[], processUUID: string) {
-    event.preventDefault()
-    const absent = fields.filter((field) => field.isRequired && !inputs[field.name]).map((field) => field.name)
-    setMissing(absent)
-    if (absent.length > 0 || !processName) return
-    const values: Record<string, unknown> = { reportName, reportFormat: format }
-    for (const field of fields) values[field.name] = inputValue(field, inputs[field.name] ?? '')
-    setBusy(true)
-    apply(await submitReportInputs(processName, processUUID, values))
+    runCount.current += 1
+    setRun({ id: runCount.current, values: { reportName, ...(format && !formatOnScreen ? { [REPORT_FORMAT_FIELD]: format } : {}) } })
   }
 
   return (
@@ -166,32 +222,28 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
       <div className="rounded-xl border border-border bg-card p-6">
         {permitted ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="space-y-1">
-              <label htmlFor={`report-format-${reportName}`} className="block text-sm font-medium text-foreground">Output format</label>
-              <select
-                id={`report-format-${reportName}`}
-                value={format}
-                onChange={(event) => { setFormat(event.target.value as ReportFormat); setState(null) }}
-                disabled={busy}
-                data-qqq-id={`report-format-select-${reportName}`}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {FORMAT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </div>
+            {formats.length > 0 && (
+              <div className="space-y-1">
+                <label htmlFor={`report-format-${reportName}`} className="block text-sm font-medium text-foreground">Output format</label>
+                <select
+                  id={`report-format-${reportName}`}
+                  value={format ?? ''}
+                  onChange={(event) => { setChosenFormat(event.target.value); setStreamed(null) }}
+                  data-qqq-id={`report-format-select-${reportName}`}
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
+                >
+                  {formats.map((option) => <option key={String(option.id)} value={String(option.id)}>{option.label}</option>)}
+                </select>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleRun}
-              disabled={busy}
+              disabled={loadingProcess || (!formatOnScreen && formatsQuery.isPending && formatsQuery.fetchStatus !== 'idle')}
               data-qqq-id={`button-run-report-${reportName}`}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" aria-hidden="true" />
-                  Running&hellip;
-                </>
-              ) : 'Run Report'}
+              Run Report
             </button>
           </div>
         ) : (
@@ -199,75 +251,19 @@ export function ReportRun({ reportName, reportMetaData }: ReportRunProps) {
         )}
       </div>
 
-      {state?.kind === 'input' && (
-        <form
-          className="space-y-4 rounded-xl border border-border bg-card p-6"
-          onSubmit={(event) => handleSubmitInputs(event, state.inputFields, state.processUUID)}
-          noValidate
-          aria-label={`${reportMetaData.label} inputs`}
-          data-qqq-id={`report-inputs-${reportName}`}
-        >
-          {state.inputFields.map((field) => {
-            const invalid = missing.includes(field.name)
-            return (
-              <div key={field.name} className="space-y-1">
-                <label htmlFor={`report-input-${field.name}`} className="block text-sm font-medium text-foreground">
-                  {field.label ?? field.name}{field.isRequired ? ' *' : ''}
-                </label>
-                <input
-                  id={`report-input-${field.name}`}
-                  name={field.name}
-                  type={inputType(field)}
-                  value={inputs[field.name] ?? ''}
-                  onChange={(event) => setInputs((current) => ({ ...current, [field.name]: event.target.value }))}
-                  aria-required={field.isRequired || undefined}
-                  aria-invalid={invalid || undefined}
-                  aria-describedby={invalid ? `report-input-error-${field.name}` : undefined}
-                  className={cn('w-full max-w-sm rounded-md border bg-background px-3 py-2 text-sm', invalid ? 'border-destructive' : 'border-input')}
-                  data-qqq-id={`report-input-${field.name}`}
-                />
-                {invalid && <p id={`report-input-error-${field.name}`} className="text-xs text-destructive">{field.label ?? field.name} is required.</p>}
-              </div>
-            )
-          })}
-          <button
-            type="submit"
-            disabled={busy}
-            data-qqq-id={`button-submit-report-inputs-${reportName}`}
-            className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-          >
-            Generate Report
-          </button>
-        </form>
-      )}
+      {processError && <ReportError reportName={reportName} message="The report's process could not be loaded." />}
 
-      {state?.kind === 'running' && (
-        <p role="status" className="text-sm text-muted-foreground" data-qqq-id={`report-running-${reportName}`}>{state.message ?? 'Generating report…'}</p>
-      )}
+      {streamed && <ReportResult reportName={reportName} file={streamed} />}
 
-      {state?.kind === 'error' && (
-        <div role="alert" data-qqq-id={`report-error-${reportName}`} className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
-          <span>{state.message}</span>
-        </div>
-      )}
-
-      {state?.kind === 'done' && (
-        <div data-qqq-id={`report-result-${reportName}`} className="space-y-4 rounded-xl border border-border bg-card p-6">
-          <div role="status" className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden="true" />
-            Report complete
-          </div>
-          <a
-            href={state.downloadUrl}
-            download={state.fileName}
-            data-qqq-id={`report-download-link-${reportName}`}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Download {state.fileName}
-          </a>
-        </div>
+      {run && processName && processMetaData && (
+        <ReportProcessRun
+          key={run.id}
+          reportName={reportName}
+          processName={processName}
+          processMetaData={processMetaData}
+          values={run.values}
+          onEnd={() => setRun(null)}
+        />
       )}
     </div>
   )

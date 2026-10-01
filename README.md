@@ -2,6 +2,10 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
+This branch prepares Next UI **1.0.0-RC.9** for application testing. Check the [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for artifact availability; requirements, verification scope and known gaps are in the [RC9 notes](docs/releases/1.0.0-RC.9.md). Final 1.0 remains held for owner application testing and explicit approval.
+
+**Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
+
 ## Use it in a QQQ application
 
 The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq-bom-pom`) and `QApplicationJavalinServer` serves it at `/`, on the same port and origin as the API:
@@ -10,12 +14,15 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
+    <version>1.0.0-RC.9</version>
 </dependency>
 ```
 
+The explicit version overrides an older BOM-managed frontend. RC9 requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for the verified backend commit. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
+
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 
-Feature coverage is certified by the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
+Feature coverage is recorded in the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
 
 ## Run the local QQQ sample
 
@@ -62,12 +69,14 @@ Copy `.env.example` to `.env.local` and adjust as needed.
 | `pnpm start` | Serve the production build |
 | `pnpm test` | Run Vitest unit tests (single pass) |
 | `pnpm test:watch` | Run Vitest in watch mode |
-| `pnpm test:coverage` | Run Vitest with V8 coverage report |
-| `pnpm test:e2e` | Run Playwright end-to-end tests |
+| `pnpm test:coverage` | Run Vitest with V8 coverage; fails below the `src/lib` thresholds in `vitest.config.ts` |
+| `pnpm test:e2e` | Run the mocked Playwright e2e suite (`tests/e2e`, no backend); `QQQ_E2E_SERVER=production` serves the `pnpm build` output, `QQQ_E2E_PORT` picks the port |
+| `pnpm perf:budget` | Check the static export (`out/`) against the bundle budget in `perf-budget.json` ([`docs/acceptance/performance.md`](docs/acceptance/performance.md)) |
 | `pnpm typecheck` | Run `tsc --noEmit` (type check without emitting files) |
 | `pnpm lint` | Run ESLint + Apache license header check |
 | `pnpm format` | Run Prettier over all source files |
 | `pnpm storybook` | Start Storybook component explorer on port 6006 |
+| `pnpm build-storybook` | Build the static Storybook (`storybook-static/`) |
 
 ## Directory Structure
 

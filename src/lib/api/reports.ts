@@ -15,53 +15,35 @@
  */
 
 /**
- * @file Reports API — runs QQQ reports and resolves their download links.
+ * @file Reports API — what running a QQQ report needs besides the process API.
  *
  * A QQQ report runs through its declared process (normally the framework's basic
- * report process): init with `{ reportName, reportFormat }` runs the prepare step,
- * which either returns the report's input fields (next step `input`) or, with no
- * inputs, generates the file straight away (next step `accessReport`). Submitting
- * the input step generates the file. The generated file is served by the
- * `/download/{fileName}?filePath=...` route. Reports without a process use the
- * streaming route `GET /reports/{reportName}?format=...`.
+ * report process), like any process, as Material's ReportRun does: init with
+ * `{ reportName, reportFormat }` runs the prepare step, which either lists the
+ * report's input fields in the `inputFieldList` value (the `input` screen) or goes
+ * straight on; a report process may show other screens; the file is offered by a
+ * DOWNLOAD_FORM screen, from `serverFilePath` or `storageTableName` and
+ * `storageReference`. The output formats are the backend's `reportFormat` possible
+ * values. Reports without a process use the v1 streaming route
+ * `GET /reports/{reportName}?format=...`.
  */
 
-import { AxiosError } from 'axios'
+import type { QFrontendStepMetaData, QPossibleValue, QProcessMetaData } from '@/types'
+import { apiUrl } from './client'
+import { processDownloadUrl } from './processes'
+import { fetchPossibleValues } from './possible-values'
 
-import type { QFieldMetaData } from '@/types'
-import apiClient from './client'
-import { processInit, processStatus, processStep } from './processes'
-import type { ProcessResponse } from './processes'
+/** A report output format id (a `reportFormat` possible value, e.g. `CSV`). */
+export type ReportFormat = string
 
-/** Output formats a QQQ report can be generated in. */
-export type ReportFormat = 'CSV' | 'XLSX' | 'JSON'
+/** The process value (and field) that carries the output format. */
+export const REPORT_FORMAT_FIELD = 'reportFormat'
 
-/** Where a report run stands after a process call. */
-export type ReportRunState =
-  | { kind: 'input'; processUUID: string; inputFields: QFieldMetaData[] }
-  | { kind: 'done'; processUUID: string; fileName: string; downloadUrl: string }
-  | { kind: 'running'; processUUID: string; jobUUID: string; message?: string }
-  | { kind: 'error'; message: string }
+/** The backend's possible value source of report output formats. */
+export const REPORT_FORMAT_SOURCE = 'reportFormat'
 
-/**
- * Root URL of the non-versioned routes (`/download`, `/reports`).
- *
- * @returns Base URL without a trailing slash.
- */
-function rootUrl(): string {
-  return (apiClient.getInstance().defaults.baseURL ?? '').replace(/\/qqq\/v1\/?$/, '').replace(/\/$/, '')
-}
-
-/**
- * Download URL for a file the report process registered.
- *
- * @param fileName - Suggested file name (`downloadFileName`).
- * @param serverFilePath - Registered server path (`serverFilePath`).
- * @returns The download URL.
- */
-export function reportDownloadUrl(fileName: string, serverFilePath: string): string {
-  return `${rootUrl()}/download/${encodeURIComponent(fileName)}?${new URLSearchParams({ filePath: serverFilePath })}`
-}
+/** Format of a streamed report when the backend lists no formats (the process default). */
+export const DEFAULT_REPORT_FORMAT = 'XLSX'
 
 /**
  * URL of the streaming report route, for reports without a process.
@@ -71,108 +53,55 @@ export function reportDownloadUrl(fileName: string, serverFilePath: string): str
  * @param inputs - Report input values sent as query parameters.
  * @returns The report URL.
  */
-export function legacyReportUrl(reportName: string, format: ReportFormat, inputs: Record<string, string> = {}): string {
+export function reportFileUrl(reportName: string, format: ReportFormat, inputs: Record<string, string> = {}): string {
   const params = new URLSearchParams({ ...inputs, format: format.toLowerCase() })
-  return `${rootUrl()}/reports/${encodeURIComponent(reportName)}?${params}`
+  return apiUrl(`/reports/${encodeURIComponent(reportName)}?${params}`)
 }
 
 /**
- * Interprets a process response for a report run.
+ * Whether a report's process asks for the output format on one of its screens (as the
+ * render-report process does); then its screen offers the choice.
  *
- * Refused requests arrive here too: the process API returns them as `ERROR`
- * responses (403 carries a user-facing permission message).
- *
- * @param response - The normalized process API response.
- * @returns The run state.
+ * @param process - The report's process metadata.
+ * @returns `true` when a screen has a `reportFormat` form field.
  */
-export function reportStateFromResponse(response: ProcessResponse): ReportRunState {
-  const record = response as unknown as Record<string, unknown>
-  if (typeof record.error === 'string') {
-    return { kind: 'error', message: typeof record.userFacingError === 'string' && record.userFacingError ? record.userFacingError : record.error }
-  }
-  if (typeof record.jobUUID === 'string') {
-    return { kind: 'running', processUUID: String(record.processUUID), jobUUID: record.jobUUID }
-  }
-  if (record.type === 'RUNNING' || (typeof record.message === 'string' && !record.values)) {
-    // Status of a still-running job; the caller keeps its job UUID and polls again.
-    return { kind: 'running', processUUID: String(record.processUUID), jobUUID: '', message: typeof record.message === 'string' ? record.message : undefined }
-  }
-  const values = (record.values ?? {}) as Record<string, unknown>
-  if (record.nextStep === 'input' && Array.isArray(values.inputFieldList)) {
-    return { kind: 'input', processUUID: String(record.processUUID), inputFields: values.inputFieldList as QFieldMetaData[] }
-  }
-  if (typeof values.serverFilePath === 'string' && typeof values.downloadFileName === 'string') {
-    return {
-      kind: 'done',
-      processUUID: String(record.processUUID),
-      fileName: values.downloadFileName,
-      downloadUrl: reportDownloadUrl(values.downloadFileName, values.serverFilePath),
-    }
-  }
-  return { kind: 'error', message: 'The report did not produce a file.' }
+export function processDeclaresReportFormat(process: QProcessMetaData | undefined): boolean {
+  return Boolean(process?.frontendSteps?.some((step) => step.formFields?.some((field) => field.name === REPORT_FORMAT_FIELD)))
 }
 
 /**
- * Converts a failed request into a report error state.
+ * Load the backend's report output formats (the `reportFormat` possible values).
  *
- * @param error - The thrown error.
- * @returns An error state carrying the backend message.
+ * @returns The formats, in the backend's order.
  */
-export function reportErrorState(error: unknown): ReportRunState {
-  if (error instanceof AxiosError) {
-    const body = error.response?.data as { error?: unknown; userFacingError?: unknown } | undefined
-    const message = typeof body?.userFacingError === 'string' && body.userFacingError ? body.userFacingError
-      : typeof body?.error === 'string' && body.error ? body.error : error.message
-    return { kind: 'error', message }
-  }
-  return { kind: 'error', message: error instanceof Error ? error.message : 'The report could not be run.' }
+export function loadReportFormats(): Promise<QPossibleValue[]> {
+  return fetchPossibleValues(REPORT_FORMAT_SOURCE)
 }
 
 /**
- * Starts a report through its process.
+ * Whether a screen only offers the generated file (the report's access step).
  *
- * @param processName - The report's process (e.g. the basic report process).
- * @param reportName - Report name.
- * @param format - Output format.
- * @returns The run state.
+ * @param step - A process screen.
+ * @returns `true` when every component is a DOWNLOAD_FORM.
  */
-export async function startReport(processName: string, reportName: string, format: ReportFormat): Promise<ReportRunState> {
-  try {
-    return reportStateFromResponse(await processInit(processName, { values: { reportName, reportFormat: format } }))
-  } catch (error) {
-    return reportErrorState(error)
-  }
+export function isDownloadStep(step: QFrontendStepMetaData): boolean {
+  const components = step.components ?? []
+  return components.length > 0 && components.every((component) => component.type === 'DOWNLOAD_FORM')
+}
+
+/** A generated report file. */
+export interface ReportFile {
+  fileName: string
+  url: string
 }
 
 /**
- * Submits a report's input values.
+ * The file a report process registered, from its process values.
  *
- * @param processName - The report's process.
- * @param processUUID - The run's process UUID.
- * @param values - Input values, plus the report name and format.
- * @returns The run state.
+ * @param values - Process values.
+ * @returns The file name and download URL, or `null` when no file is described.
  */
-export async function submitReportInputs(processName: string, processUUID: string, values: Record<string, unknown>): Promise<ReportRunState> {
-  try {
-    return reportStateFromResponse(await processStep(processName, processUUID, 'input', { values }))
-  } catch (error) {
-    return reportErrorState(error)
-  }
-}
-
-/**
- * Polls an asynchronous report job.
- *
- * @param processName - The report's process.
- * @param processUUID - The run's process UUID.
- * @param jobUUID - The job UUID.
- * @returns The run state.
- */
-export async function pollReport(processName: string, processUUID: string, jobUUID: string): Promise<ReportRunState> {
-  try {
-    const state = reportStateFromResponse(await processStatus(processName, processUUID, jobUUID))
-    return state.kind === 'running' ? { ...state, jobUUID } : state
-  } catch (error) {
-    return reportErrorState(error)
-  }
+export function reportFile(values: Record<string, unknown>): ReportFile | null {
+  const url = processDownloadUrl(values)
+  return url ? { fileName: String(values.downloadFileName), url } : null
 }

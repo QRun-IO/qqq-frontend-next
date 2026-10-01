@@ -14,9 +14,38 @@ export function grid(page: Page, tableLabel: string): Locator {
   return page.getByRole('grid', { name: `${tableLabel} records` })
 }
 
-/** Body cells of one grid column, in row order. */
+/**
+ * Body cells of one column, in row order: the grid cells, or on a phone the card values of that
+ * field (cards show the first visible fields; use `showTable` for the others).
+ */
 export function columnCells(page: Page, column: string): Locator {
-  return page.locator(`tbody td[data-qqq-id="grid-cell-${column}"]`)
+  return page.locator(`tbody td[data-qqq-id="grid-cell-${column}"], [role="listitem"][data-qqq-id^="record-card-"] [data-qqq-id="card-field-${column}"] dd`)
+}
+
+/** True when the viewport has the phone layout (card list, filter sheet). */
+export function isPhone(page: Page): boolean {
+  return (page.viewportSize()?.width ?? 1280) < 768
+}
+
+/**
+ * Shows the data grid: on a phone the list starts as cards, and the toolbar's Table view
+ * switches it to the grid (remembered per table). A no-op on wider viewports.
+ */
+export async function showTable(page: Page) {
+  if (!isPhone(page)) return
+  const query = page.locator('[data-qqq-id^="record-query-"][data-view-mode]')
+  await expect(query).toBeVisible()
+  if ((await query.getAttribute('data-view-mode')) === 'grid') return
+  await page.locator('[data-qqq-id="view-mode-grid"]').click()
+  await expect(query).toHaveAttribute('data-view-mode', 'grid')
+}
+
+/** Closes the phone filter sheet (a modal) so the list and toolbar can be used; no-op elsewhere. */
+export async function closeFilterSheet(page: Page) {
+  const sheet = page.getByRole('dialog', { name: 'Filters', exact: true })
+  if (!isPhone(page) || !(await sheet.isVisible())) return
+  await sheet.getByRole('button', { name: 'Close filter panel' }).click()
+  await expect(sheet).toHaveCount(0)
 }
 
 /** Asserts the exact, ordered values of a grid column (waits for the grid to settle). */
@@ -35,10 +64,20 @@ export async function sqlColumn(backend: Backend, query: string): Promise<string
   return rows.map((row) => String(Object.values(row)[0] ?? ''))
 }
 
-/** Opens the advanced filter panel. */
+/** Opens the filter controls in the phone sheet or desktop panel without changing mode. */
+export async function showBasicFilters(page: Page) {
+  const toggle = page.locator('[data-qqq-id="button-filter"]')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  await expect(page.getByRole('button', { name: 'Basic', exact: true })).toBeVisible()
+}
+
+/** Opens the advanced filter builder (the filter sheet on a phone). */
 export async function openFilter(page: Page) {
   const toggle = page.locator('[data-qqq-id="button-filter"]')
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  if (!(await page.locator('[data-qqq-id="filter-builder"]').isVisible())) {
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  }
   await expect(page.locator('[data-qqq-id="filter-builder"]')).toBeVisible()
 }
 
@@ -72,9 +111,9 @@ export async function pickPossibleValues(page: Page, row: Locator, labels: strin
   await closeValuePopup(page)
 }
 
-/** Closes an open possible-value dropdown by clicking the filter panel heading. */
+/** Closes an open possible-value dropdown by clicking the builder's padding. */
 export async function closeValuePopup(page: Page) {
-  await page.getByText('Advanced Filters', { exact: true }).first().click()
+  await page.locator('[data-qqq-id="filter-builder"]').click({ position: { x: 2, y: 2 } })
 }
 
 /** Removes every value chip from a multi-value input. */
@@ -95,6 +134,7 @@ export async function typeTags(row: Locator, values: string[]) {
 /** Removes every condition from the root group. */
 export async function clearFilter(page: Page) {
   await page.locator('[data-qqq-id="button-clear-filter"]').click()
+  await page.getByRole('alertdialog', { name: 'Clear all filters?' }).getByRole('button', { name: 'Clear filters' }).click()
 }
 
 /** Opens a table with a Material-style JSON `?filter=` link. */

@@ -80,8 +80,10 @@
       "fixture": "fieldLab record created in the test",
       "scenarios": [
         "Overview shows all T2 sections",
+        "Overview field rows retain original Next typography and spacing in light and dark themes",
         "a section tab shows only that section",
-        "list view shows every section"
+        "list view shows every section",
+        "Arrow/Home/End keys move tab focus; Enter/Space activates a named panel with one tab stop; phone accordion supports keyboard activation"
       ],
       "negative": [],
       "issues": [],
@@ -261,6 +263,7 @@
       "fixture": "person 1; recordLab 1",
       "scenarios": [
         "source values prefilled without the key",
+        "Full Copy loads the descendant draft on selection; returning to Base Copy preserves the base form",
         "save creates a new row and opens it",
         "source unchanged"
       ],
@@ -955,6 +958,396 @@
       ],
       "issues": [
         "QRun-IO/qqq#673"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-049",
+      "feature": "pages of a table outside the app tree use the table label in the document title and breadcrumbs",
+      "source": [
+        "src/lib/hooks/use-routes.ts",
+        "src/components/layout/Breadcrumbs.tsx"
+      ],
+      "fixture": "scheduledReport (memory, not in the app tree) for savedReport 1",
+      "scenarios": [
+        "create page title is \"Create Scheduled Report | Scheduled Report | QQQ Sample\"",
+        "record view title is the record label, then Scheduled Report"
+      ],
+      "negative": [
+        "the table name (scheduledReport) is not shown in the breadcrumbs"
+      ],
+      "issues": [
+        "QRun-IO/qqq#707"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-051",
+      "feature": "Table-field possible values search and resolve through the v1 API",
+      "source": [
+        "src/lib/api/possible-values.ts",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "recordLab",
+      "scenarios": [
+        "owner search sends a v1 POST with the search term and lists the exact match",
+        "ids and labels resolve to the exact option",
+        "the chosen owner persists"
+      ],
+      "negative": [
+        "a source table the persona cannot read is refused (403) by the v1 route",
+        "an unknown field is 404"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-050",
+      "feature": "Record create, view, edit and delete run on the v1 record routes",
+      "source": [
+        "src/lib/api/tables.ts",
+        "src/lib/hooks/use-record.ts",
+        "src/lib/utils/adornment-utils.ts"
+      ],
+      "fixture": "person, fieldLab, qryHousehold",
+      "scenarios": [
+        "the create/edit/delete flow sends POST, GET, PATCH and DELETE to /qqq/v1/table/... and persists each step",
+        "record-v1 associations are written and read back with includeAssociations"
+      ],
+      "negative": [
+        "a missing required field is a 400 with the backend message and nothing is written",
+        "a read-only persona is refused (403) insert, update and delete on v1 and the row is unchanged"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-056",
+      "feature": "Record view hash links: #audit, #/launchProcess={process} and #{section} anchors",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (hash handling)",
+        "qqq-backend-core AbstractHTMLWidgetRenderer.linkTableBulkLoadChildren (#/launchProcess=)",
+        "src/lib/utils/material-links.ts (recordHashAction)",
+        "src/lib/hooks/use-location-hash.ts",
+        "src/components/records/RecordViewHeader.tsx, src/components/records/RecordView.tsx"
+      ],
+      "fixture": "sample person, person.bulkEdit",
+      "scenarios": [
+        "#audit opens the audit dialog; closing it clears the hash and a reload does not reopen it",
+        "#/launchProcess=person.bulkEdit replaces the URL with the run for the record (init recordIds=2); Cancel returns to the record",
+        "#employmentInfo selects the Employment Info tab and scrolls it into view; a later hash change selects Dates"
+      ],
+      "negative": [],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-057",
+      "feature": "Create presets from links: #/createChild= opens a child create dialog over the record; /create#/defaultValues=/disabledFields= prefills and locks",
+      "source": [
+        "qqq-backend-core AbstractHTMLWidgetRenderer.linkTableCreateChild, linkTableCreateWithDefaultValues",
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (createChild), src/qqq/components/forms/EntityForm.tsx (defaultValues, disabledFields)",
+        "src/components/records/CreateChildFromLinkDialog.tsx",
+        "src/app/(dashboard)/app/[slug]/create/page.tsx",
+        "src/components/forms/DynamicForm.tsx, src/components/forms/EntityForm.tsx"
+      ],
+      "fixture": "sample person -> pet (personId), petSpecies",
+      "scenarios": [
+        "the backend-format #/createChild=pet link on person 3 opens Add Pet with Person preset and disabled; Create closes the dialog, clears the hash, submits personId=3 and SQL shows the pet linked to person 3",
+        "/app/pet/create#/defaultValues={name, personId}/disabledFields={personId} prefills both, locks Person and saves them (SQL)",
+        "/app/pet/create#defaultValues={speciesId} (no slash) prefills Species without locking"
+      ],
+      "negative": [
+        "locked fields are disabled; unlocked preset fields stay editable"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-052",
+      "feature": "Dependent possible values: a field whose filter uses ${input.otherField} offers only the choices matching the form's current values",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/api/possible-values.ts",
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/DynamicSelect.tsx",
+        "qqq-frontend-core/src/controllers/QController.ts (possibleValues)",
+        "qqq-middleware-javalin QJavalinImplementation.finishPossibleValuesRequest"
+      ],
+      "fixture": "recPvPick itemId (recPvItem source filtered on categoryId = ${input.categoryId})",
+      "scenarios": [
+        "every search posts the form values as the values map of the v1 JSON body",
+        "create: choices narrow to the chosen Category and change when it changes",
+        "edit: the stored Item label shows, a new Category changes the choices",
+        "the chosen id persists (SQL) and the record view shows its label"
+      ],
+      "negative": [
+        "Category empty: the unset variable makes no matches for a form, shown as No options found",
+        "an item outside the filter is not offered, even when searched by name",
+        "the backend refuses an out-of-filter id lookup and returns only the filtered choices"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-053",
+      "feature": "Table developer view shows the API Docs & Playground section for the table's application APIs",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/developer/TableDeveloperView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/developer/RapiDocReact.tsx",
+        "qqq-middleware-api/src/main/java/com/kingsrook/qqq/api/javalin/QJavalinApiHandler.java (/apis.json, versions.json, openapi.json)"
+      ],
+      "fixture": "recordLab has no application APIs; person is exposed through the owned Acceptance API",
+      "scenarios": [
+        "developer page for a table keeps its metadata sections and shows the API Docs & Playground section",
+        "with no application APIs it shows \"This table is not available in any APIs.\" and no API or Version selectors",
+        "OpenAPI download and new-tab buttons remain fully visible before interaction at desktop, phone and 320px widths in light/dark modes; pointer/touch downloads yield the real specification and keyboard navigation opens its URL",
+        "specification labels fit wider application font metrics at desktop and phone widths without content clipping"
+      ],
+      "negative": [
+        "a viewer persona sees the same empty state and cannot fetch any table spec"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-054",
+      "feature": "Record developer view manages associated scripts: versions, new versions, test runs, logs, docs and script creation",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/pages/records/view/RecordDeveloperView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/ScriptViewer.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptEditor.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptTestForm.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptLogsView.tsx",
+        "qqq-frontend-material-dashboard/src/qqq/components/scripts/ScriptDocsForm.tsx",
+        "qqq-middleware-javalin/src/main/java/com/kingsrook/qqq/middleware/javalin/QJavalinScriptsHandler.java"
+      ],
+      "fixture": "scriptLab (RecordsFixtures: Alpha with script 101, revisions 101-102, logs 101-102; Beta without a script) on the scripts tables from WidgetsFixtures",
+      "scenarios": [
+        "versions list with CURRENT on the current revision and per-file code for the selected version; an older version offers Edit and Activate",
+        "save a new version with a commit message (SQL: new script_revision row, its file and script.current_script_revision_id; persists after reload)",
+        "test run output and log lines equal the backend testScript response; a failing run shows the error the backend returns",
+        "logs list the script_log rows of the selected version with their lines",
+        "docs show the script type help text and sample code",
+        "create a script for an empty associated script field",
+        "local QQQ helper and keyword suggestions support keyboard and pointer/touch insertion, native undo/redo, both-theme accessibility, and SQL-verified revision persistence"
+      ],
+      "negative": [
+        "a viewer cannot save or test a revision (no Edit or Test offered; the backend refuses storeScriptRevision and testScript)",
+        "a viewer cannot create a script (no Create Script offered; the backend refuses the create route)",
+        "a table without associated scripts shows none"
+      ],
+      "issues": [
+        "QRun-IO/qqq#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-055",
+      "feature": "Record view keyboard shortcuts n, e, c, d, a (Material) and their help text",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx (keyboard shortcuts)",
+        "src/lib/hooks/use-page-shortcuts.ts",
+        "src/components/records/RecordViewHeader.tsx",
+        "src/components/feedback/KeyboardShortcutsDialog.tsx"
+      ],
+      "fixture": "sample person",
+      "scenarios": [
+        "e, c and n open edit, copy and create with the right values",
+        "a opens the audit history; d opens the delete confirmation, Escape keeps the row (SQL), confirming deletes it (SQL)",
+        "? lists Create a New Record, Edit/Copy/Delete/Audit the current Record with their keys"
+      ],
+      "negative": [
+        "no shortcut fires while the audit or keyboard help dialog is open",
+        "keys typed in the Jump to input are text",
+        "viewer persona: n, e, c, d do nothing (a still works); the backend refuses insert and delete (403, SQL unchanged)"
+      ],
+      "issues": [
+        "#714"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-058",
+      "feature": "Record view on phones and tablets: the title stays readable, the header controls wrap onto their own row, and the phone action sheet fits, scrolls and keeps focus",
+      "source": [
+        "qqq-frontend-next/src/components/records/RecordViewHeader.tsx",
+        "qqq-frontend-next/src/components/records/RecordView.tsx",
+        "qqq-frontend-next/src/components/records/FieldValue.tsx"
+      ],
+      "fixture": "recordLab 1 (Lab: Alpha); phone (412 px touch), tablet (810 px touch) and desktop viewports",
+      "scenarios": [
+        "The title stays on one line and never overlaps the view toggle, Audit or record actions; neither the page nor its main region scrolls sideways",
+        "The back link, value links and header controls are touch-sized (44 x 44 px) under a coarse pointer",
+        "The phone Actions sheet fits the screen, takes focus, keeps Tab and Shift+Tab inside, closes by Escape or a backdrop tap with focus back on its trigger, and runs Edit"
+      ],
+      "negative": [
+        "A read-only user gets no phone Actions trigger (asserted in REC-046)"
+      ],
+      "issues": [
+        "QRun-IO/qqq#708"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-059",
+      "feature": "Record forms on phones and tablets: every editor type fits without sideways scrolling, controls are touch-sized, possible-value lists open on screen and the phone action bar stays reachable",
+      "source": [
+        "qqq-frontend-next/src/components/forms/EntityForm.tsx",
+        "qqq-frontend-next/src/components/forms/DynamicFormField.tsx",
+        "qqq-frontend-next/src/components/forms/PossibleValueSelect.tsx",
+        "qqq-frontend-next/src/components/forms/field-types/FileUploadField.tsx"
+      ],
+      "fixture": "fieldLab create (every field type), recordLab 1 edit (possible values, code editor, password reveal, file uploads)",
+      "scenarios": [
+        "Create Field Lab: no sideways scroll, every control at least 44 x 44 px by touch; on a phone Save stays on screen; boolean, date, time, text and rich text values persist",
+        "Edit Record Lab: the owner list opens inside the screen with touch-sized options; the picked owner persists"
+      ],
+      "negative": [],
+      "issues": [
+        "QRun-IO/qqq#708"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-061",
+      "feature": "An editable dynamicForm widget on a record form validates its fields and persists them in the declared JSON record field",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/components/forms/FormWidgetSection.tsx",
+        "src/components/widgets/DynamicFormWidget.tsx"
+      ],
+      "fixture": "accWidgetHost 1 with accHostRecordVariables and hidden inputValues field",
+      "scenarios": [
+        "the region field starts from stored JSON and appears in the record edit form",
+        "changing the region persists the new JSON in inputValues and survives reload"
+      ],
+      "negative": [
+        "clearing the required region blocks the write",
+        "the transient region field is absent from the table multipart payload"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-062",
+      "feature": "Inline enum possible values filter by label prefix without a lookup request; CHIP adornments style options and chosen IDs persist",
+      "source": [
+        "src/components/forms/DynamicFormField.tsx",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "recordLab priority field with an inline enum and CHIP adornment",
+      "scenarios": [
+        "v1 metadata exposes the inline enum and the edit form shows the held label",
+        "a label-prefix search filters options and the CHIP adornment colors and icons them",
+        "choosing High stores HIGH in SQL and shows High after reload"
+      ],
+      "negative": [
+        "a substring that is not a prefix offers no options",
+        "the picker makes no possible-values request"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#721"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-060",
+      "feature": "Material table and field form adjusters and field rules operate against the real QQQ sample server",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/lib/api/form-adjuster.ts",
+        "src/lib/utils/form-adjuster-utils.ts"
+      ],
+      "fixture": "FormAdjusterFixtures.java adjusterLab table with a table onLoad adjuster, name onChange adjuster and clear-target field rule",
+      "scenarios": [
+        "v1 table and field metadata expose the Material supplemental adjuster settings",
+        "the table onLoad route supplies a note before render",
+        "the name onChange route changes a field label and clears its value; the field rule clears status"
+      ],
+      "negative": [
+        "a backend lock message disables Save for a preset name"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#720"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-064",
+      "feature": "Record sections render qualified fields from readable exposed joins",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx:155-180,539-561",
+        "src/lib/utils/record-layout-utils.ts",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryItem joins person and shows person.firstName in Details",
+      "scenarios": [
+        "record GET sends a selected LEFT join with qryItemJoinPerson",
+        "the joined person's first name appears in the Details section"
+      ],
+      "negative": [
+        "unreadable join paths are removed from sections and GET descriptors by the same permission filter as query pages"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-063",
+      "feature": "Record view, edit and copy load from the table variant selected on the query screen",
+      "source": [
+        "material-dashboard src/qqq/pages/records/view/RecordView.tsx:209-252,656",
+        "src/lib/utils/table-variant.ts",
+        "src/app/(dashboard)/app/[slug]/[recordId]/page.tsx"
+      ],
+      "fixture": "QueryFixtures.java qryStock (same record ID in North and South variants)",
+      "scenarios": [
+        "Selecting South Store shows S-KIWI on the record view and edit/copy forms",
+        "Every South record GET includes tableVariant {type: qryStore, id: 2}",
+        "Switching to North Store shows N-APPLE for the same record ID with variant id 1"
+      ],
+      "negative": [
+        "The duplicate ID must not show North Store's N-APPLE value"
+      ],
+      "issues": [
+        "QRun-IO/qqq-frontend-next#722"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-065",
+      "feature": "Unchanged DATE_TIME instants and precision survive edit and copy",
+      "source": [
+        "src/components/forms/EntityForm.tsx",
+        "src/lib/utils/zod-from-metadata.ts"
+      ],
+      "fixture": "fieldLab; browser America/New_York; repeated DST hour with subsecond precision",
+      "scenarios": [
+        "Unrelated edit omits unchanged timestamp",
+        "Copy sends the original zoned instant and preserves source/copy SQL timestamps"
+      ],
+      "negative": [
+        "Copy must not select the first occurrence of a repeated hour or truncate fractional seconds"
+      ],
+      "issues": [
+        "QRun-IO/qqq#679"
       ],
       "required": true
     }

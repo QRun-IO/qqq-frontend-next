@@ -53,9 +53,9 @@ describe('useRecord', () => {
       const url = new URL(request.url)
       const mode = url.searchParams.get('includeAssociations') + ':' + url.searchParams.get('tableVariant')
       requests.push(mode)
-      return HttpResponse.json({ tableName: 'person', values: { id: 1, mode }, recordLabel: mode })
+      return HttpResponse.json({ record: { tableName: 'person', values: { id: 1, mode }, recordLabel: mode } })
     }
-    server.use(http.get('/data/person/1', handler), http.get('/qqq/v1/table/person/1', handler))
+    server.use(http.get('/qqq/v1/table/person/1', handler))
     const { result } = renderHook(() => ({
       base: useRecord({ tableName: 'person', primaryKey: 1, includeAssociations: false }),
       expanded: useRecord({ tableName: 'person', primaryKey: 1, includeAssociations: true }),

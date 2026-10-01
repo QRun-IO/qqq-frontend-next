@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect, test } from '../../support/fixtures'
-import { advance, expectScreen, openProcess } from './process-helpers'
+import { advance, expectRunTouchReady, expectScreen, openProcess } from './process-helpers'
 
 /**
  * Insert a person through the backend (independent of the UI under test).
@@ -49,7 +49,7 @@ async function uploadCsv(page: Page, csv: string) {
 }
 
 test.describe('Streamed ETL review and results (clonePeople)', () => {
-  test('[PRC-026] the review screen counts input, offers validation and previews records', async ({ page, diagnostics }) => {
+  test('[PRC-026] the review screen counts input, offers validation and previews records @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'clonePeople', { recordIds: [1, 2] })
     const review = await expectScreen(page, 'review', 'Review')
@@ -60,6 +60,7 @@ test.describe('Streamed ETL review and results (clonePeople)', () => {
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveText('Next')
     await skip.check()
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveText('Submit')
+    await expectRunTouchReady(page, 'clonePeople')
     await validate.check()
     await expect(page.locator('[data-qqq-id="button-next"]')).toHaveText('Next')
 
@@ -68,12 +69,13 @@ test.describe('Streamed ETL review and results (clonePeople)', () => {
     await expect(preview.locator('[data-qqq-id="process-preview-field-firstName"]')).toHaveText('First Name: Clone of: Avery')
     await expect(preview.locator('[data-qqq-id="process-preview-position"]')).toHaveText('Preview 1 of 2')
     await expect(preview.getByRole('button', { name: 'Previous preview record' })).toBeDisabled()
+    await expectRunTouchReady(page, 'clonePeople')
     await preview.getByRole('button', { name: 'Next preview record' }).click()
     await expect(preview.locator('[data-qqq-id="process-preview-field-firstName"]')).toHaveText('First Name: Clone of: Blair')
     await expect(preview.locator('[data-qqq-id="process-preview-position"]')).toHaveText('Preview 2 of 2')
   })
 
-  test('[PRC-027] full validation reports OK, warning and error lines from the transform', async ({ page, backend, diagnostics }) => {
+  test('[PRC-027] full validation reports OK, warning and error lines from the transform @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const cloneId = await insertPerson(backend.api, 'Clone of: Quinn')
     const nestedId = await insertPerson(backend.api, 'Clone of: Clone of: Riley')
@@ -98,7 +100,7 @@ test.describe('Streamed ETL review and results (clonePeople)', () => {
     expect(await backend.sql("select count(*) as n from person where first_name like 'Clone of: Avery'")).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-028] executing shows the process summary and persists the clones', async ({ page, backend, diagnostics }) => {
+  test('[PRC-028] executing shows the process summary and persists the clones @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const cloneId = await insertPerson(backend.api, 'Clone of: Quinn')
     const nestedId = await insertPerson(backend.api, 'Clone of: Clone of: Riley')
@@ -117,6 +119,7 @@ test.describe('Streamed ETL review and results (clonePeople)', () => {
       'ERROR 1 are already a clone of a clone, so they weren\'t cloned again.',
     ])
     await expect(page.getByRole('button', { name: 'Return' })).toBeVisible()
+    await expectRunTouchReady(page, 'clonePeople')
     expect(await backend.sql("select first_name from person where first_name like 'Clone of%' order by id")).toEqual([
       { first_name: 'Clone of: Quinn' }, { first_name: 'Clone of: Clone of: Riley' },
       { first_name: 'Clone of: Avery' }, { first_name: 'Clone of: Clone of: Quinn' },
@@ -134,7 +137,7 @@ test.describe('Streamed ETL review and results (clonePeople)', () => {
 })
 
 test.describe('Bulk edit and delete', () => {
-  test('[PRC-029] bulk edit updates only the switched-on fields of the selected records', async ({ page, backend, diagnostics }) => {
+  test('[PRC-029] bulk edit updates only the switched-on fields of the selected records @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const steps: string[] = []
     page.on('request', (request) => { if (request.url().includes('/step/')) steps.push(request.postData() ?? '') })
@@ -146,6 +149,7 @@ test.describe('Bulk edit and delete', () => {
     await expect(edit.getByLabel('Days Worked', { exact: true })).toBeDisabled()
     await advance(page, 'Next')
     await expect(edit.getByText('You must edit at least one field to continue.')).toBeVisible()
+    await expectRunTouchReady(page, 'person.bulkEdit')
     expect(steps).toEqual([])
 
     await edit.getByRole('switch', { name: 'Edit Days Worked' }).check()
@@ -159,9 +163,10 @@ test.describe('Bulk edit and delete', () => {
     await advance(page, 'Next')
     const review = await expectScreen(page, 'review', 'Review')
     await expect(review.locator('[data-qqq-id="process-validation-input"]')).toHaveText('Input: 2 Person records.')
-    const enabled = /name="bulkEditEnabledFields"\r\n\r\n([^\r]*)/.exec(steps[0])?.[1]
-    expect(enabled?.split(',').sort()).toEqual(['daysWorked', 'isEmployed'])
-    expect(steps[0]).not.toContain('name="firstName"')
+    // the v1 step sends the screen values in one `values` JSON field
+    const sent = JSON.parse(/name="values"\r\n\r\n([^\r]*)/.exec(steps[0])?.[1] ?? '{}') as Record<string, string>
+    expect(sent.bulkEditEnabledFields?.split(',').sort()).toEqual(['daysWorked', 'isEmployed'])
+    expect(sent).not.toHaveProperty('firstName')
     await review.getByRole('radio', { name: /Skip Validation/ }).check()
     await advance(page, 'Submit')
     await expectScreen(page, 'result', 'Result')
@@ -178,7 +183,7 @@ test.describe('Bulk edit and delete', () => {
     ])
   })
 
-  test('[PRC-030] bulk delete removes only the selected records', async ({ page, backend, diagnostics }) => {
+  test('[PRC-030] bulk delete removes only the selected records @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkDelete', { recordIds: [4, 5] })
     const review = await expectScreen(page, 'review', 'Review')
@@ -187,6 +192,7 @@ test.describe('Bulk edit and delete', () => {
     await advance(page, 'Next')
     await expectScreen(page, 'review', 'Review')
     await expect.poll(() => summaryLines(page)).toEqual(['OK 2 Person records will be deleted.'])
+    await expectRunTouchReady(page, 'person.bulkDelete')
     expect(await backend.sql('select count(*) as n from person')).toEqual([{ n: '5' }])
     await advance(page, 'Submit')
     await expectScreen(page, 'result', 'Result')
@@ -198,13 +204,14 @@ test.describe('Bulk edit and delete', () => {
 test.describe('Bulk load', () => {
   const CSV = 'First Name,Last Name,Email,Is Employed\nQuinn,Lab,quinn@example.invalid,Yes\nRiley,Lab,riley@example.invalid,No\n'
 
-  test('[PRC-031] bulk insert uploads, maps columns and values, reviews and inserts', async ({ page, backend, diagnostics }) => {
+  test('[PRC-031] bulk insert uploads, maps columns and values, reviews and inserts @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkInsert')
     const upload = await expectScreen(page, 'upload', 'Upload File')
     await expect(upload.locator('[data-qqq-id="process-html-0"] summary')).toHaveText('File Upload Instructions')
     await advance(page, 'Next')
     await expect(upload.getByText('Person File is required')).toBeVisible()
+    await expectRunTouchReady(page, 'person.bulkInsert')
     await uploadCsv(page, CSV)
     await advance(page, 'Next')
 
@@ -217,12 +224,14 @@ test.describe('Bulk load', () => {
     await expect(mapping.getByLabel('Column for First Name')).toHaveValue('0')
     await expect(mapping.getByLabel('Column for Email')).toHaveValue('2')
     await expect(mapping.locator('[data-qqq-id="bulk-load-preview-firstName"]')).toHaveText('Preview: Quinn, Riley')
+    await expectRunTouchReady(page, 'person.bulkInsert')
     await mapping.locator('[data-qqq-id="checkbox-bulk-load-map-values-isEmployed"]').check()
     await advance(page, 'Next')
 
     const values = await expectScreen(page, 'valueMapping', 'Value Mapping: Is Employed (1 of 1)')
     await values.getByLabel('Is Employed value for Yes').selectOption('true')
     await values.getByLabel('Is Employed value for No').selectOption('false')
+    await expectRunTouchReady(page, 'person.bulkInsert')
     await advance(page, 'Next')
 
     const review = await expectScreen(page, 'review', 'Review')
@@ -233,6 +242,7 @@ test.describe('Bulk load', () => {
     const preview = review.getByRole('region', { name: 'Preview' })
     await expect(preview.getByText('This is a preview of the records that will be created.')).toBeVisible()
     await expect(preview.getByRole('heading', { name: 'Identity' })).toBeVisible()
+    await expectRunTouchReady(page, 'person.bulkInsert')
     await expect(preview.locator('[data-qqq-id="process-preview-field-firstName"]')).toHaveText('First Name: Quinn')
     await advance(page, 'Next')
     await expectScreen(page, 'review', 'Review')
@@ -248,7 +258,7 @@ test.describe('Bulk load', () => {
     ])
   })
 
-  test('[PRC-032] bulk mapping validates required mappings and back returns to the mapping', async ({ page, backend, diagnostics }) => {
+  test('[PRC-032] bulk mapping validates required mappings and back returns to the mapping @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     const steps: string[] = []
     page.on('request', (request) => { if (request.url().includes('/step/fileMapping')) steps.push(request.url()) })
@@ -272,7 +282,7 @@ test.describe('Bulk load', () => {
     expect(await backend.sql('select count(*) as n from person')).toEqual([{ n: '5' }])
   })
 
-  test('[PRC-033] bulk edit with a file updates the records matched by the key field', async ({ page, backend, diagnostics }) => {
+  test('[PRC-033] bulk edit with a file updates the records matched by the key field @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkEditWithFile')
     await expectScreen(page, 'upload', 'Upload File')
@@ -282,6 +292,7 @@ test.describe('Bulk load', () => {
     await mapping.locator('[data-qqq-id="select-bulk-load-key-fields"]').selectOption('id')
     await expect(mapping.getByLabel('Column for Id')).toHaveValue('0')
     await expect(mapping.getByLabel('Column for Days Worked')).toHaveValue('1')
+    await expectRunTouchReady(page, 'person.bulkEditWithFile')
     await advance(page, 'Next')
     const review = await expectScreen(page, 'review', 'Review')
     await review.getByRole('radio', { name: /Skip Validation/ }).check()
@@ -292,30 +303,38 @@ test.describe('Bulk load', () => {
     ])
   })
 
-  test('[PRC-046] saved bulk load profiles are saved, chosen for a later load, and deleted', async ({ page, backend, diagnostics }) => {
+  test('[PRC-046] saved bulk load profiles are saved, chosen for a later load, and deleted @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkInsert')
     await expectScreen(page, 'upload', 'Upload File')
     await uploadCsv(page, CSV)
     await advance(page, 'Next')
     const mapping = await expectScreen(page, 'fileMapping', 'File Mapping')
-    const profiles = mapping.getByRole('region', { name: 'Saved Bulk Load Profiles' })
-    await expect(profiles.locator('[data-qqq-id="saved-bulk-load-profile-current"]')).toHaveText('You are not using a saved bulk load profile.')
+    const profiles = mapping.locator('[data-qqq-id="saved-bulk-load-profiles"]')
+    // not using a saved profile: the menu button is unfilled and a save link is offered
+    await expect(profiles.getByRole('button', { name: 'Saved Bulk Load Profiles' })).toHaveAttribute('data-profile-state', 'none')
+    await expect(profiles.getByRole('button', { name: 'Save Bulk Load Profile As…' })).toBeVisible()
     await mapping.locator('[data-qqq-id="checkbox-bulk-load-map-values-isEmployed"]').check()
-    await profiles.getByRole('button', { name: 'Save As...' }).click()
-    await profiles.getByLabel('Profile Name').fill('Lab People CSV')
-    await profiles.getByRole('button', { name: 'Save Profile' }).click()
+    await profiles.getByRole('button', { name: 'Saved Bulk Load Profiles' }).click()
+    await page.getByRole('menuitem', { name: 'Save As...' }).click()
+    const saveNew = page.getByRole('group', { name: 'Save New Bulk Load Profile' })
+    await saveNew.getByPlaceholder('Bulk Load Profile Name').fill('Lab People CSV')
+    await saveNew.getByRole('button', { name: 'Save Profile' }).click()
     await expect(profiles.locator('[data-qqq-id="saved-bulk-load-profile-message"]')).toHaveText('Profile Saved.')
+    await expectRunTouchReady(page, 'person.bulkInsert')
     await expect(page.locator('[data-qqq-id="process-step-heading"]')).toHaveText('File Mapping / Lab People CSV')
     const [saved] = await backend.sql('select id, label, table_name, user_id, is_bulk_edit, mapping_json from saved_bulk_load_profile')
     expect(saved).toMatchObject({ label: 'Lab People CSV', table_name: 'person', user_id: 'sample:alice', is_bulk_edit: 'FALSE' })
     expect(JSON.parse(saved.mapping_json!).fieldList).toContainEqual(expect.objectContaining({ fieldName: 'isEmployed', columnIndex: 3, doValueMapping: true }))
 
     // the same name again is refused by the backend
-    await profiles.getByRole('button', { name: 'Save As...' }).click()
-    await profiles.getByLabel('Profile Name').fill('Lab People CSV')
-    await profiles.getByRole('button', { name: 'Save Profile' }).click()
-    await expect(profiles.locator('[data-qqq-id="saved-bulk-load-profile-error"]')).toHaveText('You already have a saved Bulk Load Profile on this table with this name.')
+    await profiles.getByRole('button', { name: 'Saved Bulk Load Profiles' }).click()
+    await page.getByRole('menuitem', { name: 'Save As...' }).click()
+    const saveAs = page.getByRole('group', { name: 'Save Bulk Load Profile As' })
+    await saveAs.getByPlaceholder('Bulk Load Profile Name').fill('Lab People CSV')
+    await saveAs.getByRole('button', { name: 'Save Profile' }).click()
+    await expect(saveAs.locator('[data-qqq-id="saved-bulk-load-profile-error"]')).toHaveText('You already have a saved Bulk Load Profile on this table with this name.')
+    await saveAs.getByRole('button', { name: 'Cancel' }).click()
     expect(await backend.sql('select count(*) as n from saved_bulk_load_profile')).toEqual([{ n: '1' }])
 
     // a later load chooses the saved profile, which restores its mapping and names it on review
@@ -325,7 +344,8 @@ test.describe('Bulk load', () => {
     await advance(page, 'Next')
     const again = await expectScreen(page, 'fileMapping', 'File Mapping')
     await expect(again.locator('[data-qqq-id="checkbox-bulk-load-map-values-isEmployed"]')).not.toBeChecked()
-    await again.getByLabel('Saved bulk load profile', { exact: true }).selectOption({ label: 'Lab People CSV' })
+    await again.getByRole('button', { name: 'Saved Bulk Load Profiles' }).click()
+    await page.getByRole('group', { name: 'Your Saved Bulk Load Profiles' }).getByRole('menuitem', { name: 'Lab People CSV' }).click()
     await expect(again.locator('[data-qqq-id="checkbox-bulk-load-map-values-isEmployed"]')).toBeChecked()
     await advance(page, 'Next')
     const values = await expectScreen(page, 'valueMapping', 'Value Mapping: Is Employed (1 of 1)')
@@ -338,18 +358,21 @@ test.describe('Bulk load', () => {
     // deleting from the mapping screen removes it
     await page.getByRole('button', { name: 'Back' }).click()
     const back = await expectScreen(page, 'fileMapping', 'File Mapping / Lab People CSV')
-    await back.getByRole('button', { name: 'Delete...' }).click()
-    await back.getByRole('button', { name: 'Delete Profile' }).click()
+    await back.getByRole('button', { name: 'Saved Bulk Load Profiles' }).click()
+    await page.getByRole('menuitem', { name: 'Delete...' }).click()
+    await page.getByRole('dialog', { name: 'Delete Bulk Load Profile' }).getByRole('button', { name: 'Delete' }).click()
     await expect(back.locator('[data-qqq-id="saved-bulk-load-profile-message"]')).toHaveText('Profile Deleted.')
     expect(await backend.sql('select count(*) as n from saved_bulk_load_profile')).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-034] upload instructions offer a downloadable template file', async ({ page, diagnostics }) => {
+  test('[PRC-034] upload instructions offer a downloadable template file @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkInsert')
     const upload = await expectScreen(page, 'upload', 'Upload File')
     await upload.getByText('File Upload Instructions').click()
     const template = upload.getByRole('link', { name: 'Person - Flat.csv' })
+    await expect(template).toBeVisible()
+    await expectRunTouchReady(page, 'person.bulkInsert')
     const [download] = await Promise.all([page.waitForEvent('download'), template.click()])
     expect(download.suggestedFilename()).toBe('Person - Flat.csv')
     expect(readFileSync(await download.path(), 'utf8').split('\n')[0]).toBe('Email,First Name,Last Name,Annual Salary,Birth Date,Days Worked,Is Employed')

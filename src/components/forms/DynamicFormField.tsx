@@ -36,7 +36,9 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
-import { selectHelpContent } from '@/lib/utils/help-utils'
+import { caseTransform, numberAdornments, transformInputValue } from '@/lib/utils/form-layout'
+import { selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from '@/components/records/HelpContent'
 
 import { TextField } from './field-types/TextField'
@@ -48,14 +50,21 @@ import { PasswordField } from './field-types/PasswordField'
 import { FileUploadField } from './field-types/FileUploadField'
 import { PossibleValueSelect } from './PossibleValueSelect'
 import { RichTextField } from './RichTextField'
-import { ScriptEditor, type ScriptEditorProps } from './ScriptEditor'
+import { ScriptEditor, scriptEditorLanguage } from './ScriptEditor'
+import { WidgetAdornmentField } from './WidgetAdornmentField'
 
 /**
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Surrounding values available to a field widget without making them editable. */
+  contextValues?: Record<string, unknown>
+  /** Optional hint supplied by an input block. */
+  placeholder?: string
   /** Metadata describing the field to render. */
   field: QFieldMetaData
+  /** Help slot key shown in help-authoring mode (`?helpHelp`), e.g. `table:person;field:email`. */
+  helpKey?: string
   /** Distinguishes inputs when multiple draft records render the same field. */
   idPrefix?: string
   /** React Hook Form register function from the parent `useForm` instance. */
@@ -82,6 +91,10 @@ interface DynamicFormFieldProps {
   helpRoles?: readonly string[]
   /** Limit typing to `maxLength` (process forms); record forms leave it to the server's too-long policy. */
   enforceMaxLength?: boolean
+  /** Called when a text-like input loses focus, with its value (form adjusters run on blur). */
+  onFieldBlur?: (fieldName: string, value: unknown) => void
+  /** Possible-value labels to show for values the form set (form adjusters), by field name. */
+  displayValueOverrides?: Record<string, string>
 }
 
 /**
@@ -108,7 +121,8 @@ function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { fiel
       <span className="hidden sm:inline-flex">
         <TooltipPrimitive.Provider delayDuration={300}>
           <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}>
+            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
+              onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
               <button
                 type="button"
                 tabIndex={0}
@@ -178,7 +192,6 @@ function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { fiel
  * @returns The children, optionally wrapped in an aria-describedby container.
  */
 function FieldWithHelp({
-  field,
   helpId,
   children,
 }: {
@@ -186,16 +199,15 @@ function FieldWithHelp({
   children: React.ReactNode
   helpId?: string
 }) {
-  const hasHelp = field.helpContents && field.helpContents.length > 0 && field.helpContents[0]?.content
-
-  if (!hasHelp) {
+  // helpId is set exactly when help applies (in help-authoring mode, for every field)
+  if (!helpId) {
     return <>{children}</>
   }
 
   return (
     <div
       className="relative"
-      aria-describedby={helpId ?? `field-help-content-${field.name}`}
+      aria-describedby={helpId}
     >
       {children}
     </div>
@@ -247,6 +259,8 @@ function DirtyWrapper({
  */
 export function DynamicFormField({
   field,
+  placeholder,
+  contextValues,
   idPrefix,
   register,
   control,
@@ -258,7 +272,11 @@ export function DynamicFormField({
   showReadOnly = false,
   helpRoles,
   enforceMaxLength = true,
+  onFieldBlur,
+  displayValueOverrides,
+  helpKey,
 }: DynamicFormFieldProps) {
+  const helpHelpActive = useHelpHelpActive()
   if (field.isHidden) return null
   if (!field.isEditable && !disabled && !showReadOnly) return null
 
@@ -268,9 +286,13 @@ export function DynamicFormField({
   const dataQqqId = field.name
 
   const roles = helpRoles ?? (possibleValueContext?.type === 'process' ? PROCESS_SCREEN_ROLES : ALL_SCREEN_ROLES)
-  const helpContent = selectHelpContent(field.helpContents, roles)
+  const helpContent = selectSlotHelpContent(field.helpContents, roles, helpKey ?? `field:${field.name}`, helpHelpActive)
   const hasHelp = Boolean(helpContent)
   const helpDescribedBy = hasHelp ? `${idPrefix ? `${idPrefix}-` : ''}field-help-content-${field.name}` : undefined
+  // Text-like inputs: a form adjuster runs when the input loses focus (Material's blur handler).
+  const registration = () => register(field.name, onFieldBlur
+    ? { onBlur: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onFieldBlur(field.name, event.target.value) }
+    : undefined)
 
   if (!field.isEditable && showReadOnly) {
     // A WIDGET-adorned value is a computed display (widget data), not an editable value.
@@ -283,8 +305,13 @@ export function DynamicFormField({
     )
   }
 
-  // Fields with possibleValues use PossibleValueSelect (async combobox)
-  if (field.possibleValueSourceName) {
+  if (hasAdornment(field, 'WIDGET')) {
+    return <WidgetAdornmentField contextValues={contextValues} field={field} control={control} disabled={disabled} possibleValueContext={possibleValueContext} />
+  }
+
+  // Fields with possible values (a named source, or values declared inline) use PossibleValueSelect
+  const inlineOptions = field.inlinePossibleValueSource ? (field.inlinePossibleValueSource.enumValues ?? []) : undefined
+  if (field.possibleValueSourceName || inlineOptions) {
     const pvContext: PossibleValueContext = possibleValueContext ?? { type: 'standalone' }
     return (
       <DirtyWrapper isDirty={isDirty}>
@@ -296,7 +323,10 @@ export function DynamicFormField({
             control={control as Control<Record<string, unknown>>}
             fieldName={field.name}
             possibleValueSourceName={field.possibleValueSourceName}
-            initialLabel={record?.displayValues?.[field.name]}
+            placeholder={placeholder}
+            initialLabel={displayValueOverrides?.[field.name] ?? record?.displayValues?.[field.name]}
+            inlineOptions={inlineOptions}
+            chipField={field}
             context={pvContext}
             error={fieldError}
             disabled={isDisabled}
@@ -348,7 +378,7 @@ export function DynamicFormField({
                 label={field.isRequired ? `${field.label} *` : field.label}
                 value={typeof controllerField.value === 'string' ? controllerField.value : ''}
                 onChange={controllerField.onChange}
-                language={scriptLanguage(mode)}
+                language={scriptEditorLanguage(mode)}
                 readOnly={isDisabled}
                 error={fieldError}
               />
@@ -366,14 +396,16 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -381,7 +413,9 @@ export function DynamicFormField({
         </DirtyWrapper>
       )
 
-    case 'TEXT':
+    case 'TEXT': {
+      const textRegistration = registration()
+      const transform = caseTransform(field)
       return (
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
@@ -400,8 +434,13 @@ export function DynamicFormField({
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
               </div>
               <textarea
+                placeholder={placeholder}
                 id={fieldId}
-                {...register(field.name)}
+                {...textRegistration}
+                onChange={(event) => {
+                  if (transform) transformInputValue(event.currentTarget, transform)
+                  void textRegistration.onChange(event)
+                }}
                 disabled={isDisabled}
                 aria-required={field.isRequired}
                 aria-invalid={fieldError ? true : undefined}
@@ -425,6 +464,7 @@ export function DynamicFormField({
           </FieldWithHelp>
         </DirtyWrapper>
       )
+    }
 
     case 'HTML':
       return (
@@ -474,9 +514,10 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -484,6 +525,7 @@ export function DynamicFormField({
               minValue={field.minValue}
               maxValue={field.maxValue}
               describedBy={helpDescribedBy}
+              {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -496,9 +538,10 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -506,6 +549,7 @@ export function DynamicFormField({
               minValue={field.minValue}
               maxValue={field.maxValue}
               describedBy={helpDescribedBy}
+              {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -539,7 +583,7 @@ export function DynamicFormField({
             <DateField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -558,7 +602,7 @@ export function DynamicFormField({
             <DateTimeField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               required={field.isRequired}
@@ -592,7 +636,7 @@ export function DynamicFormField({
                 id={fieldId}
                 type="time"
                 step={1}
-                {...register(field.name)}
+                {...registration()}
                 disabled={isDisabled}
                 aria-required={field.isRequired}
                 aria-invalid={fieldError ? true : undefined}
@@ -623,13 +667,14 @@ export function DynamicFormField({
             <PasswordField
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
-              placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : undefined}
+              placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : placeholder}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -642,14 +687,16 @@ export function DynamicFormField({
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
+              placeholder={placeholder}
               id={fieldId}
               label={field.label}
-              registration={register(field.name)}
+              registration={registration()}
               error={fieldError}
               disabled={isDisabled}
               maxLength={enforceMaxLength ? field.maxLength : undefined}
               required={field.isRequired}
               describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
             {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -664,17 +711,6 @@ const ALL_SCREEN_ROLES = ['ALL_SCREENS'] as const
 /** Help roles of process screens. */
 const PROCESS_SCREEN_ROLES = ['PROCESS_SCREEN', 'ALL_SCREENS'] as const
 
-/**
- * Maps a CODE_EDITOR `languageMode` to a {@link ScriptEditor} language.
- *
- * @param mode - The adornment's language mode.
- * @returns The editor language (`text` when not one of its languages).
- */
-function scriptLanguage(mode: string): NonNullable<ScriptEditorProps['language']> {
-  const languages: NonNullable<ScriptEditorProps['language']>[] = ['javascript', 'groovy', 'python', 'sql', 'json', 'text']
-  const normalized = mode.toLowerCase() as NonNullable<ScriptEditorProps['language']>
-  return languages.includes(normalized) ? normalized : 'text'
-}
 
 /**
  * The file a BLOB field currently holds, for the upload control of an edit form.

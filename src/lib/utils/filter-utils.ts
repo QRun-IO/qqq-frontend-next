@@ -35,6 +35,8 @@ import type {
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
   ExpressionTimeUnit,
+  QFieldFunction,
+  QInstance,
 } from '@/types'
 
 /** A single criteria value: a scalar or a backend-evaluated expression. */
@@ -115,7 +117,116 @@ export const OPERATOR_CONFIG: Record<QCriteriaOperator, OperatorConfig> = {
 }
 
 /** Value input shapes, mirroring Material's `ValueMode` (dates are chosen by field type). */
-export type ValueMode = 'none' | 'single' | 'double' | 'multi'
+export type ValueMode = 'none' | 'single' | 'double' | 'multi' | 'weekdays'
+
+// ------------------------------------------------------------------
+// Weekday criteria (Material's "day is any of" / "day is none of")
+// ------------------------------------------------------------------
+
+/** Field function that compares a DATE field's weekday (ISO: Monday 1 to Sunday 7). */
+export const WEEKDAY_OF_DATE = 'WeekdayOfDate'
+/** Field function that compares a DATE_TIME field's weekday, in a time zone its arguments choose. */
+export const WEEKDAY_OF_DATE_TIME = 'WeekdayOfDateTime'
+
+/** The instance's `materialDashboard.weekdayCriteriaSettings`. */
+export interface WeekdayCriteriaSettings {
+  /** Whether weekday criteria are offered on DATE and DATE_TIME fields (Material default: yes). */
+  enabled: boolean
+  /** Arguments sent with the `WeekdayOfDateTime` function (for example `timeZoneId`). */
+  dateTimeFieldFunctionArguments?: Record<string, unknown>
+}
+
+/** Weekday criteria as Material offers them when an instance does not configure them. */
+export const DEFAULT_WEEKDAY_CRITERIA_SETTINGS: WeekdayCriteriaSettings = { enabled: true }
+
+/**
+ * Narrows a value to a plain object.
+ *
+ * @param value - Any value.
+ * @returns The object, or undefined.
+ */
+function asObject(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
+}
+
+/**
+ * Reads the weekday criteria settings from instance metadata
+ * (`supplementalInstanceMetaData.materialDashboard.weekdayCriteriaSettings`).
+ *
+ * @param metaData - Instance metadata, when loaded.
+ * @returns The settings; enabled unless the instance turns them off.
+ */
+export function weekdayCriteriaSettings(metaData: Pick<QInstance, 'supplementalInstanceMetaData'> | undefined): WeekdayCriteriaSettings {
+  const settings = asObject(asObject(asObject(metaData?.supplementalInstanceMetaData)?.materialDashboard)?.weekdayCriteriaSettings)
+  if (!settings) return DEFAULT_WEEKDAY_CRITERIA_SETTINGS
+  const args = asObject(settings.dateTimeFieldFunctionArguments)
+  return { enabled: settings.enabled !== false, ...(args && Object.keys(args).length > 0 ? { dateTimeFieldFunctionArguments: args } : {}) }
+}
+
+/** A weekday choice: ISO day number (Monday 1 to Sunday 7) and its name. */
+export interface WeekdayOption {
+  /** ISO day number. */
+  id: number
+  /** English day name. */
+  label: string
+}
+
+const WEEKDAYS: WeekdayOption[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((label, i) => ({ id: i + 1, label }))
+
+/**
+ * The locale's first day of the week (ISO number), as Material reads it; Sunday when unknown.
+ *
+ * @param language - BCP 47 locale; defaults to the browser's.
+ * @returns 1 (Monday) to 7 (Sunday).
+ */
+export function localeFirstDayOfWeek(language?: string): number {
+  try {
+    const tag = language ?? (typeof navigator !== 'undefined' ? navigator.language : 'en-US')
+    const locale = new Intl.Locale(tag) as Intl.Locale & { getWeekInfo?: () => { firstDay?: number }; weekInfo?: { firstDay?: number } }
+    const info = typeof locale.getWeekInfo === 'function' ? locale.getWeekInfo() : locale.weekInfo
+    const firstDay = info?.firstDay
+    return typeof firstDay === 'number' && firstDay >= 1 && firstDay <= 7 ? firstDay : 7
+  } catch {
+    return 7
+  }
+}
+
+/**
+ * The seven weekdays, starting from a first day of the week (Material's weekday possible values).
+ *
+ * @param firstDay - ISO number of the first day; defaults to the browser locale's.
+ * @returns Weekday options in display order.
+ */
+export function weekdayOptions(firstDay: number = localeFirstDayOfWeek()): WeekdayOption[] {
+  const start = Math.min(7, Math.max(1, Math.trunc(firstDay))) - 1
+  return [...WEEKDAYS.slice(start), ...WEEKDAYS.slice(0, start)]
+}
+
+/**
+ * Name of an ISO weekday number.
+ *
+ * @param value - 1 to 7 (a number or numeric text).
+ * @returns The day name, or undefined for another value.
+ */
+export function weekdayLabel(value: unknown): string | undefined {
+  return WEEKDAYS.find((day) => String(day.id) === String(value).trim())?.label
+}
+
+/**
+ * Whether a field function is one of the weekday functions.
+ *
+ * @param fieldFunction - A criterion's field function.
+ * @returns True for `WeekdayOfDate` and `WeekdayOfDateTime`.
+ */
+export function isWeekdayFunction(fieldFunction: Pick<QFieldFunction, 'functionTypeIdentifierName'> | undefined): boolean {
+  return fieldFunction?.functionTypeIdentifierName === WEEKDAY_OF_DATE || fieldFunction?.functionTypeIdentifierName === WEEKDAY_OF_DATE_TIME
+}
+
+/** Settings that shape a field's operator options. */
+export interface OperatorOptionSettings {
+  /** Weekday criteria settings; weekday options are offered only when given and enabled. */
+  weekday?: WeekdayCriteriaSettings
+}
 
 /** One entry in a field's operator dropdown. */
 export interface OperatorOption {
@@ -129,6 +240,8 @@ export interface OperatorOption {
   valueMode: ValueMode
   /** Values the option implies (boolean "equals yes"/"equals no"); no input is shown. */
   implicitValues?: (string | number | boolean)[]
+  /** Field function the option applies (the weekday options). */
+  fieldFunction?: Omit<QFieldFunction, 'fieldName'>
 }
 
 /**
@@ -145,12 +258,42 @@ function option(operator: QCriteriaOperator, label: string, valueMode: ValueMode
 }
 
 /**
+ * Builds a weekday option ("day is any of" / "day is none of").
+ *
+ * @param operator - IN or NOT_IN.
+ * @param functionTypeIdentifierName - The weekday function.
+ * @param args - Function arguments (DATE_TIME only).
+ * @returns The option.
+ */
+function weekdayOption(operator: 'IN' | 'NOT_IN', functionTypeIdentifierName: string, args?: Record<string, unknown>): OperatorOption {
+  return {
+    id: `${operator}:${functionTypeIdentifierName}`, label: operator === 'IN' ? 'day is any of' : 'day is none of', operator, valueMode: 'weekdays',
+    fieldFunction: { functionTypeIdentifierName, ...(args ? { arguments: args } : {}) },
+  }
+}
+
+/**
+ * The weekday options for a date or date-time field, when the settings enable them.
+ *
+ * @param fieldType - DATE or DATE_TIME.
+ * @param settings - Operator option settings.
+ * @returns The two weekday options, or none.
+ */
+function weekdayOptionsFor(fieldType: 'DATE' | 'DATE_TIME', settings: OperatorOptionSettings): OperatorOption[] {
+  if (!settings.weekday?.enabled) return []
+  const name = fieldType === 'DATE' ? WEEKDAY_OF_DATE : WEEKDAY_OF_DATE_TIME
+  const args = fieldType === 'DATE_TIME' ? settings.weekday.dateTimeFieldFunctionArguments : undefined
+  return [weekdayOption('IN', name, args), weekdayOption('NOT_IN', name, args)]
+}
+
+/**
  * Returns the operator options offered for a field, in Material's order and wording.
  *
  * @param field - The field (type and possible value source) being filtered.
+ * @param settings - Weekday criteria settings; without them the plain Material list is returned.
  * @returns Ordered operator options.
  */
-export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>): OperatorOption[] {
+export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>, settings: OperatorOptionSettings = {}): OperatorOption[] {
   if (field.possibleValueSourceName) {
     return [
       option('EQUALS', 'equals', 'single'),
@@ -191,6 +334,7 @@ export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibl
         option('IS_NOT_BLANK', 'is not empty', 'none'),
         option('BETWEEN', 'is between', 'double'),
         option('NOT_BETWEEN', 'is not between', 'double'),
+        ...weekdayOptionsFor('DATE', settings),
       ]
     case 'DATE_TIME':
       return [
@@ -204,6 +348,7 @@ export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibl
         option('IS_NOT_BLANK', 'is not empty', 'none'),
         option('BETWEEN', 'is between', 'double'),
         option('NOT_BETWEEN', 'is not between', 'double'),
+        ...weekdayOptionsFor('DATE_TIME', settings),
       ]
     case 'BOOLEAN':
       return [
@@ -255,13 +400,74 @@ export function valueModeForOperator(operator: QCriteriaOperator): ValueMode {
  * @returns The matching or synthesized option.
  */
 export function selectedOperatorOption(options: OperatorOption[], criterion: QFilterCriteria): OperatorOption {
-  const matches = options.filter((o) => o.operator === criterion.operator)
+  const functionName = criterion.fieldFunction?.functionTypeIdentifierName
+  const matches = options.filter((o) => o.operator === criterion.operator && o.fieldFunction?.functionTypeIdentifierName === functionName)
   const implicit = matches.find((o) => o.implicitValues && JSON.stringify(o.implicitValues) === JSON.stringify(criterion.values))
   if (implicit) return implicit
   const plain = matches.find((o) => !o.implicitValues)
   if (plain) return plain
+  if (functionName && isWeekdayFunction(criterion.fieldFunction) && (criterion.operator === 'IN' || criterion.operator === 'NOT_IN')) {
+    return weekdayOption(criterion.operator, functionName, criterion.fieldFunction?.arguments)
+  }
   const config = OPERATOR_CONFIG[criterion.operator]
   return option(criterion.operator, config?.label ?? criterion.operator, valueModeForOperator(criterion.operator))
+}
+
+/**
+ * Whether a criterion's operator (and field function) is one the field offers, so editors
+ * that only show the offered options (quick filters) can show it.
+ *
+ * @param options - The field's operator options.
+ * @param criterion - The criterion.
+ * @returns True when an offered option matches.
+ */
+export function isOfferedOperator(options: OperatorOption[], criterion: QFilterCriteria): boolean {
+  const selected = selectedOperatorOption(options, criterion)
+  return options.some((o) => o.id === selected.id)
+}
+
+/**
+ * Number of values an operator option keeps.
+ *
+ * @param operatorOption - The option.
+ * @returns The count, or undefined for "any number".
+ */
+export function requiredValueCount(operatorOption: OperatorOption): number | undefined {
+  switch (operatorOption.valueMode) {
+    case 'none':
+      return 0
+    case 'single':
+      return 1
+    case 'double':
+      return 2
+    default:
+      return undefined
+  }
+}
+
+/**
+ * Switches a criterion to another operator option, as Material's operator change does: implied
+ * values replace the values, surplus values are dropped, values are reset when moving between
+ * weekday and date inputs, and the option's field function is set (or removed).
+ *
+ * @param criterion - The criterion being edited.
+ * @param current - Its current option, if any.
+ * @param next - The chosen option.
+ * @returns The updated criterion.
+ */
+export function changeCriterionOperator(criterion: QFilterCriteria, current: OperatorOption | undefined, next: OperatorOption): QFilterCriteria {
+  let values: CriteriaValue[] = next.implicitValues ? [...next.implicitValues] : current?.implicitValues ? [] : criterion.values.filter((v) => v !== null)
+  if (!next.implicitValues && current && (current.valueMode === 'weekdays') !== (next.valueMode === 'weekdays')) values = []
+  const count = next.implicitValues ? undefined : requiredValueCount(next)
+  if (count !== undefined && values.length > count) values = values.slice(0, count)
+  const { fieldFunction: _previous, ...rest } = criterion
+  void _previous
+  return {
+    ...rest,
+    operator: next.operator,
+    values,
+    ...(next.fieldFunction ? { fieldFunction: { fieldName: criterion.fieldName, ...next.fieldFunction } } : {}),
+  }
 }
 
 /**
@@ -356,14 +562,15 @@ export interface ResolvedField {
  * @returns The resolved field, or undefined when it is not part of this table's metadata.
  */
 export function resolveField(table: QTableMetaData, fieldName: string): ResolvedField | undefined {
-  const base = table.fields?.[fieldName]
+  // a stored field, else a virtual one (Material's getFieldOrVirtualField)
+  const base = table.fields?.[fieldName] ?? table.virtualFields?.[fieldName]
   if (base) return { field: base, tableName: table.name, tableLabel: table.label, isJoin: false, label: base.label }
   const dot = fieldName.indexOf('.')
   if (dot < 0) return undefined
   const joinTableName = fieldName.slice(0, dot)
   const joinFieldName = fieldName.slice(dot + 1)
   const exposed = (table.exposedJoins ?? []).find((join) => join.joinTable?.name === joinTableName)
-  const field = exposed?.joinTable?.fields?.[joinFieldName]
+  const field = exposed?.joinTable?.fields?.[joinFieldName] ?? exposed?.joinTable?.virtualFields?.[joinFieldName]
   if (!exposed || !field) return undefined
   const joinLabel = exposed.label || exposed.joinTable?.label || joinTableName
   return { field, tableName: joinTableName, tableLabel: exposed.joinTable?.label ?? joinTableName, isJoin: true, label: `${joinLabel}: ${field.label}` }
@@ -422,6 +629,48 @@ export function isCriterionComplete(criterion: QFilterCriteria | undefined): boo
     default:
       return isSet(values[0])
   }
+}
+
+/** A criterion's status, with the explanation Material shows on its status icon. */
+export interface CriterionStatus {
+  /** Whether the condition is complete and part of the filter. */
+  valid: boolean
+  /** What the condition still needs, or that it is complete. */
+  message: string
+}
+
+/**
+ * Explains whether a criterion is complete (Material's `validateCriteria` messages).
+ *
+ * @param criterion - The criterion to check.
+ * @returns Its status and message.
+ */
+export function validateCriterion(criterion: QFilterCriteria | undefined): CriterionStatus {
+  if (!criterion) return { valid: false, message: 'This condition is not defined.' }
+  if (!criterion.fieldName) return { valid: false, message: 'You must select a field to begin to define this condition.' }
+  if (!criterion.operator || !OPERATOR_CONFIG[criterion.operator]) return { valid: false, message: 'You must select an operator to continue to define this condition.' }
+  if (isCriterionComplete(criterion)) return { valid: true, message: 'This condition is fully defined and is part of your filter.' }
+  switch (OPERATOR_CONFIG[criterion.operator].valueCount) {
+    case 'range':
+      return { valid: false, message: 'You must enter two values to complete the definition of this condition.' }
+    case 'multiple':
+      return { valid: false, message: 'You must enter one or more values to complete the definition of this condition.' }
+    default:
+      return { valid: false, message: 'You must enter a value to complete the definition of this condition.' }
+  }
+}
+
+/**
+ * The live case transform a field's behaviors ask for (`TO_UPPER_CASE` / `TO_LOWER_CASE`),
+ * applied to typed filter values as Material does.
+ *
+ * @param behaviors - The field's behavior names.
+ * @returns The transform, or undefined when the field has none.
+ */
+export function caseBehaviorTransform(behaviors: readonly string[] | undefined): ((value: string) => string) | undefined {
+  if (behaviors?.includes('TO_UPPER_CASE')) return (value) => value.toUpperCase()
+  if (behaviors?.includes('TO_LOWER_CASE')) return (value) => value.toLowerCase()
+  return undefined
 }
 
 /**
@@ -661,6 +910,12 @@ export function prepFilterForBackend(filter: QQueryFilter, fieldFor: (fieldName:
       criteria.push({ fieldName: criterion.fieldName, operator: criterion.operator, values: criterion.operator === 'EQUALS' ? criterion.values : [] })
       continue
     }
+    if (criterion.fieldFunction && isWeekdayFunction(criterion.fieldFunction)) {
+      // weekday criteria compare ISO day numbers, whatever the field's own type
+      const days = criterion.values.filter((v) => isSet(v)).map((v) => (typeof v === 'string' && Number.isFinite(Number(v.trim())) ? Number(v.trim()) : v))
+      criteria.push({ ...criterion, values: days, fieldFunction: { ...criterion.fieldFunction, fieldName: criterion.fieldName } })
+      continue
+    }
     const field = fieldFor(criterion.fieldName)
     criteria.push({ ...criterion, values: criterion.values.filter((v) => isSet(v)).map((v) => cleanseValue(v, field)) })
   }
@@ -680,6 +935,20 @@ export function prepFilterForBackend(filter: QQueryFilter, fieldFor: (fieldName:
  */
 export function isFilterVariableExpression(v: unknown): v is FilterVariableExpression {
   return typeof v === 'object' && v !== null && (v as { type?: string }).type === 'FilterVariableExpression'
+}
+
+/** Material's warning when a filter cannot run until a variable has a value. */
+export const MISSING_FILTER_VARIABLE_MESSAGE = 'Cannot perform query because of a missing value for a variable.'
+
+/**
+ * Whether any criterion, including one in a nested group, has an unresolved variable.
+ * @param filter - The filter or an incomplete draft.
+ * @returns Whether a variable value still needs to be supplied.
+ */
+export function hasFilterVariables(filter: Partial<QQueryFilter> | undefined): boolean {
+  if (!filter) return false
+  if ((filter.criteria ?? []).some((criterion) => (criterion?.values ?? []).some(isFilterVariableExpression))) return true
+  return (filter.subFilters ?? []).some(hasFilterVariables)
 }
 
 /**
@@ -747,9 +1016,24 @@ export function describeExpression(expression: FilterExpression, fieldType: QFie
     return `${expression.amount} ${unitWord(expression.timeUnit, expression.amount)} ${expression.operator === 'MINUS' ? 'ago' : 'from now'}`
   }
   if (isThisOrLastPeriodExpression(expression)) {
-    return `start of ${expression.operator === 'LAST' ? 'last' : 'this'} ${unitWord(expression.timeUnit)}`
+    // Material: "today"/"yesterday" for days; "start of" for date-times and longer periods
+    const period = expression.timeUnit === 'DAYS'
+      ? (expression.operator === 'LAST' ? 'yesterday' : 'today')
+      : `${expression.operator === 'LAST' ? 'last' : 'this'} ${unitWord(expression.timeUnit)}`
+    return fieldType === 'DATE_TIME' || expression.timeUnit !== 'DAYS' ? `start of ${period}` : period
   }
-  return `\${${expression.variableName}}`
+  return describeVariable(expression)
+}
+
+/**
+ * Text for a filter variable: `${NAME}` once the backend has named it, else Material's
+ * `${VARIABLE}` (a variable just assigned in the filter editor has no name yet).
+ *
+ * @param expression - The variable expression.
+ * @returns The display text.
+ */
+export function describeVariable(expression: FilterVariableExpression): string {
+  return `\${${expression.variableName || 'VARIABLE'}}`
 }
 
 /**

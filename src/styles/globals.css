@@ -1,5 +1,40 @@
 @import "tailwindcss";
 
+/* ThemeProvider owns the mode; the OS must not independently restyle components. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* RapiDoc's overview has a negative info margin and fixed-width action buttons.
+   Use its public CSS parts to keep the controls inside narrow dashboard panels. */
+@container (max-width: 767px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(section-overview) {
+    padding-inline: 16px;
+    container: qqq-api-overview / inline-size;
+  }
+}
+
+@container qqq-api-overview (max-width: 767px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(btn) {
+    min-width: 0;
+    flex: 1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Wide overview labels must also fit application fonts with larger glyphs.
+   Naming the overview container confines this rule to its specification actions. */
+@container (min-width: 768px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(section-overview) {
+    container: qqq-api-overview-wide / inline-size;
+  }
+}
+
+@container qqq-api-overview-wide (min-width: 0px) {
+  [data-qqq-id="table-dev-api-docs"] rapi-doc::part(btn) {
+    min-width: max-content;
+  }
+}
+
 /* Register semantic colors with Tailwind v4's utility system */
 @theme {
   /* Surface colors */
@@ -13,6 +48,8 @@
   /* Brand */
   --color-primary: #2563eb;
   --color-primary-foreground: #ffffff;
+  /* Text can adapt to dark surfaces independently of branded button fills. */
+  --text-color-primary: var(--color-primary);
 
   /* Neutral surfaces */
   --color-secondary: #f0f2f6;
@@ -81,6 +118,41 @@
   }
 }
 
+/* Touch targets (QRun-IO/qqq#708): on a touch screen every control is at least 44 x 44 CSS px
+ * (WCAG 2.5.5). Keyed to the pointer, not the width, so mouse layouts are unchanged at any size
+ * and tablets in the desktop layout get the larger targets too. Zero specificity (:where) keeps
+ * component classes in charge; a label wrapping a checkbox or radio is the target for its box.
+ * Links in running text and data values keep their inline size (WCAG 2.5.5 inline exception). */
+@media (pointer: coarse) {
+  :where(button, select, summary, [role="button"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"],
+    [role="menuitemradio"], [role="option"], [role="combobox"],
+    input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="color"])) {
+    min-height: 44px;
+  }
+  :where(button, summary, [role="button"], [role="tab"], [role="radio"]) {
+    min-width: 44px;
+  }
+  :where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* WebKit (iPad) sizes a native menulist select by its font and ignores min-height, so a
+   * touch select draws its own arrow and takes the 44 px box like every other control.
+   * Safari also ignores min-height on a select with an author border but honors height;
+   * :where() keeps this at zero specificity, so a class height still wins (and min-height
+   * still lifts it to 44 px). */
+  :where(select:not([multiple], [size])) {
+    height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 1.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6270' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1rem;
+  }
+}
+
 /* D-T-5: Solid focus ring on dark backgrounds — the color-mix 50% opacity used in
  * the default rule can disappear against dark surfaces. A solid ring is always visible. */
 @media (prefers-color-scheme: dark) {
@@ -133,4 +205,87 @@
   textarea {
     font-size: 16px;
   }
+}
+
+/* Code coloring (QRun-IO/qqq#724): read-only code blocks and the overlay of CodeEditor, whose
+ * textarea text is transparent above it. Every color keeps 4.5:1 or more on the card, muted and
+ * accent surfaces, light and dark. */
+:root {
+  --qqq-code-keyword: #a0217f;
+  --qqq-code-literal: #005cc5;
+  --qqq-code-string: #0a6b32;
+  --qqq-code-number: #9a4800;
+  --qqq-code-comment: #5c6570;
+  --qqq-code-property: #1f4fb8;
+  --qqq-code-tag: #1a6a2c;
+  --qqq-code-attribute: #7a3e00;
+  --qqq-code-variable: #9b2226;
+  --qqq-code-directive: #7c3aed;
+}
+
+[data-theme="dark"],
+.dark {
+  --qqq-code-keyword: #f08bd5;
+  --qqq-code-literal: #79b8ff;
+  --qqq-code-string: #85e89d;
+  --qqq-code-number: #ffab70;
+  --qqq-code-comment: #9aa1b3;
+  --qqq-code-property: #9ecbff;
+  --qqq-code-tag: #85e89d;
+  --qqq-code-attribute: #ffab70;
+  --qqq-code-variable: #ff9a9a;
+  --qqq-code-directive: #c4a7ff;
+}
+
+.qqq-code-keyword { color: var(--qqq-code-keyword); font-weight: 600; }
+.qqq-code-literal { color: var(--qqq-code-literal); }
+.qqq-code-string { color: var(--qqq-code-string); }
+.qqq-code-number { color: var(--qqq-code-number); }
+.qqq-code-comment { color: var(--qqq-code-comment); font-style: italic; }
+.qqq-code-property { color: var(--qqq-code-property); }
+.qqq-code-tag { color: var(--qqq-code-tag); }
+.qqq-code-attribute { color: var(--qqq-code-attribute); }
+.qqq-code-variable { color: var(--qqq-code-variable); }
+.qqq-code-directive { color: var(--qqq-code-directive); font-weight: 600; }
+
+/* The overlay must match the textarea glyph for glyph: bold keywords would shift the caret. */
+.qqq-code-overlay .qqq-code-keyword,
+.qqq-code-overlay .qqq-code-directive {
+  font-weight: inherit;
+}
+
+/* Phones enlarge textarea text to 16px (no iOS zoom, above); the overlay follows. */
+@media screen and (max-width: 767px) {
+  .qqq-code-overlay {
+    font-size: 16px;
+  }
+}
+
+/* Forced colors ignore the transparent text: show the textarea's own text, hide the overlay. */
+@media (forced-colors: active) {
+  .qqq-code-overlay {
+    display: none;
+  }
+  .qqq-code-input {
+    color: CanvasText;
+  }
+}
+
+/* Legacy names absent from the Lucide map. Loaded only when a legacy glyph is used. */
+@font-face {
+  font-family: 'QQQ Legacy Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-icons/MaterialIcons-Regular.ttf') format('truetype');
+}
+
+.qqq-legacy-material-glyph {
+  font-family: 'QQQ Legacy Material Icons';
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  direction: ltr;
 }

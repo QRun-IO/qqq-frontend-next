@@ -526,7 +526,7 @@
     },
     {
       "id": "WID-029",
-      "feature": "pivotTableSetup widget shows the saved report's pivot definition",
+      "feature": "pivotTableSetup widget shows, edits and clears the saved report's pivot definition",
       "source": [
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/WidgetType.java",
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/SavedReportsMetaDataProvider.java",
@@ -534,10 +534,16 @@
       ],
       "fixture": "prime-sharing savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java owned pivot saved report",
       "scenarios": [
-        "rows/values labels from the source table"
+        "rows/values labels from the source table",
+        "modal OK updates only the host draft; host Save persists rows, columns and aggregate values with SQL readback and reopen",
+        "keyboard row reorder and value move preserve saved configuration",
+        "turning the pivot off clears the stored definition on host Save"
       ],
       "negative": [
-        "report without pivot shows message"
+        "report without pivot shows message",
+        "missing row fields and aggregate functions keep the editor open",
+        "Cancel discards added fields without changing the database",
+        "used group/value fields are excluded from choices; changing a numeric value to text clears an incompatible aggregate"
       ],
       "issues": [
         "#550"
@@ -560,6 +566,98 @@
       ],
       "issues": [
         "#550"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-070",
+      "feature": "filterAndColumnsSetup edits a saved report's filter, sort, columns and variable values through the host form",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:303-362",
+        "src/components/widgets/FilterAndColumnsSetupEditor.tsx"
+      ],
+      "fixture": "prime-sharing savedReport 1 (Pet Species Report, no pivot table); saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "Edit Filters and Columns opens the report setup dialog",
+        "OK writes queryFilterJson and columnsJson to the host form, and Save persists a changed sort to the backend",
+        "assigning a filter variable persists FilterVariableExpression in the backend JSON and shows ${VARIABLE} in the editor",
+        "import a saved view, reset changes to that view or reset to a new default draft without updating the saved view"
+      ],
+      "negative": [
+        "Cancel discards the draft; OK without host Save leaves the backend row unchanged",
+        "preview and Open in new window block a query while a filter variable lacks a value",
+        "resetting and cancelling leave both the report and all saved views unchanged"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-071",
+      "feature": "a WIDGET-adorned process form field renders filter setup and writes its own value",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/forms/DynamicFormFieldAsWidget.tsx",
+        "src/components/forms/WidgetAdornmentField.tsx"
+      ],
+      "fixture": "ProcessesFixtures.java prcFieldWidget with a queryFilterJson WIDGET adornment",
+      "scenarios": [
+        "the widget request names the adorned field, the editor updates its filter, and the next process screen receives the JSON"
+      ],
+      "negative": [
+        "other widget output fields are not written to the adorned field's host form"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-072",
+      "feature": "API-versioned report setup loads table metadata and previews through the application API",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:205-257",
+        "src/lib/hooks/use-filter-setup.ts"
+      ],
+      "fixture": "ApiVersionFixtures.java acceptanceApi 2026.Q3; savedReport 102; saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "the report editor loads person metadata and its preview rows and count through the real API-aware v1 routes"
+      ],
+      "negative": [
+        "an unsupported API version returns 404"
+      ],
+      "issues": [
+        722
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-073",
+      "feature": "report setup editor uses the full server-backed grid for paging, sorting and column sizing",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/FilterAndColumnsSetupWidget.tsx:482-526",
+        "src/components/widgets/FilterAndColumnsSetupEditor.tsx"
+      ],
+      "fixture": "savedReport 1 targeting petSpecies without a pivot; saved-reports-sharing.spec.ts",
+      "scenarios": [
+        "grid preview hides selection, changing page size changes the real backend query, header sorting changes the real backend query, and keyboard column resize persists in saved columns JSON",
+        "create a report from a query, switch to Audit, save and reopen, verify stored columns and download the CSV",
+        "filtered column statistics totals and exported value counts match SQL; closing statistics and cancelling the editor leave saved data unchanged",
+        "a table without COUNT still shows real preview rows and page copy matches SQL",
+        "variant-backed report previews choose, switch and remember the backend variant for query/count, copy and statistics on ordinary and application-API routes",
+        "complete nested criteria mark preview column headers; opening the indicator edits the existing condition and real preview rows match SQL",
+        "configured omitted joins disappear from new preview column/filter choices while saved joined values, editable criteria and column positions survive; changed results and reload match SQL; editor Cancel, Basic/Advanced, OK, host Save and reopen preserve joined criteria, sorts, order and width",
+        "hidePreview hides only the read-only summary; the editor retains real query rows, sorting and Refresh; Cancel, OK, host Save and reopen preserve the intended sort with the flag enabled and disabled",
+        "column menus fit 320px and 720px windows; keyboard End/Escape restores focus and pointer Copy/full-query and sorting remain reachable"
+      ],
+      "negative": [
+        "selection pseudo-column and incompatible previous-table fields are excluded from saved reports",
+        "full-column copy refuses results over the configured limit; an empty preview offers no column copy action; cancellation preserves the saved report",
+        "no query before selecting a required variant; an old variant copy response cannot overwrite a later copy; variant changes do not persist report edits",
+        "incomplete criteria do not mark columns; opening an indicator adds no condition; read-only preview edits and editor Cancel leave stored report JSON unchanged"
+      ],
+      "issues": [
+        722
       ],
       "required": true
     },
@@ -918,9 +1016,10 @@
         "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/dashboard/widgets/blocks/"
       ],
-      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks",
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java widgetBlocks/accBlocks and accLegacyIcons",
       "scenarios": [
-        "TEXT, BIG_NUMBER, UP_OR_DOWN_NUMBER, NUMBER_ICON_BADGE, ICON, TABLE_SUB_ROW_DETAIL_ROW, PROGRESS_BAR, DIVIDER, IMAGE, AUDIO, INPUT_FIELD, BUTTON"
+        "TEXT, BIG_NUMBER, UP_OR_DOWN_NUMBER, NUMBER_ICON_BADGE, ICON, TABLE_SUB_ROW_DETAIL_ROW, PROGRESS_BAR, DIVIDER, IMAGE, AUDIO, INPUT_FIELD, BUTTON",
+        "Unmapped legacy icon names render local glyphs in light/dark desktop/mobile modes; metadata navigation and main tiles preserve color, sizing, existing Lucide mappings and same-origin font delivery"
       ],
       "negative": [],
       "issues": [
@@ -1120,7 +1219,8 @@
       ],
       "fixture": "tests/acceptance/fixture/WidgetsFixtures.java acceptanceReports/accPersonInputReport",
       "scenarios": [
-        "minimumId filters rows >= value"
+        "minimumId filters rows >= value",
+        "Standard report inputs retain compact widths and an inline Generate Report action without a process header"
       ],
       "negative": [
         "empty required input blocks submit"
@@ -1220,17 +1320,21 @@
       "feature": "scheduled report: create a schedule for a saved report and view its cron schedule",
       "source": [
         "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ScheduledReportTableCustomizer.java",
-        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java"
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/actions/dashboard/widgets/CronUIWidgetRenderer.java",
+        "src/components/widgets/ChildRecordListWidget.tsx",
+        "src/components/records/CreateChildFromLinkDialog.tsx"
       ],
       "fixture": "scheduledReport (memory) for savedReport 1",
       "scenarios": [
-        "schedule persisted with cron description; record view shows the schedule widget"
+        "schedule persisted with cron description; record view shows the schedule widget",
+        "Add new on the saved report opens the Add Scheduled Report dialog over it with Saved Report preset and locked (Material #/createChild=); Create submits savedReportId=1, closes the dialog and reloads the child list"
       ],
       "negative": [
         "invalid cron expression rejected with message"
       ],
       "issues": [
-        "#673"
+        "#673",
+        "#714"
       ],
       "required": true
     },
@@ -1334,6 +1438,243 @@
       "negative": [],
       "issues": [
         "#665"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-064",
+      "feature": "cronUI schedule editor on record forms: Basic days/hours/minutes, Advanced expression, live description, validation, time zone",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/CronUIWidget.tsx",
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/scheduler/CronDescriber.java",
+        "src/components/forms/CronScheduleEditor.tsx",
+        "src/lib/utils/cron-utils.ts"
+      ],
+      "fixture": "scheduledReport (memory) for savedReport 1; tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accHostCron with a time-zone enum possible-value source",
+      "scenarios": [
+        "Basic mode builds weekdays, hours and minutes; the live description equals the cronDescription QQQ stores",
+        "Basic mode builds selected dates, Clear resets the schedule, and the Advanced hint names the part under the keyboard caret",
+        "Advanced mode edits the stored expression; the live description equals the backend widget description; expression and time zone persist (SQL)",
+        "an expression Basic mode cannot show opens Advanced with Basic disabled and the reason"
+      ],
+      "negative": [
+        "an out-of-range expression shows the error live and marks the input invalid",
+        "saving without a schedule shows the required error in the editor, focuses it, and saves nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#702"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-065",
+      "feature": "record view mounts only the active layout, so each section widget mounts and loads once",
+      "source": [
+        "src/components/records/RecordViewTabs.tsx",
+        "src/lib/hooks/use-media-query.ts"
+      ],
+      "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost",
+      "scenarios": [
+        "desktop tabs: every section widget is in the DOM once and requested once; no accordion is mounted",
+        "phone accordion: only open sections mount; each widget is requested once, on opening"
+      ],
+      "negative": [
+        "the desktop tab layout is not mounted at phone width"
+      ],
+      "issues": [
+        "QRun-IO/qqq#706"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-066",
+      "feature": "Widget metadata and widget data come from the v1 API",
+      "source": [
+        "src/lib/api/metadata.ts",
+        "src/lib/api/widgets.ts"
+      ],
+      "fixture": "widgetPermissions (accHealthy, accDenied), accPersonReport",
+      "scenarios": [
+        "v1 /metaData lists permitted widgets with hasPermission and the reports map",
+        "the dashboard renders its widgets from POST /qqq/v1/widget/{name} and makes no legacy metadata or widget request"
+      ],
+      "negative": [
+        "a denied widget is absent from v1 metadata, never requested, and refused (403) by POST /qqq/v1/widget without rendering"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-067",
+      "feature": "a widget whose payload is a single leaf block (Material block widget) renders that block",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:831-844",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/WidgetBlock.tsx",
+        "src/components/widgets/blocks/QqqComposite.tsx"
+      ],
+      "fixture": "WidgetsFixtures.java accLeafBlock (COMPOSITE widget whose renderer returns a TextBlockData)",
+      "scenarios": [
+        "The backend payload is the TEXT block itself (blockTypeName TEXT, no blocks list)",
+        "The widget shows the block's text as a TEXT block"
+      ],
+      "negative": [
+        "No empty COMPOSITE container is rendered in its place"
+      ],
+      "issues": [
+        714
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-068",
+      "feature": "table widget Material extras: typed cells (numbers with separators, html, htmlAndTooltip, image, composite), hidden helper columns, fr widths, sub-rows, sticky header, column-header help, paging (10 by default, numbered pages, jump-to-page, entries-per-page), export built from columns and rows, and a multi-table widget with an export button and footer per table",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/DataTable.tsx:64-557",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/TableWidget.tsx:55-177",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/tables/cells/ImageCell.tsx:35-58",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/DashboardWidgets.tsx:594-606",
+        "src/components/widgets/QqqTableWidget.tsx",
+        "src/components/widgets/table-widget-utils.ts",
+        "src/components/widgets/ConnectedWidget.tsx"
+      ],
+      "fixture": "WidgetTableChartFixtures.java widgetTableCharts/accTableCells, accTablePaging, accMultiTableExtras",
+      "scenarios": [
+        "Default cells show numbers with thousands separators; html cells render sanitized markup; an htmlAndTooltip cell shows the row's tooltip HTML on hover, focus or tap; an image cell shows the row's image, label and total; a composite cell renders its blocks",
+        "Columns of type hidden (tooltip, image helpers) are not shown",
+        "fr widths share the width left by fixed widths (2fr is twice 1fr; a 180px column keeps 180px)",
+        "A row with sub-rows expands and collapses them (nested rows are shaded; a sub-row expands its own sub-rows)",
+        "The columnHeader=name help slot shows its HTML help on the Name header",
+        "Without rowsPerPage 10 of 40 rows show, with numbered page buttons; the entries-per-page select (5-25) changes the page size; more than six pages become a jump-to-page input; the header stays at the top while the fixed-height body scrolls",
+        "Export without csvData downloads the Material CSV of every column (hidden ones too), quoted, with link text and without icon glyph text",
+        "Each table of a multi-table widget has its own label, export button (csvData or columns and rows) and footer; the widget itself has no export button"
+      ],
+      "negative": [
+        "Icon glyph text (open_in_new) never reaches the CSV",
+        "Collapsed sub-rows are not rendered",
+        "A sub-table's footer is not shown under another sub-table"
+      ],
+      "issues": [
+        728
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-069",
+      "feature": "chart widget Material extras: theme color names, legend toggles, single-series legends (horizontal bars, line badges), full pie with percent tooltip, stacked backgroundColor, stacked tooltip and right integer axis, rotating category labels, small line y ticks and grid, bar chart As of line",
+      "source": [
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/piechart/PieChartConfigs.ts:28-121",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/StackedBarChart.tsx:67-161",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/barchart/HorizontalBarChart.tsx:40-42",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/linechart/DefaultLineChart.tsx:154-165",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/linechart/LineChartConfigs.ts:43-99",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/charts/barchart/BarChart.tsx:150-178",
+        "src/components/widgets/QqqChartWidget.tsx"
+      ],
+      "fixture": "WidgetTableChartFixtures.java widgetTableCharts/accPieNamed, accStackedExtras, accLineBadges, accHorizontalLegend, accSmallLineTicks, accBarAsOf",
+      "scenarios": [
+        "Pie slices named info and success fill with the Material theme colors; the pie is full (no inner radius)",
+        "Hovering a slice shows its label, value and percent of the total",
+        "Clicking a legend entry hides that slice or series and clicking again shows it",
+        "Stacked datasets fill from their singular backgroundColor (a theme name or a CSS color); the tooltip names only the hovered dataset; the y axis sits on the right with whole-number ticks; long category labels turn",
+        "A single-series horizontal bar chart has a legend; a line chart names its series in badges above the chart",
+        "A small line chart shows y-axis values and a horizontal grid",
+        "A barChart widget ends with an As of line naming today's date"
+      ],
+      "negative": [
+        "A hidden series draws no bars or points",
+        "No y-axis tick of the stacked chart is fractional"
+      ],
+      "issues": [
+        728
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-019",
+      "feature": "render report input step shows only its fields; a report without variables adds no no-fields message",
+      "source": [
+        "qqq-backend-core/src/main/java/com/kingsrook/qqq/backend/core/model/savedreports/ReportValuesDynamicFormWidgetRenderer.java",
+        "qqq-frontend-material-dashboard/src/qqq/components/widgets/misc/DynamicFormWidget.tsx",
+        "src/components/widgets/DynamicFormWidget.tsx"
+      ],
+      "fixture": "savedReport 1 (Pet Species Report, no variables)",
+      "scenarios": [
+        "Report Format, Email To and Email Subject are shown; the values widget renders nothing"
+      ],
+      "negative": [
+        "no \"No fields\" text on the input step"
+      ],
+      "issues": [
+        "QRun-IO/qqq#707"
+      ],
+      "required": true
+    },
+    {
+      "id": "RPT-020",
+      "feature": "Report files download from the v1 download and report routes",
+      "source": [
+        "src/lib/api/reports.ts",
+        "src/lib/api/processes.ts",
+        "src/components/reports/ReportRun.tsx"
+      ],
+      "fixture": "accPersonReport, accStreamedReport, accRestrictedReport",
+      "scenarios": [
+        "a process report links its file at /qqq/v1/download/... and the file has every row",
+        "a report without a process streams from /qqq/v1/reports/{name}?format=csv with every row"
+      ],
+      "negative": [
+        "an unregistered server file or storage reference is refused (403)",
+        "a restricted report is 403, an unknown one 404, a missing format 400"
+      ],
+      "issues": [
+        "QRun-IO/qqq#699",
+        "QRun-IO/qqq#406"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-074",
+      "feature": "Standalone composite scalar controls and metadata editors",
+      "source": [
+        "src/components/widgets/blocks/QqqBlocks.tsx",
+        "src/components/widgets/blocks/BlockInputEditor.tsx"
+      ],
+      "fixture": "widgetInputEditors / accTypedInputs",
+      "scenarios": [
+        "Seeded text, number, date, boolean and native file controls; currency prefix, named possible values and multiline code editor",
+        "Choice width and center-click behavior with system and monospace fonts, including a 320px viewport",
+        "Backend uppercase/lowercase metadata preserves middle-of-value edits and caret position in standalone blocks",
+        "Multiline TEXT case conversion preserves the middle-edit caret and inserted newline",
+        "Desktop wheel scrolling preserves plain and shared numeric block values; intentional ArrowUp edits still work and text inputs retain focus",
+        "Native standalone TIME controls increment by one second and retain second-level values."
+      ],
+      "negative": [
+        "Code-editor Enter leaves the widget on the same page",
+        "Multiline Enter does not submit or navigate away"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
+      ],
+      "required": true
+    },
+    {
+      "id": "WID-075",
+      "feature": "Standalone DATE_TIME blocks localize seeded instants without losing seconds",
+      "source": [
+        "src/components/widgets/blocks/QqqBlocks.tsx"
+      ],
+      "fixture": "accTypedInputs in America/New_York",
+      "scenarios": [
+        "UTC timestamp displays the correct local date, time and seconds"
+      ],
+      "negative": [
+        "Do not slice UTC digits into a local-time field"
+      ],
+      "issues": [
+        "QRun-IO/qqq#728"
       ],
       "required": true
     }

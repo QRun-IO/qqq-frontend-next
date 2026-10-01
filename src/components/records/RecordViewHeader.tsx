@@ -20,46 +20,94 @@
 
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData } from '@/types'
+import { useQueryClient } from '@tanstack/react-query'
+import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData, QTableMenu } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
+import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
 import { cn } from '@/lib/utils/cn'
+import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
+import { useLocationHash } from '@/lib/hooks/use-location-hash'
+import { queryKeys } from '@/lib/query-client'
+import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/utils/material-links'
+import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
+import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
+import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
 
 import { RecordActions } from './RecordActions'
+import { RecordMenuIcon } from './RecordMenuIcon'
 import { FieldLabel } from './FieldLabel'
 import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
 import { ShareButton } from '@/components/sharing/ShareDialog'
+import { CreateChildFromLinkDialog } from './CreateChildFromLinkDialog'
+import { GotoRecordButton } from './GotoRecordDialog'
 
 /**
- * Extracts initials from a display label: first letter of each of the first
- * two words ('John Smith' → 'JS'), first two chars for a single word
- * (including CJK and other non-Latin scripts), or '?' for empty/whitespace-only input.
- *
- * Used to populate the 56 × 56 px avatar circle in the record view header.
- *
- * @param label - The display label to abbreviate (e.g. `record.recordLabel`).
- * @returns A one-or-two character uppercase string suitable for an avatar,
- *   or `'?'` when the label is empty or whitespace-only.
+ * Abbreviate the record label for the compact Next UI avatar.
+ * @param label - The record's display label.
+ * @returns One or two initials, or a placeholder for an empty label.
  */
 function getInitials(label: string): string {
-  const trimmed = label.trim()
-  if (!trimmed) return '?'
-  const words = trimmed.split(/\s+/).filter(Boolean)
-  if (words.length >= 2) {
-    return ((words[0][0] ?? '') + (words[1][0] ?? '')).toUpperCase() || '?'
-  }
-  return trimmed.slice(0, 2).toUpperCase() || '?'
+  const words = label.trim().split(/\s+/).filter(Boolean)
+  if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase()
+  return words[0]?.slice(0, 2).toUpperCase() || '?'
+}
+
+/**
+ * The default phone sheet already offers CRUD and process shortcuts; keep the remaining
+ * metadata actions without showing those shortcuts a second time.
+ *
+ * @param entries - Resolved menu entries.
+ * @returns New, developer, audit and custom download entries, with usable dividers.
+ */
+function defaultPhoneMenuExtras(entries: RecordMenuEntry[]): RecordMenuEntry[] {
+  return tidyDividers(entries.flatMap((entry): RecordMenuEntry[] => {
+    if (entry.kind === 'divider') return [entry]
+    if (entry.kind === 'submenu') {
+      const nested = defaultPhoneMenuExtras(entry.entries)
+      return hasMenuItems(nested) ? [{ ...entry, entries: nested }] : []
+    }
+    return ['new', 'developerMode', 'audit', 'downloadFile'].includes(entry.action.type) ? [entry] : []
+  }))
+}
+
+/**
+ * Renders metadata actions inside the phone dialog, including nested table menus.
+ *
+ * @param props - Resolved entries and the shared action callback.
+ * @returns Focusable menu actions for the phone sheet.
+ */
+function PhoneRecordMenuItems({ entries, onAction }: { entries: RecordMenuEntry[]; onAction: (action: RecordMenuAction) => void }) {
+  return <>
+    {entries.map((entry) => {
+      if (entry.kind === 'divider') return <div key={entry.key} className="my-1 h-px bg-border" role="separator" />
+      if (entry.kind === 'submenu') return (
+        <div key={entry.key} role="group" aria-label={entry.label}>
+          <p className="px-6 py-1.5 text-xs font-semibold text-muted-foreground">{entry.label}</p>
+          <PhoneRecordMenuItems entries={entry.entries} onAction={onAction} />
+        </div>
+      )
+      return <button key={entry.key} type="button" disabled={entry.disabled} onClick={() => onAction(entry.action)}
+        className="flex min-h-11 w-full items-center gap-3 px-6 py-3 text-left text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
+        data-qqq-id={`mobile-action-${entry.id}`}>
+        <RecordMenuIcon entry={entry} />{entry.label}
+      </button>
+    })}
+  </>
 }
 
 /**
  * Props for the {@link RecordViewHeader} component.
  */
 interface RecordViewHeaderProps {
+  /** Places desktop record actions beside the title or in the identity controls. */
+  actionsPlacement?: RecordViewActionsPlacement
   /** Table metadata used for label, primary key field, and field lookups. */
   tableMetaData: QTableMetaData
   /** The record being displayed. */
@@ -74,6 +122,8 @@ interface RecordViewHeaderProps {
   hideActions: boolean
   /** Processes available for this table (passed through to RecordActions). */
   processes?: QProcessMetaData[]
+  /** Every process in instance metadata, for a menu's named RUN_PROCESS item. */
+  allProcesses?: Record<string, QProcessMetaData>
   /** Full table metadata map for rendering possibleValueSource fields as hover links. */
   allTables?: Record<string, QTableMetaData>
   /** Navigation context used to build outgoing record links with a back reference. */
@@ -82,12 +132,14 @@ interface RecordViewHeaderProps {
   auditSource?: AuditSource
   /** Widget metadata, for WIDGET-adorned T1 fields. */
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
+  /** Reloads the record and its children (after a child is created from a link). */
+  onRecordChanged?: () => void
 }
 
 /**
  * Renders the header block of the record detail page.
  *
- * Displays a 56 × 56 px avatar (initials), the record label as an `<h1>`,
+ * Displays a 56 × 56 px initials avatar, the record label as an `<h1>`,
  * a compact T1 field grid with hover-card links for possibleValueSource fields,
  * a card/list view-mode radio toggle, and the action bar (desktop) or bottom-
  * sheet trigger (mobile). The mobile bottom sheet mounts a
@@ -99,6 +151,7 @@ interface RecordViewHeaderProps {
  *   bottom-sheet overlay and delete dialog.
  */
 export function RecordViewHeader({
+  actionsPlacement = 'IN_IDENTITY_SECTION',
   tableMetaData,
   record,
   t1Fields,
@@ -106,18 +159,22 @@ export function RecordViewHeader({
   setViewMode,
   hideActions,
   processes,
+  allProcesses,
   allTables,
   navigateFrom,
   auditSource = null,
   widgetMetaDataMap,
+  onRecordChanged,
 }: RecordViewHeaderProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [auditOpen, setAuditOpen] = useState(false)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [showMobileDeleteDialog, setShowMobileDeleteDialog] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
   const mobileActionsTrigger = useRef<HTMLButtonElement>(null)
   const mobileActionsClose = useRef<HTMLButtonElement>(null)
+  const auditTrigger = useRef<HTMLButtonElement>(null)
 
   /**
    * Closes the phone action sheet and returns focus to its trigger. The sheet's items unmount
@@ -127,6 +184,25 @@ export function RecordViewHeader({
   const closeMobileActions = () => {
     mobileActionsTrigger.current?.focus()
     setMobileActionsOpen(false)
+  }
+
+  /**
+   * Keeps Tab and Shift+Tab inside the open action sheet (a modal dialog), wrapping at either end.
+   *
+   * @param event - The keydown event of a Tab press inside the sheet.
+   */
+  const trapTab = (event: React.KeyboardEvent<HTMLElement>) => {
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }
 
   // Move focus into the action sheet when it opens, so keyboard and screen-reader users land in it.
@@ -150,25 +226,97 @@ export function RecordViewHeader({
   const canInsert = canInsertRecords(tableMetaData)
   const canDelete = canDeleteRecords(tableMetaData)
 
-  const availableProcesses = (processes ?? []).filter(
-    (p) => !p.isHidden && p.hasPermission && (p.maxInputRecords ?? Infinity) >= 1
+  const availableProcesses = getRecordActionProcesses(processes, tableMetaData.name)
+
+  // Material record-view shortcuts: n new, e edit, c copy, d delete, a audit (same permission rules as the buttons).
+  const tablePath = `/app/${encodeURIComponent(tableMetaData.name)}`
+  const recordPath = `${tablePath}/${encodeURIComponent(String(primaryKey))}`
+  const menuContext: RecordMenuContext = {
+    tableMetaData, record, canInsert, canEdit, canDelete, canAudit: Boolean(auditSource),
+    processes: availableProcesses, allProcesses,
+  }
+  const actionEntries = resolveRecordMenu(recordActionsMenu(tableMetaData).items, menuContext)
+  const resolveMenu = (menu: QTableMenu) => resolveRecordMenu(menu.items, menuContext)
+  const additionalMenus = recordAdditionalMenus(tableMetaData).map((menu) => ({ menu, entries: resolveMenu(menu) }))
+  const hasCustomActionsMenu = (tableMetaData.menus ?? []).some((menu) => menu.slot === 'VIEW_SCREEN_ACTIONS')
+  const phoneActionEntries = hasCustomActionsMenu ? actionEntries : defaultPhoneMenuExtras(actionEntries)
+  const hasMetadataActions = (tableMetaData.menus ?? []).some((menu) =>
+    (menu.slot === 'VIEW_SCREEN_ACTIONS' || menu.slot === 'VIEW_SCREEN_ADDITIONAL') && hasMenuItems(resolveMenu(menu)))
+  // Keep the existing read-only security gate: a default Developer Mode entry alone does not
+  // expose an otherwise empty Actions control, while a table's explicit menu still can.
+  const hasMobileActions = canEdit || canInsert || canDelete || availableProcesses.length > 0 || hasMetadataActions
+
+  /**
+   * Runs a resolved menu action from either the desktop dropdown or the phone sheet.
+   *
+   * @param action - The selected metadata or default menu action.
+   */
+  const onAction = (action: RecordMenuAction) => {
+    if (mobileActionsOpen) closeMobileActions()
+    switch (action.type) {
+      case 'new': router.push(`${tablePath}/create`); break
+      case 'copy': router.push(`${recordPath}/copy`); break
+      case 'edit': router.push(`${recordPath}/edit`); break
+      case 'delete': setShowMobileDeleteDialog(true); break
+      case 'developerMode': router.push(`${recordPath}/dev`); break
+      case 'audit': setAuditOpen(true); break
+      case 'runProcess':
+        router.push(processRunHref(action.process.name, { recordId: primaryKey, returnTo: recordPath, tableName: launchTableName(action.process, tableMetaData.name) }))
+        break
+      case 'downloadFile': {
+        const file = recordFieldFile(tableMetaData, record, action.fieldName)
+        if (file) deliverRecordFieldFile(file)
+        break
+      }
+    }
+  }
+  // Material hash links on a record view: #audit, #/launchProcess={process}, #/createChild={table}/defaultValues=...
+  const [hash, clearHash] = useLocationHash()
+  const hashAction = useMemo(() => recordHashAction(hash), [hash])
+  const [createChild, setCreateChild] = useState<(HashFormPresets & { tableName: string }) | null>(null)
+  // a hash-launched process that is not this table's own (one added to every screen) reads this record's table;
+  // those are always in this screen's list, so a process missing from it (a hidden table process) names no table
+  const hashProcess = hashAction?.type === 'launchProcess' ? processes?.find((process) => process.name === hashAction.processName) : undefined
+  const hashLaunchTable = hashProcess ? launchTableName(hashProcess, tableMetaData.name) : undefined
+  useEffect(() => {
+    if (!hashAction) return
+    if (hashAction.type === 'audit' && auditSource) setAuditOpen(true)
+    else if (hashAction.type === 'launchProcess') router.replace(processRunHref(hashAction.processName, { recordId: primaryKey, returnTo: recordPath, tableName: hashLaunchTable }))
+    else if (hashAction.type === 'createChild') setCreateChild(hashAction)
+  }, [hashAction, auditSource, router, primaryKey, recordPath, hashLaunchTable])
+
+  usePageShortcuts({
+    n: !hideActions && canInsert && (() => router.push(`${tablePath}/create`)),
+    e: !hideActions && canEdit && (() => router.push(`${recordPath}/edit`)),
+    c: !hideActions && canInsert && (() => router.push(`${recordPath}/copy`)),
+    d: !hideActions && canDelete && (() => setShowMobileDeleteDialog(true)),
+    a: Boolean(auditSource) && (() => setAuditOpen(true)),
+  })
+
+  const desktopActions = !hideActions && (
+    <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2" data-qqq-id="record-view-desktop-actions">
+      {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
+      {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
+        actionEntries={hasCustomActionsMenu || availableProcesses.length > 0 ? actionEntries : []}
+        resolveMenu={resolveMenu} onAction={onAction} />}
+    </div>
   )
 
   return (
-    <div className="flex items-start gap-4">
+    <div data-qqq-id={`record-view-header-${sanitizeQqqId(tableMetaData.name)}`}>
+    <div className="flex flex-wrap items-start gap-4" data-qqq-id="record-view-header">
       <div
         className="mt-1 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-muted-foreground"
         aria-hidden="true"
-        data-qqq-id="record-avatar"
+        data-qqq-id={`record-view-avatar-${sanitizeQqqId(tableMetaData.name)}`}
       >
-        {getInitials(
-          record.recordLabel ||
-          `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`
-        )}
+        {getInitials(record.recordLabel || `${tableMetaData.label} ${record.values[tableMetaData.primaryKeyField]}`)}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+      {/* The title keeps at least 14rem; when the controls do not fit beside it (phones, tablets
+          with the sidebar open) they wrap onto their own row instead of squeezing the title. */}
+      <div className="min-w-0 flex-1 basis-56">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl" data-qqq-id={`record-view-title-${sanitizeQqqId(tableMetaData.name)}`}>
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
           {/* D-V-5: Copy record ID to clipboard */}
@@ -190,6 +338,7 @@ export function RecordViewHeader({
               : <ClipboardCopy className="h-4 w-4" aria-hidden="true" />
             }
           </button>
+          {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
         </div>
         {/* T1 fields as a compact grid under the name */}
         {t1Fields.length > 0 && (
@@ -198,11 +347,11 @@ export function RecordViewHeader({
             data-qqq-id="record-primary-sections"
           >
             {t1Fields.map((field) => (
-              <div key={field.name} className="flex flex-col" data-qqq-id={`record-field-${field.name}`}>
+              <div key={field.name} className="flex min-w-0 flex-col" data-qqq-id={`record-field-${field.name}`}>
                 <dt className="text-xs text-muted-foreground">
-                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} />
+                  <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
-                <dd className="text-sm">
+                <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">
                   <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
                 </dd>
               </div>
@@ -212,7 +361,7 @@ export function RecordViewHeader({
           </dl>
         )}
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto" data-qqq-id="record-view-controls">
         {/* View mode toggle */}
         <div
           className="flex rounded-lg border border-border bg-muted/50 p-0.5"
@@ -250,8 +399,20 @@ export function RecordViewHeader({
           </button>
         </div>
 
+        {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
+        <GotoRecordButton
+          tableMetaData={tableMetaData}
+          className={cn(
+            'inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm font-medium',
+            'text-foreground bg-card hover:bg-accent',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'transition-colors duration-150'
+          )}
+        />
+
         {auditSource && (
           <button
+            ref={auditTrigger}
             type="button"
             onClick={() => setAuditOpen(true)}
             data-qqq-id="button-audit"
@@ -271,15 +432,12 @@ export function RecordViewHeader({
         {!hideActions && (
           <>
             {/* Desktop: Radix DropdownMenu (already has focus trap via Radix) — MED-17 */}
-            <div className="hidden md:flex md:items-center md:gap-2">
-              {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              <RecordActions tableMetaData={tableMetaData} record={record} processes={processes} />
-            </div>
+            {actionsPlacement === 'IN_IDENTITY_SECTION' && desktopActions}
 
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
             <div className="flex items-center gap-2 md:hidden">
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              <button
+              {hasMobileActions && <button
                 type="button"
                 ref={mobileActionsTrigger}
                 onClick={() => setMobileActionsOpen(true)}
@@ -296,14 +454,14 @@ export function RecordViewHeader({
               >
                 Actions
                 <MoreVertical className="h-4 w-4" aria-hidden="true" />
-              </button>
+              </button>}
             </div>
           </>
         )}
       </div>
 
       {/* Mobile actions bottom-sheet — MED-17 */}
-      {mobileActionsOpen && (
+      {mobileActionsOpen && hasMobileActions && (
         <div className="md:hidden" data-qqq-id="mobile-actions-sheet">
           {/* Backdrop */}
           <div
@@ -313,14 +471,17 @@ export function RecordViewHeader({
           />
           {/* Bottom sheet panel */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-xl border-t border-border bg-card shadow-lg"
+            className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-card shadow-lg"
             role="dialog"
             aria-modal="true"
             aria-label="Record actions"
+            data-qqq-id="mobile-actions-panel"
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 event.stopPropagation()
                 closeMobileActions()
+              } else if (event.key === 'Tab') {
+                trapTab(event)
               }
             }}
           >
@@ -343,15 +504,12 @@ export function RecordViewHeader({
               </button>
             </div>
 
-            <div className="flex flex-col py-2">
+            <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain py-2" data-qqq-id="mobile-actions-list">
               {/* Edit */}
-              {canEdit && (
+              {!hasCustomActionsMenu && canEdit && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(`/app/${tableMetaData.name}/${primaryKey}/edit`)
-                  }}
+                  onClick={() => onAction({ type: 'edit' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -365,13 +523,10 @@ export function RecordViewHeader({
               )}
 
               {/* Copy */}
-              {canInsert && (
+              {!hasCustomActionsMenu && canInsert && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(`/app/${encodeURIComponent(tableMetaData.name)}/${encodeURIComponent(String(primaryKey))}/copy`)
-                  }}
+                  onClick={() => onAction({ type: 'copy' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -385,14 +540,11 @@ export function RecordViewHeader({
               )}
 
               {/* Processes */}
-              {availableProcesses.map((process) => (
+              {!hasCustomActionsMenu && availableProcesses.map((process) => (
                 <button
                   key={process.name}
                   type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false)
-                    router.push(`/app/${process.name}?recordsParam=recordIds&recordIds=${primaryKey}`)
-                  }}
+                  onClick={() => onAction({ type: 'runProcess', process })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-foreground',
                     'hover:bg-accent focus:outline-none focus:bg-accent',
@@ -405,19 +557,24 @@ export function RecordViewHeader({
                 </button>
               ))}
 
+              {hasMenuItems(phoneActionEntries) && <PhoneRecordMenuItems entries={phoneActionEntries} onAction={onAction} />}
+              {additionalMenus.filter(({ entries }) => hasMenuItems(entries)).map(({ menu, entries }, index) => (
+                <div key={`${menu.label}-${index}`} role="group" aria-label={menu.label || 'Additional actions'}>
+                  <p className="px-6 py-1.5 text-xs font-semibold text-muted-foreground">{menu.label || 'Additional actions'}</p>
+                  <PhoneRecordMenuItems entries={entries} onAction={onAction} />
+                </div>
+              ))}
+
               {/* Separator before delete */}
-              {canDelete && (canEdit || canInsert || availableProcesses.length > 0) && (
+              {!hasCustomActionsMenu && canDelete && (canEdit || canInsert || availableProcesses.length > 0 || hasMenuItems(phoneActionEntries) || additionalMenus.some(({ entries }) => hasMenuItems(entries))) && (
                 <div className="my-1 h-px bg-border" role="separator" />
               )}
 
               {/* Delete */}
-              {canDelete && (
+              {!hasCustomActionsMenu && canDelete && (
                 <button
                   type="button"
-                  onClick={() => {
-                    closeMobileActions()
-                    setShowMobileDeleteDialog(true)
-                  }}
+                  onClick={() => onAction({ type: 'delete' })}
                   className={cn(
                     'flex items-center gap-3 px-6 py-3.5 text-sm text-destructive',
                     'hover:bg-destructive/10 focus:outline-none focus:bg-destructive/10',
@@ -446,11 +603,30 @@ export function RecordViewHeader({
       {auditSource && (
         <AuditHistoryDialog
           open={auditOpen}
-          onOpenChange={setAuditOpen}
+          onOpenChange={(open) => {
+            setAuditOpen(open)
+            if (!open && hashAction?.type === 'audit') clearHash()
+          }}
           source={auditSource}
           tableMetaData={tableMetaData}
           primaryKey={primaryKey}
           recordLabel={record.recordLabel || String(primaryKey)}
+          returnFocusRef={auditTrigger}
+        />
+      )}
+
+      {createChild && (
+        <CreateChildFromLinkDialog
+          tableName={createChild.tableName}
+          presets={createChild}
+          onClose={() => {
+            setCreateChild(null)
+            clearHash()
+          }}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.widgets() })
+            onRecordChanged?.()
+          }}
         />
       )}
 
@@ -464,6 +640,7 @@ export function RecordViewHeader({
           }}
         />
       )}
+      </div>
     </div>
   )
 }

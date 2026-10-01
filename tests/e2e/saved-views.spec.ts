@@ -7,11 +7,12 @@ interface StoredView { id: number; label: string; userId: string; tableName: str
 
 const ME = 'e2e@example.invalid'
 
-/** Reads the JSON `values` field of a multipart process request. */
-function processValues(route: Route): Record<string, unknown> {
+/** Reads the process values of a v1 process init request (a multipart `values` field holding JSON). */
+function processValues(route: Route): Record<string, string> {
   const body = route.request().postData() ?? ''
-  const match = body.match(/name="values"\r\n\r\n([^\r]*)/)
-  return match ? JSON.parse(match[1]) : {}
+  const fields: Record<string, string> = {}
+  for (const match of body.matchAll(/name="([^"]+)"\r\n\r\n([^\r]*)/g)) fields[match[1]] = match[2]
+  return fields.values ? JSON.parse(fields.values) as Record<string, string> : {}
 }
 
 /** Mocks the saved-view processes over an in-memory store; returns the store. */

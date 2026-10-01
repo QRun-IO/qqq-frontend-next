@@ -12,6 +12,7 @@
  */
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.List;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.NoCodeWidgetRenderer;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
@@ -25,6 +26,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertInput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.WidgetType;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.authentication.TableBasedAuthenticationMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.nocode.QNoCodeWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.nocode.WidgetHtmlLine;
@@ -46,6 +48,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.security.RecordSecurityLock;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Capability;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
+import com.kingsrook.qqq.backend.core.modules.authentication.implementations.TableBasedAuthenticationModule;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.QueryManager;
 import com.kingsrook.qqq.backend.module.rdbms.model.metadata.RDBMSTableBackendDetails;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
@@ -79,6 +82,8 @@ final class SecurityFixtures
    static final String OPEN_WIDGET      = "securityOpenWidget";
    static final String PET_WIDGET       = "securityPetWidget";
    static final String PET_DISABLED_WIDGET = "securityPetDisabledWidget";
+   static final String TABLE_AUTH_USER     = "tableAuthUser";
+   static final String TABLE_AUTH_SESSION  = "tableAuthSession";
 
    private static final String BACKEND = SampleMetaDataProvider.RDBMS_BACKEND_NAME;
 
@@ -227,6 +232,64 @@ final class SecurityFixtures
          "CREATE TABLE security_audit_log (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP DEFAULT NOW(), modify_date TIMESTAMP DEFAULT NOW(), message VARCHAR(250))"))
       {
          QueryManager.executeUpdate(connection, sql);
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** TABLE_BASED authentication (SecurityAcceptanceServer -Dqqq.security.auth=TABLE_BASED):
+    ** the module's standard user and session tables, in the owned H2 database and
+    ** hidden from navigation. Returns the authentication metadata to register.
+    *******************************************************************************/
+   static TableBasedAuthenticationMetaData defineTableBased(QInstance instance)
+   {
+      TableBasedAuthenticationMetaData authentication = new TableBasedAuthenticationMetaData()
+         .withUserTableName(TABLE_AUTH_USER)
+         .withSessionTableName(TABLE_AUTH_SESSION);
+      authentication.setName("tableBased");
+      instance.addTable(authentication.defineStandardUserTable(BACKEND)
+         .withLabel("Sign-in User")
+         .withIsHidden(true)
+         .withBackendDetails(new RDBMSTableBackendDetails().withTableName("table_auth_user")));
+      instance.addTable(authentication.defineStandardSessionTable(BACKEND)
+         .withLabel("Sign-in Session")
+         .withIsHidden(true)
+         .withBackendDetails(new RDBMSTableBackendDetails().withTableName("table_auth_session")));
+      for(String name : List.of(TABLE_AUTH_USER, TABLE_AUTH_SESSION))
+      {
+         QInstanceEnricher.setInferredFieldBackendNames(instance.getTable(name));
+      }
+      return (authentication);
+   }
+
+
+
+   /*******************************************************************************
+    ** Create the TABLE_BASED user and session tables and seed two synthetic users
+    ** (passwords hashed the way the module stores them; Tess's contains colons).
+    *******************************************************************************/
+   static void primeTableBased(Connection connection) throws Exception
+   {
+      for(String sql : List.of(
+         "DROP TABLE IF EXISTS table_auth_session",
+         "CREATE TABLE table_auth_session (id VARCHAR(40) PRIMARY KEY, create_date TIMESTAMP DEFAULT NOW(), modify_date TIMESTAMP DEFAULT NOW(), user_id INTEGER, access_timestamp TIMESTAMP)",
+         "DROP TABLE IF EXISTS table_auth_user",
+         "CREATE TABLE table_auth_user (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP DEFAULT NOW(), modify_date TIMESTAMP DEFAULT NOW(), username VARCHAR(100) UNIQUE, password_hash VARCHAR(250), full_name VARCHAR(100))"))
+      {
+         QueryManager.executeUpdate(connection, sql);
+      }
+      try(PreparedStatement insert = connection.prepareStatement("INSERT INTO table_auth_user (username, password_hash, full_name) VALUES (?, ?, ?)"))
+      {
+         for(String[] user : List.of(
+            new String[] { "tess.table", "table:pass-2026", "Tess Table (table-based)" },
+            new String[] { "ravi.rows", "rows-pass-2026", "Ravi Rows (table-based)" }))
+         {
+            insert.setString(1, user[0]);
+            insert.setString(2, TableBasedAuthenticationModule.PasswordHasher.createHashedPassword(user[1]));
+            insert.setString(3, user[2]);
+            insert.executeUpdate();
+         }
       }
    }
 

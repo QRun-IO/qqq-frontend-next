@@ -36,8 +36,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(location.search),
   useRouter: () => ({ push: vi.fn() }),
 }))
-vi.mock('@/components/query', () => ({ RecordQuery: recordQuery }))
-vi.mock('@/components/widgets', () => ({ AppHome: () => <div>App home</div> }))
+vi.mock('@/components/query/RecordQuery', () => ({ RecordQuery: recordQuery }))
+vi.mock('@/components/widgets/AppHome', () => ({ AppHome: () => <div>App home</div> }))
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -145,9 +145,9 @@ describe('SlugPage process initialization', () => {
       type: 'COMPLETE', processUUID: 'selected-run', nextStep: 'setup', values: {},
     })
     server.use(
-      http.get('/metaData/process/greetInteractive', async () => {
+      http.get('/qqq/v1/metaData/process/greetInteractive', async () => {
         await metadataReady
-        return HttpResponse.json({ process: greeting })
+        return HttpResponse.json(greeting)
       }),
     )
     renderPage()
@@ -163,9 +163,9 @@ describe('SlugPage process initialization', () => {
   it('does not initialize when full process metadata is denied', async () => {
     let initialized = false
     server.use(
-      http.get('/metaData/process/greetInteractive', () =>
+      http.get('/qqq/v1/metaData/process/greetInteractive', () =>
         HttpResponse.json({ error: 'Permission denied' }, { status: 403 })),
-      http.post('/processes/greetInteractive/init', () => {
+      http.post('/qqq/v1/processes/greetInteractive/init', () => {
         initialized = true
         return HttpResponse.json({ processUUID: 'unexpected', values: {} })
       }),

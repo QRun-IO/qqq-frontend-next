@@ -15,9 +15,8 @@
  */
 
 /**
- * @file Developer view page — resolves the slug to a table or a process. For a table it shows raw
- * table metadata as formatted JSON for debugging field definitions and permissions; for a process,
- * its metadata summary and JSON; for either, its ESB publications and triggers when it has any.
+ * @file Developer view page — resolves a slug to a table or process. It shows metadata and ESB
+ * details for either, plus API Docs & Playground for tables exposed by application APIs.
  */
 
 'use client'
@@ -32,6 +31,7 @@ import { useMetaData, useProcessMetaData } from '@/lib/hooks/use-metadata'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { getEsbForProcess, getEsbForTable } from '@/lib/api/esb'
 import { queryKeys } from '@/lib/query-client'
+import { TableApiDocs } from '@/components/records/TableApiDocs'
 import { EsbSection } from '@/components/esb/EsbSection'
 import { ProcessDeveloperView } from '@/components/esb/ProcessDeveloperView'
 
@@ -45,13 +45,8 @@ import { ProcessDeveloperView } from '@/components/esb/ProcessDeveloperView'
  */
 export default function DeveloperViewPage() {
   const params = useRouteParams<{ slug: string }>()
-  const { setPageHeader } = useQContext()
   const slug = params.slug
   const { data: metaData, isError: metaDataError } = useMetaData()
-
-  useEffect(() => {
-    setPageHeader(`Developer View: ${slug}`)
-  }, [slug, setPageHeader])
 
   if (!metaData && !metaDataError) return <LoadingSpinner />
   const isProcess = Boolean(metaData && !metaData.tables?.[slug] && metaData.processes?.[slug])
@@ -68,6 +63,11 @@ export default function DeveloperViewPage() {
  */
 function ProcessDeveloperPage({ processName }: { processName: string }) {
   const { data, error } = useProcessMetaData(processName)
+  const { setPageHeader } = useQContext()
+  const processLabel = data?.label || processName
+  useEffect(() => {
+    setPageHeader(`${processLabel} Developer Mode`)
+  }, [processLabel, setPageHeader])
   const { data: esb } = useQuery({
     queryKey: queryKeys.esbProcess(processName),
     queryFn: () => getEsbForProcess(processName),
@@ -88,15 +88,23 @@ function ProcessDeveloperPage({ processName }: { processName: string }) {
  *   - A 4-column stats grid (`<MetaStat>` cards: field count, section count, permissions, primary key)
  *   - An `<EsbSection>` with the table's ESB publications and subscribers, omitted when the
  *     table has none to show (403, 404, or a backend without the ESB module)
+ *   - The `<TableApiDocs>` section (API and version selectors with the embedded RapiDoc reference)
  *   - A collapsible `<JsonBlock>` panel rendering the full table metadata as formatted JSON
  *   - A loading spinner while metadata is fetching, and a destructive error panel on failure
  */
 function TableDeveloperView({ tableName }: { tableName: string }) {
+  const { setPageHeader } = useQContext()
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.tableMetadata(tableName),
     queryFn: () => loadTableMetaData(tableName),
     staleTime: 1000 * 60 * 5,
   })
+  const { data: instance } = useMetaData()
+  const tableLabel = data?.label || tableName
+
+  useEffect(() => {
+    setPageHeader(`${tableLabel} Developer Mode`)
+  }, [tableLabel, setPageHeader])
 
   const { data: esb } = useQuery({
     queryKey: queryKeys.esbTable(tableName),
@@ -108,7 +116,7 @@ function TableDeveloperView({ tableName }: { tableName: string }) {
       <div className="flex items-center gap-3">
         <Code className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-2xl font-semibold text-foreground">
-          Table Developer View: <span className="font-mono text-primary">{tableName}</span>
+          Table Developer View: <span className="text-primary">{tableLabel}</span>
         </h2>
       </div>
 
@@ -136,6 +144,8 @@ function TableDeveloperView({ tableName }: { tableName: string }) {
           </div>
 
           <EsbSection data={esb ?? null} />
+
+          <TableApiDocs tableName={data.name || tableName} primaryColor={instance?.branding?.accentColor} />
 
           {/* Raw JSON */}
           <JsonBlock label="Full Table Metadata" value={data} defaultOpen={false} />
