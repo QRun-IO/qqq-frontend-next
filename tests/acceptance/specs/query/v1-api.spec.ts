@@ -7,10 +7,11 @@
 
 import { readFileSync } from 'node:fs'
 import type { Request } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectColumn, sqlColumn } from './query-helpers'
 
-test('[QRY-065] export streams from the v1 export route and the route enforces the export capability @mobile', async ({ page, backend, diagnostics }) => {
+test('[QRY-065] export streams from the v1 export route and the route enforces the export capability @mobile', async ({ page, backend, browserName, diagnostics }) => {
   void diagnostics
   const exports: Request[] = []
   page.on('request', (request) => { if (/\/export(\/|$)/.test(new URL(request.url()).pathname)) exports.push(request) })
@@ -27,7 +28,8 @@ test('[QRY-065] export streams from the v1 export route and the route enforces t
   // The page used the v1 route with a JSON body naming the format, file and columns.
   expect(exports.map((request) => `${request.method()} ${new URL(request.url()).pathname}`)).toEqual(['POST /qqq/v1/table/qryItem/export'])
   const body = exports[0].postDataJSON()
-  expect(body).toMatchObject({ format: 'csv', filename: file.suggestedFilename() })
+  expect(body).toMatchObject({ format: 'csv', filename: expect.stringMatching(/^Query Item Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/) })
+  expect(file.suggestedFilename()).toBe(expectedDownloadFilename(body.filename, browserName))
   expect(body.fieldNames).toContain('id')
 
   // The v1 route streams the same rows, and refuses a table whose export capability is off.

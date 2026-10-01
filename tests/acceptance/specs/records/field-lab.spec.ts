@@ -6,6 +6,7 @@
  */
 
 import type { Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, test, type Backend } from '../../support/fixtures'
 import {
   VIEWER, control, expandOnPhone, fieldValue, multipartFields, openForm, openRecord, recordIdFromUrl, recordRequests, showSection, shown, sqlCount,
@@ -275,7 +276,7 @@ test('[REC-021] PASSWORD is masked on read and never overwritten by the mask @mo
   expect((await sqlOne(backend, `select password_value from field_lab where id = ${id}`)).password_value).toBe('secret-two')
 })
 
-test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile', async ({ page, backend, diagnostics }) => {
+test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile', async ({ page, backend, browserName, diagnostics }) => {
   void diagnostics
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
   await control(page, 'name').fill('Binary')
@@ -290,9 +291,11 @@ test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile
 
   await expandOnPhone(page, 'Field Types')
   const downloadPromise = page.waitForEvent('download')
-  await shown(page, '[data-qqq-id="field-value-blobValue-download"]').click()
+  const link = shown(page, '[data-qqq-id="field-value-blobValue-download"]')
+  await expect(link).toHaveAttribute('download', `Field Lab ${id} Blob Value`)
+  await link.click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe(`Field Lab ${id} Blob Value`)
+  expect(download.suggestedFilename()).toBe(expectedDownloadFilename(`Field Lab ${id} Blob Value`, browserName))
   const chunks: Buffer[] = []
   for await (const chunk of await download.createReadStream()) chunks.push(chunk as Buffer)
   expect(Buffer.concat(chunks).equals(Buffer.from(stored, 'base64'))).toBe(true)

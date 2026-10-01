@@ -7,6 +7,7 @@
 
 // Widget chrome and header controls: dropdowns, stored selections, reload, export, help, card chrome.
 import type { Page } from '@playwright/test'
+import { expectedDownloadFilename, nextDownloadAttribute } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import {
@@ -123,16 +124,18 @@ test('[WID-045] reload re-renders the widget from the backend @mobile', async ({
   await expect(page.locator('[data-qqq-id="button-widget-reload-accHelp"]')).toHaveCount(0)
 })
 
-test('[WID-046] export downloads the payload csvData with Material quoting; no data shows a message @mobile', async ({ page, diagnostics }) => {
+test('[WID-046] export downloads the payload csvData with Material quoting; no data shows a message @mobile', async ({ page, browserName, diagnostics }) => {
   void diagnostics
   await openControls(page)
   await expectLoaded(page, 'accExport')
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export Owned Export' }).click()])
-  expect(download.suggestedFilename()).toMatch(/^Owned Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  const [download, downloadName] = await Promise.all([page.waitForEvent('download'), nextDownloadAttribute(page), page.getByRole('button', { name: 'Export Owned Export' }).click()])
+  expect(downloadName).toMatch(/^Owned Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  expect(download.suggestedFilename()).toBe(expectedDownloadFilename(downloadName, browserName))
   expect(await downloadText(download)).toBe(EXPECTED_CSV)
   // the parent widget exports its own csvData too
-  const [parentDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export Owned Controls' }).click()])
-  expect(parentDownload.suggestedFilename()).toMatch(/^Owned Controls \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  const [parentDownload, parentDownloadName] = await Promise.all([page.waitForEvent('download'), nextDownloadAttribute(page), page.getByRole('button', { name: 'Export Owned Controls' }).click()])
+  expect(parentDownloadName).toMatch(/^Owned Controls \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  expect(parentDownload.suggestedFilename()).toBe(expectedDownloadFilename(parentDownloadName, browserName))
   expect(await downloadText(parentDownload)).toBe(EXPECTED_CSV)
   // nothing to export: a message, and no download
   let downloaded = false

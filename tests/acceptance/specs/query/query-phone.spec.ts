@@ -8,6 +8,7 @@
 // Phone and tablet query behavior (QRun-IO/qqq#708): the card list, the filter sheet, column
 // configuration by touch, bulk actions from a phone selection, and the toolbar menus.
 import type { Locator, Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets, expectWithinViewport } from '../../support/touch'
 import { addCondition, columnCells, expectColumn, isPhone, sqlColumn } from './query-helpers'
@@ -183,7 +184,7 @@ test.describe('on a phone', () => {
     expect(sent.values.map(String).sort()).toEqual([ids[0], ids[2]].sort())
   })
 
-  test('[QRY-055] saved views and export menus fit the phone and are touch-sized @mobile', async ({ page, backend, diagnostics }) => {
+  test('[QRY-055] saved views and export menus fit the phone and are touch-sized @mobile', async ({ page, backend, browserName, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person')
     await expectColumn(page, 'firstName', await sqlColumn(backend, 'select first_name from person order by id desc'))
@@ -202,8 +203,14 @@ test.describe('on a phone', () => {
     await expectOnScreen(page, exportMenu)
     await expectTouchTargets(exportMenu)
     await expectNoHorizontalScroll(page)
-    const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: /^Export CSV/ }).tap()])
-    expect(file.suggestedFilename()).toMatch(/^Person Export .*\.csv$/)
+    const [file, request] = await Promise.all([
+      page.waitForEvent('download'),
+      page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/person/export'),
+      page.getByRole('menuitem', { name: /^Export CSV/ }).tap(),
+    ])
+    const requestedName = request.postDataJSON().filename as string
+    expect(requestedName).toMatch(/^Person Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    expect(file.suggestedFilename()).toBe(expectedDownloadFilename(requestedName, browserName))
   })
 })
 
