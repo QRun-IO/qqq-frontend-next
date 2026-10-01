@@ -480,6 +480,9 @@ export function PossibleValueSelect({
                             id={`${id}-option-${index}`}
                             role="option"
                             aria-selected={isSelected}
+                            // Keep search focus until click: WebKit can scroll on blur
+                            // between mousedown and mouseup, moving the option away.
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => handleSelect(option)}
                             className={cn(
                               'flex cursor-pointer items-center justify-between px-3 py-2 text-sm',

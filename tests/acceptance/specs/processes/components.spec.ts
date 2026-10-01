@@ -24,6 +24,7 @@ async function fillMixed(page: Page, name: string, count: string) {
   await mixed.getByLabel('Lab Name').fill(name)
   await mixed.getByLabel('Sample Count').fill(count)
   await choosePossibleValue(page, 'Lab Color', 'Green')
+  await expect(page.getByRole('combobox', { name: 'Lab Color' })).toContainText('Green')
   await advance(page, 'Next')
 }
 

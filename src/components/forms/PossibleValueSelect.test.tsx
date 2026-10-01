@@ -88,6 +88,25 @@ beforeEach(() => {
   mockFetchStandalone.mockResolvedValue(OPTIONS)
 })
 
+describe('PossibleValueSelect — pointer selection', () => {
+  it('keeps search focus while pressing an option until its click selects the value', async () => {
+    const user = userEvent.setup()
+    render(<Wrapper />)
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    const search = screen.getByRole('textbox', { name: 'Search Person options' })
+    await waitFor(() => expect(search).toHaveFocus())
+    const option = await screen.findByRole('option', { name: 'Bob' })
+
+    await user.pointer({ target: option, keys: '[MouseLeft>]' })
+    expect(search).toHaveFocus()
+    await user.pointer({ target: option, keys: '[/MouseLeft]' })
+
+    expect(screen.getByRole('combobox', { name: 'Person' })).toHaveTextContent('Bob')
+    expect(screen.getByRole('combobox', { name: 'Person' })).toHaveFocus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+})
+
 describe('PossibleValueSelect — initial value label', () => {
   it('looks up and shows the label of a value it did not select (e.g. after process Back)', async () => {
     mockFetchProcess.mockResolvedValue([{ id: 2, label: 'Bob' }])
