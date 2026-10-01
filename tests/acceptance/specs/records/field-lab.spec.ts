@@ -9,7 +9,7 @@ import type { Page } from '@playwright/test'
 import { expect, test, type Backend } from '../../support/fixtures'
 import {
   VIEWER, control, expandOnPhone, fieldValue, multipartFields, openForm, openRecord, recordIdFromUrl, recordRequests, showSection, shown, sqlCount,
-  sqlOne, toasts,
+  sqlOne, expectToastDuringAction,
 } from './helpers'
 
 test.use(VIEWER)
@@ -404,13 +404,11 @@ test('[REC-027] unique keys are enforced with the backend message on create and 
 
 test('[REC-048] a server validation error is shown once with the backend message and keeps the form @mobile', async ({ page, backend, diagnostics }) => {
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
-  await createFieldLab(page, { name: 'Kept Values', decimalValue: '42.25', boundedValue: '101' })
+  await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
+  for (const [name, value] of Object.entries({ name: 'Kept Values', decimalValue: '42.25', boundedValue: '101' })) await control(page, name).fill(value)
   const message = 'Error inserting Field Lab: The value for Bounded Value is too large (maximum allowed value is 100)'
+  await expectToastDuringAction(page, `Failed to create Field Lab: ${message}`, () => page.getByRole('button', { name: 'Save' }).click())
   await expect(page.getByRole('alert').filter({ hasText: message })).toBeVisible()
-  await expect(toasts(page).filter({ hasText: `Failed to create Field Lab: ${message}` })).toBeVisible()
-  await expect(toasts(page)).toHaveCount(1)
-  await expect(toasts(page).filter({ hasText: 'Something went wrong' })).toHaveCount(0)
-  await expect(toasts(page).filter({ hasText: 'Request failed with status code' })).toHaveCount(0)
   await expect(control(page, 'name')).toHaveValue('Kept Values')
   await expect(control(page, 'decimalValue')).toHaveValue('42.25')
   await expect(page).toHaveURL(/\/app\/fieldLab\/create\/?$/)

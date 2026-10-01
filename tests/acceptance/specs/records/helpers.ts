@@ -7,6 +7,7 @@
 
 import type { Locator, Page, Request } from '@playwright/test'
 import { expect, type Backend } from '../../support/fixtures'
+import { visibleToastObservation } from '../../support/toast-observation'
 import { expectNoHorizontalScroll } from '../../support/touch'
 import { isPhone } from '../query/query-helpers'
 
@@ -75,6 +76,19 @@ export async function expectToastBelowHeader(page: Page, toast: Locator) {
   const header = await page.locator('[data-qqq-id="header"]').boundingBox()
   expect(header).not.toBeNull()
   await expect.poll(async () => (await toast.boundingBox())?.y ?? -1).toBeGreaterThanOrEqual(header!.y + header!.height)
+}
+
+/**
+ * Observe transient feedback before triggering its action. Browser-side polling captures
+ * the visible message, count and geometry even when the driver returns after dismissal.
+ */
+export async function expectToastDuringAction(page: Page, message: string, action: () => Promise<unknown>, belowHeader = false) {
+  const [observation] = await Promise.all([
+    page.waitForFunction(visibleToastObservation, { message, belowHeader }, { timeout: 15_000 }),
+    action(),
+  ])
+  expect(await observation.jsonValue(), 'one visible notification with the exact message').toEqual([message])
+  await observation.dispose()
 }
 
 /** Reads exactly one row with an independent SQL query. */

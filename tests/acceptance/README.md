@@ -93,11 +93,18 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under
-  `interruptedFetches` in the attached `diagnostics.json`).
+  `interruptedFetches` in the attached `diagnostics.json`). Firefox legacy-font diagnostics
+  are classified there only when the exact cancellation status matches a same-origin font
+  request from an earlier document near navigation (aborted, or HTTP 200 before decode was cancelled), and the final document successfully
+  loads and decodes that font. Every unmatched or failed-decode diagnostic still fails.
 - **v1 only.** The `diagnostics` fixture also fails a test whose page calls an unversioned API
   route of a QQQ server (`/data`, `/processes`, `/widget`, `/possibleValues`, `/download`,
   `/reports`, `/metaData`, `/manageSession`, `/logout` outside `/qqq/v1`; QRun-IO/qqq#699).
   `allow()` does not waive it. Node-side `backend.api` calls may still exercise legacy routes.
+- **Transient feedback.** Arm `expectToastDuringAction` before the triggering action when
+  asserting a toast. It observes the visible exact text and notification count inside the
+  browser (plus header clearance when requested), so driver/trace delays cannot outlast the
+  notification before observation begins. Assert persistent form and database state afterwards.
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;
