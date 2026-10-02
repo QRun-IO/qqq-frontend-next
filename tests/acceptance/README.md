@@ -50,6 +50,15 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
 - **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
   per-project counts in `byProject`), the HTML report, and a trace, video and screenshot for
   each failure.
+- **Transport evidence.** CI enables `QQQ_ACCEPTANCE_TRANSPORT_TRACE=1`; set it locally
+  to retain `QQQ_TRANSPORT` events in the acceptance server log for documents, static
+  chunks and versioned API requests. Events contain request/connection IDs, paths without
+  queries, status, write byte counts and failure classes; they omit headers, cookies and
+  bodies. A completed server write does not prove browser receipt or rendering. A write
+  can fail even when final completion reports HTTP 200, so inspect `firstWriteFailure`
+  separately. This observer is acceptance-only and adds synchronous logging overhead;
+  leave the variable unset for a control run with the original handler tree. Native and
+  ordinary server logs can still contain session data; keep raw evidence private.
 - **Browsers.** `QQQ_ACCEPTANCE_BROWSERS` picks the Playwright projects (default `chromium`).
   The documented matrix is `chromium,firefox,webkit,mobile`; results and the exact commands
   are in `docs/acceptance/browser-matrix.md`.
