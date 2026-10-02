@@ -174,7 +174,7 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const movesFocus = useSyncExternalStore(subscribeTabMode, readTabMode, readServerTabMode)
   const [released, setReleased] = useState(false)
-  const [completion, setCompletion] = useState<(CodeCompletionMatch & { selected: number; top: number; left: number; height: number; caret: number; source: string }) | null>(null)
+  const [completion, setCompletion] = useState<(CodeCompletionMatch & { selected: number; top: number; left: number; height: number; caret: number; source: string; scrollTop: number; scrollLeft: number }) | null>(null)
   const composing = useRef(false)
   const metricsRef = useRef<HTMLSpanElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -211,7 +211,7 @@ export function CodeEditor({
     const top = caretTop + lineHeight + height <= textarea.clientHeight ? caretTop + lineHeight : Math.max(0, caretTop - height)
     const column = before.at(-1)!.replace(/\t/g, '        ').length
     const left = Math.min(Math.max(0, 12 + column * characterWidth - textarea.scrollLeft), Math.max(0, textarea.clientWidth - 320))
-    setCompletion({ ...match, selected: 0, top, left, height, caret: textarea.selectionStart, source: textarea.value })
+    setCompletion({ ...match, selected: 0, top, left, height, caret: textarea.selectionStart, source: textarea.value, scrollTop: textarea.scrollTop, scrollLeft: textarea.scrollLeft })
   }
 
   /**
@@ -382,7 +382,11 @@ export function CodeEditor({
           value={value}
           onChange={(event) => { onChange?.(event.target.value); suggest(event.currentTarget) }}
           onKeyDown={handleKeyDown}
-          onScroll={() => { syncScroll(); setCompletion(null) }}
+          onScroll={(event) => {
+            syncScroll()
+            // A deferred browser event can report the position already used to place suggestions.
+            if (shown && (shown.scrollTop !== event.currentTarget.scrollTop || shown.scrollLeft !== event.currentTarget.scrollLeft)) setCompletion(null)
+          }}
           onClick={() => setCompletion(null)}
           onCompositionStart={() => { composing.current = true; setCompletion(null) }}
           onCompositionEnd={(event) => { composing.current = false; suggest(event.currentTarget) }}

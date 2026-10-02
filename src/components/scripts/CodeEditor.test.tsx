@@ -99,6 +99,42 @@ describe('script code completions', () => {
     expect(editor).toHaveValue('api.qu')
   })
 
+  it('keeps current suggestions when a delayed scroll event reports their existing position', async () => {
+    const user = userEvent.setup()
+    render(<Editor initial={'const result = api.query("person");'} />)
+    const editor = screen.getByRole('textbox', { name: 'Code' }) as HTMLTextAreaElement
+    await user.click(editor)
+    editor.scrollLeft = 4
+    fireEvent.scroll(editor)
+    editor.scrollLeft = 0
+    fireEvent.change(editor, { target: { value: 'api.bu' } })
+    editor.setSelectionRange(6, 6)
+    await user.keyboard('{Control>} {/Control}{ArrowDown}')
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+
+    fireEvent.scroll(editor)
+
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+    expect(screen.getByRole('option', { name: /api.bulkUpdate/ })).toHaveAttribute('aria-selected', 'true')
+    await user.keyboard('{Tab}')
+    expect(editor).toHaveValue('api.bulkUpdate(')
+    expect(editor).toHaveFocus()
+  })
+
+  it.each(['scrollLeft', 'scrollTop'] as const)('dismisses suggestions when %s changes after they open', async (direction) => {
+    const user = userEvent.setup()
+    render(<Editor />)
+    const editor = screen.getByRole('textbox', { name: 'Code' }) as HTMLTextAreaElement
+    await user.type(editor, 'api.bu')
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+
+    editor[direction] = 4
+    fireEvent.scroll(editor)
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(editor).toHaveValue('api.bu')
+  })
+
   it.each([[0, 0], [0, 6]])('rejects a stale suggestion after selection changes to %s–%s', async (start, end) => {
     const user = userEvent.setup()
     render(<Editor />)

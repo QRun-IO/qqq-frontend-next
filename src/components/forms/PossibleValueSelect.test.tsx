@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 
@@ -416,6 +416,38 @@ describe('PossibleValueSelect — option selection', () => {
 })
 
 describe('PossibleValueSelect — search', () => {
+  it.each(['loaded', 'in flight'])('offers only the current search results when the prior request is %s', async (prior) => {
+    const user = userEvent.setup()
+    let finishPrior!: (values: QPossibleValue[]) => void
+    let finishSearch!: (values: QPossibleValue[]) => void
+    mockFetchTable.mockReset()
+      .mockImplementationOnce(() => new Promise((resolve) => { finishPrior = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSearch = resolve }))
+    render(<Wrapper />)
+    await user.click(screen.getByRole('combobox', { name: 'Person' }))
+    const search = screen.getByRole('textbox', { name: 'Search Person options' })
+    if (prior === 'loaded') await act(async () => finishPrior(OPTIONS))
+
+    vi.useFakeTimers()
+    try {
+      fireEvent.change(search, { target: { value: 'Bo' } })
+      if (prior === 'in flight') await act(async () => finishPrior(OPTIONS))
+      // Old options must not be clickable while a new search is debouncing:
+      // starting its request would remove the option between pointer down/up.
+      expect(screen.queryAllByRole('option')).toEqual([])
+      fireEvent.keyDown(search, { key: 'Enter' })
+      expect(screen.getByRole('combobox', { name: 'Person' })).toHaveTextContent('-- Select Person --')
+      await act(async () => vi.advanceTimersByTimeAsync(300))
+      expect(mockFetchTable).toHaveBeenLastCalledWith('person', 'person', { searchTerm: 'Bo', formValues: { testField: null } })
+      await act(async () => finishSearch([OPTIONS[1]]))
+      fireEvent.click(screen.getByRole('option', { name: 'Bob' }))
+      expect(screen.getByRole('combobox', { name: 'Person' })).toHaveTextContent('Bob')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('renders a search input when the dropdown is open', async () => {
     const user = userEvent.setup()
     render(<Wrapper />)

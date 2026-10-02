@@ -204,6 +204,10 @@ export function PossibleValueSelect({
   const debouncedFetch = useCallback(
     (term: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      // Old results must not remain selectable until the debounce removes them mid-click.
+      requestSequence.current += 1
+      setOptions([])
+      setIsLoading(true)
       debounceRef.current = setTimeout(() => fetchOptions(term), 300)
     },
     [fetchOptions]
