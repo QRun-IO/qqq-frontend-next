@@ -72,12 +72,19 @@ const itemClass = cn(
  * @returns The menu.
  */
 export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilter, onHide, onPin, onCopyPageValues, onCopyFullQueryValues, onColumnStats }: ColumnHeaderMenuProps) {
+  const [open, setOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   const noRows = hasRows ? undefined : 'There are no rows to copy from'
   const id = (action: string) => `column-menu-${action}`
   return (
-    <DropdownMenuPrimitive.Root modal={false}>
+    <DropdownMenuPrimitive.Root modal={false} open={open} onOpenChange={(nextOpen) => {
+      // Focus survives scrolling; restore the reference before Radix measures its menu.
+      if (nextOpen) triggerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      setOpen(nextOpen)
+    }}>
       <DropdownMenuPrimitive.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           onClick={(e) => e.stopPropagation()}
           className="shrink-0 rounded p-0.5 text-muted-foreground opacity-60 hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
