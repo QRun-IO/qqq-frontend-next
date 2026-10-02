@@ -26,7 +26,6 @@ import React, { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useSta
 import {
   useReactTable,
   getCoreRowModel,
-  flexRender,
   type ColumnDef,
   type Row,
   type SortingState,
@@ -818,9 +817,13 @@ export function DataGrid({
                     style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
                     aria-sort={ariaSortValue}
                   >
+                    {/* These locally defined headers are pure render callbacks. Calling them
+                        preserves their child identity when current props rebuild the columns. */}
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : typeof header.column.columnDef.header === 'function'
+                        ? header.column.columnDef.header(header.getContext())
+                        : header.column.columnDef.header}
 
                     {/* Column resize handle */}
                     {!isSelectCol && (() => {
@@ -998,7 +1001,11 @@ const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellCla
               onCellKeyDown(e)
             }}
           >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            {/* Local pure render callbacks must not become new component types when
+                current grid props rebuild columns: retain focused and stateful children. */}
+            {typeof cell.column.columnDef.cell === 'function'
+              ? cell.column.columnDef.cell(cell.getContext())
+              : cell.column.columnDef.cell}
           </td>
         )
       })}
