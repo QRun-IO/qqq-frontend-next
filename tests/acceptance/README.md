@@ -59,6 +59,35 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   separately. This observer is acceptance-only and adds synchronous logging overhead;
   leave the variable unset for a control run with the original handler tree. Native and
   ordinary server logs can still contain session data; keep raw evidence private.
+- **Document/XHR evidence (opt-in).** Set `QQQ_ACCEPTANCE_BROWSER_TRACE=1` locally to
+  attach `browser-boundary.json` through the diagnostics fixture; CI does not enable it.
+  Only `/app/person[/]`, `/app/person/2[/]`, and `/app/person.bulkEdit[/]` documents on
+  the configured UI/API origins are observed. Requests are exact method/path matches:
+  GET person metadata, session, person record 2 and person.bulkEdit process metadata;
+  POST querySavedView init, person query/count and person.bulkEdit init. The helper emits
+  fixed aliases, document UUID/sequence/clocks, native XHR send return/throw, status and
+  terminal events. It never emits URLs, query/hash values, headers, credentials, payloads,
+  error messages or stacks, and adds no request headers or interception. Disabled mode
+  installs no binding or init script. One listener set follows each reused XHR generation.
+  Native OPENED reentry or reuse before the recorder observes the prior `loadend`
+  emits one `xhr-incomplete` marker and suppresses attribution for that instance for
+  its remaining lifetime. This includes overlapping requests and earlier application
+  event listeners; no endpoint, generation or attempt is guessed. Excluded requests
+  retain only completion state so their old events cannot impersonate later selected
+  reuse; no excluded target data is emitted. Native calls and outcomes are preserved.
+  Each document is limited to 512 events plus an overflow marker and 256 selected XHRs;
+  Node retains at most 4096 validated events with invalid/drop counters. Missing delivery,
+  overflow or missing `ready` means incomplete evidence; zero counters do not prove
+  complete delivery. Lifecycle phase is the last
+  observed pagehide/pageshow state, not proof of browser-internal teardown; no unload or
+  beforeunload hooks are added. Snapshotting uses Node memory even after a page fails.
+  Existing diagnostics, assertions and timeouts are unchanged. RSC fetches and document
+  navigation are not XHRs: correlate existing Playwright/server/native traces instead.
+  Send-return disproves a synchronous throw for that invocation; a pageError alone does
+  not prove one. XHR load observes completion in JS, not UI rendering; successful server
+  writes still do not prove receipt. Binding delivery has nonzero overhead and can be
+  lost during destruction. Retain source/export/runner provenance and raw traces privately;
+  passing instrumented cells do not attribute historical failures or establish a fix.
 - **Browsers.** `QQQ_ACCEPTANCE_BROWSERS` picks the Playwright projects (default `chromium`).
   The documented matrix is `chromium,firefox,webkit,mobile`; results and the exact commands
   are in `docs/acceptance/browser-matrix.md`.
