@@ -4,6 +4,8 @@ Browser stability [PR #18](https://github.com/QRun-IO/qqq-frontend-next/pull/18)
 
 ## Product fixes
 
+- In searchable possible-value fields, invalidate old results immediately when the search term changes, so a debounced request cannot remove an option during its selection. [#970](https://github.com/QRun-IO/qqq/issues/970)
+- Keep code suggestions open when a delayed textarea scroll event reports the position already used for the popup; dismiss them when the scroll position actually changes. [#954](https://github.com/QRun-IO/qqq/issues/954)
 - Preserve focus on the search dialog's Clear control when keyboard interaction occurs before its scheduled initial focus. [#950](https://github.com/QRun-IO/qqq/issues/950)
 - Preserve a clicked possible-value option in WebKit when blurring its search input would scroll the form between mousedown and mouseup. The selected value now reaches process submission and generated output. [#978](https://github.com/QRun-IO/qqq/issues/978)
 - Keep authentication loading until explicit logout finishes, so a late logout response cannot erase cookies from a subsequent successful sign-in. [#984](https://github.com/QRun-IO/qqq/issues/984)
