@@ -14,6 +14,8 @@
 
 ## Browser testing and infrastructure
 
+- Await resized line-chart label geometry within five seconds while retaining correct labels, no rotation, positive dimensions and strict nonoverlap. Preserve the original tablet WID-009 failure and require a fresh full exact-head matrix; no retry or skip waiver. [PR32](https://github.com/QRun-IO/qqq-frontend-next/pull/32)
+
 - Pin the official Playwright runner containing the fixed Linux WebKit network library, and retain native browser diagnostics for navigation failures. The previous bundle's heap corruption was reproduced; migration to a stable runner remains tracked separately. [#904](https://github.com/QRun-IO/qqq/issues/904), [#973](https://github.com/QRun-IO/qqq/issues/973)
 - Correlate interrupted Firefox font diagnostics with real request and decode evidence, wait for initial fonts before the deliberate redirect, and observe transient feedback during the action that produces it. [#951](https://github.com/QRun-IO/qqq/issues/951), [#953](https://github.com/QRun-IO/qqq/issues/953), [#967](https://github.com/QRun-IO/qqq/issues/967)
 - Wait for nested report metadata and the destination's owned iframe before advancing acceptance navigation. [#961](https://github.com/QRun-IO/qqq/issues/961), [#972](https://github.com/QRun-IO/qqq/issues/972)
