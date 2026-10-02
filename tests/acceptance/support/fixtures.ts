@@ -100,6 +100,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       enabled: process.env.QQQ_ACCEPTANCE_BROWSER_TRACE === '1',
       origins: [new URL(ACCEPTANCE_UI_URL).origin, new URL(ACCEPTANCE_BACKEND_URL).origin],
       includeProcessPaths: true,
+      includeDashboardPaths: process.env.QQQ_ACCEPTANCE_BROWSER_TRACE_SESSION === '1',
     })
     try {
       await provide()

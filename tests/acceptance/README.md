@@ -61,10 +61,14 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   ordinary server logs can still contain session data; keep raw evidence private.
 - **Document/XHR evidence (opt-in).** Set `QQQ_ACCEPTANCE_BROWSER_TRACE=1` locally to
   attach `browser-boundary.json` through the diagnostics fixture; CI does not enable it.
-  Only `/app/person[/]`, `/app/person/2[/]`, and `/app/person.bulkEdit[/]` documents on
-  the configured UI/API origins are observed. Requests are exact method/path matches:
-  GET person metadata, session, person record 2 and person.bulkEdit process metadata;
-  POST querySavedView init, person query/count and person.bulkEdit init. The helper emits
+  By default, only `/app/person[/]`, `/app/person/2[/]`, and `/app/person.bulkEdit[/]`
+  documents on the configured UI/API origins are observed. To also capture dashboard
+  documents at exactly `/app` and `/app/`, set `QQQ_ACCEPTANCE_BROWSER_TRACE_SESSION=1`
+  alongside `QQQ_ACCEPTANCE_BROWSER_TRACE=1` locally. The session flag alone installs
+  nothing; other dashboard paths are not included. Requests are exact method/path matches:
+  GET person metadata, person record 2 and person.bulkEdit process metadata;
+  POST `/qqq/v1/manageSession`, querySavedView init, person query/count and person.bulkEdit init.
+  GET `/qqq/v1/manageSession` is excluded. The helper emits
   fixed aliases, document UUID/sequence/clocks, native XHR send return/throw, status and
   terminal events. It never emits URLs, query/hash values, headers, credentials, payloads,
   error messages or stacks, and adds no request headers or interception. Disabled mode
