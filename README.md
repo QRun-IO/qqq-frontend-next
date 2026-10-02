@@ -2,7 +2,7 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-**This checkout targets Next UI 1.0.0-RC.11**, with searchable-selector and script-completion input-race corrections. Confirm availability in the [RC11 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) before installing; see the [RC11 notes](docs/releases/1.0.0-RC.11.md) for the preparation checkpoint and verification scope. [RC10](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.10) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
+**This checkout prepares Next UI 1.0.0-RC.12**, including backend date defaults for untouched dashboard controls. It is not yet published. [RC11](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) remains the latest published candidate and is immutable. Confirm availability in the [RC12 release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) before installing; [candidate notes](docs/releases/1.0.0-RC.12.md) separate source, preparation and public-artifact checks. Final 1.0 remains held for application soak and explicit owner approval.
 
 **Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
 
@@ -14,7 +14,7 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.11</version>
+    <version>1.0.0-RC.12</version>
 </dependency>
 ```
 

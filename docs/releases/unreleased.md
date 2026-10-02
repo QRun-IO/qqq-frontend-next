@@ -1,8 +1,10 @@
 # Next UI — unreleased
 
-[RC11 preparation](1.0.0-RC.11.md) adds the searchable-selector and script-completion input-race corrections from [PR24](https://github.com/QRun-IO/qqq-frontend-next/pull/24). [RC10 is published and immutable](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.10), including the earlier browser-stability, ESB and record-view URL corrections. RC11 is not yet published. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC12 preparation](1.0.0-RC.12.md) adds untouched dashboard date-default hydration from [PR32](https://github.com/QRun-IO/qqq-frontend-next/pull/32). It is not yet published. [RC11](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) is the latest published candidate and remains immutable, including its historical scoped passes and full tag-run failures. Prior preparation notes and public release entries retain their exact provenance. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Product fixes
+
+- Apply parseable backend defaults to untouched dashboard date controls, using the existing date request format. Preserve edited, stored and explicitly cleared values, and do not persist server defaults. [Next issue31](https://github.com/QRun-IO/qqq-frontend-next/issues/31), [PR32](https://github.com/QRun-IO/qqq-frontend-next/pull/32)
 
 - In searchable possible-value fields, invalidate old results immediately when the search term changes, so a debounced request cannot remove an option during its selection. [#970](https://github.com/QRun-IO/qqq/issues/970)
 - Keep code suggestions open when a delayed textarea scroll event reports the position already used for the popup; dismiss them when the scroll position actually changes. [#954](https://github.com/QRun-IO/qqq/issues/954)
