@@ -37,7 +37,7 @@ async function receipts(backend: Backend) {
   return backend.sql('SELECT subject, event_type, first_name FROM acceptance_esb_receipt ORDER BY id')
 }
 
-test('[ESB-001] admin sees the real topic and trigger; inserting a person runs its subscriber', async ({ page, backend, diagnostics }) => {
+test('[ESB-001] admin sees the real topic and trigger; inserting a person runs its subscriber @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/esb')
   await expect(page.locator('[data-qqq-id="esb-destination-personEvents"]')).toContainText('Topic')
@@ -63,7 +63,7 @@ test('[ESB-001] admin sees the real topic and trigger; inserting a person runs i
   await expect(row.locator('div').filter({ has: page.locator('dt').filter({ hasText: /^Consumed$/ }) }).locator('dd')).toHaveText('1')
 })
 
-test('[ESB-002] table and process Developer views expose publications and subscribers without running a process', async ({ page, backend, diagnostics }) => {
+test('[ESB-002] table and process Developer views expose publications and subscribers without running a process @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const processInits: string[] = []
   page.on('request', (request) => {
@@ -88,7 +88,7 @@ test('[ESB-002] table and process Developer views expose publications and subscr
 
 test.describe('table READ enforcement', () => {
   test.use({ persona: 'noPersonRead' })
-  test('[ESB-003] no person READ hides the section and the server refuses its data', async ({ page, backend, diagnostics }) => {
+  test('[ESB-003] no person READ hides the section and the server refuses its data @mobile', async ({ page, backend, diagnostics }) => {
     diagnostics.allow(/^request: GET \/qqq\/v1\/esb\/table\/person 403$/)
     diagnostics.allow(/^console: Failed to load resource: the server responded with a status of 403 \(Forbidden\)$/)
     const denied = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/esb/table/person')
@@ -104,7 +104,7 @@ test.describe('table READ enforcement', () => {
 
 test.describe('app enforcement', () => {
   test.use({ persona: 'noEsbView' })
-  test('[ESB-004] no ESB app access hides navigation and denies overview while table READ still works', async ({ page, backend, diagnostics }) => {
+  test('[ESB-004] no ESB app access hides navigation and denies overview while table READ still works @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/dev')
     await expect(page.locator('[data-qqq-id="esb-section-person"]')).toBeVisible()
@@ -116,7 +116,7 @@ test.describe('app enforcement', () => {
 
 test.describe('subscriber enforcement', () => {
   test.use({ persona: 'noSyncPerson' })
-  test('[ESB-005] a denied process is omitted from subscribers and its endpoints refuse access', async ({ page, backend, diagnostics }) => {
+  test('[ESB-005] a denied process is omitted from subscribers and its endpoints refuse access @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/person/dev')
     const section = page.locator('[data-qqq-id="esb-section-person"]')
@@ -129,7 +129,7 @@ test.describe('subscriber enforcement', () => {
   })
 })
 
-test('[ESB-006] pause holds a real message in the topic subscription; resume and restart complete', async ({ page, backend, diagnostics }) => {
+test('[ESB-006] pause holds a real message in the topic subscription; resume and restart complete @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/esb')
   const row = page.locator(triggerRow)
@@ -162,7 +162,7 @@ test('[ESB-006] pause holds a real message in the topic subscription; resume and
 
 test.describe('operate permission', () => {
   test.use({ persona: 'noEsbOperate' })
-  test('[ESB-007] operate controls are absent and every operate process denies direct invocation', async ({ page, backend, diagnostics }) => {
+  test('[ESB-007] operate controls are absent and every operate process denies direct invocation @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/esb')
     const row = page.locator(triggerRow)
@@ -180,7 +180,7 @@ test.describe('operate permission', () => {
 
 test.describe('delete permission', () => {
   test.use({ persona: 'noEsbDelete' })
-  test('[ESB-008] delete permission is independent of operate and enforced by both destructive processes', async ({ page, backend, diagnostics }) => {
+  test('[ESB-008] delete permission is independent of operate and enforced by both destructive processes @mobile', async ({ page, backend, diagnostics }) => {
     void diagnostics
     await open(page, '/app/esb')
     const row = page.locator(triggerRow)
@@ -197,7 +197,7 @@ test.describe('delete permission', () => {
   })
 })
 
-test('[ESB-009] unavailable broker capabilities hide queue mutations, while JMS browsing remains usable', async ({ page, backend, diagnostics }) => {
+test('[ESB-009] unavailable broker capabilities hide queue mutations, while JMS browsing remains usable @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await open(page, '/app/esb')
   const status = await overview(backend)
@@ -208,7 +208,7 @@ test('[ESB-009] unavailable broker capabilities hide queue mutations, while JMS 
   await expect(page.getByRole('button', { name: /^(Pause queue|Resume queue|Purge|Delete older|Delete selected|Move selected)/ })).toHaveCount(0)
 })
 
-test('[ESB-010] real dead letters require replay-all confirmation; cancel preserves them and confirm runs the subscriber', async ({ page, backend, diagnostics }) => {
+test('[ESB-010] real dead letters require replay-all confirmation; cancel preserves them and confirm runs the subscriber @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
   await backend.failEsbSync(true)
   await insertPerson(backend, 'Replay')

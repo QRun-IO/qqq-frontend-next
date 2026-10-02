@@ -9,7 +9,7 @@
       "id": "ESB-001",
       "feature": "Admin overview and real table-to-process delivery",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -21,7 +21,8 @@
         "Fresh test starts with zero consumed and no receipts"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -29,7 +30,7 @@
       "id": "ESB-002",
       "feature": "Developer publications, subscribers and safe process links",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -41,7 +42,8 @@
         "No process init request or receipt from navigating metadata"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -49,7 +51,7 @@
       "id": "ESB-003",
       "feature": "Person READ permission",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -60,7 +62,8 @@
         "Table section is absent; its browser request and direct backend request return 403"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -68,7 +71,7 @@
       "id": "ESB-004",
       "feature": "ESB app permission",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -79,7 +82,8 @@
         "No ESB navigation link and direct overview is 403 without esbView"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -87,7 +91,7 @@
       "id": "ESB-005",
       "feature": "Subscriber process permission",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -98,7 +102,8 @@
         "Subscriber is omitted; process and dead-letter endpoints return 403"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -106,7 +111,7 @@
       "id": "ESB-006",
       "feature": "Trigger lifecycle and topic subscription",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -118,7 +123,8 @@
         "No receipt while paused; each action reports its final completion"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -126,7 +132,7 @@
       "id": "ESB-007",
       "feature": "Operate permission enforcement",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -137,7 +143,8 @@
         "Pause resume restart replay queue pause queue resume and move all return 403; controls absent"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -145,7 +152,7 @@
       "id": "ESB-008",
       "feature": "Delete permission enforcement",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -156,7 +163,8 @@
         "Purge and delete requests return 403; destructive controls absent"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -164,7 +172,7 @@
       "id": "ESB-009",
       "feature": "Broker capability gating",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -175,7 +183,8 @@
         "Queue pause resume purge delete and move controls are absent when capabilities are false"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     },
@@ -183,7 +192,7 @@
       "id": "ESB-010",
       "feature": "Dead-letter replay confirmation and delivery",
       "source": [
-        "QRun-IO/qqq-frontend-next#10 (task 18 and addendum)",
+        "QRun-IO/qqq#986 (transferred from frontend#10; task 18 and addendum)",
         "qqq/docs/specs/2026-09-25-qqq-esb-design.md sections 7-9,12"
       ],
       "fixture": "SampleJavalinServer embedded Artemis + EsbFixtures receipt/failure/reset support",
@@ -196,7 +205,8 @@
         "Opening and cancelling confirmation issues no replay and preserves the message"
       ],
       "issues": [
-        "QRun-IO/qqq-frontend-next#10"
+        "QRun-IO/qqq#986",
+        "QRun-IO/qqq#990"
       ],
       "required": true
     }
