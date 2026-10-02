@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-10-02T14:58:00.898465+00:00",
+  "phase": null,
+  "phase_name": "Next UI RC stabilization and browser/security closeout",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "handoff_ready",
+  "goal_status": "pause authorized; apply after handoff persistence",
+  "handoff": "docs/HANDOFF-NEXT-UI-2026-10-02.md",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "Query privacy fix signed, pushed, draft PR36",
+      "status": "done",
+      "commit": "4a055463bdc47398cb9e672556a225f32551d59d"
+    },
+    {
+      "id": 2,
+      "name": "PR35 final artifacts collected:3008pass/2tablet failures",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "name": "QQQ695 current-source provider tests13/13 verified",
+      "status": "done"
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 4,
+      "name": "Collect existing PR36 native run37021917074, review before merge",
+      "status": "in_progress"
+    },
+    {
+      "id": 5,
+      "name": "Map original695 criteria and close only if all proven",
+      "status": "not_started"
+    },
+    {
+      "id": 6,
+      "name": "Investigate PR35 tabletNAV056/WID009; hold PR35",
+      "status": "not_started"
+    },
+    {
+      "id": 7,
+      "name": "Continue733/734/Auth0 review and904/911/952/960/985/1000 investigations",
+      "status": "in_progress"
+    },
+    {
+      "id": 8,
+      "name": "Owner visual and real-app soak; final1.0 held",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [
+    {
+      "description": "PR35 native matrix failed tabletNAV056/WID009",
+      "type": "technical",
+      "workaround": "Use retained exact traces, no blind rerun"
+    },
+    {
+      "description": "Mac1000 SDKnewPage unresolved; original browser causes remain unproven",
+      "type": "technical",
+      "workaround": "Read bounded protocol review and frozen proposals"
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Owner visual acceptance and real-app soak before final1.0",
+      "context": "Explicit user release hold",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "QQQ Project12 central issues are source of truth",
+      "rationale": "Explicit user instruction"
+    },
+    {
+      "decision": "Preserve original Next design and Material behavior compatibility",
+      "rationale": "User rejected unauthorized redesign"
+    },
+    {
+      "decision": "Full themes deferred to1.1 issue1005",
+      "rationale": "Explicit roadmap request"
+    }
+  ],
+  "uncommitted_files": [
+    "Root AGENTS.md and docs/SESSION-STATE.md pre-existed untracked; preserve",
+    "Root handoff copies intentionally untracked; committed copies live on handoff branch"
+  ],
+  "background_processes": [
+    {
+      "name": "QA next-ui-qa-main-5ca3e0b",
+      "url": "http://127.0.0.1:18810/app/person/",
+      "preserve": true
+    },
+    {
+      "name": "PR36 GitHub acceptance",
+      "run": 37021917074,
+      "status": "in_progress at snapshot"
+    }
+  ],
+  "next_action": "Read full handoff then collect existing PR36 run37021917074 with actual tested source and strict first-attempt reports. Do not dispatch replacements.",
+  "context_notes": "No GSD phase detected. Handoff branch based on current main. Product branch clean; all local agents completed. Private evidence remains in RT paths documented in full handoff."
+}
