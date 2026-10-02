@@ -1,12 +1,12 @@
 # Next UI developer guide
 
-> **RC10 preparation:** the candidate includes browser-stability, ESB and record-view URL corrections. See [RC10 notes](../releases/1.0.0-RC.10.md) for the exact source/backend pair, versioned checks and pending public delivery. RC9 remains the latest verified published artifact; historical RC8/RC9 evidence below is unchanged. Final 1.0 remains held.
+> **This checkout targets RC11.** Confirm availability in the [RC11 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) before installing. [RC11 notes](../releases/1.0.0-RC.11.md) record the preparation checkpoint and verification scope; RC10 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
 
 > **RC9:** application code is unchanged from RC8. See [RC9 notes](../releases/1.0.0-RC.9.md) and [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for versioned verification and public delivery status. Earlier RC8 receipts below remain historical evidence.
 
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The latest published prerelease is [1.0.0-RC.9](../releases/1.0.0-RC.9.md) (commit `c029ad2`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The previously verified public candidate at the RC11 preparation checkpoint was [1.0.0-RC.10](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.10) (commit `12cf774`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 The visual baseline is the September 25 Next UI design (`e42ad2b2`). Material remains the reference for backend contracts and functional behavior. The layout defaults below describe current source; they do not certify a completed visual review.
 
@@ -35,7 +35,7 @@ The preferred QQQ-hosted distribution is the `com.kingsrook.qqq:qqq-frontend-nex
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.5</version>
+    <version>1.0.0-RC.11</version>
 </dependency>
 ```
 
@@ -48,7 +48,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). Use version `1.0.0-RC.9` for the latest verified published prerelease, overriding an older BOM-managed frontend. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). This checkout targets `1.0.0-RC.11`, overriding an older BOM-managed frontend; confirm its availability in the [RC11 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) before installing. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
 
 | Setting | Behavior in this checkout |
 |---|---|
