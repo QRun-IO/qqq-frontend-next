@@ -414,7 +414,6 @@ function RecordViewContent({
 }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
-  const router = useRouter()
   const { preferences } = useUserPreferences()
 
   // Persist tab and view mode in URL so back navigation restores state
@@ -441,15 +440,16 @@ function RecordViewContent({
    * @param defaultValue - The "default" value; when matched the key is removed.
    */
   const updateUrlParam = useCallback((key: string, value: string, defaultValue: string) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const url = new URL(window.location.href)
+    const params = url.searchParams
     if (value === defaultValue) {
       params.delete(key)
     } else {
       params.set(key, value)
     }
-    const qs = params.toString()
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [searchParams, pathname, router])
+    // Make URL state durable before another click, reload, or departure, without an RSC navigation.
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
 
   /**
    * Switches the active tab by updating the `tab` URL parameter.
