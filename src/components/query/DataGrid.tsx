@@ -818,9 +818,13 @@ export function DataGrid({
                     style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
                     aria-sort={ariaSortValue}
                   >
+                    {/* These locally defined headers are pure render callbacks. Calling them
+                        preserves their child identity when current props rebuild the columns. */}
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : typeof header.column.columnDef.header === 'function'
+                        ? header.column.columnDef.header(header.getContext())
+                        : header.column.columnDef.header}
 
                     {/* Column resize handle */}
                     {!isSelectCol && (() => {
