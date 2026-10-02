@@ -128,6 +128,7 @@ public class AcceptanceSampleServer
       server.withJavalinConfigCustomizer(config ->
       {
          config.jetty.host = "127.0.0.1";
+         AcceptanceTransportTrace.configure(config);
          config.routes.get("/acceptance/ready", context -> context.status(ready ? 200 : 503).result(ready ? "ready" : "starting"));
          config.routes.post("/acceptance/esb/failure", context ->
          {
