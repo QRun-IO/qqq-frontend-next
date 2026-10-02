@@ -6,10 +6,11 @@
  */
 
 import type { Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, test, type Backend } from '../../support/fixtures'
 import {
   VIEWER, control, expandOnPhone, fieldValue, multipartFields, openForm, openRecord, recordIdFromUrl, recordRequests, showSection, shown, sqlCount,
-  sqlOne, toasts,
+  sqlOne, expectToastDuringAction,
 } from './helpers'
 
 test.use(VIEWER)
@@ -275,7 +276,7 @@ test('[REC-021] PASSWORD is masked on read and never overwritten by the mask @mo
   expect((await sqlOne(backend, `select password_value from field_lab where id = ${id}`)).password_value).toBe('secret-two')
 })
 
-test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile', async ({ page, backend, diagnostics }) => {
+test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile', async ({ page, backend, browserName, diagnostics }) => {
   void diagnostics
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
   await control(page, 'name').fill('Binary')
@@ -290,9 +291,11 @@ test('[REC-022] BLOB upload stores the bytes and the view downloads them @mobile
 
   await expandOnPhone(page, 'Field Types')
   const downloadPromise = page.waitForEvent('download')
-  await shown(page, '[data-qqq-id="field-value-blobValue-download"]').click()
+  const link = shown(page, '[data-qqq-id="field-value-blobValue-download"]')
+  await expect(link).toHaveAttribute('download', `Field Lab ${id} Blob Value`)
+  await link.click()
   const download = await downloadPromise
-  expect(download.suggestedFilename()).toBe(`Field Lab ${id} Blob Value`)
+  expect(download.suggestedFilename()).toBe(expectedDownloadFilename(`Field Lab ${id} Blob Value`, browserName))
   const chunks: Buffer[] = []
   for await (const chunk of await download.createReadStream()) chunks.push(chunk as Buffer)
   expect(Buffer.concat(chunks).equals(Buffer.from(stored, 'base64'))).toBe(true)
@@ -404,13 +407,11 @@ test('[REC-027] unique keys are enforced with the backend message on create and 
 
 test('[REC-048] a server validation error is shown once with the backend message and keeps the form @mobile', async ({ page, backend, diagnostics }) => {
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
-  await createFieldLab(page, { name: 'Kept Values', decimalValue: '42.25', boundedValue: '101' })
+  await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
+  for (const [name, value] of Object.entries({ name: 'Kept Values', decimalValue: '42.25', boundedValue: '101' })) await control(page, name).fill(value)
   const message = 'Error inserting Field Lab: The value for Bounded Value is too large (maximum allowed value is 100)'
+  await expectToastDuringAction(page, `Failed to create Field Lab: ${message}`, () => page.getByRole('button', { name: 'Save' }).click())
   await expect(page.getByRole('alert').filter({ hasText: message })).toBeVisible()
-  await expect(toasts(page).filter({ hasText: `Failed to create Field Lab: ${message}` })).toBeVisible()
-  await expect(toasts(page)).toHaveCount(1)
-  await expect(toasts(page).filter({ hasText: 'Something went wrong' })).toHaveCount(0)
-  await expect(toasts(page).filter({ hasText: 'Request failed with status code' })).toHaveCount(0)
   await expect(control(page, 'name')).toHaveValue('Kept Values')
   await expect(control(page, 'decimalValue')).toHaveValue('42.25')
   await expect(page).toHaveURL(/\/app\/fieldLab\/create\/?$/)

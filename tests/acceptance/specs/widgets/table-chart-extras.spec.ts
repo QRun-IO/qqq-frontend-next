@@ -7,6 +7,7 @@
 
 // Material table and chart widget extras (QRun-IO/qqq#728): WidgetTableChartFixtures widgetTableCharts.
 import type { Locator, Page } from '@playwright/test'
+import { expectedDownloadFilename, nextDownloadAttribute } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import { byId, downloadText, expectLoaded, widget, widgetPayload } from './widget-support'
@@ -149,14 +150,15 @@ test.describe('table and chart extras', () => {
     await expectTouchReady(page, card)
   })
 
-  test('[WID-068] export without csvData downloads the Material CSV of the columns and rows, without icon text @mobile', async ({ page, backend, diagnostics }) => {
+  test('[WID-068] export without csvData downloads the Material CSV of the columns and rows, without icon text @mobile', async ({ page, backend, browserName, diagnostics }) => {
     void diagnostics
     const payload = await widgetPayload(backend.api, 'accTableCells')
     expect(payload.csvData ?? null).toBeNull()
     const image = payload.rows[0].imageUrl
     await expectLoaded(page, 'accTableCells')
-    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export Owned Typed Cells' }).click()])
-    expect(download.suggestedFilename()).toMatch(/^Owned Typed Cells \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    const [download, downloadName] = await Promise.all([page.waitForEvent('download'), nextDownloadAttribute(page), page.getByRole('button', { name: 'Export Owned Typed Cells' }).click()])
+    expect(downloadName).toMatch(/^Owned Typed Cells \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    expect(download.suggestedFilename()).toBe(expectedDownloadFilename(downloadName, browserName))
     const csv = await downloadText(download)
     expect(csv).toBe([
       '"Name","Count","Status","Product","Detail","Tooltip","Image URL","Image Label","Image Total","Image Total Type"',
@@ -167,7 +169,7 @@ test.describe('table and chart extras', () => {
     expect(csv).not.toContain('open_in_new')
   })
 
-  test('[WID-068] each table of a multi-table widget has its own export button and footer @mobile', async ({ page, diagnostics }) => {
+  test('[WID-068] each table of a multi-table widget has its own export button and footer @mobile', async ({ page, browserName, diagnostics }) => {
     void diagnostics
     await expectLoaded(page, 'accMultiTableExtras')
     const card = widget(page, 'accMultiTableExtras')
@@ -180,11 +182,13 @@ test.describe('table and chart extras', () => {
     await expect(second.locator('[data-qqq-id="table-footer-accMultiTableExtras-1"] b')).toHaveText('Owned second footer')
     await expect(first.locator('[data-qqq-id^="table-footer-"]')).toHaveCount(1)
 
-    const [firstDownload] = await Promise.all([page.waitForEvent('download'), first.getByRole('button', { name: 'Export Owned first table' }).click()])
-    expect(firstDownload.suggestedFilename()).toMatch(/^Owned first table \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    const [firstDownload, firstDownloadName] = await Promise.all([page.waitForEvent('download'), nextDownloadAttribute(page), first.getByRole('button', { name: 'Export Owned first table' }).click()])
+    expect(firstDownloadName).toMatch(/^Owned first table \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    expect(firstDownload.suggestedFilename()).toBe(expectedDownloadFilename(firstDownloadName, browserName))
     expect(await downloadText(firstDownload)).toBe('"Name","Qty"\n"Owned alpha","1500"\n')
-    const [secondDownload] = await Promise.all([page.waitForEvent('download'), second.getByRole('button', { name: 'Export Owned second table' }).click()])
-    expect(secondDownload.suggestedFilename()).toMatch(/^Owned second table \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    const [secondDownload, secondDownloadName] = await Promise.all([page.waitForEvent('download'), nextDownloadAttribute(page), second.getByRole('button', { name: 'Export Owned second table' }).click()])
+    expect(secondDownloadName).toMatch(/^Owned second table \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+    expect(secondDownload.suggestedFilename()).toBe(expectedDownloadFilename(secondDownloadName, browserName))
     expect(await downloadText(secondDownload)).toBe('"Owned CSV header"\n"Owned CSV value"\n')
     await expectTouchReady(page, card)
   })

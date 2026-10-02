@@ -8,13 +8,12 @@
 // Owned widgets of the remaining canonical display types (WidgetsFixtures widgetGallery).
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
-import { chartTable, expectLoaded, widget, widgetPayload } from './widget-support'
+import { allowMissingExtension, chartTable, expectLoaded, widget, widgetPayload } from './widget-support'
 
 test.describe('widget gallery', () => {
   test.beforeEach(async ({ page, diagnostics }) => {
     // the gallery deliberately includes a custom component whose bundle is missing (WID-062)
-    diagnostics.allow('/missing-extension.js 404')
-    diagnostics.allow('Failed to load resource: the server responded with a status of 404')
+    allowMissingExtension(page, diagnostics)
     await open(page, '/app/widgetGallery')
     await expect(page.getByRole('heading', { level: 1, name: 'Widget Gallery' })).toBeVisible()
   })

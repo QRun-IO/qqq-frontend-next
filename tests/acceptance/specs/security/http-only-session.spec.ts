@@ -185,6 +185,54 @@ tableTest('[SEC-048] [SEC-049] TABLE_BASED sign-in, reload resume, idle expiry a
   expect(sessionRequests).toEqual([])
 })
 
+tableTest('[SEC-049] a pending logout finishes cookie expiry before another user can sign in @mobile', async ({ page, tableBased, diagnostics, context }) => {
+  void tableBased
+  void diagnostics
+  await open(page, '/app/person')
+  await submitCredentials(page, TESS)
+  await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+
+  let releaseLogout!: () => void
+  let reportLogoutStarted!: () => void
+  const logoutGate = new Promise<void>((resolve) => { releaseLogout = resolve })
+  const logoutStarted = new Promise<void>((resolve) => { reportLogoutStarted = resolve })
+  await page.route('**/qqq/v1/logout', async (route) => {
+    reportLogoutStarted()
+    await logoutGate
+    await route.continue()
+  })
+  const logoutResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/qqq/v1/logout')
+  try {
+    const menu = await openUserMenu(page)
+    await menu.getByRole('menuitem', { name: 'Log Out' }).click()
+    await logoutStarted
+    // Hold the real logout request; its eventual response must expire the old cookies first.
+    await expect(page.getByRole('status', { name: 'Loading', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Username', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0)
+    releaseLogout()
+    const response = await logoutResponse
+    expect(response.status()).toBe(200)
+    expect(await response.finished()).toBeNull()
+    await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+    expect((await context.cookies()).filter((cookie) => SESSION_COOKIES.includes(cookie.name))).toEqual([])
+
+    await submitCredentials(page, RAVI)
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    const sessions = await tableSessions()
+    expect(sessions.map((row) => row.username)).toEqual([RAVI.username])
+    if (!sessions[0]?.id) throw new Error('Expected the new user session after logout')
+    await expectHttpOnlySession(page, context, sessions[0].id)
+    await page.reload()
+    await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
+    await expectUserAndCloseNavigation(page, RAVI.name)
+    await expectHttpOnlySession(page, context, sessions[0].id)
+  } finally {
+    releaseLogout()
+    await page.unrouteAll({ behavior: 'wait' })
+  }
+})
+
 tableTest('[SEC-049] a sign-in after a logout that never reached the server uses only the new session @mobile', async ({ page, tableBased, diagnostics, context }) => {
   void tableBased
   diagnostics.allow('/qqq/v1/logout 503')

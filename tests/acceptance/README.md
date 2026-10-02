@@ -102,11 +102,18 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   a navigation cancels are not failures: `ERR_ABORTED`/`NS_BINDING_ABORTED`/cancelled, and
   WebKit's "… due to access control checks." for a same-origin Next.js route prefetch or
   RSC payload reported within a second of a document navigation (listed under
-  `interruptedFetches` in the attached `diagnostics.json`).
+  `interruptedFetches` in the attached `diagnostics.json`). Firefox legacy-font diagnostics
+  are classified there only when the exact cancellation status matches a same-origin font
+  request from an earlier document near navigation (aborted, or HTTP 200 before decode was cancelled), and the final document successfully
+  loads and decodes that font. Every unmatched or failed-decode diagnostic still fails.
 - **v1 only.** The `diagnostics` fixture also fails a test whose page calls an unversioned API
   route of a QQQ server (`/data`, `/processes`, `/widget`, `/possibleValues`, `/download`,
   `/reports`, `/metaData`, `/manageSession`, `/logout` outside `/qqq/v1`; QRun-IO/qqq#699).
   `allow()` does not waive it. Node-side `backend.api` calls may still exercise legacy routes.
+- **Transient feedback.** Arm `expectToastDuringAction` before the triggering action when
+  asserting a toast. It observes the visible exact text and notification count inside the
+  browser (plus header clearance when requested), so driver/trace delays cannot outlast the
+  notification before observation begins. Assert persistent form and database state afterwards.
 - **Assert real behavior.** Check exact values, labels, counts and persisted rows. A 200
   response or a visible container is not acceptance.
 - **Fixtures.** Each area owns `fixture/<Area>Fixtures.java`: `define()` adds metadata;
@@ -116,7 +123,10 @@ there. Skipping them with `test.skip` is not allowed: skips fail the gate.
   `id, feature, source[], fixture, scenarios[], negative[], issues[], required`.
   `docs/acceptance/feature-matrix.md` is generated from these files.
 
-## ESB (QRun-IO/qqq-frontend-next#10)
+## Pinned Linux WebKit crash fix
+
+The test runner is temporarily pinned to `@playwright/test@1.64.0-alpha-2026-10-01`: its WebKit 2369 bundle contains libsoup 3.6.6. The previous 1.58.2/WebKit 2248 bundle contains 3.6.5 and reproduced heap corruption during navigation; the same browser using the fixed library passed 110 targeted cases, and the official replacement passed 72 repeated WebKit/tablet cases against the native Linux fixture. The 110-case comparison also corrected an unrelated iframe forwarding problem; the reproduced heap crash occurred outside that iframe workflow. See [QQQ#904](https://github.com/QRun-IO/qqq/issues/904) and [upstream#42803](https://github.com/microsoft/playwright/issues/42803). This is test infrastructure, not a browser shipped with Next UI. Replace the dated pin with a stable release containing the fix after running the acceptance gate ([QQQ#973](https://github.com/QRun-IO/qqq/issues/973)); do not downgrade to the affected stable 1.63 merely to remove the prerelease suffix.
+## ESB (QRun-IO/qqq#986)
 
 The sample JAR must include its embedded Artemis broker, `personEvents` topic,
 `syncPerson` subscriber, ESB app/widget, all nine management processes, and the ESB

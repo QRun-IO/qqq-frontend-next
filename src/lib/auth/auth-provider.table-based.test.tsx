@@ -30,9 +30,10 @@ vi.mock('@/lib/api/auth', () => ({
   clearAuthMetadataCache: vi.fn(),
 }))
 
-import { createPasswordSession, logout, manageSession, resumeSession } from '@/lib/api/auth'
+import { createPasswordSession, getAuthenticationMetaData, logout, manageSession, resumeSession } from '@/lib/api/auth'
 import { AuthProvider } from './auth-provider'
 import { useAuth } from './use-auth'
+import * as oidc from './oidc'
 import { storeUser, getStoredUser, hasSessionHint, setSessionHint } from './auth-storage'
 
 let auth: ReturnType<typeof useAuth> | null = null
@@ -100,6 +101,62 @@ describe('AuthProvider with TABLE_BASED authentication', () => {
     expect(write).not.toHaveBeenCalled()
     read.mockRestore()
     write.mockRestore()
+  })
+
+  it.each([false, true])('keeps authentication loading until logout settles (failure: %s)', async (fails) => {
+    let finishLogout!: () => void
+    vi.mocked(logout).mockReturnValue(new Promise<void>((resolve, reject) => {
+      finishLogout = () => fails ? reject(new Error('Logout unavailable')) : resolve()
+    }))
+    vi.mocked(createPasswordSession).mockResolvedValue({ values: { user: { name: 'Tess Table', username: 'tess.table' } } })
+    render(<AuthProvider><Probe /></AuthProvider>)
+    await screen.findByText('signed out: no error')
+    await act(async () => { await auth?.signInWithPassword('tess.table', 'table:pass-2026') })
+    let pendingLogout: Promise<void> | undefined
+    await act(async () => { pendingLogout = auth?.logout() })
+    expect(screen.getByText('loading')).toBeInTheDocument()
+    expect(auth?.isAuthenticated).toBe(false)
+    expect(auth?.user).toBeNull()
+    await act(async () => { finishLogout(); await pendingLogout })
+    expect(screen.getByText('signed out: no error')).toBeInTheDocument()
+    expect(auth?.isLoading).toBe(false)
+  })
+
+  it('leaves loading when provider logout falls back to the local login page', async () => {
+    vi.mocked(getAuthenticationMetaData).mockResolvedValueOnce({ name: 'oauth', type: 'OAUTH2' })
+    vi.mocked(resumeSession).mockResolvedValue({ values: { user: { name: 'Tess Table', username: 'tess.table' } } })
+    vi.mocked(logout).mockResolvedValue(undefined)
+    setSessionHint(true)
+    const endSession = vi.spyOn(oidc, 'buildEndSessionUrl').mockRejectedValue(new Error('Provider unavailable'))
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>)
+      await screen.findByText('Tess Table <tess.table>')
+      await act(async () => { await auth?.logout() })
+      expect(endSession).toHaveBeenCalled()
+      expect(screen.getByText('signed out: no error')).toBeInTheDocument()
+      expect(auth?.isLoading).toBe(false)
+    } finally {
+      endSession.mockRestore()
+    }
+  })
+
+  it('keeps loading after provider logout starts an external navigation', async () => {
+    vi.mocked(getAuthenticationMetaData).mockResolvedValueOnce({ name: 'oauth', type: 'OAUTH2' })
+    vi.mocked(resumeSession).mockResolvedValue({ values: { user: { name: 'Tess Table', username: 'tess.table' } } })
+    vi.mocked(logout).mockResolvedValue(undefined)
+    setSessionHint(true)
+    const endSession = vi.spyOn(oidc, 'buildEndSessionUrl').mockResolvedValue('https://idp.example/logout')
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>)
+      await screen.findByText('Tess Table <tess.table>')
+      // jsdom leaves the document in place when location.assign starts navigation.
+      await act(async () => { await auth?.logout() })
+      expect(endSession).toHaveBeenCalled()
+      expect(screen.getByText('loading')).toBeInTheDocument()
+      expect(auth?.isLoading).toBe(true)
+    } finally {
+      endSession.mockRestore()
+    }
   })
 
   it('reports refused credentials and stays signed out', async () => {

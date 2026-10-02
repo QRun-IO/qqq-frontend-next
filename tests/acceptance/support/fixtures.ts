@@ -6,7 +6,8 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { test as base, expect, type APIRequestContext, type Page, type Response } from '@playwright/test'
+import { test as base, expect, type APIRequestContext, type Page, type Request, type Response } from '@playwright/test'
+import { interruptedLegacyFont, type FontRequestOutcome } from './font-diagnostics'
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
 /** Personas defined by tests/acceptance/fixture/AcceptanceSampleServer.java. */
@@ -127,6 +128,14 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     // navigation - still fails the test.
     const documentHosts = new Set<string>()
     const navigations: number[] = []
+    let currentDocument = 0
+    const fontDocuments = new WeakMap<Request, number>()
+    const fontOutcomes: FontRequestOutcome[] = []
+    const fontReports: { text: string; at: number }[] = []
+    page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) currentDocument += 1 })
+    page.on('request', (request) => {
+      if (request.resourceType() === 'font') fontDocuments.set(request, currentDocument)
+    })
     // The UI runs on the v1 API only (QRun-IO/qqq#699): any page request to an unversioned API
     // route of a QQQ server fails the test (Node-side backend.api calls are not page requests).
     const legacyRoute = /^\/(data|processes|widget|possibleValues|download|reports|metaData|manageSession|logout)(\/|$)/
@@ -166,12 +175,17 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     page.on('pageerror', (error) => report(error.message, () => diagnostics.pageErrors.push(error.message)))
     page.on('console', (message) => {
       if (message.type() !== 'error') return
+      if (message.text().includes('downloadable font: download failed') && message.text().includes('QQQ Legacy Material Icons')) {
+        fontReports.push({ text: message.text(), at: performance.now() })
+        return
+      }
       const image = truncatedImage.exec(message.text())?.[1]
       if (image) truncatedImages.push({ text: message.text(), url: image })
       else report(message.text(), () => diagnostics.consoleErrors.push(message.text()))
     })
     page.on('requestfailed', (request) => {
       const failure = request.failure()?.errorText ?? ''
+      if (request.resourceType() === 'font') fontOutcomes.push({ url: request.url(), outcome: failure, at: performance.now(), document: fontDocuments.get(request) ?? currentDocument })
       // Navigation-cancelled background reads are not application failures.
       if (/ERR_ABORTED|NS_BINDING_ABORTED|cancelled/i.test(failure)) return
       const text = `${request.method()} ${request.url()} ${failure}`
@@ -185,6 +199,10 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
       }
     }
     page.on('response', (response: Response) => {
+      const request = response.request()
+      if (request.resourceType() === 'font' && response.status() === 200) {
+        fontOutcomes.push({ url: request.url(), outcome: 'HTTP 200', at: performance.now(), document: fontDocuments.get(request) ?? currentDocument })
+      }
       if (response.status() >= 400) diagnostics.failedRequests.push(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`)
     })
     await provide(diagnostics)
@@ -199,6 +217,19 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
         image.src = src
       }), url).catch(() => false)
       if (decodes) diagnostics.interruptedFetches.push(text)
+      else diagnostics.consoleErrors.push(text)
+    }
+    for (const { text, at } of fontReports) {
+      const origin = !page.isClosed() ? new URL(page.url()).origin : ''
+      const interrupted = interruptedLegacyFont({ text, at, origin, currentDocument, navigations, requests: fontOutcomes })
+      // A proven old-document font-loader cancellation is retained only after the final document loads and
+      // decodes the actual legacy font. Missing, corrupt, CSP-blocked or unrelated fonts fail.
+      const loaded = interrupted && !page.isClosed() && await page.evaluate(async () => {
+        const faces = await document.fonts.load('24px "QQQ Legacy Material Icons"', '\ue88a')
+        return faces.length > 0 && faces.every((face) => face.status === 'loaded')
+          && document.fonts.check('24px "QQQ Legacy Material Icons"', '\ue88a')
+      }).catch(() => false)
+      if (loaded) diagnostics.interruptedFetches.push(text)
       else diagnostics.consoleErrors.push(text)
     }
     const unexpected = [

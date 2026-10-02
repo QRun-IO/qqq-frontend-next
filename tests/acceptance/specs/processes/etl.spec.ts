@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs'
 import type { APIRequestContext, Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, test } from '../../support/fixtures'
 import { advance, expectRunTouchReady, expectScreen, openProcess } from './process-helpers'
 
@@ -365,16 +366,17 @@ test.describe('Bulk load', () => {
     expect(await backend.sql('select count(*) as n from saved_bulk_load_profile')).toEqual([{ n: '0' }])
   })
 
-  test('[PRC-034] upload instructions offer a downloadable template file @mobile', async ({ page, diagnostics }) => {
+  test('[PRC-034] upload instructions offer a downloadable template file @mobile', async ({ page, browserName, diagnostics }) => {
     void diagnostics
     await openProcess(page, 'person.bulkInsert')
     const upload = await expectScreen(page, 'upload', 'Upload File')
     await upload.getByText('File Upload Instructions').click()
     const template = upload.getByRole('link', { name: 'Person - Flat.csv' })
     await expect(template).toBeVisible()
+    await expect(template).toHaveAttribute('download', 'Person - Flat.csv')
     await expectRunTouchReady(page, 'person.bulkInsert')
     const [download] = await Promise.all([page.waitForEvent('download'), template.click()])
-    expect(download.suggestedFilename()).toBe('Person - Flat.csv')
+    expect(download.suggestedFilename()).toBe(expectedDownloadFilename('Person - Flat.csv', browserName))
     expect(readFileSync(await download.path(), 'utf8').split('\n')[0]).toBe('Email,First Name,Last Name,Annual Salary,Birth Date,Days Worked,Is Employed')
   })
 })

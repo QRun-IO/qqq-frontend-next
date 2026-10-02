@@ -72,6 +72,8 @@ jobs:
       - name: Acceptance (${{ matrix.browser }})
         env:
           QQQ_ACCEPTANCE_BROWSERS: ${{ matrix.browser }}
+          # Retain native browser crashes alongside traces (QQQ#904, QQQ#960).
+          DEBUG: pw:browser
         run: node scripts/acceptance.mjs --skip-build
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

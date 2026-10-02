@@ -8,9 +8,27 @@
 // Helpers for the widgets & reports acceptance specs.
 import { readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
-import type { APIRequestContext, Download, Locator, Page } from '@playwright/test'
+import type { APIRequestContext, Download, Locator, Page, Request } from '@playwright/test'
 import { expect } from '../../support/fixtures'
-import type { Backend } from '../../support/fixtures'
+import { expectedMissingExtensionFailure } from './missing-extension'
+import type { Backend, Diagnostics } from '../../support/fixtures'
+
+/** Allows only the gallery's deliberate missing bundle, including Firefox's 404 script failure. */
+export function allowMissingExtension(page: Page, diagnostics: Diagnostics) {
+  diagnostics.allow('/missing-extension.js 404')
+  diagnostics.allow('Failed to load resource: the server responded with a status of 404')
+  const statuses = new WeakMap<Request, number>()
+  page.on('response', (response) => statuses.set(response.request(), response.status()))
+  page.on('requestfailed', (request) => {
+    if (!expectedMissingExtensionFailure({
+      url: request.url(), method: request.method(), resourceType: request.resourceType(),
+      status: statuses.get(request), errorText: request.failure()?.errorText ?? '',
+    })) return
+    // Bind the allowance to the same Request's observed response and exact URL.
+    const message = `request: GET ${request.url()} NS_ERROR_DOM_NETWORK_ERR`
+    diagnostics.allow(new RegExp(`^${message.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))
+  })
+}
 
 /** Reads rows whose selected columns are all non-null (fails otherwise). */
 export async function sqlRows(backend: Backend, query: string): Promise<Array<Record<string, string>>> {

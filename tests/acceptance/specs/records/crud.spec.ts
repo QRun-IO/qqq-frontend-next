@@ -8,7 +8,7 @@
 import { expect, test } from '../../support/fixtures'
 import { listCell } from '../security/support/ui'
 import {
-  expectToastBelowHeader,
+  expectToastDuringAction,
   VIEWER, control, expandOnPhone, fieldValue, multipartFields, openForm, openRecord, recordAction, recordIdFromUrl, recordRequests, sqlCount, sqlOne, toasts,
 } from './helpers'
 
@@ -51,12 +51,10 @@ test('[REC-006] create persists the entered values and opens the new record @mob
   await control(page, 'annualSalary').fill('64250.75')
   await control(page, 'daysWorked').fill('321')
   await page.getByRole('checkbox', { name: 'Is Employed' }).click()
-  await page.getByRole('button', { name: 'Save' }).click()
+  await expectToastDuringAction(page, 'Person created successfully.', () => page.getByRole('button', { name: 'Save' }).click(), true)
 
   await expect(page.getByRole('heading', { level: 1, name: 'Quinn Acceptance' })).toBeVisible()
   const id = recordIdFromUrl(page, 'person')
-  await expect(toasts(page).filter({ hasText: 'Person created successfully.' })).toBeVisible()
-  await expectToastBelowHeader(page, toasts(page).filter({ hasText: 'Person created successfully.' }))
   await expandOnPhone(page, 'Employment Info')
   const row = await sqlOne(backend, `select first_name, last_name, email, birth_date, annual_salary, days_worked, is_employed from person where id = ${id}`)
   expect(row).toEqual({ first_name: 'Quinn', last_name: 'Acceptance', email: 'quinn@example.invalid', birth_date: '1988-07-04',
@@ -129,11 +127,10 @@ test('[REC-009] edit prefills stored values, saves only the change and shows the
 
   await control(page, 'email').fill('avery.updated@example.invalid')
   await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-  await page.getByRole('button', { name: 'Save' }).click()
+  await expectToastDuringAction(page, 'Person saved successfully.', () => page.getByRole('button', { name: 'Save' }).click())
 
   await expect(page.getByRole('heading', { level: 1, name: 'Avery Sample' })).toBeVisible()
   await expect(fieldValue(page, 'email')).toHaveText('avery.updated@example.invalid')
-  await expect(toasts(page).filter({ hasText: 'Person saved successfully.' })).toBeVisible()
 
   const put = writes.filter((request) => request.method() === 'PATCH')
   expect(put).toHaveLength(1)

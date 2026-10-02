@@ -72,7 +72,7 @@ importers:
         version: 0.485.0(react@19.2.4)
       next:
         specifier: 16.3.6
-        version: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       rapidoc:
         specifier: 9.3.8
         version: 9.3.8
@@ -100,19 +100,19 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.11.1
-        version: 4.11.1(playwright-core@1.58.2)
+        version: 4.11.1(playwright-core@1.64.0-alpha-2026-10-01)
       '@eslint/eslintrc':
         specifier: ^3.3.4
         version: 3.3.4
       '@playwright/test':
-        specifier: ^1.58.2
-        version: 1.58.2
+        specifier: 1.64.0-alpha-2026-10-01
+        version: 1.64.0-alpha-2026-10-01
       '@storybook/addon-docs':
         specifier: 10.6.0
         version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))
       '@storybook/nextjs-vite':
         specifier: 10.6.0
-        version: 10.6.0(@babel/core@7.29.7)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
+        version: 10.6.0(@babel/core@7.29.7)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
       '@storybook/react':
         specifier: 10.6.0
         version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)
@@ -1200,9 +1200,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@playwright/test@1.58.2':
-    resolution: {integrity: sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA==}
-    engines: {node: '>=18'}
+  '@playwright/test@1.64.0-alpha-2026-10-01':
+    resolution: {integrity: sha512-N/mTE29hNg/pw/ega+N+cEvPmAFwrprMxoacDbaO0fDlpyQ6n/SvCRF9dv6mLa1tjcy9oPStW2o7C1HP2Mh8lQ==}
+    engines: {node: '>=20'}
     hasBin: true
 
   '@polka/url@1.0.0-next.29':
@@ -3250,11 +3250,6 @@ packages:
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
-  fsevents@2.3.2:
-    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
-    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
-    os: [darwin]
-
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -4101,14 +4096,14 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  playwright-core@1.58.2:
-    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
-    engines: {node: '>=18'}
+  playwright-core@1.64.0-alpha-2026-10-01:
+    resolution: {integrity: sha512-Dk7ENTj8unFs3o5KNTIhFXO+JN/YGU4FrQvPmxI0Uri9j/5r8Mk0IzmFkNpvx6n83Kcls38qRdkD/fTdAfWvtA==}
+    engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.58.2:
-    resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
-    engines: {node: '>=18'}
+  playwright@1.64.0-alpha-2026-10-01:
+    resolution: {integrity: sha512-Nbe+dTDPKcZjI+lIUe6WLUb3KQ3Wll/SPkf7oCzytUoPZo+wzZY6J2DaD8+7dXMsq+8lUB2dZOMimouiYwpGuw==}
+    engines: {node: '>=20'}
     hasBin: true
 
   possible-typed-array-names@1.1.0:
@@ -5066,10 +5061,10 @@ snapshots:
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
 
-  '@axe-core/playwright@4.11.1(playwright-core@1.58.2)':
+  '@axe-core/playwright@4.11.1(playwright-core@1.64.0-alpha-2026-10-01)':
     dependencies:
       axe-core: 4.11.1
-      playwright-core: 1.58.2
+      playwright-core: 1.64.0-alpha-2026-10-01
 
   '@babel/code-frame@7.29.0':
     dependencies:
@@ -5884,9 +5879,9 @@ snapshots:
   '@oxc-resolver/binding-win32-x64-msvc@11.21.2':
     optional: true
 
-  '@playwright/test@1.58.2':
+  '@playwright/test@1.64.0-alpha-2026-10-01':
     dependencies:
-      playwright: 1.58.2
+      playwright: 1.64.0-alpha-2026-10-01
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -6386,18 +6381,18 @@ snapshots:
     dependencies:
       react: 19.2.4
 
-  '@storybook/nextjs-vite@10.6.0(@babel/core@7.29.7)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))':
+  '@storybook/nextjs-vite@10.6.0(@babel/core@7.29.7)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))':
     dependencies:
       '@storybook/builder-vite': 10.6.0(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
       '@storybook/react': 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)
       '@storybook/react-vite': 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
-      next: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       storybook: 10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4)
       styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.4)
       vite: 7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2)
-      vite-plugin-storybook-nextjs: 10.6.0(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
+      vite-plugin-storybook-nextjs: 10.6.0(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2))
     optionalDependencies:
       '@types/react': 19.2.14
       '@types/react-dom': 19.2.3(@types/react@19.2.14)
@@ -8369,9 +8364,6 @@ snapshots:
 
   fraction.js@5.3.4: {}
 
-  fsevents@2.3.2:
-    optional: true
-
   fsevents@2.3.3:
     optional: true
 
@@ -9053,7 +9045,7 @@ snapshots:
 
   neotraverse@1.0.1: {}
 
-  next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 16.3.6
       '@swc/helpers': 0.5.23
@@ -9072,7 +9064,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.3.6
       '@next/swc-win32-arm64-msvc': 16.3.6
       '@next/swc-win32-x64-msvc': 16.3.6
-      '@playwright/test': 1.58.2
+      '@playwright/test': 1.64.0-alpha-2026-10-01
       sharp: 0.35.4(@types/node@22.19.11)
     transitivePeerDependencies:
       - '@babel/core'
@@ -9269,13 +9261,11 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  playwright-core@1.58.2: {}
+  playwright-core@1.64.0-alpha-2026-10-01: {}
 
-  playwright@1.58.2:
+  playwright@1.64.0-alpha-2026-10-01:
     dependencies:
-      playwright-core: 1.58.2
-    optionalDependencies:
-      fsevents: 2.3.2
+      playwright-core: 1.64.0-alpha-2026-10-01
 
   possible-typed-array-names@1.1.0: {}
 
@@ -10180,13 +10170,13 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  vite-plugin-storybook-nextjs@10.6.0(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2)):
+  vite-plugin-storybook-nextjs@10.6.0(next@16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(rollup@4.63.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))(typescript@5.9.3)(vite@7.3.6(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.51.2)):
     dependencies:
       '@next/env': 16.3.6
       '@rollup/pluginutils': 5.4.0(rollup@4.63.5)
       magic-string: 0.30.21
       module-alias: 2.3.4
-      next: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.58.2)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.64.0-alpha-2026-10-01)(@types/node@22.19.11)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       pathe: 2.0.3
       probe-image-size: 7.4.0
       semver: 7.8.5

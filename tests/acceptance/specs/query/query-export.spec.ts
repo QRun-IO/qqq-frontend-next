@@ -8,6 +8,7 @@
 // Backend exports (CSV, XLSX, JSON) of the query's filter, sort and visible columns.
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectWithinViewport } from '../../support/touch'
 import { addCondition, closeFilterSheet, expectColumn, grid, openFilter, showTable, sqlColumn } from './query-helpers'
@@ -34,11 +35,12 @@ function parseCsv(text: string): string[][] {
 async function download(page: Page, format: 'CSV' | 'XLSX' | 'JSON') {
   await page.getByRole('button', { name: 'Export records' }).click()
   await expectWithinViewport(page.getByRole('menu', { name: 'Export options' }))
-  const [file] = await Promise.all([
+  const [file, request] = await Promise.all([
     page.waitForEvent('download'),
+    page.waitForRequest((request) => request.method() === 'POST' && /\/table\/[^/]+\/export$/.test(new URL(request.url()).pathname)),
     page.getByRole('menuitem', { name: new RegExp(`^Export ${format}`) }).click(),
   ])
-  return { name: file.suggestedFilename(), body: readFileSync((await file.path())!) }
+  return { name: file.suggestedFilename(), requestedName: request.postDataJSON().filename as string, body: readFileSync((await file.path())!) }
 }
 
 /** Grid header labels in display order. */
@@ -46,7 +48,7 @@ async function headers(page: Page, tableLabel: string) {
   return grid(page, tableLabel).locator('thead th button[data-qqq-id^="grid-header-"]').allTextContents()
 }
 
-test('[QRY-040] CSV export has the visible columns in order and exactly the filtered, sorted rows @mobile', async ({ page, backend, diagnostics }) => {
+test('[QRY-040] CSV export has the visible columns in order and exactly the filtered, sorted rows @mobile', async ({ page, backend, browserName, diagnostics }) => {
   void diagnostics
   await open(page, '/app/qryItem')
   await showTable(page)
@@ -67,7 +69,8 @@ test('[QRY-040] CSV export has the visible columns in order and exactly the filt
   await expectColumn(page, 'id', ids)
 
   const file = await download(page, 'CSV')
-  expect(file.name).toMatch(/^Query Item Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  expect(file.requestedName).toMatch(/^Query Item Export \d{4}-\d{2}-\d{2} \d{4}\.csv$/)
+  expect(file.name).toBe(expectedDownloadFilename(file.requestedName, browserName))
   const [header, ...rows] = parseCsv(file.body.toString('utf8'))
   // The backend adds a "<label> Name" column after each possible-value field
   const expectedHeader = (await headers(page, 'Query Item')).flatMap((label) => ['Owner', 'Species'].includes(label) ? [label, `${label} Name`] : [label])

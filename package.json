@@ -60,7 +60,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
     "@eslint/eslintrc": "^3.3.4",
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "1.64.0-alpha-2026-10-01",
     "@storybook/addon-docs": "10.6.0",
     "@storybook/nextjs-vite": "10.6.0",
     "@storybook/react": "10.6.0",

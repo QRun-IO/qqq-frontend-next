@@ -95,12 +95,11 @@ test.describe('dashboard security headers', () => {
       expect(framed.status()).toBe(200)
       expect(parsePolicy(framed.headers()['content-security-policy'])['frame-ancestors']).toEqual(["'none'"])
       expect(framed.headers()['x-frame-options']).toBe('DENY')
-      await page.waitForTimeout(1_000)
-      await expect(page.frameLocator('#victim').locator('[data-qqq-id="login-card"]')).toHaveCount(0)
-      await expect(page.frameLocator('#victim').getByText(/Signing in|Unable to sign in|You have signed out/)).toHaveCount(0)
-      for (const frame of page.frames().filter((candidate) => candidate !== page.mainFrame())) {
-        expect(await frame.locator('[data-qqq-id="login-card"]').count()).toBe(0)
-      }
+      // A denied Firefox frame may have no script context to query (#981). Require its actual
+      // refusal, in addition to the response headers, without entering that blocked document.
+      await expect.poll(() => diagnostics.consoleErrors.some((message) =>
+        /frame-ancestors|X-Frame-Options/i.test(message) && /blocked|refused|violates/i.test(message),
+      ), { message: 'the browser must report refusing the dashboard frame' }).toBe(true)
     } finally {
       await otherSite.close()
     }

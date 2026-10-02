@@ -7,10 +7,11 @@
 
 // Reports: run through the basic report process in each format, input fields, permissions, navigation.
 import type { Download, Page } from '@playwright/test'
+import { expectedDownloadFilename } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
 import { navigation } from '../security/support/ui'
-import { downloadBytes, downloadText, parseCsv, readZip, sqlRows, xlsxRows } from './widget-support'
+import { allowMissingExtension, downloadBytes, downloadText, parseCsv, readZip, sqlRows, xlsxRows } from './widget-support'
 
 /** Runs a report in a format and returns the downloaded file. */
 async function runReport(page: Page, reportName: string, format: 'CSV' | 'XLSX' | 'JSON'): Promise<Download> {
@@ -32,11 +33,13 @@ async function downloadResult(page: Page): Promise<Download> {
 
 const PEOPLE = 'select id, first_name, last_name, email from person order by id'
 
-test('[RPT-001] a table report downloads CSV with every row from the database @mobile', async ({ page, backend, diagnostics }) => {
+test('[RPT-001] a table report downloads CSV with every row from the database @mobile', async ({ page, backend, browserName, diagnostics }) => {
   void diagnostics
   const people = await sqlRows(backend, PEOPLE)
   const download = await runReport(page, 'accPersonReport', 'CSV')
-  expect(download.suggestedFilename()).toMatch(/^Owned Person Report - \d{4}-\d{2}-\d{2}-\d{4}\.csv$/)
+  const filename = await page.locator('[data-qqq-id="report-download-link-accPersonReport"]').getAttribute('download')
+  expect(filename).toMatch(/^Owned Person Report - \d{4}-\d{2}-\d{2}-\d{4}\.csv$/)
+  expect(download.suggestedFilename()).toBe(expectedDownloadFilename(filename!, browserName))
   const rows = parseCsv(await downloadText(download))
   expect(rows[0]).toEqual(['Id', 'First Name', 'Last Name', 'Email'])
   expect(rows.slice(1)).toEqual(people.map((person) => [person.id, person.first_name, person.last_name, person.email]))
@@ -142,8 +145,7 @@ test('[RPT-011] a report without a process streams from the report route @mobile
 })
 
 test('[RPT-008] reports appear in app navigation and open their run page @mobile', async ({ page, diagnostics }) => {
-  diagnostics.allow('/missing-extension.js 404')
-  diagnostics.allow('Failed to load resource: the server responded with a status of 404')
+  allowMissingExtension(page, diagnostics)
   await open(page, '/app/widgetGallery')
   const nav = await navigation(page)
   await nav.getByRole('button', { name: 'Expand Acceptance Reports' }).click()

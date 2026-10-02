@@ -55,6 +55,8 @@ test.describe('routing', () => {
     await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Greetings App' }).click()
     await expect(page).toHaveURL(/\/app\/greetingsApp\/?$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Greetings App' })).toBeVisible()
+    // Complete this destination before the next hard navigation tears down its owned iframe (#972).
+    await expect(page.frameLocator('[data-qqq-id="quicksight-QuickSightChartRenderer"]').getByRole('heading', { name: 'Owned embedded chart' })).toBeVisible()
 
     // The dashboard root has no breadcrumbs
     await open(page, '/app')
@@ -91,6 +93,8 @@ test.describe('routing', () => {
   test('[NAV-016] the site root replaces itself with the dashboard @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/person')
     await waitForShell(page)
+    // Let the initial document finish rendering its fonts before navigation tears it down (#951).
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
     await open(page, '/')
     await expect(page).toHaveURL(/\/app\/?$/)
     await expect(page.getByText(/Here's an overview of your QQQ Sample system\./)).toBeVisible()

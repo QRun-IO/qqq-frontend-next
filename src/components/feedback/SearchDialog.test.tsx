@@ -16,7 +16,7 @@
 
 import React, { useState } from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -108,6 +108,27 @@ describe('SearchDialog keyboard access', () => {
     } finally {
       request.mockRestore()
       cancel.mockRestore()
+    }
+  })
+
+  it('does not steal focus after the user reaches another dialog control before autofocus', async () => {
+    let autofocus: FrameRequestCallback | undefined
+    const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      autofocus = callback
+      return 42
+    })
+    try {
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Open search' }))
+      await user.type(screen.getByRole('combobox'), 'no matches')
+      await user.tab()
+      const clear = screen.getByRole('button', { name: 'Clear search' })
+      expect(clear).toHaveFocus()
+      act(() => autofocus?.(0))
+      expect(clear).toHaveFocus()
+    } finally {
+      request.mockRestore()
     }
   })
 
