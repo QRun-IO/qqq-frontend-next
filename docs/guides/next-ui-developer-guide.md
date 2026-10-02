@@ -1,6 +1,6 @@
 # Next UI developer guide
 
-> **This checkout targets RC11.** Confirm availability in the [RC11 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) before installing. [RC11 notes](../releases/1.0.0-RC.11.md) record the preparation checkpoint and verification scope; RC10 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
+> **This checkout prepares RC12; it is not yet published.** [RC11](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) is the latest published candidate and remains immutable. [RC12 notes](../releases/1.0.0-RC.12.md) record date-default behavior and the preparation/verification scope. Confirm availability in the [RC12 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) before installing. Earlier versioned receipts remain historical; final 1.0 remains held.
 
 > **RC9:** application code is unchanged from RC8. See [RC9 notes](../releases/1.0.0-RC.9.md) and [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for versioned verification and public delivery status. Earlier RC8 receipts below remain historical evidence.
 
@@ -35,7 +35,7 @@ The preferred QQQ-hosted distribution is the `com.kingsrook.qqq:qqq-frontend-nex
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.11</version>
+    <version>1.0.0-RC.12</version>
 </dependency>
 ```
 
@@ -48,7 +48,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). This checkout targets `1.0.0-RC.11`, overriding an older BOM-managed frontend; confirm its availability in the [RC11 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) before installing. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). This checkout prepares `1.0.0-RC.12`, overriding an older BOM-managed frontend; confirm its availability in the [RC12 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) before installing. It requires the QQQ 4.1.0-SNAPSHOT development backend including PRs #913 and #908; see the release notes for its verified backend commit. Use a matching local backend/frontend build to test later branch changes.
 
 | Setting | Behavior in this checkout |
 |---|---|
