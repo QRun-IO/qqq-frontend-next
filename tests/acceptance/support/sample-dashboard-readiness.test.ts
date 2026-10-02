@@ -6,7 +6,7 @@
  */
 
 import { afterEach, expect, test } from 'vitest'
-import { sampleDashboardReady } from './sample-dashboard-readiness'
+import { sampleDashboardReady } from '../specs/navigation/sample-dashboard-readiness'
 
 afterEach(() => { document.body.innerHTML = '' })
 
