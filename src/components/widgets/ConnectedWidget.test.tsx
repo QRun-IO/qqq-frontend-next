@@ -30,6 +30,7 @@ vi.mock('@/lib/api/widgets', async (importOriginal) => {
 import type { QWidgetMetaData, WidgetData } from '@/types'
 import { fetchWidgetData, WidgetRequestError } from '@/lib/api/widgets'
 import { ConnectedWidget, SeededWidget } from './ConnectedWidget'
+import * as widgetUtils from './widget-utils'
 
 const fetchMock = vi.mocked(fetchWidgetData)
 
@@ -81,6 +82,22 @@ describe('ConnectedWidget', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha', accDate: sent }))
     expect(await screen.findByText(`choice=alpha; day=${sent}`)).toBeInTheDocument()
     expect(localStorage.length).toBe(0)
+  })
+
+  it('uses the configured date wire normalization for a backend default', async () => {
+    const normalize = vi.spyOn(widgetUtils, 'normalizeDropdownDate').mockImplementation((value) => value)
+    try {
+      fetchMock.mockImplementation(async (_name, params) => ({
+        ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+      }))
+      renderWidget({ ...controls, storeDropdownSelections: false })
+      await waitFor(() => expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-15'))
+      await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha', accDate: '2026-01-15' }))
+      expect(await screen.findByText('choice=alpha; day=2026-01-15')).toBeInTheDocument()
+      expect(localStorage.length).toBe(0)
+    } finally {
+      normalize.mockRestore()
+    }
   })
 
   it.each([undefined, null, '', 'not-a-date'])('leaves a missing or invalid date default blank (%s)', async (value) => {
