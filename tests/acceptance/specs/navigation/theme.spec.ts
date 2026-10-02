@@ -8,6 +8,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { appNavigation } from './nav-helpers'
+import { openReadyPivotEditor } from './pivot-readiness'
 import { expect, open, test } from '../../support/fixtures'
 
 // Theme metadata is instance-wide; every scenario needs the backend reset before navigation.
@@ -44,7 +45,7 @@ for (const mode of ['light', 'dark', 'application'] as const) {
     if (mode === 'application') {
       await expect.poll(() => page.locator('html').evaluate(root => getComputedStyle(root).getPropertyValue('--color-destructive').trim())).toBe('#f97316')
     }
-    await page.getByRole('button', { name: 'Edit Pivot Table', exact: true }).click()
+    await openReadyPivotEditor(page)
     await page.locator('[data-qqq-id="pivot-editor-add-row"]').click()
     await page.locator('[data-qqq-id="pivot-editor-ok"]').click()
     await expect(page.locator('[data-qqq-id="pivot-editor-error"]')).toContainText('Missing value in 1 field.')
