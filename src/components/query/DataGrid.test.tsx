@@ -22,12 +22,13 @@ import type { QRecord, QTableMetaData } from '@/types'
 import { DataGrid } from './DataGrid'
 
 const cellRenders = vi.fn()
-vi.mock('./DataCell', () => ({
-  DataCell: ({ value }: { value: unknown }) => {
+vi.mock('./DataCell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./DataCell')>()
+  return { DataCell: (props: React.ComponentProps<typeof actual.DataCell>) => {
     cellRenders()
-    return <span>{String(value ?? '')}</span>
-  },
-}))
+    return <actual.DataCell {...props} />
+  } }
+})
 const router = { push: vi.fn() }
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
@@ -185,5 +186,41 @@ describe('DataGrid stable headers (QRun-IO/qqq#994)', () => {
     expect(checkbox).toBeChecked()
     fireEvent.click(checkbox)
     expect(onRowSelectionChange).toHaveBeenCalledWith({})
+  })
+})
+
+
+describe('DataGrid stable cells (QRun-IO/qqq#995)', () => {
+  const menu = () => ({ onHide: vi.fn(), onPin: vi.fn(), onCopyPageValues: vi.fn(), onCopyFullQueryValues: vi.fn() })
+
+  it('retains the focused selection checkbox and uses current selection callbacks', () => {
+    const initialHandler = vi.fn()
+    const currentHandler = vi.fn()
+    const { rerender } = render(grid({ columnMenu: menu(), onRowSelectionChange: initialHandler }))
+    const checkbox = screen.getAllByRole('checkbox', { name: 'Select record' })[0]
+    checkbox.focus()
+    rerender(grid({ columnMenu: menu(), rowSelection: { 1: true }, onRowSelectionChange: currentHandler }))
+    expect(screen.getAllByRole('checkbox', { name: 'Select record' })[0]).toBe(checkbox)
+    expect(checkbox).toHaveFocus()
+    expect(checkbox).toBeChecked()
+    fireEvent.click(checkbox)
+    expect(currentHandler).toHaveBeenCalledWith({})
+    expect(initialHandler).not.toHaveBeenCalled()
+  })
+
+  it('retains revealed cell state and focus while using updated field values', () => {
+    const tableMetaData = { ...TABLE, fields: { ...TABLE.fields, name: { ...TABLE.fields.name, adornments: [{ type: 'REVEAL' }] } } } as QTableMetaData
+    const { rerender } = render(grid({ tableMetaData, columnMenu: menu() }))
+    const reveal = screen.getAllByRole('button', { name: 'Reveal name' })[0]
+    reveal.focus()
+    fireEvent.click(reveal)
+    expect(reveal).toHaveAccessibleName('Hide name')
+    expect(reveal).toHaveTextContent('Ada')
+    rerender(grid({ tableMetaData, columnMenu: menu(), isFetching: true }))
+    expect(screen.getAllByRole('button', { name: 'Hide name' })[0]).toBe(reveal)
+    expect(reveal).toHaveFocus()
+    rerender(grid({ tableMetaData, columnMenu: menu(), records: [record(1, 'Current value'), ...RECORDS.slice(1)] }))
+    expect(reveal).toHaveTextContent('Current value')
+    expect(reveal).toHaveAccessibleName('Hide name')
   })
 })
