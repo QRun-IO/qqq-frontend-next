@@ -23,11 +23,9 @@
  */
 
 import { parseViewJson, type RecordQueryView } from './saved-view-utils'
+import { CURRENT_SAVED_VIEW_ID_STORAGE_KEY_ROOT, VIEW_STORAGE_KEY_ROOT } from './query-view-storage-cleanup'
 
-/** Root of the per-table key for the last view. */
-export const VIEW_STORAGE_KEY_ROOT = 'qqq.recordQueryView'
-/** Root of the per-table key for the last saved view's id. */
-export const CURRENT_SAVED_VIEW_ID_STORAGE_KEY_ROOT = 'qqq.currentSavedViewId'
+export { CURRENT_SAVED_VIEW_ID_STORAGE_KEY_ROOT, VIEW_STORAGE_KEY_ROOT } from './query-view-storage-cleanup'
 /** The (global) row density key. */
 export const DENSITY_STORAGE_KEY = 'qqq.density'
 /** The `viewIdentity` of an ad-hoc (unsaved) view. */
