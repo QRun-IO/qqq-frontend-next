@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type APIRequestContext, type Page, type Request, type Response } from '@playwright/test'
+import { installBrowserBoundaryCapture } from './browser-boundary-capture'
 import { interruptedLegacyFont, type FontRequestOutcome } from './font-diagnostics'
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
@@ -63,7 +64,7 @@ async function control(path: string, body: unknown) {
   return text ? JSON.parse(text) : null
 }
 
-export const test = base.extend<{ persona: Persona; user: SampleUser; backend: Backend; diagnostics: Diagnostics }>({
+export const test = base.extend<{ persona: Persona; user: SampleUser; backend: Backend; diagnostics: Diagnostics; _browserBoundaryCapture: void }>({
   persona: ['admin', { option: true }],
   user: ['alice', { option: true }],
 
@@ -94,7 +95,24 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
     }
   },
 
-  diagnostics: async ({ page }, provide, testInfo) => {
+  _browserBoundaryCapture: async ({ context }, provide, testInfo) => {
+    const capture = await installBrowserBoundaryCapture(context, {
+      enabled: process.env.QQQ_ACCEPTANCE_BROWSER_TRACE === '1',
+      origins: [new URL(ACCEPTANCE_UI_URL).origin, new URL(ACCEPTANCE_BACKEND_URL).origin],
+      includeProcessPaths: true,
+    })
+    try {
+      await provide()
+    } finally {
+      // Node memory only: failure teardown must not wait for a stalled document or response.
+      if (capture) await testInfo.attach('browser-boundary.json', {
+        body: JSON.stringify(capture.snapshot()), contentType: 'application/json',
+      })
+    }
+  },
+
+  diagnostics: async ({ page, _browserBoundaryCapture }, provide, testInfo) => {
+    void _browserBoundaryCapture
     const allowed: (string | RegExp)[] = []
     const matches = (text: string) => allowed.some((pattern) => typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text))
     const diagnostics: Diagnostics = { pageErrors: [], consoleErrors: [], failedRequests: [], cspViolations: [], interruptedFetches: [], legacyRequests: [], allow: (pattern) => { allowed.push(pattern) } }
