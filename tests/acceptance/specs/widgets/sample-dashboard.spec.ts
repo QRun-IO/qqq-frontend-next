@@ -215,10 +215,17 @@ test.describe('sample widgets dashboard', () => {
     for (const viewport of [{ width: 393, height: 851 }, { width: 1440, height: 1000 }]) {
       await page.setViewportSize(viewport)
       const labels = card.locator('.recharts-xAxis .recharts-cartesian-axis-tick-value')
-      await expect(labels).toHaveText(payload.chartData.labels)
-      for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/)
-      const boxes = await labels.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()))
-      for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
+      await expect(async () => {
+        await expect(labels).toHaveText(payload.chartData.labels, { timeout: 0 })
+        for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/, { timeout: 0 })
+        const boxes = await labels.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()))
+        expect(boxes).toHaveLength(payload.chartData.labels.length)
+        for (const box of boxes) {
+          expect(box.width).toBeGreaterThan(0)
+          expect(box.height).toBeGreaterThan(0)
+        }
+        for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
+      }).toPass({ timeout: 5_000 })
     }
 
   })
