@@ -16,18 +16,19 @@
 
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QRecord, QTableMetaData } from '@/types'
 import { DataGrid } from './DataGrid'
 
 const cellRenders = vi.fn()
-vi.mock('./DataCell', () => ({
-  DataCell: ({ value }: { value: unknown }) => {
+vi.mock('./DataCell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./DataCell')>()
+  return { DataCell: (props: React.ComponentProps<typeof actual.DataCell>) => {
     cellRenders()
-    return <span>{String(value ?? '')}</span>
-  },
-}))
+    return <actual.DataCell {...props} />
+  } }
+})
 const router = { push: vi.fn() }
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
@@ -135,5 +136,91 @@ describe('DataGrid compact headers (QRun-IO/qqq#728)', () => {
     expect(screen.queryByRole('button', { name: 'Column statistics for Id' })).not.toBeInTheDocument()
     expect(name.querySelector('div.flex')).toHaveClass('overflow-hidden')
     expect(screen.getByRole('button', { name: 'Column statistics for Name' })).toBeInTheDocument()
+  })
+})
+
+
+describe('DataGrid stable headers (QRun-IO/qqq#994)', () => {
+  const scrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
+  beforeAll(() => Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() }))
+  afterAll(() => {
+    if (scrollIntoView) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollIntoView)
+    else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+  })
+  const menu = () => ({ onHide: vi.fn(), onPin: vi.fn(), onCopyPageValues: vi.fn(), onCopyFullQueryValues: vi.fn() })
+
+  it('retains a focused menu trigger across nonstructural preview updates', () => {
+    const { rerender } = render(grid({ columnMenu: menu() }))
+    const trigger = screen.getByRole('button', { name: 'Name column menu' })
+    trigger.focus()
+    rerender(grid({ columnMenu: menu(), isFetching: true }))
+    expect(screen.getByRole('button', { name: 'Name column menu' })).toBe(trigger)
+    expect(trigger).toHaveFocus()
+  })
+
+  it('keeps the same header while updating metadata, sort and menu callbacks', () => {
+    const initialMenu = menu()
+    const updatedMenu = menu()
+    const onSortChange = vi.fn()
+    const { rerender } = render(grid({ columnMenu: initialMenu }))
+    const trigger = screen.getByRole('button', { name: 'Name column menu' })
+    const tableMetaData = { ...TABLE, fields: { ...TABLE.fields, name: { ...TABLE.fields.name, label: 'Current name' } } }
+    rerender(grid({ tableMetaData, columnMenu: updatedMenu, sortOrder: [{ fieldName: 'name', isAscending: true }], onSortChange }))
+    expect(screen.getByRole('button', { name: 'Current name column menu' })).toBe(trigger)
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by Current name' }))
+    expect(onSortChange).toHaveBeenCalledWith([{ fieldName: 'name', isAscending: false }])
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy page values' }))
+    expect(updatedMenu.onCopyPageValues).toHaveBeenCalledWith('name')
+    expect(initialMenu.onCopyPageValues).not.toHaveBeenCalled()
+  })
+
+  it('retains the selection header and updates its current selection handler', () => {
+    const onRowSelectionChange = vi.fn()
+    const { rerender } = render(grid())
+    const checkbox = screen.getByRole('checkbox', { name: 'Select all rows on this page' })
+    checkbox.focus()
+    rerender(grid({ rowSelection: { 1: true, 2: true, 3: true }, onRowSelectionChange }))
+    expect(screen.getByRole('checkbox', { name: 'Select all rows on this page' })).toBe(checkbox)
+    expect(checkbox).toHaveFocus()
+    expect(checkbox).toBeChecked()
+    fireEvent.click(checkbox)
+    expect(onRowSelectionChange).toHaveBeenCalledWith({})
+  })
+})
+
+
+describe('DataGrid stable cells (QRun-IO/qqq#995)', () => {
+  const menu = () => ({ onHide: vi.fn(), onPin: vi.fn(), onCopyPageValues: vi.fn(), onCopyFullQueryValues: vi.fn() })
+
+  it('retains the focused selection checkbox and uses current selection callbacks', () => {
+    const initialHandler = vi.fn()
+    const currentHandler = vi.fn()
+    const { rerender } = render(grid({ columnMenu: menu(), onRowSelectionChange: initialHandler }))
+    const checkbox = screen.getAllByRole('checkbox', { name: 'Select record' })[0]
+    checkbox.focus()
+    rerender(grid({ columnMenu: menu(), rowSelection: { 1: true }, onRowSelectionChange: currentHandler }))
+    expect(screen.getAllByRole('checkbox', { name: 'Select record' })[0]).toBe(checkbox)
+    expect(checkbox).toHaveFocus()
+    expect(checkbox).toBeChecked()
+    fireEvent.click(checkbox)
+    expect(currentHandler).toHaveBeenCalledWith({})
+    expect(initialHandler).not.toHaveBeenCalled()
+  })
+
+  it('retains revealed cell state and focus while using updated field values', () => {
+    const tableMetaData = { ...TABLE, fields: { ...TABLE.fields, name: { ...TABLE.fields.name, adornments: [{ type: 'REVEAL' }] } } } as QTableMetaData
+    const { rerender } = render(grid({ tableMetaData, columnMenu: menu() }))
+    const reveal = screen.getAllByRole('button', { name: 'Reveal name' })[0]
+    reveal.focus()
+    fireEvent.click(reveal)
+    expect(reveal).toHaveAccessibleName('Hide name')
+    expect(reveal).toHaveTextContent('Ada')
+    rerender(grid({ tableMetaData, columnMenu: menu(), isFetching: true }))
+    expect(screen.getAllByRole('button', { name: 'Hide name' })[0]).toBe(reveal)
+    expect(reveal).toHaveFocus()
+    rerender(grid({ tableMetaData, columnMenu: menu(), records: [record(1, 'Current value'), ...RECORDS.slice(1)] }))
+    expect(reveal).toHaveTextContent('Current value')
+    expect(reveal).toHaveAccessibleName('Hide name')
   })
 })
