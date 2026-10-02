@@ -26,7 +26,6 @@ import React, { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useSta
 import {
   useReactTable,
   getCoreRowModel,
-  flexRender,
   type ColumnDef,
   type Row,
   type SortingState,
@@ -1002,7 +1001,11 @@ const GridRow = React.memo(function GridRow({ row, isSelected, rowClass, cellCla
               onCellKeyDown(e)
             }}
           >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            {/* Local pure render callbacks must not become new component types when
+                current grid props rebuild columns: retain focused and stateful children. */}
+            {typeof cell.column.columnDef.cell === 'function'
+              ? cell.column.columnDef.cell(cell.getContext())
+              : cell.column.columnDef.cell}
           </td>
         )
       })}
