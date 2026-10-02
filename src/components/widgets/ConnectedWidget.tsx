@@ -39,7 +39,7 @@ import { WidgetRenderer } from './WidgetRenderer'
 import { ChildRecordExportButton } from './ChildRecordListWidget'
 import type { ChildRecordListPayload } from './ChildRecordListWidget'
 import {
-  CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, formatDropdownDate, parseDropdownDate, storedDropdownParams, widgetCsvToString,
+  CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, normalizeDropdownDate, parseDropdownDate, storedDropdownParams, widgetCsvToString,
   widgetExportFileName, writeStoredSelection,
 } from './widget-utils'
 import { tableExportCsv } from './table-widget-utils'
@@ -176,8 +176,10 @@ export function ConnectedWidget({
         const meta = widgetMetaData.dropdowns?.[index]
         const selected = current[name]
         if (meta?.type === 'DATE_PICKER') {
-          const date = typeof defaults[index] === 'string' ? parseDropdownDate(defaults[index]) : null
-          if (selected === undefined && date) next = { ...next, [name]: formatDropdownDate(date) }
+          const value = defaults[index]
+          if (selected === undefined && typeof value === 'string' && parseDropdownDate(value)) {
+            next = { ...next, [name]: normalizeDropdownDate(value) }
+          }
           return
         }
         const ids = (Array.isArray(lists[index]) ? lists[index] : []).map((option: { id?: unknown }) => String(option?.id))
