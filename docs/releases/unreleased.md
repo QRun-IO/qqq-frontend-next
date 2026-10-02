@@ -1,6 +1,6 @@
 # Next UI — unreleased
 
-The browser stability changes in [PR #18](https://github.com/QRun-IO/qqq-frontend-next/pull/18) are under review and verification. No new version or release is declared here. Published [RC9](1.0.0-RC.9.md) remains immutable and does not contain these fixes. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+Browser stability [PR #18](https://github.com/QRun-IO/qqq-frontend-next/pull/18) is merged and its changes are assigned to [RC10 preparation](1.0.0-RC.10.md), together with merged ESB integration. RC10 is not yet published; [RC9](1.0.0-RC.9.md) remains immutable and does not contain these fixes. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Product fixes
 
@@ -19,6 +19,6 @@ The browser stability changes in [PR #18](https://github.com/QRun-IO/qqq-fronten
 
 ## Verification and remaining work
 
-Each linked issue and PR records the source commit, reproduction and scoped verification. Preserve failed full-run snapshots separately from later focused passes; no corrected all-browser pass or release approval is claimed by this changelog. The original causes of the same-user session stall and legacy process-navigation stall remain unresolved in [#952](https://github.com/QRun-IO/qqq/issues/952) and [#960](https://github.com/QRun-IO/qqq/issues/960).
+Each linked issue and PR records the source commit, reproduction and scoped verification. Preserve failed full-run snapshots separately from later focused passes; the exact combined-source results and any pending secondary results are recorded in the RC10 notes. No final-release approval is claimed by this changelog. The original causes of the same-user session stall and legacy process-navigation stall remain unresolved in [#952](https://github.com/QRun-IO/qqq/issues/952) and [#960](https://github.com/QRun-IO/qqq/issues/960).
 
 Final 1.0 remains held for real-application soak and explicit owner approval under [#712](https://github.com/QRun-IO/qqq/issues/712). This work does not authorize a QQQ 4.1 release. See the [testing-period policy](1.0-testing.md) and [issue lifecycle](../ISSUE-TRACKING.md).
