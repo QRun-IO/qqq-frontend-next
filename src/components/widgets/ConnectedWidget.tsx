@@ -39,7 +39,7 @@ import { WidgetRenderer } from './WidgetRenderer'
 import { ChildRecordExportButton } from './ChildRecordListWidget'
 import type { ChildRecordListPayload } from './ChildRecordListWidget'
 import {
-  CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, storedDropdownParams, widgetCsvToString,
+  CUSTOM_TIMEFRAME, TIMEFRAME_DROPDOWN, downloadText, dropdownStorageKey, formatDropdownDate, parseDropdownDate, storedDropdownParams, widgetCsvToString,
   widgetExportFileName, writeStoredSelection,
 } from './widget-utils'
 import { tableExportCsv } from './table-widget-utils'
@@ -174,9 +174,13 @@ export function ConnectedWidget({
       names.forEach((name, index) => {
         if (typeof name !== 'string') return
         const meta = widgetMetaData.dropdowns?.[index]
-        if (meta?.type === 'DATE_PICKER') return
-        const ids = (Array.isArray(lists[index]) ? lists[index] : []).map((option: { id?: unknown }) => String(option?.id))
         const selected = current[name]
+        if (meta?.type === 'DATE_PICKER') {
+          const date = typeof defaults[index] === 'string' ? parseDropdownDate(defaults[index]) : null
+          if (selected === undefined && date) next = { ...next, [name]: formatDropdownDate(date) }
+          return
+        }
+        const ids = (Array.isArray(lists[index]) ? lists[index] : []).map((option: { id?: unknown }) => String(option?.id))
         // a custom timeframe range (custom,<start>,<end>) is offered by the timeframe's custom option
         const offered = selected && (ids.includes(selected) || (name === TIMEFRAME_DROPDOWN && ids.includes(CUSTOM_TIMEFRAME) && selected.startsWith(`${CUSTOM_TIMEFRAME},`)))
         if (selected && !offered) {
