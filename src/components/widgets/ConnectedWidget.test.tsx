@@ -107,7 +107,7 @@ describe('ConnectedWidget', () => {
     renderWidget({ ...controls, storeDropdownSelections: false })
     await waitFor(() => expect(screen.getByLabelText('Select Choice')).toHaveValue('Alpha'))
     expect(screen.getByLabelText('Select Day')).toHaveValue('')
-    expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha' })
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha' }))
   })
 
   it('keeps a user date when a late reload supplies a different default', async () => {
