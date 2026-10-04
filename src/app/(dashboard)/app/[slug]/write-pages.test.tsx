@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { readFileSync } from 'node:fs'
+import { availableParallelism, cpus } from 'node:os'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
@@ -27,6 +29,48 @@ import { recordGet } from '@/mocks/v1-record'
 import EntityCreatePage from './create/page'
 import EntityEditPage from './[recordId]/edit/page'
 import EntityCopyPage from './[recordId]/copy/page'
+
+// Temporary #1015 Circle diagnostic. Never emit environment dumps, request values or DOM text.
+const diagnosticTest = 'edits the base without requesting denied children or replacing associations'
+let diagnosticActive = false
+let diagnosticRecords = 0
+let diagnosticStart = 0n
+let diagnosticCPU = { user: 0, system: 0 }
+
+function diagnosticValue(read: () => string, pattern: RegExp) {
+  try {
+    const value = read().trim()
+    return value.length <= 512 && pattern.test(value) ? value : 'unavailable'
+  } catch { return 'unavailable' }
+}
+
+function diagnosticEmit(record: Record<string, string | number>) {
+  if (!diagnosticActive || diagnosticRecords >= 24) return
+  diagnosticRecords++
+  // A missing/incomplete diagnostic must not replace the original test outcome.
+  try { process.stderr.write(`QQQ1015 ${JSON.stringify(record)}\n`) } catch { /* unavailable output */ }
+}
+
+function diagnosticStage(stage: 'fixture-start' | 'fixture-ready' | 'test-start' | 'render-start' | 'render-done' | 'label-and-name-change-start' | 'label-and-name-change-done' | 'email-change-start' | 'email-change-done' | 'save-click-start' | 'save-click-done' | 'push-wait-start' | 'push-wait-done' | 'assertions-complete' | 'finally') {
+  const cpu = process.cpuUsage(diagnosticCPU)
+  diagnosticEmit({ kind: 'stage', stage, wallMs: Number(process.hrtime.bigint() - diagnosticStart) / 1e6, userMs: cpu.user / 1000, systemMs: cpu.system / 1000 })
+}
+
+function diagnosticRuntime() {
+  diagnosticEmit({
+    kind: 'runtime',
+    node: diagnosticValue(() => process.version, /^v[0-9]+\.[0-9]+\.[0-9]+$/),
+    platform: diagnosticValue(() => process.platform, /^(linux|darwin|win32)$/),
+    arch: diagnosticValue(() => process.arch, /^(x64|arm64)$/),
+    availableParallelism: availableParallelism(),
+    logicalCPUs: cpus().length,
+    workerId: diagnosticValue(() => process.env.VITEST_WORKER_ID ?? '', /^[0-9]+$/),
+    poolId: diagnosticValue(() => process.env.VITEST_POOL_ID ?? '', /^[0-9]+$/),
+    cpuMax: diagnosticValue(() => readFileSync('/sys/fs/cgroup/cpu.max', 'utf8'), /^(max|[0-9]+) [0-9]+$/),
+    cpusetEffective: diagnosticValue(() => readFileSync('/sys/fs/cgroup/cpuset.cpus.effective', 'utf8'), /^[0-9]+(?:[-,][0-9]+)*$/),
+    allowedCPUs: diagnosticValue(() => readFileSync('/proc/self/status', 'utf8').match(/^Cpus_allowed_list:[ \t]*([0-9,-]+)$/m)?.[1] ?? '', /^[0-9]+(?:[-,][0-9]+)*$/),
+  })
+}
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock('next/navigation', () => ({
@@ -54,33 +98,61 @@ function renderPage(page: React.ReactNode) {
 }
 
 describe('Create and base edit use full metadata and actual write contracts', () => {
-  beforeEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); localStorage.clear(); fixture() })
+  beforeEach(({ task }) => {
+    diagnosticActive = task.name === diagnosticTest
+    if (diagnosticActive) {
+      diagnosticRecords = 0
+      diagnosticStart = process.hrtime.bigint()
+      diagnosticCPU = process.cpuUsage()
+      diagnosticRuntime()
+      diagnosticStage('fixture-start')
+    }
+    vi.restoreAllMocks(); vi.clearAllMocks(); localStorage.clear(); fixture()
+    if (diagnosticActive) diagnosticStage('fixture-ready')
+  })
 
   it('edits the base without requesting denied children or replacing associations', async () => {
-    const reads: string[] = []
-    server.use(
-      recordGet('/table/person/1', ({ request }) => {
-        const mode = new URL(request.url).searchParams.get('includeAssociations') ?? ''
-        reads.push(mode)
-        return mode === 'false' ? HttpResponse.json({ tableName: 'person', values: {
-          id: 1, firstName: 'Avery', lastName: 'Sample', email: 'avery@example.invalid', unknown: 'must not echo',
-        } }) : HttpResponse.json({ error: 'Children denied' }, { status: 403 })
-      }),
-    )
-    const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'person', values: { id: 1, firstName: 'Updated' } } })
-    renderPage(<EntityEditPage />)
-    fireEvent.change(await screen.findByLabelText(/Preferred given name/, {}, { timeout: 5000 }), { target: { value: 'Updated' } })
-    fireEvent.change(screen.getByRole('textbox', { name: /Email/ }), { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/person/1'))
-    expect(reads.length).toBeGreaterThan(0)
-    expect(new Set(reads)).toEqual(new Set(['false']))
-    expect(put.mock.calls[0][0]).toBe('/table/person/1')
-    const submitted = put.mock.calls[0][1] as FormData
-    expect(submitted?.get('firstName')).toBe('Updated')
-    expect(submitted?.get('email')).toBe('')
-    expect(submitted?.has('associations')).toBe(false)
-    expect(submitted?.has('unknown')).toBe(false)
+    diagnosticStage('test-start')
+    try {
+      const reads: string[] = []
+      server.use(
+        recordGet('/table/person/1', ({ request }) => {
+          const mode = new URL(request.url).searchParams.get('includeAssociations') ?? ''
+          reads.push(mode)
+          return mode === 'false' ? HttpResponse.json({ tableName: 'person', values: {
+            id: 1, firstName: 'Avery', lastName: 'Sample', email: 'avery@example.invalid', unknown: 'must not echo',
+          } }) : HttpResponse.json({ error: 'Children denied' }, { status: 403 })
+        }),
+      )
+      const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'person', values: { id: 1, firstName: 'Updated' } } })
+      diagnosticStage('render-start')
+      renderPage(<EntityEditPage />)
+      diagnosticStage('render-done')
+      diagnosticStage('label-and-name-change-start')
+      fireEvent.change(await screen.findByLabelText(/Preferred given name/, {}, { timeout: 5000 }), { target: { value: 'Updated' } })
+      diagnosticStage('label-and-name-change-done')
+      diagnosticStage('email-change-start')
+      fireEvent.change(screen.getByRole('textbox', { name: /Email/ }), { target: { value: '' } })
+      diagnosticStage('email-change-done')
+      diagnosticStage('save-click-start')
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      diagnosticStage('save-click-done')
+      diagnosticStage('push-wait-start')
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/app/person/1'))
+      diagnosticStage('push-wait-done')
+      expect(reads.length).toBeGreaterThan(0)
+      expect(new Set(reads)).toEqual(new Set(['false']))
+      expect(put.mock.calls[0][0]).toBe('/table/person/1')
+      const submitted = put.mock.calls[0][1] as FormData
+      expect(submitted?.get('firstName')).toBe('Updated')
+      expect(submitted?.get('email')).toBe('')
+      expect(submitted?.has('associations')).toBe(false)
+      expect(submitted?.has('unknown')).toBe(false)
+      diagnosticStage('assertions-complete')
+    } finally {
+      diagnosticStage('finally')
+      diagnosticActive = false
+    }
   })
 
   it('creates from full fields and unwraps the legacy envelope before navigating', async () => {
