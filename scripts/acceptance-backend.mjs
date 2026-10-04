@@ -18,7 +18,7 @@ rmSync(classes, { recursive: true, force: true })
 mkdirSync(classes, { recursive: true })
 const fixtureDirectory = path.resolve('tests/acceptance/fixture')
 const sources = readdirSync(fixtureDirectory).filter((name) => name.endsWith('.java')).map((name) => path.join(fixtureDirectory, name))
-const javac = spawnSync('javac', ['-proc:none', '-encoding', 'UTF-8', '-cp', fixtureClasspath, '-d', classes, ...sources], { stdio: 'inherit' })
+const javac = spawnSync('javac', ['-proc:none', '-sourcepath', '', '-encoding', 'UTF-8', '-cp', fixtureClasspath, '-d', classes, ...sources], { stdio: 'inherit' })
 if (javac.status !== 0) {
   console.error('Acceptance fixture compilation failed.')
   process.exit(1)

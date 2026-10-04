@@ -6,6 +6,8 @@
  */
 
 import type { Page } from '@playwright/test'
+import { armGreetRouteResponses } from '../../support/greet-route-readiness'
+import { ACCEPTANCE_UI_URL } from '../../support/ports'
 import { expect, open, test, type Backend } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets } from '../../support/touch'
 import { allowQuickSight, appNavigation, expectBreadcrumbs, expectRecords, findNode, recordCollection, recordItems, v1MetaData, waitForShell } from './nav-helpers'
@@ -120,12 +122,26 @@ test.describe('routing', () => {
       { path: `/app/person/savedView/${view.id}`, crumbs: ['People App', 'Greetings App', 'Person', 'Saved View'], active: 'Person', content: (p) => expect(p.locator('#main-content')).toBeVisible() },
     ]
     for (const { path, crumbs, content, active } of cases) {
-      await open(page, path)
-      await content(page)
-      await expectBreadcrumbs(page, crumbs)
-      const nav = await appNavigation(page)
-      await expect(nav.getByRole('link', { name: active, exact: true }), path).toBeVisible()
-      await expect(nav.getByRole('link', { name: active, exact: true }), path).toHaveAttribute('aria-current', 'page')
+      const processResponses = path === '/app/greetInteractive'
+        ? armGreetRouteResponses(page, new URL(ACCEPTANCE_UI_URL).origin)
+        : undefined
+      try {
+        await open(page, path)
+        await content(page)
+        await expectBreadcrumbs(page, crumbs)
+        const nav = await appNavigation(page)
+        await expect(nav.getByRole('link', { name: active, exact: true }), path).toBeVisible()
+        await expect(nav.getByRole('link', { name: active, exact: true }), path).toHaveAttribute('aria-current', 'page')
+        if (processResponses) {
+          // The bare process URL completes with the same validation error asserted by PRC-004.
+          await processResponses.wait
+          await expect(page.locator('[data-qqq-id="process-error-message"]')).toBeVisible()
+          await expect(page.locator('[data-qqq-id="process-error-message"]')).toHaveText('Missing input records.')
+          await expect(page.locator('[data-qqq-id="process-run-greetInteractive"]')).toHaveAttribute('data-process-phase', 'error')
+        }
+      } finally {
+        processResponses?.dispose()
+      }
     }
   })
 

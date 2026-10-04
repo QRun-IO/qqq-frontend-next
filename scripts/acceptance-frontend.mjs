@@ -19,9 +19,10 @@ if (!existsSync(path.join(standalone, 'server.js')) || !existsSync(BUILD_MARKER)
   console.error(`No production build for ${backend}; run node scripts/acceptance.mjs.`)
   process.exit(1)
 }
-cpSync(path.resolve('.next/static'), path.join(standalone, '.next/static'), { recursive: true })
-cpSync(path.resolve('public'), path.join(standalone, 'public'), { recursive: true })
-for (const file of ['qqq-server.mjs', 'security-headers.mjs', 'backend-prefixes.json']) {
+// Use the JS copy path for owner-readable files on Docker Desktop mounts.
+cpSync(path.resolve('.next/static'), path.join(standalone, '.next/static'), { recursive: true, verbatimSymlinks: true, filter: () => true })
+cpSync(path.resolve('public'), path.join(standalone, 'public'), { recursive: true, verbatimSymlinks: true, filter: () => true })
+for (const file of ['qqq-server.mjs', 'security-headers.mjs', 'branding-assets.mjs', 'backend-prefixes.json']) {
   cpSync(path.resolve('standalone', file), path.join(standalone, file))
 }
 

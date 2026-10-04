@@ -30,3 +30,24 @@ The [combined acceptance run](https://github.com/QRun-IO/qqq-frontend-next/actio
 Each linked issue and PR records the source commit, reproduction and scoped verification. Preserve failed full-run snapshots separately from later focused passes. The broader historical navigation inventory [#904](https://github.com/QRun-IO/qqq/issues/904), same-user session stall [#952](https://github.com/QRun-IO/qqq/issues/952), legacy process-navigation stall [#960](https://github.com/QRun-IO/qqq/issues/960), and original toast-paint uncertainty [#967](https://github.com/QRun-IO/qqq/issues/967) remain open. The [RC10 preparation notes](1.0.0-RC.10.md) retain their historical checkpoint; its [public release entry](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.10) records final delivery verification. See [RC11 notes](1.0.0-RC.11.md) for the successor candidate. No final-release approval is claimed by these results.
 
 Final 1.0 remains held for real-application soak and explicit owner approval under [#712](https://github.com/QRun-IO/qqq/issues/712). This work does not authorize a QQQ 4.1 release. See the [testing-period policy](1.0-testing.md) and [issue lifecycle](../ISSUE-TRACKING.md).
+
+## Pending standalone branding compatibility (QQQ #1009)
+
+The standalone Node server can route the exact root-relative `branding.logo` and
+`branding.icon` paths published by authentication metadata through fixed backend
+image roles. Local Node `public` files keep precedence; external image URLs and
+Java dashboard serving are unchanged. This does not expose the whole application
+overlay or add a general proxy.
+
+This requires **a QQQ middleware-javalin build containing QQQ #1009's
+`/qqq/branding/logo` and `/qqq/branding/icon` endpoints**. They are absent from
+published **4.1.0-RC.1**. The minimum numbered release is not yet assigned; a
+source build must record the exact backend commit/JAR hashes. Older deployments
+must supply branding through their Node `public` files or an existing external
+image URL. No automatic compatibility with old relative backend assets is claimed.
+
+The preserved standalone qualification against public RC1 remains **5 passed,
+38 failed** out of 43 cases because of missing branding assets. The original
+staging failure is also retained. The corrected cross-repository pairing has
+not yet received its browser qualification; neither #1009 nor #734 is closed by
+focused unit/HTTP results.

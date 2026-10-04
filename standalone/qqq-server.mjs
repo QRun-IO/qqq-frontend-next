@@ -28,6 +28,8 @@
 
 import http from 'node:http'
 import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { createBrandingAssetAlias } from './branding-assets.mjs'
 import {
   applyDashboardSecurityHeaders,
   buildContentSecurityPolicy,
@@ -46,6 +48,14 @@ const identityProviderOrigins = createIdentityProviderOrigins(async () => {
   return response.json()
 })
 
+// These two fields are already public before sign-in. The fixed role endpoint requires
+// a backend containing QQQ #1009; old backends retain their real 404, never a fallback UI.
+const brandingAlias = createBrandingAssetAlias(async () => {
+  const response = await fetch(`http://${selfHost}:${port}/qqq/v1/metaData/authentication`, { signal: AbortSignal.timeout(5_000) })
+  if (!response.ok) throw new Error('Could not load public branding metadata')
+  return response.json()
+}, fileURLToPath(new URL('./public', import.meta.url)))
+
 // server.js creates one HTTP server; its request listener is wrapped to add the headers
 const createServer = http.createServer
 http.createServer = function (...args) {
@@ -54,6 +64,8 @@ http.createServer = function (...args) {
   if (index < 0) throw new Error('The Next standalone server created its HTTP server without a request listener; the dashboard security headers cannot be added.')
   const listener = args[index]
   args[index] = async function (req, res) {
+    const asset = await brandingAlias(req.method, req.url ?? '/')
+    if (asset) req.url = asset
     if (!isBackendPath(req.url ?? '/')) {
       const connectOrigins = await identityProviderOrigins()
       applyDashboardSecurityHeaders(req, res, (scriptHashes) => buildContentSecurityPolicy({ connectOrigins, additions, scriptHashes }))

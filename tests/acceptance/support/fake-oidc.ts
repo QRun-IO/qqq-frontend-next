@@ -23,6 +23,8 @@ export interface FakeOidcOptions {
   allowedRedirectPrefix: string
   /** Extra access-token claims (e.g. an Auth0 audience). */
   audience?: string
+  /** Auth0 requires a trailing slash in its trusted issuer, independently of endpoint origins. */
+  auth0Issuer?: boolean
   users?: FakeUser[]
 }
 
@@ -45,6 +47,9 @@ interface PendingCode {
 }
 
 export interface FakeOidcProvider {
+  /** Network origin for endpoints and browser CSP; never has a trailing slash. */
+  origin: string
+  /** Exact protocol issuer advertised in discovery and signed token claims. */
   issuer: string
   requests: RecordedRequest[]
   /** Makes the next token exchange fail with invalid_grant. */
@@ -91,7 +96,8 @@ function escapeHtml(value: string): string {
  * @returns The running provider.
  */
 export async function startFakeOidc(options: FakeOidcOptions): Promise<FakeOidcProvider> {
-  const issuer = `http://127.0.0.1:${options.port}`
+  const origin = `http://127.0.0.1:${options.port}`
+  const issuer = origin + (options.auth0Issuer ? '/' : '')
   const users = options.users ?? DEFAULT_USERS
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
   const kid = base64Url(randomBytes(8))
@@ -103,11 +109,11 @@ export async function startFakeOidc(options: FakeOidcOptions): Promise<FakeOidcP
 
   const discovery = {
     issuer,
-    authorization_endpoint: `${issuer}/authorize`,
-    token_endpoint: `${issuer}/oauth/token`,
-    jwks_uri: `${issuer}/.well-known/jwks.json`,
-    userinfo_endpoint: `${issuer}/userinfo`,
-    end_session_endpoint: `${issuer}/logout`,
+    authorization_endpoint: `${origin}/authorize`,
+    token_endpoint: `${origin}/oauth/token`,
+    jwks_uri: `${origin}/.well-known/jwks.json`,
+    userinfo_endpoint: `${origin}/userinfo`,
+    end_session_endpoint: `${origin}/logout`,
     response_types_supported: ['code'],
     subject_types_supported: ['public'],
     id_token_signing_alg_values_supported: ['RS256'],
@@ -161,7 +167,7 @@ export async function startFakeOidc(options: FakeOidcOptions): Promise<FakeOidcP
   }
 
   const handler = async (request: IncomingMessage, response: ServerResponse) => {
-    const url = new URL(request.url ?? '/', issuer)
+    const url = new URL(request.url ?? '/', origin)
     const body = request.method === 'POST' ? await readBody(request) : ''
     const form = Object.fromEntries(new URLSearchParams(body))
     requests.push({ method: request.method ?? 'GET', path: url.pathname, query: Object.fromEntries(url.searchParams), form, authorization: request.headers.authorization })
@@ -272,6 +278,7 @@ export async function startFakeOidc(options: FakeOidcOptions): Promise<FakeOidcP
     server.listen(options.port, '127.0.0.1', () => resolve())
   })
   return {
+    origin,
     issuer,
     requests,
     failNextTokenExchange: () => { failNext = true },
