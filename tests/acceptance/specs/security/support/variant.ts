@@ -46,7 +46,7 @@ function compileFixtures(classpath: string) {
   mkdirSync(CLASSES, { recursive: true })
   const directory = path.resolve('tests/acceptance/fixture')
   const sources = readdirSync(directory).filter((name) => name.endsWith('.java')).map((name) => path.join(directory, name))
-  const result = spawnSync('javac', ['-proc:none', '-encoding', 'UTF-8', '-cp', classpath, '-d', CLASSES, ...sources], { encoding: 'utf8' })
+  const result = spawnSync('javac', ['-proc:none', '-sourcepath', '', '-encoding', 'UTF-8', '-cp', classpath, '-d', CLASSES, ...sources], { encoding: 'utf8' })
   if (result.status !== 0) throw new Error(`Security fixture compilation failed:\n${result.stderr}`)
   compiled = true
 }
