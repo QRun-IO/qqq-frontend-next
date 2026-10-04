@@ -13,7 +13,7 @@ import type { BrowserContext, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
 import { ACCEPTANCE_UI_URL } from '../../support/ports'
-import { expireTableSessions, IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
+import { expireTableSessions, IDP_PORT, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, stopVariant, variantSql } from './support/variant'
 import { listCell, navigation, openUserMenu } from './support/ui'
 
 const SESSION_COOKIES = ['sessionId', 'sessionUUID']
@@ -102,11 +102,11 @@ test('[SEC-048] script in the page can neither read the session cookies nor obta
 })
 
 const tableTest = test.extend<{ tableBased: void }>({
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  tableBased: async ({}, use) => {
+  baseURL: async ({}, provide) => { await provide(SECURITY_UI_URL) },
+  tableBased: async ({}, provide) => {
     await startVariant('TABLE_BASED')
     await resetVariant()
-    await use()
+    await provide()
   },
 })
 
@@ -270,18 +270,18 @@ const OAUTH2_VARIANT = {
 }
 
 const oauthTest = test.extend<{ idp: FakeOidcProvider }, { httpOnlyOauthProvider: FakeOidcProvider }>({
-  httpOnlyOauthProvider: [async ({}, use) => {
-    const provider = await startFakeOidc({ port: IDP_PORT, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, allowedRedirectPrefix: `${SECURITY_URL}/` })
-    await use(provider)
+  httpOnlyOauthProvider: [async ({}, provide) => {
+    const provider = await startFakeOidc({ port: IDP_PORT, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, allowedRedirectPrefix: `${SECURITY_UI_URL}/` })
+    await provide(provider)
     await stopVariant()
     await provider.close()
   }, { scope: 'worker' }],
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  idp: async ({ httpOnlyOauthProvider }, use) => {
+  baseURL: async ({}, provide) => { await provide(SECURITY_UI_URL) },
+  idp: async ({ httpOnlyOauthProvider }, provide) => {
     await startVariant('OAUTH2', OAUTH2_VARIANT)
     await resetVariant()
     httpOnlyOauthProvider.reset()
-    await use(httpOnlyOauthProvider)
+    await provide(httpOnlyOauthProvider)
   },
 })
 

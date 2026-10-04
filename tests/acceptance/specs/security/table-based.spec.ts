@@ -11,18 +11,18 @@
 // a session row (SecurityFixtures.primeTableBased seeds the users).
 import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
-import { expireTableSessions, resetVariant, SECURITY_URL, startVariant, variantSql } from './support/variant'
+import { expireTableSessions, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, variantSql } from './support/variant'
 import { listCell, navigation, openUserMenu, recordRequests } from './support/ui'
 
 const TESS = { username: 'tess.table', password: 'table:pass-2026', name: 'Tess Table (table-based)' }
 const RAVI = { username: 'ravi.rows', password: 'rows-pass-2026', name: 'Ravi Rows (table-based)' }
 
 const test = acceptanceTest.extend<{ tableBased: void }>({
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  tableBased: async ({}, use) => {
+  baseURL: async ({}, provide) => { await provide(SECURITY_UI_URL) },
+  tableBased: async ({}, provide) => {
     await startVariant('TABLE_BASED')
     await resetVariant()
-    await use()
+    await provide()
   },
 })
 
@@ -202,10 +202,10 @@ test('[SEC-037] logout deletes the stored session, keeps protected pages on the 
 })
 
 const unsupportedTest = acceptanceTest.extend<{ unsupported: void }>({
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  unsupported: async ({}, use) => {
+  baseURL: async ({}, provide) => { await provide(SECURITY_UI_URL) },
+  unsupported: async ({}, provide) => {
     await startVariant('UNSUPPORTED')
-    await use()
+    await provide()
   },
 })
 
