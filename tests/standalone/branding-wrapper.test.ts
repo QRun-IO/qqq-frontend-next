@@ -43,7 +43,7 @@ async function startWrapper(metadataFails = false) {
     if (req.url === '/qqq/v1/metaData/authentication') {
       if (metadataFails) return
       res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ type: 'FULLY_ANONYMOUS', branding: { logo: '/brand/logo.png?version=1', icon: '/local-icon.svg' } }))
+      res.end(JSON.stringify({ type: 'FULLY_ANONYMOUS', dashboardCspSources: { connectSrc: ['https://analytics.example'], scriptSrc: ['https://cdn.example'], frameSrc: ['https://*.quicksight.aws.amazon.com'], styleSrc: [] }, branding: { logo: '/brand/logo.png?version=1', icon: '/local-icon.svg' } }))
     } else if (req.url === '/qqq/branding/logo') {
       res.setHeader('Content-Type', 'image/png')
       res.end('owned image bytes')
@@ -66,7 +66,8 @@ http.createServer(async (req, res) => {
     const response = await fetch(${JSON.stringify(target)} + req.url, { method: req.method });
     res.writeHead(response.status, Object.fromEntries(response.headers));
     res.end(Buffer.from(await response.arrayBuffer()));
-  } else if (req.url === '/local-icon.svg') { res.end(require('node:fs').readFileSync('public/local-icon.svg')); }
+  } else if (req.url === '/login') { res.setHeader('Content-Type', 'text/html'); res.end('<html><script>self.boot = true</script></html>'); }
+  else if (req.url === '/local-icon.svg') { res.end(require('node:fs').readFileSync('public/local-icon.svg')); }
   else { res.statusCode = 404; res.end('Next route not found'); }
 }).listen(process.env.PORT, '127.0.0.1', () => process.send('ready'));`)
   child = spawn(process.execPath, ['qqq-server.mjs'], { cwd: stage, env: { ...process.env, HOSTNAME: '127.0.0.1', PORT: String(port), QQQ_DASHBOARD_CSP_SOURCES: '' }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] })
@@ -101,4 +102,18 @@ it('bounds unavailable metadata at startup and preserves the real not-found resp
   expect(Date.now() - started).toBeLessThan(12500)
   expect(requests.filter((url) => url === '/qqq/v1/metaData/authentication')).toHaveLength(2)
   expect(requests).not.toContain('/qqq/branding/logo')
+}, 15000)
+
+it('applies public backend policy inputs to an actual HTML response with no operator additions', async () => {
+  const { origin, requests } = await startWrapper()
+  const response = await fetch(`${origin}/login`)
+  expect(response.status).toBe(200)
+  expect(await response.text()).toBe('<html><script>self.boot = true</script></html>')
+  const policy = response.headers.get('content-security-policy') ?? ''
+  expect(policy).toContain("script-src 'self' https://cdn.example 'sha256-")
+  expect(policy).toContain("connect-src 'self' https://analytics.example")
+  expect(policy).toContain("frame-src 'self' https://*.quicksight.aws.amazon.com")
+  expect(policy).toContain("object-src 'none'")
+  expect(response.headers.get('x-frame-options')).toBe('DENY')
+  expect(requests.every((url) => url === '/qqq/v1/metaData/authentication')).toBe(true)
 }, 15000)
