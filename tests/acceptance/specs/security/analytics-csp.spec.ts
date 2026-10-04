@@ -67,9 +67,11 @@ async function ownedAnalytics(): Promise<OwnedAnalytics> {
   return {
     origin, deniedOrigin, counts,
     close: async () => {
-      for (const server of [allowed, denied]) {
-        await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
-      }
+      await Promise.all([allowed, denied].map((server) => new Promise<void>((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve())
+        // The browser can still own preconnected or incomplete HTTP sockets during teardown.
+        server.closeAllConnections()
+      })))
     },
   }
 }
@@ -83,8 +85,7 @@ const test = acceptanceTest.extend<{ analytics: OwnedAnalytics }>({
       await resetVariant()
       await provide(service)
     } finally {
-      await stopVariant()
-      await service.close()
+      try { await stopVariant() } finally { await service.close() }
     }
   },
 })
