@@ -1,5 +1,45 @@
 # Next UI security review (QRun-IO/qqq#696)
 
+## Current status — October 4, 2026
+
+This addendum supersedes the historical disposition statements below where noted.
+The September 25 review remains intact as evidence of its original source and scope.
+Current findings and release decisions are tracked in
+[QQQ #696](https://github.com/QRun-IO/qqq/issues/696#issuecomment-5982040326).
+This is a scoped security review, not a certification of ASVS Level 2 compliance.
+
+| Finding | Current disposition |
+| --- | --- |
+| NUI-04: dashboard headers | [#695](https://github.com/QRun-IO/qqq/issues/695) is closed for the Javalin static-export scope, with current-source provider tests and browser evidence. Standalone qualification is separate. |
+| NUI-05: readable session cookie | [#733](https://github.com/QRun-IO/qqq/issues/733) is closed. Next resumes through the backend-owned cookie; the legacy endpoint correction is merged. Material's explicit readable-cookie compatibility mode remains supported. |
+| NUI-06: previous-user browser state | The additional query-filter and saved-view-pointer retention finding is fixed in [#1006](https://github.com/QRun-IO/qqq/issues/1006), merged in frontend `f367756`. Global visual preferences are preserved. |
+| NUI-09: standalone headers | Headers are implemented. [#734](https://github.com/QRun-IO/qqq/issues/734) has 43 passing standalone cases on frontend `4190ee01` / backend `d633ee59`; final integration remains open. The historical statement that the server sends no headers is no longer current. |
+| NUI-11: custom CSS | Current code treats application `customCss` as trusted developer configuration and inserts it with `textContent`. It is not filtered by the historical deny-list or sanitized by DOMPurify. CSP and application configuration remain separate controls. |
+| Auth0 token verification | [#1008](https://github.com/QRun-IO/qqq/issues/1008) confirms issuer/audience validation and cache-boundary findings. [Backend PR #1012](https://github.com/QRun-IO/qqq/pull/1012) contains the correction; 164 focused tests passed on its combined backend tree. Full CI and merge remain pending at this snapshot. |
+
+The other scoped finding dispositions remain as reconciled in #696. NUI-10's
+runtime-style exception remains deliberate; it does not allow inline scripts.
+Negative security tests intentionally produce denied-resource and CSP diagnostics.
+A passing test run does not mean those diagnostic arrays are all empty.
+
+### Evidence limits
+
+The reference remains ASVS 4.0.3. Owned identity-provider fixtures do not qualify a
+real Auth0 tenant, MFA or step-up policy, provider-grant revocation, or deployment
+TLS, HSTS and proxy trust. The approved real-provider exclusion remains explicit.
+Configurable TABLE_BASED idle expiration does not prove a 12-hour active / 30-minute
+idle policy. Cookie-prefix and shared-host suitability, generic CSRF/Origin
+protection, all-session revocation, and application-sensitive storage/cache policy
+also remain outside the demonstrated guarantees. These limits are not newly
+confirmed High/Critical exploits and must not be presented as universal compliance.
+
+The 43-case standalone result covers its selected security scope. It does not
+replace full-browser acceptance, qualify later combined trees, or resolve the
+separately tracked browser failures. Final 1.0 still requires owner visual
+acceptance and real-application soak.
+
+## Historical review — September 25, 2026
+
 Independent review of the QQQ Next admin UI against OWASP ASVS 4.0.3 Level 2, for the
 Next UI 1.0 milestone (epic QRun-IO/qqq#713). Reviewed on 2026-09-25 at
 `feature/GH-649-next-acceptance` (`2b6569f`, release 0.2.0) with the backend at
