@@ -69,6 +69,35 @@ function event(overrides: EventRecord = {}) {
 }
 
 describe('document-local boundary capture', () => {
+  it('captures the production session POST and excludes GET and other session paths', () => {
+    install()
+    const xhr = new NativeXHR()
+    const body = { accessToken: 'BODY_SECRET' }
+    expect(xhr.open('POST', '/qqq/v1/manageSession?token=QUERY_SECRET#HASH_SECRET')).toBe(xhr.openResult)
+    expect(xhr.send(body)).toBe(xhr.sendResult)
+    xhr.state(2, 200)
+    xhr.state(4, 200)
+    xhr.dispatchEvent(new Event('load'))
+    xhr.dispatchEvent(new Event('loadend'))
+    expect(kinds()).toEqual(['ready', 'open-return', 'send-enter', 'send-return', 'headers', 'done', 'load', 'loadend'])
+    expect(events.slice(1).every(row => row.endpoint === 'session' && row.method === 'POST')).toBe(true)
+    expect(xhr.calls[1]).toEqual({ operation: 'send', receiver: xhr, args: [body] })
+    const before = events.length
+    for (const [method, url] of [
+      ['GET', '/qqq/v1/manageSession'], ['POST', '/qqq/v1/manageSession/'],
+      ['POST', '/qqq/v1/manageSessionExtra'], ['POST', 'https://untrusted.invalid/qqq/v1/manageSession'],
+    ]) {
+      const excluded = new NativeXHR()
+      excluded.open(method, url)
+      excluded.send(body)
+      excluded.state(4, 200)
+      excluded.dispatchEvent(new Event('loadend'))
+      expect(excluded.calls).toHaveLength(2)
+    }
+    expect(events).toHaveLength(before)
+    expect(JSON.stringify(events)).not.toMatch(/SECRET|accessToken|manageSession|untrusted/)
+  })
+
   it('observes native arguments/results without reading credentials or payloads', () => {
     install()
     const xhr = new NativeXHR()
@@ -88,7 +117,7 @@ describe('document-local boundary capture', () => {
   it('rethrows the identical native exception and never reads its message or name', () => {
     install()
     const xhr = new NativeXHR()
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     const failure = new Error('MESSAGE_SECRET')
     Object.defineProperty(failure, 'name', { get() { throw new Error('must not read name') } })
     xhr.sendFailure = failure
@@ -104,7 +133,7 @@ describe('document-local boundary capture', () => {
   it('preserves failed open and unknown URL objects without coercion or stale request identity', () => {
     install()
     const xhr = new NativeXHR()
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     const url = { toString: vi.fn(() => 'OBJECT_SECRET') }
     xhr.open('GET', url)
     xhr.send('BODY_SECRET')
@@ -114,7 +143,7 @@ describe('document-local boundary capture', () => {
     xhr.state(4, 200)
     xhr.dispatchEvent(new Event('loadend'))
     xhr.openFailure = failure
-    expect(() => xhr.open('GET', '/qqq/v1/manageSession')).toThrow(failure)
+    expect(() => xhr.open('POST', '/qqq/v1/manageSession')).toThrow(failure)
     expect(events.at(-1)).toMatchObject({ event: 'open-throw', errorClass: 'DOMException' })
     expect(JSON.stringify(events)).not.toMatch(/SECRET|PRIVATE/)
   })
@@ -122,7 +151,7 @@ describe('document-local boundary capture', () => {
   it('uses one listener set and distinguishes reuse after the prior loadend', () => {
     install()
     const xhr = new NativeXHR()
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     xhr.send()
     xhr.state(2, 200)
     xhr.state(2, 200)
@@ -159,7 +188,7 @@ describe('document-local boundary capture', () => {
       sendResult = xhr.send(body)
     })
     const start = events.length
-    expect(xhr.open('GET', '/qqq/v1/manageSession')).toBe(xhr.openResult)
+    expect(xhr.open('POST', '/qqq/v1/manageSession')).toBe(xhr.openResult)
     expect(sendResult).toBe(xhr.sendResult)
     expect(xhr.calls.at(-1)).toEqual({ operation: 'send', receiver: xhr, args: [body] })
     const sendCount = scenario === 'reopen-send' ? 2 : 1
@@ -176,7 +205,7 @@ describe('document-local boundary capture', () => {
     expect(after[0]).not.toHaveProperty('generation')
     expect(after[0]).not.toHaveProperty('attempt')
     // Once ambiguous, reusing that instance cannot silently regain trustworthy attribution.
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     xhr.send()
     expect(events.slice(start)).toEqual(after)
     const next = new NativeXHR()
@@ -195,7 +224,7 @@ describe('document-local boundary capture', () => {
       xhr.open('POST', '/qqq/v1/table/person/count')
       xhr.send()
     })
-    xhr.open('GET', initialURL)
+    xhr.open('POST', initialURL)
     xhr.send()
     xhr.state(4, 200)
     const start = events.length
@@ -212,7 +241,7 @@ describe('document-local boundary capture', () => {
   it('keeps terminal events on the active send when a repeated send throws', () => {
     install()
     const xhr = new NativeXHR()
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     xhr.send()
     xhr.sendFailure = new DOMException('PRIVATE', 'InvalidStateError')
     expect(() => xhr.send()).toThrow(DOMException)
@@ -237,7 +266,7 @@ describe('document-local boundary capture', () => {
     install()
     const xhr = new NativeXHR()
     vi.stubGlobal('__qqqBrowserBoundary', () => { throw new Error('OBSERVER_SECRET') })
-    expect(xhr.open('GET', '/qqq/v1/manageSession')).toBe(xhr.openResult)
+    expect(xhr.open('POST', '/qqq/v1/manageSession')).toBe(xhr.openResult)
     vi.stubGlobal('__qqqBrowserBoundary', () => Promise.reject(new Error('OBSERVER_SECRET')))
     expect(xhr.send()).toBe(xhr.sendResult)
     await Promise.resolve()
@@ -255,7 +284,7 @@ describe('document-local boundary capture', () => {
     install()
     for (const url of ['/qqq/v1/table/person/PRIVATE', 'https://unrelated.invalid/qqq/v1/manageSession']) {
       const xhr = new NativeXHR()
-      xhr.open('GET', url)
+      xhr.open('POST', url)
       xhr.send('SECRET')
       xhr.state(4, 200)
       xhr.dispatchEvent(new Event('loadend'))
@@ -304,6 +333,19 @@ describe('document-local boundary capture', () => {
     expect(events).toHaveLength(before)
   })
 
+  it.each(['/application', '/app/other', '/app/person/1', '/app//', '/app/%2f'])('does not widen dashboard capture to %s', path => {
+    history.replaceState({}, '', path)
+    cleanup = browserBoundaryInit({ ...config, includeDashboardPaths: true })
+    const xhr = new NativeXHR()
+    xhr.open('POST', '/qqq/v1/manageSession')
+    xhr.send()
+    window.dispatchEvent(new PageTransitionEvent('pageshow'))
+    expect(events).toEqual([])
+    expect(cleanup).toBeUndefined()
+    expect(Object.getOwnPropertyDescriptor(NativeXHR.prototype, 'open')).toEqual(originalOpen)
+    expect(xhr.calls).toHaveLength(2)
+  })
+
   it('preserves an invalid native receiver and restores native descriptors on cleanup', () => {
     install()
     expect(() => NativeXHR.prototype.send.call(null as unknown as NativeXHR)).toThrow(TypeError)
@@ -315,7 +357,7 @@ describe('document-local boundary capture', () => {
   it('bounds document output with an explicit overflow event', () => {
     cleanup = browserBoundaryInit({ ...config, maxEvents: 3 })
     const xhr = new NativeXHR()
-    xhr.open('GET', '/qqq/v1/manageSession')
+    xhr.open('POST', '/qqq/v1/manageSession')
     xhr.send()
     xhr.state(4, 200)
     xhr.dispatchEvent(new Event('loadend'))
@@ -325,6 +367,40 @@ describe('document-local boundary capture', () => {
 })
 
 describe('Node capture boundary', () => {
+  it.each(['/app', '/app/'])('installs dashboard session capture only when opted in at %s', async path => {
+    history.replaceState({}, '', path)
+    install()
+    expect(events).toEqual([])
+    expect(Object.getOwnPropertyDescriptor(NativeXHR.prototype, 'open')).toEqual(originalOpen)
+    const context = { exposeBinding: vi.fn(), addInitScript: vi.fn() }
+    const capture = await installBrowserBoundaryCapture(context, {
+      enabled: true, origins: config.origins, includeDashboardPaths: true,
+    })
+    const binding = context.exposeBinding.mock.calls[0][1]
+    const source = { page: {}, frame: {} }
+    vi.stubGlobal('__qqqBrowserBoundary', (value: EventRecord) => binding(source, value))
+    const [init, options] = context.addInitScript.mock.calls[0]
+    cleanup = init(options)
+    const xhr = new NativeXHR()
+    xhr.open('POST', '/qqq/v1/manageSession?private=QUERY_SECRET')
+    xhr.send({ accessToken: 'BODY_SECRET' })
+    xhr.state(2, 200)
+    xhr.state(4, 200)
+    xhr.dispatchEvent(new Event('load'))
+    xhr.dispatchEvent(new Event('loadend'))
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }))
+    const snapshot = capture!.snapshot()
+    expect(snapshot).toMatchObject({ invalid: 0, dropped: 0 })
+    expect(snapshot.events.map(row => row.event)).toEqual([
+      'ready', 'open-return', 'send-enter', 'send-return', 'headers', 'done', 'load', 'loadend', 'pageshow',
+    ])
+    expect(snapshot.events.every(row => row.page === 'dashboard' && row.pageId === 'page-1' && row.frameId === 'frame-1')).toBe(true)
+    expect(snapshot.events[2]).toMatchObject({ endpoint: 'session', method: 'POST' })
+    snapshot.events[0].page = 'CHANGED'
+    expect(capture!.snapshot().events[0].page).toBe('dashboard')
+    expect(JSON.stringify(capture!.snapshot())).not.toMatch(/SECRET|accessToken|private=|manageSession/)
+  })
+
   it('rejects malformed/private payloads and bounds records with explicit counters', () => {
     const buffer = createBoundaryBuffer(2)
     buffer.add(event(), 'page-1', 'frame-1')
@@ -339,9 +415,21 @@ describe('Node capture boundary', () => {
     expect(JSON.stringify(buffer.snapshot())).not.toContain('SECRET')
   })
 
+  it('retains copied bounded dashboard metadata and rejects raw paths and private fields', () => {
+    const buffer = createBoundaryBuffer(1)
+    const row = event({ page: 'dashboard', endpoint: 'session', method: 'POST' })
+    buffer.add(row, 'page-1', 'frame-1')
+    row.page = 'MUTATED_SECRET'
+    buffer.add(event({ page: '/app?token=PRIVATE' }), 'page-1', 'frame-1')
+    buffer.add(event({ page: 'dashboard', cookies: 'PRIVATE' }), 'page-1', 'frame-1')
+    buffer.add(event({ page: 'dashboard', seq: 2 }), 'page-1', 'frame-1')
+    expect(buffer.snapshot()).toMatchObject({ invalid: 2, dropped: 1, events: [{ page: 'dashboard', endpoint: 'session', method: 'POST' }] })
+    expect(JSON.stringify(buffer.snapshot())).not.toMatch(/SECRET|PRIVATE/)
+  })
+
   it('disabled installer creates no bindings, init scripts or capture handle', async () => {
     const context = { exposeBinding: vi.fn(), addInitScript: vi.fn() }
-    expect(await installBrowserBoundaryCapture(context, { enabled: false, origins: config.origins })).toBeUndefined()
+    expect(await installBrowserBoundaryCapture(context, { enabled: false, origins: config.origins, includeDashboardPaths: true })).toBeUndefined()
     expect(context.exposeBinding).not.toHaveBeenCalled()
     expect(context.addInitScript).not.toHaveBeenCalled()
   })
