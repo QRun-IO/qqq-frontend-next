@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { test as base, expect, type APIRequestContext, type Page, type Request, type Response } from '@playwright/test'
-import { installBrowserBoundaryCapture } from './browser-boundary-capture'
+import { installBrowserBoundaryCapture, shouldCaptureBrowserBoundary } from './browser-boundary-capture'
 import { interruptedLegacyFont, type FontRequestOutcome } from './font-diagnostics'
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_BACKEND_URL, ACCEPTANCE_UI_URL } from './ports'
 
@@ -97,7 +97,7 @@ export const test = base.extend<{ persona: Persona; user: SampleUser; backend: B
 
   _browserBoundaryCapture: async ({ context }, provide, testInfo) => {
     const capture = await installBrowserBoundaryCapture(context, {
-      enabled: process.env.QQQ_ACCEPTANCE_BROWSER_TRACE === '1',
+      enabled: shouldCaptureBrowserBoundary(process.env.QQQ_ACCEPTANCE_BROWSER_TRACE, testInfo.project.name, testInfo.title),
       origins: [new URL(ACCEPTANCE_UI_URL).origin, new URL(ACCEPTANCE_BACKEND_URL).origin],
       includeProcessPaths: true,
     })

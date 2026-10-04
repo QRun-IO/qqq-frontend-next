@@ -73,6 +73,8 @@ jobs:
         env:
           QQQ_ACCEPTANCE_BROWSERS: ${{ matrix.browser }}
           QQQ_ACCEPTANCE_TRANSPORT_TRACE: '1'
+          # Fixed NAV023/NAV056 ownership capture only; original assertions and diagnostics remain strict.
+          QQQ_ACCEPTANCE_BROWSER_TRACE: ${{ (matrix.browser == 'webkit' || matrix.browser == 'mobile,tablet') && 'navigation' || '0' }}
           # Retain native browser crashes alongside traces (QQQ#904, QQQ#960).
           DEBUG: pw:browser
         run: node scripts/acceptance.mjs --skip-build
