@@ -34,7 +34,7 @@ export function stageStandalone(directory, backend, source = process.cwd()) {
   cpSync(path.join(source, '.next/standalone'), directory, { recursive: true, verbatimSymlinks: true, filter: () => true })
   cpSync(path.join(source, '.next/static'), path.join(directory, '.next/static'), { recursive: true, verbatimSymlinks: true, filter: () => true })
   cpSync(path.join(source, 'public'), path.join(directory, 'public'), { recursive: true, verbatimSymlinks: true, filter: () => true })
-  for (const file of ['qqq-server.mjs', 'security-headers.mjs', 'backend-prefixes.json']) {
+  for (const file of ['qqq-server.mjs', 'security-headers.mjs', 'branding-assets.mjs', 'backend-prefixes.json']) {
     cpSync(path.join(source, 'standalone', file), path.join(directory, file))
   }
   writeFileSync(path.join(directory, 'acceptance-backend.txt'), `${backend}\n`)
