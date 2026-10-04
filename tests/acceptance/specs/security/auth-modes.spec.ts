@@ -30,7 +30,7 @@ const AUTH0_VARIANT = {
 
 const auth0Test = acceptanceTest.extend<{ auth0: FakeOidcProvider }, { auth0Provider: FakeOidcProvider }>({
   auth0Provider: [async ({}, provide) => {
-    const provider = await startFakeOidc({ port: IDP_PORT, clientId: AUTH0_CLIENT, clientSecret: 'unused-by-spa-flow', audience: AUDIENCE, allowedRedirectPrefix: `${SECURITY_UI_URL}/` })
+    const provider = await startFakeOidc({ port: IDP_PORT, clientId: AUTH0_CLIENT, clientSecret: 'unused-by-spa-flow', audience: AUDIENCE, auth0Issuer: true, allowedRedirectPrefix: `${SECURITY_UI_URL}/` })
     await provide(provider)
     await stopVariant()
     await provider.close()
@@ -107,7 +107,7 @@ auth0Test.describe('AUTH_0 (owned Auth0-compatible provider)', () => {
 
   auth0Test('[SEC-039] the policy allows the browser token exchange with the configured Auth0 domain only', async ({ page, auth0, diagnostics }) => {
     const policy = parsePolicy((await page.request.get('/login')).headers()['content-security-policy'])
-    expect(policy['connect-src']).toEqual(["'self'", auth0.issuer])
+    expect(policy['connect-src']).toEqual(["'self'", auth0.origin])
     await open(page, '/app/person')
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
