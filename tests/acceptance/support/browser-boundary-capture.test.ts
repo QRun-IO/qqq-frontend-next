@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { browserBoundaryInit, createBoundaryBuffer, installBrowserBoundaryCapture } from './browser-boundary-capture'
+import { browserBoundaryInit, createBoundaryBuffer, installBrowserBoundaryCapture, shouldCaptureBrowserBoundary } from './browser-boundary-capture'
 
 type EventRecord = Record<string, unknown>
 
@@ -344,5 +344,52 @@ describe('Node capture boundary', () => {
     expect(await installBrowserBoundaryCapture(context, { enabled: false, origins: config.origins })).toBeUndefined()
     expect(context.exposeBinding).not.toHaveBeenCalled()
     expect(context.addInitScript).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('selective hosted navigation capture', () => {
+  const lookup = '[NAV-023] a unique-key value opens the matching record in place of the key URL @mobile'
+  const theme = '[NAV-056] appearance preferences explain an application theme override @mobile'
+
+  it.each(['webkit', 'tablet'])('captures only the two retained failure titles on %s', project => {
+    expect(shouldCaptureBrowserBoundary('navigation', project, lookup)).toBe(true)
+    expect(shouldCaptureBrowserBoundary('navigation', project, theme)).toBe(true)
+    expect(shouldCaptureBrowserBoundary('navigation', project, '[NAV-056] appearance preferences apply immediately and survive a reload @mobile')).toBe(false)
+    expect(shouldCaptureBrowserBoundary('navigation', project, `${lookup} extra`)).toBe(false)
+  })
+
+  it.each(['chromium', 'firefox', 'mobile'])('excludes %s while preserving explicit full capture', project => {
+    expect(shouldCaptureBrowserBoundary('navigation', project, lookup)).toBe(false)
+    expect(shouldCaptureBrowserBoundary('navigation', project, theme)).toBe(false)
+    expect(shouldCaptureBrowserBoundary('1', project, 'unrelated case')).toBe(true)
+  })
+
+  it.each([undefined, '', '0', 'true', 'navigation-extra'])('leaves capture disabled for mode %s', mode => {
+    expect(shouldCaptureBrowserBoundary(mode, 'webkit', lookup)).toBe(false)
+  })
+
+  it.each(['/app/person/key', '/app/person/key/'])('observes %s with a fixed alias and excludes key values', pathname => {
+    history.replaceState({}, '', `${pathname}?email=QUERY_SECRET#HASH_SECRET`)
+    install()
+    const xhr = new NativeXHR()
+    expect(xhr.open('GET', '/qqq/v1/metaData/table/person?token=API_SECRET')).toBe(xhr.openResult)
+    expect(xhr.send()).toBe(xhr.sendResult)
+    expect(kinds()).toEqual(['ready', 'open-return', 'send-enter', 'send-return'])
+    expect(events.every(row => row.page === 'person-key')).toBe(true)
+    expect(events.at(-1)).toMatchObject({ endpoint: 'person-metadata', method: 'GET' })
+    const buffer = createBoundaryBuffer()
+    for (const row of events) buffer.add(row, 'page-1', 'frame-1')
+    expect(buffer.snapshot()).toMatchObject({ invalid: 0, dropped: 0 })
+    expect(buffer.snapshot().events).toHaveLength(4)
+    expect(JSON.stringify(buffer.snapshot())).not.toMatch(/SECRET|email|token|\/app|\/qqq/)
+  })
+
+  it('does not expand the page allow-list to other key lookups', () => {
+    history.replaceState({}, '', '/app/navDeepItem/key?code=SECRET')
+    install()
+    expect(cleanup).toBeUndefined()
+    expect(events).toEqual([])
+    expect(NativeXHR.prototype.open).toBe(originalOpen.value)
   })
 })
