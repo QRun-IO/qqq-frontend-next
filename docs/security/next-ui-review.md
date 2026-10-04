@@ -13,10 +13,10 @@ This is a scoped security review, not a certification of ASVS Level 2 compliance
 | NUI-04: dashboard headers | [#695](https://github.com/QRun-IO/qqq/issues/695) is closed for the Javalin static-export scope, with current-source provider tests and browser evidence. Standalone qualification is separate. |
 | NUI-05: readable session cookie | [#733](https://github.com/QRun-IO/qqq/issues/733) is closed. Next resumes through the backend-owned cookie; the legacy endpoint correction is merged. Material's explicit readable-cookie compatibility mode remains supported. |
 | NUI-06: previous-user browser state | The additional query-filter and saved-view-pointer retention finding is fixed in [#1006](https://github.com/QRun-IO/qqq/issues/1006), merged in frontend `f367756`. Global visual preferences are preserved. |
-| NUI-09: standalone headers | Headers are implemented. [#734](https://github.com/QRun-IO/qqq/issues/734) remains open for integration. The metadata-derived CSP correction [#1017](https://github.com/QRun-IO/qqq/issues/1017) passed 48 scoped first-attempt browser cases across five profiles, with qualified bytes committed as frontend `d6254ce2` / backend `cf2a8bfc`. [Backend PR #1020](https://github.com/QRun-IO/qqq/pull/1020) merged as `1d16a70c`; frontend integration remains pending. The historical statement that the server sends no headers is no longer current. |
+| NUI-09: standalone headers | [#734](https://github.com/QRun-IO/qqq/issues/734) and the metadata-derived CSP correction [#1017](https://github.com/QRun-IO/qqq/issues/1017) are closed after scoped qualification and integration. The paired implementation passed 48 standalone first-attempt cases across five profiles. [Frontend PR #40](https://github.com/QRun-IO/qqq-frontend-next/pull/40) merged as `138c3c6d`, tree `328bc322`, exactly matching the qualified combined candidate. Its separate full Javalin acceptance passed 3,015/3,015 first attempts against backend `1d16a70c`. HEAD/304, bounded metadata and Java-customizer limits remain documented in the closeout. |
 | NUI-11: custom CSS | Current code treats application `customCss` as trusted developer configuration and inserts it with `textContent`. It is not filtered by the historical deny-list or sanitized by DOMPurify. CSP and application configuration remain separate controls. |
 | Auth0 token verification | [#1008](https://github.com/QRun-IO/qqq/issues/1008) confirms issuer/audience validation and cache-boundary findings. [Backend PR #1012](https://github.com/QRun-IO/qqq/pull/1012) contains the correction; 164 focused tests passed on its combined backend tree. The exact-head CI passed and the correction merged into backend develop as `fc67393b`. An unconfigured audience remains supported; no audience enforcement is claimed in that configuration. |
-| Signed back-channel logout | [#909](https://github.com/QRun-IO/qqq/issues/909) remains open for stable delivery. The correction exists on the development line, but stable 4.0.0 remains affected. [PR #1018](https://github.com/QRun-IO/qqq/pull/1018) backports it; local 481-test qualification passed, while hosted Maven CI failed in the separate Mongo fixture scope tracked by #1019/#842. No stable publication is claimed. |
+| Signed back-channel logout | [#909](https://github.com/QRun-IO/qqq/issues/909) remains open for stable release delivery. [Backend PR #1021](https://github.com/QRun-IO/qqq/pull/1021) merged the qualified correction into stable main as `9168e434`; its merge tree equals the qualified candidate and the automatic post-merge reactor/sample/static gates passed. Published 4.0.0 remains affected; planned 4.0.1 is not published or artifact-qualified. PR #1018 is closed as superseded, not merged; its original Mongo failure is retained. The corrected 4.1 RC line remains distinct. |
 
 The other scoped finding dispositions remain as reconciled in #696. NUI-10's
 runtime-style exception remains deliberate; it does not allow inline scripts.
@@ -37,8 +37,9 @@ confirmed High/Critical exploits and must not be presented as universal complian
 The 48-case standalone result covers its selected security scope and paired
 candidate backend. Its analytics case uses an owned plugin through the real
 application hook, not a vendor SDK or real account. It does not
-replace full-browser acceptance, qualify later combined trees, or resolve the
-separately tracked browser failures. Final 1.0 still requires owner visual
+replace full-browser acceptance. The separate 3,015-case Javalin gate qualifies
+the merged PR40 tree; neither result resolves separately tracked browser failures
+or certifies a real provider or deployment. Final 1.0 still requires owner visual
 acceptance and real-application soak.
 
 ## Historical review — September 25, 2026

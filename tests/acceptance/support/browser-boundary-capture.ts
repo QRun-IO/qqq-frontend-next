@@ -11,19 +11,32 @@ interface BrowserCaptureConfig {
   origins: string[]
   maxEvents: number
   includeProcessPaths?: boolean
+  includeDashboardPaths?: boolean
+}
+
+/** Selects capture without changing the default-off or explicit full-capture switch. */
+export function shouldCaptureBrowserBoundary(mode: string | undefined, project: string, title: string): boolean {
+  if (mode === '1') return true
+  if (mode !== 'navigation' || (project !== 'webkit' && project !== 'tablet')) return false
+  return title === '[NAV-023] a unique-key value opens the matching record in place of the key URL @mobile'
+    || title === '[NAV-056] appearance preferences explain an application theme override @mobile'
 }
 
 type BoundaryEvent = Record<string, string | number | boolean>
 
 /** Runs before application scripts. Keep all runtime dependencies inside this serializable function. */
 export function browserBoundaryInit(config: BrowserCaptureConfig): (() => void) | undefined {
-  const pages: Record<string, string> = { '/app/person': 'person', '/app/person/': 'person' }
+  const pages: Record<string, string> = {
+    '/app/person': 'person', '/app/person/': 'person',
+    '/app/person/key': 'person-key', '/app/person/key/': 'person-key',
+  }
+  if (config.includeDashboardPaths) Object.assign(pages, { '/app': 'dashboard', '/app/': 'dashboard' })
   const endpoints: Record<string, string> = {
     'GET /qqq/v1/metaData/table/person': 'person-metadata',
     'POST /qqq/v1/processes/querySavedView/init': 'saved-view-init',
     'POST /qqq/v1/table/person/query': 'person-query',
     'POST /qqq/v1/table/person/count': 'person-count',
-    'GET /qqq/v1/manageSession': 'session',
+    'POST /qqq/v1/manageSession': 'session',
   }
   if (config.includeProcessPaths) {
     Object.assign(pages, { '/app/person/2': 'person-record', '/app/person/2/': 'person-record',
@@ -228,7 +241,7 @@ export function createBoundaryBuffer(maxEvents = 4096) {
   const limit = Math.max(1, Math.min(maxEvents, 4096))
   const numeric = ['seq', 'timeOrigin', 'now', 'xhr', 'generation', 'attempt', 'status', 'readyState']
   const enums: Record<string, string[]> = {
-    page: ['person', 'person-record', 'person-bulk-edit'], phase: ['active', 'pagehide'],
+    page: ['person', 'person-key', 'person-record', 'person-bulk-edit', 'dashboard'], phase: ['active', 'pagehide'],
     event: ['ready', 'pagehide', 'pageshow', 'DOMContentLoaded', 'load', 'visibilitychange', 'open-return', 'open-throw', 'send-enter', 'send-return', 'send-throw', 'headers', 'done', 'error', 'abort', 'timeout', 'loadend', 'overflow', 'xhr-limit', 'xhr-incomplete'],
     reason: ['reentrant-open', 'send-during-open', 'reuse-before-loadend'],
     endpoint: ['person-metadata', 'saved-view-init', 'person-query', 'person-count', 'session', 'person-record', 'process-metadata', 'process-init'],
@@ -266,7 +279,7 @@ export function createBoundaryBuffer(maxEvents = 4096) {
 /** Installs nothing when disabled; snapshotting reads Node memory only, even after page destruction. */
 export async function installBrowserBoundaryCapture(
   context: Pick<BrowserContext, 'exposeBinding' | 'addInitScript'>,
-  config: { enabled: boolean; origins: string[]; includeProcessPaths?: boolean },
+  config: { enabled: boolean; origins: string[]; includeProcessPaths?: boolean; includeDashboardPaths?: boolean },
 ) {
   if (!config.enabled) return undefined
   const buffer = createBoundaryBuffer()
@@ -279,6 +292,6 @@ export async function installBrowserBoundaryCapture(
     if (!frames.has(frame)) frames.set(frame, `frame-${++frameSequence}`)
     buffer.add(value, pages.get(page)!, frames.get(frame)!)
   })
-  await context.addInitScript(browserBoundaryInit, { origins: config.origins, maxEvents: 512, includeProcessPaths: config.includeProcessPaths })
+  await context.addInitScript(browserBoundaryInit, { origins: config.origins, maxEvents: 512, includeProcessPaths: config.includeProcessPaths, includeDashboardPaths: config.includeDashboardPaths })
   return { snapshot: buffer.snapshot }
 }
