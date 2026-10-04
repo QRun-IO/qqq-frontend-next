@@ -459,8 +459,9 @@ Client secrets are not browser configuration and are not published in v1 metadat
 The Next UI middleware must include the #704 changes (backend PR #908, merged to develop as `bac663044`) that publish these two settings
 and permit Google's SDK and picker origins in CSP only when both are configured.
 Those conditional headers apply to the Javalin-hosted static export. The standalone
-Node/container host must receive `QQQ_DASHBOARD_CSP_SOURCES` at runtime; it does not derive
-Google allowances from instance metadata. Merge these sources with any other deployment
+Node/container host also derives them when the backend publishes `dashboardCspSources`
+in authentication metadata. With an older backend that omits that optional field, supply
+`QQQ_DASHBOARD_CSP_SOURCES` at runtime. Merge these sources with any other deployment
 additions and start through [`standalone/qqq-server.mjs`](../../standalone/qqq-server.mjs):
 
 ```bash

@@ -40,3 +40,19 @@ export function stageStandalone(directory, backend, source = process.cwd()) {
   writeFileSync(path.join(directory, 'acceptance-backend.txt'), `${backend}\n`)
   assertStandaloneTarget(directory, backend)
 }
+
+/** Prevents the fixture from supplying the metadata admissions the production wrapper must derive. */
+export function assertExplicitCspSources(text) {
+  for (const part of text.split(';')) {
+    const [directive, ...sources] = part.trim().split(/\s+/).filter(Boolean)
+    if (!directive) continue
+    if (!['frame-src', 'img-src', 'media-src'].includes(directive) || sources.length !== 1) {
+      throw new Error('Only explicit owned-service CSP overrides are allowed')
+    }
+    let origin
+    try { origin = new URL(sources[0]) } catch { /* rejected below */ }
+    if (!origin || !['http:', 'https:'].includes(origin.protocol) || origin.origin !== sources[0] || sources[0].includes('*')) {
+      throw new Error('Only explicit owned-service CSP overrides are allowed')
+    }
+  }
+}

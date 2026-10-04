@@ -10,7 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSyn
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { assertStandaloneTarget, stageStandalone } from '../../scripts/acceptance-standalone.mjs'
+import { assertStandaloneTarget, stageStandalone, assertExplicitCspSources } from '../../scripts/acceptance-standalone.mjs'
 
 const directories: string[] = []
 const backend = 'http://127.0.0.1:18775'
@@ -67,4 +67,12 @@ it('rejects a staged build bound to a different backend port', () => {
   const { source, staged } = fixture()
   stageStandalone(staged, backend, source)
   expect(() => assertStandaloneTarget(staged, 'http://127.0.0.1:18875')).toThrow('No standalone security build')
+})
+
+it('allows only explicit owned service overrides, never metadata-derived admissions', () => {
+  expect(() => assertExplicitCspSources('frame-src http://127.0.0.1:9000; img-src http://127.0.0.1:9000; media-src http://127.0.0.1:9000')).not.toThrow()
+  for (const sources of ['script-src https://cdn.example', 'connect-src https://analytics.example', 'frame-src https://*.quicksight.aws.amazon.com',
+    'frame-src https://user:secret@owned.example', 'frame-src https://owned.example/path', 'img-src data:', 'default-src *']) {
+    expect(() => assertExplicitCspSources(sources)).toThrow('Only explicit owned-service CSP overrides are allowed')
+  }
 })

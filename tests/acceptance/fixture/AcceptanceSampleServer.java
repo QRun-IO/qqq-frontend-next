@@ -32,10 +32,8 @@ import com.kingsrook.qqq.backend.core.actions.permissions.AvailablePermission;
 import com.kingsrook.qqq.backend.core.actions.permissions.PermissionsHelper;
 import com.kingsrook.qqq.backend.core.exceptions.QAuthenticationException;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
-import com.kingsrook.qqq.backend.core.model.dashboard.widgets.WidgetType;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
-import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaDataInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.PermissionLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.permissions.QPermissionRules;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
@@ -43,7 +41,6 @@ import com.kingsrook.qqq.backend.core.modules.authentication.QAuthenticationModu
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardThemeMetaData;
 import com.kingsrook.qqq.middleware.javalin.specs.v1.MiddlewareVersionV1;
-import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardRouteProvider;
 import com.kingsrook.qqq.middleware.javalin.routeproviders.NextDashboardSecurityHeaders;
 import com.kingsrook.sampleapp.SampleJavalinServer;
 import com.kingsrook.sampleapp.metadata.SampleMetaDataProvider;
@@ -366,29 +363,13 @@ public class AcceptanceSampleServer
 
 
    /*******************************************************************************
-    ** The origins the QQQ server adds to the dashboard's Content-Security-Policy
-    ** for this application (a QuickSight embed and custom component bundles from
-    ** metadata, then the override hook's), written as QQQ_DASHBOARD_CSP_SOURCES:
-    ** in standalone mode the container image's Node server serves the dashboard
-    ** and takes them from that variable (QRun-IO/qqq#734).
+    ** Only the explicit owned-service overrides. Application metadata sources
+    ** must come from the production authentication metadata contract.
     *******************************************************************************/
    private static String dashboardCspSources()
    {
       NextDashboardSecurityHeaders defaults = new NextDashboardSecurityHeaders();
       NextDashboardSecurityHeaders headers  = new NextDashboardSecurityHeaders();
-      for(QWidgetMetaDataInterface widget : instance.getWidgets().values())
-      {
-         if(WidgetType.QUICK_SIGHT_CHART.getType().equals(widget.getType()))
-         {
-            headers.withSources("frame-src", NextDashboardRouteProvider.QUICKSIGHT_FRAME_SOURCE);
-         }
-         Object sourceUrl = widget.getDefaultValues() == null ? null : widget.getDefaultValues().get("componentSourceUrl");
-         String origin    = sourceUrl == null ? null : NextDashboardSecurityHeaders.originOf(String.valueOf(sourceUrl));
-         if(WidgetType.CUSTOM_COMPONENT.getType().equals(widget.getType()) && origin != null)
-         {
-            headers.withSources(NextDashboardSecurityHeaders.SCRIPT_SRC, origin);
-         }
-      }
       WidgetsFixtures.allowFakeService(headers);
 
       List<String> parts = new ArrayList<>();

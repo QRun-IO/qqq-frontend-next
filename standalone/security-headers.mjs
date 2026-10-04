@@ -148,6 +148,48 @@ export function inlineScriptHashes(html) {
   return [...hashes]
 }
 
+const SOURCE_FIELDS = { connectSrc: 'connect-src', scriptSrc: 'script-src', frameSrc: 'frame-src', styleSrc: 'style-src' }
+const SPECIAL_SOURCES = {
+  connectSrc: new Set(['https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://accounts.google.com/gsi/']),
+  scriptSrc: new Set(['https://accounts.google.com/gsi/client']),
+  frameSrc: new Set(['https://*.quicksight.aws.amazon.com', 'https://accounts.google.com/gsi/']),
+  styleSrc: new Set(['https://accounts.google.com/gsi/style']),
+}
+
+/**
+ * Copies four lists of at most 64 sources of 512 characters each. Invalid or
+ * oversized metadata is rejected as a whole; refresh retains the last valid inputs.
+ * Only origins and the backend's fixed wildcard/path constants are admitted.
+ * @param {unknown} value - The backend's optional source object.
+ * @returns {Record<string, string[]> | undefined} Validated source lists.
+ */
+function validatedDashboardSources(value) {
+  if (value === undefined) return undefined
+  const invalid = () => { throw new Error('Invalid dashboard CSP source metadata') }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return invalid()
+  const fields = Object.keys(value)
+  if (fields.length !== 4 || fields.some((field) => !Object.hasOwn(SOURCE_FIELDS, field))) return invalid()
+  const copied = {}
+  for (const field of Object.keys(SOURCE_FIELDS)) {
+    const sources = value[field]
+    if (!Array.isArray(sources) || sources.length > 64) return invalid()
+    copied[field] = sources.map((source) => {
+      if (typeof source !== 'string' || source.length > 512 || /[\s;,'"?#@\\]/.test(source)) return invalid()
+      if (SPECIAL_SOURCES[field].has(source)) return source
+      if (source.includes('*')) return invalid()
+      try {
+        const url = new URL(source)
+        const origin = /^(https?):\/\/(\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::([0-9]{1,5}))?$/.exec(source)
+        if (!origin || !['http:', 'https:'].includes(url.protocol)) return invalid()
+        if (!origin[2].startsWith('[') && url.hostname !== origin[2]) return invalid()
+        if (origin[3] && Number(origin[3]) > 65535) return invalid()
+      } catch { return invalid() }
+      return source
+    })
+  }
+  return copied
+}
+
 /**
  * Builds a document's Content-Security-Policy: the defaults, the identity provider origins
  * (connect-src), the deployment's additions, then the document's inline script hashes.
@@ -155,12 +197,17 @@ export function inlineScriptHashes(html) {
  * @param {object} options - The policy inputs.
  * @param {string[]} [options.connectOrigins] - Identity provider origins.
  * @param {[string, string[]][]} [options.additions] - The deployment's additions.
+ * @param {unknown} [options.dashboardCspSources] - Bounded source additions from public metadata.
  * @param {string[]} [options.scriptHashes] - The document's inline script hashes.
  * @returns {string} The header value.
  */
-export function buildContentSecurityPolicy({ connectOrigins = [], additions = [], scriptHashes = [] } = {}) {
+export function buildContentSecurityPolicy({ connectOrigins = [], additions = [], scriptHashes = [], dashboardCspSources } = {}) {
   const directives = new Map(DEFAULT_DIRECTIVES.map(([name, sources]) => [name, new Set(sources)]))
   for (const origin of connectOrigins) directives.get('connect-src').add(origin)
+  const metadataSources = validatedDashboardSources(dashboardCspSources)
+  for (const [field, sources] of Object.entries(metadataSources ?? {})) {
+    for (const source of sources) directives.get(SOURCE_FIELDS[field]).add(source)
+  }
   for (const [name, sources] of additions) {
     if (!directives.has(name)) directives.set(name, new Set())
     for (const source of sources) directives.get(name).add(source)
@@ -170,28 +217,31 @@ export function buildContentSecurityPolicy({ connectOrigins = [], additions = []
 }
 
 /**
- * Keeps the identity provider origins from the authentication metadata, refreshed in the
+ * Keeps validated policy inputs from authentication metadata, refreshed in the
  * background once they are older than `ttlMs`; a failed refresh keeps the last value.
  *
  * @param {() => Promise<unknown>} loadAuthentication - Fetches the authentication metadata.
  * @param {number} [ttlMs] - How long a value is fresh.
- * @returns {() => Promise<string[]>} Resolves the current origins (waits only for the first load).
+ * @returns {() => Promise<{connectOrigins: string[], dashboardCspSources?: Record<string, string[]>}>} Current inputs; waits only for first load.
  */
-export function createIdentityProviderOrigins(loadAuthentication, ttlMs = 60_000) {
-  let origins = null
+export function createDashboardPolicyInputs(loadAuthentication, ttlMs = 60_000) {
+  let inputs = null
   let loadedAt = 0
   let loading = null
   const load = () => {
     loading ??= loadAuthentication()
-      .then((authentication) => { origins = identityProviderOrigins(authentication) })
-      .catch((error) => { console.warn('[qqq] Could not read the authentication metadata for the security policy:', error instanceof Error ? error.message : error) })
+      .then((authentication) => {
+        const dashboardCspSources = validatedDashboardSources(authentication?.dashboardCspSources)
+        inputs = { connectOrigins: identityProviderOrigins(authentication), dashboardCspSources }
+      })
+      .catch((error) => { console.warn('[qqq] Could not read the authentication metadata for the security policy:', error instanceof Error ? error.name : 'unknown') })
       .finally(() => { loadedAt = Date.now(); loading = null })
     return loading
   }
   return async () => {
-    if (origins === null) await load()
+    if (inputs === null) await load()
     else if (Date.now() - loadedAt > ttlMs) void load()
-    return origins ?? []
+    return inputs ?? { connectOrigins: [] }
   }
 }
 
