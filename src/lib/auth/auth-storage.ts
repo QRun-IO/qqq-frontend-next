@@ -19,6 +19,7 @@
  * re-authentication loop guard, and clearing per-user client data on sign-out.
  */
 
+import { clearAllStoredQueryState } from '@/lib/utils/query-view-storage-cleanup'
 import { clearRecentRecords } from '@/lib/utils/recent-records'
 
 const SIGNED_OUT_KEY = 'qqq.signedOut'
@@ -192,9 +193,10 @@ export function resetReauthAttempts(): void {
   storage('session')?.removeItem(REAUTH_KEY)
 }
 
-/** Removes per-user data kept in the browser (recently viewed records, stored identity and session values). */
+/** Removes per-user browser data: recent records, query views, stored identity and session values. */
 export function clearUserClientData(): void {
   clearRecentRecords()
+  clearAllStoredQueryState()
   storeUser(null)
   storage('local')?.removeItem(SESSION_VALUES_KEY)
   storage('local')?.removeItem('accessToken')

@@ -66,9 +66,22 @@ test.describe('MOCK sessions', () => {
     await expect(page.getByRole('heading', { name: /Charlie/ }).first()).toBeVisible()
     await open(page, '/app/person/1')
     await expect(page.getByRole('heading', { name: /Avery/ }).first()).toBeVisible()
+    await page.evaluate(() => {
+      for (const table of ['person', 'pet']) {
+        localStorage.setItem(`qqq.recordQueryView.${table}`, JSON.stringify({
+          queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Alice private filter'] }] },
+          viewIdentity: 'empty',
+        }))
+        localStorage.setItem(`qqq.currentSavedViewId.${table}`, '7')
+      }
+    })
     const menu = await openUserMenu(page)
     await menu.getByRole('menuitem', { name: 'Log Out' }).click()
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
+    expect(await page.evaluate(() => ['person', 'pet'].flatMap((table) => [
+      localStorage.getItem(`qqq.recordQueryView.${table}`),
+      localStorage.getItem(`qqq.currentSavedViewId.${table}`),
+    ]))).toEqual([null, null, null, null])
 
     // a different, less privileged identity signs in on the same browser
     // (mock sessions are keyed by the sessionId cookie the harness assigns)
