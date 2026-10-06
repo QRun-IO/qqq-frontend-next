@@ -10,7 +10,7 @@
 import type { Page } from '@playwright/test'
 import { expect, open, test as acceptanceTest } from '../../support/fixtures'
 import { startFakeOidc, type FakeOidcProvider } from '../../support/fake-oidc'
-import { IDP_PORT, resetVariant, SECURITY_URL, startVariant, stopVariant, variantSql } from './support/variant'
+import { IDP_PORT, resetVariant, SECURITY_URL, SECURITY_UI_URL, startVariant, stopVariant, variantSql } from './support/variant'
 import { listCell, navigation, openUserMenu } from './support/ui'
 import { allowBlockedByPolicy, parsePolicy } from './support/csp'
 
@@ -21,18 +21,18 @@ const VARIANT = {
 }
 
 const test = acceptanceTest.extend<{ idp: FakeOidcProvider }, { oauthProvider: FakeOidcProvider }>({
-  oauthProvider: [async ({}, use) => {
-    const provider = await startFakeOidc({ port: IDP_PORT, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, allowedRedirectPrefix: `${SECURITY_URL}/` })
-    await use(provider)
+  oauthProvider: [async ({}, provide) => {
+    const provider = await startFakeOidc({ port: IDP_PORT, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, allowedRedirectPrefix: `${SECURITY_UI_URL}/` })
+    await provide(provider)
     await stopVariant()
     await provider.close()
   }, { scope: 'worker' }],
-  baseURL: async ({}, use) => { await use(SECURITY_URL) },
-  idp: async ({ oauthProvider }, use) => {
+  baseURL: async ({}, provide) => { await provide(SECURITY_UI_URL) },
+  idp: async ({ oauthProvider }, provide) => {
     await startVariant('OAUTH2', VARIANT)
     await resetVariant()
     oauthProvider.reset()
-    await use(oauthProvider)
+    await provide(oauthProvider)
   },
 })
 
@@ -53,7 +53,7 @@ test.describe('OAUTH2 with PKCE', () => {
     await expect(page).toHaveURL(new RegExp(`^${idp.issuer}/authorize\\?`))
     const [authorize] = authorizeRequests(idp)
     expect(authorize.query).toMatchObject({
-      response_type: 'code', client_id: CLIENT_ID, redirect_uri: `${SECURITY_URL}/token`,
+      response_type: 'code', client_id: CLIENT_ID, redirect_uri: `${SECURITY_UI_URL}/token`,
       code_challenge_method: 'S256', scope: 'openid profile email',
     })
     expect(authorize.query.code_challenge).toMatch(/^[A-Za-z0-9_-]{43}$/)
@@ -68,7 +68,7 @@ test.describe('OAUTH2 with PKCE', () => {
     const token = idp.requests.filter((request) => request.path === '/oauth/token')
     expect(token).toHaveLength(1)
     expect(token[0].authorization).toBe(`Basic ${Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64')}`)
-    expect(token[0].form).toMatchObject({ grant_type: 'authorization_code', redirect_uri: `${SECURITY_URL}/token` })
+    expect(token[0].form).toMatchObject({ grant_type: 'authorization_code', redirect_uri: `${SECURITY_UI_URL}/token` })
     expect(token[0].form.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(await variantSql('select user_id from user_session')).toEqual([{ user_id: 'oidc|dana' }])
 
@@ -142,7 +142,7 @@ test.describe('OAUTH2 with PKCE', () => {
     expect((await backendLogout).status()).toBe(200)
     await expect(page).toHaveURL(/\/login\/?$/)
     await expect(page.getByRole('heading', { name: 'You have signed out' })).toBeVisible()
-    await expect.poll(() => idp.requests.some((request) => request.path === '/logout' && request.query.post_logout_redirect_uri === `${SECURITY_URL}/login`)).toBe(true)
+    await expect.poll(() => idp.requests.some((request) => request.path === '/logout' && request.query.post_logout_redirect_uri === `${SECURITY_UI_URL}/login`)).toBe(true)
     expect(await sessions()).toBe(0)
     await expect.poll(() => idp.activeSessions()).toBe(0)
 

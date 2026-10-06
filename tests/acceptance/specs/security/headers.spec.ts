@@ -215,9 +215,20 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     await open(page, '/app')
     await expect(recentPet).toBeVisible()
     await expect(recentPet).toHaveAttribute('href', /^\/app\/pet\/1\/?$/)
+    await page.evaluate(() => {
+      localStorage.setItem('qqq.recordQueryView.person', JSON.stringify({
+        queryFilter: { criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Alice private filter'] }] },
+        viewIdentity: 'empty',
+      }))
+      localStorage.setItem('qqq.currentSavedViewId.person', '7')
+    })
     // the same identity keeps its list across a reload
     await page.reload()
     await expect(recentPet).toBeVisible()
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('qqq.recordQueryView.person') ?? 'null'))).toMatchObject({
+      queryFilter: { criteria: [{ fieldName: 'firstName', operator: 'EQUALS', values: ['Alice private filter'] }] },
+    })
+    expect(await page.evaluate(() => localStorage.getItem('qqq.currentSavedViewId.person'))).toBe('7')
 
     // no logout: the next session in this browser belongs to someone else
     await backend.setPersona('admin', 'bob')
@@ -226,6 +237,8 @@ test.describe('security review fixes (QRun-IO/qqq#696)', () => {
     await expect((await navigation(page)).locator('[data-qqq-id="sidebar-user-name"]')).toContainText('Bob')
     await expect(page.locator('[data-qqq-id^="dashboard-recent-"]')).toHaveCount(0)
     expect(await page.evaluate(() => localStorage.getItem('qqq-recent-records') ?? '')).not.toContain('/app/pet/1')
+    expect(await page.evaluate(() => localStorage.getItem('qqq.recordQueryView.person'))).toBeNull()
+    expect(await page.evaluate(() => localStorage.getItem('qqq.currentSavedViewId.person'))).toBeNull()
     await open(page, '/app/person')
     await expect(listCell(page, 'Person', 'Avery')).toBeVisible()
   })

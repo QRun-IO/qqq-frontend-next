@@ -6,6 +6,7 @@
  */
 
 // The stock sample's widget dashboard and greetings app: every sample widget renders its real payload.
+import { readChartLabelBoxes, type ChartLabelBox } from '../../support/chart-label-geometry'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady } from '../../support/touch'
 import { chartTable, expectLoaded, isLargeLayout, widget, widgetPayload } from './widget-support'
@@ -215,17 +216,15 @@ test.describe('sample widgets dashboard', () => {
     for (const viewport of [{ width: 393, height: 851 }, { width: 1440, height: 1000 }]) {
       await page.setViewportSize(viewport)
       const labels = card.locator('.recharts-xAxis .recharts-cartesian-axis-tick-value')
-      await expect(async () => {
-        await expect(labels).toHaveText(payload.chartData.labels, { timeout: 0 })
-        for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/, { timeout: 0 })
-        const boxes = await labels.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()))
-        expect(boxes).toHaveLength(payload.chartData.labels.length)
-        for (const box of boxes) {
-          expect(box.width).toBeGreaterThan(0)
-          expect(box.height).toBeGreaterThan(0)
-        }
-        for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
-      }).toPass({ timeout: 5_000 })
+      await expect(labels).toHaveText(payload.chartData.labels)
+      for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/)
+      let boxes: ChartLabelBox[] = []
+      await expect.poll(async () => {
+        const sample = await labels.evaluateAll(readChartLabelBoxes, payload.chartData.labels)
+        boxes = sample ?? []
+        return sample !== null
+      }).toBe(true)
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
     }
 
   })

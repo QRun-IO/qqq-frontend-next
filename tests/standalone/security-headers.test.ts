@@ -25,7 +25,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   applyDashboardSecurityHeaders,
   buildContentSecurityPolicy,
-  createIdentityProviderOrigins,
+  createDashboardPolicyInputs,
   identityProviderOrigins,
   inlineScriptHashes,
   isBackendPath,
@@ -110,6 +110,63 @@ describe('dashboard policy (QRun-IO/qqq#734)', () => {
     expect(policy.split('; ').map((part) => part.split(' ')[0]).slice(-2)).toEqual(['frame-ancestors', 'report-uri'])
   })
 
+  it('adds backend metadata sources without operator duplication or relaxed defaults', () => {
+    const policy = buildContentSecurityPolicy({
+      dashboardCspSources: {
+        connectSrc: ['https://*.google-analytics.com'],
+        scriptSrc: ['https://cdn.example.test'],
+        frameSrc: ['https://*.quicksight.aws.amazon.com'],
+        styleSrc: ['https://accounts.google.com/gsi/style'],
+      },
+      scriptHashes: ["'sha256-owned='"],
+    })
+    expect(policy).toContain("script-src 'self' https://cdn.example.test 'sha256-owned='")
+    expect(policy).toContain("connect-src 'self' https://*.google-analytics.com")
+    expect(policy).toContain("frame-src 'self' https://*.quicksight.aws.amazon.com")
+    expect(policy).toContain("style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style")
+    expect(policy).toContain("object-src 'none'")
+    expect(policy).not.toContain('unsafe-eval')
+  })
+
+  it.each([
+    '*', 'https://*.example.test', "'unsafe-inline'", "'nonce-owned'", 'data:',
+    'https://cdn.example.test;script-src *', 'https://user:secret@cdn.example.test',
+    'https://cdn.example.test?token=secret', 'https://cdn.example.test#secret',
+    'https://cdn.example.test/path', 'https://cdn.example.test\n', 'https://cdn.example.test,https://other.test',
+  ])('rejects unsafe metadata source %s without quoting it in the error', (source) => {
+    const make = () => buildContentSecurityPolicy({ dashboardCspSources: { connectSrc: [], scriptSrc: [source], frameSrc: [], styleSrc: [] } })
+    expect(make).toThrow(/^Invalid dashboard CSP source metadata$/)
+  })
+
+  it.each(['https://cdn.example.test:443', 'http://cdn.example.test:80', 'http://[0:0:0:0:0:0:0:1]:80', 'https://[2001:db8:0:0::1]:443'])('accepts the Java origin-only spelling %s without changing its scope', (source) => {
+    const policy = buildContentSecurityPolicy({ dashboardCspSources: { connectSrc: [], scriptSrc: [source], frameSrc: [], styleSrc: [] } })
+    expect(policy).toContain(`script-src 'self' ${source};`)
+  })
+
+  it('rejects unknown fields, missing fields, oversized collections and wrong-directive special sources', () => {
+    const empty = { connectSrc: [], scriptSrc: [], frameSrc: [], styleSrc: [] }
+    for (const value of [null, [], {}, { ...empty, policy: "script-src *" },
+      { ...empty, scriptSrc: Array(65).fill('https://cdn.example.test') },
+      { ...empty, scriptSrc: ['https://*.quicksight.aws.amazon.com'] },
+      { ...empty, scriptSrc: ['https://' + 'a'.repeat(513)] },
+      { ...empty, scriptSrc: [42] }]) {
+      expect(() => buildContentSecurityPolicy({ dashboardCspSources: value })).toThrow(/^Invalid dashboard CSP source metadata$/)
+    }
+  })
+
+  it('accepts only the backend fixed wildcard/path forms in their original directives', () => {
+    const policy = buildContentSecurityPolicy({ dashboardCspSources: {
+      connectSrc: ['https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://accounts.google.com/gsi/', 'http://127.0.0.1:9000'],
+      scriptSrc: ['https://accounts.google.com/gsi/client', 'https://apis.google.com'],
+      frameSrc: ['https://*.quicksight.aws.amazon.com', 'https://accounts.google.com/gsi/', 'https://docs.google.com'],
+      styleSrc: ['https://accounts.google.com/gsi/style'],
+    } })
+    expect(policy).toContain('https://accounts.google.com/gsi/client')
+    expect(policy).toContain('https://*.analytics.google.com')
+    expect(policy).toContain('http://127.0.0.1:9000')
+    expect(policy).not.toContain('https://accounts.google.com;')
+  })
+
   it('refuses malformed additions', () => {
     expect(parseSourceAdditions(undefined)).toEqual([])
     expect(parseSourceAdditions(' ; ')).toEqual([])
@@ -154,24 +211,43 @@ describe('identity provider origins from the authentication metadata', () => {
       .mockResolvedValueOnce({ type: 'OAUTH2', values: { baseUrl: 'https://one.example' } })
       .mockRejectedValueOnce(new Error('backend down'))
       .mockResolvedValueOnce({ type: 'OAUTH2', values: { baseUrl: 'https://two.example' } })
-    const origins = createIdentityProviderOrigins(load, 100)
-    expect(await origins()).toEqual(['https://one.example'])
-    expect(await origins()).toEqual(['https://one.example'])
+    const origins = createDashboardPolicyInputs(load, 100)
+    expect((await origins()).connectOrigins).toEqual(['https://one.example'])
+    expect((await origins()).connectOrigins).toEqual(['https://one.example'])
     expect(load).toHaveBeenCalledTimes(1)
     now += 200
-    expect(await origins()).toEqual(['https://one.example'])
+    expect((await origins()).connectOrigins).toEqual(['https://one.example'])
     await vi.waitFor(() => expect(warn).toHaveBeenCalled())
     now += 200
     await origins()
-    await vi.waitFor(async () => expect(await origins()).toEqual(['https://two.example']))
+    await vi.waitFor(async () => expect((await origins()).connectOrigins).toEqual(['https://two.example']))
     expect(load).toHaveBeenCalledTimes(3)
+    vi.restoreAllMocks()
+  })
+
+  it('copies metadata inputs and retains the last valid policy when a refresh is malformed', async () => {
+    let now = 1_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const first = { type: 'OAUTH2', values: { baseUrl: 'https://idp.example' }, dashboardCspSources: { connectSrc: [], scriptSrc: ['https://cdn.example'], frameSrc: [], styleSrc: [] } }
+    const load = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce({ dashboardCspSources: { policy: '*' } })
+    const inputs = createDashboardPolicyInputs(load, 100)
+    const captured = await inputs()
+    first.dashboardCspSources.scriptSrc[0] = 'https://changed.example'
+    expect(buildContentSecurityPolicy(captured)).toContain("script-src 'self' https://cdn.example")
+    expect(buildContentSecurityPolicy(captured)).toContain("connect-src 'self' https://idp.example")
+    now += 200
+    await inputs()
+    await vi.waitFor(() => expect(console.warn).toHaveBeenCalled())
+    expect(buildContentSecurityPolicy(await inputs())).toBe(buildContentSecurityPolicy(captured))
+    expect(vi.mocked(console.warn).mock.calls[0]?.[1]).toBe('Error')
     vi.restoreAllMocks()
   })
 
   it('without any metadata allows no identity provider', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const origins = createIdentityProviderOrigins(() => Promise.reject(new Error('backend down')))
-    expect(await origins()).toEqual([])
+    const origins = createDashboardPolicyInputs(() => Promise.reject(new Error('backend down')))
+    expect((await origins()).connectOrigins).toEqual([])
     vi.restoreAllMocks()
   })
 })

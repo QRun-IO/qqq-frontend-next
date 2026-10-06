@@ -16,6 +16,12 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  readCurrentSavedViewId,
+  readStoredQueryView,
+  writeCurrentSavedViewId,
+  writeStoredQueryView,
+} from '@/lib/utils/query-view-storage'
+import {
   claimClientData,
   clearUserClientData,
   getStoredSessionValues,
@@ -95,6 +101,57 @@ describe('auth-storage', () => {
     expect(localStorage.getItem('qqq-recent-records')).toBeNull()
     expect(localStorage.getItem('qqqUser')).toBeNull()
     expect(localStorage.getItem('accessToken')).toBeNull()
+  })
+
+  it('clears every table\'s remembered filters and saved-view selection without resetting machine preferences (QRun-IO/qqq#1006)', () => {
+    for (const table of ['person', 'pet']) {
+      writeStoredQueryView(table, {
+        queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+        viewIdentity: 'empty',
+      })
+      writeCurrentSavedViewId(table, 7)
+      expect(readStoredQueryView(table)).toMatchObject({
+        queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+      })
+      expect(readCurrentSavedViewId(table)).toBe(7)
+    }
+    const preferences = {
+      'qqq.density': 'compact',
+      'qqq-dark-mode': 'true',
+      'qqq-person-column-widths': '{"name":240}',
+      'qqq.recordQueryViews.person': 'unrelated plural key',
+      'another-application': 'keep',
+    }
+    for (const [key, value] of Object.entries(preferences)) localStorage.setItem(key, value)
+
+    clearUserClientData()
+
+    for (const table of ['person', 'pet']) {
+      expect(readStoredQueryView(table)).toBeNull()
+      expect(readCurrentSavedViewId(table)).toBeNull()
+    }
+    for (const [key, value] of Object.entries(preferences)) expect(localStorage.getItem(key)).toBe(value)
+  })
+
+  it('keeps remembered query state for the same identity and clears it before another identity claims the browser (QRun-IO/qqq#1006)', () => {
+    claimClientData({ name: 'Alice', email: 'alice@example.test' })
+    writeStoredQueryView('person', {
+      queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+      viewIdentity: 'savedView:7',
+    })
+    writeCurrentSavedViewId('person', 7)
+
+    claimClientData({ name: 'Alice', email: 'alice@example.test' })
+    expect(readStoredQueryView('person')).toMatchObject({
+      queryFilter: { criteria: [{ fieldName: 'name', operator: 'EQUALS', values: ['Private Alice'] }] },
+      viewIdentity: 'savedView:7',
+    })
+    expect(readCurrentSavedViewId('person')).toBe(7)
+
+    claimClientData({ name: 'Bob', email: 'bob@example.test' })
+    expect(readStoredQueryView('person')).toBeNull()
+    expect(readCurrentSavedViewId('person')).toBeNull()
+    expect(localStorage.getItem('qqq.clientDataOwner')).toBe('bob@example.test')
   })
 
   it('clears the previous user\'s data when someone else signs in in this browser (QRun-IO/qqq#696)', () => {

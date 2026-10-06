@@ -10,7 +10,9 @@
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { ACCEPTANCE_MODE, BUILD_MARKER, EXPORT_CLASSPATH, resolveSampleJar } from './acceptance-paths.mjs'
+import { ACCEPTANCE_MODE, BUILD_MARKER, EXPORT_CLASSPATH, resolveSampleJar, SECURITY_BACKEND_URL, SECURITY_STANDALONE } from './acceptance-paths.mjs'
+
+import { stageStandalone } from './acceptance-standalone.mjs'
 
 const args = process.argv.slice(2)
 const skipBuild = args.includes('--skip-build')
@@ -38,7 +40,12 @@ if (ACCEPTANCE_MODE === 'javalin') {
   cpSync('out', path.join(EXPORT_CLASSPATH, 'next-dashboard'), { recursive: true, filter: (source) => !source.endsWith('mockServiceWorker.js') })
 }
 if (!skipBuild && ACCEPTANCE_MODE === 'standalone') {
-  const status = run('pnpm', ['build'], { QQQ_BACKEND_URL: backend, NEXT_PUBLIC_MOCK_API: 'false', NEXT_TELEMETRY_DISABLED: '1' })
+  // A second immutable build is required: Next bakes the rewrite destination at build time.
+  const securityStatus = run('pnpm', ['build'], { QQQ_NEXT_OUTPUT: 'standalone', QQQ_BACKEND_URL: SECURITY_BACKEND_URL, NEXT_PUBLIC_MOCK_API: 'false', NEXT_TELEMETRY_DISABLED: '1' })
+  if (securityStatus !== 0) process.exit(securityStatus)
+  stageStandalone(SECURITY_STANDALONE, SECURITY_BACKEND_URL)
+  rmSync('.next', { recursive: true, force: true })
+  const status = run('pnpm', ['build'], { QQQ_NEXT_OUTPUT: 'standalone', QQQ_BACKEND_URL: backend, NEXT_PUBLIC_MOCK_API: 'false', NEXT_TELEMETRY_DISABLED: '1' })
   if (status !== 0) process.exit(status)
   writeFileSync(BUILD_MARKER, backend + '\n')
 }

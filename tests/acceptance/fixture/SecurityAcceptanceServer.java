@@ -117,6 +117,21 @@ public class SecurityAcceptanceServer
                }
                default -> throw new QException("Unknown qqq.security.auth: " + AUTH);
             }
+            String analyticsOrigin = System.getProperty("qqq.security.analytics.origin");
+            if(analyticsOrigin != null)
+            {
+               if(!analyticsOrigin.matches("http://127\\.0\\.0\\.1:[0-9]{1,5}"))
+               {
+                  throw new QException("The owned analytics fixture requires a loopback origin.");
+               }
+               Map<String, String> environment = new java.util.LinkedHashMap<>(defined.getEnvironmentValues());
+               environment.put("ANALYTICS_PROVIDERS", "posthog");
+               environment.put("ANALYTICS_PLUGIN_SCRIPTS", analyticsOrigin + "/owned-plugin.js");
+               environment.put("POSTHOG_ENABLED", "true");
+               environment.put("POSTHOG_PROJECT_API_KEY", "owned-test-key");
+               environment.put("POSTHOG_HOST", analyticsOrigin);
+               defined.setEnvironmentValues(environment);
+            }
             instance = defined;
             return defined;
          }
