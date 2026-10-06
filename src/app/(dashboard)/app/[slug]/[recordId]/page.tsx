@@ -36,7 +36,7 @@ import { useRouteParams } from '@/lib/hooks/use-route-params'
 import { addRecentRecord, removeRecentRecord } from '@/lib/utils/recent-records'
 import { recordAnalytics } from '@/lib/analytics'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
-import { getProcessesForTable } from '@/lib/utils/process-utils'
+import { getProcessesForRecordView } from '@/lib/utils/process-utils'
 import { useQContext } from '@/lib/context/q-context'
 import { loadMetaData, loadTableMetaData } from '@/lib/api/metadata'
 import { auditSource } from '@/lib/api/audits'
@@ -191,7 +191,7 @@ export default function RecordViewPage() {
     )
   }
 
-  const tableProcesses = metaData ? getProcessesForTable(metaData, slug) : []
+  const tableProcesses = metaData ? getProcessesForRecordView(metaData, slug) : []
 
   return (
     <>

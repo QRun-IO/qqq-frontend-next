@@ -45,9 +45,45 @@ export function getProcessesForTable(
   metaData: QInstance,
   tableName: string
 ): QProcessMetaData[] {
-  const own = Object.values(metaData.processes ?? {}).filter(
+  return withAllScreensProcesses(metaData, getOwnProcesses(metaData, tableName))
+}
+
+/**
+ * Processes for the record view's action menu. Material sorts only the table's own
+ * processes by label there (the query page keeps declared order); all-screens processes
+ * still follow in their configured order.
+ *
+ * @param metaData - The full QQQ instance metadata.
+ * @param tableName - The backend name of the table whose record is being viewed.
+ * @returns The table's own visible, permitted processes sorted by label, then the
+ *   all-screens processes not already listed.
+ */
+export function getProcessesForRecordView(metaData: QInstance, tableName: string): QProcessMetaData[] {
+  const own = getOwnProcesses(metaData, tableName).sort((a, b) => a.label.localeCompare(b.label))
+  return withAllScreensProcesses(metaData, own)
+}
+
+/**
+ * Processes declared for the table itself, before any all-screens additions.
+ *
+ * @param metaData - The full QQQ instance metadata.
+ * @param tableName - The backend table name to match against `QProcessMetaData.tableName`.
+ * @returns The table's own processes that are not hidden and that the user may run, in declared order.
+ */
+function getOwnProcesses(metaData: QInstance, tableName: string): QProcessMetaData[] {
+  return Object.values(metaData.processes ?? {}).filter(
     (p) => p.tableName === tableName && !p.isHidden && p.hasPermission !== false
   )
+}
+
+/**
+ * Appends the processes Material adds to every query and record screen.
+ *
+ * @param metaData - The full QQQ instance metadata.
+ * @param own - The table's own processes, already filtered and ordered.
+ * @returns `own` followed by the all-screens processes it does not already contain.
+ */
+function withAllScreensProcesses(metaData: QInstance, own: QProcessMetaData[]): QProcessMetaData[] {
   const added = getProcessesForAllScreens(metaData).filter((p) => !own.some((o) => o.name === p.name))
   return [...own, ...added]
 }
