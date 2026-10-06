@@ -6,6 +6,7 @@
  */
 
 // The stock sample's widget dashboard and greetings app: every sample widget renders its real payload.
+import { readChartLabelBoxes, type ChartLabelBox } from '../../support/chart-label-geometry'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady } from '../../support/touch'
 import { chartTable, expectLoaded, isLargeLayout, widget, widgetPayload } from './widget-support'
@@ -217,7 +218,12 @@ test.describe('sample widgets dashboard', () => {
       const labels = card.locator('.recharts-xAxis .recharts-cartesian-axis-tick-value')
       await expect(labels).toHaveText(payload.chartData.labels)
       for (const label of await labels.all()) await expect(label).not.toHaveAttribute('transform', /rotate/)
-      const boxes = await labels.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()))
+      let boxes: ChartLabelBox[] = []
+      await expect.poll(async () => {
+        const sample = await labels.evaluateAll(readChartLabelBoxes, payload.chartData.labels)
+        boxes = sample ?? []
+        return sample !== null
+      }).toBe(true)
       for (let i = 1; i < boxes.length; i++) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right)
     }
 

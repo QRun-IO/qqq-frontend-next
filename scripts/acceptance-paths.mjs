@@ -40,3 +40,11 @@ export const BUILD_MARKER = path.resolve('.next/acceptance-backend.txt')
 export const EXPORT_CLASSPATH = path.resolve('test-results/acceptance/export-classpath')
 
 export const ACCEPTANCE_MODE = process.env.QQQ_ACCEPTANCE_MODE === 'standalone' ? 'standalone' : 'javalin'
+
+/** Separate backend, browser and provider origins for authentication variants. */
+export const SECURITY_BACKEND_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT ?? Number(process.env.QQQ_ACCEPTANCE_BACKEND_PORT ?? 18765) + 10)
+export const SECURITY_FRONTEND_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_FRONTEND_PORT ?? Number(process.env.QQQ_ACCEPTANCE_FRONTEND_PORT ?? 13765) + 20)
+export const SECURITY_IDP_PORT = Number(process.env.QQQ_ACCEPTANCE_SECURITY_IDP_PORT ?? Number(process.env.QQQ_ACCEPTANCE_FRONTEND_PORT ?? 13765) + 10)
+export const SECURITY_BACKEND_URL = `http://127.0.0.1:${SECURITY_BACKEND_PORT}`
+export const SECURITY_UI_URL = ACCEPTANCE_MODE === 'standalone' ? `http://127.0.0.1:${SECURITY_FRONTEND_PORT}` : SECURITY_BACKEND_URL
+export const SECURITY_STANDALONE = path.resolve('test-results/acceptance/security-standalone')

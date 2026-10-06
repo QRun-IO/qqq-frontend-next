@@ -33,7 +33,14 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
 - **javalin mode (default).** The static export (`pnpm build:export`, `out/`) goes on the
   classpath as `next-dashboard/`, ahead of the sample jar. `QApplicationJavalinServer` then
   serves it at `/`, which is exactly what a fresh application gets.
-- **standalone mode.** Tests the Node standalone build that the container image uses.
+- **standalone mode.** Tests the Node standalone build through the container's
+  `qqq-server.mjs` entrypoint. Builds twice from clean `.next` directories: a staged
+  authentication-variant build baked to the security backend, then the main build
+  baked to the shared backend. Next rewrites are build-time values; changing only a
+  server environment variable cannot retarget them. The variant validates its actual
+  route manifest and marker before startup, disables Java dashboard serving, and
+  restarts its owned Node server when authentication metadata changes. Javalin mode
+  still uses its export and does not start this second Node server.
 - **API-versioned report setup.** The acceptance server loads the matching
   `qqq-middleware-api` JAR from `~/.m2/repository/com/kingsrook/qqq/qqq-middleware-api/<version>/`.
   Set `QQQ_MIDDLEWARE_API_JAR` to another path when Maven uses a different local repository.
@@ -44,7 +51,10 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   HTTP and broker ports for concurrent runs. The security variant uses
   `QQQ_ACCEPTANCE_SECURITY_BACKEND_PORT` (default backend HTTP port + 10),
   `QQQ_ACCEPTANCE_SECURITY_ESB_PORT` (default main ESB port + 1, normally 61617),
-  and `QQQ_ACCEPTANCE_SECURITY_IDP_PORT` (default frontend HTTP port + 10).
+  `QQQ_ACCEPTANCE_SECURITY_IDP_PORT` (default frontend HTTP port + 10), and
+  `QQQ_ACCEPTANCE_SECURITY_FRONTEND_PORT` (standalone browser origin, default frontend
+  HTTP port + 20). Browser redirects use the mode-specific UI origin; direct backend
+  control, SQL and permission/replay requests retain the security backend origin.
   Its broker setting is passed as `qqq.sample.esb.port`; explicit variant
   `options.properties` retain precedence over these defaults.
 - **Results.** Output lands in `test-results/acceptance/`: `report.json`, `gate.json` (with
@@ -60,11 +70,18 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   leave the variable unset for a control run with the original handler tree. Native and
   ordinary server logs can still contain session data; keep raw evidence private.
 - **Document/XHR evidence (opt-in).** Set `QQQ_ACCEPTANCE_BROWSER_TRACE=1` locally to
-  attach `browser-boundary.json` through the diagnostics fixture; CI does not enable it.
-  Only `/app/person[/]`, `/app/person/2[/]`, and `/app/person.bulkEdit[/]` documents on
-  the configured UI/API origins are observed. Requests are exact method/path matches:
-  GET person metadata, session, person record 2 and person.bulkEdit process metadata;
-  POST querySavedView init, person query/count and person.bulkEdit init. The helper emits
+  attach `browser-boundary.json` through the diagnostics fixture. CI uses `navigation`
+  mode only for the exact NAV023 unique-key and NAV056 application-theme-override cases
+  on WebKit/tablet; other cases, including SEC043, do not opt in through that mode.
+  By default, only `/app/person[/]`, `/app/person/key[/]`, `/app/person/2[/]`, and
+  `/app/person.bulkEdit[/]` documents on configured UI/API origins are observed. To also
+  capture dashboard documents at exactly `/app` and `/app/`, set
+  `QQQ_ACCEPTANCE_BROWSER_TRACE_SESSION=1` alongside `QQQ_ACCEPTANCE_BROWSER_TRACE=1`
+  locally. The session flag alone installs nothing and does not select additional tests;
+  other dashboard paths are not included. Requests are exact method/path matches:
+  GET person metadata, person record 2 and person.bulkEdit process metadata;
+  POST `/qqq/v1/manageSession`, querySavedView init, person query/count and person.bulkEdit init.
+  GET `/qqq/v1/manageSession` is excluded. The helper emits
   fixed aliases, document UUID/sequence/clocks, native XHR send return/throw, status and
   terminal events. It never emits URLs, query/hash values, headers, credentials, payloads,
   error messages or stacks, and adds no request headers or interception. Disabled mode
@@ -200,3 +217,24 @@ Successful broker-level purge/delete/move/pause and a numeric dead-letter count 
 a broker management endpoint; this fixture does not claim to prove those operations.
 The ESB table-probe blanket 404 diagnostic exemption is removed: unexpected failed
 requests fail acceptance, and negative cases allow only their specific denial.
+
+## Standalone security qualification (#734)
+
+Preserve the original SEC-034..036 table-authentication requirements alongside the
+header/enforcement rows SEC-038/040 and both SEC-039 provider-metadata cases:
+
+```bash
+QQQ_ACCEPTANCE_MODE=standalone \
+QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet \
+node scripts/acceptance.mjs --grep '\[SEC-(034|035|036|038|039|040)\]'
+```
+
+This bounded selection currently collects 43 cases (nine per desktop, eight per
+phone/tablet; the Auth0 SEC-039 case is desktop-only). It uses the existing partial
+matrix gate, zero retries and strict diagnostics. A passing Javalin run cannot
+qualify this mode. Retain the actual Node response origins, both build identities,
+frontend/backend source and artifact hashes, runtime versions, original failures
+and raw reports. Never use a stale static export to make standalone variants pass.
+The original loaded-branding assertion also remains required; missing standalone
+assets must be investigated, not skipped. Local discovery or unit success is not
+native qualification or issue closeout.
