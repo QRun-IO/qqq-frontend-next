@@ -8,6 +8,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets, undersizedTargets } from '../../support/touch'
+import { waitForSampleDashboard } from './sample-dashboard-navigation'
 import { tabKey } from '../security/support/ui'
 import { appNavigation, expectBreadcrumbs, recordCollection, waitForShell } from './nav-helpers'
 
@@ -39,6 +40,7 @@ test.describe('mobile navigation', () => {
       if (!navBox || !titleBox) return 0
       return Math.min(navBox.x + navBox.width, titleBox.x + titleBox.width) - Math.max(navBox.x, titleBox.x)
     }).toBeGreaterThan(100)
+    await waitForSampleDashboard(page)
     await open(page, '/app')
     await waitForShell(page)
     const drawer = page.locator('[data-qqq-id="sidebar-mobile-drawer"]')
