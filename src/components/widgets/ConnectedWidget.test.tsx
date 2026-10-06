@@ -18,7 +18,7 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -30,6 +30,7 @@ vi.mock('@/lib/api/widgets', async (importOriginal) => {
 import type { QWidgetMetaData, WidgetData } from '@/types'
 import { fetchWidgetData, WidgetRequestError } from '@/lib/api/widgets'
 import { ConnectedWidget, SeededWidget } from './ConnectedWidget'
+import * as widgetUtils from './widget-utils'
 
 const fetchMock = vi.mocked(fetchWidgetData)
 
@@ -67,6 +68,106 @@ describe('ConnectedWidget', () => {
     localStorage.clear()
     fetchMock.mockReset()
     fetchMock.mockImplementation(async (_name, params) => controlsPayload(params))
+  })
+
+  it('hydrates backend date and choice defaults without persisting caller defaults', async () => {
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+    }))
+    renderWidget({ ...controls, storeDropdownSelections: false })
+    const day = await screen.findByLabelText('Select Day')
+    await waitFor(() => expect(day).toHaveValue('2026-01-15'))
+    expect(screen.getByLabelText('Select Choice')).toHaveValue('Alpha')
+    const sent = new Date(2026, 0, 15).toLocaleDateString()
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha', accDate: sent }))
+    expect(await screen.findByText(`choice=alpha; day=${sent}`)).toBeInTheDocument()
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('uses the configured date wire normalization for a backend default', async () => {
+    const normalize = vi.spyOn(widgetUtils, 'normalizeDropdownDate').mockImplementation((value) => value)
+    try {
+      fetchMock.mockImplementation(async (_name, params) => ({
+        ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+      }))
+      renderWidget({ ...controls, storeDropdownSelections: false })
+      await waitFor(() => expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-15'))
+      await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha', accDate: '2026-01-15' }))
+      expect(await screen.findByText('choice=alpha; day=2026-01-15')).toBeInTheDocument()
+      expect(localStorage.length).toBe(0)
+    } finally {
+      normalize.mockRestore()
+    }
+  })
+
+  it.each([undefined, null, '', 'not-a-date'])('leaves a missing or invalid date default blank (%s)', async (value) => {
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', value],
+    }))
+    renderWidget({ ...controls, storeDropdownSelections: false })
+    await waitFor(() => expect(screen.getByLabelText('Select Choice')).toHaveValue('Alpha'))
+    expect(screen.getByLabelText('Select Day')).toHaveValue('')
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha' }))
+  })
+
+  it('keeps a user date when a late reload supplies a different default', async () => {
+    const user = userEvent.setup()
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+    }))
+    renderWidget({ ...controls, storeDropdownSelections: false })
+    const day = await screen.findByLabelText('Select Day')
+    await waitFor(() => expect(day).toHaveValue('2026-01-15'))
+    fireEvent.change(day, { target: { value: '2026-01-20' } })
+    const sent = new Date(2026, 0, 20).toLocaleDateString()
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('accControls', { accChoice: 'alpha', accDate: sent }))
+    expect(await screen.findByText(`choice=alpha; day=${sent}`)).toBeInTheDocument()
+    let finishReload!: (value: WidgetData) => void
+    fetchMock.mockImplementationOnce(() => new Promise((resolve) => { finishReload = resolve }))
+    await user.click(screen.getByLabelText('Reload Owned Controls'))
+    await waitFor(() => expect(finishReload).toBeDefined())
+    finishReload({ ...controlsPayload({ accChoice: 'alpha', accDate: sent }), dropdownDefaultValueList: ['alpha', '2026-01-25'] })
+    await waitFor(() => expect(screen.getByLabelText('Reload Owned Controls')).not.toBeDisabled())
+    expect(day).toHaveValue('2026-01-20')
+  })
+
+  it('preserves an explicit clear when the backend still supplies a date default', async () => {
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+    }))
+    renderWidget({ ...controls, storeDropdownSelections: false })
+    const day = await screen.findByLabelText('Select Day')
+    await waitFor(() => expect(day).toHaveValue('2026-01-15'))
+    fireEvent.change(day, { target: { value: '' } })
+    await waitFor(() => expect(screen.getByText('Please select a Day')).toBeInTheDocument())
+    expect(day).toHaveValue('')
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('preserves a stored date instead of replacing it with a server default', async () => {
+    localStorage.setItem('qqq.widgets.dropdownData.accControls.accDate', JSON.stringify({ id: '2026-01-10' }))
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+    }))
+    renderWidget()
+    await waitFor(() => expect(screen.getByLabelText('Select Choice')).toHaveValue('Alpha'))
+    expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-10')
+    expect(JSON.parse(localStorage.getItem('qqq.widgets.dropdownData.accControls.accDate')!)).toEqual({ id: '2026-01-10' })
+    expect(localStorage.getItem('qqq.widgets.dropdownData.accControls.accChoice')).toBeNull()
+  })
+
+  it('does not carry one caller default into a fresh caller widget without saved dates', async () => {
+    fetchMock.mockImplementation(async (_name, params) => ({
+      ...controlsPayload(params), dropdownDefaultValueList: ['alpha', '2026-01-15'],
+    }))
+    const first = renderWidget({ ...controls, storeDropdownSelections: false })
+    await waitFor(() => expect(screen.getByLabelText('Select Day')).toHaveValue('2026-01-15'))
+    first.unmount()
+    fetchMock.mockImplementation(async (_name, params) => controlsPayload(params))
+    renderWidget({ ...controls, storeDropdownSelections: false })
+    expect(await screen.findByText('Please select a Choice and Day')).toBeInTheDocument()
+    expect(screen.getByLabelText('Select Day')).toHaveValue('')
+    expect(localStorage.length).toBe(0)
   })
 
   it('renders payload dropdowns, sends selections under their parameter names and persists them', async () => {
