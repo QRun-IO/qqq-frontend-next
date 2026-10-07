@@ -19,6 +19,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   getProcessesForTable,
+  getProcessesForRecordView,
   getSingleRecordProcesses,
   getBulkProcesses,
   getProcessesForAllScreens,
@@ -97,6 +98,23 @@ describe('getProcessesForTable', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(instance as any).processes = undefined
     expect(getProcessesForTable(instance, 'person')).toEqual([])
+  })
+})
+
+describe('getProcessesForRecordView', () => {
+  it('sorts the table\'s own processes by label, then keeps all-screens processes in declared order', () => {
+    const instance = {
+      ...makeInstance({
+        zeta: makeProcess({ name: 'zeta', label: 'Zeta', tableName: 'person' }),
+        alpha: makeProcess({ name: 'alpha', label: 'Alpha', tableName: 'person' }),
+        mid: makeProcess({ name: 'mid', label: 'Mid', tableName: 'person' }),
+        tag: makeProcess({ name: 'tag', label: 'Tag', tableName: '' }),
+        audit: makeProcess({ name: 'audit', label: 'Audit', tableName: '' }),
+      }),
+      supplementalInstanceMetaData: { materialDashboard: { processNamesToAddToAllQueryAndViewScreens: ['tag', 'audit'] } },
+    }
+    expect(getProcessesForRecordView(instance, 'person').map((p) => p.name)).toEqual(['alpha', 'mid', 'zeta', 'tag', 'audit'])
+    expect(getProcessesForTable(instance, 'person').map((p) => p.name)).toEqual(['zeta', 'alpha', 'mid', 'tag', 'audit'])
   })
 })
 
