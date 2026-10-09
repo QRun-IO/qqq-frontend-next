@@ -78,7 +78,7 @@ describe('BulkLoadMapping', () => {
     mapping.requiredFields[1].defaultValue = 'all@example.invalid'
     mapping.requiredFields[0].columnIndex = 0
     expect(mapping.toProfile().profile.fieldList).toEqual([
-      { fieldName: 'firstName', columnIndex: 0, headerName: null, doValueMapping: false, clearIfEmpty: false },
+      { fieldName: 'firstName', columnIndex: 0, doValueMapping: false, clearIfEmpty: false },
       { fieldName: 'email', defaultValue: 'all@example.invalid' },
     ])
   })
@@ -131,6 +131,21 @@ describe('BulkLoadMapping header row, key fields and repeats (#726)', () => {
     expect(mapping.requiredFields[1]).toMatchObject({ columnIndex: null, headerName: null, warning: DUPLICATE_HEADER_WARNING })
     mapping.changeHasHeaderRow(false, file)
     expect(mapping.requiredFields[0]).toMatchObject({ columnIndex: 0, headerName: null })
+  })
+
+  it('omits the header name from a header-off profile and keeps the column index (QRun-IO/qqq#660)', () => {
+    const mapping = new BulkLoadMapping(person)
+    mapping.changeHasHeaderRow(false, file)
+    mapping.requiredFields[0].columnIndex = 0
+    mapping.requiredFields[1].columnIndex = 1
+    const { haveErrors, profile } = mapping.toProfile()
+    expect(haveErrors).toBe(false)
+    for (const profileField of profile.fieldList) expect(profileField).not.toHaveProperty('headerName')
+    const sent: unknown = JSON.parse(String(profileSubmitValues(mapping, profile).fieldListJSON))
+    expect(sent).toStrictEqual([
+      { fieldName: 'firstName', columnIndex: 0, doValueMapping: false, clearIfEmpty: false },
+      { fieldName: 'email', columnIndex: 1, doValueMapping: false, clearIfEmpty: false },
+    ])
   })
 
   it('maps a saved profile by header name in a file whose columns moved', () => {

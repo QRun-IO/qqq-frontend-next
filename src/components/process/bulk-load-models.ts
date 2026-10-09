@@ -366,8 +366,9 @@ export class BulkLoadMapping {
           haveErrors = true
           field.error = 'You must select a column.'
         } else {
+          // Header-off files have no header name; published backends throw on `headerName: null`.
           const profileField: BulkLoadProfileField = {
-            fieldName, columnIndex: field.columnIndex, headerName: field.headerName, doValueMapping: field.doValueMapping, clearIfEmpty: field.clearIfEmpty,
+            fieldName, columnIndex: field.columnIndex, ...(field.headerName === null ? {} : { headerName: field.headerName }), doValueMapping: field.doValueMapping, clearIfEmpty: field.clearIfEmpty,
           }
           if (this.valueMappings[fieldName]) profileField.valueMappings = this.valueMappings[fieldName]
           profile.fieldList.push(profileField)
