@@ -33,6 +33,8 @@ import type { QTableMetaData, QRecord, QFieldMetaData } from '@/types'
 import { getQueryColumns, orderColumns } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 
+import { joinedPreviewField } from '@/lib/utils/file-preview'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
 import { DataCell } from './DataCell'
 
 interface RecordCardViewProps {
@@ -83,7 +85,7 @@ export function RecordCardView({
     () => orderColumns(getQueryColumns(tableMetaData), columnOrder)
       .filter((column) => isColumnVisible(column.name, columnVisibility))
       .slice(0, maxFieldsPerCard)
-      .map((column) => ({ ...column.field, name: column.name, label: column.label })),
+      .map((column) => ({ ...(column.isJoin ? joinedPreviewField(column.field, column.tableName) : column.field), name: column.name, label: column.label })),
     [tableMetaData, columnVisibility, columnOrder, maxFieldsPerCard]
   )
 
@@ -164,91 +166,93 @@ export function RecordCardView({
   }
 
   return (
-    <div
-      className="flex flex-col gap-3"
-      role="list"
-      aria-label={`${tableMetaData.label} records`}
-      data-qqq-id={`record-card-view-${tableName}`}
-    >
-      {records.map((record, index) => {
-        const recordId = getRecordId(record, index)
-        const isSelected = isRowSelectedByQuery ? isRowSelectedByQuery(index) : Boolean(rowSelection[recordId])
-        const recordLabel = record.recordLabel || recordId
+    <FilePreviewGallery records={records} fields={visibleFields}>
+      <div
+        className="flex flex-col gap-3"
+        role="list"
+        aria-label={`${tableMetaData.label} records`}
+        data-qqq-id={`record-card-view-${tableName}`}
+      >
+        {records.map((record, index) => {
+          const recordId = getRecordId(record, index)
+          const isSelected = isRowSelectedByQuery ? isRowSelectedByQuery(index) : Boolean(rowSelection[recordId])
+          const recordLabel = record.recordLabel || recordId
 
-        return (
-          <div
-            key={recordId}
-            role="listitem"
-            tabIndex={0}
-            onClick={() => handleCardClick(record)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                handleCardClick(record)
-              }
-            }}
-            className={`cursor-pointer rounded-xl border p-4 transition-colors hover:border-primary/30 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
-              isSelected
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card'
-            }`}
-            data-qqq-id={`record-card-${recordId}`}
-          >
-            {/* Card header: checkbox + record label */}
-            <div className="flex items-start gap-3 pointer-coarse:items-center">
-              {/* The label is the checkbox's touch target (44 px on coarse pointers, globals.css) */}
-              <label
-                className="inline-flex shrink-0 cursor-pointer items-center justify-center pointer-coarse:-my-2.5 pointer-coarse:-ml-3"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    handleSelectionToggle(recordId, index)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label={`Select ${recordLabel}`}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-ring cursor-pointer pointer-coarse:mt-0 pointer-coarse:h-5 pointer-coarse:w-5"
-                  data-qqq-id={`card-select-${recordId}`}
-                />
-              </label>
-              <div className="min-w-0 flex-1">
-                <h3
-                  className="truncate text-sm font-semibold text-card-foreground"
-                  data-qqq-id={`card-title-${recordId}`}
-                >
-                  {recordLabel}
-                </h3>
-              </div>
-            </div>
-
-            {/* Card body: field key-value pairs */}
-            <dl className="mt-3 grid grid-cols-1 gap-1.5">
-              {visibleFields.map((field) => {
-                // Skip the primary key if it is the same as recordLabel
-                if (field.name === tableMetaData.primaryKeyField && recordLabel === String(record.values[field.name])) {
-                  return null
+          return (
+            <div
+              key={recordId}
+              role="listitem"
+              tabIndex={0}
+              onClick={() => handleCardClick(record)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleCardClick(record)
                 }
+              }}
+              className={`cursor-pointer rounded-xl border p-4 transition-colors hover:border-primary/30 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${
+                isSelected
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-card'
+              }`}
+              data-qqq-id={`record-card-${recordId}`}
+            >
+              {/* Card header: checkbox + record label */}
+              <div className="flex items-start gap-3 pointer-coarse:items-center">
+                {/* The label is the checkbox's touch target (44 px on coarse pointers, globals.css) */}
+                <label
+                  className="inline-flex shrink-0 cursor-pointer items-center justify-center pointer-coarse:-my-2.5 pointer-coarse:-ml-3"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      handleSelectionToggle(recordId, index)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Select ${recordLabel}`}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-ring cursor-pointer pointer-coarse:mt-0 pointer-coarse:h-5 pointer-coarse:w-5"
+                    data-qqq-id={`card-select-${recordId}`}
+                  />
+                </label>
+                <div className="min-w-0 flex-1">
+                  <h3
+                    className="truncate text-sm font-semibold text-card-foreground"
+                    data-qqq-id={`card-title-${recordId}`}
+                  >
+                    {recordLabel}
+                  </h3>
+                </div>
+              </div>
 
-                return (
-                  <div key={field.name} className="flex items-baseline gap-2 text-sm" data-qqq-id={`card-field-${field.name}`}>
-                    <dt className="shrink-0 text-muted-foreground">
-                      {field.label}:
-                    </dt>
-                    <dd className="min-w-0 break-words text-card-foreground">
-                      {/* Formatted exactly like the grid cell (dates, money, possible-value links) */}
-                      <DataCell field={field} value={record.values[field.name]} displayValue={record.displayValues?.[field.name]} record={record} />
-                    </dd>
-                  </div>
-                )
-              })}
-            </dl>
-          </div>
-        )
-      })}
-    </div>
+              {/* Card body: field key-value pairs */}
+              <dl className="mt-3 grid grid-cols-1 gap-1.5">
+                {visibleFields.map((field) => {
+                  // Skip the primary key if it is the same as recordLabel
+                  if (field.name === tableMetaData.primaryKeyField && recordLabel === String(record.values[field.name])) {
+                    return null
+                  }
+
+                  return (
+                    <div key={field.name} className="flex items-baseline gap-2 text-sm" data-qqq-id={`card-field-${field.name}`}>
+                      <dt className="shrink-0 text-muted-foreground">
+                        {field.label}:
+                      </dt>
+                      <dd className="min-w-0 break-words text-card-foreground">
+                        {/* Formatted exactly like the grid cell (dates, money, possible-value links) */}
+                        <DataCell field={field} value={record.values[field.name]} displayValue={record.displayValues?.[field.name]} record={record} />
+                      </dd>
+                    </div>
+                  )
+                })}
+              </dl>
+            </div>
+          )
+        })}
+      </div>
+    </FilePreviewGallery>
   )
 }

@@ -2,6 +2,10 @@
 
 [RC11 is published and immutable](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11). It includes the searchable-selector and script-completion corrections from [PR24](https://github.com/QRun-IO/qqq-frontend-next/pull/24); its release details remain in [RC11 notes](1.0.0-RC.11.md). Current main also contains the later menu, copy-focus and grid fixes, which are not in that published artifact. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
+## Features
+
+- Show `FILE_PREVIEW`-adorned fields as thumbnails, and open a preview on click or Enter. Thumbnails appear in the query grid and card view, the record view (a larger thumbnail with the file name), associated-record tables, child-record list widgets and record-grid widgets. They load lazily at a fixed size, so loading does not shift the layout, with a loading pulse and a file-type icon fallback. The preview is an accessible dialog: focus is trapped and restored, Escape closes it, and Left/Right/Home/End step through the other previews on the same screen. It offers zoom and fit, open-original and download links, and shows type, size, dimensions and caption. Same-origin PDFs and video/audio play inline; other types, and cross-origin PDFs (frames are limited to `'self'`), get a file card. Thumbnails are shown only for explicitly adorned fields; plain URL values are never auto-detected. URLs are limited to http(s), same-origin paths and inline images. The lightbox loads on demand (about 3.5 KB gzip). Requires the QQQ backend adornment from [qqq#1056](https://github.com/QRun-IO/qqq/issues/1056).
+
 ## Product fixes
 
 - Always show the record view's Actions menu when it has entries. Tables without processes or a custom `VIEW_SCREEN_ACTIONS` menu, and read-only tables, again reach Developer Mode and Audit (Material parity); Copy and Delete move into that menu instead of also appearing as separate buttons. [#45](https://github.com/QRun-IO/qqq-frontend-next/issues/45)
