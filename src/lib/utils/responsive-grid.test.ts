@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { containerSpanClasses } from './responsive-grid'
+import { containerSpanClasses, DEFAULT_FIELD_SPAN_CLASSES } from './responsive-grid'
 
 /**
  * The span an item takes at each container level (base, L1, L2, L3), read back from its classes.
@@ -53,5 +53,11 @@ describe('containerSpanClasses', () => {
       expect(containerSpanClasses(span, 'cards')).toBe('col-span-12 min-w-0')
     }
     expect(containerSpanClasses(5.6, 'widgets')).toBe(containerSpanClasses(6, 'widgets'))
+  })
+})
+
+describe('DEFAULT_FIELD_SPAN_CLASSES', () => {
+  it('pairs read-only fields from a 24rem grid (a tablet panel beside the sidebar) and widens on very wide grids', () => {
+    expect(spansAt(DEFAULT_FIELD_SPAN_CLASSES, ['24rem', '64rem', '96rem'])).toEqual([12, 6, 4, 3])
   })
 })
