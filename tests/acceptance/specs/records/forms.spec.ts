@@ -56,9 +56,26 @@ test.describe('read-only persona', () => {
     for (const action of ['Edit', 'Copy', 'Delete']) {
       await expect(page.getByRole('button', { name: `${action} Person record` })).toHaveCount(0)
     }
-    await expect(page.getByRole('button', { name: 'Record actions menu' })).toHaveCount(0)
-    // Phone: no Actions trigger opening an empty sheet either
-    await expect(page.getByRole('button', { name: 'Record actions', exact: true })).toHaveCount(0)
+    // The Actions control remains for Developer Mode (#45), but offers no write action
+    const desktopMenu = page.getByRole('button', { name: 'Record actions menu', exact: true })
+    const sheetTrigger = page.getByRole('button', { name: 'Record actions', exact: true })
+    await expect(desktopMenu.or(sheetTrigger).first()).toBeVisible()
+    if (await sheetTrigger.count()) {
+      await sheetTrigger.click()
+      const sheet = page.getByRole('dialog', { name: 'Record actions' })
+      await expect(sheet.getByRole('button', { name: 'Developer Mode', exact: true })).toBeVisible()
+      for (const action of ['New', 'Edit Person', 'Copy Person', 'Delete Person']) {
+        await expect(sheet.getByRole('button', { name: action, exact: true })).toHaveCount(0)
+      }
+    } else {
+      await desktopMenu.click()
+      const menu = page.locator('[data-qqq-id="record-view-actions-menu"]')
+      await expect(menu.getByRole('menuitem', { name: 'Developer Mode', exact: true })).toBeVisible()
+      for (const action of ['New', 'Edit', 'Copy', 'Delete']) {
+        await expect(menu.getByRole('menuitem', { name: action, exact: true })).toHaveCount(0)
+      }
+    }
+    await page.keyboard.press('Escape')
 
     await page.goto('/app/person/1/edit', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('alert').filter({ hasText: 'permission' })).toHaveText('You do not have permission to edit Person records.')

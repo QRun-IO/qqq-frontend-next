@@ -149,7 +149,7 @@ export async function openForm(page: Page, path: string, heading: string) {
 
 /**
  * Starts a record action (Edit, Copy or Delete) whether the view shows it as a
- * button, inside the Actions menu (tables with record processes), or in the phone
+ * button, inside the Actions menu, or in the phone
  * action sheet.
  */
 export async function recordAction(page: Page, action: 'Edit' | 'Copy' | 'Delete', tableLabel: string) {

@@ -912,6 +912,7 @@
       "fixture": "persona viewer",
       "scenarios": [
         "no Edit, Copy or Delete",
+        "the Actions menu (or phone sheet) still offers Developer Mode, with no New, Edit, Copy or Delete (QRun-IO/qqq-frontend-next#45)",
         "create and edit URLs show the permission message"
       ],
       "negative": [
@@ -1195,7 +1196,7 @@
         "The phone Actions sheet fits the screen, takes focus, keeps Tab and Shift+Tab inside, closes by Escape or a backdrop tap with focus back on its trigger, and runs Edit"
       ],
       "negative": [
-        "A read-only user gets no phone Actions trigger (asserted in REC-046)"
+        "A read-only user's phone Actions sheet offers no write action (asserted in REC-046)"
       ],
       "issues": [
         "QRun-IO/qqq#708"
