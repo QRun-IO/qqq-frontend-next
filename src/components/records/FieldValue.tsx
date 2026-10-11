@@ -16,7 +16,7 @@
 
 /**
  * @file FieldValue — renders a single field value from metadata: adornments first
- * (LINK, REVEAL, RENDER_HTML, CHIP, CODE_EDITOR, ERROR, FILE_DOWNLOAD, WIDGET,
+ * (FILE_PREVIEW, LINK, REVEAL, RENDER_HTML, CHIP, CODE_EDITOR, ERROR, FILE_DOWNLOAD, WIDGET,
  * TOOLTIP), then type-specific formatting.
  */
 
@@ -33,15 +33,17 @@ import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
 import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
-import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
 import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
 } from '@/lib/utils/adornment-utils'
+import { filePreview } from '@/lib/utils/file-preview'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { HighlightedCode } from '@/components/scripts/HighlightedCode'
 import { SeededWidget } from '@/components/widgets/ConnectedWidget'
+import { DateTimeText } from '@/components/ui/DateTimeText'
+import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -68,6 +70,11 @@ interface FieldValueProps {
   tableMetaData?: QTableMetaData
   /** Additional CSS classes applied to the root element. */
   className?: string
+  /**
+   * Edge, in CSS pixels, of a FILE_PREVIEW thumbnail, which then also shows the file name
+   * (record views). Lists leave it unset and use the adornment's `thumbnailMaxSize`.
+   */
+  thumbnailSize?: number
 }
 
 /**
@@ -75,17 +82,17 @@ interface FieldValueProps {
  *
  * Adornments are applied in the order the QQQ dashboards use (one per value), and
  * a TOOLTIP adornment wraps whatever is rendered. Without an adornment, the value
- * is formatted by type: DATE_TIME in the viewer's time zone (unless the backend
- * supplied a zoned display value), BOOLEAN as Yes/No, TEXT with line breaks, HTML
+ * is formatted by type: DATE and DATE_TIME compactly in the viewer's zone and locale
+ * (see DateTimeText), BOOLEAN as Yes/No, TEXT with line breaks, HTML
  * sanitized, and everything else as the backend display value. Empty values render
  * an em dash.
  *
  * @param props - See {@link FieldValueProps}.
  * @returns The rendered value.
  */
-export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
+export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className, thumbnailSize }: FieldValueProps) {
   const content = <FieldValueContent field={field} record={record} allTables={allTables}
-    navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} />
+    navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} thumbnailSize={thumbnailSize} />
   const tooltip = tooltipText(field, record)
   const tooltipState = useFocusSafeTooltip()
   if (!tooltip) return content
@@ -117,7 +124,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaD
  * @param props - See {@link FieldValueProps}.
  * @returns The rendered value.
  */
-function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
+function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className, thumbnailSize }: FieldValueProps) {
   const rawValue = record.values[field.name]
   const displayValue = record.displayValues?.[field.name]
   const value = displayValue ?? rawValue
@@ -146,6 +153,12 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         />
       </div>
     )
+  }
+
+  const preview = filePreview(field, record, storedRecordVariantJson(tableMetaData ?? allTables?.[record.tableName]))
+  if (preview) {
+    return <FileThumbnail field={field} record={record} item={preview} size={thumbnailSize} showName={thumbnailSize !== undefined}
+      dataQqqId={dataQqqId} className={className} />
   }
 
   if (value === null || value === undefined || value === '') {
@@ -251,12 +264,10 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       )
     }
 
-    case 'DATE_TIME': {
-      // A zoned display value from the backend (e.g. a fixed or per-record zone) wins;
-      // otherwise the instant is shown in the viewer's time zone.
-      const text = displayValue && displayValue !== rawValue ? displayValue : (formatDateTime(rawValue) ?? String(value))
-      return <time dateTime={typeof rawValue === 'string' ? rawValue : undefined} className={cn('text-sm text-foreground', className)}
-        data-qqq-id={dataQqqId}>{text}</time>
+    case 'DATE_TIME':
+    case 'DATE': {
+      // compact and on one line, full value on hover; a backend zone other than the viewer's is kept
+      return <DateTimeText type={field.type} value={rawValue} displayValue={displayValue} className={className} dataQqqId={dataQqqId} />
     }
 
     case 'BLOB': {

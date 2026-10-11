@@ -29,7 +29,7 @@ vi.mock('./widget-utils', async (importOriginal) => ({
   downloadText: (fileName: string, text: string) => { downloads.calls.push([fileName, text]) },
 }))
 
-import type { QRecord, QWidgetMetaData } from '@/types'
+import type { FieldAdornment, QRecord, QWidgetMetaData } from '@/types'
 import {
   ChildRecordListWidget, addChildHref, childColumns, childExportTitle, childRecordsCsv, listColumns, nextViewAllHref, shownColumns,
 } from './ChildRecordListWidget'
@@ -112,6 +112,44 @@ describe('ChildRecordListWidget', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['0', 'Zero child', '0'])
     expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+  })
+
+  it('passes the child table variant to the preview gallery, as the thumbnails get it', async () => {
+    const variant = { type: 'store', id: '2' }
+    localStorage.setItem('qqq.tableVariant.media', JSON.stringify(variant))
+    try {
+      instance.value = { tables: { media: { name: 'media', label: 'Media', usesVariants: true, readPermission: true, fields: {} } }, widgets: {} }
+      const adornments: FieldAdornment[] = [
+        { type: 'FILE_PREVIEW', values: { fileNameField: 'name', mimeTypeField: 'type' } },
+        { type: 'FILE_DOWNLOAD', values: {} },
+      ]
+      const mediaTable: ChildTableMetaData = {
+        name: 'media',
+        label: 'Media',
+        primaryKeyField: 'id',
+        fields: {
+          id: { name: 'id', label: 'Id' },
+          // adornments ride along on the payload's field metadata
+          file: { name: 'file', label: 'File', type: 'BLOB', ...{ adornments } },
+        },
+        sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'file'], isHidden: false }],
+      }
+      const data: ChildRecordListPayload = {
+        type: 'childRecordList',
+        childFrontendTableMetaData: mediaTable,
+        queryOutput: { records: [{ tableName: 'media', values: { id: 1, file: '/data/media/1/file/a.png', name: 'a.png', type: 'image/png' } }] },
+      }
+      render(<ChildRecordListWidget widgetMetaData={meta} data={data} />)
+      const json = encodeURIComponent(JSON.stringify(variant))
+      const url = `/qqq/v1/table/media/1/file/a.png?tableVariant=${json}`
+      // the cell thumbnail resolves the variant from the instance metadata once it has loaded
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Preview a.png' }).querySelector('img')).toHaveAttribute('src', url))
+      fireEvent.click(screen.getByRole('button', { name: 'Preview a.png' }))
+      await waitFor(() => expect(document.querySelector('[data-qqq-id="file-preview-open"]')).toHaveAttribute('href', url))
+      expect(document.querySelector('[data-qqq-id="file-preview-download"]')).toHaveAttribute('href', expect.stringContaining(`tableVariant=${json}`))
+    } finally {
+      localStorage.removeItem('qqq.tableVariant.media')
+    }
   })
 
   it('shows the empty message when the backend returned no records', () => {
@@ -272,5 +310,93 @@ describe('ChildRecordListWidget Material parity (WID-072)', () => {
     const client = new QueryClient()
     rerender(<QueryClientProvider client={client}><ChildRecordListWidget widgetMetaData={{ ...meta, showExportButton: true }} data={{ ...typedPayload, queryOutput: { records: [] } }} /></QueryClientProvider>)
     expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
+  })
+})
+
+describe('ChildRecordListWidget in a narrow panel', () => {
+  const longText = 'Notes from the work of building systems, making decisions and understanding what changes along the way.'
+  const wideTable: ChildTableMetaData = {
+    name: 'blog',
+    label: 'Blogs',
+    primaryKeyField: 'id',
+    fields: {
+      id: { name: 'id', label: 'Id', type: 'INTEGER' },
+      siteId: { name: 'siteId', label: 'Site', type: 'INTEGER' },
+      name: { name: 'name', label: 'Name', type: 'STRING' },
+      isLive: { name: 'isLive', label: 'Is Live', type: 'BOOLEAN' },
+      description: { name: 'description', label: 'Description', type: 'STRING', maxLength: 1000 },
+      metaDescription: { name: 'metaDescription', label: 'Meta Description', type: 'STRING', maxLength: 1000 },
+      createDate: { name: 'createDate', label: 'Create Date', type: 'DATE_TIME' },
+      modifyDate: { name: 'modifyDate', label: 'Modify Date', type: 'DATE_TIME' },
+    },
+    sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'siteId', 'name', 'isLive', 'description', 'metaDescription', 'createDate', 'modifyDate'] }],
+  }
+  const widePayload: ChildRecordListPayload = {
+    type: 'childRecordList',
+    childFrontendTableMetaData: wideTable,
+    defaultValuesForNewChildRecords: { siteId: 1 },
+    queryOutput: {
+      records: [{
+        tableName: 'blog',
+        values: { id: 7, siteId: 1, name: 'Field Notes', isLive: true, description: longText, metaDescription: longText, createDate: '2025-07-05T23:33:29Z', modifyDate: '2026-10-10T11:01:39Z' },
+        displayValues: { id: '7', name: 'Field Notes' },
+      }],
+    },
+  }
+
+  /**
+   * Gives every observed element the given content width, as a browser would report it.
+   *
+   * @param width - Width in CSS pixels.
+   */
+  function stubResizeObserver(width: number) {
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly callback: ResizeObserverCallback
+      constructor(callback: ResizeObserverCallback) { this.callback = callback }
+      observe(target: Element) { this.callback([{ target, contentRect: { width } } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver) }
+      unobserve() {}
+      disconnect() {}
+    })
+  }
+
+  /** @returns The headers of the rendered list. */
+  function headers(): string[] {
+    return screen.getAllByRole('columnheader').map((header) => header.textContent ?? '')
+  }
+
+  it('shows every column when its width is unknown', () => {
+    vi.stubGlobal('ResizeObserver', undefined)
+    render(<ChildRecordListWidget widgetMetaData={meta} data={widePayload} />)
+    expect(headers()).toEqual(['Id', 'Name', 'Is Live', 'Description', 'Meta Description', 'Create Date', 'Modify Date'])
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the name, flags and latest date that fit, and reveals the rest on request', async () => {
+    stubResizeObserver(400)
+    render(<ChildRecordListWidget widgetMetaData={meta} data={widePayload} />)
+    await waitFor(() => expect(headers()).toEqual(['Name', 'Is Live', 'Modify Date']))
+    // the first shown column links the row; cells align to the top; dates stay on one line
+    expect(screen.getByRole('link', { name: 'Field Notes' })).toHaveAttribute('href', '/app/blog/7')
+    expect(screen.getAllByRole('cell')[0]).toHaveClass('align-top')
+    expect(screen.getAllByRole('cell')[2].querySelector('time')).toHaveClass('whitespace-nowrap')
+
+    fireEvent.click(screen.getByRole('button', { name: '+4 more columns' }))
+    expect(headers()).toEqual(['Id', 'Name', 'Is Live', 'Description', 'Meta Description', 'Create Date', 'Modify Date'])
+    // long text is clamped, with the full text on hover
+    const description = screen.getAllByRole('cell')[3].firstElementChild
+    expect(description).toHaveClass('line-clamp-3')
+    expect(description).toHaveAttribute('title', longText)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fewer columns' }))
+    expect(headers()).toEqual(['Name', 'Is Live', 'Modify Date'])
+    vi.unstubAllGlobals()
+  })
+
+  it('follows the application column order when onlyIncludeFieldNames is set', async () => {
+    stubResizeObserver(300)
+    render(<ChildRecordListWidget widgetMetaData={meta} data={{ ...widePayload, onlyIncludeFieldNames: ['description', 'name'] }} />)
+    await waitFor(() => expect(headers()).toEqual(['Description']))
+    expect(screen.getByRole('button', { name: '+1 more column' })).toBeInTheDocument()
+    vi.unstubAllGlobals()
   })
 })

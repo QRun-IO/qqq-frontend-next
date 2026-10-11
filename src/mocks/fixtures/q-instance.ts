@@ -26,6 +26,7 @@ import type {
   QAppMetaData,
   QAppTreeNode,
 } from '@/types'
+import { cmsApp, cmsTreeNode, cmsWidgets, siteBlogTable, siteDomainTable, siteTable } from './cms'
 
 // ─── Field helpers ────────────────────────────────────────────────────────────
 
@@ -900,8 +901,9 @@ export const qInstance: QInstance = {
   apps: {
     crm: crmApp,
     inventory: inventoryApp,
+    cms: cmsApp,
   },
-  appTree: [crmTreeNode, inventoryTreeNode],
+  appTree: [crmTreeNode, inventoryTreeNode, cmsTreeNode],
   tables: {
     person: personTable,
     company: companyTable,
@@ -909,6 +911,9 @@ export const qInstance: QInstance = {
     orderLine: orderLineTable,
     product: productTable,
     supplier: supplierTable,
+    site: siteTable,
+    siteDomain: siteDomainTable,
+    siteBlog: siteBlogTable,
   },
   processes: {
     importPeople: importPeopleProcess,
@@ -918,7 +923,7 @@ export const qInstance: QInstance = {
     bulkUpdateOrderStatus: bulkUpdateStatusProcess,
   },
   reports: {},
-  widgets: { ...crmWidgets, ...inventoryWidgets },
+  widgets: { ...crmWidgets, ...inventoryWidgets, ...cmsWidgets },
   branding: {
     companyName: 'QQQ Demo',
     companyUrl: 'https://qqq.example.com',

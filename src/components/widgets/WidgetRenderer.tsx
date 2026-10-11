@@ -25,7 +25,7 @@
  * pieChart, quickSightChart, statistics, stackedBarChart, stepper, table, usaMap,
  * process, parentWidget, composite, childRecordList, customComponent, cronUI,
  * dynamicForm, dataBagViewer, pivotTableSetup, filterAndColumnsSetup, rowBuilder,
- * scriptViewer, and the ESB module's ESB_OVERVIEW — plus the demo shapes (recordGrid, quickLinks, processSummary,
+ * scriptViewer, the ESB module's ESB_OVERVIEW and the SQL Workbench QBit's SQL_WORKBENCH — plus the demo shapes (recordGrid, quickLinks, processSummary,
  * block, parent) used by the mocked development API.
  *
  * Chart components are loaded lazily so Recharts is split out of the initial bundle.
@@ -77,6 +77,7 @@ const LineChartWidget = lazy(() => import('./LineChartWidget').then((m) => ({ de
 const PieChartWidget = lazy(() => import('./PieChartWidget').then((m) => ({ default: m.PieChartWidget })))
 const FilterAndColumnsSetupWidget = lazy(() => import('./FilterAndColumnsSetupWidget').then((m) => ({ default: m.FilterAndColumnsSetupWidget })))
 const PivotTableSetupWidget = lazy(() => import('./PivotTableSetupWidget').then((m) => ({ default: m.PivotTableSetupWidget })))
+const SqlWorkbenchWidget = lazy(() => import('@/components/sql-workbench/SqlWorkbenchWidget'))
 const RowBuilderWidget = lazy(() => import('./RowBuilderWidget').then((m) => ({ default: m.RowBuilderWidget })))
 
 /** Fallback while a lazy chart chunk loads; matches the default chart height. */
@@ -215,6 +216,8 @@ export function WidgetRenderer({ widgetMetaData, data, recordContext, formContex
       return <ScriptViewerWidget {...common} data={data} />
     case 'ESB_OVERVIEW':
       return <EsbOverviewWidget widgetMetaData={widgetMetaData} />
+    case 'SQL_WORKBENCH':
+      return <Suspense fallback={SetupFallback}><SqlWorkbenchWidget widgetMetaData={widgetMetaData} /></Suspense>
     case 'recordGrid':
       return <RecordGridWidget data={data as unknown as RecordGridWidgetPayload} widgetName={name} />
     case 'quickLinks':

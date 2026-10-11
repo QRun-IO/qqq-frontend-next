@@ -43,10 +43,13 @@ import { selectHelpContent, QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-uti
 import { cn } from '@/lib/utils/cn'
 import { arrangePinnedColumns, effectivePins, getQueryColumns, orderColumns, type ColumnPins, type QueryColumn } from '@/lib/utils/query-columns'
 import { isColumnVisible } from '@/lib/utils/saved-view-utils'
+import { joinedPreviewField } from '@/lib/utils/file-preview'
 import { HelpContent } from '@/components/records/HelpContent'
 import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
 import { tableHeaderQqqId } from '@/lib/utils/qqq-id'
 import { DataCell } from './DataCell'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 
 /**
  * Props for the DataGrid component.
@@ -232,6 +235,9 @@ export function DataGrid({
     }
   }, [tableMetaData, columnVisibility, columnOrder, columnPins])
 
+  // The fields the preview lightbox steps through (FILE_PREVIEW columns, as their cells read them)
+  const previewFields = useMemo(() => visibleFields.map((column) => column.isJoin ? joinedPreviewField(column.field, column.tableName) : column.field), [visibleFields])
+
   // A user-resized width wins, then explicit metadata, then the readable Next UI default.
   const widthOf = useCallback((column: QueryColumn) => Math.max(MIN_COLUMN_WIDTH, columnWidths[column.name] ?? column.defaultWidth), [columnWidths])
 
@@ -351,6 +357,8 @@ export function DataGrid({
 
     const fieldColumns: ColumnDef<QRecord>[] = visibleFields.map((column) => {
       const field = column.field
+      // join values are keyed `joinTable.field`; a FILE_PREVIEW field reads them so
+      const cellField = column.isJoin ? joinedPreviewField(field, column.tableName) : field
       const sortInfo = sortMap.get(column.name)
       const help = selectHelpContent(field.helpContents, QUERY_SCREEN_HELP_ROLES)
       const filtered = column.isQueryCriteria && filteredColumns?.has(column.name)
@@ -424,7 +432,7 @@ export function DataGrid({
         ),
         cell: ({ row }) => (
           <DataCell
-            field={field}
+            field={cellField}
             value={trimValue(row.original.values[column.name])}
             displayValue={trimValue(row.original.displayValues?.[column.name])}
             record={row.original}
@@ -752,129 +760,131 @@ export function DataGrid({
   // Main grid
   // ------------------------------------------------------------------
   return (
-    <div
-      ref={scrollRef}
-      className={`relative w-full ${height ? 'overflow-auto' : 'overflow-x-auto'}`}
-      style={height ? { height } : undefined}
-      data-qqq-id={`grid-${tableName}`}
-      data-grid-scroll={height ? 'viewport' : 'page'}
-    >
-      {/* D-Q-6: SR announcement for background refetches */}
+    <FilePreviewGallery records={records} fields={previewFields} tableVariant={storedRecordVariantJson(tableMetaData)}>
       <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
+        ref={scrollRef}
+        className={`relative w-full ${height ? 'overflow-auto' : 'overflow-x-auto'}`}
+        style={height ? { height } : undefined}
+        data-qqq-id={`grid-${tableName}`}
+        data-grid-scroll={height ? 'viewport' : 'page'}
       >
-        {isFetching ? 'Loading results' : ''}
-      </div>
-
-      {isFetching && (
-        <div className="sticky left-0 top-0 z-10 h-0.5 w-full overflow-hidden bg-primary/20">
-          <div className="h-full bg-primary animate-[slideRight_1s_ease-in-out_infinite]" />
+        {/* D-Q-6: SR announcement for background refetches */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {isFetching ? 'Loading results' : ''}
         </div>
-      )}
 
-      <table
-        ref={tableRef}
-        className="w-full border-collapse table-fixed min-w-[600px]"
-        style={{ minWidth: `${table.getTotalSize()}px` }}
-        role="grid"
-        aria-label={`${tableMetaData.label} records`}
-      >
-        <thead className={height ? 'sticky top-0 z-[3]' : undefined}>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr
-              key={headerGroup.id}
-              className="border-b border-border bg-muted"
-            >
-              {headerGroup.headers.map((header) => {
-                // Compute aria-sort for sortable columns
-                const isSelectCol = header.id === '_select'
-                const sortInfo = !isSelectCol
-                  ? sortOrder.find((s) => s.fieldName === header.id)
-                  : undefined
-                const isSortable = !isSelectCol && header.column.columnDef.enableSorting !== false
-                const ariaSortValue: 'ascending' | 'descending' | 'none' | undefined = !isSortable
-                  ? undefined
-                  : sortInfo
-                    ? sortInfo.isAscending
-                      ? 'ascending'
-                      : 'descending'
-                    : 'none'
-                const pinned = pinStyles[header.id]
-                // the selection column always stays in view, as the pinned columns do
-                const stickyClass = isSelectCol ? 'sticky left-0 z-[2] bg-muted' : pinned ? `${pinned.className} z-[2] bg-muted` : ''
+        {isFetching && (
+          <div className="sticky left-0 top-0 z-10 h-0.5 w-full overflow-hidden bg-primary/20">
+            <div className="h-full bg-primary animate-[slideRight_1s_ease-in-out_infinite]" />
+          </div>
+        )}
 
-                return (
-                  <th
-                    key={header.id}
-                    data-qqq-id={isSelectCol ? undefined : tableHeaderQqqId(undefined, header.id)}
-                    scope="col"
-                    data-col={header.id}
-                    data-pinned={isSelectCol ? undefined : pins[header.id]}
-                    className={cn('group relative text-left font-semibold text-foreground select-none', cellClass, stickyClass, isSelectCol && 'pointer-coarse:px-0', !isSelectCol && columnMenu && 'pr-1')}
-                    style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
-                    aria-sort={ariaSortValue}
-                  >
-                    {/* These locally defined headers are pure render callbacks. Calling them
-                        preserves their child identity when current props rebuild the columns. */}
-                    {header.isPlaceholder
-                      ? null
-                      : typeof header.column.columnDef.header === 'function'
-                        ? header.column.columnDef.header(header.getContext())
-                        : header.column.columnDef.header}
+        <table
+          ref={tableRef}
+          className="w-full border-collapse table-fixed min-w-[600px]"
+          style={{ minWidth: `${table.getTotalSize()}px` }}
+          role="grid"
+          aria-label={`${tableMetaData.label} records`}
+        >
+          <thead className={height ? 'sticky top-0 z-[3]' : undefined}>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr
+                key={headerGroup.id}
+                className="border-b border-border bg-muted"
+              >
+                {headerGroup.headers.map((header) => {
+                  // Compute aria-sort for sortable columns
+                  const isSelectCol = header.id === '_select'
+                  const sortInfo = !isSelectCol
+                    ? sortOrder.find((s) => s.fieldName === header.id)
+                    : undefined
+                  const isSortable = !isSelectCol && header.column.columnDef.enableSorting !== false
+                  const ariaSortValue: 'ascending' | 'descending' | 'none' | undefined = !isSortable
+                    ? undefined
+                    : sortInfo
+                      ? sortInfo.isAscending
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  const pinned = pinStyles[header.id]
+                  // the selection column always stays in view, as the pinned columns do
+                  const stickyClass = isSelectCol ? 'sticky left-0 z-[2] bg-muted' : pinned ? `${pinned.className} z-[2] bg-muted` : ''
 
-                    {/* Column resize handle */}
-                    {!isSelectCol && (() => {
-                      const fieldLabel = visibleFields.find(f => f.name === header.id)?.label ?? header.id
-                      return (
-                        <div
-                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/40 active:bg-primary focus:outline-none focus-visible:bg-primary/60"
-                          role="separator"
-                          aria-orientation="vertical"
-                          aria-label={`Resize ${fieldLabel} column`}
-                          aria-valuenow={Math.round(header.getSize())}
-                          aria-valuemin={MIN_COLUMN_WIDTH}
-                          aria-valuemax={2000}
-                          tabIndex={0}
-                          onMouseDown={(e) =>
-                            handleResizeMouseDown(e, header.id, header.getSize())
-                          }
-                          onKeyDown={(e) =>
-                            handleResizeKeyDown(e, header.id, header.getSize())
-                          }
-                        />
-                      )
-                    })()}
-                  </th>
-                )
-              })}
-            </tr>
-          ))}
-        </thead>
+                  return (
+                    <th
+                      key={header.id}
+                      data-qqq-id={isSelectCol ? undefined : tableHeaderQqqId(undefined, header.id)}
+                      scope="col"
+                      data-col={header.id}
+                      data-pinned={isSelectCol ? undefined : pins[header.id]}
+                      className={cn('group relative text-left font-semibold text-foreground select-none', cellClass, stickyClass, isSelectCol && 'pointer-coarse:px-0', !isSelectCol && columnMenu && 'pr-1')}
+                      style={{ width: `${header.getSize()}px`, ...(pinned?.style ?? {}) }}
+                      aria-sort={ariaSortValue}
+                    >
+                      {/* These locally defined headers are pure render callbacks. Calling them
+                          preserves their child identity when current props rebuild the columns. */}
+                      {header.isPlaceholder
+                        ? null
+                        : typeof header.column.columnDef.header === 'function'
+                          ? header.column.columnDef.header(header.getContext())
+                          : header.column.columnDef.header}
 
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <GridRow
-              key={row.id}
-              row={row}
-              columns={columns}
-              isSelected={row.getIsSelected()}
-              isChecked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
-              rowClass={rowClass}
-              cellClass={cellClass}
-              pinStyles={pinStyles}
-              onRowMouseDown={disableRowClick ? undefined : handleRowMouseDown}
-              onRowClick={disableRowClick ? undefined : handleRowClick}
-              onRowDoubleClick={disableRowClick ? undefined : handleRowDoubleClick}
-              onOpenRecord={disableRowClick ? undefined : openRecord}
-              onCellKeyDown={handleCellKeyDown}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+                      {/* Column resize handle */}
+                      {!isSelectCol && (() => {
+                        const fieldLabel = visibleFields.find(f => f.name === header.id)?.label ?? header.id
+                        return (
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/40 active:bg-primary focus:outline-none focus-visible:bg-primary/60"
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label={`Resize ${fieldLabel} column`}
+                            aria-valuenow={Math.round(header.getSize())}
+                            aria-valuemin={MIN_COLUMN_WIDTH}
+                            aria-valuemax={2000}
+                            tabIndex={0}
+                            onMouseDown={(e) =>
+                              handleResizeMouseDown(e, header.id, header.getSize())
+                            }
+                            onKeyDown={(e) =>
+                              handleResizeKeyDown(e, header.id, header.getSize())
+                            }
+                          />
+                        )
+                      })()}
+                    </th>
+                  )
+                })}
+              </tr>
+            ))}
+          </thead>
+
+          <tbody>
+            {table.getRowModel().rows.map((row) => (
+              <GridRow
+                key={row.id}
+                row={row}
+                columns={columns}
+                isSelected={row.getIsSelected()}
+                isChecked={isRowSelectedByQuery ? isRowSelectedByQuery(row.index) : row.getIsSelected()}
+                rowClass={rowClass}
+                cellClass={cellClass}
+                pinStyles={pinStyles}
+                onRowMouseDown={disableRowClick ? undefined : handleRowMouseDown}
+                onRowClick={disableRowClick ? undefined : handleRowClick}
+                onRowDoubleClick={disableRowClick ? undefined : handleRowDoubleClick}
+                onOpenRecord={disableRowClick ? undefined : openRecord}
+                onCellKeyDown={handleCellKeyDown}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </FilePreviewGallery>
   )
 }
 

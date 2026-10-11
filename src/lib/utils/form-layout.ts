@@ -18,20 +18,16 @@
  * @file form-layout — how record and process forms size, decorate and transform fields, from
  * field metadata, as the Material dashboard does (DynamicForm and DynamicFormField):
  *
- * - a 12-column grid: full width on phones, half from `sm`, and the field's `gridColumns`
- *   (default 6, half) from `lg`; a `FILE_UPLOAD` field with `width: full` spans the row from `sm`;
+ * - a 12-column `@container` grid sized by the form's own width (a dialog or a full page):
+ *   full width when narrow, half from 30rem, and the field's `gridColumns` (default 6, half)
+ *   from 56rem; a `FILE_UPLOAD` field with `width: full` always spans the row;
  * - a `$` prefix for a `displayFormat` starting with `$`, and a `%` suffix for one ending in `%%`;
  * - live case change for the `TO_UPPER_CASE` and `TO_LOWER_CASE` behaviors.
  */
 
 import type { QFieldMetaData } from '@/types'
 import { findAdornment } from './adornment-utils'
-
-/** Large-screen column spans, spelled out so Tailwind generates them. */
-const LG_SPANS: Record<number, string> = {
-  1: 'lg:col-span-1', 2: 'lg:col-span-2', 3: 'lg:col-span-3', 4: 'lg:col-span-4', 5: 'lg:col-span-5', 6: 'lg:col-span-6',
-  7: 'lg:col-span-7', 8: 'lg:col-span-8', 9: 'lg:col-span-9', 10: 'lg:col-span-10', 11: 'lg:col-span-11', 12: 'lg:col-span-12',
-}
+import { containerSpanClasses } from './responsive-grid'
 
 /** Default large-screen width of a form field, in twelfths (Material: half). */
 export const DEFAULT_FORM_FIELD_COLUMNS = 6
@@ -67,8 +63,8 @@ export function formFieldColumns(field: QFieldMetaData): number {
  * @returns Tailwind classes.
  */
 export function formFieldColumnClasses(field: QFieldMetaData): string {
-  const fullFile = Boolean(findAdornment(field, 'FILE_UPLOAD')) && fileUploadWidth(field) === 'full'
-  return `col-span-12 min-w-0 ${fullFile ? 'sm:col-span-12' : 'sm:col-span-6'} ${LG_SPANS[formFieldColumns(field)]}`
+  // sized by the form's own width (a dialog, a side panel, a full page), not the viewport
+  return containerSpanClasses(formFieldColumns(field), 'fields')
 }
 
 /** Text shown before and after a numeric input, from its display format. */

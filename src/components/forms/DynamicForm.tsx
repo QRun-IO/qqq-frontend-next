@@ -417,7 +417,7 @@ export function DynamicForm({
                   />
                 )}
                 {/* a 12-column grid: full width on phones, half from sm, the field's gridColumns from lg (Material) */}
-                <div className="grid grid-cols-12 gap-4">
+                <div className="@container grid grid-cols-12 gap-4">
                   {gridFields.map((f) => (
                     <div
                       key={f.name}
@@ -456,7 +456,7 @@ export function DynamicForm({
       {formLabel && (
         <h3 className="text-base font-semibold text-foreground">{formLabel}</h3>
       )}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="@container grid grid-cols-12 gap-4">
         {resolvedFields.map((f) => (
           <div
             key={f.name}

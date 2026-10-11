@@ -25,10 +25,10 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { QFieldMetaData } from '@/types'
 import { fetchPossibleValues } from '@/lib/api/possible-values'
-import { formatDateTime } from '@/lib/utils/datetime-utils'
 
 import { formatPlainValue } from './record-widget-utils'
 import type { BuilderRow } from './row-builder-model'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 
 /** Props for {@link RowBuilderTable}. */
 export interface RowBuilderTableProps {
@@ -76,7 +76,7 @@ function cellContent(field: QFieldMetaData, row: BuilderRow): React.ReactNode {
   const inline = field.inlinePossibleValueSource?.enumValues?.find((option) => String(option.id) === String(value))
   if (inline) return inline.label
   if (field.possibleValueSourceName) return <PossibleValueLabel sourceName={field.possibleValueSourceName} value={value} />
-  if (field.type === 'DATE_TIME') return formatDateTime(value) ?? formatPlainValue(value, field.type)
+  if (field.type === 'DATE_TIME' || field.type === 'DATE') return <DateTimeText type={field.type} value={value} />
   return formatPlainValue(value, field.type)
 }
 

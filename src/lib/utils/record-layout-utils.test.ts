@@ -120,12 +120,14 @@ describe('record view layout from metadata', () => {
     expect(twelfths(0)).toBeUndefined()
     expect(twelfths(13)).toBeUndefined()
     expect(twelfths(undefined)).toBeUndefined()
-    expect(gridSpanClasses(4)).toBe('col-span-12 min-w-0 lg:col-span-4')
-    expect(gridSpanClasses(99)).toBe('col-span-12 min-w-0 lg:col-span-12')
-    expect(recordSectionGridSpan(section('fields', { gridColumns: 6 }))).toBe('col-span-12 min-w-0 lg:col-span-6')
-    expect(recordSectionGridSpan(section('fields'))).toBe('col-span-12 min-w-0 lg:col-span-6')
+    expect(gridSpanClasses(4)).toBe('col-span-12 @min-[30rem]:col-span-6 @min-[44rem]:col-span-4 min-w-0')
+    expect(gridSpanClasses(99)).toBe('col-span-12 min-w-0')
+    // cards sit side by side only when the panel is wide enough for each to hold a table
+    expect(recordSectionGridSpan(section('fields', { gridColumns: 6 }))).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+    expect(recordSectionGridSpan(section('fields'))).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+    expect(recordSectionGridSpan(section('fields'), undefined, 12)).toBe('col-span-12 min-w-0')
     expect(recordSectionGridSpan(section('widget', { gridColumns: 4, widgetName: 'summary' }), {
       summary: { name: 'summary', label: 'Summary', hasPermission: true, gridColumns: 3 },
-    })).toBe('col-span-12 min-w-0 lg:col-span-3')
+    })).toBe('col-span-12 @min-[66rem]:col-span-6 @min-[100rem]:col-span-4 @min-[120rem]:col-span-3 min-w-0')
   })
 })

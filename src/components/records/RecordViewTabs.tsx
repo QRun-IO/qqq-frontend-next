@@ -232,10 +232,12 @@ export function RecordViewTabs({
           </div>
         </div>
 
-        {/* Tab content: Overview — Material's 12-column card widths */}
+        {/* Tab content: Overview — Material's 12-column card widths, applied by the panel's own
+            width (container queries) so cards sit side by side only when each is readable; cards
+            keep their own height instead of stretching to the tallest in the row */}
         {activeTab === 'overview' && (
           <div
-            className={cn('grid grid-cols-12 gap-6', panelFocus)}
+            className={cn('@container grid grid-cols-12 items-start gap-6', panelFocus)}
             {...panelAttributes}
             data-qqq-id="record-tab-panel-overview"
           >
@@ -270,7 +272,7 @@ export function RecordViewTabs({
               className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="grid grid-cols-12 gap-6">
+              <div className="@container grid grid-cols-12 gap-6">
                 <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
                   <RecordViewSection
                     section={section}
@@ -297,7 +299,7 @@ export function RecordViewTabs({
               className={panelFocus}
               data-qqq-id={`record-tab-panel-${section.name}`}
             >
-              <div className="grid grid-cols-12 gap-6">
+              <div className="@container grid grid-cols-12 gap-6">
                 <div className={cn('rounded-xl border border-border bg-card p-6 shadow-sm', recordSectionGridSpan(section, widgetMetaDataMap, 12))}>
                   <RecordViewSection
                     section={section}

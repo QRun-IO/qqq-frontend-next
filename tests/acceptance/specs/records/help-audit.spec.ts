@@ -105,7 +105,9 @@ test('[REC-042] audit history lists who changed what, newest first @mobile', asy
     .toHaveText(['Changed Hint from "Check twice" to "Check three times"', 'Removed "ALPHA-01" from Short Code'])
   await expect(entries.nth(0).locator('[data-qqq-id="audit-entry-user"]')).toHaveText('Alice (sample)')
   await expect(entries.nth(0).locator('[data-qqq-id="audit-entry-message"]')).toHaveText('Record was Edited')
-  await expect(entries.nth(0).locator('[data-qqq-id="audit-entry-timestamp"]')).toHaveText(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [AP]M E[DS]T$/)
+  // today's entry shows its time; the full zoned timestamp is the tooltip
+  await expect(entries.nth(0).locator('[data-qqq-id="audit-entry-timestamp"]')).toHaveText(/^\d{1,2}:\d{2} [AP]M$/)
+  await expect(entries.nth(0).locator('[data-qqq-id="audit-entry-timestamp"]')).toHaveAttribute('title', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [AP]M E[DS]T$/)
   await expect(dialog.locator('[data-qqq-id="audit-date-heading"]')).toHaveCount(1)
   await expect(dialog.locator('[data-qqq-id="audit-date-heading"]')).toContainText(/\(Today\)$/)
   await dialog.getByRole('button', { name: 'Sort by time ascending (oldest to newest)' }).click()

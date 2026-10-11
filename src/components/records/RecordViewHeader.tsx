@@ -41,6 +41,7 @@ import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-down
 import { RecordActions } from './RecordActions'
 import { RecordMenuIcon } from './RecordMenuIcon'
 import { FieldLabel } from './FieldLabel'
+import { HEADER_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
@@ -341,19 +342,19 @@ export function RecordViewHeader({
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
         </div>
-        {/* T1 fields as a compact grid under the name */}
+        {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
         {t1Fields.length > 0 && (
           <dl
-            className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4"
+            className="mt-2 flex flex-wrap gap-x-8 gap-y-2"
             data-qqq-id="record-primary-sections"
           >
             {t1Fields.map((field) => (
-              <div key={field.name} className="flex min-w-0 flex-col" data-qqq-id={`record-field-${field.name}`}>
+              <div key={field.name} className="flex min-w-[8rem] max-w-[32rem] flex-col" data-qqq-id={`record-field-${field.name}`}>
                 <dt className="text-xs text-muted-foreground">
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={HEADER_THUMBNAIL_SIZE} />
                 </dd>
               </div>
             ))}
