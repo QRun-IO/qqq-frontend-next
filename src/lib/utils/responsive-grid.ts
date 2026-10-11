@@ -87,10 +87,11 @@ const SPANS: Record<GridItemProfile, Record<number, string>> = {
 }
 
 /**
- * Default field width when metadata sets none, in a two-column field layout: half from L1,
- * a third and then a quarter on very wide grids (ultra-wide record tabs).
+ * Default field width when metadata sets none, in a two-column layout of read-only label/value
+ * pairs: half from 24rem (two ~180px values beside the sidebar on a tablet), a third and then a
+ * quarter on very wide grids (ultra-wide record tabs); phones stack.
  */
-export const DEFAULT_FIELD_SPAN_CLASSES = 'col-span-12 min-w-0 @min-[30rem]:col-span-6 @min-[64rem]:col-span-4 @min-[96rem]:col-span-3'
+export const DEFAULT_FIELD_SPAN_CLASSES = 'col-span-12 min-w-0 @min-[24rem]:col-span-6 @min-[64rem]:col-span-4 @min-[96rem]:col-span-3'
 
 /**
  * A declared `gridColumns` value as a span of 1 to 12.
