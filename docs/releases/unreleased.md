@@ -17,7 +17,7 @@
 
 ## Product fixes
 
-None yet.
+- One scroll container per page: on long pages the document no longer grows a second scrollbar beside the content area's (and no longer slides the header off-screen). The app shell and `<main>` are now positioned, so absolutely positioned descendants such as `sr-only` text (the company footer's "opens in a new tab") stay inside the scrolling area instead of stretching the document. Covered by `tests/e2e/single-scroll-container.spec.ts` at 390-3200px.
 
 ## Browser testing and infrastructure
 

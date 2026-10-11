@@ -254,8 +254,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // One scroll container: the shell is exactly the viewport and only <main> scrolls. Both are
+  // positioned (`relative`) so they contain absolutely positioned descendants (`sr-only` text,
+  // tooltips): otherwise such an element's containing block is the viewport, `overflow-hidden`
+  // cannot clip it, and one near the end of a long page (the company footer's "opens in a new
+  // tab") makes the document taller than the window, a second scrollbar beside main's.
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-background" data-qqq-id="app-shell">
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
       <BrandedHeaderBar theme={theme} />
@@ -311,7 +316,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           />
 
           {/* Page content */}
-          <main className="flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
+          <main className="relative flex-1 overflow-y-auto p-6" id="main-content" data-qqq-id="main-content">
             {metaLoading ? (
               <div
                 className="flex items-center justify-center py-12"
