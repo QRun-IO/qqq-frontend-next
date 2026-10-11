@@ -139,6 +139,23 @@ export function isSameOrigin(url: string): boolean {
 }
 
 /**
+ * Whether a URL is a file served by the QQQ backend on this origin (a path under `/qqq/`). Only
+ * these are framed in the preview: any other same-origin page in an iframe would run with the
+ * dashboard's own origin.
+ *
+ * @param url - A URL or path.
+ * @returns True for a same-origin `/qqq/...` path.
+ */
+export function isBackendFileUrl(url: string): boolean {
+  if (!isSameOrigin(url)) return false
+  try {
+    return new URL(url, typeof window === 'undefined' ? 'http://localhost' : window.location.origin).pathname.startsWith('/qqq/')
+  } catch {
+    return false
+  }
+}
+
+/**
  * The preview kind of a MIME type.
  *
  * @param mimeType - A MIME type such as `image/png`.

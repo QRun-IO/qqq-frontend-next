@@ -49,6 +49,7 @@ import { ColumnHeaderMenu, type ColumnMenuActions } from './ColumnHeaderMenu'
 import { tableHeaderQqqId } from '@/lib/utils/qqq-id'
 import { DataCell } from './DataCell'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 
 /**
  * Props for the DataGrid component.
@@ -759,7 +760,7 @@ export function DataGrid({
   // Main grid
   // ------------------------------------------------------------------
   return (
-    <FilePreviewGallery records={records} fields={previewFields}>
+    <FilePreviewGallery records={records} fields={previewFields} tableVariant={storedRecordVariantJson(tableMetaData)}>
       <div
         ref={scrollRef}
         className={`relative w-full ${height ? 'overflow-auto' : 'overflow-x-auto'}`}

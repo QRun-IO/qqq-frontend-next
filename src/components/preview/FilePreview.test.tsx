@@ -47,7 +47,7 @@ function item(overrides: Partial<FilePreviewItem> = {}): FilePreviewItem {
 const media = field('url', { thumbnailUrlField: 'thumb', fileNameField: 'name', mimeTypeField: 'type', widthField: 'w', heightField: 'h', sizeBytesField: 'size', captionField: 'caption' })
 const rows = [
   record({ url: '/files/one.jpg', thumb: '/files/one-t.jpg', name: 'one.jpg', type: 'image/jpeg', w: 1200, h: 800, size: 204800, caption: 'First' }),
-  record({ url: '/files/two.pdf', name: 'two.pdf', type: 'application/pdf' }),
+  record({ url: '/qqq/v1/table/media/2/blob/two.pdf', name: 'two.pdf', type: 'application/pdf' }),
   record({ url: '/files/three.png', name: 'three.png', type: 'image/png' }),
 ]
 
@@ -139,7 +139,7 @@ describe('FilePreviewGallery', () => {
     await user.keyboard('{ArrowRight}')
     expect(within(dialog).getByRole('heading', { name: 'two.pdf' })).toBeInTheDocument()
     expect(dialog).toHaveAttribute('data-preview-kind', 'pdf')
-    expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toHaveAttribute('src', '/files/two.pdf')
+    expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toHaveAttribute('src', '/qqq/v1/table/media/2/blob/two.pdf')
 
     await user.keyboard('{End}')
     expect(within(dialog).getByText('3 of 3')).toBeInTheDocument()
@@ -249,6 +249,12 @@ describe('FilePreviewLightbox', () => {
     show([item({ kind: 'pdf', mimeType: 'application/pdf', fileName: 'c.pdf', url: 'https://elsewhere.example/c.pdf' })])
     expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toBeNull()
     expect(screen.getByText(/opens in a new tab instead/)).toBeInTheDocument()
+  })
+
+  it('frames only backend file paths, not other pages of this origin', () => {
+    show([item({ kind: 'pdf', mimeType: 'application/pdf', fileName: 'd.pdf', url: '/app/media/1' })])
+    expect(document.querySelector('[data-qqq-id="file-preview-pdf"]')).toBeNull()
+    expect(screen.getByText(/not a file served by the application/)).toBeInTheDocument()
   })
 
   it('plays video and audio, falling back when the player cannot load them', () => {

@@ -35,6 +35,7 @@ import { isColumnVisible } from '@/lib/utils/saved-view-utils'
 
 import { joinedPreviewField } from '@/lib/utils/file-preview'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { DataCell } from './DataCell'
 
 interface RecordCardViewProps {
@@ -166,7 +167,7 @@ export function RecordCardView({
   }
 
   return (
-    <FilePreviewGallery records={records} fields={visibleFields}>
+    <FilePreviewGallery records={records} fields={visibleFields} tableVariant={storedRecordVariantJson(tableMetaData)}>
       <div
         className="flex flex-col gap-3"
         role="list"

@@ -17,7 +17,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FieldAdornment, QFieldMetaData, QRecord } from '@/types'
 import {
-  DEFAULT_THUMBNAIL_SIZE, filePreview, filePreviewItems, formatBytes, hasFilePreview, isSameOrigin,
+  DEFAULT_THUMBNAIL_SIZE, filePreview, filePreviewItems, formatBytes, hasFilePreview, isBackendFileUrl, isSameOrigin,
   joinedPreviewField, kindOfMimeType, mimeTypeOfName, safePreviewUrl,
 } from './file-preview'
 
@@ -90,6 +90,11 @@ describe('file type helpers', () => {
     expect(isSameOrigin('https://elsewhere.example/a.pdf')).toBe(false)
     expect(isSameOrigin('//elsewhere.example/a.pdf')).toBe(false)
     expect(isSameOrigin('not a url')).toBe(false)
+    expect(isBackendFileUrl('/qqq/v1/table/media/1/blob/a.pdf')).toBe(true)
+    expect(isBackendFileUrl(`${window.location.origin}/qqq/v1/table/media/1/blob/a.pdf`)).toBe(true)
+    expect(isBackendFileUrl('/app/media/1')).toBe(false)
+    expect(isBackendFileUrl('/qqq-not/a.pdf')).toBe(false)
+    expect(isBackendFileUrl('https://elsewhere.example/qqq/a.pdf')).toBe(false)
   })
 })
 

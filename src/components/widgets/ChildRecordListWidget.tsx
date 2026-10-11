@@ -36,6 +36,7 @@ import { useMetaData } from '@/lib/hooks/use-metadata'
 import { cn } from '@/lib/utils/cn'
 import { hasFilePreview, joinedPreviewField } from '@/lib/utils/file-preview'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from '@/components/records/FieldValue'
 import { displayText } from './record-lookup-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
@@ -400,7 +401,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
               </tr>
             </thead>
             <tbody>
-              <FilePreviewGallery records={cellRecords} fields={galleryFields}>
+              <FilePreviewGallery records={cellRecords} fields={galleryFields} tableVariant={storedRecordVariantJson(allTables?.[table.name])}>
                 {cellRecords.map((cellRecord, rowIndex) => {
                   const { values } = cellRecord
                   const displayValues = cellRecord.displayValues ?? {}

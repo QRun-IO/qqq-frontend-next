@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useId, useState } from 'react'
+import React, { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ExternalLink, X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -31,6 +31,7 @@ import { serializeFilter } from '@/lib/utils/filter-utils'
 import { cn } from '@/lib/utils/cn'
 import { hasFilePreview } from '@/lib/utils/file-preview'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from './FieldValue'
 import { RecordHoverCard } from './RecordHoverCard'
 import { EntityForm } from '@/components/forms/EntityForm'
@@ -80,6 +81,14 @@ export function AssociatedRecords({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const headingId = useId()
   const associationId = encodeURIComponent(association.name)
+  const reverse = joinTableMetaData ? association.join.leftTable !== parentTableMetaData.name : false
+  const availableRecords = joinTableMetaData && !reverse && joinTableMetaData.readPermission ? loadedRecords : undefined
+  // stable arrays per page, so the preview gallery's items are not rebuilt on every render
+  const shownRecords = useMemo(() => (availableRecords ?? []).slice(0, visibleCount), [availableRecords, visibleCount])
+  const joinFields = joinTableMetaData?.fields
+  const visibleFields = useMemo(() => Object.values(joinFields ?? {})
+    .filter((f) => !f.isHidden && !f.isHeavy)
+    .slice(0, 6), [joinFields])
 
   if (metadata?.isDenied) return null
 
@@ -91,13 +100,8 @@ export function AssociatedRecords({
   }
 
   const relationship = resolveAssociationValues(association, parentTableMetaData, parentRecord, joinTableMetaData)
-  const reverse = association.join.leftTable !== parentTableMetaData.name
-  const availableRecords = !reverse && joinTableMetaData.readPermission ? loadedRecords : undefined
   const records = availableRecords ?? []
   const fixedValues = 'values' in relationship ? relationship.values : undefined
-  const visibleFields = Object.values(joinTableMetaData.fields)
-    .filter((f) => !f.isHidden && !f.isHeavy)
-    .slice(0, 6)
 
   // Build from params for outgoing links
   const fromParams = navigateFrom
@@ -202,8 +206,8 @@ export function AssociatedRecords({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
-                <FilePreviewGallery records={records.slice(0, visibleCount)} fields={visibleFields}>
-                  {records.slice(0, visibleCount).map((childRecord, rowIdx) => {
+                <FilePreviewGallery records={shownRecords} fields={visibleFields} tableVariant={storedRecordVariantJson(joinTableMetaData)}>
+                  {shownRecords.map((childRecord, rowIdx) => {
                     const childPk =
                       childRecord.values[joinTableMetaData.primaryKeyField] as string | number
                     const recordHref = joinTableMetaData.readPermission && childPk !== undefined

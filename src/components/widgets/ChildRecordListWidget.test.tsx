@@ -114,6 +114,44 @@ describe('ChildRecordListWidget', () => {
     expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
   })
 
+  it('passes the child table variant to the preview gallery, as the thumbnails get it', async () => {
+    const variant = { type: 'store', id: '2' }
+    localStorage.setItem('qqq.tableVariant.media', JSON.stringify(variant))
+    try {
+      instance.value = { tables: { media: { name: 'media', label: 'Media', usesVariants: true, readPermission: true, fields: {} } }, widgets: {} }
+      const adornments = [
+        { type: 'FILE_PREVIEW', values: { fileNameField: 'name', mimeTypeField: 'type' } },
+        { type: 'FILE_DOWNLOAD', values: {} },
+      ]
+      const mediaTable: ChildTableMetaData = {
+        name: 'media',
+        label: 'Media',
+        primaryKeyField: 'id',
+        fields: {
+          id: { name: 'id', label: 'Id' },
+          // adornments ride along on the payload's field metadata
+          file: { name: 'file', label: 'File', type: 'BLOB', ...{ adornments } },
+        },
+        sections: [{ name: 'identity', tier: 'T1', fieldNames: ['id', 'file'], isHidden: false }],
+      }
+      const data: ChildRecordListPayload = {
+        type: 'childRecordList',
+        childFrontendTableMetaData: mediaTable,
+        queryOutput: { records: [{ tableName: 'media', values: { id: 1, file: '/data/media/1/file/a.png', name: 'a.png', type: 'image/png' } }] },
+      }
+      render(<ChildRecordListWidget widgetMetaData={meta} data={data} />)
+      const json = encodeURIComponent(JSON.stringify(variant))
+      const url = `/qqq/v1/table/media/1/file/a.png?tableVariant=${json}`
+      // the cell thumbnail resolves the variant from the instance metadata once it has loaded
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Preview a.png' }).querySelector('img')).toHaveAttribute('src', url))
+      fireEvent.click(screen.getByRole('button', { name: 'Preview a.png' }))
+      await waitFor(() => expect(document.querySelector('[data-qqq-id="file-preview-open"]')).toHaveAttribute('href', url))
+      expect(document.querySelector('[data-qqq-id="file-preview-download"]')).toHaveAttribute('href', expect.stringContaining(`tableVariant=${json}`))
+    } finally {
+      localStorage.removeItem('qqq.tableVariant.media')
+    }
+  })
+
   it('shows the empty message when the backend returned no records', () => {
     render(<ChildRecordListWidget widgetMetaData={meta} data={{ ...payload, queryOutput: {}, totalRows: 0, viewAllLink: undefined }} />)
     expect(screen.getByText('No Widget Host Child records found')).toBeInTheDocument()

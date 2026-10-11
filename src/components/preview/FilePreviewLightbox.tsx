@@ -31,7 +31,7 @@ import type { FilePreviewItem } from '@/lib/utils/file-preview'
 import { apiUrl } from '@/lib/api/client'
 import { attachmentUrl } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
-import { formatBytes, isSameOrigin } from '@/lib/utils/file-preview'
+import { formatBytes, isBackendFileUrl, isSameOrigin } from '@/lib/utils/file-preview'
 import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { FileKindIcon } from './FileKindIcon'
 
@@ -246,9 +246,13 @@ function PreviewStage({ item, zoom, failed, onFailed, onNaturalSize, onToggleZoo
   }
 
   if (item.kind === 'pdf') {
-    // frames are limited to the dashboard's own origin by its Content-Security-Policy
+    // frames are limited to the dashboard's own origin by its Content-Security-Policy, and within
+    // it to backend file paths, so a stored URL cannot frame another page of the dashboard
     if (!isSameOrigin(item.url)) {
       return <Unavailable item={item} reason="This PDF is on another site, so it opens in a new tab instead of here." />
+    }
+    if (!isBackendFileUrl(item.url)) {
+      return <Unavailable item={item} reason="This PDF is not a file served by the application, so it opens in a new tab instead of here." />
     }
     return <iframe src={item.url} title={item.fileName} className="absolute inset-0 h-full w-full border-0 bg-white" data-qqq-id="file-preview-pdf" />
   }

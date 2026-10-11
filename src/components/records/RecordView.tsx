@@ -39,6 +39,7 @@ import { recordSectionField, recordViewActionsPlacement, showRecordSidebar, visi
 import { RecordViewSection } from './RecordViewSection'
 import { RECORD_VIEW_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from './FieldValue'
 import { FieldLabel } from './FieldLabel'
 import { RecordViewHeader } from './RecordViewHeader'
@@ -565,7 +566,7 @@ function RecordViewContent({
 
   return (
     <RecordViewContext.Provider value={contextValue}>
-      <FilePreviewGallery records={[record]} fields={previewFields}>
+      <FilePreviewGallery records={[record]} fields={previewFields} tableVariant={storedRecordVariantJson(tableMetaData)}>
         <div className="recordView" data-qqq-id={materialViewId !== viewId ? materialViewId : undefined}>
         <div
           className={cn('space-y-5', className)}
