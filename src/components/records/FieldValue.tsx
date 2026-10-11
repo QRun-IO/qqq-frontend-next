@@ -16,7 +16,7 @@
 
 /**
  * @file FieldValue — renders a single field value from metadata: adornments first
- * (LINK, REVEAL, RENDER_HTML, CHIP, CODE_EDITOR, ERROR, FILE_DOWNLOAD, WIDGET,
+ * (FILE_PREVIEW, LINK, REVEAL, RENDER_HTML, CHIP, CODE_EDITOR, ERROR, FILE_DOWNLOAD, WIDGET,
  * TOOLTIP), then type-specific formatting.
  */
 
@@ -37,11 +37,13 @@ import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
 import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
 } from '@/lib/utils/adornment-utils'
+import { filePreview } from '@/lib/utils/file-preview'
 import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { HighlightedCode } from '@/components/scripts/HighlightedCode'
 import { SeededWidget } from '@/components/widgets/ConnectedWidget'
 import { DateTimeText } from '@/components/ui/DateTimeText'
+import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { RecordHoverCard } from './RecordHoverCard'
 
 /**
@@ -68,6 +70,11 @@ interface FieldValueProps {
   tableMetaData?: QTableMetaData
   /** Additional CSS classes applied to the root element. */
   className?: string
+  /**
+   * Edge, in CSS pixels, of a FILE_PREVIEW thumbnail, which then also shows the file name
+   * (record views). Lists leave it unset and use the adornment's `thumbnailMaxSize`.
+   */
+  thumbnailSize?: number
 }
 
 /**
@@ -83,9 +90,9 @@ interface FieldValueProps {
  * @param props - See {@link FieldValueProps}.
  * @returns The rendered value.
  */
-export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
+export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className, thumbnailSize }: FieldValueProps) {
   const content = <FieldValueContent field={field} record={record} allTables={allTables}
-    navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} />
+    navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} className={className} thumbnailSize={thumbnailSize} />
   const tooltip = tooltipText(field, record)
   const tooltipState = useFocusSafeTooltip()
   if (!tooltip) return content
@@ -117,7 +124,7 @@ export function FieldValue({ field, record, allTables, navigateFrom, widgetMetaD
  * @param props - See {@link FieldValueProps}.
  * @returns The rendered value.
  */
-function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className }: FieldValueProps) {
+function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaDataMap, tableMetaData, className, thumbnailSize }: FieldValueProps) {
   const rawValue = record.values[field.name]
   const displayValue = record.displayValues?.[field.name]
   const value = displayValue ?? rawValue
@@ -146,6 +153,12 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
         />
       </div>
     )
+  }
+
+  const preview = filePreview(field, record, storedRecordVariantJson(tableMetaData ?? allTables?.[record.tableName]))
+  if (preview) {
+    return <FileThumbnail field={field} record={record} item={preview} size={thumbnailSize} showName={thumbnailSize !== undefined}
+      dataQqqId={dataQqqId} className={className} />
   }
 
   if (value === null || value === undefined || value === '') {

@@ -25,6 +25,7 @@ import { possibleValuesHandlers } from './possible-values'
 import { processHandlers } from './processes'
 import { widgetHandlers } from './widgets'
 import { esbHandlers } from './esb'
+import { sqlWorkbenchHandlers } from './sql-workbench'
 
 export const handlers = [
   ...authHandlers,
@@ -35,4 +36,5 @@ export const handlers = [
   ...processHandlers,
   ...widgetHandlers,
   ...esbHandlers,
+  ...sqlWorkbenchHandlers,
 ]

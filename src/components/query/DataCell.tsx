@@ -15,7 +15,7 @@
  */
 
 /**
- * @file DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles LINK, CHIP, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments (backend value keys) and type-based fallbacks.
+ * @file DataCell — dispatches to the correct cell renderer based on QQQ field type and adornments. Handles FILE_PREVIEW, LINK, CHIP, ERROR, RENDER_HTML, REVEAL, FILE_DOWNLOAD, TOOLTIP adornments (backend value keys) and type-based fallbacks.
  */
 
 'use client'
@@ -28,6 +28,8 @@ import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import type { QFieldMetaData, QRecord } from '@/types'
 import { chipStyle, CHIP_COLOR_CLASSES, fileDownload, linkTarget, tooltipText } from '@/lib/utils/adornment-utils'
 import { DateTimeText } from '@/components/ui/DateTimeText'
+import { filePreview } from '@/lib/utils/file-preview'
+import { FileThumbnail } from '@/components/preview/FileThumbnail'
 
 /**
  * Props for the DataCell component.
@@ -56,6 +58,10 @@ interface DataCellProps {
  */
 export function DataCell({ field, value, displayValue, record }: DataCellProps) {
   const display = displayValue ?? (value != null ? String(value) : '')
+
+  // FILE_PREVIEW wins over the other adornments: a thumbnail that opens the preview
+  const preview = filePreview(field, record)
+  if (preview) return <FileThumbnail field={field} record={record} item={preview} dataQqqId={`grid-cell-${field.name}`} />
 
   // Check adornments for special rendering
   for (const adornment of field.adornments ?? []) {

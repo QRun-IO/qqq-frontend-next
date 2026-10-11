@@ -37,6 +37,9 @@ import { recordHashAction } from '@/lib/utils/material-links'
 import { recordSectionField, recordViewActionsPlacement, showRecordSidebar, visibleRecordViewSections } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
+import { RECORD_VIEW_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from './FieldValue'
 import { FieldLabel } from './FieldLabel'
 import { RecordViewHeader } from './RecordViewHeader'
@@ -556,182 +559,187 @@ function RecordViewContent({
     [tableMetaData, allTables, navigateFrom]
   )
   const viewId = `record-view-${tableMetaData.name}`
+  // the record's FILE_PREVIEW values, in section order, form the preview gallery of the page
+  const previewFields = [...new Set((tableMetaData.sections ?? []).flatMap((section) => section.fieldNames ?? []))]
+    .map((name) => tableMetaData.fields[name]).filter((field): field is QFieldMetaData => Boolean(field))
   const materialViewId = `record-view-${sanitizeQqqId(tableMetaData.name)}`
 
   return (
     <RecordViewContext.Provider value={contextValue}>
-      <div className="recordView" data-qqq-id={materialViewId !== viewId ? materialViewId : undefined}>
-      <div
-        className={cn('space-y-5', className)}
-        data-qqq-id={viewId}
-      >
-        {/* Back link — returns to source page if navigated from another record, otherwise table list */}
-        <Link
-          href={safeFromPath || `/app/${tableMetaData.name}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pointer-coarse:min-h-11"
-          data-qqq-id="link-back-to-table"
+      <FilePreviewGallery records={[record]} fields={previewFields} tableVariant={storedRecordVariantJson(tableMetaData)}>
+        <div className="recordView" data-qqq-id={materialViewId !== viewId ? materialViewId : undefined}>
+        <div
+          className={cn('space-y-5', className)}
+          data-qqq-id={viewId}
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to {fromLabel || tableMetaData.label}
-        </Link>
+          {/* Back link — returns to source page if navigated from another record, otherwise table list */}
+          <Link
+            href={safeFromPath || `/app/${tableMetaData.name}`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pointer-coarse:min-h-11"
+            data-qqq-id="link-back-to-table"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to {fromLabel || tableMetaData.label}
+          </Link>
 
-        <div className={cn(hasSidebar && 'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6')}>
-          {hasSidebar && <RecordViewSidebar sections={orderedSections} onNavigate={navigateToSection} />}
-          <div className="min-w-0 space-y-5">
+          <div className={cn(hasSidebar && 'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6')}>
+            {hasSidebar && <RecordViewSidebar sections={orderedSections} onNavigate={navigateToSection} />}
+            <div className="min-w-0 space-y-5">
 
-        {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
-        <RecordViewHeader
-          actionsPlacement={recordViewActionsPlacement(instance, tableMetaData)}
-          tableMetaData={tableMetaData}
-          record={record}
-          t1Fields={t1Fields}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          hideActions={hideActions}
-          processes={processes}
-          allProcesses={allProcesses}
-          allTables={allTables}
-          navigateFrom={navigateFrom}
-          auditSource={auditSource}
-          widgetMetaDataMap={widgetMetaDataMap}
-          onRecordChanged={onRefetch}
-        />
-
-        {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (
-          <RecordViewSection key={section.name} section={section} tableMetaData={tableMetaData} record={record}
-            widgetMetaDataMap={widgetMetaDataMap} allTables={allTables} navigateFrom={navigateFrom}
-            renderAssociation={renderAssociation} />
-        ))}
-
-        {/* Record errors/warnings */}
-        {(record.errors?.length ?? 0) > 0 && (
-          <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
-            <ul className="list-inside list-disc space-y-1">
-              {record.errors!.map((err, i) => (
-                <li key={i} className="text-sm text-red-700">{err}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {/* The warning of the save that led here (Material: create/update navigation state) */}
-        <SaveWarningBanner tableName={tableMetaData.name} primaryKey={parentPk as string | number} />
-        {(record.warnings?.length ?? 0) > 0 && (
-          <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
-            <ul className="list-inside list-disc space-y-1">
-              {record.warnings!.map((warn, i) => (
-                <li key={i} className="text-sm text-yellow-700">{warn}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* === View mode: Tabs (default) === */}
-        {viewMode === 'tabs' && tabs.length > 0 && (
-          <RecordViewTabs
+          {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
+          <RecordViewHeader
+            actionsPlacement={recordViewActionsPlacement(instance, tableMetaData)}
             tableMetaData={tableMetaData}
             record={record}
-            tabs={tabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            secondarySections={secondarySections}
-            tertiarySections={tertiarySections}
-            associations={associations}
-            renderAssociation={renderAssociation}
-            widgetMetaDataMap={widgetMetaDataMap}
+            t1Fields={t1Fields}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            hideActions={hideActions}
+            processes={processes}
+            allProcesses={allProcesses}
             allTables={allTables}
             navigateFrom={navigateFrom}
+            auditSource={auditSource}
+            widgetMetaDataMap={widgetMetaDataMap}
+            onRecordChanged={onRefetch}
           />
-        )}
 
-        {/* === View mode: List (compact top-to-bottom data view) === */}
-        {viewMode === 'list' && (
-          <div className="space-y-4" data-qqq-id="record-view-list-mode">
-            {/* T1 sections as compact cards */}
-            {t1Sections.length > 0 && t1Sections.map((section) => (
-              <div
-                key={section.name}
-                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-              >
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                  compact
-                />
-              </div>
-            ))}
+          {viewMode === 'tabs' && t1Sections.filter((section) => section.widgetName).map((section) => (
+            <RecordViewSection key={section.name} section={section} tableMetaData={tableMetaData} record={record}
+              widgetMetaDataMap={widgetMetaDataMap} allTables={allTables} navigateFrom={navigateFrom}
+              renderAssociation={renderAssociation} />
+          ))}
 
-            {/* T2 sections as compact cards */}
-            {secondarySections.map((section) => (
-              <div
-                key={section.name}
-                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-              >
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                  compact
-                />
-              </div>
-            ))}
-
-            {/* T3 sections as compact cards */}
-            {tertiarySections.map((section) => (
-              <div
-                key={section.name}
-                className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
-              >
-                <RecordViewSection
-                  section={section}
-                  renderAssociation={renderAssociation}
-                  tableMetaData={tableMetaData}
-                  record={record}
-                  widgetMetaDataMap={widgetMetaDataMap}
-                  allTables={allTables}
-                  navigateFrom={navigateFrom}
-                  compact
-                />
-              </div>
-            ))}
-
-            {/* Related records */}
-            <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
-          </div>
-        )}
-
-        {/* No tabs/sections — just show all fields if nothing to tab */}
-        {tabs.length === 0 && secondarySections.length === 0 && t1Fields.length === 0 && (
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
-              {Object.values(tableMetaData.fields)
-                .filter((f) => !f.isHidden)
-                .map((field) => (
-                  <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
-                    <dt className="text-sm font-semibold text-foreground">
-                      <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
-                    </dt>
-                    <dd>
-                      <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
-                    </dd>
-                  </div>
+          {/* Record errors/warnings */}
+          {(record.errors?.length ?? 0) > 0 && (
+            <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3">
+              <ul className="list-inside list-disc space-y-1">
+                {record.errors!.map((err, i) => (
+                  <li key={i} className="text-sm text-red-700">{err}</li>
                 ))}
-            </dl>
-          </div>
-        )}
+              </ul>
+            </div>
+          )}
+          {/* The warning of the save that led here (Material: create/update navigation state) */}
+          <SaveWarningBanner tableName={tableMetaData.name} primaryKey={parentPk as string | number} />
+          {(record.warnings?.length ?? 0) > 0 && (
+            <div role="status" className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3">
+              <ul className="list-inside list-disc space-y-1">
+                {record.warnings!.map((warn, i) => (
+                  <li key={i} className="text-sm text-yellow-700">{warn}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
+          {/* === View mode: Tabs (default) === */}
+          {viewMode === 'tabs' && tabs.length > 0 && (
+            <RecordViewTabs
+              tableMetaData={tableMetaData}
+              record={record}
+              tabs={tabs}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              secondarySections={secondarySections}
+              tertiarySections={tertiarySections}
+              associations={associations}
+              renderAssociation={renderAssociation}
+              widgetMetaDataMap={widgetMetaDataMap}
+              allTables={allTables}
+              navigateFrom={navigateFrom}
+            />
+          )}
+
+          {/* === View mode: List (compact top-to-bottom data view) === */}
+          {viewMode === 'list' && (
+            <div className="space-y-4" data-qqq-id="record-view-list-mode">
+              {/* T1 sections as compact cards */}
+              {t1Sections.length > 0 && t1Sections.map((section) => (
+                <div
+                  key={section.name}
+                  className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+                >
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    compact
+                  />
+                </div>
+              ))}
+
+              {/* T2 sections as compact cards */}
+              {secondarySections.map((section) => (
+                <div
+                  key={section.name}
+                  className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+                >
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    compact
+                  />
+                </div>
+              ))}
+
+              {/* T3 sections as compact cards */}
+              {tertiarySections.map((section) => (
+                <div
+                  key={section.name}
+                  className="rounded-xl border border-border bg-card px-6 py-4 shadow-sm"
+                >
+                  <RecordViewSection
+                    section={section}
+                    renderAssociation={renderAssociation}
+                    tableMetaData={tableMetaData}
+                    record={record}
+                    widgetMetaDataMap={widgetMetaDataMap}
+                    allTables={allTables}
+                    navigateFrom={navigateFrom}
+                    compact
+                  />
+                </div>
+              ))}
+
+              {/* Related records */}
+              <RecordViewAssociated associations={associations} renderAssociation={renderAssociation} />
+            </div>
+          )}
+
+          {/* No tabs/sections — just show all fields if nothing to tab */}
+          {tabs.length === 0 && secondarySections.length === 0 && t1Fields.length === 0 && (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <dl className="grid gap-x-8 gap-y-4 grid-cols-1 sm:grid-cols-2">
+                {Object.values(tableMetaData.fields)
+                  .filter((f) => !f.isHidden)
+                  .map((field) => (
+                    <div key={field.name} className="flex flex-col gap-0.5" data-qqq-id={`record-field-${field.name}`}>
+                      <dt className="text-sm font-semibold text-foreground">
+                        <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
+                      </dt>
+                      <dd>
+                        <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={RECORD_VIEW_THUMBNAIL_SIZE} />
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          )}
+
+            </div>
           </div>
         </div>
-      </div>
-      </div>
+        </div>
+      </FilePreviewGallery>
     </RecordViewContext.Provider>
   )
 }

@@ -861,7 +861,8 @@ export interface Banner {
  * uses the backend's keys, for example `toRecordFromTable` / `target` (LINK),
  * `color.<value>` / `icon.<value>` (CHIP), `width` (SIZE), `languageMode`
  * (CODE_EDITOR), `fileNameField` / `defaultMimeType` (FILE_DOWNLOAD), `format`
- * (FILE_UPLOAD), `staticText` / `tooltipDynamic` (TOOLTIP) and `widgetName` (WIDGET).
+ * (FILE_UPLOAD), `staticText` / `tooltipDynamic` (TOOLTIP), `widgetName` (WIDGET) and
+ * `thumbnailUrlField` / `fullSizeUrlField` / `mimeTypeField` / `thumbnailMaxSize` (FILE_PREVIEW).
  * Read them with the helpers in `@/lib/utils/adornment-utils`.
  */
 export interface FieldAdornment {

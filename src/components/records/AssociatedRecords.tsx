@@ -20,7 +20,7 @@
 
 'use client'
 
-import React, { useId, useState } from 'react'
+import React, { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ExternalLink, X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -29,6 +29,9 @@ import type { QTableMetaData, QRecord, QAssociation } from '@/types'
 import { resolveAssociationValues, type AssociationTableState } from '@/lib/utils/association-utils'
 import { serializeFilter } from '@/lib/utils/filter-utils'
 import { cn } from '@/lib/utils/cn'
+import { hasFilePreview } from '@/lib/utils/file-preview'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from './FieldValue'
 import { RecordHoverCard } from './RecordHoverCard'
 import { EntityForm } from '@/components/forms/EntityForm'
@@ -78,6 +81,14 @@ export function AssociatedRecords({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const headingId = useId()
   const associationId = encodeURIComponent(association.name)
+  const reverse = joinTableMetaData ? association.join.leftTable !== parentTableMetaData.name : false
+  const availableRecords = joinTableMetaData && !reverse && joinTableMetaData.readPermission ? loadedRecords : undefined
+  // stable arrays per page, so the preview gallery's items are not rebuilt on every render
+  const shownRecords = useMemo(() => (availableRecords ?? []).slice(0, visibleCount), [availableRecords, visibleCount])
+  const joinFields = joinTableMetaData?.fields
+  const visibleFields = useMemo(() => Object.values(joinFields ?? {})
+    .filter((f) => !f.isHidden && !f.isHeavy)
+    .slice(0, 6), [joinFields])
 
   if (metadata?.isDenied) return null
 
@@ -89,13 +100,8 @@ export function AssociatedRecords({
   }
 
   const relationship = resolveAssociationValues(association, parentTableMetaData, parentRecord, joinTableMetaData)
-  const reverse = association.join.leftTable !== parentTableMetaData.name
-  const availableRecords = !reverse && joinTableMetaData.readPermission ? loadedRecords : undefined
   const records = availableRecords ?? []
   const fixedValues = 'values' in relationship ? relationship.values : undefined
-  const visibleFields = Object.values(joinTableMetaData.fields)
-    .filter((f) => !f.isHidden && !f.isHeavy)
-    .slice(0, 6)
 
   // Build from params for outgoing links
   const fromParams = navigateFrom
@@ -200,63 +206,65 @@ export function AssociatedRecords({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
-                {records.slice(0, visibleCount).map((childRecord, rowIdx) => {
-                  const childPk =
-                    childRecord.values[joinTableMetaData.primaryKeyField] as string | number
-                  const recordHref = joinTableMetaData.readPermission && childPk !== undefined
-                    ? `/app/${encodeURIComponent(joinTableMetaData.name)}/${encodeURIComponent(String(childPk))}${fromParamsFirst}`
-                    : undefined
-                  return (
-                    <tr
-                      key={childPk ?? rowIdx}
-                      className="hover:bg-accent transition-colors"
-                      data-qqq-id={`assoc-row-${joinTableMetaData.name}-${childPk}`}
-                    >
-                      {visibleFields.map((field, fieldIdx) => (
-                        <td
-                          key={field.name}
-                          className="whitespace-nowrap px-3 py-2 text-sm"
-                          data-qqq-id={`grid-cell-${field.name}`}
-                        >
-                          {fieldIdx <= 1 && recordHref ? (
-                            <RecordHoverCard
-                              tableName={joinTableMetaData.name}
-                              primaryKey={childPk}
-                              tableMetaData={joinTableMetaData}
-                              navigateFrom={navigateFrom}
-                            >
-                              <Link
-                                href={recordHref}
-                                className="text-primary hover:text-primary/80 hover:underline"
-                                aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
-                              >
-                                {childRecord.displayValues?.[field.name] ?? String(childRecord.values[field.name] ?? '')}
-                              </Link>
-                            </RecordHoverCard>
-                          ) : (
-                            <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
-                          )}
-                        </td>
-                      ))}
-                      {recordHref && (
-                        <td className="whitespace-nowrap px-3 py-2 text-right text-sm">
-                          <Link
-                            href={recordHref}
-                            className={cn(
-                              'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
-                              'pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center',
-                              'focus:outline-none focus:underline'
-                            )}
-                            data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}
+                <FilePreviewGallery records={shownRecords} fields={visibleFields} tableVariant={storedRecordVariantJson(joinTableMetaData)}>
+                  {shownRecords.map((childRecord, rowIdx) => {
+                    const childPk =
+                      childRecord.values[joinTableMetaData.primaryKeyField] as string | number
+                    const recordHref = joinTableMetaData.readPermission && childPk !== undefined
+                      ? `/app/${encodeURIComponent(joinTableMetaData.name)}/${encodeURIComponent(String(childPk))}${fromParamsFirst}`
+                      : undefined
+                    return (
+                      <tr
+                        key={childPk ?? rowIdx}
+                        className="hover:bg-accent transition-colors"
+                        data-qqq-id={`assoc-row-${joinTableMetaData.name}-${childPk}`}
+                      >
+                        {visibleFields.map((field, fieldIdx) => (
+                          <td
+                            key={field.name}
+                            className="whitespace-nowrap px-3 py-2 text-sm"
+                            data-qqq-id={`grid-cell-${field.name}`}
                           >
-                            View
-                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                          </Link>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })}
+                            {fieldIdx <= 1 && recordHref && !hasFilePreview(field) ? (
+                              <RecordHoverCard
+                                tableName={joinTableMetaData.name}
+                                primaryKey={childPk}
+                                tableMetaData={joinTableMetaData}
+                                navigateFrom={navigateFrom}
+                              >
+                                <Link
+                                  href={recordHref}
+                                  className="text-primary hover:text-primary/80 hover:underline"
+                                  aria-label={`View ${joinTableMetaData.label} record ${childPk}`}
+                                >
+                                  {childRecord.displayValues?.[field.name] ?? String(childRecord.values[field.name] ?? '')}
+                                </Link>
+                              </RecordHoverCard>
+                            ) : (
+                              <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
+                            )}
+                          </td>
+                        ))}
+                        {recordHref && (
+                          <td className="whitespace-nowrap px-3 py-2 text-right text-sm">
+                            <Link
+                              href={recordHref}
+                              className={cn(
+                                'inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80',
+                                'pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center',
+                                'focus:outline-none focus:underline'
+                              )}
+                              data-qqq-id={`link-view-${joinTableMetaData.name}-${childPk}`}
+                            >
+                              View
+                              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </Link>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </FilePreviewGallery>
               </tbody>
             </table>
           </div>
