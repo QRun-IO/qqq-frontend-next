@@ -93,11 +93,13 @@ export function FileThumbnail({ field, record, item, size, showName = false, dat
     </span>
   )
 
-  const name = showName ? <span className="min-w-0 break-all text-sm text-foreground">{item.fileName}</span> : null
+  // the name sits under the thumbnail, no wider than it, so narrow value columns do not break it up
+  const name = showName ? <span className="block truncate text-sm text-foreground" style={{ maxWidth: edge }}>{item.fileName}</span> : null
+  const layout = showName ? 'inline-flex flex-col items-start gap-1' : 'inline-flex items-center gap-2'
 
   if (!item.previewable) {
     return (
-      <span className={cn('inline-flex items-center gap-2', className)} data-qqq-id={dataQqqId} title={item.fileName}>
+      <span className={cn(layout, className)} data-qqq-id={dataQqqId} title={item.fileName}>
         {box}
         {name}
         {!image && !showName && <span className="sr-only">{item.fileName}</span>}
@@ -127,7 +129,7 @@ export function FileThumbnail({ field, record, item, size, showName = false, dat
         aria-haspopup="dialog"
         aria-label={`Preview ${item.fileName}`}
         title={item.fileName}
-        className={cn('group inline-flex max-w-full cursor-zoom-in items-center gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1', className)}
+        className={cn('group max-w-full cursor-zoom-in rounded-md text-left', layout, 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1', className)}
         data-qqq-id={dataQqqId}
         data-preview-kind={item.kind}
       >
