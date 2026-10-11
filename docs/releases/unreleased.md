@@ -11,6 +11,10 @@
   - Read-only runs by default, and a two-step write confirmation for users with the write permission.
   - CodeMirror and the formatter load only on that page (new `lazyChunks` budgets).
 
+## Features
+
+- Show `FILE_PREVIEW`-adorned fields as thumbnails, and open a preview on click or Enter. Thumbnails appear in the query grid and card view, the record view (a larger thumbnail with the file name), associated-record tables, child-record list widgets and record-grid widgets. They load lazily at a fixed size, so loading does not shift the layout, with a loading pulse and a file-type icon fallback. The preview is an accessible dialog: focus is trapped and restored, Escape closes it, and Left/Right/Home/End step through the other previews on the same screen. It offers zoom and fit, open-original and download links, and shows type, size, dimensions and caption. PDFs served by the backend (same-origin `/qqq/` paths) and video/audio play inline; other types, and other or cross-origin PDFs (frames are limited to `'self'`), get a file card or open in a new tab. Thumbnails are shown only for explicitly adorned fields; plain URL values are never auto-detected. URLs are limited to http(s), same-origin paths and inline images. The lightbox loads on demand (about 3.5 KB gzip). Requires the QQQ backend adornment from [qqq#1056](https://github.com/QRun-IO/qqq/issues/1056).
+
 ## Product fixes
 
 None yet.

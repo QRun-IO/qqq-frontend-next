@@ -192,6 +192,7 @@ export type QComponentType =
  * - `FILE_UPLOAD` — renders a file picker for uploading content to the field
  * - `TOOLTIP` — adds a hover tooltip with additional context
  * - `WIDGET` — renders the field value as the data of a named widget
+ * - `FILE_PREVIEW` — renders an image thumbnail (or file icon) that opens a preview
  */
 export type AdornmentType =
   | 'LINK'
@@ -205,3 +206,4 @@ export type AdornmentType =
   | 'FILE_UPLOAD'
   | 'TOOLTIP'
   | 'WIDGET'
+  | 'FILE_PREVIEW'

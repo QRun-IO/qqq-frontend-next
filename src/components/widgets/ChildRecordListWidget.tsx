@@ -34,6 +34,9 @@ import { Download } from 'lucide-react'
 import type { QRecord, QTableMetaData } from '@/types'
 import { useMetaData } from '@/lib/hooks/use-metadata'
 import { cn } from '@/lib/utils/cn'
+import { hasFilePreview, joinedPreviewField } from '@/lib/utils/file-preview'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { FieldValue } from '@/components/records/FieldValue'
 import { displayText } from './record-lookup-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
@@ -325,7 +328,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
   const { data: instance } = useMetaData()
   const table = data?.childFrontendTableMetaData ?? data?.childTableMetaData
   const queryOutput = data?.queryOutput
-  const records = queryOutput === undefined || queryOutput === null ? [] : isPlainObject(queryOutput) ? asList<QRecord>(queryOutput.records) : undefined
+  const records = useMemo(() => queryOutput === undefined || queryOutput === null ? [] : isPlainObject(queryOutput) ? asList<QRecord>(queryOutput.records) : undefined, [queryOutput])
   const valid = Boolean(table) && isPlainObject(table) && typeof table?.name === 'string' && records !== undefined
 
   // Join columns need the user's table permissions, which the instance metadata carries.
@@ -335,7 +338,16 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
     return listColumns(table, data, (name) => Boolean(tables?.[name]) && tables?.[name]?.readPermission !== false)
   }, [valid, table, data, instance?.tables])
   const columns = useMemo(() => shownColumns(allColumns, data), [allColumns, data])
-  const fields = useMemo(() => Object.fromEntries(columns.map((column) => [column.name, widgetField(column.field, column.name, column.label)])), [columns])
+  // a join column's values are keyed `joinTable.field`, and so are its FILE_PREVIEW field references
+  const fields = useMemo(() => Object.fromEntries(columns.map((column) => [column.name, widgetField(
+    column.name.includes('.') ? joinedPreviewField(column.field, column.name.slice(0, column.name.indexOf('.'))) : column.field, column.name, column.label)])), [columns])
+  // one record per row, shared by its cells and the preview gallery (which matches thumbnails by record)
+  const cellRecords = useMemo<QRecord[]>(() => (records ?? []).map((record) => ({
+    tableName: typeof record?.tableName === 'string' ? record.tableName : table?.name ?? '',
+    values: isPlainObject(record?.values) ? record.values : {},
+    displayValues: (isPlainObject(record?.displayValues) ? record.displayValues : {}) as Record<string, string>,
+  })), [records, table?.name])
+  const galleryFields = useMemo(() => Object.values(fields), [fields])
 
   if (!valid || !table || records === undefined) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('child record list', 'queryOutput.records and child table metadata')} />
@@ -389,42 +401,39 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
               </tr>
             </thead>
             <tbody>
-              {records.map((record, rowIndex) => {
-                const values = isPlainObject(record?.values) ? record.values : {}
-                const displayValues = isPlainObject(record?.displayValues) ? record.displayValues : {}
-                const pk = primaryKeyField ? values[primaryKeyField] : undefined
-                const pkText = displayText(pk)
-                const href = !data.disableRowClick && pkText !== '' ? `/app/${encodeURIComponent(table.name)}/${encodeURIComponent(pkText)}` : undefined
-                const cellRecord: QRecord = {
-                  tableName: typeof record?.tableName === 'string' ? record.tableName : table.name,
-                  values,
-                  displayValues: displayValues as Record<string, string>,
-                }
-                return (
-                  <tr
-                    key={pkText || rowIndex}
-                    className={cn('border-b border-border/50 last:border-0', href && 'cursor-pointer hover:bg-accent/50')}
-                    onClick={href ? openRowRecord : undefined}
-                    data-qqq-id={`child-record-row-${widgetName}-${pkText || rowIndex}`}
-                  >
-                    {columns.map((column, columnIndex) => {
-                      const display = displayValues[column.name]
-                      const text = displayText(display !== undefined && display !== null ? display : values[column.name])
-                      return (
-                        <td key={column.name} className="px-2 py-1.5 text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
-                          {columnIndex === 0 && href ? (
-                            <Link href={href} data-row-link="" className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
-                              {text || pkText}
-                            </Link>
-                          ) : (
-                            <FieldValue field={fields[column.name]} record={cellRecord} allTables={allTables} widgetMetaDataMap={instance?.widgets} />
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
+              <FilePreviewGallery records={cellRecords} fields={galleryFields} tableVariant={storedRecordVariantJson(allTables?.[table.name])}>
+                {cellRecords.map((cellRecord, rowIndex) => {
+                  const { values } = cellRecord
+                  const displayValues = cellRecord.displayValues ?? {}
+                  const pk = primaryKeyField ? values[primaryKeyField] : undefined
+                  const pkText = displayText(pk)
+                  const href = !data.disableRowClick && pkText !== '' ? `/app/${encodeURIComponent(table.name)}/${encodeURIComponent(pkText)}` : undefined
+                  return (
+                    <tr
+                      key={pkText || rowIndex}
+                      className={cn('border-b border-border/50 last:border-0', href && 'cursor-pointer hover:bg-accent/50')}
+                      onClick={href ? openRowRecord : undefined}
+                      data-qqq-id={`child-record-row-${widgetName}-${pkText || rowIndex}`}
+                    >
+                      {columns.map((column, columnIndex) => {
+                        const display = displayValues[column.name]
+                        const text = displayText(display !== undefined && display !== null ? display : values[column.name])
+                        return (
+                          <td key={column.name} className="px-2 py-1.5 text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
+                            {columnIndex === 0 && href && !hasFilePreview(fields[column.name]) ? (
+                              <Link href={href} data-row-link="" className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
+                                {text || pkText}
+                              </Link>
+                            ) : (
+                              <FieldValue field={fields[column.name]} record={cellRecord} allTables={allTables} widgetMetaDataMap={instance?.widgets} />
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </FilePreviewGallery>
             </tbody>
           </table>
         </div>

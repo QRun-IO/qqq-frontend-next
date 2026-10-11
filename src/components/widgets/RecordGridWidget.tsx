@@ -28,6 +28,7 @@ import { Inbox } from 'lucide-react'
 
 import type { QFieldMetaData, QRecord } from '@/types'
 import { DataCell } from '@/components/query/DataCell'
+import { FilePreviewGallery } from '@/components/preview/FilePreviewGallery'
 
 /** Wire-format payload for a record-grid widget returned by the backend API. */
 export interface RecordGridWidgetPayload {
@@ -126,74 +127,76 @@ export function RecordGridWidget({ data, widgetName }: RecordGridWidgetProps) {
   }))
 
   return (
-    <div
-      className="w-full overflow-x-auto"
-      data-qqq-id={`record-grid-${widgetName}`}
-    >
-      <table
-        className="w-full border-collapse text-sm"
-        aria-label={`${widgetName} record grid`}
+    <FilePreviewGallery records={qRecords} fields={resolvedFields}>
+      <div
+        className="w-full overflow-x-auto"
+        data-qqq-id={`record-grid-${widgetName}`}
       >
-        <thead>
-          <tr className="border-b border-border bg-muted">
-            {resolvedFields.map((f) => (
-              <th
-                key={f.name}
-                className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground"
-                data-qqq-id={`widget-grid-header-${f.name}`}
-              >
-                {f.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {qRecords.map((record, rowIdx) => (
-            <tr
-              key={rowIdx}
-              className="border-b border-border transition-colors hover:bg-accent"
-              data-qqq-id={`widget-grid-row-${widgetName}-${rowIdx}`}
-            >
-              {resolvedFields.map((field) => (
-                <td
-                  key={field.name}
-                  className="px-3 py-2"
-                  data-qqq-id={`widget-grid-cell-${widgetName}-${field.name}`}
+        <table
+          className="w-full border-collapse text-sm"
+          aria-label={`${widgetName} record grid`}
+        >
+          <thead>
+            <tr className="border-b border-border bg-muted">
+              {resolvedFields.map((f) => (
+                <th
+                  key={f.name}
+                  className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground"
+                  data-qqq-id={`widget-grid-header-${f.name}`}
                 >
-                  <DataCell
-                    field={field}
-                    value={record.values[field.name]}
-                    displayValue={record.displayValues?.[field.name]}
-                    record={record}
-                  />
-                </td>
+                  {f.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {qRecords.map((record, rowIdx) => (
+              <tr
+                key={rowIdx}
+                className="border-b border-border transition-colors hover:bg-accent"
+                data-qqq-id={`widget-grid-row-${widgetName}-${rowIdx}`}
+              >
+                {resolvedFields.map((field) => (
+                  <td
+                    key={field.name}
+                    className="px-3 py-2"
+                    data-qqq-id={`widget-grid-cell-${widgetName}-${field.name}`}
+                  >
+                    <DataCell
+                      field={field}
+                      value={record.values[field.name]}
+                      displayValue={record.displayValues?.[field.name]}
+                      record={record}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      {/* "View all" link when rows are capped at MAX_DISPLAY_ROWS */}
-      {hasMore && tableName && (
-        <div className="mt-2 text-center" data-qqq-id={`widget-grid-view-all-${widgetName}`}>
-          <a
-            href={`/app/${tableName}`}
-            className="text-sm text-primary underline hover:text-primary/80"
+        {/* "View all" link when rows are capped at MAX_DISPLAY_ROWS */}
+        {hasMore && tableName && (
+          <div className="mt-2 text-center" data-qqq-id={`widget-grid-view-all-${widgetName}`}>
+            <a
+              href={`/app/${tableName}`}
+              className="text-sm text-primary underline hover:text-primary/80"
+            >
+              View all {records.length} records &rarr;
+            </a>
+          </div>
+        )}
+
+        {/* Server-side count footer when backend reports more records than were sent */}
+        {data.totalCount !== undefined && data.totalCount > records.length && (
+          <p
+            className="mt-2 text-center text-xs text-muted-foreground"
+            data-qqq-id={`widget-grid-more-${widgetName}`}
           >
-            View all {records.length} records &rarr;
-          </a>
-        </div>
-      )}
-
-      {/* Server-side count footer when backend reports more records than were sent */}
-      {data.totalCount !== undefined && data.totalCount > records.length && (
-        <p
-          className="mt-2 text-center text-xs text-muted-foreground"
-          data-qqq-id={`widget-grid-more-${widgetName}`}
-        >
-          Showing {Math.min(displayedRecords.length, records.length)} of {data.totalCount.toLocaleString()} records
-        </p>
-      )}
-    </div>
+            Showing {Math.min(displayedRecords.length, records.length)} of {data.totalCount.toLocaleString()} records
+          </p>
+        )}
+      </div>
+    </FilePreviewGallery>
   )
 }

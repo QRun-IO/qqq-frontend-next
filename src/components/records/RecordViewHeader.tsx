@@ -41,6 +41,7 @@ import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-down
 import { RecordActions } from './RecordActions'
 import { RecordMenuIcon } from './RecordMenuIcon'
 import { FieldLabel } from './FieldLabel'
+import { HEADER_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
@@ -353,7 +354,7 @@ export function RecordViewHeader({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={HEADER_THUMBNAIL_SIZE} />
                 </dd>
               </div>
             ))}

@@ -30,6 +30,7 @@ import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectio
 import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 
+import { RECORD_VIEW_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
 import { HelpContent } from '@/components/records/HelpContent'
@@ -242,7 +243,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 flex-1 text-sm text-foreground [overflow-wrap:anywhere]">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={RECORD_VIEW_THUMBNAIL_SIZE} />
                 </dd>
               </div>
             )
@@ -263,7 +264,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className="min-w-0 text-sm text-foreground [overflow-wrap:anywhere]">
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={RECORD_VIEW_THUMBNAIL_SIZE} />
                 </dd>
               </div>
             )
@@ -291,7 +292,7 @@ export function RecordViewSection({
                   <FieldLabel field={field} data-qqq-id={`field-label-${field.name}`} helpKey={`table:${tableMetaData.name};field:${field.name}`} />
                 </dt>
                 <dd className={cn('min-w-0 [overflow-wrap:anywhere]', defaultFieldColumns === 1 && 'text-sm text-foreground')}>
-                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} />
+                  <FieldValue field={field} record={record} allTables={allTables} navigateFrom={navigateFrom} widgetMetaDataMap={widgetMetaDataMap} tableMetaData={tableMetaData} thumbnailSize={RECORD_VIEW_THUMBNAIL_SIZE} />
                 </dd>
               </div>
             )
