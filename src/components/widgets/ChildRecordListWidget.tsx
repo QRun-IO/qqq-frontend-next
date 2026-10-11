@@ -24,16 +24,23 @@
  * click anywhere on a row to open the child record, a CSV export of the rows shown,
  * and a View All link when the backend limited the rows (Material RecordGridWidget).
  * Association editing is handled by the record view, not here.
+ *
+ * The list adapts to the width it is given (a half-width panel, a phone): it shows the
+ * columns that matter most and fit (see `compact-columns`), with a toggle to show every
+ * column; cells align to the top, long text is clamped with its full text on hover, and
+ * dates are compact.
  */
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Download } from 'lucide-react'
 
 import type { QRecord, QTableMetaData } from '@/types'
 import { useMetaData } from '@/lib/hooks/use-metadata'
+import { useContainerWidth } from '@/lib/hooks/use-container-width'
 import { cn } from '@/lib/utils/cn'
+import { columnKind, pickCompactColumns } from '@/lib/utils/compact-columns'
 import { FieldValue } from '@/components/records/FieldValue'
 import { displayText } from './record-lookup-utils'
 import { asList, isPlainObject, payloadProblem } from './widget-types'
@@ -51,6 +58,10 @@ interface ChildFieldMetaData {
   isHidden?: boolean
   isHeavy?: boolean
   possibleValueSourceName?: string
+  /** Declared maximum length (long text when there are no rows to measure). */
+  maxLength?: number
+  /** Field adornments (a CHIP marks a status column). */
+  adornments?: Array<{ type?: string }>
 }
 
 /** An exposed join of the child table (`QFrontendExposedJoin`), with its join table's metadata. */
@@ -309,6 +320,50 @@ export function nextViewAllHref(viewAllLink: string, tableName: string): string 
   return `/app/${encodeURIComponent(tableName)}${queryIndex >= 0 ? viewAllLink.slice(queryIndex) : ''}`
 }
 
+/** The columns an embedded list shows in its width, and which of them hold long text. */
+export interface CompactChildColumns {
+  /** Columns to show, in metadata order. */
+  compact: ChildColumn[]
+  /** How many columns did not fit. */
+  hiddenCount: number
+  /** Names of the columns holding long text (clamped in their cells). */
+  longText: Set<string>
+}
+
+/**
+ * Chooses the child columns that matter most and fit the list's width (see `compact-columns`):
+ * the T1 identity, status and boolean columns and the most recent date before long text, the
+ * key only when nothing else names the row, and the widget's `onlyIncludeFieldNames` order
+ * when the application set one.
+ *
+ * @param columns - Candidate columns (parent key already removed).
+ * @param table - Child table metadata.
+ * @param data - Widget payload.
+ * @param records - Rows shown.
+ * @param width - The list's width in CSS pixels; 0 shows every column.
+ * @returns The choice.
+ */
+export function compactChildColumns(columns: ChildColumn[], table: ChildTableMetaData | undefined, data: ChildRecordListPayload | undefined, records: QRecord[], width: number): CompactChildColumns {
+  const valuesOf = (record: QRecord) => (isPlainObject(record?.values) ? record.values : {})
+  const shownText = (name: string) => records.map((record) => {
+    const display = isPlainObject(record?.displayValues) ? record.displayValues[name] : undefined
+    return displayText(display !== undefined && display !== null ? display : valuesOf(record)[name])
+  })
+  const rawText = (name: string) => records.map((record) => displayText(valuesOf(record)[name]))
+  const t1FieldNames = (asList<ChildSectionMetaData>(table?.sections) ?? [])
+    .filter((section) => isPlainObject(section) && section.tier === 'T1')
+    .flatMap((section) => asList<string>(section.fieldNames) ?? [])
+  const context = {
+    primaryKeyField: table?.primaryKeyField,
+    t1FieldNames,
+    explicitOrder: asList<string>(data?.onlyIncludeFieldNames) ?? [],
+    samples: shownText,
+  }
+  const longText = new Set(columns.filter((column) => columnKind(column, context) === 'longText').map((column) => column.name))
+  const { shown, hidden } = pickCompactColumns(columns, width, context, rawText)
+  return { compact: shown, hiddenCount: hidden.length, longText }
+}
+
 /**
  * Renders the child records returned for the hosting record: each value formatted by its
  * field's type and adornments (possible values link to their record), the exposed join
@@ -334,8 +389,14 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
     const tables = instance?.tables
     return listColumns(table, data, (name) => Boolean(tables?.[name]) && tables?.[name]?.readPermission !== false)
   }, [valid, table, data, instance?.tables])
-  const columns = useMemo(() => shownColumns(allColumns, data), [allColumns, data])
-  const fields = useMemo(() => Object.fromEntries(columns.map((column) => [column.name, widgetField(column.field, column.name, column.label)])), [columns])
+  const candidateColumns = useMemo(() => shownColumns(allColumns, data), [allColumns, data])
+  const [measureRef, availableWidth] = useContainerWidth()
+  const [showAllColumns, setShowAllColumns] = useState(false)
+  const { compact: columns, hiddenCount, longText } = useMemo(() => {
+    const rows = isPlainObject(data?.queryOutput) ? asList<QRecord>(data.queryOutput.records) ?? [] : []
+    return compactChildColumns(candidateColumns, table, data, rows, showAllColumns ? 0 : availableWidth)
+  }, [candidateColumns, table, data, showAllColumns, availableWidth])
+  const fields = useMemo(() => Object.fromEntries(candidateColumns.map((column) => [column.name, widgetField(column.field, column.name, column.label)])), [candidateColumns])
 
   if (!valid || !table || records === undefined) {
     return <WidgetPayloadNotice widgetName={widgetName} message={payloadProblem('child record list', 'queryOutput.records and child table metadata')} />
@@ -355,8 +416,20 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
   const allTables = instance?.tables as Record<string, QTableMetaData> | undefined
   const showToolbar = data.canAddChildRecord === true || widgetMetaData.showExportButton === true
 
+  const columnToggle = hiddenCount > 0 || showAllColumns ? (
+    <button
+      type="button"
+      onClick={() => setShowAllColumns((current) => !current)}
+      aria-expanded={showAllColumns}
+      className="rounded text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+      data-qqq-id={`child-record-columns-toggle-${widgetName}`}
+    >
+      {showAllColumns ? 'Fewer columns' : `+${hiddenCount} more column${hiddenCount === 1 ? '' : 's'}`}
+    </button>
+  ) : null
+
   return (
-    <div className="space-y-2" data-qqq-id={`widget-childRecordList-${widgetName}`}>
+    <div ref={measureRef} className="min-w-0 space-y-2" data-qqq-id={`widget-childRecordList-${widgetName}`} data-hidden-columns={hiddenCount}>
       {showToolbar && (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {widgetMetaData.showExportButton === true && (
@@ -382,7 +455,7 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
             <thead>
               <tr className="border-b border-border text-left">
                 {columns.map((column) => (
-                  <th key={column.name} scope="col" className="px-2 py-1.5 font-medium text-muted-foreground" data-qqq-id={`child-record-column-${widgetName}-${column.name}`}>
+                  <th key={column.name} scope="col" className="whitespace-nowrap px-2 py-1.5 align-bottom font-medium text-muted-foreground" data-qqq-id={`child-record-column-${widgetName}-${column.name}`}>
                     {column.label}
                   </th>
                 ))}
@@ -411,13 +484,16 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
                       const display = displayValues[column.name]
                       const text = displayText(display !== undefined && display !== null ? display : values[column.name])
                       return (
-                        <td key={column.name} className="px-2 py-1.5 text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
+                        <td key={column.name} className="px-2 py-1.5 align-top text-foreground" data-qqq-id={`child-record-cell-${widgetName}-${column.name}`}>
                           {columnIndex === 0 && href ? (
                             <Link href={href} data-row-link="" className="text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring">
                               {text || pkText}
                             </Link>
                           ) : (
-                            <FieldValue field={fields[column.name]} record={cellRecord} allTables={allTables} widgetMetaDataMap={instance?.widgets} />
+                            // long text is clamped to three lines; the full value is its tooltip
+                            <div className={cn('break-words', longText.has(column.name) ? 'line-clamp-3 min-w-[12rem] max-w-[28rem]' : 'max-w-[20rem]')} title={longText.has(column.name) ? text : undefined}>
+                              <FieldValue field={fields[column.name]} record={cellRecord} allTables={allTables} widgetMetaDataMap={instance?.widgets} />
+                            </div>
                           )}
                         </td>
                       )
@@ -429,9 +505,12 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
           </table>
         </div>
       )}
-      {(totalRows !== undefined && totalRows > records.length) || viewAllHref ? (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{totalRows !== undefined && totalRows > records.length ? `Showing ${records.length} of ${totalRows}` : ''}</span>
+      {(totalRows !== undefined && totalRows > records.length) || viewAllHref || columnToggle ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span className="flex flex-wrap items-center gap-x-3">
+            {totalRows !== undefined && totalRows > records.length ? <span>{`Showing ${records.length} of ${totalRows}`}</span> : null}
+            {columnToggle}
+          </span>
           {viewAllHref && (
             <Link
               href={viewAllHref}
