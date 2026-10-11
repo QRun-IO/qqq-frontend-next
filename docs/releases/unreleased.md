@@ -4,6 +4,7 @@
 
 ## Product fixes
 
+- Always show the record view's Actions menu when it has entries. Tables without processes or a custom `VIEW_SCREEN_ACTIONS` menu, and read-only tables, again reach Developer Mode and Audit (Material parity); Copy and Delete move into that menu instead of also appearing as separate buttons. [#45](https://github.com/QRun-IO/qqq-frontend-next/issues/45)
 - Clear remembered query filters and saved-view selections on logout or a detected user identity change. Same-user resumes keep their query state; global appearance, density and legacy column preferences remain intact. This correction awaits its own branch acceptance. [#1006](https://github.com/QRun-IO/qqq/issues/1006)
 - In searchable possible-value fields, invalidate old results immediately when the search term changes, so a debounced request cannot remove an option during its selection. [#970](https://github.com/QRun-IO/qqq/issues/970)
 - Keep code suggestions open when a delayed textarea scroll event reports the position already used for the popup; dismiss them when the scroll position actually changes. [#954](https://github.com/QRun-IO/qqq/issues/954)

@@ -16,12 +16,13 @@
 // Phone action sheet: focus management and routes (QRun-IO/qqq#694, #649)
 
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { QProcessMetaData, QTableMetaData } from '@/types'
+import type { AuditSource } from '@/lib/api/audits'
 import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
 import { RecordViewHeader } from './RecordViewHeader'
 
@@ -144,17 +145,89 @@ describe('RecordViewHeader #/launchProcess= links', () => {
   })
 })
 
+const readOnly = { ...table, insertPermission: false, editPermission: false, deletePermission: false,
+  capabilities: ['TABLE_QUERY', 'TABLE_GET'] } as unknown as QTableMetaData
+
+function renderTable(tableMetaData: QTableMetaData, auditSource: AuditSource = null) {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RecordViewHeader tableMetaData={tableMetaData} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
+        t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }}
+        auditSource={auditSource} />
+    </QueryClientProvider>
+  )
+}
+
+/** Labels of the desktop Actions menu's items, after opening it. */
+async function openDesktopActions(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Record actions menu' }))
+  return screen.getAllByRole('menuitem').map((item) => item.textContent)
+}
+
 describe('RecordViewHeader for a read-only user', () => {
-  it('offers no phone Actions trigger when there is nothing to do', () => {
-    const readOnly = { ...table, insertPermission: false, editPermission: false, deletePermission: false,
-      capabilities: ['TABLE_QUERY', 'TABLE_GET'] } as unknown as QTableMetaData
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RecordViewHeader tableMetaData={readOnly} record={{ tableName: 'person', values: { id: 5 }, recordLabel: 'Morgan Sample' }}
-          t1Fields={[]} viewMode="tabs" setViewMode={vi.fn()} hideActions={false} navigateFrom={{ path: '/app/person', label: 'Person' }} />
-      </QueryClientProvider>
-    )
+  beforeEach(() => vi.clearAllMocks())
+
+  it('still offers Developer Mode from the desktop Actions menu, with no write actions (#45)', async () => {
+    const user = userEvent.setup()
+    renderTable(readOnly)
+    for (const action of ['Edit', 'Copy', 'Delete']) {
+      expect(screen.queryByRole('button', { name: `${action} Person record` })).not.toBeInTheDocument()
+    }
+    const items = await openDesktopActions(user)
+    expect(items).toEqual(['Developer Mode'])
+    await user.click(screen.getByRole('menuitem', { name: 'Developer Mode' }))
+    expect(push).toHaveBeenCalledWith('/app/person/5/dev')
+  })
+
+  it('offers Developer Mode and Audit from the phone sheet', async () => {
+    const user = userEvent.setup()
+    renderTable(readOnly, 'table')
+    await user.click(screen.getByRole('button', { name: 'Record actions' }))
+    const sheet = screen.getByRole('dialog', { name: 'Record actions' })
+    expect(within(sheet).getByRole('button', { name: 'Developer Mode' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Audit' })).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Edit Person' })).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Delete Person' })).not.toBeInTheDocument()
+  })
+
+  it('offers no Actions controls when a custom menu resolves to nothing', () => {
+    const empty = { ...readOnly, menus: [{ slot: 'VIEW_SCREEN_ACTIONS', label: 'Actions', items: [
+      { itemType: 'BUILT_IN', values: { option: 'EDIT' } },
+    ] }] } as unknown as QTableMetaData
+    renderTable(empty)
+    expect(screen.queryByRole('button', { name: 'Record actions menu' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Record actions' })).not.toBeInTheDocument()
+  })
+})
+
+describe('RecordViewHeader Actions menu for a table without processes or a custom menu (#45)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders the default menu with New, Copy, Delete and Developer Mode', async () => {
+    const user = userEvent.setup()
+    renderTable(table)
+    expect(await openDesktopActions(user)).toEqual(['New', 'Copy', 'Edit', 'Delete', 'Developer Mode'])
+    await user.click(screen.getByRole('menuitem', { name: 'Developer Mode' }))
+    expect(push).toHaveBeenCalledWith('/app/person/5/dev')
+  })
+
+  it('adds Audit when the user can read audits', async () => {
+    const user = userEvent.setup()
+    renderTable(table, 'table')
+    const items = await openDesktopActions(user)
+    expect(items).toContain('Developer Mode')
+    expect(items).toContain('Audit')
+  })
+
+  it('does not duplicate Copy or Delete as standalone buttons beside the menu', async () => {
+    const user = userEvent.setup()
+    renderTable(table)
+    expect(screen.getByRole('button', { name: 'Edit Person record' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy Person record' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete Person record' })).not.toBeInTheDocument()
+    const items = await openDesktopActions(user)
+    expect(items.filter((label) => label === 'Copy')).toHaveLength(1)
+    expect(items.filter((label) => label === 'Delete')).toHaveLength(1)
   })
 })
 
@@ -170,10 +243,10 @@ describe('RecordViewHeader layout', () => {
     expect(push).toHaveBeenCalledWith('/app/person/5/copy')
   })
 
-  it('keeps standalone secondary actions when there is no process menu', () => {
-    renderHeader()
-    expect(screen.getByRole('button', { name: 'Copy Person record' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete Person record' })).toBeInTheDocument()
+  it('keeps the table processes in the Actions menu alongside Developer Mode', async () => {
+    const user = userEvent.setup()
+    renderHeader([{ name: 'tagRecords', label: 'Tag Records', hasPermission: true } as QProcessMetaData])
+    expect(await openDesktopActions(user)).toEqual(['New', 'Copy', 'Edit', 'Delete', 'Tag Records', 'Developer Mode'])
   })
 
   it('lets the controls wrap onto their own row instead of squeezing the title', () => {

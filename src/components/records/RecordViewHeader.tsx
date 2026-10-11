@@ -242,9 +242,11 @@ export function RecordViewHeader({
   const phoneActionEntries = hasCustomActionsMenu ? actionEntries : defaultPhoneMenuExtras(actionEntries)
   const hasMetadataActions = (tableMetaData.menus ?? []).some((menu) =>
     (menu.slot === 'VIEW_SCREEN_ACTIONS' || menu.slot === 'VIEW_SCREEN_ADDITIONAL') && hasMenuItems(resolveMenu(menu)))
-  // Keep the existing read-only security gate: a default Developer Mode entry alone does not
-  // expose an otherwise empty Actions control, while a table's explicit menu still can.
-  const hasMobileActions = canEdit || canInsert || canDelete || availableProcesses.length > 0 || hasMetadataActions
+  // Show the Actions controls whenever the resolved menu has something to offer. The default menu
+  // always resolves Developer Mode (and Audit when the user can read audits), so a table without
+  // processes or a custom menu, or a read-only table, still reaches them, as Material did (#45).
+  const hasRecordActions = hasMenuItems(actionEntries) || canEdit || canInsert || canDelete
+    || availableProcesses.length > 0 || hasMetadataActions
 
   /**
    * Runs a resolved menu action from either the desktop dropdown or the phone sheet.
@@ -296,9 +298,8 @@ export function RecordViewHeader({
   const desktopActions = !hideActions && (
     <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2" data-qqq-id="record-view-desktop-actions">
       {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-      {hasMobileActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
-        actionEntries={hasCustomActionsMenu || availableProcesses.length > 0 ? actionEntries : []}
-        resolveMenu={resolveMenu} onAction={onAction} />}
+      {hasRecordActions && <RecordActions className="flex-wrap" tableMetaData={tableMetaData} record={record}
+        actionEntries={actionEntries} resolveMenu={resolveMenu} onAction={onAction} />}
     </div>
   )
 
@@ -437,7 +438,7 @@ export function RecordViewHeader({
             {/* Mobile: bottom-sheet trigger button — MED-17 */}
             <div className="flex items-center gap-2 md:hidden">
               {tableMetaData.shareableTableMetaData && <ShareButton tableMetaData={tableMetaData} record={record} />}
-              {hasMobileActions && <button
+              {hasRecordActions && <button
                 type="button"
                 ref={mobileActionsTrigger}
                 onClick={() => setMobileActionsOpen(true)}
@@ -461,7 +462,7 @@ export function RecordViewHeader({
       </div>
 
       {/* Mobile actions bottom-sheet — MED-17 */}
-      {mobileActionsOpen && hasMobileActions && (
+      {mobileActionsOpen && hasRecordActions && (
         <div className="md:hidden" data-qqq-id="mobile-actions-sheet">
           {/* Backdrop */}
           <div
