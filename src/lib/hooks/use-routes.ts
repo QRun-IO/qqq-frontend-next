@@ -79,7 +79,7 @@ export interface NavTarget {
  * command palette, header search and landing page.
  */
 export interface RouteMap {
-  /** Ordered sidebar nodes: the Dashboard entry, then every top-level APP node. */
+  /** Ordered sidebar nodes: the Dashboard entry (or, with a home app, that app as the single top entry), then every top-level APP node. */
   sidebarRoutes: SidebarRoute[]
   /** Maps every known route path to a human-readable label for breadcrumbs. */
   pathToLabelMap: Record<string, string>
@@ -218,12 +218,13 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
       }
     }
   }
-  // with a home app, /app shows that app (already in the tree), so there is no separate Dashboard entry
+  // One landing page: with a home app, /app shows that app, which becomes the single top entry in
+  // place of the built-in Dashboard (no separate overview entry beside it).
   const homePath = instanceHomePath(metaData)
-  const sidebarRoutes: SidebarRoute[] = [
-    ...(homePath === DEFAULT_HOME_PATH ? [{ name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' } as SidebarRoute] : []),
-    ...appRoutes,
-  ]
+  const homeRoute = appRoutes.find((route) => route.path === homePath)
+  const sidebarRoutes: SidebarRoute[] = homeRoute
+    ? [homeRoute, ...appRoutes.filter((route) => route !== homeRoute)]
+    : [{ name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' }, ...appRoutes]
   return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps', homePath }
 }
 
