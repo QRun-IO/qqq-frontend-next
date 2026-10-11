@@ -463,6 +463,61 @@ export const queryKeys = {
   esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
     [...queryKeys.esb(), 'messages', kind, name, offset] as const,
 
+  // SQL Workbench
+  /**
+   * Key for all SQL Workbench queries.
+   *
+   * @returns The SQL Workbench namespace query key tuple.
+   */
+  sqlWorkbench: () => [...queryKeys.all(), 'sqlWorkbench'] as const,
+  /**
+   * Key for the caller's workbench capabilities (permissions, limits, backends).
+   *
+   * @returns The capabilities query key tuple.
+   */
+  sqlWorkbenchCapabilities: () => [...queryKeys.sqlWorkbench(), 'capabilities'] as const,
+  /**
+   * Key for a backend's schema (autocomplete).
+   *
+   * @param backendName - Target backend.
+   * @returns The schema query key tuple.
+   */
+  sqlWorkbenchSchema: (backendName: string) => [...queryKeys.sqlWorkbench(), 'schema', backendName] as const,
+  /**
+   * Key for a notebook list.
+   *
+   * @param scope - The caller's own or the shared library.
+   * @returns The notebook list query key tuple.
+   */
+  sqlNotebooks: (scope: 'mine' | 'shared') => [...queryKeys.sqlWorkbench(), 'notebooks', scope] as const,
+  /**
+   * Key for one notebook.
+   *
+   * @param id - Notebook id.
+   * @returns The notebook query key tuple.
+   */
+  sqlNotebook: (id: number) => [...queryKeys.sqlWorkbench(), 'notebook', id] as const,
+  /**
+   * Key for a notebook's versions.
+   *
+   * @param id - Notebook id.
+   * @returns The versions query key tuple.
+   */
+  sqlNotebookVersions: (id: number) => [...queryKeys.sqlNotebook(id), 'versions'] as const,
+  /**
+   * Key for a notebook's pinned results.
+   *
+   * @param id - Notebook id.
+   * @returns The snapshots query key tuple.
+   */
+  sqlNotebookSnapshots: (id: number) => [...queryKeys.sqlNotebook(id), 'snapshots'] as const,
+  /**
+   * Key for the caller's execution history.
+   *
+   * @returns The history query key tuple.
+   */
+  sqlHistory: () => [...queryKeys.sqlWorkbench(), 'history'] as const,
+
   // Search
   /**
    * Key for all global search queries.
