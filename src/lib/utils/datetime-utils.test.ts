@@ -91,7 +91,8 @@ describe('compactDateTime', () => {
     const display = compactDateTime('2026-07-05T23:33:29Z', '2026-07-05 04:33:29 PM PDT', options)
     expect(display?.text).toBe('Jul 5, 4:33 PM PDT')
     expect(display?.title).toBe('2026-07-05 04:33:29 PM PDT\nYour time: 2026-07-05 06:33:29 PM CDT')
-    expect(compactDateTime('2025-07-05T23:33:29Z', '2025-07-05 04:33:29 PM PDT', options)?.text).toBe('Jul 5, 2025')
+    // a declared zone is about the time of day, so older values keep their time and zone too
+    expect(compactDateTime('2025-07-05T23:33:29Z', '2025-07-05 04:33:29 PM PDT', options)?.text).toBe('Jul 5, 2025, 4:33 PM PDT')
   })
 
   it('reads zone-less timestamps as local wall-clock time and shows other text as sent', () => {

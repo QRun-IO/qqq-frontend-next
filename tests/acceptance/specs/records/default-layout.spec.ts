@@ -59,7 +59,7 @@ for (const mode of ['light', 'dark']) {
     const email = panel.locator('[data-qqq-id="record-field-email"]')
     const birthDate = panel.locator('[data-qqq-id="record-field-birthDate"]')
     await expect(email).toContainText('avery@example.invalid')
-    await expect(birthDate).toContainText('1990-01-15')
+    await expect(birthDate).toContainText('Jan 15, 1990')
     await expect(email.locator('dd')).toHaveCSS('line-height', '20px')
     const emailBox = (await email.boundingBox())!
     const birthDateBox = (await birthDate.boundingBox())!

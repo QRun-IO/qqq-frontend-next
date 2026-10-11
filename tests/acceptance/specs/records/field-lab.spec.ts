@@ -127,7 +127,8 @@ test('[REC-017] DATE and TIME editors round-trip values and clearing @mobile', a
   const id = recordIdFromUrl(page, 'fieldLab')
   expect(await sqlOne(backend, `select date_value, time_value from field_lab where id = ${id}`)).toEqual({ date_value: '2024-02-29', time_value: '13:45:30' })
   await expandOnPhone(page, 'Field Types')
-  await expect(fieldValue(page, 'dateValue')).toHaveText('2024-02-29')
+  await expect(fieldValue(page, 'dateValue')).toHaveText('Feb 29, 2024')
+  await expect(fieldValue(page, 'dateValue')).toHaveAttribute('dateTime', '2024-02-29')
   await expect(fieldValue(page, 'timeValue')).toHaveText('1:45:30 PM')
 
   await openForm(page, `/app/fieldLab/${id}/edit`, 'Edit Field Lab')
@@ -155,7 +156,9 @@ test('[REC-018] DATE_TIME is entered and shown in the viewer zone and stored in 
   expect(multipartFields(writes.find((request) => request.method() === 'POST')!).dateTimeValue).toBe('2024-07-04T13:15:00Z')
   expect((await sqlOne(backend, `select date_time_value from field_lab where id = ${id}`)).date_time_value).toBe('2024-07-04 13:15:00')
   await expandOnPhone(page, 'Field Types')
-  await expect(fieldValue(page, 'dateTimeValue')).toHaveText('2024-07-04 09:15:00 AM EDT')
+  // compact on screen, the full zoned timestamp on hover
+  await expect(fieldValue(page, 'dateTimeValue')).toHaveText('Jul 4, 2024')
+  await expect(fieldValue(page, 'dateTimeValue')).toHaveAttribute('title', '2024-07-04 09:15:00 AM EDT')
 
   await openForm(page, `/app/fieldLab/${id}/edit`, 'Edit Field Lab')
   await expect(control(page, 'dateTimeValue')).toHaveValue('2024-07-04T09:15')
@@ -173,7 +176,8 @@ test('[REC-018] DATE_TIME is entered and shown in the viewer zone and stored in 
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Instant Renamed' })).toBeVisible()
   await expandOnPhone(page, 'Field Types')
-  await expect(fieldValue(page, 'dateTimeValue')).toHaveText('2024-01-15 09:15:00 AM EST')
+  await expect(fieldValue(page, 'dateTimeValue')).toHaveText('Jan 15, 2024')
+  await expect(fieldValue(page, 'dateTimeValue')).toHaveAttribute('title', '2024-01-15 09:15:00 AM EST')
   expect((await sqlOne(backend, `select date_time_value from field_lab where id = ${id}`)).date_time_value).toBe('2024-01-15 14:15:00')
 })
 
@@ -209,16 +213,21 @@ test('[REC-019] fixed-zone and per-record-zone date-times display in their decla
 
   await openRecord(page, 'fieldLab', newYork, 'Zone NY')
   await showSection(page, 'Time Zones')
-  await expect(fieldValue(page, 'fixedZoneDateTime')).toHaveText('2024-03-10 03:30:00 AM CDT')
-  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('2024-03-10 04:30:00 AM EDT')
+  // a zone other than the viewer's (New York) keeps its time and zone; the viewer's own zone shows compactly
+  await expect(fieldValue(page, 'fixedZoneDateTime')).toHaveText('Mar 10, 2024, 3:30 AM CDT')
+  await expect(fieldValue(page, 'fixedZoneDateTime')).toHaveAttribute('title', /^2024-03-10 03:30:00 AM CDT\nYour time: 2024-03-10 04:30:00 AM EDT$/)
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('Mar 10, 2024')
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveAttribute('title', '2024-03-10 04:30:00 AM EDT')
 
   await openRecord(page, 'fieldLab', beforeDst, 'Zone Before DST')
   await expandOnPhone(page, 'Time Zones')
-  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('2024-03-10 01:30:00 AM EST')
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('Mar 10, 2024')
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveAttribute('title', '2024-03-10 01:30:00 AM EST')
 
   await openRecord(page, 'fieldLab', invalid, 'Zone Invalid')
   await expandOnPhone(page, 'Time Zones')
-  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('2024-11-03 06:30:00 AM UTC')
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveText('Nov 3, 2024, 6:30 AM UTC')
+  await expect(fieldValue(page, 'recordZoneDateTime')).toHaveAttribute('title', /^2024-11-03 06:30:00 AM UTC\n/)
   expect((await sqlOne(backend, `select record_zone_date_time from field_lab where id = ${invalid}`)).record_zone_date_time).toBe('2024-11-03 06:30:00')
 })
 

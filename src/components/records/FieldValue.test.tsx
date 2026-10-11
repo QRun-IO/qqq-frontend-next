@@ -111,7 +111,8 @@ describe('FieldValue adornments use the backend value keys', () => {
 
   it('shows DATE_TIME compactly on one line with the full zoned timestamp as its tooltip', () => {
     const fixed = show(field('fixed', [], { type: 'DATE_TIME' }), { fixed: '2024-03-10T08:30:00Z' }, { fixed: '2024-03-10 03:30:00 AM CDT' })
-    expect(fixed).toHaveTextContent('Mar 10, 2024')
+    // in a CDT viewer the zone matches (date only); elsewhere the declared zone keeps its time
+    expect(fixed.textContent).toMatch(/^Mar 10, 2024(, 3:30 AM CDT)?$/)
     expect(fixed.getAttribute('title')).toContain('2024-03-10 03:30:00 AM CDT')
     const raw = show(field('plain', [], { type: 'DATE_TIME' }), { plain: '2024-03-10T08:30:00Z' }, { plain: '2024-03-10T08:30:00Z' })
     expect(raw.textContent).toMatch(/^Mar (9|10), 2024$/)

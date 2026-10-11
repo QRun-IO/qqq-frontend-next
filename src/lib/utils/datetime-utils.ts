@@ -248,8 +248,8 @@ function readDateTime(value: unknown): Date | null {
  * `yyyy-MM-dd hh:mm:ss AM TZ` timestamp is the title.
  *
  * A backend display value zoned by a field behavior in a zone other than the viewer's keeps
- * that zone: its own wall-clock time is shortened the same way and the zone name appended
- * (`Jul 5, 6:33 PM PDT`). A display value that is not a timestamp at all is shown as sent.
+ * that zone and always its time: `Jul 5, 4:33 PM PDT` this year, `Jul 5, 2025, 4:33 PM PDT`
+ * before. A display value that is not a timestamp at all is shown as sent.
  *
  * @param value - Raw value (ISO-8601 instant).
  * @param displayValue - Backend display value, if any.
@@ -272,10 +272,11 @@ export function compactDateTime(value: unknown, displayValue?: unknown, options:
     const [nowYear, nowMonth, nowDay] = dayKey(now, timeZone).split('-').map(Number)
     const wallNow = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay, 12))
     const viewer = date ? `\nYour time: ${formatInstant(date, timeZone)}` : ''
-    const text = compactInstantText(wall, wallNow, 'UTC', locale)
-    // the zone only qualifies a time; an older value shows its date alone
-    const withZone = year === String(wallNow.getUTCFullYear()) ? `${text} ${zone}` : text
-    return { text: withZone, title: `${display}${viewer}`, dateTime: date?.toISOString() }
+    // a declared zone is about the time of day, so the time (and its zone) is always kept
+    const text = year === String(wallNow.getUTCFullYear())
+      ? compactInstantText(wall, wallNow, 'UTC', locale)
+      : cachedFormat(locale, 'UTC', 'monthDayYearTime', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(wall)
+    return { text: `${text} ${zone}`, title: `${display}${viewer}`, dateTime: date?.toISOString() }
   }
 
   if (date) return { text: compactInstantText(date, now, timeZone, locale), title: formatInstant(date, timeZone), dateTime: date.toISOString() }
