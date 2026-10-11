@@ -24,7 +24,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { QWidgetMetaData, SqlHistoryEntry } from '@/types'
@@ -65,6 +65,7 @@ export default function SqlWorkbenchWidget({
   const [notebookId, setNotebookId] = useState<number | null>(notebookFromUrl)
   const [scope, setScope] = useState<'mine' | 'shared'>('mine')
   const [insertRequest, setInsertRequest] = useState<InsertCellRequest | null>(null)
+  const clearInsertRequest = useCallback(() => setInsertRequest(null), [])
 
   const {
     data: capabilities,
@@ -75,7 +76,11 @@ export default function SqlWorkbenchWidget({
     queryFn: getSqlWorkbenchCapabilities,
     meta: HANDLES_OWN_ERRORS,
   })
-  const { data: notebooks = [], isLoading: notebooksLoading } = useQuery({
+  const {
+    data: notebooks = [],
+    isLoading: notebooksLoading,
+    error: notebooksError,
+  } = useQuery({
     queryKey: queryKeys.sqlNotebooks(scope),
     queryFn: () => listSqlNotebooks(scope),
     enabled: !!capabilities,
@@ -135,13 +140,12 @@ export default function SqlWorkbenchWidget({
     >
       <div className="space-y-4">
         <nav aria-label="Notebooks" className="space-y-2">
-          <div className="flex gap-1 text-xs" role="tablist" aria-label="Notebook library">
+          <div className="flex gap-1 text-xs" role="group" aria-label="Notebook library">
             {(['mine', 'shared'] as const).map((s) => (
               <button
                 key={s}
                 type="button"
-                role="tab"
-                aria-selected={scope === s}
+                aria-pressed={scope === s}
                 className={cn(
                   'rounded px-2 py-1',
                   scope === s ? 'bg-muted font-medium' : 'text-muted-foreground'
@@ -163,6 +167,10 @@ export default function SqlWorkbenchWidget({
           </button>
           {notebooksLoading ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : notebooksError ? (
+            <p className="text-xs text-destructive" role="alert">
+              Could not load notebooks: {getErrorMessage(notebooksError)}
+            </p>
           ) : notebooks.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               {scope === 'mine' ? 'No notebooks yet.' : 'Nothing has been shared yet.'}
@@ -228,6 +236,7 @@ export default function SqlWorkbenchWidget({
           notebookId={notebookId}
           capabilities={capabilities}
           insertRequest={insertRequest}
+          onInsertConsumed={clearInsertRequest}
           onSelect={select}
         />
       </div>

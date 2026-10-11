@@ -396,10 +396,18 @@ export function SqlCell(props: SqlCellProps) {
               )}
           </div>
           {tab === 'grid' && result && (
-            <ResultView result={result} pageSize={capabilities.limits.pageSize} />
+            <ResultView
+              key={result.executionUuid}
+              result={result}
+              pageSize={capabilities.limits.pageSize}
+            />
           )}
           {tab === 'chart' && result?.status === 'SUCCEEDED' && (
-            <QuickChart columns={result.columns ?? []} rows={result.rows ?? []} />
+            <QuickChart
+              key={result.executionUuid}
+              columns={result.columns ?? []}
+              rows={result.rows ?? []}
+            />
           )}
           {tab === 'plan' &&
             (explain ? (

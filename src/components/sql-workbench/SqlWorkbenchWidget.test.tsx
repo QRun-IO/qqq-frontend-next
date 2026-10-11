@@ -99,8 +99,62 @@ describe('SqlWorkbenchWidget', () => {
     expect(screen.getByText('month')).toBeInTheDocument()
     expect(screen.getByText(':since')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('tab', { name: 'Shared library' }))
+    expect(screen.getByRole('button', { name: 'My notebooks' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    await user.click(screen.getByRole('button', { name: 'Shared library' }))
+    expect(screen.getByRole('button', { name: 'Shared library' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     expect(await screen.findByRole('button', { name: /Orphan media/ })).toBeInTheDocument()
+  })
+
+  it('adds a history entry as one cell, and not again on save or notebook switch', async () => {
+    const user = userEvent.setup()
+    window.history.replaceState(null, '', '/?notebook=1')
+    renderWithClient(<SqlWorkbenchWidget widgetMetaData={widgetMetaData} />)
+    await screen.findByDisplayValue('Monthly signups')
+    const before = screen.getAllByLabelText(/^SQL for cell/).length
+
+    await user.click(screen.getByRole('button', { name: /SELECT \* FROM person/ }))
+    await waitFor(() => expect(screen.getAllByLabelText(/^SQL for cell/)).toHaveLength(before + 1))
+
+    // Save bumps the version, which remounts the draft: the request must not re-apply.
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('button', { name: 'Saved' })).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/^SQL for cell/)).toHaveLength(before + 1)
+
+    // Switching notebooks must not inject the old request into the other notebook.
+    await user.click(screen.getByRole('button', { name: '+ New notebook' }))
+    expect(await screen.findByDisplayValue('Untitled notebook')).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/^SQL for cell/)).toHaveLength(1)
+    expect(screen.getByLabelText('SQL for cell 1')).toHaveValue('')
+  })
+
+  it('shows an error when the notebook list fails to load', async () => {
+    server.use(
+      http.get(`${BASE}/notebooks`, () =>
+        HttpResponse.json({ error: 'Database unavailable.' }, { status: 500 })
+      )
+    )
+    renderWithClient(<SqlWorkbenchWidget widgetMetaData={widgetMetaData} />)
+    expect(await screen.findByText(/Could not load notebooks/)).toBeInTheDocument()
+    expect(screen.queryByText('No notebooks yet.')).not.toBeInTheDocument()
+  })
+
+  it('locks the default backend and cell controls on a notebook the user cannot edit', async () => {
+    const { sqlNotebook } = await import('@/mocks/fixtures/sql-workbench')
+    server.use(
+      http.get(`${BASE}/notebooks/:id`, () => HttpResponse.json({ ...sqlNotebook, canEdit: false }))
+    )
+    window.history.replaceState(null, '', '/?notebook=1')
+    renderWithClient(<SqlWorkbenchWidget widgetMetaData={widgetMetaData} />)
+    await screen.findByDisplayValue('Monthly signups')
+    expect(screen.getByLabelText('Default backend')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^Delete cell/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Move cell/ })).not.toBeInTheDocument()
   })
 
   it('runs read-only SQL and shows typed results', async () => {

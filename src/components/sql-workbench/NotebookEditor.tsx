@@ -23,7 +23,7 @@
 
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -63,6 +63,8 @@ export interface NotebookEditorProps {
   notebookId: number | null
   capabilities: SqlWorkbenchCapabilities
   insertRequest: InsertCellRequest | null
+  /** Called once the pending insert request has been applied, so the owner can clear it. */
+  onInsertConsumed: () => void
   onSelect: (id: number | null) => void
 }
 
@@ -141,7 +143,7 @@ export function NotebookEditor(props: NotebookEditorProps) {
  * @returns The editor.
  */
 function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; saved: boolean }) {
-  const { notebook, saved, capabilities, insertRequest, onSelect } = props
+  const { notebook, saved, capabilities, insertRequest, onInsertConsumed, onSelect } = props
   const queryClient = useQueryClient()
   const [title, setTitle] = useState(notebook.title)
   const [defaultBackendName, setDefaultBackendName] = useState(
@@ -158,8 +160,12 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
   const [previewing, setPreviewing] = useState<Record<string, boolean>>({})
   const canEdit = notebook.canEdit
 
+  // The request is parent state that outlives this draft (it remounts on save, restore,
+  // duplicate and notebook switch), so apply each nonce once and hand it back to be cleared.
+  const handledInsertNonce = useRef<number | null>(null)
   useEffect(() => {
-    if (!insertRequest) return
+    if (!insertRequest || handledInsertNonce.current === insertRequest.nonce) return
+    handledInsertNonce.current = insertRequest.nonce
     setCells((current) => [
       ...current,
       {
@@ -171,7 +177,8 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
       },
     ])
     setDirty(true)
-  }, [insertRequest])
+    onInsertConsumed()
+  }, [insertRequest, onInsertConsumed])
 
   const { data: snapshots = [] } = useQuery({
     queryKey: queryKeys.sqlNotebookSnapshots(notebook.id),
@@ -298,6 +305,7 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
           <select
             className="rounded border px-1 py-0.5"
             value={defaultBackendName}
+            disabled={!canEdit}
             onChange={(e) => {
               setDefaultBackendName(e.target.value)
               setDirty(true)
@@ -467,37 +475,39 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
 
       {cells.map((cell, index) => (
         <div key={cell.cellKey} className="group relative">
-          <div className="absolute -right-1 -top-2 z-10 hidden gap-1 group-focus-within:flex group-hover:flex">
-            <button
-              type="button"
-              className="rounded border bg-background p-0.5"
-              onClick={() => move(index, -1)}
-              disabled={index === 0}
-              aria-label={`Move cell ${index + 1} up`}
-              data-qqq-id={`button-sql-cell-up-${index}`}
-            >
-              <span aria-hidden>▲</span>
-            </button>
-            <button
-              type="button"
-              className="rounded border bg-background p-0.5"
-              onClick={() => move(index, 1)}
-              disabled={index === cells.length - 1}
-              aria-label={`Move cell ${index + 1} down`}
-              data-qqq-id={`button-sql-cell-down-${index}`}
-            >
-              <span aria-hidden>▼</span>
-            </button>
-            <button
-              type="button"
-              className="rounded border bg-background p-0.5 text-destructive"
-              onClick={() => updateCells(cells.filter((_, i) => i !== index))}
-              aria-label={`Delete cell ${index + 1}`}
-              data-qqq-id={`button-sql-cell-delete-${index}`}
-            >
-              <span aria-hidden>✕</span>
-            </button>
-          </div>
+          {canEdit && (
+            <div className="absolute -right-1 -top-2 z-10 hidden gap-1 group-focus-within:flex group-hover:flex">
+              <button
+                type="button"
+                className="rounded border bg-background p-0.5"
+                onClick={() => move(index, -1)}
+                disabled={index === 0}
+                aria-label={`Move cell ${index + 1} up`}
+                data-qqq-id={`button-sql-cell-up-${index}`}
+              >
+                <span aria-hidden>▲</span>
+              </button>
+              <button
+                type="button"
+                className="rounded border bg-background p-0.5"
+                onClick={() => move(index, 1)}
+                disabled={index === cells.length - 1}
+                aria-label={`Move cell ${index + 1} down`}
+                data-qqq-id={`button-sql-cell-down-${index}`}
+              >
+                <span aria-hidden>▼</span>
+              </button>
+              <button
+                type="button"
+                className="rounded border bg-background p-0.5 text-destructive"
+                onClick={() => updateCells(cells.filter((_, i) => i !== index))}
+                aria-label={`Delete cell ${index + 1}`}
+                data-qqq-id={`button-sql-cell-delete-${index}`}
+              >
+                <span aria-hidden>✕</span>
+              </button>
+            </div>
+          )}
           {cell.cellType === 'MARKDOWN' ? (
             <section className="rounded-md border p-3" aria-label={`Markdown cell ${index + 1}`}>
               <button
