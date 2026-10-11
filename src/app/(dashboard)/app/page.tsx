@@ -22,6 +22,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   Workflow,
@@ -44,6 +45,7 @@ import { canInsertRecords, canRunProcess } from '@/lib/auth/permissions'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { getRecentRecords } from '@/lib/utils/recent-records'
+import { DEFAULT_HOME_PATH } from '@/lib/utils/home-app'
 import type { RecentRecord } from '@/lib/utils/recent-records'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 
@@ -102,7 +104,15 @@ export default function DashboardPage() {
     staleTime: 1000 * 60 * 30,
   })
 
-  const { sidebarRoutes, navTargets } = useAppTreeRoutes(metaData)
+  const { sidebarRoutes, navTargets, homePath } = useAppTreeRoutes(metaData)
+  const router = useRouter()
+  const hasHomeApp = homePath !== DEFAULT_HOME_PATH
+
+  // An instance with a home app (homeAppName) shows that app's dashboard as its home page
+  // (the backend redirects full page loads of /app; this covers client-side navigation).
+  useEffect(() => {
+    if (hasHomeApp) router.replace(homePath)
+  }, [hasHomeApp, homePath, router])
   const appRoutes = sidebarRoutes.filter((route) => route.nodeType === 'APP')
 
   const appName = metaData?.branding?.appName || 'QQQ Admin'
@@ -144,6 +154,10 @@ export default function DashboardPage() {
     { id: 'apps', label: 'Applications', value: appTargets.length, hint: 'App modules', icon: <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
     { id: 'widgets', label: 'Widgets', value: widgetNames.size, hint: 'Dashboard components', icon: <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> },
   ]
+
+  if (hasHomeApp) {
+    return <div aria-busy="true" data-qqq-id="dashboard-home-redirect" />
+  }
 
   return (
     <div className="space-y-8" data-qqq-id="dashboard-home">

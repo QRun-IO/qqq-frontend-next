@@ -280,3 +280,41 @@ describe('useAppTreeRoutes', () => {
     expect(JSON.stringify(sidebarRoutes)).not.toContain('qryItem')
   })
 })
+
+describe('buildRouteMap home app', () => {
+  const tree: QAppTreeNode[] = [
+    { name: 'home', label: 'Home', type: 'APP', children: [] },
+    { name: 'cms', label: 'CMS', type: 'APP', children: [] },
+  ]
+
+  /**
+   * Metadata with the tree's apps, optionally designating a home app.
+   *
+   * @param homeAppName - The instance's home app.
+   * @returns The metadata.
+   */
+  function withHome(homeAppName?: string): QInstance {
+    const metaData = makeMetaData(tree)
+    metaData.apps = { home: { name: 'home', label: 'Home' }, cms: { name: 'cms', label: 'CMS' } } as unknown as QInstance['apps']
+    return homeAppName === undefined ? metaData : { ...metaData, homeAppName }
+  }
+
+  it('keeps the Dashboard overview as home when the instance designates no home app', () => {
+    const routes = buildRouteMap(withHome())
+    expect(routes.homePath).toBe('/app')
+    expect(routes.sidebarRoutes.map((route) => route.path)).toEqual(['/app', '/app/home', '/app/cms'])
+  })
+
+  it('makes the home app the home page and drops the separate Dashboard entry', () => {
+    const routes = buildRouteMap(withHome('home'))
+    expect(routes.homePath).toBe('/app/home')
+    expect(routes.sidebarRoutes.map((route) => route.path)).toEqual(['/app/home', '/app/cms'])
+  })
+
+  it('ignores a home app that is not among the apps the user may open', () => {
+    const routes = buildRouteMap(withHome('secret'))
+    expect(routes.homePath).toBe('/app')
+    expect(routes.sidebarRoutes[0].path).toBe('/app')
+    expect(buildRouteMap(undefined).homePath).toBe('/app')
+  })
+})

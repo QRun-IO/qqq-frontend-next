@@ -23,6 +23,7 @@ import { useMemo } from 'react'
 
 import type { QInstance, QAppTreeNode, QIcon } from '@/types'
 import type { QAppNodeType } from '@/types/enums'
+import { DEFAULT_HOME_PATH, homePath as instanceHomePath } from '@/lib/utils/home-app'
 
 /**
  * A single entry in the sidebar navigation tree.
@@ -88,6 +89,11 @@ export interface RouteMap {
   navTargets: NavTarget[]
   /** The first accessible app route, used as the post-login redirect target. */
   defaultRoute: string
+  /**
+   * Where "home" goes (sidebar logo, breadcrumb root, `/app` itself): the instance's home app
+   * (`homeAppName`) when it designates one the user may open, otherwise the `/app` overview.
+   */
+  homePath: string
 }
 
 /** Fixed pages under `/app` that are not app-tree nodes. */
@@ -143,7 +149,7 @@ export function isHiddenNode(node: QAppTreeNode, metaData: QInstance): boolean {
  */
 export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
   if (!metaData) {
-    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps' }
+    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps', homePath: DEFAULT_HOME_PATH }
   }
 
   const pathToLabelMap: Record<string, string> = { ...STATIC_PAGE_LABELS }
@@ -212,11 +218,13 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
       }
     }
   }
+  // with a home app, /app shows that app (already in the tree), so there is no separate Dashboard entry
+  const homePath = instanceHomePath(metaData)
   const sidebarRoutes: SidebarRoute[] = [
-    { name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' },
+    ...(homePath === DEFAULT_HOME_PATH ? [{ name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' } as SidebarRoute] : []),
     ...appRoutes,
   ]
-  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps' }
+  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps', homePath }
 }
 
 /**
