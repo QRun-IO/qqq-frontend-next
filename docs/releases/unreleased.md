@@ -1,57 +1,15 @@
 # Next UI — unreleased
 
-[RC11 is published and immutable](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11). It includes the searchable-selector and script-completion corrections from [PR24](https://github.com/QRun-IO/qqq-frontend-next/pull/24); its release details remain in [RC11 notes](1.0.0-RC.11.md). Current main also contains the later menu, copy-focus and grid fixes, which are not in that published artifact. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC12 preparation](1.0.0-RC.12.md) collects every change merged since [RC11](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11): the always-available record Actions menu ([#45](https://github.com/QRun-IO/qqq-frontend-next/issues/45)), private query-state clearing between users, standalone branding and CSP derivation, grid and report focus fixes, and browser-testing hardening. RC11 is published and immutable. Changes merged after the RC12 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Product fixes
 
-- Always show the record view's Actions menu when it has entries. Tables without processes or a custom `VIEW_SCREEN_ACTIONS` menu, and read-only tables, again reach Developer Mode and Audit (Material parity); Copy and Delete move into that menu instead of also appearing as separate buttons. [#45](https://github.com/QRun-IO/qqq-frontend-next/issues/45)
 - Size record-view cards, dashboard widgets and form fields by the width of their own grid (container queries) rather than the viewport: table panels sit side by side only when each is readable and otherwise stack, cards keep their own height, fields share a row only when they fit, and very wide screens use the room. No horizontal page scroll from 360px up.
 - Make child-record lists in record-view panels readable: they show the columns that matter most and fit (the record name, status and boolean columns, the most recently changed date; the key and long text last), with `+N more columns` and View All for the rest. Cells align to the top and long text is clamped with the full text on hover. A widget's `onlyIncludeFieldNames` order is respected.
 - Show dates compactly everywhere: `6:33 PM` today, `Jul 5, 6:33 PM` this year, `Jul 5, 2025` before, on one line with the full zoned timestamp on hover, in the viewer's zone and locale. DATE values are no longer shifted a day west of UTC. Exports are unchanged.
-- Clear remembered query filters and saved-view selections on logout or a detected user identity change. Same-user resumes keep their query state; global appearance, density and legacy column preferences remain intact. This correction awaits its own branch acceptance. [#1006](https://github.com/QRun-IO/qqq/issues/1006)
-- In searchable possible-value fields, invalidate old results immediately when the search term changes, so a debounced request cannot remove an option during its selection. [#970](https://github.com/QRun-IO/qqq/issues/970)
-- Keep code suggestions open when a delayed textarea scroll event reports the position already used for the popup; dismiss them when the scroll position actually changes. [#954](https://github.com/QRun-IO/qqq/issues/954)
-- Preserve focus on the search dialog's Clear control when keyboard interaction occurs before its scheduled initial focus. [#950](https://github.com/QRun-IO/qqq/issues/950)
-- Preserve a clicked possible-value option in WebKit when blurring its search input would scroll the form between mousedown and mouseup. The selected value now reaches process submission and generated output. [#978](https://github.com/QRun-IO/qqq/issues/978)
-- Keep authentication loading until explicit logout finishes, so a late logout response cannot erase cookies from a subsequent successful sign-in. [#984](https://github.com/QRun-IO/qqq/issues/984)
 
 ## Browser testing and infrastructure
 
-- Pin the official Playwright runner containing the fixed Linux WebKit network library, and retain native browser diagnostics for navigation failures. The previous bundle's heap corruption was reproduced; migration to a stable runner remains tracked separately. [#904](https://github.com/QRun-IO/qqq/issues/904), [#973](https://github.com/QRun-IO/qqq/issues/973)
-- Correlate interrupted Firefox font diagnostics with real request and decode evidence, wait for initial fonts before the deliberate redirect, and observe transient feedback during the action that produces it. [#951](https://github.com/QRun-IO/qqq/issues/951), [#953](https://github.com/QRun-IO/qqq/issues/953), [#967](https://github.com/QRun-IO/qqq/issues/967)
-- Wait for nested report metadata and the destination's owned iframe before advancing acceptance navigation. [#961](https://github.com/QRun-IO/qqq/issues/961), [#972](https://github.com/QRun-IO/qqq/issues/972)
-- Verify Linux WebKit's downloaded filename normalization while retaining file-content and cleanup assertions. [#979](https://github.com/QRun-IO/qqq/issues/979)
-- Verify actual browser refusal of disallowed framing with a control that renders when the protective headers are removed. [#981](https://github.com/QRun-IO/qqq/issues/981)
-- Recognize Firefox's network-error diagnostic for the gallery's intentionally missing extension only after that same script request returns HTTP 404; preserve the raw evidence and reject unrelated failures. [#983](https://github.com/QRun-IO/qqq/issues/983)
-- Select all ten ESB scenarios for both phone and tablet acceptance, retaining real broker delivery, lifecycle, replay, SQL and permission checks. Matrix references now use the central QQQ tickets. [#986](https://github.com/QRun-IO/qqq/issues/986), [#990](https://github.com/QRun-IO/qqq/issues/990)
-
-## Verification and remaining work
-
-Current main `5ca3e0b` has a complete [3,010-case first-attempt acceptance pass](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36989591498): 620 per desktop browser and 575 per touch profile. That run qualifies the main tree before the query-state correction above. The earlier checkpoints below are retained separately.
-
-The [combined acceptance run](https://github.com/QRun-IO/qqq-frontend-next/actions/runs/36942612338) on head `7ff90f1` (the same tree as merge `289eca19`) passed all 2,972 executed cases: 614 each in Chromium, Firefox and WebKit, and 565 each on phone and tablet. All desktop gates covered 401 required rows. The workflow still failed its touch coverage gate because ten ESB rows were not selected; that original failure remains retained under [#990](https://github.com/QRun-IO/qqq/issues/990). After adding the selection markers, a separate native Linux run passed all 20 ESB phone/tablet cases, with zero retries, skips, flaky outcomes or report errors. Its frozen frontend export is unchanged; its freshly rebuilt backend is `55b33e6`. Complete touch collection is 575 cases per profile. The subsequent [complete PR23 outcome](https://github.com/QRun-IO/qqq/issues/990#issuecomment-5944836159) covers all 401 required IDs on each profile with zero missing and all 20 ESB touch cases passing, completing #990. Touch totals are 1,149 passes and one unrelated tablet NAV-056 failure; the full gate and workflow remain failed. [NAV-056 investigation](https://github.com/QRun-IO/qqq/issues/985#issuecomment-5944830383) remains separate, with no shared-cause claim or new waiver.
-
-Each linked issue and PR records the source commit, reproduction and scoped verification. Preserve failed full-run snapshots separately from later focused passes. The broader historical navigation inventory [#904](https://github.com/QRun-IO/qqq/issues/904), same-user session stall [#952](https://github.com/QRun-IO/qqq/issues/952), legacy process-navigation stall [#960](https://github.com/QRun-IO/qqq/issues/960), and original toast-paint uncertainty [#967](https://github.com/QRun-IO/qqq/issues/967) remain open. The [RC10 preparation notes](1.0.0-RC.10.md) retain their historical checkpoint; its [public release entry](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.10) records final delivery verification. See [RC11 notes](1.0.0-RC.11.md) for the successor candidate. No final-release approval is claimed by these results.
+None yet.
 
 Final 1.0 remains held for real-application soak and explicit owner approval under [#712](https://github.com/QRun-IO/qqq/issues/712). This work does not authorize a QQQ 4.1 release. See the [testing-period policy](1.0-testing.md) and [issue lifecycle](../ISSUE-TRACKING.md).
-
-## Pending standalone branding compatibility (QQQ #1009)
-
-The standalone Node server can route the exact root-relative `branding.logo` and
-`branding.icon` paths published by authentication metadata through fixed backend
-image roles. Local Node `public` files keep precedence; external image URLs and
-Java dashboard serving are unchanged. This does not expose the whole application
-overlay or add a general proxy.
-
-This requires **a QQQ middleware-javalin build containing QQQ #1009's
-`/qqq/branding/logo` and `/qqq/branding/icon` endpoints**. They are absent from
-published **4.1.0-RC.1**. The minimum numbered release is not yet assigned; a
-source build must record the exact backend commit/JAR hashes. Older deployments
-must supply branding through their Node `public` files or an existing external
-image URL. No automatic compatibility with old relative backend assets is claimed.
-
-The preserved standalone qualification against public RC1 remains **5 passed,
-38 failed** out of 43 cases because of missing branding assets. The original
-staging failure is also retained. The corrected cross-repository pairing has
-not yet received its browser qualification; neither #1009 nor #734 is closed by
-focused unit/HTTP results.
