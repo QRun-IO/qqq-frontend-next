@@ -109,12 +109,21 @@ describe('FieldValue adornments use the backend value keys', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Error: Could not load widget [nope]')
   })
 
-  it('shows a zoned DATE_TIME display value as-is and formats a raw instant in the viewer zone', () => {
-    expect(show(field('fixed', [], { type: 'DATE_TIME' }), { fixed: '2024-03-10T08:30:00Z' }, { fixed: '2024-03-10 03:30:00 AM CDT' }))
-      .toHaveTextContent('2024-03-10 03:30:00 AM CDT')
+  it('shows DATE_TIME compactly on one line with the full zoned timestamp as its tooltip', () => {
+    const fixed = show(field('fixed', [], { type: 'DATE_TIME' }), { fixed: '2024-03-10T08:30:00Z' }, { fixed: '2024-03-10 03:30:00 AM CDT' })
+    expect(fixed).toHaveTextContent('Mar 10, 2024')
+    expect(fixed.getAttribute('title')).toContain('2024-03-10 03:30:00 AM CDT')
     const raw = show(field('plain', [], { type: 'DATE_TIME' }), { plain: '2024-03-10T08:30:00Z' }, { plain: '2024-03-10T08:30:00Z' })
-    expect(raw.textContent).toMatch(/^2024-03-10 \d{2}:30:00 [AP]M \S+$/)
-    expect(raw).toHaveAttribute('dateTime', '2024-03-10T08:30:00Z')
+    expect(raw.textContent).toMatch(/^Mar (9|10), 2024$/)
+    expect(raw.getAttribute('title')).toMatch(/^2024-03-(09|10) \d{2}:30:00 [AP]M \S+$/)
+    expect(raw).toHaveAttribute('dateTime', '2024-03-10T08:30:00.000Z')
+    expect(raw).toHaveClass('whitespace-nowrap')
+  })
+
+  it('shows a DATE as its calendar day, never shifted by the viewer zone and never with a time', () => {
+    const date = show(field('day', [], { type: 'DATE' }), { day: '2024-06-15' })
+    expect(date).toHaveTextContent('Jun 15, 2024')
+    expect(date).toHaveAttribute('dateTime', '2024-06-15')
   })
 
   it('renders RENDER_HTML sanitized and an empty value as a dash', () => {

@@ -23,6 +23,7 @@
 
 import type { QFieldMetaData, QTableMetaData, QVirtualFieldMetaData } from '@/types'
 import { sizeWidth } from './adornment-utils'
+import { DATE_COLUMN_WIDTH, DATE_TIME_COLUMN_WIDTH } from './datetime-utils'
 
 /** One column the grid, column chooser and export can use. */
 export interface QueryColumn {
@@ -72,12 +73,17 @@ export type ColumnPins = Record<string, ColumnPin>
 /**
  * Preserve the original Next UI column width unless metadata explicitly sets a SIZE
  * adornment. Narrow Material defaults leave too little room for this grid's header controls.
+ * Date and date-time columns are sized to their compact form (`Jul 5, 2025`, `Jul 5, 6:33 PM`).
  *
  * @param field - The field.
  * @returns The width in pixels.
  */
 export function defaultColumnWidth(field: QFieldMetaData): number {
-  return sizeWidth(field) ?? 150
+  const declared = sizeWidth(field)
+  if (declared !== undefined) return declared
+  if (field.type === 'DATE') return DATE_COLUMN_WIDTH
+  if (field.type === 'DATE_TIME') return DATE_TIME_COLUMN_WIDTH
+  return 150
 }
 
 /**

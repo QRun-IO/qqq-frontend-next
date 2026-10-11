@@ -27,6 +27,7 @@ import Link from 'next/link'
 import { sanitizeHtml } from '@/lib/utils/sanitize-html'
 import type { QFieldMetaData, QRecord } from '@/types'
 import { chipStyle, CHIP_COLOR_CLASSES, fileDownload, linkTarget, tooltipText } from '@/lib/utils/adornment-utils'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 
 /**
  * Props for the DataCell component.
@@ -186,22 +187,10 @@ export function DataCell({ field, value, displayValue, record }: DataCellProps) 
       )
     }
 
-    case 'DATE': {
-      if (!value) return <EmptyCell fieldName={field.name} />
-      return (
-        <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
-          {display || formatDate(String(value))}
-        </span>
-      )
-    }
-
+    case 'DATE':
     case 'DATE_TIME': {
       if (!value) return <EmptyCell fieldName={field.name} />
-      return (
-        <span className="text-sm text-foreground" data-qqq-id={`grid-cell-${field.name}`}>
-          {displayValue && displayValue !== String(value) ? displayValue : formatDateTime(String(value))}
-        </span>
-      )
+      return <DateTimeText type={field.type} value={value} displayValue={displayValue} dataQqqId={`grid-cell-${field.name}`} />
     }
 
     case 'PASSWORD': {
@@ -303,52 +292,4 @@ function RevealCell({ value, fieldName }: { value: string; fieldName: string }) 
       {revealed ? value : '••••••••'}
     </button>
   )
-}
-
-// ------------------------------------------------------------------
-// Utilities
-// ------------------------------------------------------------------
-
-// Intl formatters are costly to construct and a 250-row page can hold thousands of date
-// cells, so each is built once, on first use (QRun-IO/qqq#710).
-let dateFormat: Intl.DateTimeFormat | undefined
-let zoneFormat: Intl.DateTimeFormat | undefined
-
-/**
- * Formats an ISO date string using the browser's locale date formatting.
- *
- * Returns the original string unchanged if parsing fails.
- *
- * @param value - An ISO 8601 date string (e.g., `"2024-06-15"`).
- * @returns A locale-formatted date string (e.g., `"6/15/2024"`).
- */
-function formatDate(value: string): string {
-  try {
-    const d = new Date(value)
-    if (isNaN(d.getTime())) return value
-    // the same output as d.toLocaleDateString(), without a new formatter per call
-    dateFormat ??= new Intl.DateTimeFormat()
-    return dateFormat.format(d)
-  } catch {
-    return value
-  }
-}
-
-/**
- * Formats an ISO datetime string using the browser's locale date-time formatting.
- *
- * Returns the original string unchanged if parsing fails.
- *
- * @param value - An ISO 8601 datetime string (e.g., `"2024-06-15T14:30:00Z"`).
- * @returns A locale-formatted datetime string (e.g., `"6/15/2024, 2:30:00 PM"`).
- */
-function formatDateTime(value: string): string {
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return value
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const hours = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12
-  zoneFormat ??= new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
-  const zone = zoneFormat.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? ''
-  // Material's "yyyy-MM-dd hh:mm:ss AM TZ", in the browser's time zone
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(hours)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'} ${zone}`.trim()
 }
