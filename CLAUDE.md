@@ -8,7 +8,7 @@ QQQ is a metadata-driven, low-code application framework. The admin UI renders e
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router) with React 19
+- **Framework:** Next.js 16 (App Router) with React 19
 - **Language:** TypeScript 5.x (`strict: true` — no `any` in component props)
 - **Styling:** Tailwind CSS 4.x with CSS custom properties for QQQ theme tokens
 - **Components:** shadcn/ui (Radix primitives + Tailwind)
