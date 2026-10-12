@@ -114,14 +114,27 @@ export function useQuickSearch({ open, term, setTerm: setTermProp, navTargets, s
   const options = useMemo(() => flattenOptions(groups), [groups])
   const hasTerm = term.trim().length > 0
 
-  // keep the active option while it is listed and the user chose it; else the first (with a term)
+  // a new term discards a choice made for the previous one (runs before the effect below)
+  const previousTermRef = useRef(term)
+  useEffect(() => {
+    if (previousTermRef.current === term) return
+    previousTermRef.current = term
+    userMovedRef.current = false
+  }, [term])
+
+  // keep the active option while it is listed and the user chose it; else the first (with a
+  // term). While the records belong to the previous term, preselect only a current entry
+  // (a page or "search everything"), so Enter never opens a stale record.
+  const stale = recordSearch.isStale
   useEffect(() => {
     setActiveIdState((current) => {
       if (current && userMovedRef.current && options.some((option) => option.id === current)) return current
       userMovedRef.current = false
-      return hasTerm && options.length > 0 ? options[0].id : null
+      if (!hasTerm) return null
+      const first = stale ? options.find((option) => option.kind !== 'record' && option.kind !== 'more') : options[0]
+      return first?.id ?? null
     })
-  }, [options, hasTerm])
+  }, [options, hasTerm, stale])
 
   const setTerm = useCallback((next: string) => {
     userMovedRef.current = false

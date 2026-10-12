@@ -139,10 +139,10 @@ export function GlobalSearch({ navTargets, searchTables = NO_SEARCH_TABLES, clas
       setIsOpen(true)
       return
     }
-    if (controllerRef.current) {
+    if (controllerRef.current && isOpen) {
       controllerRef.current.onInputKeyDown(event)
     } else if (event.key === 'Enter' && term.trim()) {
-      // the panel is still loading: Enter searches everything
+      // the panel is closed or still loading: Enter searches everything (never a hidden option)
       event.preventDefault()
       setTerm('')
       handleNavigate(searchPagePath({ q: term }))

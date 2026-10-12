@@ -165,6 +165,20 @@ describe('SearchPage', () => {
     expect(getRecentSearches()).toEqual(['bolt'])
   })
 
+  it('keeps text typed after a debounced URL update when that update arrives late', async () => {
+    searchRecordsMock.mockResolvedValue({ results: [] })
+    const user = userEvent.setup()
+    const { rerender } = renderPage('q=')
+    const input = await screen.findByRole('searchbox', { name: 'Search pages and records' })
+    await user.type(input, 'acme')
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/app/search?q=acme', { scroll: false }))
+    await user.type(input, ' co')
+    // the router now delivers the earlier update
+    urlState.params = new URLSearchParams('q=acme')
+    rerender(<QueryClientProvider client={new QueryClient()}><SearchPage /></QueryClientProvider>)
+    expect(input).toHaveValue('acme co')
+  })
+
   it('names the failure class, keeps page matches and retries', async () => {
     searchRecordsMock.mockRejectedValueOnce(new AxiosError('timeout of 30000ms exceeded', 'ECONNABORTED'))
     const user = userEvent.setup()

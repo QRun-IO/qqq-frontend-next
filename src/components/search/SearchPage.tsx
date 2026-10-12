@@ -30,7 +30,7 @@
 
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -145,8 +145,18 @@ export function SearchPage() {
     setRecentSearches(getRecentSearches())
   }, [])
 
-  // URL → input (back/forward, links)
-  useEffect(() => setInputValue(q), [q])
+  // URL → input (back/forward, links), but not the echo of our own debounced update: the
+  // user may have typed more since it was sent
+  const pushedQRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (pushedQRef.current !== null && q.trim() === pushedQRef.current) return
+    pushedQRef.current = null
+    setInputValue(q)
+  }, [q])
+
+  // the latest URL state, for a debounced update that fires after a filter or sort change
+  const latestRef = useRef({ state, filterTables })
+  latestRef.current = { state, filterTables }
 
   /**
    * Replaces the URL state (merging with the current state).
@@ -161,7 +171,9 @@ export function SearchPage() {
   useEffect(() => {
     if (inputValue.trim() === term) return
     const timer = setTimeout(() => {
-      router.replace(searchPagePath({ ...state, tables: filterTables, q: inputValue }), { scroll: false })
+      const latest = latestRef.current
+      pushedQRef.current = inputValue.trim()
+      router.replace(searchPagePath({ ...latest.state, tables: latest.filterTables, q: inputValue }), { scroll: false })
     }, URL_DEBOUNCE_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only typing schedules a URL update

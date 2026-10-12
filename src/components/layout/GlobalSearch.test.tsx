@@ -216,6 +216,26 @@ describe('GlobalSearch', () => {
     expect(input()).toHaveValue('')
   })
 
+  it('after Escape closes the dropdown, Enter searches everything instead of opening a hidden option', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'pet')
+    await screen.findByRole('listbox')
+    await user.keyboard('{Escape}{Enter}')
+    expect(pushMock).toHaveBeenCalledWith('/app/search?q=pet')
+  })
+
+  it('typing a new term drops a selection made by pointer for the previous one', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'pe')
+    await screen.findByRole('listbox')
+    fireEvent.mouseMove(option(/Search everything/))
+    expect(selected()).toHaveTextContent('Search everything')
+    await user.type(input(), 't')
+    expect(selected()).toHaveTextContent('Pet')
+  })
+
   it('never calls the backend without searchable tables (no record search capability)', async () => {
     const user = userEvent.setup()
     renderSearch()
@@ -263,6 +283,21 @@ describe('GlobalSearch', () => {
       await user.keyboard('{Enter}')
       expect(pushMock).toHaveBeenCalledWith('/app/person/7')
       expect(getRecentSearches()).toEqual(['zed zulu'])
+    })
+
+    it('never preselects a record left over from the previous term while the new search runs', async () => {
+      searchRecordsMock.mockImplementation(async (term: string) => (term === 'acme'
+        ? { results: [{ tableName: 'person', recordId: '1', recordLabel: 'Acme Buyer' }] }
+        : new Promise(() => undefined)))
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'acme')
+      await findOption(/Acme Buyer/)
+      await user.clear(recordInput())
+      await user.type(recordInput(), 'zeta')
+      await user.keyboard('{Enter}')
+      expect(pushMock).toHaveBeenCalledWith('/app/search?q=zeta')
+      expect(pushMock).not.toHaveBeenCalledWith('/app/person/1')
     })
 
     it('does not search a one-character term, and drops recent records that were found', async () => {
