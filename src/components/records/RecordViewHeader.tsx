@@ -135,6 +135,8 @@ interface RecordViewHeaderProps {
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
   /** Reloads the record and its children (after a child is created from a link). */
   onRecordChanged?: () => void
+  /** Shows the card/list view-mode toggle (default true; screens without sections hide it). */
+  showViewModeToggle?: boolean
 }
 
 /**
@@ -166,6 +168,7 @@ export function RecordViewHeader({
   auditSource = null,
   widgetMetaDataMap,
   onRecordChanged,
+  showViewModeToggle = true,
 }: RecordViewHeaderProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -365,7 +368,7 @@ export function RecordViewHeader({
       </div>
       <div className="flex w-full flex-wrap items-center gap-2 md:w-auto" data-qqq-id="record-view-controls">
         {/* View mode toggle */}
-        <div
+        {showViewModeToggle && <div
           className="flex rounded-lg border border-border bg-muted/50 p-0.5"
           role="radiogroup"
           aria-label="View mode"
@@ -399,7 +402,7 @@ export function RecordViewHeader({
           >
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
-        </div>
+        </div>}
 
         {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
         <GotoRecordButton
