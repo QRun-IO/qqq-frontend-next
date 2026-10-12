@@ -16,10 +16,9 @@
 
 /**
  * @file RecordPreview — a search result's record without leaving the results: its key
- * fields (the table's first-tier sections, as on the record view) as text, Yes/No and links,
- * the fields that matched the search, and quick actions (open, open in a new tab, copy link,
- * edit when permitted). Loaded on demand by the search page. File thumbnails and chips are
- * left to the record view: their modules measured +9.3 KB total JS here.
+ * fields (the table's first-tier sections, as on the record view) with file thumbnails and
+ * chips, the fields that matched the search, and quick actions (open, open in a new tab, copy
+ * link, edit when permitted). Loaded on demand by the search page.
  */
 
 'use client'
@@ -35,11 +34,15 @@ import type { RecordSearchResult } from '@/lib/api/record-search'
 import { getRecord } from '@/lib/api/tables'
 import { loadTableMetaData } from '@/lib/api/metadata'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
-import { findAdornment } from '@/lib/utils/adornment-utils'
+import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
+import { filePreview } from '@/lib/utils/file-preview'
 import { isEmail, isHttpUrl } from '@/lib/utils/string-utils'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { recordSearchResultPath } from '@/lib/utils/record-search'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
+import { DateTimeText } from '@/components/ui/DateTimeText'
+import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { HighlightedText } from './HighlightedText'
 
 /** Most fields shown in a preview. */
@@ -81,9 +84,9 @@ function previewable(field: QFieldMetaData): boolean {
 const LINK_CLASS = 'text-primary hover:text-primary/80 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center'
 
 /**
- * A field's value at a glance: Yes/No, email and web links, else the display value (which
- * QQQ formats for dates, possible values and files). Lighter than the record view's
- * FieldValue (no widgets), so the preview loads quickly.
+ * A field's value at a glance: file thumbnails, chips, Yes/No, dates, email and web links,
+ * else the display value. Lighter than the record view's FieldValue (no widgets), so the
+ * preview loads quickly.
  *
  * @param props - Component properties.
  * @param props.field - The field.
@@ -97,11 +100,25 @@ function PreviewValue({ field, record, table }: { field: QFieldMetaData; record:
   const value = displayValue ?? rawValue
   const dataQqqId = `search-preview-value-${field.name}`
 
+  const file = filePreview(field, record, storedRecordVariantJson(table))
+  if (file) return <FileThumbnail field={field} record={record} item={file} size={96} showName dataQqqId={dataQqqId} />
   if (value === null || value === undefined || value === '') return <span className="text-muted-foreground" data-qqq-id={dataQqqId}>—</span>
 
+  if (findAdornment(field, 'CHIP')) {
+    const { color, icon } = chipStyle(field, rawValue)
+    return (
+      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color])} data-qqq-id={dataQqqId}>
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
+        {String(value)}
+      </span>
+    )
+  }
   if (field.type === 'BOOLEAN') {
     const yes = rawValue === true || rawValue === 'true' || rawValue === 1
     return <span data-qqq-id={dataQqqId}>{yes ? 'Yes' : 'No'}</span>
+  }
+  if (field.type === 'DATE' || field.type === 'DATE_TIME') {
+    return <DateTimeText type={field.type} value={rawValue} displayValue={displayValue} dataQqqId={dataQqqId} />
   }
   const text = String(value)
   if (field.type === 'STRING' && isHttpUrl(text)) {
