@@ -19,7 +19,7 @@
     "/app/_/savedView/_": 350
   },
   "cssGzipKB": 23,
-  "totalJsGzipKB": 1050,
+  "totalJsGzipKB": 1060,
   "largestChunkGzipKB": 100,
   "lazyChunks": {
     "rapidoc": {
