@@ -54,8 +54,9 @@ export interface QInstance {
    */
   environmentValues?: Record<string, string>
   /**
-   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen) and
-   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}).
+   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen),
+   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}) and `assistant`
+   * (present when qbit-assistant is installed; the UI then probes `/assistant/config`).
    */
   supplementalInstanceMetaData?: Record<string, unknown>
   /** Optional theme overrides for colors and display mode. */
