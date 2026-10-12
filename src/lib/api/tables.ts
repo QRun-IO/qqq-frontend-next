@@ -26,8 +26,6 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  RecordSearchResponseSchema,
-  RecordSearchResultSchema,
 } from './schemas'
 
 /**
@@ -381,75 +379,6 @@ export async function deleteRecord(
   if (parsed.success && parsed.data.errors?.length) throw new Error(parsed.data.errors.join('; '))
   if (!parsed.success || parsed.data.deletedRecordCount !== 1) throw new Error('Invalid delete response: record deletion was not confirmed')
   return { deletedCount: parsed.data.deletedRecordCount }
-}
-
-/**
- * One record matched by record search (`POST /search`).
- */
-export interface RecordSearchResult {
-  /** Backend-registered name of the table containing this record. */
-  tableName: string
-  /** User-facing label of the table. */
-  tableLabel?: string
-  /** Primary key of the matching record, serialised as a string. */
-  recordId: string
-  /** User-facing label of the matching record. */
-  recordLabel: string
-}
-
-/** Options for {@link searchRecords}. */
-export interface RecordSearchOptions {
-  /** Tables to search; when omitted the backend searches every searchable table the user may read. */
-  tableNames?: string[]
-  /** Maximum records per table (the backend caps it). */
-  limitPerTable?: number
-}
-
-/**
- * Record search across tables: `POST /search` (QQQ v1). Call it only when the
- * metadata advertises searchable tables (`searchFields`); a backend without the
- * capability has no such endpoint, so every error is re-thrown.
- *
- * The backend matches the term against each table's declared search fields,
- * searches only the tables the session may read, and applies record security locks.
- *
- * @param searchTerm - Free-text search term (the backend trims it).
- * @param options - Table scope and per-table limit.
- * A result without a record label (its label fields are empty) is labeled
- * "{table label} {record id}"; a result that cannot link to a record (no table
- * name or record id) is skipped with a console warning, so the other results
- * still show.
- *
- * @returns Matching records, grouped by table in backend order.
- * @throws When the request fails or the response is not a record search response.
- */
-export async function searchRecords(searchTerm: string, options: RecordSearchOptions = {}): Promise<RecordSearchResult[]> {
-  const result = await apiClient.post<unknown>('/search', {
-    searchTerm,
-    ...(options.tableNames ? { tableNames: options.tableNames } : {}),
-    ...(options.limitPerTable ? { limitPerTable: options.limitPerTable } : {}),
-  })
-  const parsed = RecordSearchResponseSchema.safeParse(result)
-  if (!parsed.success) throw new Error('Invalid record search response')
-
-  const results: RecordSearchResult[] = []
-  let skipped = 0
-  for (const entry of parsed.data.results) {
-    const item = RecordSearchResultSchema.safeParse(entry)
-    if (!item.success) {
-      skipped++
-      continue
-    }
-    const { tableName, tableLabel, recordId, recordLabel } = item.data
-    results.push({
-      tableName,
-      ...(tableLabel ? { tableLabel } : {}),
-      recordId,
-      recordLabel: recordLabel?.trim() ? recordLabel : `${tableLabel ?? tableName} ${recordId}`,
-    })
-  }
-  if (skipped > 0) console.warn(`Record search skipped ${skipped} malformed result(s) without a table name or record id.`)
-  return results
 }
 
 /**

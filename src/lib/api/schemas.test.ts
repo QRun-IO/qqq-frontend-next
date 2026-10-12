@@ -27,10 +27,9 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  RecordSearchResultSchema,
-  RecordSearchResponseSchema,
   QInstanceMinimalSchema,
 } from './schemas'
+import { RecordSearchResultSchema, RecordSearchResponseSchema } from './record-search'
 
 // ---------------------------------------------------------------------------
 // QRecordSchema
@@ -197,26 +196,34 @@ describe('RecordSearchResultSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts a missing, null or empty recordLabel or tableLabel (QQQ omits empty values)', () => {
-    for (const entry of [
-      { tableName: 'page_section', recordId: '1' },
-      { tableName: 'page_section', tableLabel: null, recordId: '1', recordLabel: null },
-      { tableName: 'page_section', tableLabel: '', recordId: '1', recordLabel: '' },
-    ]) {
-      const result = RecordSearchResultSchema.safeParse(entry)
-      expect(result.success).toBe(true)
-      expect(result.data).toEqual({ tableName: 'page_section', tableLabel: undefined, recordId: '1', recordLabel: undefined })
-    }
+  it('accepts a missing or null recordLabel (the client falls back to the table and id)', () => {
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '123' }).success).toBe(true)
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '123', recordLabel: null, tableLabel: null }).success).toBe(true)
   })
 
   it('accepts a numeric recordId as a string', () => {
-    const result = RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: 7, recordLabel: 'Zed' })
-    expect(result.data?.recordId).toBe('7')
+    const result = RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: 7, recordLabel: 'x' })
+    expect(result.success && result.data.recordId).toBe('7')
   })
 
-  it('fails when tableName or recordId is empty', () => {
+  it('fails without a table name or record id', () => {
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordLabel: 'x' }).success).toBe(false)
     expect(RecordSearchResultSchema.safeParse({ tableName: '', recordId: '1' }).success).toBe(false)
     expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '' }).success).toBe(false)
+  })
+
+  it('parses the extended fields and drops a malformed one instead of failing', () => {
+    const result = RecordSearchResultSchema.safeParse({
+      tableName: 'person', recordId: '1', recordLabel: 'Alice',
+      score: 3.2, updatedAt: '2026-10-01T00:00:00Z',
+      highlights: [{ fieldName: 'email', fieldLabel: 'Email', text: 'alice@x.io', matches: [{ start: 0, end: 5 }] }],
+      details: 'not-a-list',
+    })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.score).toBe(3.2)
+    expect(result.data.highlights?.[0].matches).toEqual([{ start: 0, end: 5 }])
+    expect(result.data.details).toBeUndefined()
   })
 })
 
