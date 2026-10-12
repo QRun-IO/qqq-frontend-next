@@ -25,7 +25,7 @@ The source of truth for the frontend shape is [`src/types/metadata.ts`](../../sr
 }
 ```
 
-`appTree` controls the sidebar; `apps[name].widgets` controls ordered dashboard widgets; `apps[name].sections` controls the app home cards. The server may omit denied objects or send disabled permission flags; the frontend also checks flags before requesting data. The server must still enforce authorization. A widget can also be placed in a table section through `QTableSection.widgetName`, or embedded in a process step of type `WIDGET`. `QInstance.redirects` can map old exact or wildcard Material paths to new targets. `supplementalInstanceMetaData.materialDashboardTheme` supplies the application theme, and `environmentValues` can configure analytics.
+`appTree` controls the sidebar; `apps[name].widgets` controls ordered dashboard widgets; `apps[name].sections` controls the app home cards. The server may omit denied objects or send disabled permission flags; the frontend also checks flags before requesting data. The server must still enforce authorization. A widget can also be placed in a table section through `QTableSection.widgetName`, or embedded in a process step of type `WIDGET`. `QInstance.redirects` can map old exact or wildcard Material paths to new targets. `QInstance.homeAppName` (QQQ [#1059](https://github.com/QRun-IO/qqq/issues/1059)) designates the app whose dashboard is the instance's home page; it is published only to users who may open that app. `supplementalInstanceMetaData.materialDashboardTheme` supplies the application theme, and `environmentValues` can configure analytics.
 
 ## 2. Install and run
 
@@ -77,7 +77,7 @@ Permissions apply to metadata and data: check table capabilities and the corresp
 |---|---|
 | `/` | Opens `/app`, or handles an Auth0 authorization callback. |
 | `/login`, `/callback`, `/token` | Sign-in and supported authorization callback routes. |
-| `/app` | Instance dashboard / app entry point. |
+| `/app` | Instance home page: the `homeAppName` app's dashboard when the instance designates one the user may open (client-side redirect to `/app/{homeAppName}`; the sidebar logo and breadcrumb Home crumb link there and the sidebar has no separate Dashboard entry), otherwise Next's overview. |
 | `/app/{appName}` | App home and its ordered widgets/sections. |
 | `/app/{tableName}` | Query or key lookup, according to table capability. |
 | `/app/{tableName}/create` | Create record. |

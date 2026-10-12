@@ -280,3 +280,60 @@ describe('useAppTreeRoutes', () => {
     expect(JSON.stringify(sidebarRoutes)).not.toContain('qryItem')
   })
 })
+
+describe('buildRouteMap home app', () => {
+  const tree: QAppTreeNode[] = [
+    { name: 'home', label: 'Home', type: 'APP', children: [] },
+    { name: 'cms', label: 'CMS', type: 'APP', children: [] },
+  ]
+
+  /**
+   * Metadata with the tree's apps, optionally designating a home app.
+   *
+   * @param homeAppName - The instance's home app.
+   * @returns The metadata.
+   */
+  function withHome(homeAppName?: string): QInstance {
+    const metaData = makeMetaData(tree)
+    metaData.apps = { home: { name: 'home', label: 'Home' }, cms: { name: 'cms', label: 'CMS' } } as unknown as QInstance['apps']
+    return homeAppName === undefined ? metaData : { ...metaData, homeAppName }
+  }
+
+  it('keeps the Dashboard overview as home when the instance designates no home app', () => {
+    const routes = buildRouteMap(withHome())
+    expect(routes.homePath).toBe('/app')
+    expect(routes.sidebarRoutes.map((route) => route.path)).toEqual(['/app', '/app/home', '/app/cms'])
+  })
+
+  it('makes the home app the home page and drops the separate Dashboard entry', () => {
+    const routes = buildRouteMap(withHome('home'))
+    expect(routes.homePath).toBe('/app/home')
+    expect(routes.sidebarRoutes.map((route) => route.path)).toEqual(['/app/home', '/app/cms'])
+  })
+
+  it('ignores a home app that is not among the apps the user may open', () => {
+    const routes = buildRouteMap(withHome('secret'))
+    expect(routes.homePath).toBe('/app')
+    expect(routes.sidebarRoutes[0].path).toBe('/app')
+    expect(buildRouteMap(undefined).homePath).toBe('/app')
+  })
+})
+
+describe('buildRouteMap single landing page', () => {
+  it('has no duplicate landing entry when homeAppName is set: the home app is the single top entry', () => {
+    // kof22 labels its home app "Dashboard", and the backend may order it after other apps
+    const metaData = makeMetaData([
+      { name: 'cms', label: 'CMS', type: 'APP', children: [] },
+      { name: 'home', label: 'Dashboard', type: 'APP', children: [] },
+    ])
+    metaData.apps = { home: { name: 'home', label: 'Dashboard' }, cms: { name: 'cms', label: 'CMS' } } as unknown as QInstance['apps']
+    const routes = buildRouteMap({ ...metaData, homeAppName: 'home' })
+    expect(routes.homePath).toBe('/app/home')
+    expect(routes.sidebarRoutes.map((route) => route.path)).toEqual(['/app/home', '/app/cms'])
+    expect(routes.sidebarRoutes.filter((route) => route.name === 'Dashboard')).toHaveLength(1)
+    expect(routes.sidebarRoutes.some((route) => route.key === 'dashboard' || route.path === '/app')).toBe(false)
+
+    // without homeAppName the built-in Dashboard overview entry stays first, as before
+    expect(buildRouteMap(metaData).sidebarRoutes.map((route) => route.path)).toEqual(['/app', '/app/cms', '/app/home'])
+  })
+})
