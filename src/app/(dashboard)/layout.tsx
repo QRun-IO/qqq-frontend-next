@@ -48,6 +48,9 @@ import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadc
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
+import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
+import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
+import { AssistantMount } from '@/components/assistant/AssistantMount'
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -97,6 +100,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     staleTime: 1000 * 60 * 30, // 30 minutes
     enabled: isAuthenticated,
   })
+
+  // QQQ Assistant (qbit-assistant): hidden and inert unless its /assistant/config probe enables it
+  const assistant = useAssistantController(metaData, isAuthenticated)
+  const { enabled: assistantEnabled, toggle: toggleAssistant } = assistant
 
   // Generate sidebar routes and path map from app tree
   const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, homePath } = useAppTreeRoutes(metaData)
@@ -180,6 +187,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
    * Global `keydown` handler that drives the application-level keyboard shortcuts.
    *
    * - Cmd+K / Ctrl+K — toggles the command palette.
+   * - Cmd+J / Ctrl+J — toggles the assistant panel (when available; works in text fields too).
    * - Escape — closes all overlays (command palette, search dialog, help dialog, mobile sidebar).
    * - `.` — opens the command palette (only when not in a text field).
    * - `/` — opens the search dialog (only when not in a text field).
@@ -191,6 +199,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
       setCommandOpen((prev) => !prev)
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'j' && assistantEnabled) {
+      e.preventDefault()
+      setCommandOpen(false)
+      toggleAssistant()
     }
     if (e.key === 'Escape') {
       setCommandOpen(false)
@@ -215,7 +228,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         setHelpOpen(true)
       }
     }
-  }, [isInputFocused])
+  }, [isInputFocused, assistantEnabled, toggleAssistant])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown)
@@ -255,6 +268,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <AssistantProvider value={assistant}>
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top-of-site banner spans the whole window, above the sidebar */}
       <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_SITE" className="border-x-0 border-t-0" />
@@ -294,8 +308,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           data-qqq-id="sidebar-mobile"
         />
 
-        {/* Main content area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Main content area (min-w-0: the docked assistant panel never pushes it wider than the window) */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Header — breadcrumbs + search in one row */}
           <Header
             appName={metaData?.branding?.appName}
@@ -311,6 +325,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             homePath={homePath}
             navTargets={navTargets}
             searchTables={searchTables}
+            assistantButton={<AssistantHeaderButton />}
           />
 
           {/* Page content */}
@@ -333,17 +348,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             )}
           </main>
         </div>
+
+        {/* Assistant panel: docked beside the page from 1024 px, a sheet below; lazily loaded */}
+        <AssistantMount />
       </div>
 
       {/* Command Palette */}
-      <CommandMenu open={commandOpen} onClose={() => setCommandOpen(false)} navTargets={navTargets} metaData={metaData} />
+      <CommandMenu
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        navTargets={navTargets}
+        metaData={metaData}
+        onAskAssistant={assistantEnabled ? (text) => assistant.openWith(text) : undefined}
+      />
 
       {/* Search Dialog */}
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} navTargets={navTargets} searchTables={searchTables} />
 
       {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} />
+      <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
     </div>
+    </AssistantProvider>
   )
 }
 

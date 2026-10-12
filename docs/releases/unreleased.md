@@ -2,6 +2,10 @@
 
 [RC13 preparation](1.0.0-RC.13.md) collects every change merged since [RC12](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12): the SQL Workbench, FILE_PREVIEW thumbnails and lightbox, responsive layouts with readable child lists and compact dates and the instance home app. RC12 is published and immutable. Changes merged after the RC13 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
+## Features
+
+- **QQQ Assistant panel (Phase 1: read-only questions and navigation).** When the `qbit-assistant` backend is installed and `GET /qqq/v1/assistant/config` enables it for the user, a header button (with unread badge), `Ctrl/⌘+J` and a command palette "Ask Assistant" item open a chat panel. It docks beside the page from 1024 px (resizable 360-640 px, its own scrolling message list) and is a full-height sheet below that. Replies stream over SSE with resume after a dropped connection and a Stop button; tool steps, record chips, records/record/count/history renders and chart widgets come from structured payloads, and markdown renders without raw HTML or images, with links only to same-origin `/app` paths. `?assistant=open&assistantPrompt=...` opens a new conversation with the prompt pre-filled. Without the backend nothing renders and the shortcut is inert. The panel code loads on first open (about 1.7 KB added to first load).
+
 ## Product fixes
 
 None yet.
