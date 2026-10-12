@@ -143,6 +143,13 @@ pnpm lint         # ESLint
 pnpm format       # Prettier
 ```
 
+## Branching and Releases
+
+Trunk-based: `main` is the only long-lived branch (no `develop`, `release/*` or `hotfix/*`).
+Branch from `main`, keep the branch current by merging `main` in (no rebase or force-push under
+review), sign every commit, and open the PR into `main`. Releases are signed `v*` tags on `main`.
+Required checks and the release flow are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Implementation Plans
 
 Full implementation plans are in `docs/implementation-plans/`. The project is built in 6 work packages:

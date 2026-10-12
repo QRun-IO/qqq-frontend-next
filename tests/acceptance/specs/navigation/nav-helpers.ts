@@ -115,3 +115,14 @@ export async function expectRecords(page: Page, tableLabel: string, values: stri
 export function recordItems(collection: Locator): Locator {
   return collection.locator('[data-qqq-id^="grid-row-"]').or(collection.getByRole('listitem'))
 }
+
+/**
+ * Waits until a table page lists its first records, before a spec replaces the document
+ * (reload, goto, goBack). The page sends its initial reads (query, count, saved views) together,
+ * so once records show none is still to be sent. WebKit reports a read the old document sends
+ * while the next one loads as a page error ("... due to access control checks"; QRun-IO/qqq#985),
+ * which Chromium and Firefox report as an ignorable abort. Reads already in flight are not reported.
+ */
+export async function expectRecordsLoaded(page: Page, tableLabel: string) {
+  await expect(recordItems(recordCollection(page, tableLabel)).first()).toBeVisible()
+}

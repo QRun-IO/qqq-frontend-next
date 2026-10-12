@@ -2,7 +2,7 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-**This checkout targets Next UI 1.0.0-RC.13**, with the SQL Workbench, FILE_PREVIEW thumbnails and lightbox, responsive layouts with readable child lists and compact dates and the instance home app. RC13 is published (Maven Central and GHCR); hashes and image digests are in the [RC13 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13). See the [RC13 notes](docs/releases/1.0.0-RC.13.md) for the preparation checkpoint and verification scope. [RC12](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
+**This checkout targets Next UI 1.0.0-RC.14**, an urgent fix release: record search no longer fails when one result has no label. RC14 is published (Maven Central and GHCR); hashes and image digests are in the [RC14 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14). See the [RC14 notes](docs/releases/1.0.0-RC.14.md) for the preparation checkpoint and verification scope. [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
 
 **Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
 
@@ -14,11 +14,11 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.13</version>
+    <version>1.0.0-RC.14</version>
 </dependency>
 ```
 
-The explicit version overrides an older BOM-managed frontend. RC13 requires a published QQQ 4.1 candidate: 4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images (QQQ #1009); and **4.1.0-RC.3 or later** for FILE_PREVIEW thumbnails (QQQ #1056) and the instance home app (QQQ #1059). The SQL Workbench needs the qbit-sql-workbench QBit (1.0.0-RC.1 or later); see the release notes for the verified backend. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
+The explicit version overrides an older BOM-managed frontend. RC14 requires a published QQQ 4.1 candidate: 4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images (QQQ #1009); and **4.1.0-RC.3 or later** for FILE_PREVIEW thumbnails (QQQ #1056) and the instance home app (QQQ #1059). The SQL Workbench needs the qbit-sql-workbench QBit (1.0.0-RC.1 or later); see the release notes for the verified backend. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
 
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 

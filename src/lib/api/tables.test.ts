@@ -286,7 +286,35 @@ describe('Tables API', () => {
       expect(apiClient.post).toHaveBeenCalledWith('/search', { searchTerm: 'x' })
     })
 
-    it.each([[[]], [{}], ['<html>Dashboard</html>'], [{ results: [{ tableName: 'person' }] }]])('rejects an invalid response: %j', async (response) => {
+    it('labels a result whose recordLabel was omitted (empty label fields) instead of failing the search', async () => {
+      // the prod admin.kof22.com response for "maes": QQQ left recordLabel out of results whose label was ""
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({ results: [
+        { tableName: 'author', tableLabel: 'Authors', recordId: '2', recordLabel: 'jm' },
+        { tableName: 'page_section', tableLabel: 'Page Sections', recordId: '1' },
+        { tableName: 'page_section', recordId: 11, recordLabel: null },
+      ] })
+
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('maes')).resolves.toEqual([
+        { tableName: 'author', tableLabel: 'Authors', recordId: '2', recordLabel: 'jm' },
+        { tableName: 'page_section', tableLabel: 'Page Sections', recordId: '1', recordLabel: 'Page Sections 1' },
+        { tableName: 'page_section', recordId: '11', recordLabel: 'page_section 11' },
+      ])
+    })
+
+    it('skips (and warns about) a result that cannot link to a record, keeping the others', async () => {
+      const { default: apiClient } = await import('./client')
+      vi.mocked(apiClient.post).mockResolvedValue({ results: [{ tableName: 'person' }, { tableName: 'person', recordId: '1', recordLabel: 'Alice' }] })
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const { searchRecords } = await import('./tables')
+      await expect(searchRecords('x')).resolves.toEqual([{ tableName: 'person', recordId: '1', recordLabel: 'Alice' }])
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('skipped 1 malformed result'))
+      warn.mockRestore()
+    })
+
+    it.each([[[]], [{}], ['<html>Dashboard</html>'], [{ results: 'nope' }]])('rejects an invalid response: %j', async (response) => {
       const { default: apiClient } = await import('./client')
       vi.mocked(apiClient.post).mockResolvedValue(response)
 

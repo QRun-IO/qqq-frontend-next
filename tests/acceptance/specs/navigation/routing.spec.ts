@@ -10,7 +10,7 @@ import { armGreetRouteResponses } from '../../support/greet-route-readiness'
 import { ACCEPTANCE_UI_URL } from '../../support/ports'
 import { expect, open, test, type Backend } from '../../support/fixtures'
 import { expectNoHorizontalScroll, expectTouchReady, expectTouchTargets } from '../../support/touch'
-import { allowQuickSight, appNavigation, expectBreadcrumbs, expectRecords, findNode, recordCollection, recordItems, v1MetaData, waitForShell } from './nav-helpers'
+import { allowQuickSight, appNavigation, expectBreadcrumbs, expectRecords, expectRecordsLoaded, findNode, recordCollection, recordItems, v1MetaData, waitForShell } from './nav-helpers'
 
 /** Record label the backend computes for a person, read through the API independently of the UI. */
 async function personLabel(backend: Backend, id: number): Promise<string> {
@@ -32,14 +32,23 @@ async function expectNotFound(page: Page, name: string) {
 test.describe('routing', () => {
   test('[NAV-014] breadcrumbs show the full app hierarchy and each crumb navigates @mobile', async ({ page, backend, diagnostics }) => {
     allowQuickSight(diagnostics)
+    // Each page completes its own reads before the next hard navigation replaces it (QRun-IO/qqq#985).
     await open(page, '/app/person')
     await expectBreadcrumbs(page, ['People App', 'Greetings App', 'Person'])
+    await expectRecordsLoaded(page, 'Person')
 
-    await open(page, '/app/greetInteractive')
-    await expectBreadcrumbs(page, ['People App', 'Greetings App', 'Greet Interactive'])
+    const processResponses = armGreetRouteResponses(page, new URL(ACCEPTANCE_UI_URL).origin)
+    try {
+      await open(page, '/app/greetInteractive')
+      await expectBreadcrumbs(page, ['People App', 'Greetings App', 'Greet Interactive'])
+      await processResponses.wait
+    } finally {
+      processResponses.dispose()
+    }
 
     await open(page, '/app/person/create')
     await expectBreadcrumbs(page, ['People App', 'Greetings App', 'Person', 'Create Person'])
+    await expect(page.getByRole('main').getByRole('textbox').first()).toBeVisible()
 
     await open(page, '/app/navDeepItem/2/edit')
     await expectBreadcrumbs(page, ['Nav Level One', 'Nav Level Two', 'Nav Level Three', 'Nav Deep Item', '2', 'Edit'])
@@ -95,7 +104,9 @@ test.describe('routing', () => {
   test('[NAV-016] the site root replaces itself with the dashboard @mobile', async ({ page, backend, diagnostics }) => {
     await open(page, '/app/person')
     await waitForShell(page)
-    // Let the initial document finish rendering its fonts before navigation tears it down (#951).
+    // Let the initial document finish its reads (QRun-IO/qqq#985) and render its fonts (#951)
+    // before navigation tears it down.
+    await expectRecordsLoaded(page, 'Person')
     await page.evaluate(() => document.fonts.ready.then(() => undefined))
     await open(page, '/')
     await expect(page).toHaveURL(/\/app\/?$/)
