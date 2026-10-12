@@ -24,7 +24,23 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Copy,
+  Eye,
+  History,
+  Loader2,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  Share2,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import type {
@@ -48,6 +64,17 @@ import {
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { coerceParameterValue, extractSqlParameters, newCellKey } from '@/lib/utils/sql-workbench'
+import { cn } from '@/lib/utils/cn'
+import {
+  ALERT_CLASS,
+  BADGE_CLASS,
+  buttonClass,
+  CARD_CLASS,
+  iconButtonClass,
+  INPUT_CLASS,
+  SELECT_CLASS,
+} from '@/components/ui/controls'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 import { MarkdownView } from './MarkdownView'
 import { SqlCell } from './SqlCell'
 
@@ -77,6 +104,16 @@ const PARAMETER_TYPES: NonNullable<SqlNotebookParameter['type']>[] = [
   'DATE_TIME',
 ]
 
+/** Plain labels of the parameter types. */
+const PARAMETER_TYPE_LABELS: Record<NonNullable<SqlNotebookParameter['type']>, string> = {
+  STRING: 'Text',
+  INTEGER: 'Whole number',
+  DECIMAL: 'Decimal',
+  BOOLEAN: 'Yes / no',
+  DATE: 'Date',
+  DATE_TIME: 'Date and time',
+}
+
 /**
  * Loads the notebook (when saved) and renders its editor.
  *
@@ -94,14 +131,15 @@ export function NotebookEditor(props: NotebookEditorProps) {
 
   if (notebookId !== null && isLoading) {
     return (
-      <p className="text-sm text-muted-foreground" role="status">
+      <p className="inline-flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Loading notebook…
       </p>
     )
   }
   if (notebookId !== null && (error || !data)) {
     return (
-      <p className="text-sm text-destructive" role="alert">
+      <p className={ALERT_CLASS} role="alert">
         Could not open the notebook: {getErrorMessage(error, 'not found')}
       </p>
     )
@@ -158,6 +196,7 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
   const [saving, setSaving] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [previewing, setPreviewing] = useState<Record<string, boolean>>({})
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const canEdit = notebook.canEdit
 
   // The request is parent state that outlives this draft (it remounts on save, restore,
@@ -284,13 +323,61 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
     updateCells(next)
   }
 
-  const button = 'rounded border px-2 py-1 text-xs disabled:opacity-50'
+  const addCell = (cellType: SqlNotebookCell['cellType']) => {
+    const cellKey = newCellKey()
+    if (cellType === 'MARKDOWN') setPreviewing({ ...previewing, [cellKey]: false })
+    updateCells([...cells, { cellKey, cellType, content: '', title: null, backendName: null }])
+  }
+
+  /**
+   * The move and delete buttons of a cell, shown in its header.
+   *
+   * @param index - The cell's position.
+   * @returns The buttons, or nothing for a read-only notebook.
+   */
+  const cellActions = (index: number) =>
+    canEdit ? (
+      <span className="inline-flex items-center">
+        <button
+          type="button"
+          className={iconButtonClass()}
+          onClick={() => move(index, -1)}
+          disabled={index === 0}
+          aria-label={`Move cell ${index + 1} up`}
+          title="Move up"
+          data-qqq-id={`button-sql-cell-up-${index}`}
+        >
+          <ArrowUp className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={iconButtonClass()}
+          onClick={() => move(index, 1)}
+          disabled={index === cells.length - 1}
+          aria-label={`Move cell ${index + 1} down`}
+          title="Move down"
+          data-qqq-id={`button-sql-cell-down-${index}`}
+        >
+          <ArrowDown className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={iconButtonClass('destructive')}
+          onClick={() => updateCells(cells.filter((_, i) => i !== index))}
+          aria-label={`Delete cell ${index + 1}`}
+          title="Delete cell"
+          data-qqq-id={`button-sql-cell-delete-${index}`}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </span>
+    ) : null
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="@container space-y-4">
+      <div className="space-y-3">
         <input
-          className="min-w-0 flex-1 rounded border px-2 py-1 text-base font-semibold"
+          className={cn(INPUT_CLASS, 'h-10 text-base font-semibold')}
           value={title}
           aria-label="Notebook title"
           onChange={(e) => {
@@ -300,299 +387,382 @@ function NotebookDraft(props: NotebookEditorProps & { notebook: SqlNotebook; sav
           readOnly={!canEdit}
           data-qqq-id="input-sql-notebook-title"
         />
-        <label className="inline-flex items-center gap-1 text-xs">
-          Default backend
-          <select
-            className="rounded border px-1 py-0.5"
-            value={defaultBackendName}
-            disabled={!canEdit}
-            onChange={(e) => {
-              setDefaultBackendName(e.target.value)
-              setDirty(true)
-            }}
-            data-qqq-id="select-sql-notebook-backend"
-          >
-            {capabilities.backends.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {canEdit && (
-          <button
-            type="button"
-            className={`${button} bg-primary text-primary-foreground`}
-            onClick={save}
-            disabled={saving || !dirty}
-            data-qqq-id="button-sql-notebook-save"
-          >
-            {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
-          </button>
-        )}
-        {saved && canEdit && capabilities.canShare && (
-          <button
-            type="button"
-            className={button}
-            onClick={() =>
-              act(
-                () => publishSqlNotebook(notebook.id, notebook.visibility !== 'SHARED'),
-                notebook.visibility === 'SHARED'
-                  ? 'Removed from the library'
-                  : 'Published to the library'
-              )
-            }
-            data-qqq-id="button-sql-notebook-publish"
-          >
-            {notebook.visibility === 'SHARED' ? 'Unpublish' : 'Publish'}
-          </button>
-        )}
-        {saved && (
-          <button
-            type="button"
-            className={button}
-            onClick={() =>
-              act(
-                () => duplicateSqlNotebook(notebook.id),
-                'Copied to your notebooks',
-                (n) => (n ? n.id : null)
-              )
-            }
-            data-qqq-id="button-sql-notebook-duplicate"
-          >
-            Duplicate
-          </button>
-        )}
-        {saved && (
-          <button
-            type="button"
-            className={button}
-            onClick={() => setShowVersions(!showVersions)}
-            aria-expanded={showVersions}
-            data-qqq-id="button-sql-notebook-versions"
-          >
-            Versions
-          </button>
-        )}
-        {saved && canEdit && (
-          <button
-            type="button"
-            className={`${button} text-destructive`}
-            onClick={() => {
-              if (window.confirm(`Delete “${notebook.title}” and its versions?`))
-                void act(
-                  () => deleteSqlNotebook(notebook.id),
-                  'Notebook deleted',
-                  () => null
-                )
-            }}
-            data-qqq-id="button-sql-notebook-delete"
-          >
-            Delete
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <label className="inline-flex min-w-0 items-center gap-2 text-sm text-foreground">
+            <span className="whitespace-nowrap">Default backend</span>
+            <select
+              className={SELECT_CLASS}
+              value={defaultBackendName}
+              disabled={!canEdit}
+              onChange={(e) => {
+                setDefaultBackendName(e.target.value)
+                setDirty(true)
+              }}
+              data-qqq-id="select-sql-notebook-backend"
+            >
+              {capabilities.backends.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex flex-wrap items-center gap-2 @2xl:ml-auto">
+            {canEdit && (
+              <button
+                type="button"
+                className={buttonClass('primary', 'sm')}
+                onClick={save}
+                disabled={saving || !dirty}
+                data-qqq-id="button-sql-notebook-save"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : dirty ? (
+                  <Save className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                )}
+                {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
+              </button>
+            )}
+            {saved && canEdit && capabilities.canShare && (
+              <button
+                type="button"
+                className={buttonClass('secondary', 'sm')}
+                onClick={() =>
+                  act(
+                    () => publishSqlNotebook(notebook.id, notebook.visibility !== 'SHARED'),
+                    notebook.visibility === 'SHARED'
+                      ? 'Removed from the library'
+                      : 'Published to the library'
+                  )
+                }
+                data-qqq-id="button-sql-notebook-publish"
+              >
+                <Share2 className="h-4 w-4" aria-hidden="true" />
+                {notebook.visibility === 'SHARED' ? 'Unpublish' : 'Publish'}
+              </button>
+            )}
+            {saved && (
+              <button
+                type="button"
+                className={buttonClass('secondary', 'sm')}
+                onClick={() =>
+                  act(
+                    () => duplicateSqlNotebook(notebook.id),
+                    'Copied to your notebooks',
+                    (n) => (n ? n.id : null)
+                  )
+                }
+                data-qqq-id="button-sql-notebook-duplicate"
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+                Duplicate
+              </button>
+            )}
+            {saved && (
+              <button
+                type="button"
+                className={buttonClass('secondary', 'sm')}
+                onClick={() => setShowVersions(!showVersions)}
+                aria-expanded={showVersions}
+                data-qqq-id="button-sql-notebook-versions"
+              >
+                <History className="h-4 w-4" aria-hidden="true" />
+                Versions
+              </button>
+            )}
+            {saved && canEdit && (
+              <button
+                type="button"
+                className={buttonClass('destructive', 'sm')}
+                onClick={() => setConfirmingDelete(true)}
+                data-qqq-id="button-sql-notebook-delete"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
       </div>
       {!canEdit && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Shared by {notebook.ownerName ?? notebook.ownerUserId}. You can run it; duplicate it to
           keep changes.
         </p>
       )}
 
+      {confirmingDelete && (
+        <ConfirmDeleteDialog
+          title={notebook.title}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            void act(
+              () => deleteSqlNotebook(notebook.id),
+              'Notebook deleted',
+              () => null
+            )
+          }}
+        />
+      )}
+
       {showVersions && (
-        <ul className="space-y-1 rounded-md border p-2 text-xs" aria-label="Versions">
-          {versions.map((v) => (
-            <li key={v.versionNumber} className="flex items-center gap-2">
-              <span className="font-mono">v{v.versionNumber}</span>
-              <span>{v.savedByName}</span>
-              <span className="text-muted-foreground">{v.createDate}</span>
-              {v.comment && <span className="truncate">{v.comment}</span>}
-              {canEdit && v.versionNumber !== notebook.currentVersion && (
-                <button
-                  type="button"
-                  className={`${button} ml-auto`}
-                  onClick={() =>
-                    act(
-                      () => restoreSqlNotebookVersion(notebook.id, v.versionNumber),
-                      `Restored version ${v.versionNumber}`
-                    )
-                  }
-                  data-qqq-id={`button-sql-restore-${v.versionNumber}`}
-                >
-                  Restore
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+        <section className={cn(CARD_CLASS, 'p-3')} aria-labelledby="sql-versions-heading">
+          <h3 id="sql-versions-heading" className="mb-2 text-sm font-semibold">
+            Versions
+          </h3>
+          <ul className="divide-y divide-border" aria-label="Versions">
+            {versions.map((v) => (
+              <li
+                key={v.versionNumber}
+                className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2 text-sm"
+              >
+                <span className={BADGE_CLASS}>Version {v.versionNumber}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-foreground">
+                    {v.comment ?? (v.versionNumber === notebook.currentVersion ? 'Current' : '')}
+                  </span>
+                  <span className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                    {v.savedByName && <span>{v.savedByName}</span>}
+                    <DateTimeText
+                      value={v.createDate}
+                      type="DATE_TIME"
+                      className="text-xs text-muted-foreground"
+                    />
+                  </span>
+                </span>
+                {canEdit && v.versionNumber !== notebook.currentVersion && (
+                  <button
+                    type="button"
+                    className={buttonClass('secondary', 'sm')}
+                    onClick={() =>
+                      act(
+                        () => restoreSqlNotebookVersion(notebook.id, v.versionNumber),
+                        `Restored version ${v.versionNumber}`
+                      )
+                    }
+                    data-qqq-id={`button-sql-restore-${v.versionNumber}`}
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Restore
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {parameterNames.length > 0 && (
-        <fieldset className="flex flex-wrap gap-3 rounded-md border p-2 text-xs">
-          <legend className="px-1 font-medium">Parameters</legend>
-          {parameterNames.map((name) => {
-            const type = parameters.find((p) => p.name === name)?.type ?? 'STRING'
-            return (
-              <span key={name} className="inline-flex items-center gap-1">
-                <label className="inline-flex items-center gap-1">
-                  <span className="font-mono">:{name}</span>
-                  <input
-                    className="w-36 rounded border px-1 py-0.5"
-                    type={
-                      type === 'DATE'
-                        ? 'date'
-                        : type === 'DATE_TIME'
-                          ? 'datetime-local'
-                          : type === 'INTEGER' || type === 'DECIMAL'
-                            ? 'number'
-                            : 'text'
-                    }
-                    value={values[name] ?? ''}
-                    onChange={(e) => setValues({ ...values, [name]: e.target.value })}
-                    data-qqq-id={`input-sql-param-${name}`}
-                  />
-                </label>
-                <select
-                  className="rounded border px-1 py-0.5"
-                  value={type}
-                  aria-label={`Type of :${name}`}
-                  onChange={(e) =>
-                    setParameterType(name, e.target.value as SqlNotebookParameter['type'])
-                  }
-                  data-qqq-id={`select-sql-param-type-${name}`}
-                >
-                  {PARAMETER_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            )
-          })}
+        <fieldset className={cn(CARD_CLASS, 'p-3')}>
+          <legend className="px-1 text-sm font-semibold">Parameters</legend>
+          <div className="grid gap-3 @lg:grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]">
+            {parameterNames.map((name) => {
+              const type = parameters.find((p) => p.name === name)?.type ?? 'STRING'
+              return (
+                <div key={name} className="space-y-1">
+                  <label
+                    htmlFor={`sql-param-${name}`}
+                    className="block font-mono text-sm text-foreground"
+                  >
+                    :{name}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id={`sql-param-${name}`}
+                      className={cn(INPUT_CLASS, 'h-8 min-w-0 flex-1 py-1')}
+                      type={
+                        type === 'DATE'
+                          ? 'date'
+                          : type === 'DATE_TIME'
+                            ? 'datetime-local'
+                            : type === 'INTEGER' || type === 'DECIMAL'
+                              ? 'number'
+                              : 'text'
+                      }
+                      value={values[name] ?? ''}
+                      onChange={(e) => setValues({ ...values, [name]: e.target.value })}
+                      data-qqq-id={`input-sql-param-${name}`}
+                    />
+                    <select
+                      className={cn(SELECT_CLASS, 'w-32')}
+                      value={type}
+                      aria-label={`Type of :${name}`}
+                      onChange={(e) =>
+                        setParameterType(name, e.target.value as SqlNotebookParameter['type'])
+                      }
+                      data-qqq-id={`select-sql-param-type-${name}`}
+                    >
+                      {PARAMETER_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {PARAMETER_TYPE_LABELS[t]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </fieldset>
       )}
 
-      {cells.map((cell, index) => (
-        <div key={cell.cellKey} className="group relative">
-          {canEdit && (
-            <div className="absolute -right-1 -top-2 z-10 hidden gap-1 group-focus-within:flex group-hover:flex">
-              <button
-                type="button"
-                className="rounded border bg-background p-0.5"
-                onClick={() => move(index, -1)}
-                disabled={index === 0}
-                aria-label={`Move cell ${index + 1} up`}
-                data-qqq-id={`button-sql-cell-up-${index}`}
-              >
-                <span aria-hidden>▲</span>
-              </button>
-              <button
-                type="button"
-                className="rounded border bg-background p-0.5"
-                onClick={() => move(index, 1)}
-                disabled={index === cells.length - 1}
-                aria-label={`Move cell ${index + 1} down`}
-                data-qqq-id={`button-sql-cell-down-${index}`}
-              >
-                <span aria-hidden>▼</span>
-              </button>
-              <button
-                type="button"
-                className="rounded border bg-background p-0.5 text-destructive"
-                onClick={() => updateCells(cells.filter((_, i) => i !== index))}
-                aria-label={`Delete cell ${index + 1}`}
-                data-qqq-id={`button-sql-cell-delete-${index}`}
-              >
-                <span aria-hidden>✕</span>
-              </button>
+      {cells.map((cell, index) =>
+        cell.cellType === 'MARKDOWN' ? (
+          <section
+            key={cell.cellKey}
+            className={cn(CARD_CLASS, 'space-y-2 p-3')}
+            aria-label={`Markdown cell ${index + 1}`}
+            data-qqq-id={`section-sql-markdown-${index}`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Notes</span>
+              <span className="ml-auto inline-flex items-center gap-1">
+                {canEdit && (
+                  <button
+                    type="button"
+                    className={buttonClass('ghost', 'sm')}
+                    onClick={() =>
+                      setPreviewing({ ...previewing, [cell.cellKey]: !previewing[cell.cellKey] })
+                    }
+                    data-qqq-id={`button-sql-markdown-toggle-${index}`}
+                  >
+                    {previewing[cell.cellKey] === false ? (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    {previewing[cell.cellKey] === false ? 'Preview' : 'Edit'}
+                  </button>
+                )}
+                {cellActions(index)}
+              </span>
             </div>
+            {previewing[cell.cellKey] === false ? (
+              <textarea
+                className={cn(INPUT_CLASS, 'block min-h-28 resize-y font-mono')}
+                value={cell.content}
+                aria-label={`Markdown for cell ${index + 1}`}
+                onChange={(e) =>
+                  updateCells(
+                    cells.map((c, i) => (i === index ? { ...c, content: e.target.value } : c))
+                  )
+                }
+                data-qqq-id={`textarea-sql-markdown-${index}`}
+              />
+            ) : (
+              <MarkdownView source={cell.content || '*Empty notes*'} />
+            )}
+          </section>
+        ) : (
+          <SqlCell
+            key={cell.cellKey}
+            cell={cell}
+            index={index}
+            capabilities={capabilities}
+            defaultBackendName={defaultBackendName}
+            paramsFor={paramsFor}
+            notebookId={saved ? notebook.id : null}
+            canEdit={canEdit}
+            actions={cellActions(index)}
+            snapshots={snapshots.filter((s) => s.cellKey === cell.cellKey)}
+            onChange={(next) => updateCells(cells.map((c, i) => (i === index ? next : c)))}
+            onSnapshotsChanged={() =>
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.sqlNotebookSnapshots(notebook.id),
+              })
+            }
+          />
+        )
+      )}
+
+      {canEdit && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={buttonClass('secondary', 'sm')}
+            onClick={() => addCell('SQL')}
+            data-qqq-id="button-sql-add-sql-cell"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add SQL cell
+          </button>
+          <button
+            type="button"
+            className={buttonClass('secondary', 'sm')}
+            onClick={() => addCell('MARKDOWN')}
+            data-qqq-id="button-sql-add-markdown-cell"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add notes cell
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Asks before a notebook and its versions are deleted (the app's standard alert dialog).
+ *
+ * @param props - Component props.
+ * @param props.title - The notebook's title.
+ * @param props.onConfirm - Deletes it.
+ * @param props.onCancel - Closes the dialog.
+ * @returns The dialog (open while mounted).
+ */
+function ConfirmDeleteDialog({
+  title,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <AlertDialog.Root open onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+        <AlertDialog.Content
+          className={cn(
+            'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto',
+            'rounded-xl border border-border bg-background text-foreground shadow-lg focus:outline-none'
           )}
-          {cell.cellType === 'MARKDOWN' ? (
-            <section className="rounded-md border p-3" aria-label={`Markdown cell ${index + 1}`}>
+          data-qqq-id="dialog-sql-notebook-delete"
+        >
+          <div className="space-y-2 p-6">
+            <AlertDialog.Title className="text-lg font-semibold">
+              Delete notebook?
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-sm text-muted-foreground">
+              “{title}” and all of its versions will be deleted. This cannot be undone.
+            </AlertDialog.Description>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 rounded-b-xl bg-muted px-6 py-4">
+            <AlertDialog.Cancel asChild>
               <button
                 type="button"
-                className="mb-1 text-xs text-muted-foreground underline"
-                onClick={() =>
-                  setPreviewing({ ...previewing, [cell.cellKey]: !previewing[cell.cellKey] })
-                }
-                data-qqq-id={`button-sql-markdown-toggle-${index}`}
+                className={buttonClass('secondary')}
+                data-qqq-id="button-sql-notebook-delete-cancel"
               >
-                {previewing[cell.cellKey] === false ? 'Preview' : 'Edit'}
+                Cancel
               </button>
-              {previewing[cell.cellKey] === false ? (
-                <textarea
-                  className="block h-28 w-full rounded border p-2 font-mono text-sm"
-                  value={cell.content}
-                  aria-label={`Markdown for cell ${index + 1}`}
-                  onChange={(e) =>
-                    updateCells(
-                      cells.map((c, i) => (i === index ? { ...c, content: e.target.value } : c))
-                    )
-                  }
-                  data-qqq-id={`textarea-sql-markdown-${index}`}
-                />
-              ) : (
-                <MarkdownView source={cell.content || '*Empty markdown cell*'} />
-              )}
-            </section>
-          ) : (
-            <SqlCell
-              cell={cell}
-              index={index}
-              capabilities={capabilities}
-              defaultBackendName={defaultBackendName}
-              paramsFor={paramsFor}
-              notebookId={saved ? notebook.id : null}
-              canEdit={canEdit}
-              snapshots={snapshots.filter((s) => s.cellKey === cell.cellKey)}
-              onChange={(next) => updateCells(cells.map((c, i) => (i === index ? next : c)))}
-              onSnapshotsChanged={() =>
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.sqlNotebookSnapshots(notebook.id),
-                })
-              }
-            />
-          )}
-        </div>
-      ))}
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className={button}
-          onClick={() =>
-            updateCells([
-              ...cells,
-              {
-                cellKey: newCellKey(),
-                cellType: 'SQL',
-                content: '',
-                title: null,
-                backendName: null,
-              },
-            ])
-          }
-          data-qqq-id="button-sql-add-sql-cell"
-        >
-          + SQL cell
-        </button>
-        <button
-          type="button"
-          className={button}
-          onClick={() => {
-            const cellKey = newCellKey()
-            setPreviewing({ ...previewing, [cellKey]: false })
-            updateCells([
-              ...cells,
-              { cellKey, cellType: 'MARKDOWN', content: '', title: null, backendName: null },
-            ])
-          }}
-          data-qqq-id="button-sql-add-markdown-cell"
-        >
-          + Markdown cell
-        </button>
-      </div>
-    </div>
+            </AlertDialog.Cancel>
+            <button
+              type="button"
+              className={buttonClass('danger')}
+              onClick={onConfirm}
+              data-qqq-id="button-sql-notebook-delete-confirm"
+            >
+              Delete
+            </button>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   )
 }
