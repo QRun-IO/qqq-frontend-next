@@ -1,4 +1,4 @@
-// E2E: GlobalSearch (header "jump to" search) — local matches over pages and recent records, keyboard, Escape
+// E2E: GlobalSearch (header search) without record search — local matches over pages and recent records, keyboard, Escape
 
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from './api-mocks'
@@ -37,9 +37,10 @@ test.describe('GlobalSearch (header search)', () => {
 
   test('typing a label lists matching pages with their app', async ({ page }) => {
     await searchInput(page).fill('peo')
-    const pages = searchDropdown(page).getByRole('group', { name: 'Pages' })
-    await expect(pages.getByRole('option').first()).toContainText('People')
-    await expect(pages.getByRole('option').first()).toContainText('CRM')
+    // "People" starts with the term: it is the top hit
+    const top = searchDropdown(page).getByRole('group', { name: 'Top hits' })
+    await expect(top.getByRole('option').first()).toContainText('People')
+    await expect(top.getByRole('option').first()).toContainText('CRM')
   })
 
   test('clicking a page result navigates to it', async ({ page }) => {
@@ -68,12 +69,13 @@ test.describe('GlobalSearch (header search)', () => {
     await expect(page).toHaveURL(/\/app\/search\/?\?q=zzznoresults/, { timeout: 10000 })
   })
 
-  test('arrow keys move the selection and Enter opens it', async ({ page }) => {
+  test('the first result is selected while typing, arrow keys move it, and Enter opens it', async ({ page }) => {
     await searchInput(page).fill('crm')
-    const first = searchDropdown(page).getByRole('option').first()
-    await expect(first).toBeVisible({ timeout: 5000 })
+    const options = searchDropdown(page).getByRole('option')
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true', { timeout: 5000 })
     await searchInput(page).press('ArrowDown')
-    await expect(first).toHaveAttribute('aria-selected', 'true', { timeout: 3000 })
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 3000 })
+    await searchInput(page).press('ArrowUp')
     await searchInput(page).press('Enter')
     await expect(page).toHaveURL(/\/app\/crm\/?$/, { timeout: 10000 })
   })

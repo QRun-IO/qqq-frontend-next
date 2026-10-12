@@ -41,6 +41,26 @@
       "$comment": "The QQQ Assistant panel (qbit-assistant): chat UI, SSE streaming client, react-markdown + rehype-sanitize, loaded on first open through import() in AssistantMount; the shell keeps only the /assistant/config probe, header button and Ctrl/⌘+J (about 1.7 KB first load). Measured 50.8 KB gzip at introduction; budget about 8% above.",
       "marker": "assistant-composer-form",
       "gzipKB": 55
+    },
+    "searchPage": {
+      "$comment": "The search results page (/app/search: filters, sort, result cards, split preview pane, side sheet), loaded on demand: import() in app/search/page.tsx. Measured 13.4 KB gzip at introduction (QRun-IO/qqq-frontend-next#59); budget about 8% above.",
+      "marker": "search-result-card",
+      "gzipKB": 14.5
+    },
+    "quickSearchPanel": {
+      "$comment": "The quick search results panel of the header box and the '/' dialog (groups, highlights, completions, failure and fallback notices), loaded when the panel first opens: import() in GlobalSearch and SearchDialog. Measured 9.4 KB gzip at introduction (#59); budget about 8% above.",
+      "marker": "search-results-status",
+      "gzipKB": 10.2
+    },
+    "commandRecordResults": {
+      "$comment": "The command palette's record groups, loaded when the palette searches records: import() in CommandMenu. Measured 7.5 KB gzip at introduction (#59); budget about 8% above.",
+      "marker": "command-menu-searching",
+      "gzipKB": 8.1
+    },
+    "recordPreview": {
+      "$comment": "The search result record preview (first-tier fields as text, Yes/No and links; quick actions), loaded when a preview first shows: import() in SearchPage. Measured after merging main b32a29d: with FieldValue +17 KB, with the useRecord/useTableMetaData hooks +12.4 KB, with file thumbnails and chips +9.3 KB of total JS, because Turbopack re-bundles those shared modules into more screen chunks; so it runs its own queries (same query keys) and renders values itself. Measured 3.7 KB gzip; budget about 8% above.",
+      "marker": "search-record-preview",
+      "gzipKB": 4.0
     }
   }
 }
