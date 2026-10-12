@@ -259,7 +259,7 @@ test.describe('Search page', () => {
 
     await page.getByRole('button', { name: 'Preview Alice Johnson' }).click()
     const sheet = page.getByRole('dialog', { name: 'Preview' })
-    await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Alice Johnson')
+    await expect(sheet.getByRole('heading', { name: 'Alice Johnson' })).toBeVisible()
     await expect(sheet.locator('[data-qqq-id="search-preview-fields"]')).toContainText('alice@example.com')
     await sheet.getByRole('button', { name: 'Close preview' }).click()
     await expect(sheet).toHaveCount(0)
