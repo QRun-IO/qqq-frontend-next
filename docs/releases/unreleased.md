@@ -1,6 +1,6 @@
 # Next UI — unreleased
 
-[RC13 preparation](1.0.0-RC.13.md) collects every change merged since [RC12](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12): the SQL Workbench, FILE_PREVIEW thumbnails and lightbox, responsive layouts with readable child lists and compact dates and the instance home app. RC12 is published and immutable. Changes merged after the RC13 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC14 preparation](1.0.0-RC.14.md) collects every change merged since [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13): the record search fix and the Next.js security update. RC13 is published and immutable. Changes merged after the RC14 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Product fixes
 

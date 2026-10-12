@@ -1,6 +1,6 @@
 # Next UI agent guide
 
-> **This checkout targets RC13.** Confirm availability in the [RC13 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) before installing. [RC13 notes](../releases/1.0.0-RC.13.md) record the preparation checkpoint and verification scope; RC12 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
+> **This checkout targets RC14.** Confirm availability in the [RC14 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14) before installing. [RC14 notes](../releases/1.0.0-RC.14.md) record the preparation checkpoint and verification scope; RC13 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
 
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
