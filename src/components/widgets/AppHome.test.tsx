@@ -62,6 +62,16 @@ describe('AppHome', () => {
     server.use(http.post('*/table/carrier/count', () => HttpResponse.json({ count: 11 })))
   })
 
+  it('caps the page at supplementalAppMetaData.dashboardLayout.maxContentWidth, and is uncapped by default', () => {
+    const { container, unmount } = renderHome({ name: 'wide', label: 'Wide', supplementalAppMetaData: { dashboardLayout: { maxContentWidth: 160 } } })
+    const page = container.querySelector('[data-qqq-id="app-home-wide"]') as HTMLElement
+    expect(page.style.maxWidth).toBe('160rem')
+    expect(page.className).toContain('mx-auto')
+    unmount()
+    const plain = renderHome({ name: 'plain', label: 'Plain' })
+    expect((plain.container.querySelector('[data-qqq-id="app-home-plain"]') as HTMLElement).style.maxWidth).toBe('')
+  })
+
   it('renders an app with no widgets, sections or children (v1 omits empty arrays) as the empty state', () => {
     renderHome({ name: 'empty', label: 'Empty App' })
     expect(screen.getByRole('heading', { level: 1, name: 'Empty App' })).toBeInTheDocument()

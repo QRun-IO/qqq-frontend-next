@@ -86,6 +86,35 @@ export function minTableWidth(widths: Array<string | undefined>): string {
   return fixed.length === 0 ? `${flexible * 6}rem` : `calc(${[`${flexible * 6}rem`, ...fixed].join(' + ')})`
 }
 
+/** Below this width (rem) a table widget always shows its rows as stacked cards. */
+export const TABLE_CARD_BREAKPOINT_REM = 30
+
+/**
+ * The narrowest a table widget can show its rows as a table without scrolling sideways, in px:
+ * {@link minTableWidth} (6rem per flexible column plus the fixed widths) but never under
+ * {@link TABLE_CARD_BREAKPOINT_REM}. Narrower than this, the rows render as stacked cards.
+ * Fixed widths in `px`, `rem` or `em` count as declared; any other unit counts as 6rem.
+ *
+ * @param widths - Declared widths of the shown columns (and the expander), in order.
+ * @param remPx - Pixels per rem.
+ * @returns The width in px.
+ */
+export function tableCardBreakpointPx(widths: Array<string | undefined>, remPx = 16): number {
+  const total = widths.reduce((sum, width) => {
+    const match = /^(\d*\.?\d+)(px|rem|em)$/i.exec((width ?? '').trim())
+    if (!match) return sum + 6 * remPx
+    return sum + Number(match[1]) * (match[2].toLowerCase() === 'px' ? 1 : remPx)
+  }, 0)
+  return Math.max(TABLE_CARD_BREAKPOINT_REM * remPx, total)
+}
+
+/**
+ * How wide a table widget's content may grow (table, header, paging), so a full-width table on
+ * an ultra-wide screen keeps its columns close enough to read across: 96rem (1536px) unless the
+ * widget's `defaultValues.tableMaxWidth` says otherwise (rem, a CSS length, or `none`).
+ */
+export const DEFAULT_TABLE_MAX_WIDTH = '96rem'
+
 /**
  * The page-size choices to offer: the Material options plus the current size when it is not
  * one of them (a payload `rowsPerPage` of 7 stays selectable).
