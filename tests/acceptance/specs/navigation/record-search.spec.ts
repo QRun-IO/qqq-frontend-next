@@ -155,8 +155,8 @@ test.describe('record search results', () => {
       await expect(page.getByRole('region', { name: personLabel })).toBeVisible()
       await expect.poll(cardLabels).toEqual([...overviewPeople].sort())
     }
-    // "Show all" lists every match up to the per-table page size, by URL
-    await page.getByRole('region', { name: personLabel }).getByRole('link', { name: 'Show all' }).click()
+    // the table's filter lists every match up to the per-table page size, by URL
+    await page.getByRole('navigation', { name: 'Filter results' }).getByRole('link', { name: new RegExp(`^${personLabel}\\b`) }).click()
     await expect(page).toHaveURL(/\/app\/search\/?\?q=Sample&tables=person$/)
     await expect.poll(cardLabels).toEqual([...pagePeople].sort())
     await page.locator('[data-qqq-id="search-result-link"]').first().click()
