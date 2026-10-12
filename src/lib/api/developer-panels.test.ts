@@ -17,10 +17,10 @@
 // Tests for the developer panels API (parsing and the endpoint's absence on older backends)
 
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { server } from '@/mocks/node'
-import { getRecordDeveloperPanels, parseDeveloperPanels } from './developer-panels'
+import { getRecordDeveloperPanels, parseDeveloperPanels, resetDeveloperPanelsSupport } from './developer-panels'
 
 describe('parseDeveloperPanels', () => {
   it('keeps valid panels and blocks, drops malformed ones, and sorts by order then title', () => {
@@ -48,14 +48,22 @@ describe('parseDeveloperPanels', () => {
 })
 
 describe('getRecordDeveloperPanels', () => {
+  beforeEach(() => resetDeveloperPanelsSupport())
+
   it('loads the panels of a record', async () => {
     server.use(http.get('/qqq/v1/table/person/1/developer/panels', () => HttpResponse.json({ panels: [{ id: 'esb', title: 'ESB Events', blocks: [] }] })))
     expect((await getRecordDeveloperPanels('person', 1)).map((panel) => panel.id)).toEqual(['esb'])
   })
 
-  it('treats a backend without the endpoint (404) as no panels', async () => {
-    server.use(http.get('/qqq/v1/table/person/1/developer/panels', () => new HttpResponse(null, { status: 404 })))
+  it('treats a backend without the endpoint (404) as no panels, and stops asking for the session', async () => {
+    let requests = 0
+    server.use(http.get('/qqq/v1/table/:table/:pk/developer/panels', () => {
+      requests += 1
+      return new HttpResponse(null, { status: 404 })
+    }))
     expect(await getRecordDeveloperPanels('person', 1)).toEqual([])
+    expect(await getRecordDeveloperPanels('person', 2)).toEqual([])
+    expect(requests).toBe(1)
   })
 
   it('reports other failures', async () => {

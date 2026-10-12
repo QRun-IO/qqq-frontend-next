@@ -177,21 +177,38 @@ export function parseDeveloperPanels(body: unknown): DeveloperPanel[] {
   return panels.sort((a, b) => (a.order ?? 500) - (b.order ?? 500) || a.title.localeCompare(b.title))
 }
 
+/** Set once the backend has shown it has no developer panels endpoint (QQQ before 4.1.0-RC.4). */
+let panelsUnsupported = false
+
 /**
- * Loads a record's developer panels. Backends from before the panels endpoint answer 404 (or
- * 405), which means "no panels" rather than an error.
+ * Forgets that the backend lacks the endpoint (tests; a new backend after re-login).
+ */
+export function resetDeveloperPanelsSupport(): void {
+  panelsUnsupported = false
+}
+
+/**
+ * Loads a record's developer panels. Backends from before the panels endpoint (QQQ before
+ * 4.1.0-RC.4) answer 404 (or 405), which means "no panels" rather than an error; after the first
+ * such answer the endpoint is not requested again in this session.
  *
  * @param tableName - Exact backend table identifier.
  * @param primaryKey - Record identifier.
  * @returns The record's panels, in display order.
  */
 export async function getRecordDeveloperPanels(tableName: string, primaryKey: string | number): Promise<DeveloperPanel[]> {
+  // a backend without the endpoint answered once: do not ask again (one 404 per session, not per record)
+  if (panelsUnsupported) return []
   try {
     const body = await apiClient.get<unknown>(`/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}/developer/panels`)
     return parseDeveloperPanels(body)
   } catch (error) {
     const status = getErrorStatusCode(error)
-    if (status === 404 || status === 405) return []
+    if (status === 404 || status === 405) {
+      // the record itself was readable (panels load after it), so a 404 means no such endpoint
+      panelsUnsupported = true
+      return []
+    }
     throw error
   }
 }
