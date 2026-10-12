@@ -500,3 +500,13 @@ describe('Sidebar', () => {
     expect(document.querySelector('[data-qqq-id="sidebar-user-avatar"]')).toHaveTextContent('A')
   })
 })
+
+describe('Sidebar logo link', () => {
+  it('links to the instance home app when there is one, and to the overview otherwise', () => {
+    const { container, unmount } = render(<Sidebar routes={leafRoutes} homePath="/app/home" />)
+    expect(container.querySelector('[data-qqq-id="sidebar-logo-link"]')).toHaveAttribute('href', '/app/home')
+    unmount()
+    const plain = render(<Sidebar routes={leafRoutes} />)
+    expect(plain.container.querySelector('[data-qqq-id="sidebar-logo-link"]')).toHaveAttribute('href', '/app')
+  })
+})

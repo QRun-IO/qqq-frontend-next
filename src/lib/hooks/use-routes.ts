@@ -23,6 +23,7 @@ import { useMemo } from 'react'
 
 import type { QInstance, QAppTreeNode, QIcon } from '@/types'
 import type { QAppNodeType } from '@/types/enums'
+import { DEFAULT_HOME_PATH, homePath as instanceHomePath } from '@/lib/utils/home-app'
 
 /**
  * A single entry in the sidebar navigation tree.
@@ -78,7 +79,7 @@ export interface NavTarget {
  * command palette, header search and landing page.
  */
 export interface RouteMap {
-  /** Ordered sidebar nodes: the Dashboard entry, then every top-level APP node. */
+  /** Ordered sidebar nodes: the Dashboard entry (or, with a home app, that app as the single top entry), then every top-level APP node. */
   sidebarRoutes: SidebarRoute[]
   /** Maps every known route path to a human-readable label for breadcrumbs. */
   pathToLabelMap: Record<string, string>
@@ -88,6 +89,11 @@ export interface RouteMap {
   navTargets: NavTarget[]
   /** The first accessible app route, used as the post-login redirect target. */
   defaultRoute: string
+  /**
+   * Where "home" goes (sidebar logo, breadcrumb root, `/app` itself): the instance's home app
+   * (`homeAppName`) when it designates one the user may open, otherwise the `/app` overview.
+   */
+  homePath: string
 }
 
 /** Fixed pages under `/app` that are not app-tree nodes. */
@@ -143,7 +149,7 @@ export function isHiddenNode(node: QAppTreeNode, metaData: QInstance): boolean {
  */
 export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
   if (!metaData) {
-    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps' }
+    return { sidebarRoutes: [], pathToLabelMap: {}, ancestorAppMap: {}, navTargets: [], defaultRoute: '/no-apps', homePath: DEFAULT_HOME_PATH }
   }
 
   const pathToLabelMap: Record<string, string> = { ...STATIC_PAGE_LABELS }
@@ -212,11 +218,14 @@ export function buildRouteMap(metaData: QInstance | undefined): RouteMap {
       }
     }
   }
-  const sidebarRoutes: SidebarRoute[] = [
-    { name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' },
-    ...appRoutes,
-  ]
-  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps' }
+  // One landing page: with a home app, /app shows that app, which becomes the single top entry in
+  // place of the built-in Dashboard (no separate overview entry beside it).
+  const homePath = instanceHomePath(metaData)
+  const homeRoute = appRoutes.find((route) => route.path === homePath)
+  const sidebarRoutes: SidebarRoute[] = homeRoute
+    ? [homeRoute, ...appRoutes.filter((route) => route !== homeRoute)]
+    : [{ name: 'Dashboard', key: 'dashboard', path: '/app', icon: { name: 'dashboard' }, type: 'item' }, ...appRoutes]
+  return { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, defaultRoute: defaultRoute ?? '/no-apps', homePath }
 }
 
 /**

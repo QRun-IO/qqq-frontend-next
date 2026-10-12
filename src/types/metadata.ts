@@ -65,6 +65,12 @@ export interface QInstance {
    * e.g. from a table under an app the user may not open to the same table under one they may.
    */
   redirects?: Record<string, string>
+  /**
+   * The app whose dashboard is the instance's home page (QRun-IO/qqq#1059): `/app`, the sidebar
+   * logo and the breadcrumb root go there. Sent only when the user may open that app; absent,
+   * Next's own overview is the home page.
+   */
+  homeAppName?: string
 }
 
 /**

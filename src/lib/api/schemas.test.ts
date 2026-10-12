@@ -197,12 +197,26 @@ describe('RecordSearchResultSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('fails when recordLabel is missing', () => {
-    const result = RecordSearchResultSchema.safeParse({
-      tableName: 'person',
-      recordId: '123',
-    })
-    expect(result.success).toBe(false)
+  it('accepts a missing, null or empty recordLabel or tableLabel (QQQ omits empty values)', () => {
+    for (const entry of [
+      { tableName: 'page_section', recordId: '1' },
+      { tableName: 'page_section', tableLabel: null, recordId: '1', recordLabel: null },
+      { tableName: 'page_section', tableLabel: '', recordId: '1', recordLabel: '' },
+    ]) {
+      const result = RecordSearchResultSchema.safeParse(entry)
+      expect(result.success).toBe(true)
+      expect(result.data).toEqual({ tableName: 'page_section', tableLabel: undefined, recordId: '1', recordLabel: undefined })
+    }
+  })
+
+  it('accepts a numeric recordId as a string', () => {
+    const result = RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: 7, recordLabel: 'Zed' })
+    expect(result.data?.recordId).toBe('7')
+  })
+
+  it('fails when tableName or recordId is empty', () => {
+    expect(RecordSearchResultSchema.safeParse({ tableName: '', recordId: '1' }).success).toBe(false)
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '' }).success).toBe(false)
   })
 })
 
@@ -228,11 +242,11 @@ describe('RecordSearchResponseSchema', () => {
     expect(RecordSearchResponseSchema.safeParse({}).success).toBe(false)
   })
 
-  it('fails when a result is missing required fields', () => {
+  it('leaves result validation to RecordSearchResultSchema (one bad result must not fail the search)', () => {
     const result = RecordSearchResponseSchema.safeParse({ results: [
-      { tableName: 'person' }, // missing recordId and recordLabel
+      { tableName: 'person' }, // missing recordId
     ] })
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 })
 

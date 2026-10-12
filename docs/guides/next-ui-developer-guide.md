@@ -1,12 +1,12 @@
 # Next UI developer guide
 
-> **This checkout targets RC12.** Confirm availability in the [RC12 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) before installing. [RC12 notes](../releases/1.0.0-RC.12.md) record the preparation checkpoint and verification scope; RC11 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
+> **This checkout targets RC14.** Confirm availability in the [RC14 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14) before installing. [RC14 notes](../releases/1.0.0-RC.14.md) record the preparation checkpoint and verification scope; RC13 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
 
 > **RC9:** application code is unchanged from RC8. See [RC9 notes](../releases/1.0.0-RC.9.md) and [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for versioned verification and public delivery status. Earlier RC8 receipts below remain historical evidence.
 
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The previously verified public candidate at the RC12 preparation checkpoint was [1.0.0-RC.11](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.11) (commit `2853b9b`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The previously verified public candidate at the RC14 preparation checkpoint was [1.0.0-RC.13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) (commit `3638205`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 The visual baseline is the September 25 Next UI design (`e42ad2b2`). Material remains the reference for backend contracts and functional behavior. The layout defaults below describe current source; they do not certify a completed visual review.
 
@@ -25,7 +25,7 @@ The source of truth for the frontend shape is [`src/types/metadata.ts`](../../sr
 }
 ```
 
-`appTree` controls the sidebar; `apps[name].widgets` controls ordered dashboard widgets; `apps[name].sections` controls the app home cards. The server may omit denied objects or send disabled permission flags; the frontend also checks flags before requesting data. The server must still enforce authorization. A widget can also be placed in a table section through `QTableSection.widgetName`, or embedded in a process step of type `WIDGET`. `QInstance.redirects` can map old exact or wildcard Material paths to new targets. `supplementalInstanceMetaData.materialDashboardTheme` supplies the application theme, and `environmentValues` can configure analytics.
+`appTree` controls the sidebar; `apps[name].widgets` controls ordered dashboard widgets; `apps[name].sections` controls the app home cards. The server may omit denied objects or send disabled permission flags; the frontend also checks flags before requesting data. The server must still enforce authorization. A widget can also be placed in a table section through `QTableSection.widgetName`, or embedded in a process step of type `WIDGET`. `QInstance.redirects` can map old exact or wildcard Material paths to new targets. `QInstance.homeAppName` (QQQ [#1059](https://github.com/QRun-IO/qqq/issues/1059)) designates the app whose dashboard is the instance's home page; it is published only to users who may open that app. `supplementalInstanceMetaData.materialDashboardTheme` supplies the application theme, and `environmentValues` can configure analytics.
 
 ## 2. Install and run
 
@@ -35,7 +35,7 @@ The preferred QQQ-hosted distribution is the `com.kingsrook.qqq:qqq-frontend-nex
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.12</version>
+    <version>1.0.0-RC.14</version>
 </dependency>
 ```
 
@@ -48,7 +48,7 @@ pnpm build:export
 pnpm build:jar
 ```
 
-The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). This checkout targets `1.0.0-RC.12`, overriding an older BOM-managed frontend; confirm its availability in the [RC12 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.12) before installing. It requires a published QQQ 4.1 candidate (4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images, QQQ #1009); see the release notes for the verified backend. Use a matching local backend/frontend build to test later branch changes.
+The mock setting is for isolated development. Set `NEXT_PUBLIC_MOCK_API=false` and connect a real QQQ backend for integration. `build:export` writes `out/`; `build:jar` packages it with Maven. The Maven POM enforces the presence of static placeholder pages. The default `pnpm build` instead creates a standalone Node server, whose `QQQ_BACKEND_URL` build setting adds same-origin rewrites. For the container path see [`docker/quickstart/Dockerfile`](../../docker/quickstart/Dockerfile). This checkout targets `1.0.0-RC.13`, overriding an older BOM-managed frontend; confirm its availability in the [RC13 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) before installing. It requires a published QQQ 4.1 candidate (4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images, QQQ #1009; 4.1.0-RC.3 or later for FILE_PREVIEW thumbnails and the instance home app, QQQ #1056/#1059); see the release notes for the verified backend. Use a matching local backend/frontend build to test later branch changes.
 
 | Setting | Behavior in this checkout |
 |---|---|
@@ -77,7 +77,7 @@ Permissions apply to metadata and data: check table capabilities and the corresp
 |---|---|
 | `/` | Opens `/app`, or handles an Auth0 authorization callback. |
 | `/login`, `/callback`, `/token` | Sign-in and supported authorization callback routes. |
-| `/app` | Instance dashboard / app entry point. |
+| `/app` | Instance home page: the `homeAppName` app's dashboard when the instance designates one the user may open (client-side redirect to `/app/{homeAppName}`; the sidebar logo and breadcrumb Home crumb link there and the sidebar has no separate Dashboard entry), otherwise Next's overview. |
 | `/app/{appName}` | App home and its ordered widgets/sections. |
 | `/app/{tableName}` | Query or key lookup, according to table capability. |
 | `/app/{tableName}/create` | Create record. |

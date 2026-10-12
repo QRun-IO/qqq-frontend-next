@@ -27,6 +27,7 @@ import {
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
   RecordSearchResponseSchema,
+  RecordSearchResultSchema,
 } from './schemas'
 
 /**
@@ -395,6 +396,11 @@ export interface RecordSearchOptions {
  *
  * @param searchTerm - Free-text search term (the backend trims it).
  * @param options - Table scope and per-table limit.
+ * A result without a record label (its label fields are empty) is labeled
+ * "{table label} {record id}"; a result that cannot link to a record (no table
+ * name or record id) is skipped with a console warning, so the other results
+ * still show.
+ *
  * @returns Matching records, grouped by table in backend order.
  * @throws When the request fails or the response is not a record search response.
  */
@@ -406,7 +412,25 @@ export async function searchRecords(searchTerm: string, options: RecordSearchOpt
   })
   const parsed = RecordSearchResponseSchema.safeParse(result)
   if (!parsed.success) throw new Error('Invalid record search response')
-  return parsed.data.results
+
+  const results: RecordSearchResult[] = []
+  let skipped = 0
+  for (const entry of parsed.data.results) {
+    const item = RecordSearchResultSchema.safeParse(entry)
+    if (!item.success) {
+      skipped++
+      continue
+    }
+    const { tableName, tableLabel, recordId, recordLabel } = item.data
+    results.push({
+      tableName,
+      ...(tableLabel ? { tableLabel } : {}),
+      recordId,
+      recordLabel: recordLabel?.trim() ? recordLabel : `${tableLabel ?? tableName} ${recordId}`,
+    })
+  }
+  if (skipped > 0) console.warn(`Record search skipped ${skipped} malformed result(s) without a table name or record id.`)
+  return results
 }
 
 /**
