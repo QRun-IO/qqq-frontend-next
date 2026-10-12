@@ -67,7 +67,7 @@ it.each([{ status: 500 }, { finished: Promise.resolve(new Error('transport faile
   const f = fixture(); const barrier = armGreetRouteResponses(f.page, origin)
   f.events.emit('framenavigated', f.frame)
   f.events.emit('response', f.response('metadata', options))
-  await expect(barrier.wait).rejects.toThrow('NAV-018')
+  await expect(barrier.wait).rejects.toThrow('greetInteractive')
   expect(f.events.listenerCount('response')).toBe(0)
   barrier.dispose()
 })
