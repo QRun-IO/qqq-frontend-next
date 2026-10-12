@@ -7,7 +7,7 @@
 
 import type { Page } from '@playwright/test'
 import { expect, open, test } from '../../support/fixtures'
-import { recordCollection, waitForShell } from './nav-helpers'
+import { expectRecordsLoaded, waitForShell } from './nav-helpers'
 
 async function expectLookupError(page: Page, message: string) {
   await waitForShell(page)
@@ -22,8 +22,9 @@ test.describe('record lookup by key', () => {
     const [item] = await backend.sql("select id, name from nav_deep_item where code = 'NAV-B2'")
     expect(item).toEqual({ id: '2', name: 'Tide Chart' })
 
+    // Each document completes its table reads before the next hard navigation replaces it (QRun-IO/qqq#985).
     await open(page, '/app/person')
-    await expect(recordCollection(page, 'Person')).toBeVisible()
+    await expectRecordsLoaded(page, 'Person')
     await open(page, '/app/navDeepItem/key?code=NAV-B2')
     await expect(page).toHaveURL(new RegExp(`/app/navDeepItem/${item.id}/?$`))
     await expect(page).toHaveTitle(`${item.name} | Nav Deep Item | Nav Level Three | Nav Level Two | Nav Level One | QQQ Sample`)
@@ -31,6 +32,7 @@ test.describe('record lookup by key', () => {
     // The key URL was replaced, so Back returns to the page before it
     await page.goBack()
     await expect(page).toHaveURL(/\/app\/person\/?$/)
+    await expectRecordsLoaded(page, 'Person')
 
     const [person] = await backend.sql("select id from person where email = 'casey@example.invalid'")
     await open(page, '/app/person/key?email=casey%40example.invalid')
