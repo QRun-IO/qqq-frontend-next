@@ -293,6 +293,24 @@ describe('GlobalSearch', () => {
       expect(searchRecordsMock).toHaveBeenCalledWith('pe', expect.objectContaining({ tableNames: ['person', 'pet'], limitPerTable: 6, offset: 0, sort: 'relevance', signal: expect.any(AbortSignal) }))
     })
 
+    it('keeps "nothing selected" after ArrowUp when records arrive later, so Enter opens the results page', async () => {
+      // records answer well after the page matches are listed and the user pressed ArrowUp
+      searchRecordsMock.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400))
+        return { results: [{ tableName: 'pet', tableLabel: 'Pet', recordId: '4', recordLabel: 'Petunia' }] }
+      })
+      const user = userEvent.setup()
+      renderSearch(people)
+      await user.type(recordInput(), 'pet')
+      await vi.waitFor(() => expect(selected()).toHaveTextContent('Pet'))
+      await user.keyboard('{ArrowUp}')
+      expect(selected()).toBeUndefined()
+      await vi.waitFor(() => option(/Petunia/), { timeout: 3000 })
+      expect(selected()).toBeUndefined()
+      await user.keyboard('{Enter}')
+      expect(pushMock).toHaveBeenCalledWith('/app/search?q=pet')
+    })
+
     it('promotes an exact record match to top hits and opens it with Enter', async () => {
       searchRecordsMock.mockResolvedValue({ results: [{ tableName: 'person', recordId: '7', recordLabel: 'Zed Zulu' }] })
       const user = userEvent.setup()

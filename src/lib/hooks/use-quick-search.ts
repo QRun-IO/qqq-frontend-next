@@ -122,13 +122,14 @@ export function useQuickSearch({ open, term, setTerm: setTermProp, navTargets, s
     userMovedRef.current = false
   }, [term])
 
-  // keep the active option while it is listed and the user chose it; else the first (with a
-  // term). While the records belong to the previous term, preselect only a current entry
-  // (a page or "search everything"), so Enter never opens a stale record.
+  // keep the user's choice while it is listed, including "nothing selected" (ArrowUp above the
+  // first option, so Enter opens the results page even when records arrive afterwards); else
+  // the first (with a term). While the records belong to the previous term, preselect only a
+  // current entry (a page or "search everything"), so Enter never opens a stale record.
   const stale = recordSearch.isStale
   useEffect(() => {
     setActiveIdState((current) => {
-      if (current && userMovedRef.current && options.some((option) => option.id === current)) return current
+      if (userMovedRef.current && (current === null || options.some((option) => option.id === current))) return current
       userMovedRef.current = false
       if (!hasTerm) return null
       // never preselect a completion (Enter opens a result), nor a stale record
