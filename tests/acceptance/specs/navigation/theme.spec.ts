@@ -7,7 +7,7 @@
 
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import { appNavigation } from './nav-helpers'
+import { appNavigation, expectRecordsLoaded } from './nav-helpers'
 import { openReadyPivotEditor } from './pivot-readiness'
 import { expect, open, test } from '../../support/fixtures'
 
@@ -148,6 +148,8 @@ test('[NAV-056] appearance preferences explain an application theme override @mo
   await open(page, '/app/person')
   await expect(page.locator('body')).toHaveClass(/qqq-themed/)
   await page.evaluate(() => localStorage.setItem('qqq-dark-mode', 'true'))
+  // The reload must not race the table's initial reads (WebKit page errors, QRun-IO/qqq#985).
+  await expectRecordsLoaded(page, 'Person')
   await page.reload()
   const dialog = await openPreferences(page)
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
