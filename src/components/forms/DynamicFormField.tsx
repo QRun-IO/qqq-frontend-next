@@ -36,12 +36,15 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
-import { caseTransform, numberAdornments, transformInputValue } from '@/lib/utils/form-layout'
+import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
 import { selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { tooLongPolicy } from '@/lib/utils/field-validation'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from '@/components/records/HelpContent'
 
 import { TextField } from './field-types/TextField'
+import { TextAreaField } from './field-types/TextAreaField'
+import { FieldFooter } from './FieldFooter'
 import { NumberField } from './field-types/NumberField'
 import { BooleanField } from './field-types/BooleanField'
 import { DateField } from './field-types/DateField'
@@ -284,6 +287,11 @@ export function DynamicFormField({
   const fieldError = errors[field.name] as FieldError | undefined
   const isDisabled = disabled || !field.isEditable
   const dataQqqId = field.name
+  // Typing stops at the limit only for a field that refuses over-long values (ERROR); otherwise
+  // the counter and the server's policy handle it.
+  const policy = enforceMaxLength ? 'error' : tooLongPolicy(field)
+  const capLength = field.maxLength && policy === 'error' ? field.maxLength : undefined
+  const lengthLimit = field.maxLength ? { control, name: field.name, max: field.maxLength, policy } : undefined
 
   const roles = helpRoles ?? (possibleValueContext?.type === 'process' ? PROCESS_SCREEN_ROLES : ALL_SCREEN_ROLES)
   const helpContent = selectSlotHelpContent(field.helpContents, roles, helpKey ?? `field:${field.name}`, helpHelpActive)
@@ -402,7 +410,8 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
               required={field.isRequired}
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
@@ -414,53 +423,24 @@ export function DynamicFormField({
       )
 
     case 'TEXT': {
-      const textRegistration = registration()
-      const transform = caseTransform(field)
       return (
         <DirtyWrapper isDirty={isDirty}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center">
-                <label
-                  htmlFor={fieldId}
-                  className="text-sm font-medium text-foreground"
-                  data-qqq-id={`field-label-${dataQqqId}`}
-                >
-                  {field.label}
-                  {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
-                  )}
-                </label>
-                {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
-              </div>
-              <textarea
-                placeholder={placeholder}
-                id={fieldId}
-                {...textRegistration}
-                onChange={(event) => {
-                  if (transform) transformInputValue(event.currentTarget, transform)
-                  void textRegistration.onChange(event)
-                }}
-                disabled={isDisabled}
-                aria-required={field.isRequired}
-                aria-invalid={fieldError ? true : undefined}
-                aria-describedby={
-                  [fieldError ? `${fieldId}-error` : undefined, helpDescribedBy]
-                    .filter(Boolean)
-                    .join(' ') || undefined
-                }
-                data-qqq-id={dataQqqId}
-                rows={4}
-                className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:bg-muted transition-colors duration-150 resize-y ${
-                  fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
-                }`}
-              />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
-            </div>
+            <TextAreaField
+              placeholder={placeholder}
+              id={fieldId}
+              label={field.label}
+              registration={registration()}
+              error={fieldError}
+              disabled={isDisabled}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
+              required={field.isRequired}
+              describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
+              data-qqq-id={dataQqqId}
+              labelExtra={helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
+            />
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -479,7 +459,7 @@ export function DynamicFormField({
                 >
                   {field.label}
                   {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+                    <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -498,11 +478,7 @@ export function DynamicFormField({
                   />
                 )}
               />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
+              <FieldFooter id={fieldId} error={fieldError?.message} />
             </div>
           </FieldWithHelp>
         </DirtyWrapper>
@@ -627,7 +603,7 @@ export function DynamicFormField({
                 >
                   {field.label}
                   {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+                    <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -650,11 +626,7 @@ export function DynamicFormField({
                   fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
                 }`}
               />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
+              <FieldFooter id={fieldId} error={fieldError?.message} />
             </div>
           </FieldWithHelp>
         </DirtyWrapper>
@@ -670,7 +642,7 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
               required={field.isRequired}
               placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : placeholder}
               describedBy={helpDescribedBy}
@@ -693,7 +665,8 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
               required={field.isRequired}
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
@@ -748,21 +721,13 @@ function ReadOnlyFormField({ field, fieldId, record, helpDescribedBy }: {
     : field.type === 'BOOLEAN' && raw != null ? (raw === true || raw === 'true' ? 'Yes' : 'No')
       : (display ?? (raw == null ? '' : String(raw)))
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={fieldId} className="text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
+    <dl className="flex flex-col gap-1" aria-describedby={helpDescribedBy}>
+      <dt id={`${fieldId}-label`} className="text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
         {field.label}
-      </label>
-      <input
-        id={fieldId}
-        type="text"
-        value={text}
-        readOnly
-        disabled
-        aria-readonly="true"
-        aria-describedby={helpDescribedBy}
-        data-qqq-id={field.name}
-        className="w-full cursor-not-allowed rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
-      />
-    </div>
+      </dt>
+      <dd id={fieldId} className="min-h-5 whitespace-pre-wrap break-words text-sm text-foreground" data-qqq-id={field.name}>
+        {text || <span className="text-muted-foreground" aria-label="No value">{'\u2014'}</span>}
+      </dd>
+    </dl>
   )
 }

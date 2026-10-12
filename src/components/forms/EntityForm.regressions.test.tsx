@@ -76,7 +76,9 @@ describe('Record form regressions (#649)', () => {
     const put = vi.spyOn(apiClient, 'patch').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
     renderForm(stored)
     expect(screen.getByLabelText(/^Secret/)).toHaveValue('')
-    expect(screen.getByLabelText(/^Id/)).toBeDisabled()
+    // a read-only field reads as a value, not as a disabled input
+    expect(screen.queryByLabelText(/^Id/)).toBeNull()
+    expect(screen.getByText('Id')).toBeInTheDocument()
     const title = screen.getByLabelText(/^Title/)
     await user.clear(title)
     // Record forms leave maxLength to the server's too-long policy.
@@ -172,7 +174,7 @@ describe('Record form regressions (#649)', () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Cron Expression is required')).toBeVisible()
+    expect(await screen.findByText('Required')).toBeVisible()
     expect(post).not.toHaveBeenCalled()
   })
 

@@ -138,7 +138,7 @@ describe('zodFieldFromMetadata', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'LONG', minValue: 0, maxValue: 100 }))
       const result = schema.safeParse(value)
       expect(result.success).toBe(false)
-      if (!result.success) expect(result.error.issues.map(issue => issue.message)).toContain('Test Field must be a whole number')
+      if (!result.success) expect(result.error.issues.map(issue => issue.message)).toContain('Enter a whole number')
     })
 
     it('LONG applies exact string bounds beyond the safe-number range', () => {
@@ -208,7 +208,7 @@ describe('zodFieldFromMetadata', () => {
       expect(schema.safeParse(false).success).toBe(true)
       const missing = schema.safeParse(null)
       expect(missing.success).toBe(false)
-      expect(missing.error?.issues[0]?.message).toBe('Active is required')
+      expect(missing.error?.issues[0]?.message).toBe('Required')
     })
   })
 
@@ -288,7 +288,7 @@ describe('zodFieldFromMetadata', () => {
       expect(required.safeParse(null).success).toBe(false)
       expect(required.safeParse('').success).toBe(false)
       expect(required.safeParse(new File(['x'], 'x.txt')).success).toBe(true)
-      expect(required.safeParse(42).error?.issues[0].message).toBe('Scan must be a file')
+      expect(required.safeParse(42).error?.issues[0].message).toBe('Choose a file')
     })
   })
 })

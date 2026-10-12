@@ -297,7 +297,7 @@ describe('child record lists that manage an association', () => {
     const addDialog = await screen.findByRole('dialog', { name: 'Creating New Lab Line' })
     expect(within(addDialog).getByLabelText(/^LabId/)).toBeDisabled()
     await user.click(within(addDialog).getByRole('button', { name: 'OK' }))
-    expect(await within(addDialog).findByText('SKU is required')).toBeVisible()
+    expect(await within(addDialog).findByText('Required')).toBeVisible()
     await user.type(within(addDialog).getByLabelText(/^SKU/), 'C-3')
     await user.click(within(addDialog).getByRole('button', { name: 'OK' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -401,7 +401,7 @@ describe('dynamic form widget on a record edit screen', () => {
 
     await user.clear(region)
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Region is required')).toBeVisible()
+    expect(await screen.findByText('Required')).toBeVisible()
     expect(patch).not.toHaveBeenCalled()
 
     await user.type(region, 'South')

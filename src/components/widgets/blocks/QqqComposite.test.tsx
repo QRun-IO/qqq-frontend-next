@@ -529,7 +529,7 @@ describe('QqqComposite', () => {
     ] })
     const input = screen.getByLabelText(/Code/)
     await user.type(input, '   {Enter}')
-    expect(await screen.findByText('Code is required')).toBeVisible()
+    expect(await screen.findByText('Required')).toBeVisible()
     expect(actionCallback).not.toHaveBeenCalled()
     await user.clear(input)
     await user.type(input, '  SPEC-42  {Enter}')

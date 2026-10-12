@@ -131,7 +131,7 @@ describe('ProcessStepScreen', () => {
     const user = userEvent.setup()
     const { onSubmit } = renderScreen()
     await user.click(screen.getByRole('button', { name: 'Next' }))
-    expect(await screen.findByText('Lab Name is required')).toBeInTheDocument()
+    expect(await screen.findByText('Required')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
     await user.type(screen.getByLabelText(/Lab Name/), 'Nova')
     await user.click(screen.getByRole('button', { name: 'Next' }))
