@@ -48,12 +48,9 @@ jobs:
       - qqq-orb/mvn_jar_deploy
 
 # ─── Workflows ───────────────────────────────────────────────────────────────
-# Branch strategy mirrors the QRun-IO orb convention:
-#   test_only              → all feature / non-protected branches
-#   publish_snapshot       → develop
-#   publish_release_candidate → release/*
-#   publish_release        → main / version tags
-#   publish_hotfix_release → hotfix/*
+# Trunk-based: main is the only long-lived branch (see CONTRIBUTING.md).
+#   test_only       → every branch except main (the PR check ci/circleci: qqq-orb/node_app_test_only)
+#   publish_release → main builds; v* version tags publish the dashboard jar
 
 workflows:
 
@@ -62,23 +59,9 @@ workflows:
       - qqq-orb/node_app_test_only:
           filters:
             branches:
-              ignore: /(develop|main|release\/.*|hotfix\/.*|integration.*)/
+              ignore: main
             tags:
               only: []
-
-  publish_snapshot:
-    jobs:
-      - qqq-orb/node_app_build:
-          filters:
-            branches:
-              only: [ develop ]
-
-  publish_release_candidate:
-    jobs:
-      - qqq-orb/node_app_build:
-          filters:
-            branches:
-              only: [ /release\/.*/ ]
 
   publish_release:
     jobs:
@@ -95,10 +78,3 @@ workflows:
               ignore: /.*/
             tags:
               only: /^v[0-9]+\.[0-9]+\.[0-9]+(-RC\.[0-9]+)?$/
-
-  publish_hotfix_release:
-    jobs:
-      - qqq-orb/node_app_build:
-          filters:
-            branches:
-              only: [ /hotfix\/.*/ ]

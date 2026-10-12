@@ -98,20 +98,25 @@ export const CountRecordsResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 /**
- * Zod schema for one record search result. `tableLabel` is optional (a table
- * may have no label); the other fields are required.
+ * Zod schema for one record search result. `tableName` and `recordId` are
+ * required (a result cannot link anywhere without them); `recordId` may arrive
+ * as a number. `tableLabel` and `recordLabel` may be missing or null: QQQ leaves
+ * empty and null values out of its JSON, so a record whose label fields are empty
+ * arrives without `recordLabel`, and callers label it themselves.
  */
 export const RecordSearchResultSchema = z.object({
-  tableName: z.string(),
-  tableLabel: z.string().optional(),
-  recordId: z.string(),
-  recordLabel: z.string(),
+  tableName: z.string().min(1),
+  tableLabel: z.string().nullish().transform((value) => value || undefined),
+  recordId: z.union([z.string().min(1), z.number()]).transform(String),
+  recordLabel: z.string().nullish().transform((value) => value || undefined),
 })
 
 /**
- * Zod schema for the record search response: `{ results: [...] }`.
+ * Zod schema for the record search response envelope: `{ results: [...] }`. Each
+ * result is validated separately ({@link RecordSearchResultSchema}), so one
+ * malformed result is skipped rather than failing the whole search.
  */
-export const RecordSearchResponseSchema = z.object({ results: z.array(RecordSearchResultSchema) })
+export const RecordSearchResponseSchema = z.object({ results: z.array(z.unknown()) })
 
 // ---------------------------------------------------------------------------
 // QInstance — GET /metaData (minimal required-field validation)
