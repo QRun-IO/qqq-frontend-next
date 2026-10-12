@@ -112,6 +112,37 @@ test.describe('Record Developer View', () => {
     await checkA11y(page)
   })
 
+  test('the section bar sticks to the top of the page and follows the section in view', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await setupDeveloperMocks(page, PANELS)
+    await openDeveloperView(page)
+
+    const nav = page.getByRole('navigation', { name: 'Developer view sections' })
+    await nav.getByRole('link', { name: 'Quick Search' }).click()
+    await expect(page.locator('[data-qqq-id="dev-section-panel-quickSearch"]')).toBeInViewport()
+    await expect(nav.getByRole('link', { name: 'Quick Search' })).toHaveAttribute('aria-current', 'location')
+    // no page content shows between the app header and the stuck bar
+    const gap = await page.evaluate(() => {
+      const main = document.querySelector('[data-qqq-id="main-content"]') as HTMLElement
+      const bar = document.querySelector('[data-qqq-id="dev-section-nav"]') as HTMLElement
+      return Math.abs(bar.getBoundingClientRect().top - main.getBoundingClientRect().top)
+    })
+    expect(gap).toBeLessThanOrEqual(1)
+    // scrolling on to the API section moves the highlight there
+    await page.locator('[data-qqq-id="dev-section-api"]').evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await expect(nav.getByRole('link', { name: 'API' })).toHaveAttribute('aria-current', 'location', { timeout: 3000 })
+  })
+
+  test('jumps to a section from the phone section picker', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await setupDeveloperMocks(page, PANELS)
+    await openDeveloperView(page)
+
+    await page.locator('[data-qqq-id="dev-nav-select"]').selectOption({ label: 'Assistant' })
+    await expect(page.locator('[data-qqq-id="dev-section-panel-assistant"]')).toBeInViewport()
+    await expect(page.locator('[data-qqq-id="dev-nav-select"]')).toHaveValue('panel-assistant')
+  })
+
   test('renders each provider panel and its nav entry when present', async ({ page }) => {
     await setupDeveloperMocks(page, PANELS)
     await openDeveloperView(page)
@@ -172,15 +203,52 @@ test.describe('Record Developer View', () => {
       })
       expect(overflow.page).toBeLessThanOrEqual(1)
       expect(overflow.main).toBeLessThanOrEqual(1)
+      // the section nav never scrolls sideways: a picker on phones, wrapping links elsewhere
+      const nav = page.locator('[data-qqq-id="dev-section-nav"]')
+      expect(await nav.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
+      await expect(page.locator('[data-qqq-id="dev-nav-select"]')).toBeVisible({ visible: viewport.width < 640 })
 
       const dir = process.env.QQQ_E2E_SCREENSHOT_DIR
       if (dir) {
         await page.screenshot({ path: path.join(dir, `record-developer-view-${viewport.name}.png`), fullPage: true })
         // the page scrolls inside the app's main container, so also capture the API and panel sections
-        for (const section of ['api', 'panel-esb', 'panel-quickSearch']) {
+        for (const section of ['api', 'panel-esb', 'panel-quickSearch', 'panel-sqlWorkbench', 'panel-assistant']) {
           await page.locator(`[data-qqq-id="dev-section-${section}"]`).scrollIntoViewIfNeeded()
           await page.locator(`[data-qqq-id="dev-section-${section}"]`).evaluate((element) => element.scrollIntoView({ block: 'start' }))
           await page.screenshot({ path: path.join(dir, `record-developer-view-${viewport.name}-${section}.png`) })
+        }
+      }
+    })
+  }
+
+  for (const viewport of [
+    { name: '390', width: 390, height: 844 },
+    { name: '1440', width: 1440, height: 900 },
+  ]) {
+    test(`is readable in dark mode at ${viewport.name}px`, async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('qqq-dark-mode', 'true'))
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      await setupDeveloperMocks(page, PANELS)
+      await openDeveloperView(page)
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+      await expect(page.locator('[data-qqq-id="dev-section-panel-assistant"]')).toBeVisible()
+
+      const overflow = await page.evaluate(() => {
+        const root = document.scrollingElement ?? document.documentElement
+        const main = document.querySelector<HTMLElement>('[data-qqq-id="main-content"]')
+        return {
+          page: root.scrollWidth - root.clientWidth,
+          main: main ? main.scrollWidth - main.clientWidth : 0,
+        }
+      })
+      expect(overflow.page).toBeLessThanOrEqual(1)
+      expect(overflow.main).toBeLessThanOrEqual(1)
+
+      const dir = process.env.QQQ_E2E_SCREENSHOT_DIR
+      if (dir) {
+        for (const section of ['fields', 'api', 'panel-esb', 'panel-quickSearch', 'panel-sqlWorkbench', 'panel-assistant']) {
+          await page.locator(`[data-qqq-id="dev-section-${section}"]`).evaluate((element) => element.scrollIntoView({ block: 'start' }))
+          await page.screenshot({ path: path.join(dir, `record-developer-view-dark-${viewport.name}-${section}.png`) })
         }
       }
     })

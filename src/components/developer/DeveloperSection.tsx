@@ -21,7 +21,7 @@
 
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, ClipboardCopy } from 'lucide-react'
 
 import type { DeveloperPanelTone } from '@/lib/api/developer-panels'
@@ -66,7 +66,7 @@ export function DeveloperSection({ id, title, description, badge, defaultCollaps
     <section
       id={developerSectionId(id)}
       aria-labelledby={`${developerSectionId(id)}-title`}
-      className="scroll-mt-16 rounded-xl border border-border bg-card"
+      className="scroll-mt-24 rounded-xl border border-border bg-card"
       data-qqq-id={`dev-section-${id}`}
     >
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
@@ -125,9 +125,10 @@ export function StatusBadge({ label, tone = 'INFO' }: { label: string; tone?: De
  * @param props - Text and accessible label.
  * @param props.text - What to copy.
  * @param props.label - Accessible label (default "Copy").
+ * @param props.caption - Visible text (default "Copy"); set it when a row has more than one copy button.
  * @returns The button.
  */
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+export function CopyButton({ text, label = 'Copy', caption = 'Copy' }: { text: string; label?: string; caption?: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -146,7 +147,7 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
       data-qqq-id="button-dev-copy"
     >
       {copied ? <Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> : <ClipboardCopy className="h-3.5 w-3.5" aria-hidden="true" />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? 'Copied' : caption}
     </button>
   )
 }
@@ -158,8 +159,9 @@ export interface DeveloperNavItem {
 }
 
 /**
- * Sticky, horizontally scrolling navigation to the page's sections; highlights the section
- * nearest the top of the viewport.
+ * Sticky navigation to the page's sections; highlights the section nearest the top of the
+ * viewport. Phones get a section picker, wider screens a wrapping row of links, so the bar
+ * never scrolls sideways.
  *
  * @param props - The sections.
  * @param props.items - Sections in page order.
@@ -167,43 +169,83 @@ export interface DeveloperNavItem {
  */
 export function DeveloperSectionNav({ items }: { items: DeveloperNavItem[] }) {
   const [active, setActive] = useState<string | null>(items[0]?.id ?? null)
+  // the section last picked from this bar: at the bottom of the page it stays highlighted
+  // while it is in view, since the last sections can never reach the top
+  const chosen = useRef<string | null>(null)
+  const navRef = useRef<HTMLElement>(null)
   const ids = items.map((item) => item.id).join('|')
 
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return
-    const visible = new Map<string, number>()
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const id = entry.target.getAttribute('data-qqq-id')?.replace(/^dev-section-/, '')
-        if (!id) continue
-        if (entry.isIntersecting) visible.set(id, entry.boundingClientRect.top)
-        else visible.delete(id)
+    const sectionIds = ids.split('|')
+    const scroller = navRef.current?.closest<HTMLElement>('[data-qqq-id="main-content"]') ?? null
+    let frame = 0
+    const update = () => {
+      frame = 0
+      // a section is current once its top passes below the bar, or reaches where a jump puts it
+      // (its scroll-mt-24 margin: 96px)
+      const top = scroller ? scroller.getBoundingClientRect().top : 0
+      const line = Math.max(navRef.current?.getBoundingClientRect().bottom ?? 0, top + 96) + 8
+      const viewBottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight
+      const atBottom = scroller
+        ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2
+        : window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+      let current: string | null = sectionIds[0] ?? null
+      for (const id of sectionIds) {
+        const sectionTop = document.getElementById(developerSectionId(id))?.getBoundingClientRect().top
+        if (sectionTop !== undefined && sectionTop <= line) current = id
       }
-      const first = [...visible.entries()].sort((a, b) => a[1] - b[1])[0]
-      if (first) setActive(first[0])
-    }, { rootMargin: '-64px 0px -60% 0px' })
-    for (const id of ids.split('|')) {
-      const element = document.getElementById(developerSectionId(id))
-      if (element) observer.observe(element)
+      if (atBottom) {
+        const pick = chosen.current
+        const pickTop = pick ? document.getElementById(developerSectionId(pick))?.getBoundingClientRect().top : undefined
+        current = pick && pickTop !== undefined && pickTop < viewBottom ? pick : sectionIds[sectionIds.length - 1] ?? current
+      }
+      setActive(current)
     }
-    return () => observer.disconnect()
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    const target: HTMLElement | Window = scroller ?? window
+    target.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      target.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [ids])
+
+  const go = (id: string) => {
+    chosen.current = id
+    setActive(id)
+    document.getElementById(developerSectionId(id))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <nav
+      ref={navRef}
       aria-label="Developer view sections"
-      className="sticky top-0 z-10 -mx-1 overflow-x-auto border-b border-border bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="sticky -top-6 z-10 -mx-1 border-b border-border bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       data-qqq-id="dev-section-nav"
     >
-      <ul className="m-0 flex list-none gap-1 p-0">
+      <label className="flex items-center gap-2 text-sm text-muted-foreground sm:hidden">
+        <span className="flex-shrink-0">Go to</span>
+        <select
+          value={active ?? ''}
+          onChange={(event) => go(event.target.value)}
+          className="min-w-0 flex-1 rounded-md border border-input bg-card px-2 py-1.5 text-sm font-medium text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          data-qqq-id="dev-nav-select"
+        >
+          {items.map((item) => (
+            <option key={item.id} value={item.id}>{item.label}</option>
+          ))}
+        </select>
+      </label>
+      <ul className="m-0 hidden list-none flex-wrap gap-1 p-0 sm:flex">
         {items.map((item) => (
           <li key={item.id} className="flex-shrink-0">
             <a
               href={`#${developerSectionId(item.id)}`}
               onClick={(event) => {
                 event.preventDefault()
-                setActive(item.id)
-                document.getElementById(developerSectionId(item.id))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                go(item.id)
               }}
               aria-current={active === item.id ? 'location' : undefined}
               className={cn(

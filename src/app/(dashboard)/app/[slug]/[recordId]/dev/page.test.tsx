@@ -134,9 +134,9 @@ describe('RecordDeveloperViewPage', () => {
       const element = document.querySelector('[data-qqq-id="associated-script-firstName"]')
       if (!element) throw new Error('no card')
       return element as HTMLElement
-    })
+    }, { timeout: 5000 })
     expect(within(card).getByRole('heading', { name: 'First Name' })).toBeInTheDocument()
-    await waitFor(() => expect(document.querySelector('[data-qqq-id="button-edit-script-firstName"]')).not.toBeNull())
+    await waitFor(() => expect(document.querySelector('[data-qqq-id="button-edit-script-firstName"]')).not.toBeNull(), { timeout: 5000 })
     expect(within(card).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Code', 'Logs', 'Test', 'Docs'])
     expect(screen.getByTestId('page-header')).toHaveTextContent('Ada Lovelace Developer Mode')
     expect(getRecordDeveloperData).toHaveBeenCalledWith('person', '1')
@@ -165,7 +165,7 @@ describe('RecordDeveloperViewPage', () => {
       const element = document.querySelector('[data-qqq-id="associated-script-firstName"]')
       if (!element) throw new Error('no card')
       return element as HTMLElement
-    })
+    }, { timeout: 5000 })
     await waitFor(() => expect(within(card).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Code', 'Logs', 'Docs']))
     expect(document.querySelector('[data-qqq-id="button-edit-script-firstName"]')).toBeNull()
   })
@@ -248,8 +248,11 @@ describe('RecordDeveloperViewPage', () => {
     renderPage()
 
     const nav = await screen.findByRole('navigation', { name: 'Developer view sections' }, { timeout: 5000 })
-    await waitFor(() => expect(within(nav).getByText('ESB Events')).toBeInTheDocument())
-    for (const title of ['Quick Search', 'SQL Workbench', 'Assistant']) expect(within(nav).getByText(title)).toBeInTheDocument()
+    await waitFor(() => expect(within(nav).getByRole('link', { name: 'ESB Events' })).toBeInTheDocument())
+    for (const title of ['Quick Search', 'SQL Workbench', 'Assistant']) {
+      expect(within(nav).getByRole('link', { name: title })).toBeInTheDocument()
+      expect(within(nav).getByRole('option', { name: title })).toBeInTheDocument()
+    }
 
     expect(screen.getByRole('heading', { name: /ESB Events/ })).toBeInTheDocument()
     expect(screen.getByText('qqq.table.person.updated')).toBeInTheDocument()

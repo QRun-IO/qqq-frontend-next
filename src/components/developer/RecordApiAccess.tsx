@@ -285,8 +285,8 @@ function OperationList({ operations, auth, language, empty }: { operations: ApiO
               <div className="space-y-2 border-t border-border px-3 py-3">
                 {operation.description && <p className="text-xs text-muted-foreground">{operation.description}</p>}
                 <div className="flex justify-end gap-2">
-                  <CopyButton text={operation.url} label="Copy URL" />
-                  <CopyButton text={snippet} label={`Copy ${language} example`} />
+                  <CopyButton text={operation.url} label="Copy URL" caption="Copy URL" />
+                  <CopyButton text={snippet} label={`Copy ${language} example`} caption="Copy example" />
                 </div>
                 <CodeBlock code={snippet} language={language === 'java' ? 'java' : language === 'fetch' ? 'javascript' : 'text'} className="max-h-96" dataQqqId={`dev-api-snippet-${operation.id}`} />
               </div>
