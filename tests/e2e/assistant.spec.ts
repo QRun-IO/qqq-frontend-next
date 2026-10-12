@@ -4,7 +4,7 @@
 // axe, and one scroll container per region (no double or horizontal page scrollbars).
 
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { setupApiMocks } from './api-mocks'
+import { METADATA, setupApiMocks } from './api-mocks'
 import { checkA11y } from './a11y-helpers'
 
 const VIEWPORTS = {
@@ -99,6 +99,8 @@ async function mockAssistant(page: Page, options: { reply?: string; hold?: boole
   const mock: AssistantMock = { turns: [], cancels: 0 }
   let stored: unknown[] = []
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+  // the instance announces the qbit, so the UI probes /assistant/config
+  await page.route(/\/qqq\/v1\/metaData(\?|$)/, (route) => json(route, { ...METADATA, supplementalInstanceMetaData: { assistant: {} } }))
   await page.route('**/qqq/v1/assistant/**', async (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname.replace('/qqq/v1/assistant', '')
@@ -177,8 +179,23 @@ async function ask(page: Page, text: string) {
 }
 
 test.describe('Assistant panel: gating', () => {
+  test('makes no assistant request when the metadata does not announce the qbit', async ({ page }) => {
+    await setupApiMocks(page)
+    const requests: string[] = []
+    page.on('request', (request) => { if (request.url().includes('/assistant/')) requests.push(request.url()) })
+    await page.goto('/app/person')
+    await waitForAppReady(page)
+    await expect(page.locator('[data-qqq-id="button-keyboard-shortcuts"]')).toBeVisible()
+    await expect(page.locator('[data-qqq-id="button-assistant"]')).toHaveCount(0)
+    await page.locator('body').click()
+    await page.keyboard.press('Control+j')
+    await expect(page.locator('[data-qqq-id="assistant-panel"]')).toHaveCount(0)
+    expect(requests).toEqual([])
+  })
+
   test('is absent and Ctrl+J is inert when the probe 404s', async ({ page }) => {
     await setupApiMocks(page)
+    await page.route(/\/qqq\/v1\/metaData(\?|$)/, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...METADATA, supplementalInstanceMetaData: { assistant: {} } }) }))
     await page.route('**/qqq/v1/assistant/**', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"Not found"}' }))
     await page.goto('/app/person')
     await waitForAppReady(page)

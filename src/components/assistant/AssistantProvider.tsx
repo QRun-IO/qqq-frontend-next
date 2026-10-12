@@ -63,6 +63,18 @@ function writeFlag(key: string, value: boolean): void {
 }
 
 /**
+ * Whether the instance metadata announces the assistant qbit (`supplementalInstanceMetaData.assistant`,
+ * published by qbit-assistant), the precondition for probing `/assistant/config`.
+ *
+ * @param metaData - Instance metadata.
+ * @returns True when the entry is present.
+ */
+export function isAssistantInstalled(metaData: QInstance | undefined): boolean {
+  const entry = metaData?.supplementalInstanceMetaData?.assistant
+  return Boolean(entry) && typeof entry === 'object'
+}
+
+/**
  * Creates the assistant controller. Call it once in the dashboard layout (which also needs it
  * for the Ctrl/⌘+J shortcut) and pass the result to {@link AssistantProvider}.
  *
@@ -73,14 +85,17 @@ function writeFlag(key: string, value: boolean): void {
 export function useAssistantController(metaData: QInstance | undefined, isAuthenticated: boolean): AssistantController {
   const pathname = usePathname() ?? ''
   const router = useRouter()
+  // Only an instance that announces the qbit is probed: elsewhere /assistant/config would answer
+  // 404 on every page load (a console error in every browser)
+  const installed = isAssistantInstalled(metaData)
   const { data: config = null } = useQuery({
     queryKey: assistantKeys.config(),
     queryFn: getAssistantConfig,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && installed,
     staleTime: 1000 * 60 * 10,
     retry: false,
   })
-  const enabled = Boolean(config?.enabled)
+  const enabled = installed && Boolean(config?.enabled)
 
   const { data: conversations } = useQuery({
     queryKey: assistantKeys.conversations(),

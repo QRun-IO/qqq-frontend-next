@@ -38,7 +38,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 const BASE = '/qqq/v1/assistant'
-const META = { tables: { person: { name: 'person', label: 'People' } } } as unknown as QInstance
+const META = { tables: { person: { name: 'person', label: 'People' } }, supplementalInstanceMetaData: { assistant: {} } } as unknown as QInstance
 const CONVERSATION = { id: 4, title: null, status: 'ACTIVE', pinned: false, lastMessageAt: null, unreadCount: 0, createDate: '2026-10-12T00:00:00Z' }
 
 /**
@@ -87,9 +87,15 @@ function storedTurn(text: string, parts: unknown[], status = 'COMPLETE'): unknow
 
 const START = ['message.start', { seq: 1, turnId: 9, conversationId: 4, userMessageId: 10, messageId: 11 }] as [string, Record<string, unknown>]
 
-/** Harness: the dashboard's assistant wiring. */
-function Shell() {
-  const assistant = useAssistantController(META, true)
+/**
+ * Harness: the dashboard's assistant wiring.
+ *
+ * @param props - Component properties.
+ * @param props.metaData - Instance metadata (defaults to one announcing the qbit).
+ * @returns The shell.
+ */
+function Shell({ metaData = META }: { metaData?: QInstance }) {
+  const assistant = useAssistantController(metaData, true)
   return (
     <AssistantProvider value={assistant}>
       <header><AssistantHeaderButton /></header>
@@ -102,11 +108,12 @@ function Shell() {
 /**
  * Renders the harness.
  *
+ * @param metaData - Instance metadata (defaults to one announcing the qbit).
  * @returns The render result.
  */
-function renderShell() {
+function renderShell(metaData?: QInstance) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><Shell /></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><Shell metaData={metaData} /></QueryClientProvider>)
 }
 
 /**
@@ -141,6 +148,19 @@ afterEach(() => {
 })
 
 describe('assistant gating', () => {
+  it('does not probe an instance whose metadata does not announce the qbit', async () => {
+    const probe = vi.fn()
+    mockAssistant()
+    server.use(http.get(`${BASE}/config`, () => {
+      probe()
+      return HttpResponse.json({ enabled: true })
+    }))
+    renderShell({ tables: META.tables } as unknown as QInstance)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(probe).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /assistant/i })).toBeNull()
+  })
+
   it.each([404, 403])('renders nothing when the probe answers %i', async (status) => {
     mockAssistant(status)
     renderShell()
