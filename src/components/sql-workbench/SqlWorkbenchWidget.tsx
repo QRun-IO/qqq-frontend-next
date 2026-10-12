@@ -24,7 +24,7 @@
 
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { QWidgetMetaData, SqlHistoryEntry } from '@/types'
@@ -51,6 +51,25 @@ function notebookFromUrl(): number | null {
 }
 
 /**
+ * SQL to open from the page URL (`?sql=...&backend=...`, e.g. from a record's developer view):
+ * read once and removed from the URL, so a reload does not insert it again. It is only put in the
+ * editor as a new cell, never run.
+ *
+ * @returns The SQL and backend name (empty to use the first backend), or null.
+ */
+function sqlFromUrl(): { sql: string; backendName: string } | null {
+  if (typeof window === 'undefined') return null
+  const url = new URL(window.location.href)
+  const sql = url.searchParams.get('sql')
+  if (!sql) return null
+  const backendName = url.searchParams.get('backend') ?? ''
+  url.searchParams.delete('sql')
+  url.searchParams.delete('backend')
+  window.history.replaceState(window.history.state, '', url)
+  return { sql, backendName }
+}
+
+/**
  * Renders the workbench.
  *
  * @param props - Component props.
@@ -64,6 +83,7 @@ export default function SqlWorkbenchWidget({
 }) {
   const [notebookId, setNotebookId] = useState<number | null>(notebookFromUrl)
   const [scope, setScope] = useState<'mine' | 'shared'>('mine')
+  const [urlSql] = useState(sqlFromUrl)
   const [insertRequest, setInsertRequest] = useState<InsertCellRequest | null>(null)
   const clearInsertRequest = useCallback(() => setInsertRequest(null), [])
 
@@ -92,6 +112,16 @@ export default function SqlWorkbenchWidget({
     enabled: !!capabilities,
     meta: HANDLES_OWN_ERRORS,
   })
+
+  // SQL from the URL goes into the editor once the backends are known (default: the first one)
+  const firstBackend = capabilities?.backends[0]?.name
+  useEffect(() => {
+    if (!urlSql || !firstBackend) return
+    const backends = capabilities?.backends.map((backend) => backend.name) ?? []
+    setInsertRequest({ sql: urlSql.sql, backendName: backends.includes(urlSql.backendName) ? urlSql.backendName : firstBackend, nonce: Date.now() })
+    // only the first load of the backends inserts the SQL
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSql, firstBackend])
 
   const select = (id: number | null) => {
     setNotebookId(id)

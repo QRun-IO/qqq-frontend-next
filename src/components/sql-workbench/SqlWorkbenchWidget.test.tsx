@@ -133,6 +133,14 @@ describe('SqlWorkbenchWidget', () => {
     expect(screen.getByLabelText('SQL for cell 1')).toHaveValue('')
   })
 
+  it('opens SQL from the URL (a record developer view link) as a cell, without running it, once', async () => {
+    window.history.replaceState(null, '', '/?sql=SELECT%20id%20FROM%20person%20WHERE%20id%20%3D%207')
+    renderWithClient(<SqlWorkbenchWidget widgetMetaData={widgetMetaData} />)
+    await waitFor(() => expect(screen.getAllByLabelText(/^SQL for cell/).map((cell) => (cell as HTMLTextAreaElement).value)).toContain('SELECT id FROM person WHERE id = 7'))
+    expect(window.location.search).toBe('')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
   it('shows an error when the notebook list fails to load', async () => {
     server.use(
       http.get(`${BASE}/notebooks`, () =>

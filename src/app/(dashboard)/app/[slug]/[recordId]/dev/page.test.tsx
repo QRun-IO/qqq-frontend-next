@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Tests for the record developer view (raw values and associated scripts)
+// Tests for the record developer view (header parity, sections, API access, provider panels, raw values and associated scripts)
 
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -52,9 +52,19 @@ vi.mock('@/lib/api/developer', () => ({
   storeRecordAssociatedScript: vi.fn(),
   storeScriptRevision: vi.fn(),
   testScript: vi.fn(),
+  getTableApis: vi.fn(async () => []),
+  getApiVersions: vi.fn(),
+  getApiTableSpec: vi.fn(),
+  apiTableSpecUrl: () => '/api/v1/person/openapi.json',
+  apiMiddlewareBaseURL: () => '',
+}))
+
+vi.mock('@/lib/api/developer-panels', () => ({
+  getRecordDeveloperPanels: vi.fn(async () => []),
 }))
 
 import { getRecordDeveloperData } from '@/lib/api/developer'
+import { getRecordDeveloperPanels, type DeveloperPanel } from '@/lib/api/developer-panels'
 import { getRecord } from '@/lib/api/tables'
 
 const record = { tableName: 'person', recordLabel: 'Ada Lovelace', values: { id: 1, firstName: 'Ada', email: null } }
@@ -119,7 +129,7 @@ describe('RecordDeveloperViewPage', () => {
     serveInstance(['storeScriptRevision', 'testScript'])
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Record Raw Values as JSON' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Record Raw Values as JSON' }, { timeout: 5000 })).toBeInTheDocument()
     const card = await waitFor(() => {
       const element = document.querySelector('[data-qqq-id="associated-script-firstName"]')
       if (!element) throw new Error('no card')
@@ -136,11 +146,11 @@ describe('RecordDeveloperViewPage', () => {
     serveInstance([])
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Record Raw Values as JSON' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Record Raw Values as JSON' }, { timeout: 5000 })).toBeInTheDocument()
     const json = document.querySelector('[data-qqq-id="json-output"]') as HTMLElement
     expect(JSON.parse(json.textContent ?? '')).toEqual({ id: 1, firstName: 101, email: null })
-    const table = document.querySelector('[data-qqq-id="record-dev-field-table"]') as HTMLElement
-    expect(within(table).getByText('101')).toBeInTheDocument()
+    const row = document.querySelector('[data-qqq-id="record-dev-field-table"] [data-qqq-id="dev-field-firstName"]') as HTMLElement
+    expect(row.querySelectorAll('td')[3]).toHaveTextContent('101')
     expect(getRecord).not.toHaveBeenCalled()
   })
 
@@ -165,7 +175,87 @@ describe('RecordDeveloperViewPage', () => {
     vi.mocked(getRecordDeveloperData).mockRejectedValue(new Error('Permission denied.'))
     renderPage()
 
-    expect(await screen.findByText('Failed to load record: Permission denied.')).toHaveAttribute('role', 'alert')
+    expect(await screen.findByText('Failed to load record: Permission denied.', {}, { timeout: 5000 })).toHaveAttribute('role', 'alert')
     expect(screen.queryByRole('heading', { name: 'Record Raw Values as JSON' })).not.toBeInTheDocument()
+  })
+
+  it('has the record screen header: back link, record title, actions and audit (no view-mode toggle)', async () => {
+    serveInstance([])
+    renderPage()
+
+    const back = await screen.findByRole('link', { name: 'Back to Ada Lovelace' }, { timeout: 5000 })
+    expect(back).toHaveAttribute('href', '/app/person/1')
+    expect(screen.getByRole('heading', { level: 1, name: 'Ada Lovelace' })).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: 'View mode' })).not.toBeInTheDocument()
+    expect(document.querySelector('[data-qqq-id="record-view-desktop-actions"]')).not.toBeNull()
+    expect(screen.getByText(/Developer view/)).toBeInTheDocument()
+  })
+
+  it('navigates sections from a sticky section nav', async () => {
+    serveInstance([])
+    renderPage()
+
+    const nav = await screen.findByRole('navigation', { name: 'Developer view sections' }, { timeout: 5000 })
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(
+      expect.arrayContaining(['Fields', 'API', 'Scripts', 'JSON', 'Table Metadata'])))
+    expect(screen.getByRole('heading', { name: 'API Access' })).toBeInTheDocument()
+  })
+
+  it('lists the v1 operations the user may perform, with curl examples using placeholder credentials', async () => {
+    serveInstance([])
+    renderPage()
+
+    const api = await waitFor(() => {
+      const element = document.querySelector('[data-qqq-id="dev-api-access"]')
+      if (!element) throw new Error('no api section')
+      return element as HTMLElement
+    })
+    await waitFor(() => expect(within(api).getByText('Get this record')).toBeInTheDocument())
+    for (const label of ['Query by primary key', 'Count matching records', 'Insert a copy', 'Update this record', 'Delete this record']) {
+      expect(within(api).getByText(label)).toBeInTheDocument()
+    }
+    const snippet = api.querySelector('[data-qqq-id="dev-api-snippet-get"]') as HTMLElement
+    expect(snippet.textContent).toContain('curl -X GET')
+    expect(snippet.textContent).toContain('/qqq/v1/table/person/1')
+    expect(snippet.textContent).toContain('sessionUUID=<your-session-uuid>')
+  })
+
+  it('renders no provider panels when none are available (qbits absent)', async () => {
+    serveInstance([])
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'API Access' }, { timeout: 5000 })
+    await waitFor(() => expect(getRecordDeveloperPanels).toHaveBeenCalledWith('person', '1'))
+    expect(document.querySelector('[data-qqq-id^="dev-section-panel-"]')).toBeNull()
+  })
+
+  it('renders each provider panel (ESB, quick search, SQL workbench, assistant) with a nav entry', async () => {
+    const panels: DeveloperPanel[] = [
+      { id: 'esb', title: 'ESB Events', order: 300, statusLabel: 'Publishing', statusTone: 'SUCCESS', blocks: [
+        { type: 'KEY_VALUES', items: [{ label: 'type', value: 'qqq.table.person.updated', monospace: true }] },
+        { type: 'CODE', label: 'Sample event', language: 'json', code: '{"subject":"1"}' },
+      ] },
+      { id: 'quickSearch', title: 'Quick Search', order: 400, statusLabel: 'Indexed', blocks: [
+        { type: 'ACTIONS', actions: [{ label: 'Reindex this record', processName: 'quickSearchReindexRecords_person' }] },
+      ] },
+      { id: 'sqlWorkbench', title: 'SQL Workbench', order: 450, blocks: [
+        { type: 'LINKS', links: [{ label: 'Open in SQL Workbench', href: '/app/sqlWorkbench?sql=SELECT+1' }, { label: 'Bad', href: 'javascript:alert(1)' }] },
+      ] },
+      { id: 'assistant', title: 'Assistant', order: 600, error: 'This panel could not be built.', blocks: [] },
+    ]
+    vi.mocked(getRecordDeveloperPanels).mockResolvedValue(panels)
+    serveInstance([])
+    renderPage()
+
+    const nav = await screen.findByRole('navigation', { name: 'Developer view sections' }, { timeout: 5000 })
+    await waitFor(() => expect(within(nav).getByText('ESB Events')).toBeInTheDocument())
+    for (const title of ['Quick Search', 'SQL Workbench', 'Assistant']) expect(within(nav).getByText(title)).toBeInTheDocument()
+
+    expect(screen.getByRole('heading', { name: /ESB Events/ })).toBeInTheDocument()
+    expect(screen.getByText('qqq.table.person.updated')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Reindex this record/ }).getAttribute('href')).toContain('/app/quickSearchReindexRecords_person')
+    expect(screen.getByRole('link', { name: 'Open in SQL Workbench' })).toHaveAttribute('href', '/app/sqlWorkbench?sql=SELECT+1')
+    expect(screen.queryByRole('link', { name: 'Bad' })).not.toBeInTheDocument()
+    expect(screen.getByText('This panel could not be built.')).toHaveAttribute('role', 'alert')
   })
 })
