@@ -213,6 +213,7 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
           <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">↑↓</kbd> navigate</span>
           <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd> open</span>
           <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">Ctrl/⌘ ↵</kbd> new tab</span>
+          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">⇧ ↵</kbd> all results</span>
         </div>
       </div>
     </div>

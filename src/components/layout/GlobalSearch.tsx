@@ -49,6 +49,7 @@ const FOOTER = (
     <span><kbd className="rounded border border-border px-1 font-mono">↑↓</kbd> navigate</span>
     <span><kbd className="rounded border border-border px-1 font-mono">↵</kbd> open</span>
     <span><kbd className="rounded border border-border px-1 font-mono">Ctrl/⌘ ↵</kbd> new tab</span>
+    <span><kbd className="rounded border border-border px-1 font-mono">⇧ ↵</kbd> all results</span>
     <span><kbd className="rounded border border-border px-1 font-mono">esc</kbd> close</span>
   </div>
 )

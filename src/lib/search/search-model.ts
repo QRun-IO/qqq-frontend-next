@@ -39,7 +39,7 @@ export type QuickSearchOption =
   | { id: string; kind: 'page'; path: string; label: string; context: string; icon?: QIcon; nodeType?: QAppNodeType }
   | { id: string; kind: 'record'; path: string; label: string; tableLabel: string; icon?: QIcon; result: RecordSearchResult }
   | { id: string; kind: 'recent'; path: string; label: string; tableLabel: string; icon?: QIcon }
-  | { id: string; kind: 'query'; term: string }
+  | { id: string; kind: 'query'; term: string; completion?: boolean }
   | { id: string; kind: 'more'; path: string; tableLabel: string; count?: string }
   | { id: string; kind: 'all'; path: string; term: string }
 
@@ -54,7 +54,7 @@ export interface QuickSearchGroup {
   /** Heading icon (a table's icon for its group). */
   icon?: QIcon
   /** What the group holds. */
-  kind: 'top' | 'pages' | 'table' | 'recent' | 'recent-searches' | 'actions'
+  kind: 'top' | 'suggestions' | 'pages' | 'table' | 'recent' | 'recent-searches' | 'actions'
   /** The group's options, in order. */
   options: QuickSearchOption[]
 }
@@ -213,6 +213,35 @@ export interface QuickSearchInput {
   maxPerTable?: number
 }
 
+/** Most term completions offered. */
+const MAX_COMPLETIONS = 3
+
+/**
+ * Completes the last word of a search term from the words of matching labels, most
+ * frequent first ("acme co" with "Acme Corp" and "Acme Corporation" offers "acme corp" and
+ * "acme corporation").
+ *
+ * @param term - Search text (the last word needs two characters).
+ * @param labels - Labels of matching pages and records.
+ * @returns Up to three completed terms, lowercased, never the term itself.
+ */
+export function termCompletions(term: string, labels: string[]): string[] {
+  const words = term.trim().split(/\s+/)
+  const last = (words.pop() ?? '').toLowerCase()
+  if (last.length < 2) return []
+  const prefix = words.join(' ').toLowerCase()
+  const counts = new Map<string, number>()
+  for (const label of labels) {
+    for (const word of new Set(label.toLowerCase().split(/[\s\-_/.,:;()"'@]+/))) {
+      if (word.length > last.length && word.startsWith(last)) counts.set(word, (counts.get(word) ?? 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]))
+    .slice(0, MAX_COMPLETIONS)
+    .map(([word]) => (prefix ? `${prefix} ${word}` : word))
+}
+
 /** Most entries in "Top hits". */
 const MAX_TOP_HITS = 3
 
@@ -292,6 +321,16 @@ export function buildQuickSearchGroups(input: QuickSearchInput): QuickSearchGrou
   const top = topCandidates.slice(0, MAX_TOP_HITS).map((candidate) => candidate.option)
   const topIds = new Set(top.map((option) => option.id))
   if (top.length > 0) groups.push({ id: 'top', heading: 'Top hits', kind: 'top', options: top })
+
+  const completions = termCompletions(trimmed, [...pages.map((page) => page.option.label), ...records.map((record) => record.option.label)])
+  if (completions.length > 0) {
+    groups.push({
+      id: 'suggestions',
+      heading: 'Suggestions',
+      kind: 'suggestions',
+      options: completions.map((completion) => ({ id: `complete:${completion}`, kind: 'query', term: completion, completion: true })),
+    })
+  }
 
   const remainingPages = pages.map((page) => page.option).filter((option) => !topIds.has(option.id)).slice(0, maxPages)
   if (remainingPages.length > 0) groups.push({ id: 'pages', heading: 'Pages', kind: 'pages', options: remainingPages })

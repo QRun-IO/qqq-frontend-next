@@ -32,7 +32,33 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => urlState.params,
 }))
 vi.mock('@/lib/context/q-context', () => ({ useQContext: () => ({ setPageHeader: vi.fn() }) }))
+const ACCOUNT_TABLE = {
+  name: 'account', label: 'Accounts', isHidden: false, readPermission: true, editPermission: true, capabilities: ['TABLE_GET', 'TABLE_QUERY', 'TABLE_UPDATE'],
+  primaryKeyField: 'id',
+  fields: {
+    id: { name: 'id', label: 'Id', type: 'INTEGER', isHidden: false, isHeavy: false, adornments: [] },
+    name: { name: 'name', label: 'Name', type: 'STRING', isHidden: false, isHeavy: false, adornments: [] },
+    status: { name: 'status', label: 'Status', type: 'STRING', isHidden: false, isHeavy: false, adornments: [] },
+    owner: { name: 'owner', label: 'Owner', type: 'STRING', isHidden: false, isHeavy: false, adornments: [] },
+    notes: { name: 'notes', label: 'Notes', type: 'TEXT', isHidden: false, isHeavy: true, adornments: [] },
+  },
+  sections: [
+    { name: 'identity', label: 'Identity', tier: 'T1', isHidden: false, fieldNames: ['id', 'name', 'status', 'owner', 'notes'] },
+    { name: 'more', label: 'More', tier: 'T2', isHidden: false, fieldNames: ['notes'] },
+  ],
+}
+const media = vi.hoisted(() => ({ wide: false }))
+vi.mock('@/lib/hooks/use-media-query', () => ({ useMediaQuery: () => media.wide, PHONE_MEDIA_QUERY: '(max-width: 767px)' }))
+vi.mock('@/lib/api/tables', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/tables')>()),
+  getRecord: vi.fn(async (tableName: string, id: string) => ({
+    tableName, recordLabel: `Acme ${id}`,
+    values: { id: Number(id), name: `Acme ${id}`, status: 'Active', owner: 'Avery' },
+    displayValues: { id, name: `Acme ${id}`, status: 'Active', owner: 'Avery' },
+  })),
+}))
 vi.mock('@/lib/api/metadata', () => ({
+  loadTableMetaData: vi.fn(async () => ACCOUNT_TABLE),
   loadMetaData: vi.fn(async () => ({
     appTree: [{ name: 'crm', label: 'CRM', type: 'APP', children: [
       { name: 'account', label: 'Accounts', type: 'TABLE' },
@@ -94,6 +120,7 @@ const OVERVIEW = {
 
 describe('SearchPage', () => {
   beforeEach(() => {
+    media.wide = false
     replaceMock.mockReset()
     searchRecordsMock.mockReset()
     localStorage.removeItem('qqq-recent-searches')
@@ -221,6 +248,56 @@ describe('SearchPage', () => {
     expect(await screen.findByRole('link', { name: 'acme' })).toHaveAttribute('href', '/app/search?q=acme')
     expect(screen.getByRole('region', { name: 'Recently viewed' })).toHaveTextContent('Acme Corp')
     expect(searchRecordsMock).not.toHaveBeenCalled()
+  })
+
+  it('wide screens preview the first result beside the list, follow hover, focus and arrow keys, and offer edit when permitted', async () => {
+    media.wide = true
+    searchRecordsMock.mockResolvedValue({
+      results: [
+        { tableName: 'account', recordId: '1', recordLabel: 'Acme 1', score: 10, highlights: [{ fieldName: 'name', fieldLabel: 'Name', text: 'Acme 1', matches: [{ start: 0, end: 4 }] }] },
+        { tableName: 'account', recordId: '2', recordLabel: 'Acme 2', score: 3 },
+      ],
+      tables: [{ tableName: 'account', resultCount: 2, hasMore: false }],
+    })
+    const user = userEvent.setup()
+    renderPage('q=acme')
+    const pane = await screen.findByRole('complementary', { name: 'Record preview' })
+    // T1 fields, without the primary key or heavy fields
+    // the preview chunk loads on demand
+    expect(await within(pane).findByText('Owner', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(within(pane).getByText('Avery')).toBeInTheDocument()
+    expect(within(pane).queryByText('Notes')).not.toBeInTheDocument()
+    expect(within(pane).getByRole('heading', { level: 2 })).toHaveTextContent('Acme 1')
+    expect(within(pane).getByText('Matched')).toBeInTheDocument()
+    expect(within(pane).getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/app/account/1/edit')
+    expect(within(pane).getByRole('link', { name: 'New tab' })).toHaveAttribute('target', '_blank')
+    // relevance relative to the best result
+    const cards = screen.getAllByRole('listitem').filter((item) => item.getAttribute('data-qqq-id') === 'search-result-card')
+    expect(cards[0]).toHaveAttribute('data-active', 'true')
+    expect(within(cards[0]).getByText('Strong match')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('Partial match')).toBeInTheDocument()
+    // keyboard: focus a result, ArrowDown moves to the next and previews it
+    const links = screen.getAllByRole('link').filter((link) => link.getAttribute('data-qqq-id') === 'search-result-link')
+    links[0].focus()
+    await user.keyboard('{ArrowDown}')
+    expect(links[1]).toHaveFocus()
+    await waitFor(() => expect(within(pane).getByRole('heading', { level: 2 })).toHaveTextContent('Acme 2'))
+    // pointer: hovering a result previews it
+    await user.hover(cards[0])
+    await waitFor(() => expect(within(pane).getByRole('heading', { level: 2 })).toHaveTextContent('Acme 1'))
+  })
+
+  it('narrow screens open the preview in a side sheet from the Preview button', async () => {
+    searchRecordsMock.mockResolvedValue(OVERVIEW)
+    const user = userEvent.setup()
+    renderPage('q=acme')
+    const accountsSection = await screen.findByRole('region', { name: 'Accounts' })
+    expect(screen.queryByRole('complementary', { name: 'Record preview' })).not.toBeInTheDocument()
+    await user.click(within(accountsSection).getByRole('button', { name: 'Preview Acme Corp' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Preview' })
+    expect(await within(sheet).findByText('Owner', {}, { timeout: 5000 })).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Close preview' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Preview' })).not.toBeInTheDocument())
   })
 
   it('copies a record link and offers it in a new tab', async () => {

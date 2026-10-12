@@ -32,8 +32,10 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import * as Dialog from '@radix-ui/react-dialog'
 import { AlertTriangle, Clock, History, Loader2, RotateCw, Search, X } from 'lucide-react'
 
 import { loadMetaData } from '@/lib/api/metadata'
@@ -42,6 +44,7 @@ import { queryKeys } from '@/lib/query-client'
 import { useQContext } from '@/lib/context/q-context'
 import { useAppTreeRoutes } from '@/lib/hooks/use-routes'
 import { useRecordSearch } from '@/lib/hooks/use-record-search'
+import { useMediaQuery } from '@/lib/hooks/use-media-query'
 import { getRecentRecords, type RecentRecord } from '@/lib/utils/recent-records'
 import { searchNavTargets, searchRecentRecords } from '@/lib/utils/navigation-search'
 import { isRecordSearchTerm, searchableTables } from '@/lib/utils/record-search'
@@ -61,6 +64,30 @@ import { cn } from '@/lib/utils/cn'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { HighlightedText } from './HighlightedText'
 import { SearchResultCard } from './SearchResultCard'
+
+/** The record preview (key fields, thumbnails, quick actions), loaded when first shown. */
+const RecordPreview = dynamic(() => import('./RecordPreview').then((module) => module.RecordPreview), {
+  ssr: false,
+  loading: () => (
+    <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      Loading preview…
+    </p>
+  ),
+})
+
+/** Wide enough for results and preview side by side. */
+const SPLIT_VIEW_QUERY = '(min-width: 1280px)'
+
+/**
+ * A result's key for preview state.
+ *
+ * @param result - The result.
+ * @returns `table:id`.
+ */
+function resultKey(result: RecordSearchResult): string {
+  return `${result.tableName}:${result.recordId}`
+}
 
 /** Fallback icon kind for each app-tree node type. */
 const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
@@ -258,8 +285,65 @@ export function SearchPage() {
 
   const filterHref = (next: Partial<SearchPageState>) => searchPagePath({ q: term, sort, ...next })
 
+  // Record preview: a split view beside the results on wide screens (following hover, focus
+  // and the arrow keys), a side sheet elsewhere (its button, or a long press)
+  const splitView = useMediaQuery(SPLIT_VIEW_QUERY)
+  const [previewKey, setPreviewKey] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const shownResults = useMemo(() => {
+    if (view === 'pages') return []
+    if (singleTable) return tableResults.map((result) => ({ result, tableLabel: singleTable.label, icon: singleTable.icon }))
+    return overviewGroups.flatMap((group) => group.results.map((result) => ({ result, tableLabel: group.tableLabel, icon: group.icon })))
+  }, [view, singleTable, tableResults, overviewGroups])
+  const previewed = shownResults.find((entry) => resultKey(entry.result) === previewKey) ?? (splitView ? shownResults[0] : undefined)
+  const showSplit = splitView && Boolean(term) && shownResults.length > 0
+  // relevance relative to the best score per table (only providers send scores)
+  const bestScore = useMemo(() => {
+    const best = new Map<string, number>()
+    for (const { result } of shownResults) {
+      if (result.score !== undefined && result.score > (best.get(result.tableName) ?? 0)) best.set(result.tableName, result.score)
+    }
+    return best
+  }, [shownResults])
+
+  /**
+   * Props that tie a result card to the preview.
+   *
+   * @param result - The card's result.
+   * @returns Active state, activation and preview handlers, and relevance.
+   */
+  const previewProps = (result: RecordSearchResult) => {
+    const key = resultKey(result)
+    const best = bestScore.get(result.tableName)
+    return {
+      active: showSplit && previewed !== undefined && resultKey(previewed.result) === key,
+      onActivate: showSplit ? () => setPreviewKey(key) : undefined,
+      onPreview: () => {
+        setPreviewKey(key)
+        if (!splitView) setSheetOpen(true)
+      },
+      relevance: result.score !== undefined && best ? Math.max(0, Math.min(1, result.score / best)) : undefined,
+    }
+  }
+
+  /**
+   * ↑/↓ on a result moves to the previous or next result (and so the preview).
+   *
+   * @param event - Keydown within the results.
+   */
+  const handleResultsKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    if (!(event.target instanceof HTMLElement) || !event.target.matches('[data-qqq-id="search-result-link"]')) return
+    const links = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-qqq-id="search-result-link"]'))
+    const next = links[links.indexOf(event.target) + (event.key === 'ArrowDown' ? 1 : -1)]
+    if (!next) return
+    event.preventDefault()
+    next.focus()
+    next.scrollIntoView?.({ block: 'nearest' })
+  }
+
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5" data-qqq-id="search-results-page">
+    <div className={cn('mx-auto w-full space-y-5', showSplit ? 'max-w-[110rem]' : 'max-w-5xl')} data-qqq-id="search-results-page">
       <h1 className="break-words text-2xl font-bold tracking-tight text-foreground">
         {term ? <>Results for &ldquo;{term}&rdquo;</> : 'Search'}
       </h1>
@@ -421,8 +505,9 @@ export function SearchPage() {
       )}
 
       {term && (
-        // delegated click: remembers the search when a result link is followed
-        <div className="space-y-5" onClick={rememberOnOpen}>
+        <div className={cn(showSplit && 'grid grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] items-start gap-6')}>
+        {/* delegated click: remembers the search when a result link is followed; ↑/↓ move between results */}
+        <div className="min-w-0 space-y-5" onClick={rememberOnOpen} onKeyDown={handleResultsKeyDown}>
           {view !== 'pages' && !singleTable && pages.length > 0 && (
             <PagesSection pages={pages.slice(0, OVERVIEW_PAGES)} term={term} moreHref={pages.length > OVERVIEW_PAGES ? filterHref({ view: 'pages' }) : undefined} total={pages.length} />
           )}
@@ -444,7 +529,7 @@ export function SearchPage() {
                 </div>
                 <ul className="divide-y divide-border">
                   {group.results.map((result) => (
-                    <SearchResultCard key={result.recordId} result={result} tableLabel={group.tableLabel} icon={group.icon} term={term} />
+                    <SearchResultCard key={result.recordId} result={result} tableLabel={group.tableLabel} icon={group.icon} term={term} {...previewProps(result)} />
                   ))}
                 </ul>
               </section>
@@ -462,7 +547,7 @@ export function SearchPage() {
               </div>
               <ul className="divide-y divide-border">
                 {tableResults.map((result) => (
-                  <SearchResultCard key={result.recordId} result={result} tableLabel={singleTable.label} icon={singleTable.icon} term={term} />
+                  <SearchResultCard key={result.recordId} result={result} tableLabel={singleTable.label} icon={singleTable.icon} term={term} {...previewProps(result)} />
                 ))}
               </ul>
               {tablePages.hasNextPage && (
@@ -507,7 +592,39 @@ export function SearchPage() {
             </section>
           )}
         </div>
+        {showSplit && previewed && (
+          <aside
+            aria-label="Record preview"
+            className="sticky top-4 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-5 shadow-sm"
+            data-qqq-id="search-preview-pane"
+          >
+            <RecordPreview key={resultKey(previewed.result)} result={previewed.result} tableLabel={previewed.tableLabel} icon={previewed.icon} term={term} headingId="search-preview-title" />
+          </aside>
+        )}
+        </div>
       )}
+
+      {/* Narrow screens: the preview opens as a side sheet */}
+      <Dialog.Root open={sheetOpen && !splitView && previewed !== undefined} onOpenChange={setSheetOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[2000] bg-black/40 backdrop-blur-sm" />
+          <Dialog.Content
+            className="fixed inset-y-0 right-0 z-[2001] flex w-full max-w-md flex-col bg-card shadow-xl focus:outline-none"
+            aria-describedby={undefined}
+            data-qqq-id="search-preview-sheet"
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <Dialog.Title className="text-sm font-semibold text-muted-foreground">Preview</Dialog.Title>
+              <Dialog.Close className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close preview">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+              {previewed && <RecordPreview key={resultKey(previewed.result)} result={previewed.result} tableLabel={previewed.tableLabel} icon={previewed.icon} term={term} headingId="search-preview-sheet-title" />}
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

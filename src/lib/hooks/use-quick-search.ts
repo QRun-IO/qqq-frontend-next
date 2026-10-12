@@ -131,7 +131,8 @@ export function useQuickSearch({ open, term, setTerm: setTermProp, navTargets, s
       if (current && userMovedRef.current && options.some((option) => option.id === current)) return current
       userMovedRef.current = false
       if (!hasTerm) return null
-      const first = stale ? options.find((option) => option.kind !== 'record' && option.kind !== 'more') : options[0]
+      // never preselect a completion (Enter opens a result), nor a stale record
+      const first = options.find((option) => option.kind !== 'query' && (!stale || (option.kind !== 'record' && option.kind !== 'more')))
       return first?.id ?? null
     })
   }, [options, hasTerm, stale])
@@ -186,6 +187,11 @@ export function useQuickSearch({ open, term, setTerm: setTermProp, navTargets, s
         break
       case 'Enter': {
         event.preventDefault()
+        // Shift+Enter always opens the results page
+        if (event.shiftKey) {
+          openSearchPage()
+          break
+        }
         const option = index >= 0 ? options[index] : undefined
         if (option) choose(option, event.metaKey || event.ctrlKey)
         else openSearchPage()

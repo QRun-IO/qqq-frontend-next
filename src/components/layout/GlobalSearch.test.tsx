@@ -236,6 +236,27 @@ describe('GlobalSearch', () => {
     expect(selected()).toHaveTextContent('Pet')
   })
 
+  it('suggests completions of the last word from matching labels; choosing one fills the box', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'greet in')
+    const suggestions = await screen.findByRole('group', { name: 'Suggestions' })
+    expect(optionLabels(suggestions)).toEqual(['greet interactive'])
+    // a completion is never preselected: Enter still opens the top hit
+    expect(selected()).toHaveTextContent('Greet Interactive')
+    await user.click(option(/greet interactive/, suggestions))
+    expect(input()).toHaveValue('greet interactive')
+  })
+
+  it('Shift+Enter opens the results page even with a result selected', async () => {
+    const user = userEvent.setup()
+    renderSearch()
+    await user.type(input(), 'pet')
+    await screen.findByRole('listbox')
+    await user.keyboard('{Shift>}{Enter}{/Shift}')
+    expect(pushMock).toHaveBeenCalledWith('/app/search?q=pet')
+  })
+
   it('never calls the backend without searchable tables (no record search capability)', async () => {
     const user = userEvent.setup()
     renderSearch()

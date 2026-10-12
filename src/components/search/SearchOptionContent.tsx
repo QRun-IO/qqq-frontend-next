@@ -80,10 +80,15 @@ export interface SearchOptionContentProps {
  */
 export function SearchOptionContent({ option, term, showTable = false }: SearchOptionContentProps) {
   if (option.kind === 'query') {
+    const Icon = option.completion ? Search : History
     return (
       <>
-        <History className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{option.term}</span>
+        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+          {option.completion && option.term.toLowerCase().startsWith(term.trim().toLowerCase())
+            ? <>{option.term.slice(0, term.trim().length)}<span className="font-semibold">{option.term.slice(term.trim().length)}</span></>
+            : option.term}
+        </span>
       </>
     )
   }

@@ -32,6 +32,7 @@ import {
   searchPagePath,
   tableCountLabel,
   tableHasMore,
+  termCompletions,
 } from './search-model'
 
 const crm = { label: 'CRM', path: '/app/crm' }
@@ -110,6 +111,18 @@ describe('groupResultsByTable / counts', () => {
     expect(tableHasMore(5, { tableName: 'a', totalCount: 9 }, 5)).toBe(true)
     expect(tableHasMore(5, undefined, 5)).toBe(true)
     expect(tableHasMore(4, undefined, 5)).toBe(false)
+  })
+})
+
+describe('termCompletions', () => {
+  it('completes the last word from label words, most frequent first, keeping the earlier words', () => {
+    expect(termCompletions('acme co', ['Acme Corp', 'Acme Corporation', 'Corp of Acme', 'Cobalt'])).toEqual(['acme corp', 'acme cobalt', 'acme corporation'])
+    expect(termCompletions('pe', ['Person', 'Pet', 'Pet Species'])).toEqual(['pet', 'person'])
+  })
+
+  it('needs two characters, and never offers the term itself', () => {
+    expect(termCompletions('a', ['Acme'])).toEqual([])
+    expect(termCompletions('acme', ['Acme'])).toEqual([])
   })
 })
 

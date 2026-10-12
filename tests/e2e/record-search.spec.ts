@@ -232,6 +232,39 @@ test.describe('Search page', () => {
     await expect(popup).toHaveURL(/\/app\/person\/1\/?$/)
   })
 
+  test('wide screens preview the selected result beside the list; arrow keys move the preview', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await setupSearch(page, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALICE_RESPONSE) }))
+    await page.goto('/app/search?q=alice')
+    await waitForAppReady(page)
+
+    const pane = page.getByRole('complementary', { name: 'Record preview' })
+    await expect(pane.getByRole('heading', { level: 2 })).toHaveText('Alice Johnson')
+    await expect(pane.locator('[data-qqq-id="search-preview-fields"]')).toContainText('alice@example.com')
+    await expect(pane.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/app/person/1')
+    const links = page.locator('[data-qqq-id="search-result-link"]')
+    await links.first().focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(links.nth(1)).toBeFocused()
+    await expect(pane.getByRole('heading', { level: 2 })).toHaveText('Malice Aforethought')
+    // the page itself does not scroll sideways and the list is not a second scroll area
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+
+  test('phones open the preview in a side sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await setupSearch(page, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALICE_RESPONSE) }))
+    await page.goto('/app/search?q=alice')
+    await waitForAppReady(page)
+
+    await page.getByRole('button', { name: 'Preview Alice Johnson' }).click()
+    const sheet = page.getByRole('dialog', { name: 'Preview' })
+    await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Alice Johnson')
+    await expect(sheet.locator('[data-qqq-id="search-preview-fields"]')).toContainText('alice@example.com')
+    await sheet.getByRole('button', { name: 'Close preview' }).click()
+    await expect(sheet).toHaveCount(0)
+  })
+
   test('has no horizontal overflow at phone width', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 760 })
     await setupSearch(page, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ALICE_RESPONSE) }))
