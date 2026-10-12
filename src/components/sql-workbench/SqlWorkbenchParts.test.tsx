@@ -145,7 +145,7 @@ describe('PlanTree', () => {
     expect(within(tree).getByText('cost 10..12.5')).toBeInTheDocument()
     expect(within(tree).getByText('Sort Key')).toBeInTheDocument()
     expect(await axe(container)).toHaveNoViolations()
-    await user.click(screen.getByRole('button', { name: 'Raw' }))
+    await user.click(screen.getByRole('button', { name: 'Raw text' }))
     expect(screen.queryByRole('list', { name: 'Query plan' })).not.toBeInTheDocument()
   })
 
@@ -220,7 +220,7 @@ describe('ResultGrid', () => {
         />
       </QueryClientProvider>
     )
-    expect(screen.queryByRole('link', { name: /CSV/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Copy page/ }))
   })
 })
@@ -242,9 +242,9 @@ describe('QuickChart', () => {
       />
     )
     expect(screen.getByRole('img', { name: /bar chart of signups by month/ })).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Chart'), 'line')
+    await user.selectOptions(screen.getByLabelText('Chart type'), 'line')
     expect(screen.getByRole('img', { name: /line chart/ })).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Chart'), 'pie')
+    await user.selectOptions(screen.getByLabelText('Chart type'), 'pie')
     await user.click(screen.getByLabelText('signups'))
     expect(screen.getByRole('img', { name: /pie chart of signups/ })).toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Category'), '1')

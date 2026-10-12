@@ -22,7 +22,8 @@
  * Keyboard (WCAG 2.1.2 No Keyboard Trap): Tab is not bound, so Tab and Shift+Tab always move
  * focus out of the editor; indentation uses the editor's indent commands (Ctrl+] / Ctrl+[).
  * Loaded only inside the lazily imported workbench widget, so CodeMirror stays out of the
- * initial bundle.
+ * initial bundle. Its colors come from the app theme (see `editor-theme.ts`), so it follows the
+ * light / dark toggle live.
  */
 
 'use client'
@@ -37,12 +38,13 @@ import {
 } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { MySQL, PostgreSQL, SQLite, StandardSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
-import { bracketMatching, defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { bracketMatching } from '@codemirror/language'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 
 import type { SqlSchema, SqlWorkbenchDialect } from '@/types'
 import { editorDialectName, editorSchema, qqqNameCompletions } from '@/lib/utils/sql-workbench'
+import { workbenchEditorTheme, workbenchSyntaxHighlighting } from './editor-theme'
 
 const DIALECTS: Record<ReturnType<typeof editorDialectName>, SQLDialect> = {
   PostgreSQL,
@@ -129,7 +131,7 @@ export function SqlEditor(props: SqlEditorProps) {
           bracketMatching(),
           closeBrackets(),
           autocompletion({ activateOnTyping: true }),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          workbenchSyntaxHighlighting,
           placeholder('SELECT …   (Ctrl/Cmd+Enter to run)'),
           keymap.of([
             {
@@ -151,19 +153,7 @@ export function SqlEditor(props: SqlEditorProps) {
           EditorView.updateListener.of((update) => {
             if (update.docChanged) onChangeRef.current(update.state.doc.toString())
           }),
-          EditorView.theme({
-            '&': {
-              fontSize: '13px',
-              border: '1px solid var(--border, #d4d4d8)',
-              borderRadius: '6px',
-            },
-            '&.cm-focused': { outline: '2px solid var(--ring, #6366f1)', outlineOffset: '1px' },
-            '.cm-content': {
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              minHeight: '5rem',
-            },
-            '.cm-gutters': { backgroundColor: 'transparent', border: 'none' },
-          }),
+          workbenchEditorTheme,
         ],
       }),
     })
