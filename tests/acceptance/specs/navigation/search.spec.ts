@@ -106,20 +106,27 @@ test.describe('command palette and search', () => {
     await recent.click()
     await expect(page).toHaveURL(/\/app\/person\/1\/?$/)
 
-    // Enter without a selection opens the search page, which survives a refresh
+    // The first result is preselected while typing; ArrowUp above it leaves nothing selected,
+    // and Enter then opens the search page, which survives a refresh
     await page.locator('body').press('/')
     await dialog.getByRole('combobox').fill('pet')
     // Keep the pointer off the results so no option is hovered (hover selects, as in the palette)
     await page.mouse.move(1, 1)
+    await expect(dialog.getByRole('option', { selected: true })).toHaveCount(1)
+    await page.keyboard.press('ArrowUp')
     await expect(dialog.getByRole('option', { selected: true })).toHaveCount(0)
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/app\/search\/?\?q=pet$/)
     for (const attempt of ['navigate', 'reload']) {
       if (attempt === 'reload') await page.reload()
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search results for “pet”')
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Results for “pet”')
+      // every matching page, on the pages view (the overview lists the best few)
+      await page.getByRole('navigation', { name: 'Filter results' }).getByRole('link', { name: /^Pages/ }).click()
+      await expect(page).toHaveURL(/\/app\/search\/?\?q=pet&view=pages$/)
       const pageLinks = page.getByRole('region', { name: 'Pages' }).getByRole('link')
-      // Other areas' fixtures add matching pages (e.g. "Owned Pet … Report"); every result must match and the pet tables keep their order
-      await expect(pageLinks.filter({ hasText: /^Pet/ })).toHaveText([/^Pet Species/, /^Pet(?! )/, /^Pet Note/])
+      // Other areas' fixtures add matching pages (e.g. "Owned Pet … Report"); every result must match.
+      // Exact and prefix label matches come first, in tree order: Pet, then Pet Species and Pet Note
+      await expect(pageLinks.filter({ hasText: /^Pet/ })).toHaveText([/^Pet(?! )/, /^Pet Species/, /^Pet Note/])
       for (const text of await pageLinks.allTextContents()) expect(text).toMatch(/pet/i)
     }
     await page.getByRole('region', { name: 'Pages' }).getByRole('link', { name: /^Pet Note/ }).click()
@@ -136,11 +143,15 @@ test.describe('command palette and search', () => {
     if (await header.isVisible()) {
       await header.fill('clone')
       const results = page.getByRole('listbox', { name: 'Search results' })
-      await expect(results.getByRole('option')).toHaveCount(1)
-      await expect(results.getByRole('option')).toContainText('Clone People')
-      await expect(results.getByRole('option')).toContainText('People App')
+      const clone = results.getByRole('option').filter({ hasText: 'Clone People' })
+      await expect(clone).toHaveCount(1)
+      await expect(clone).toContainText('People App')
+      // the only other entry searches everything
+      await expect(results.getByRole('option')).toHaveCount(2)
+      await expect(results.getByRole('option').last()).toContainText('Search everything for “clone”')
       await expectTouchTargets(results)
-      await page.keyboard.press('ArrowDown')
+      // the top hit is preselected: Enter opens it
+      await expect(clone).toHaveAttribute('aria-selected', 'true')
       await page.keyboard.press('Enter')
     } else {
       // Narrow viewports replace the header box with a button that opens the same search

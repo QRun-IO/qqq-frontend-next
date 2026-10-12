@@ -189,7 +189,7 @@ export interface TestScriptResult {
  * record, script and log request goes to the v1 routes.
  * @returns The configured base URL without the V1 route suffix.
  */
-function apiMiddlewareBaseURL(): string | undefined {
+export function apiMiddlewareBaseURL(): string | undefined {
   return apiClient.getInstance().defaults.baseURL?.replace(/\/qqq\/v1\/?$/, '')
 }
 
@@ -316,6 +316,18 @@ export async function getApiVersions(apiPath: string): Promise<ApiVersions> {
  */
 export function apiTableSpecUrl(api: ApiInstance, version: string, tableName: string): string {
   return `${apiMiddlewareBaseURL() ?? ''}${api.path}${version}/${tableName}/openapi.json`
+}
+
+/**
+ * Loads the OpenAPI spec of one table in one API version (for the developer view's API examples).
+ *
+ * @param api - The API.
+ * @param version - The API version.
+ * @param tableName - Exact backend table identifier.
+ * @returns The parsed spec document.
+ */
+export async function getApiTableSpec(api: ApiInstance, version: string, tableName: string): Promise<unknown> {
+  return apiClient.get<unknown>(apiTableSpecUrl(api, version, tableName), { baseURL: '' })
 }
 
 /**

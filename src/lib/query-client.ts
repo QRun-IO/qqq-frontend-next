@@ -424,6 +424,23 @@ export const queryKeys = {
    * @returns The API versions query key tuple.
    */
   apiVersions: (apiPath: string) => [...queryKeys.all(), 'apis', 'versions', apiPath] as const,
+  /**
+   * Key for one table's OpenAPI spec in one application API version.
+   *
+   * @param apiPath - The API's base path.
+   * @param version - The API version.
+   * @param tableName - Backend table name.
+   * @returns The table spec query key tuple.
+   */
+  apiTableSpec: (apiPath: string, version: string, tableName: string) => [...queryKeys.all(), 'apis', 'spec', apiPath, version, tableName] as const,
+  /**
+   * Key for a record's developer panels (contributed by developer panel providers).
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Record identifier.
+   * @returns The developer panels query key tuple.
+   */
+  recordDeveloperPanels: (tableName: string, primaryKey: string | number) => [...queryKeys.all(), 'developerPanels', tableName, String(primaryKey)] as const,
 
   // ESB
   /**
@@ -531,8 +548,10 @@ export const queryKeys = {
    * @param searchTerm - The trimmed search term.
    * @param tableNames - The searched tables.
    * @param limitPerTable - Maximum records per table.
+   * @param offset - Records skipped per table.
+   * @param sort - Requested order.
    * @returns The record search query key tuple.
    */
-  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number) =>
-    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance') =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort] as const,
 }
