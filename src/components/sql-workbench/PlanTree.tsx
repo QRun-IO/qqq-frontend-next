@@ -17,7 +17,7 @@
 /**
  * @file PlanTree — a query plan as a collapsible tree: each node's operation, target, cost range,
  * estimated rows and (with ANALYZE) actual time, rows and loops, with a bar scaled to the most
- * expensive node. A toggle shows the raw plan text.
+ * expensive node. A toggle button shows the raw plan text instead.
  */
 
 'use client'
@@ -26,6 +26,8 @@ import React, { useState } from 'react'
 
 import type { SqlExplainResponse, SqlPlanNode } from '@/types'
 import { planMax } from '@/lib/utils/sql-workbench'
+import { cn } from '@/lib/utils/cn'
+import { ALERT_CLASS, buttonClass } from '@/components/ui/controls'
 
 /**
  * Formats a plan number.
@@ -60,36 +62,41 @@ function PlanNodeItem({
   const extras = Object.entries(node.extra ?? {})
   const summary = (
     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-0.5">
-      <span className="font-medium">{node.label}</span>
+      <span className="font-semibold text-foreground">{node.label}</span>
       {node.detail && <span className="text-muted-foreground">{node.detail}</span>}
       {node.totalCost !== null && (
-        <span className="font-mono text-xs">
+        <span className="font-mono text-xs text-muted-foreground">
           cost {n(node.startupCost)}..{n(node.totalCost)}
         </span>
       )}
-      {node.planRows !== null && <span className="font-mono text-xs">rows {n(node.planRows)}</span>}
+      {node.planRows !== null && (
+        <span className="font-mono text-xs text-muted-foreground">rows {n(node.planRows)}</span>
+      )}
       {node.actualTimeMs !== null && (
-        <span className="font-mono text-xs">
+        <span className="font-mono text-xs text-foreground">
           actual {n(node.actualTimeMs)} ms · {n(node.actualRows)} rows × {n(node.loops)}
         </span>
       )}
       {width > 0 && (
-        <span className="inline-block h-1.5 w-24 rounded bg-muted" aria-hidden>
-          <span className="block h-1.5 rounded bg-primary" style={{ width: `${width}%` }} />
+        <span className="inline-block h-1.5 w-24 rounded-full bg-muted" aria-hidden>
+          {/* the bar's length is data, so it is the one inline style */}
+          <span className="block h-1.5 rounded-full bg-primary" style={{ width: `${width}%` }} />
         </span>
       )}
     </span>
   )
   return (
-    <li className="my-1">
+    <li className="my-1.5">
       <details open>
-        <summary className="cursor-pointer">{summary}</summary>
+        <summary className="cursor-pointer rounded-md px-1 py-0.5 marker:text-muted-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {summary}
+        </summary>
         {extras.length > 0 && (
-          <dl className="ml-4 grid grid-cols-[auto_1fr] gap-x-2 text-xs text-muted-foreground">
+          <dl className="ml-5 mt-0.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 text-xs text-muted-foreground">
             {extras.map(([k, v]) => (
               <React.Fragment key={k}>
                 <dt>{k}</dt>
-                <dd className="truncate font-mono">
+                <dd className="break-words font-mono text-foreground">
                   {typeof v === 'string' ? v : JSON.stringify(v)}
                 </dd>
               </React.Fragment>
@@ -97,7 +104,7 @@ function PlanNodeItem({
           </dl>
         )}
         {node.children.length > 0 && (
-          <ul className="ml-4 border-l pl-3">
+          <ul className="ml-3 border-l border-border pl-3">
             {node.children.map((child, i) => (
               <PlanNodeItem key={i} node={child} max={max} useActual={useActual} />
             ))}
@@ -119,7 +126,7 @@ export function PlanTree({ explain }: { explain: SqlExplainResponse }) {
   const [raw, setRaw] = useState(false)
   if (explain.status !== 'SUCCEEDED' || !explain.plan) {
     return (
-      <p className="text-sm text-destructive" role="alert">
+      <p className={ALERT_CLASS} role="alert">
         {explain.error ?? 'The plan could not be produced.'}
       </p>
     )
@@ -128,21 +135,24 @@ export function PlanTree({ explain }: { explain: SqlExplainResponse }) {
   const max = planMax(explain.plan, useActual)
   return (
     <div className="space-y-2 text-sm">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span>
-          {explain.analyze ? 'EXPLAIN ANALYZE (executed, rolled back)' : 'EXPLAIN (estimated)'}
+          {explain.analyze
+            ? 'Actual plan: the statement ran and was rolled back'
+            : 'Estimated plan'}
         </span>
         <button
           type="button"
-          className="ml-auto rounded border px-2 py-0.5"
+          className={cn(buttonClass('secondary', 'sm'), 'ml-auto')}
+          aria-pressed={raw}
           onClick={() => setRaw(!raw)}
           data-qqq-id="button-sql-plan-raw"
         >
-          {raw ? 'Tree' : 'Raw'}
+          Raw text
         </button>
       </div>
       {raw ? (
-        <pre className="max-h-96 overflow-auto rounded bg-muted p-2 font-mono text-xs">
+        <pre className="whitespace-pre-wrap break-words rounded-md border border-border bg-muted p-3 font-mono text-xs text-foreground">
           {explain.raw}
         </pre>
       ) : (

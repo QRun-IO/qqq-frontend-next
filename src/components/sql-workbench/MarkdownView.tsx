@@ -91,7 +91,10 @@ export function MarkdownView({ source }: { source: string }) {
       while (i < lines.length && !lines[i].trim().startsWith('```')) code.push(lines[i++])
       i++
       blocks.push(
-        <pre key={key} className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">
+        <pre
+          key={key}
+          className="whitespace-pre-wrap break-words rounded-md border border-border bg-muted p-3 font-mono text-xs"
+        >
           {code.join('\n')}
         </pre>
       )
@@ -147,5 +150,5 @@ export function MarkdownView({ source }: { source: string }) {
       paragraph.push(lines[i++])
     blocks.push(<p key={key}>{renderInline(paragraph.join(' '), key)}</p>)
   }
-  return <div className="space-y-2 text-sm">{blocks}</div>
+  return <div className="space-y-2 break-words text-sm text-foreground">{blocks}</div>
 }

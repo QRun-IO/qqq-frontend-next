@@ -24,8 +24,30 @@
 
 import React, { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 
-import type { SqlExecuteResponse } from '@/types'
+import type { SqlExecuteResponse, SqlStatementView } from '@/types'
+import { cn } from '@/lib/utils/cn'
+import { buttonClass, CHECKBOX_CLASS, INPUT_CLASS, WARNING_CLASS } from '@/components/ui/controls'
+
+/** Plain names of the statement kinds. */
+const STATEMENT_KIND_LABELS: Record<SqlStatementView['kind'], string> = {
+  READ: 'Read',
+  EXPLAIN_ANALYZE: 'Explain',
+  WRITE: 'Write',
+  DDL: 'Schema change',
+  FORBIDDEN: 'Not allowed',
+}
+
+/**
+ * Counts affected rows in words.
+ *
+ * @param count - The number of rows.
+ * @returns E.g. `1 row affected`, `1,204 rows affected`.
+ */
+function rowsAffected(count: number): string {
+  return `${count.toLocaleString()} ${count === 1 ? 'row' : 'rows'} affected`
+}
 
 /** Props for {@link WriteConfirmDialog}. */
 export interface WriteConfirmDialogProps {
@@ -53,78 +75,101 @@ export function WriteConfirmDialog({
   const [acknowledged, setAcknowledged] = useState(false)
   const guard = preview.rowGuardExceeded === true
   const canCommit = typed === backendName && (!guard || acknowledged) && !pending
+  const inputId = React.useId()
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onCancel()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 w-[min(42rem,95vw)] -translate-x-1/2 -translate-y-1/2 space-y-3 rounded-lg border bg-background p-4 shadow-lg"
+          className={cn(
+            'fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col',
+            'rounded-xl border border-border bg-background text-foreground shadow-lg focus:outline-none'
+          )}
           data-qqq-id="dialog-sql-write-confirm"
         >
-          <Dialog.Title className="text-base font-semibold">
-            Confirm write on “{backendName}”
-          </Dialog.Title>
-          <Dialog.Description className="flex gap-2 rounded bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-            <span aria-hidden>⚠</span>
-            Raw SQL bypasses QQQ record security, audits, automations and search indexing. It runs
-            in one transaction and is audited.
-          </Dialog.Description>
-          <table className="w-full text-sm" aria-label="Statements to commit">
-            <thead>
-              <tr className="text-left text-xs text-muted-foreground">
-                <th scope="col">#</th>
-                <th scope="col">Kind</th>
-                <th scope="col">Statement</th>
-                <th scope="col" className="text-right">
-                  Rows
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(preview.statements ?? []).map((s) => (
-                <tr key={s.index} className="align-top">
-                  <td>{s.index + 1}</td>
-                  <td className="font-mono text-xs">{s.kind}</td>
-                  <td className="max-w-md truncate font-mono text-xs" title={s.text}>
-                    {s.text}
-                  </td>
-                  <td className="text-right tabular-nums">{s.affectedRows ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="text-sm">
-            {preview.dryRunSupported
-              ? `Dry run (rolled back): ${preview.totalAffectedRows ?? 0} rows affected.`
-              : (preview.dryRunNote ?? 'This write could not be dry-run.')}
-          </p>
-          {guard && (
-            <label className="flex items-center gap-2 text-sm">
+          <div className="min-h-0 space-y-4 overflow-y-auto p-6">
+            <Dialog.Title className="text-lg font-semibold">
+              Confirm write on “{backendName}”
+            </Dialog.Title>
+            <Dialog.Description className={cn(WARNING_CLASS, 'flex gap-2')}>
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                Raw SQL bypasses QQQ record security, audits, automations and search indexing. It
+                runs in one transaction and is audited.
+              </span>
+            </Dialog.Description>
+            <div className="rounded-md border border-border">
+              <table className="w-full border-collapse text-sm" aria-label="Statements to commit">
+                <thead>
+                  <tr className="border-b border-border bg-muted text-left">
+                    <th scope="col" className="bg-muted px-3 py-2 font-semibold">
+                      #
+                    </th>
+                    <th scope="col" className="bg-muted px-3 py-2 font-semibold">
+                      Type
+                    </th>
+                    <th scope="col" className="bg-muted px-3 py-2 font-semibold">
+                      Statement
+                    </th>
+                    <th scope="col" className="bg-muted px-3 py-2 text-right font-semibold">
+                      Rows
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(preview.statements ?? []).map((s) => (
+                    <tr key={s.index} className="border-b border-border align-top last:border-b-0">
+                      <td className="px-3 py-2 tabular-nums">{s.index + 1}</td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {STATEMENT_KIND_LABELS[s.kind] ?? s.kind}
+                      </td>
+                      <td className="break-all px-3 py-2 font-mono text-xs">{s.text}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {s.affectedRows?.toLocaleString() ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-sm">
+              {preview.dryRunSupported
+                ? `Dry run (rolled back): ${rowsAffected(preview.totalAffectedRows ?? 0)}.`
+                : (preview.dryRunNote ?? 'This write could not be dry-run.')}
+            </p>
+            {guard && (
+              <label className="flex cursor-pointer items-start gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  className={cn(CHECKBOX_CLASS, 'mt-0.5')}
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                  data-qqq-id="checkbox-sql-row-guard"
+                />
+                I understand this affects more than {preview.rowGuardLimit?.toLocaleString()} rows.
+              </label>
+            )}
+            <div className="space-y-1">
+              <label htmlFor={inputId} className="block text-sm font-medium">
+                Type <span className="font-mono">{backendName}</span> to confirm
+              </label>
               <input
-                type="checkbox"
-                checked={acknowledged}
-                onChange={(e) => setAcknowledged(e.target.checked)}
-                data-qqq-id="checkbox-sql-row-guard"
+                id={inputId}
+                className={cn(INPUT_CLASS, 'font-mono')}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                data-qqq-id="input-sql-confirm-backend"
               />
-              I understand this affects more than {preview.rowGuardLimit} rows.
-            </label>
-          )}
-          <label className="block text-sm">
-            Type <span className="font-mono">{backendName}</span> to confirm
-            <input
-              className="mt-1 block w-full rounded border px-2 py-1 font-mono"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              data-qqq-id="input-sql-confirm-backend"
-            />
-          </label>
-          <div className="flex justify-end gap-2">
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 rounded-b-xl border-t border-border bg-muted px-6 py-4">
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="rounded border px-3 py-1 text-sm"
+                className={buttonClass('secondary')}
                 data-qqq-id="button-sql-write-cancel"
               >
                 Cancel
@@ -132,11 +177,12 @@ export function WriteConfirmDialog({
             </Dialog.Close>
             <button
               type="button"
-              className="rounded bg-destructive px-3 py-1 text-sm text-destructive-foreground disabled:opacity-50"
+              className={buttonClass('danger')}
               disabled={!canCommit}
               onClick={() => onConfirm(acknowledged)}
               data-qqq-id="button-sql-write-commit"
             >
+              {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {pending ? 'Committing…' : 'Commit write'}
             </button>
           </div>
