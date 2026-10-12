@@ -178,3 +178,14 @@ describe('Breadcrumbs', () => {
     }
   })
 })
+
+describe('Breadcrumbs home crumb', () => {
+  it('links to the instance home app when there is one, and to the overview otherwise', () => {
+    currentPathname = '/app/person'
+    const { unmount } = render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} homePath="/app/home" />)
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/app/home')
+    unmount()
+    render(<Breadcrumbs pathToLabelMap={pathToLabelMap} ancestorAppMap={ancestorAppMap} />)
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/app')
+  })
+})

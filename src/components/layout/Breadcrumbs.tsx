@@ -35,6 +35,8 @@ export interface BreadcrumbsProps {
   pathToLabelMap: Record<string, string>
   /** Maps node paths to their enclosing apps, outermost first. */
   ancestorAppMap?: Record<string, ParentAppInfo[]>
+  /** Where the home crumb links: the instance's home app, or the `/app` overview (default). */
+  homePath?: string
 }
 
 /**
@@ -158,7 +160,7 @@ export function buildDocumentTitle(crumbs: Breadcrumb[], pageTitle: string | und
  *   `<Link>` crumbs (ancestor pages) followed by a `<span aria-current="page">`
  *   for the current page, or `null` on the dashboard root and before labels load.
  */
-export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: BreadcrumbsProps) {
+export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {}, homePath = '/app' }: BreadcrumbsProps) {
   const pathname = usePathname()
   const breadcrumbs = buildBreadcrumbs(pathname, pathToLabelMap, ancestorAppMap)
   const trailRef = useRef<HTMLElement>(null)
@@ -189,9 +191,9 @@ export default function Breadcrumbs({ pathToLabelMap, ancestorAppMap = {} }: Bre
       aria-label="Breadcrumb"
       data-qqq-id="breadcrumbs"
     >
-      {/* Home crumb (Material's home icon), back to the dashboard */}
+      {/* Home crumb (Material's home icon), back to the home page (the home app, or the overview) */}
       <Link
-        href="/app"
+        href={homePath}
         aria-label="Home"
         className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:flex-shrink-0"
         data-qqq-id="breadcrumb-home"

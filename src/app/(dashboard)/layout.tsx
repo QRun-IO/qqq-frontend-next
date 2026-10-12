@@ -99,7 +99,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // Generate sidebar routes and path map from app tree
-  const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets } = useAppTreeRoutes(metaData)
+  const { sidebarRoutes, pathToLabelMap, ancestorAppMap, navTargets, homePath } = useAppTreeRoutes(metaData)
 
   // Every route change starts at the top of the page (Material App scrolls to 0 on each pathname)
   useEffect(() => {
@@ -278,6 +278,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <Sidebar
           routes={sidebarRoutes}
           branding={metaData?.branding}
+          homePath={homePath}
           logout={logout}
           userName={user?.name}
           userEmail={user?.email}
@@ -288,6 +289,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         <Sidebar
           routes={sidebarRoutes}
           branding={metaData?.branding}
+          homePath={homePath}
           logout={logout}
           userName={user?.name}
           userEmail={user?.email}
@@ -311,6 +313,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             helpButtonRef={helpButtonRef}
             pathToLabelMap={pathToLabelMap}
             ancestorAppMap={ancestorAppMap}
+            homePath={homePath}
             navTargets={navTargets}
             searchTables={searchTables}
           />

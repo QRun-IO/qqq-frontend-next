@@ -106,6 +106,8 @@ export interface SidebarProps {
   routes: SidebarRoute[]
   /** Application branding metadata (logo, icon, app name, banners). */
   branding?: QBrandingMetaData
+  /** Where the logo links: the instance's home app, or the `/app` overview (default). */
+  homePath?: string
   /** Called when the mouse enters the sidebar (desktop hover expansion). */
   onMouseEnter?: () => void
   /** Called when the mouse leaves the sidebar (desktop hover collapse). */
@@ -132,21 +134,22 @@ export interface SidebarProps {
  *
  * @param props - Component properties.
  * @param props.branding - Branding metadata.
+ * @param props.href - The home page the logo links to.
  * @returns The branding link element.
  */
-function SidebarBranding({ branding }: { branding?: QBrandingMetaData }) {
+function SidebarBranding({ branding, href }: { branding?: QBrandingMetaData; href: string }) {
   const appName = branding?.appName || 'QQQ Admin'
   const linkClass = 'flex min-w-0 flex-1 items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
   if (branding?.logo) {
     return (
-      <Link href="/app" className={linkClass} data-qqq-id="sidebar-logo-link">
+      <Link href={href} className={linkClass} data-qqq-id="sidebar-logo-link">
         {/* eslint-disable-next-line @next/next/no-img-element -- branding logos are arbitrary backend assets */}
         <img src={branding.logo} alt={appName} title={appName} className="max-h-12 w-full object-contain object-left" data-qqq-id="sidebar-logo" />
       </Link>
     )
   }
   return (
-    <Link href="/app" className={linkClass} data-qqq-id="sidebar-logo-link">
+    <Link href={href} className={linkClass} data-qqq-id="sidebar-logo-link">
       {branding?.icon ? (
         // eslint-disable-next-line @next/next/no-img-element -- branding icons are arbitrary backend assets
         <img src={branding.icon} alt="" className="h-12 w-12 flex-shrink-0 object-contain" data-qqq-id="sidebar-icon" />
@@ -182,6 +185,7 @@ function SidebarBranding({ branding }: { branding?: QBrandingMetaData }) {
 export default function Sidebar({
   routes,
   branding,
+  homePath = '/app',
   onMouseEnter,
   onMouseLeave,
   logout,
@@ -238,7 +242,7 @@ export default function Sidebar({
       <div className="flex min-h-0 flex-1 flex-col" data-qqq-id="sidenav-root">
         {/* Logo / App Branding — height matches header so border lines up */}
         <div className="flex items-center gap-2 border-b border-border px-4" style={{ height: 'var(--qqq-header-height)' }} data-qqq-id="sidenav-logo-area">
-          <SidebarBranding branding={branding} />
+          <SidebarBranding branding={branding} href={homePath} />
           {/* Close button for mobile drawer */}
           {isMobileDrawer && (
             <button
