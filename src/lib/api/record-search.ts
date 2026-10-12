@@ -23,8 +23,81 @@
  * fallback matches). Every extension field is optional.
  */
 
+import { z } from 'zod'
+
 import apiClient from './client'
-import { RecordSearchResponseSchema, RecordSearchResultSchema } from './schemas'
+
+// The response schemas live here, not in ./schemas: only record search uses them, and
+// keeping them out of the shared module keeps them out of every screen's chunks.
+
+/** A `[start, end)` character range of a match inside a highlight's text. */
+const RecordSearchMatchSchema = z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative() })
+
+/**
+ * One highlighted field of a record search result: plain text (never HTML) plus the
+ * ranges that matched the search term.
+ */
+export const RecordSearchHighlightSchema = z.object({
+  fieldName: z.string(),
+  fieldLabel: z.string().nullish(),
+  text: z.string(),
+  matches: z.array(RecordSearchMatchSchema).nullish(),
+})
+
+/** A secondary (non-matching) field value shown under a result's label. */
+export const RecordSearchDetailSchema = z.object({
+  fieldName: z.string(),
+  fieldLabel: z.string().nullish(),
+  displayValue: z.string(),
+})
+
+/**
+ * Zod schema for one record search result. `tableName` and `recordId` are required (a
+ * result cannot link anywhere without them); `recordId` may arrive as a number. Labels may
+ * be missing, null or empty: QQQ leaves empty values out of its JSON, so a record whose
+ * label fields are empty arrives without `recordLabel`, and callers label it themselves.
+ * The extension fields (score, highlights, details, updatedAt) are optional, and a
+ * malformed one is dropped (`catch`) instead of failing the result.
+ */
+export const RecordSearchResultSchema = z.object({
+  tableName: z.string().min(1),
+  tableLabel: z.string().nullish().transform((value) => value || undefined),
+  recordId: z.union([z.string().min(1), z.number()]).transform(String),
+  recordLabel: z.string().nullish().transform((value) => value || undefined),
+  score: z.number().nullish().catch(undefined),
+  updatedAt: z.string().nullish().catch(undefined),
+  highlights: z.array(RecordSearchHighlightSchema).nullish().catch(undefined),
+  details: z.array(RecordSearchDetailSchema).nullish().catch(undefined),
+})
+
+/** Per-table summary of a record search (newer backends). */
+export const RecordSearchTableSchema = z.object({
+  tableName: z.string(),
+  tableLabel: z.string().nullish(),
+  resultCount: z.number().nullish(),
+  hasMore: z.boolean().nullish(),
+  totalCount: z.number().nullish(),
+  source: z.string().nullish(),
+})
+
+/** Status of the instance's record search provider (e.g. a search index), newer backends. */
+export const RecordSearchProviderStatusSchema = z.object({
+  status: z.string(),
+  failureClass: z.string().nullish(),
+  message: z.string().nullish(),
+})
+
+/**
+ * Zod schema for the record search response: `{ results: [...] }`, plus the optional
+ * per-table summaries and provider status of newer backends. Each result is validated
+ * separately ({@link RecordSearchResultSchema}), so one malformed result is skipped
+ * rather than failing the whole search.
+ */
+export const RecordSearchResponseSchema = z.object({
+  results: z.array(z.unknown()),
+  tables: z.array(RecordSearchTableSchema).nullish().catch(undefined),
+  provider: RecordSearchProviderStatusSchema.nullish().catch(undefined),
+})
 
 /** A `[start, end)` character range of a match inside a highlight's text. */
 export interface RecordSearchMatch {

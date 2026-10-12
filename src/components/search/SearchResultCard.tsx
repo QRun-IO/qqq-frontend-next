@@ -72,7 +72,7 @@ function RelevanceMeter({ value }: { value: number }) {
   const label = steps === 3 ? 'Strong match' : steps === 2 ? 'Good match' : 'Partial match'
   return (
     <span className="inline-flex items-center gap-1" title={`${label} (${Math.round(value * 100)}% of the best result)`} data-qqq-id="search-result-relevance">
-      <span className="flex items-end gap-px" aria-hidden="true">
+      <span className="flex items-end gap-0.5" aria-hidden="true">
         {[1, 2, 3].map((step) => (
           <span key={step} className={cn('w-1 rounded-sm', step === 1 ? 'h-1.5' : step === 2 ? 'h-2' : 'h-2.5', step <= steps ? 'bg-primary' : 'bg-muted-foreground/30')} />
         ))}
@@ -124,7 +124,7 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
 
   return (
     <li
-      className={cn('group relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/40 sm:px-6', active && 'bg-accent/60 shadow-[inset_3px_0_0_var(--color-primary)]')}
+      className={cn('group relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/50 sm:px-6', active && 'bg-accent shadow-[inset_3px_0_0_var(--color-primary)]')}
       data-qqq-id="search-result-card"
       data-active={active || undefined}
       onMouseEnter={onActivate}
@@ -179,7 +179,7 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
           </dl>
         )}
         {(details.length > 0 || result.updatedAt) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             {details.map((detail) => (
               <span
                 key={detail.fieldName}

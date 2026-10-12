@@ -23,8 +23,19 @@
 'use client'
 
 import React from 'react'
+import dynamic from 'next/dynamic'
+import { Loader2 } from 'lucide-react'
 
-import { SearchPage } from '@/components/search/SearchPage'
+/** The results page loads on demand, so its code stays out of every route's first load. */
+const SearchPage = dynamic(() => import('@/components/search/SearchPage').then((module) => module.SearchPage), {
+  ssr: false,
+  loading: () => (
+    <p className="flex items-center gap-2 p-6 text-sm text-muted-foreground" role="status" data-qqq-id="search-page-loading">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      Loading search…
+    </p>
+  ),
+})
 
 /**
  * Renders the search page at `/app/search`.

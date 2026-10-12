@@ -27,10 +27,9 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  RecordSearchResultSchema,
-  RecordSearchResponseSchema,
   QInstanceMinimalSchema,
 } from './schemas'
+import { RecordSearchResultSchema, RecordSearchResponseSchema } from './record-search'
 
 // ---------------------------------------------------------------------------
 // QRecordSchema

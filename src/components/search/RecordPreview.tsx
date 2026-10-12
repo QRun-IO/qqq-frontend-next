@@ -28,14 +28,20 @@ import Link from 'next/link'
 import { ExternalLink, Link2, Loader2, Pencil, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
-import type { QFieldMetaData, QIcon, QTableMetaData } from '@/types'
+import type { QFieldMetaData, QIcon, QRecord, QTableMetaData } from '@/types'
 import type { RecordSearchResult } from '@/lib/api/record-search'
 import { useRecord } from '@/lib/hooks/use-record'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { canEditRecords } from '@/lib/auth/permissions'
+import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
+import { cn } from '@/lib/utils/cn'
+import { filePreview } from '@/lib/utils/file-preview'
+import { isEmail, isHttpUrl } from '@/lib/utils/string-utils'
+import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { recordSearchResultPath } from '@/lib/utils/record-search'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
-import { FieldValue } from '@/components/records/FieldValue'
+import { DateTimeText } from '@/components/ui/DateTimeText'
+import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { HighlightedText } from './HighlightedText'
 
 /** Most fields shown in a preview. */
@@ -43,7 +49,8 @@ const MAX_PREVIEW_FIELDS = 10
 
 /**
  * The fields a preview shows: the visible fields of the table's first-tier sections (as the
- * record view's T1 cards), else all visible fields; never heavy fields or the primary key.
+ * record view's T1 cards), else all visible fields; never heavy fields, the primary key, secrets,
+ * widgets, code, HTML or binary data.
  *
  * @param table - Full table metadata.
  * @returns Up to {@link MAX_PREVIEW_FIELDS} fields.
@@ -54,8 +61,72 @@ export function previewFields(table: QTableMetaData): QFieldMetaData[] {
   const names = t1.length > 0 ? t1.flatMap((section) => section.fieldNames ?? []) : Object.keys(fields)
   return [...new Set(names)]
     .map((name) => fields[name])
-    .filter((field): field is QFieldMetaData => Boolean(field) && !field.isHidden && !field.isHeavy && field.name !== table.primaryKeyField)
+    .filter((field): field is QFieldMetaData => Boolean(field) && !field.isHidden && !field.isHeavy && field.name !== table.primaryKeyField && previewable(field))
     .slice(0, MAX_PREVIEW_FIELDS)
+}
+
+/** Adornments whose fields a glance does not show: secrets, embedded widgets, code and markup. */
+const NOT_PREVIEWED = ['REVEAL', 'WIDGET', 'CODE_EDITOR', 'RENDER_HTML'] as const
+
+/**
+ * Whether a preview shows a field: never secrets (REVEAL), widgets, code, HTML or binary data.
+ *
+ * @param field - The field.
+ * @returns True when the preview shows it.
+ */
+function previewable(field: QFieldMetaData): boolean {
+  if (field.type === 'BLOB' || field.type === 'HTML') return false
+  return !NOT_PREVIEWED.some((type) => findAdornment(field, type))
+}
+
+/** Link classes (taller touch targets on coarse pointers). */
+const LINK_CLASS = 'text-primary hover:text-primary/80 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center'
+
+/**
+ * A field's value at a glance: file thumbnails, chips, Yes/No, dates, email and web links,
+ * else the display value. Lighter than the record view's FieldValue (no widgets), so the
+ * preview loads quickly.
+ *
+ * @param props - Component properties.
+ * @param props.field - The field.
+ * @param props.record - The record.
+ * @param props.table - Its table.
+ * @returns The value.
+ */
+function PreviewValue({ field, record, table }: { field: QFieldMetaData; record: QRecord; table: QTableMetaData }) {
+  const rawValue = record.values[field.name]
+  const displayValue = record.displayValues?.[field.name]
+  const value = displayValue ?? rawValue
+  const dataQqqId = `search-preview-value-${field.name}`
+
+  const file = filePreview(field, record, storedRecordVariantJson(table))
+  if (file) return <FileThumbnail field={field} record={record} item={file} size={96} showName dataQqqId={dataQqqId} />
+  if (value === null || value === undefined || value === '') return <span className="text-muted-foreground" data-qqq-id={dataQqqId}>—</span>
+
+  if (findAdornment(field, 'CHIP')) {
+    const { color, icon } = chipStyle(field, rawValue)
+    return (
+      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color])} data-qqq-id={dataQqqId}>
+        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
+        {String(value)}
+      </span>
+    )
+  }
+  if (field.type === 'BOOLEAN') {
+    const yes = rawValue === true || rawValue === 'true' || rawValue === 1
+    return <span data-qqq-id={dataQqqId}>{yes ? 'Yes' : 'No'}</span>
+  }
+  if (field.type === 'DATE' || field.type === 'DATE_TIME') {
+    return <DateTimeText type={field.type} value={rawValue} displayValue={displayValue} dataQqqId={dataQqqId} />
+  }
+  const text = String(value)
+  if (field.type === 'STRING' && isHttpUrl(text)) {
+    return <a href={text} target="_blank" rel="noopener noreferrer" className={cn('break-all', LINK_CLASS)} data-qqq-id={dataQqqId}>{text}<span className="sr-only"> (opens in a new tab)</span></a>
+  }
+  if (field.type === 'STRING' && isEmail(text)) {
+    return <a href={`mailto:${text}`} className={cn('break-all', LINK_CLASS)} data-qqq-id={dataQqqId}>{text}</a>
+  }
+  return <span className={cn('whitespace-pre-wrap', field.type === 'TEXT' && 'line-clamp-3')} data-qqq-id={dataQqqId}>{text}</span>
 }
 
 /** Props for {@link RecordPreview}. */
@@ -167,12 +238,12 @@ export function RecordPreview({ result, tableLabel, icon, term, headingId }: Rec
           Loading details…
         </p>
       ) : (
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2" data-qqq-id="search-preview-fields">
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2" data-qqq-id="search-preview-fields">
           {fields.map((field) => (
             <div key={field.name} className="min-w-0">
               <dt className="text-xs font-medium text-muted-foreground">{field.label}</dt>
               <dd className="min-w-0 break-words text-sm text-foreground">
-                <FieldValue field={field} record={record} tableMetaData={table} thumbnailSize={96} />
+                <PreviewValue field={field} record={record} table={table} />
               </dd>
             </div>
           ))}
