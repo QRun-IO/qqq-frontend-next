@@ -98,7 +98,7 @@ async function copyLink(path: string): Promise<void> {
 }
 
 /** Classes of a quick action button. */
-const ACTION_CLASS = 'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const ACTION_CLASS = 'h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /**
  * Renders one record result as a list item.
@@ -116,6 +116,9 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
     pressTimer.current = null
   }
   const path = recordSearchResultPath(result)
+  // On phones the preview sheet offers New tab and Copy link, so the card keeps only Preview
+  // and its text gets the width
+  const secondaryActionClass = cn(ACTION_CLASS, onPreview ? 'hidden sm:inline-flex' : 'inline-flex')
   const highlights = (result.highlights ?? []).filter((highlight) => highlight.text.trim()).slice(0, 3)
   const details = (result.details ?? []).filter((detail) => detail.displayValue.trim()).slice(0, 4)
 
@@ -176,11 +179,15 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
           </dl>
         )}
         {(details.length > 0 || result.updatedAt) && (
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             {details.map((detail) => (
-              <span key={detail.fieldName} className="min-w-0 break-words">
-                {detail.fieldLabel && <span className="text-muted-foreground/80">{detail.fieldLabel}: </span>}
-                {detail.displayValue}
+              <span
+                key={detail.fieldName}
+                className="inline-flex min-w-0 max-w-full items-baseline gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5"
+                data-qqq-id="search-result-detail-chip"
+              >
+                {detail.fieldLabel && <span className="shrink-0 text-muted-foreground">{detail.fieldLabel}<span className="sr-only">: </span></span>}
+                <span className="min-w-0 break-words font-medium text-foreground">{detail.displayValue}</span>
               </span>
             ))}
             {result.updatedAt && (
@@ -197,7 +204,7 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
           <button
             type="button"
             onClick={onPreview}
-            className={ACTION_CLASS}
+            className={cn(ACTION_CLASS, 'inline-flex')}
             aria-label={`Preview ${result.recordLabel}`}
             aria-pressed={active}
             title="Preview"
@@ -210,7 +217,7 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
           href={path}
           target="_blank"
           rel="noopener noreferrer"
-          className={ACTION_CLASS}
+          className={secondaryActionClass}
           aria-label={`Open ${result.recordLabel} in a new tab`}
           title="Open in new tab"
           data-qqq-id="search-result-new-tab"
@@ -220,7 +227,7 @@ export function SearchResultCard({ result, tableLabel, icon, term, showTable = f
         <button
           type="button"
           onClick={() => void copyLink(path)}
-          className={ACTION_CLASS}
+          className={secondaryActionClass}
           aria-label={`Copy link to ${result.recordLabel}`}
           title="Copy link"
           data-qqq-id="search-result-copy-link"

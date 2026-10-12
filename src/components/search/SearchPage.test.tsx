@@ -136,6 +136,8 @@ describe('SearchPage', () => {
     const card = within(accountsSection).getAllByRole('listitem')[0]
     expect(card).toHaveTextContent('Domain:acme.com')
     expect(card).toHaveTextContent('City: Austin')
+    const chips = card.querySelectorAll('[data-qqq-id="search-result-detail-chip"]')
+    expect(Array.from(chips).map((chip) => chip.textContent)).toEqual(['City: Austin'])
     expect(card.querySelector('time')).toHaveAttribute('dateTime')
     expect(Array.from(card.querySelectorAll('mark')).map((mark) => mark.textContent)).toEqual(['Acme', 'acme'])
     expect(within(accountsSection).getByRole('link', { name: 'Show all' })).toHaveAttribute('href', '/app/search?q=acme&tables=account')

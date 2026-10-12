@@ -257,8 +257,11 @@ test.describe('Search page', () => {
     await page.goto('/app/search?q=alice')
     await waitForAppReady(page)
 
+    // the card keeps only Preview on phones; the sheet offers New tab and Copy link
+    await expect(page.getByRole('link', { name: 'Open Alice Johnson in a new tab' })).toBeHidden()
     await page.getByRole('button', { name: 'Preview Alice Johnson' }).click()
     const sheet = page.getByRole('dialog', { name: 'Preview' })
+    await expect(sheet.getByRole('button', { name: 'Copy link' })).toBeVisible()
     await expect(sheet.getByRole('heading', { name: 'Alice Johnson' })).toBeVisible()
     await expect(sheet.locator('[data-qqq-id="search-preview-fields"]')).toContainText('alice@example.com')
     await sheet.getByRole('button', { name: 'Close preview' }).click()
