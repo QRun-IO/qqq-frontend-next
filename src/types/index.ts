@@ -80,6 +80,9 @@ export type {
   NowExpression,
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
+  StartOfPeriodExpression,
+  PeriodUnit,
+  WeekStartName,
   ExpressionTimeUnit,
 } from './query'
 

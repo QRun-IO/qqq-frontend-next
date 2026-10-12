@@ -49,6 +49,10 @@ vi.mock('@/components/records/RecordHoverCard', () => ({
 
 import { TextField } from '@/components/forms/field-types/TextField'
 import { FieldValue } from '@/components/records/FieldValue'
+import { FilterBuilder } from '@/components/query/FilterBuilder'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { emptyFilter } from '@/lib/utils/filter-utils'
+import type { QFilterCriteria, QTableMetaData } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Shared test fixtures
@@ -244,5 +248,43 @@ describe('a11y: Compound accessible patterns', () => {
       </div>
     )
     await checkA11y(result)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// TEST SUITE — date-first filter conditions
+// ---------------------------------------------------------------------------
+
+describe('a11y: date filter conditions', () => {
+  const field = (name: string, label: string, type: 'DATE' | 'DATE_TIME') => ({
+    name, label, type, isRequired: false, isEditable: true, isHeavy: false, isHidden: false, adornments: [],
+  })
+  const table = {
+    name: 'order', label: 'Order', isHidden: false, primaryKeyField: 'id', sections: [], capabilities: [], readPermission: true,
+    insertPermission: true, editPermission: true, deletePermission: true, usesVariants: false, variantTableLabel: '',
+    fields: { created: field('created', 'Created', 'DATE_TIME'), due: field('due', 'Due', 'DATE') }, exposedJoins: [],
+  } as unknown as QTableMetaData
+  const renderWith = (...criteria: QFilterCriteria[]) => render(
+    <QueryClientProvider client={new QueryClient()}>
+      <FilterBuilder tableMetaData={table} filter={{ ...emptyFilter(), criteria }} onChange={() => undefined} />
+    </QueryClientProvider>
+  )
+
+  it('a date range with the Include time switch has no violations', async () => {
+    await checkA11y(renderWith({ fieldName: 'created', operator: 'BETWEEN', values: [] }))
+  })
+
+  it('a relative range with its day summary has no violations', async () => {
+    await checkA11y(renderWith(
+      { fieldName: 'created', operator: 'GREATER_THAN_OR_EQUALS', values: [{ type: 'StartOfPeriod', unit: 'DAYS', offset: -6 }] },
+      { fieldName: 'created', operator: 'LESS_THAN', values: [{ type: 'StartOfPeriod', unit: 'DAYS', offset: 1 }] },
+    ))
+  })
+
+  it('exact date-times and a DATE field have no violations', async () => {
+    await checkA11y(renderWith(
+      { fieldName: 'created', operator: 'BETWEEN', values: ['2026-10-01T08:30', '2026-10-12T17:00'] },
+      { fieldName: 'due', operator: 'BETWEEN', values: ['2026-10-01', '2026-10-12'] },
+    ))
   })
 })
