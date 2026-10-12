@@ -361,7 +361,7 @@
       "fixture": "fieldLab; browser zone America/New_York",
       "scenarios": [
         "typed local time stored as the UTC instant",
-        "view shows yyyy-MM-dd hh:mm:ss AM EDT",
+        "view shows the compact date (Jul 4, 2024) with the full yyyy-MM-dd hh:mm:ss AM EDT timestamp on hover",
         "edit form shows the local time"
       ],
       "negative": [

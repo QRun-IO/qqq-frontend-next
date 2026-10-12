@@ -17,7 +17,9 @@
 
 ## Product fixes
 
-None yet.
+- Size record-view cards, dashboard widgets and form fields by the width of their own grid (container queries) rather than the viewport: table panels sit side by side only when each is readable and otherwise stack, cards keep their own height, fields share a row only when they fit, and very wide screens use the room. No horizontal page scroll from 360px up.
+- Make child-record lists in record-view panels readable: they show the columns that matter most and fit (the record name, status and boolean columns, the most recently changed date; the key and long text last), with `+N more columns` and View All for the rest. Cells align to the top and long text is clamped with the full text on hover. A widget's `onlyIncludeFieldNames` order is respected.
+- Show dates compactly everywhere: `6:33 PM` today, `Jul 5, 6:33 PM` this year, `Jul 5, 2025` before, on one line with the full zoned timestamp on hover, in the viewer's zone and locale. DATE values are no longer shifted a day west of UTC. Exports are unchanged.
 
 ## Browser testing and infrastructure
 

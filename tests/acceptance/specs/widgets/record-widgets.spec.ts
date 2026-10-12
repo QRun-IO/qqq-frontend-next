@@ -58,6 +58,12 @@ test('[WID-024] child record list without an association lists joined records wi
   await openHost(page, 1)
   await expectLoaded(page, 'accWidgetHostJoinChild')
   const list = byId(page, 'widget-childRecordList-accWidgetHostJoinChild')
+  // the name identifies each row, so the key stays one click away instead of taking a column
+  await expect(list.getByRole('columnheader')).toHaveText(['Name'])
+  for (const child of children.slice(0, 2)) {
+    await expect(byId(page, `child-record-row-accWidgetHostJoinChild-${child.id}`)).toHaveText(child.name)
+  }
+  await byId(page, 'child-record-columns-toggle-accWidgetHostJoinChild').click()
   await expect(list.getByRole('columnheader')).toHaveText(['Id', 'Name'])
   for (const child of children.slice(0, 2)) {
     await expect(byId(page, `child-record-row-accWidgetHostJoinChild-${child.id}`)).toHaveText(`${child.id}${child.name}`)

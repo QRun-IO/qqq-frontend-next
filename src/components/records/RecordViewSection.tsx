@@ -27,6 +27,7 @@ import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
 import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionField, storeSectionOpen, twelfths } from '@/lib/utils/record-layout-utils'
+import { DEFAULT_FIELD_SPAN_CLASSES } from '@/lib/utils/responsive-grid'
 import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 
@@ -273,7 +274,7 @@ export function RecordViewSection({
       ) : (
         /* Explicit field widths use twelfths; the surrounding view supplies the default layout. */
         <dl
-          className={cn('grid grid-cols-12 gap-x-8', defaultFieldColumns === 2 ? 'gap-y-6' : 'gap-y-4')}
+          className={cn('@container grid grid-cols-12 gap-x-8', defaultFieldColumns === 2 ? 'gap-y-6' : 'gap-y-4')}
         >
           {visibleFields.map((field) => {
             if (!field) return null
@@ -284,7 +285,7 @@ export function RecordViewSection({
                   'flex min-w-0 flex-col gap-0.5',
                   twelfths(field.gridColumns) !== undefined
                     ? gridSpanClasses(field.gridColumns!)
-                    : defaultFieldColumns === 2 ? 'col-span-12 sm:col-span-6' : 'col-span-12'
+                    : defaultFieldColumns === 2 ? DEFAULT_FIELD_SPAN_CLASSES : 'col-span-12'
                 )}
                 data-qqq-id={`record-field-${field.name}`}
               >

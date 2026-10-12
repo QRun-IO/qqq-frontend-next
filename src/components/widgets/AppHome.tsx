@@ -246,9 +246,9 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
 
       {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}
       {widgetItems.length > 0 && (
-        <section aria-label="Dashboard widgets" className="grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
+        <section aria-label="Dashboard widgets" className="@container grid grid-cols-12 gap-5" data-qqq-id="widget-grid">
           {widgetItems.map((meta) => (
-            <div key={meta.name} id={meta.name} className={`${widgetColumnClasses(meta.gridColumns, meta.defaultValues)} ${WIDGET_ANCHOR}`} data-qqq-id={`widget-grid-item-${meta.name}`}>
+            <div key={meta.name} id={meta.name} className={`${widgetColumnClasses(meta.gridColumns, meta.defaultValues, meta.type)} ${WIDGET_ANCHOR}`} data-qqq-id={`widget-grid-item-${meta.name}`}>
               <ConnectedWidget widgetMetaData={meta} widgetRegistry={widgetRegistry} />
             </div>
           ))}

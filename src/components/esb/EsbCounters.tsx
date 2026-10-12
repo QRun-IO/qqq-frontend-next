@@ -21,7 +21,7 @@
 import React from 'react'
 
 import type { EsbCounter } from '@/types'
-import { formatDateTime } from '@/lib/utils/datetime-utils'
+import { compactDateTime, relativeDateTime } from '@/lib/utils/datetime-utils'
 
 /** Which side of a destination the counters describe. */
 export type EsbCountersKind = 'publish' | 'consume'
@@ -59,7 +59,7 @@ export function EsbCounters({ counters, kind }: { counters: EsbCounter; kind: Es
       ['Max time', `${Math.round(counters.maxMs)} ms`]
     )
   }
-  items.push(['Last activity', formatDateTime(counters.lastActivity) ?? '—'])
+  items.push(['Last activity', relativeDateTime(counters.lastActivity) ?? compactDateTime(counters.lastActivity)?.text ?? '—'])
 
   return (
     <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs">

@@ -352,7 +352,8 @@ test.describe('record developer view: associated scripts', () => {
     await expect(lines.locator('tbody tr td:nth-child(2)')).toHaveText(expectedLines)
     await expectNoSidewaysScroll(page)
     await expectTouchTargets(card(page))
-    expect(await lines.locator('tbody tr td:nth-child(1)').first().innerText()).toMatch(DATE_TIME)
+    // the log line's time is compact on screen with the full zoned timestamp on hover
+    await expect(lines.locator('tbody tr td:nth-child(1) time').first()).toHaveAttribute('title', DATE_TIME)
   })
 
   test('[REC-054] a failing test run shows the error the backend returns @mobile', async ({ page, backend, diagnostics }) => {
@@ -387,7 +388,9 @@ test.describe('record developer view: associated scripts', () => {
       { id: '102', start_timestamp: '2026-03-04 09:15:00', run_time_millis: '1500', had_error: 'TRUE', input: '{"name":""}', output: null, error: 'Name is required' },
       { id: '101', start_timestamp: '2026-03-03 08:00:00', run_time_millis: '42', had_error: 'FALSE', input: '{"name":"Ada"}', output: 'Hello, Ada!', error: null },
     ])
-    const shownStart: Record<string, string> = { '2026-03-04 09:15:00': '2026-03-04 04:15:00 AM EST', '2026-03-03 08:00:00': '2026-03-03 03:00:00 AM EST' }
+    // compact on screen (with the year once it is not the current one), the full timestamp on hover
+    const shownStart: Record<string, RegExp> = { '2026-03-04 09:15:00': /^Mar 4, (4:15 AM|2026)$/, '2026-03-03 08:00:00': /^Mar 3, (3:00 AM|2026)$/ }
+    const fullStart: Record<string, string> = { '2026-03-04 09:15:00': '2026-03-04 04:15:00 AM EST', '2026-03-03 08:00:00': '2026-03-03 03:00:00 AM EST' }
     expect(await sqlCount(backend, 'select count(*) as n from script_log where script_revision_id = 101')).toBe(0)
 
     await openScriptLab(page, 1)
@@ -402,6 +405,7 @@ test.describe('record developer view: associated scripts', () => {
       expect(lines.length).toBeGreaterThan(0)
       const row = rows.nth(index)
       await expect(row).toHaveAttribute('data-qqq-id', `script-log-${log.id}`)
+      await expect(row.locator('td').first().locator('time')).toHaveAttribute('title', fullStart[log.start_timestamp!])
       await expect(row.locator('td')).toHaveText([
         shownStart[log.start_timestamp!],
         log.run_time_millis!,

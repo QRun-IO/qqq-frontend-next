@@ -152,9 +152,9 @@ export function QqqParentWidget({ widgetMetaData, data, widgetRegistry, childPar
   }
 
   return (
-    <div className="grid grid-cols-12 gap-4" data-qqq-id={`parent-widget-${widgetMetaData.name}`} data-layout="GRID">
+    <div className="@container grid grid-cols-12 gap-4" data-qqq-id={`parent-widget-${widgetMetaData.name}`} data-layout="GRID">
       {children.map((child) => (
-        <div key={child.name} id={child.name} className={`${widgetColumnClasses(child.gridColumns, child.defaultValues)} ${WIDGET_ANCHOR}`}>
+        <div key={child.name} id={child.name} className={`${widgetColumnClasses(child.gridColumns, child.defaultValues, child.type)} ${WIDGET_ANCHOR}`}>
           <ConnectedWidget
             widgetMetaData={child}
             params={childParams}

@@ -26,7 +26,7 @@ import {
 
 describe('widgetColumnClasses with Material per-breakpoint sizes', () => {
   it('keeps the gridColumns sizing when no sizeClass is declared', () => {
-    expect(widgetColumnClasses(6, { other: 1 })).toBe('col-span-12 min-w-0 lg:col-span-6')
+    expect(widgetColumnClasses(6, { other: 1 })).toBe('col-span-12 @min-[40rem]:col-span-6 min-w-0')
   })
 
   it('sizes from the declared breakpoints at Material widths, xs defaulting to 12 and xxl to gridColumns', () => {
@@ -38,7 +38,7 @@ describe('widgetColumnClasses with Material per-breakpoint sizes', () => {
   })
 
   it('ignores unusable sizes', () => {
-    expect(widgetColumnClasses(5, { 'gridCols:sizeClass:md': 40, 'gridCols:sizeClass:lg': 'wide' })).toBe('col-span-12 min-w-0 lg:col-span-5')
+    expect(widgetColumnClasses(5, { 'gridCols:sizeClass:md': 40, 'gridCols:sizeClass:lg': 'wide' })).toBe('col-span-12 @min-[40rem]:col-span-6 @min-[60rem]:col-span-5 min-w-0')
   })
 })
 

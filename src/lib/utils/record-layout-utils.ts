@@ -24,6 +24,7 @@
 import type { QFieldMetaData, QInstance, QTableMetaData, QTableSection, QueryJoin, QWidgetMetaData } from '@/types'
 import { MATERIAL_DASHBOARD_TYPE, materialDashboardTableMetaData } from './goto-utils'
 import { withReadableExposedJoins } from './query-columns'
+import { containerSpanClasses } from './responsive-grid'
 
 /** Section alternative type for the record view screen. */
 export const RECORD_VIEW_ALTERNATIVE = 'RECORD_VIEW'
@@ -197,12 +198,6 @@ export function recordViewActionsPlacement(instance: QInstance | undefined, tabl
   return fromInstance ?? asPlacement(materialDashboardTableMetaData(table)?.recordViewActionsPlacement) ?? 'IN_IDENTITY_SECTION'
 }
 
-/** `lg:col-span-N` for each width of a 12-column grid (static, so Tailwind emits them). */
-const LG_SPANS: Record<number, string> = {
-  1: 'lg:col-span-1', 2: 'lg:col-span-2', 3: 'lg:col-span-3', 4: 'lg:col-span-4', 5: 'lg:col-span-5', 6: 'lg:col-span-6',
-  7: 'lg:col-span-7', 8: 'lg:col-span-8', 9: 'lg:col-span-9', 10: 'lg:col-span-10', 11: 'lg:col-span-11', 12: 'lg:col-span-12',
-}
-
 /**
  * A metadata `gridColumns` value as a width in twelfths, or undefined when unset or invalid.
  *
@@ -214,24 +209,27 @@ export function twelfths(gridColumns: number | undefined | null): number | undef
 }
 
 /**
- * Classes that size an item of a 12-column grid: full width below `lg`, `span` twelfths from `lg`.
+ * Classes that size a field in a section's 12-column `@container` grid: full width in a narrow
+ * card, `span` twelfths once the card is wide enough (see `responsive-grid`).
  *
  * @param span - Width in twelfths.
  * @returns The classes.
  */
 export function gridSpanClasses(span: number): string {
-  return `col-span-12 min-w-0 ${LG_SPANS[twelfths(span) ?? 12]}`
+  return containerSpanClasses(twelfths(span), 'fields')
 }
 
 /**
  * A widget section's card takes the widget width, otherwise the section width.
+ * Cards hold tables and field lists, so they only sit side by side when each one is wide enough
+ * to read (the grid must be an `@container`; see `responsive-grid`).
  *
  * @param section - Record-view section metadata.
  * @param widgets - Widgets available to the viewer.
  * @param defaultSpan - Card width when metadata omits it: half-width in an overview, full-width in a selected tab.
- * @returns Classes for a full mobile row and the declared desktop span.
+ * @returns Classes for a full row in a narrow grid and the declared span in a wide one.
  */
 export function recordSectionGridSpan(section: QTableSection, widgets?: Record<string, QWidgetMetaData>, defaultSpan = 6): string {
   const width = section.widgetName ? widgets?.[section.widgetName]?.gridColumns : section.gridColumns
-  return gridSpanClasses(twelfths(width) ?? defaultSpan)
+  return containerSpanClasses(twelfths(width) ?? defaultSpan, 'cards')
 }

@@ -33,7 +33,6 @@ import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
 import { cn } from '@/lib/utils/cn'
 import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { isHttpUrl, isEmail } from '@/lib/utils/string-utils'
-import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { formatJson, formatSql, languageFor } from '@/lib/utils/code-highlight'
 import {
   attachmentUrl, chipStyle, CHIP_COLOR_CLASSES, fileDownload, findAdornment, linkTarget, tooltipText,
@@ -43,6 +42,7 @@ import { WidgetRenderer } from '@/components/widgets/WidgetRenderer'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { HighlightedCode } from '@/components/scripts/HighlightedCode'
 import { SeededWidget } from '@/components/widgets/ConnectedWidget'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { RecordHoverCard } from './RecordHoverCard'
 
@@ -82,8 +82,8 @@ interface FieldValueProps {
  *
  * Adornments are applied in the order the QQQ dashboards use (one per value), and
  * a TOOLTIP adornment wraps whatever is rendered. Without an adornment, the value
- * is formatted by type: DATE_TIME in the viewer's time zone (unless the backend
- * supplied a zoned display value), BOOLEAN as Yes/No, TEXT with line breaks, HTML
+ * is formatted by type: DATE and DATE_TIME compactly in the viewer's zone and locale
+ * (see DateTimeText), BOOLEAN as Yes/No, TEXT with line breaks, HTML
  * sanitized, and everything else as the backend display value. Empty values render
  * an em dash.
  *
@@ -264,12 +264,10 @@ function FieldValueContent({ field, record, allTables, navigateFrom, widgetMetaD
       )
     }
 
-    case 'DATE_TIME': {
-      // A zoned display value from the backend (e.g. a fixed or per-record zone) wins;
-      // otherwise the instant is shown in the viewer's time zone.
-      const text = displayValue && displayValue !== rawValue ? displayValue : (formatDateTime(rawValue) ?? String(value))
-      return <time dateTime={typeof rawValue === 'string' ? rawValue : undefined} className={cn('text-sm text-foreground', className)}
-        data-qqq-id={dataQqqId}>{text}</time>
+    case 'DATE_TIME':
+    case 'DATE': {
+      // compact and on one line, full value on hover; a backend zone other than the viewer's is kept
+      return <DateTimeText type={field.type} value={rawValue} displayValue={displayValue} className={className} dataQqqId={dataQqqId} />
     }
 
     case 'BLOB': {

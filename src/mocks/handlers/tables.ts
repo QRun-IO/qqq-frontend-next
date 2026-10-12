@@ -30,6 +30,7 @@ import { orderLineRecords } from '../fixtures/records/order-line'
 import { productRecords } from '../fixtures/records/product'
 import { supplierRecords } from '../fixtures/records/supplier'
 import { auditRecords } from '../fixtures/records/audits'
+import { siteBlogRecords, siteDomainRecords, siteRecords } from '../fixtures/cms'
 
 const BASE = '/qqq/v1'
 
@@ -52,6 +53,9 @@ const store: Record<string, QRecord[]> = {
   orderLine: deepClone(orderLineRecords),
   product: deepClone(productRecords),
   supplier: deepClone(supplierRecords),
+  site: deepClone(siteRecords),
+  siteDomain: deepClone(siteDomainRecords),
+  siteBlog: deepClone(siteBlogRecords),
 }
 
 // Auto-increment counters per table
@@ -62,6 +66,9 @@ const nextId: Record<string, number> = {
   orderLine: 21,
   product: 16,
   supplier: 9,
+  site: 2,
+  siteDomain: 5,
+  siteBlog: 3,
 }
 
 // ─── Filter helpers ───────────────────────────────────────────────────────────
@@ -177,6 +184,9 @@ const primaryKeyFields: Record<string, string> = {
   orderLine: 'id',
   product: 'id',
   supplier: 'id',
+  site: 'id',
+  siteDomain: 'id',
+  siteBlog: 'id',
 }
 
 /**
@@ -288,6 +298,9 @@ const tableLabels: Record<string, string> = {
   orderLine: 'Order Lines',
   product: 'Products',
   supplier: 'Suppliers',
+  site: 'Sites',
+  siteDomain: 'Site Domains',
+  siteBlog: 'Site Blogs',
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────

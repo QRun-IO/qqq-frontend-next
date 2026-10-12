@@ -73,11 +73,18 @@ describe('dropdown selections', () => {
 })
 
 describe('widgetColumnClasses', () => {
-  it('maps gridColumns (twelfths) to spans, defaulting to full width', () => {
-    expect(widgetColumnClasses(4)).toBe('col-span-12 min-w-0 lg:col-span-4')
-    expect(widgetColumnClasses(12)).toBe('col-span-12 min-w-0 lg:col-span-12')
-    expect(widgetColumnClasses(undefined)).toBe('col-span-12 min-w-0 lg:col-span-12')
-    expect(widgetColumnClasses(40)).toBe('col-span-12 min-w-0 lg:col-span-12')
+  it('maps gridColumns (twelfths) to spans by the grid width, defaulting to full width', () => {
+    expect(widgetColumnClasses(4)).toBe('col-span-12 @min-[40rem]:col-span-6 @min-[60rem]:col-span-4 min-w-0')
+    expect(widgetColumnClasses(3)).toBe('col-span-12 @min-[40rem]:col-span-6 @min-[60rem]:col-span-4 @min-[76rem]:col-span-3 min-w-0')
+    expect(widgetColumnClasses(12)).toBe('col-span-12 min-w-0')
+    expect(widgetColumnClasses(undefined)).toBe('col-span-12 min-w-0')
+    expect(widgetColumnClasses(40)).toBe('col-span-12 min-w-0')
+  })
+
+  it('gives table widgets card-sized room before they sit side by side', () => {
+    expect(widgetColumnClasses(6, undefined, 'childRecordList')).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, undefined, 'table')).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, undefined, 'statistics')).toBe('col-span-12 @min-[40rem]:col-span-6 min-w-0')
   })
 })
 

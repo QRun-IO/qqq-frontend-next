@@ -20,6 +20,7 @@
 
 import type { QHelpContent, QWidgetDropdown, QWidgetHelpContent, QWidgetMetaData } from '@/types'
 import { WIDGET_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { containerSpanClasses } from '@/lib/utils/responsive-grid'
 
 /** Root of the local-storage keys that persist widget dropdown selections (shared with Material). */
 export const WIDGET_DROPDOWN_STORAGE_ROOT = 'qqq.widgets.dropdownData'
@@ -289,11 +290,8 @@ export function downloadText(fileName: string, text: string, mimeType = 'text/cs
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** Tailwind classes for QQQ's 12-column widget sizing (static strings for the JIT). */
-const COLUMN_SPANS: Record<number, string> = {
-  1: 'lg:col-span-1', 2: 'lg:col-span-2', 3: 'lg:col-span-3', 4: 'lg:col-span-4', 5: 'lg:col-span-5', 6: 'lg:col-span-6',
-  7: 'lg:col-span-7', 8: 'lg:col-span-8', 9: 'lg:col-span-9', 10: 'lg:col-span-10', 11: 'lg:col-span-11', 12: 'lg:col-span-12',
-}
+/** Widget types that render tables, which need card-sized room before they sit side by side. */
+const TABLE_WIDGET_TYPES = new Set(['childRecordList', 'table', 'multiTable', 'recordGrid', 'rowBuilder', 'dataBagViewer'])
 
 /** Material Dashboard's grid breakpoints (xs 0, sm 576, md 768, lg 992, xl 1200, xxl 1400 px). */
 const SIZE_CLASSES = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'] as const
@@ -320,8 +318,10 @@ function columnSpan(value: unknown): number | undefined {
 }
 
 /**
- * Column-span classes for a widget in a 12-column grid: full width on small
- * screens, `gridColumns` of 12 (default 12, as in Material) on large screens.
+ * Column-span classes for a widget in a 12-column `@container` grid: full width in a narrow
+ * grid, `gridColumns` of 12 (default 12, as in Material) once the grid is wide enough for
+ * widgets of that width to sit in a row; table widgets need more room than charts and
+ * statistics before they do (see `responsive-grid`).
  *
  * A widget that declares per-breakpoint sizes (`gridCols:sizeClass:{xs,sm,md,lg,xl,xxl}` in its
  * `defaultValues`) is sized as Material sizes it: each declared breakpoint (Material's widths)
@@ -329,9 +329,10 @@ function columnSpan(value: unknown): number | undefined {
  *
  * @param gridColumns - Widget metadata grid columns.
  * @param defaultValues - Widget metadata default values (per-breakpoint overrides).
+ * @param widgetType - Widget type, so table widgets get card-sized room.
  * @returns Tailwind classes.
  */
-export function widgetColumnClasses(gridColumns?: number, defaultValues?: Record<string, unknown>): string {
+export function widgetColumnClasses(gridColumns?: number, defaultValues?: Record<string, unknown>, widgetType?: string): string {
   const sizes = Object.fromEntries(SIZE_CLASSES.map((size) => [size, columnSpan(defaultValues?.[`gridCols:sizeClass:${size}`])]))
   if (Object.values(sizes).some((span) => span !== undefined)) {
     sizes.xs ??= 12
@@ -339,8 +340,7 @@ export function widgetColumnClasses(gridColumns?: number, defaultValues?: Record
     const classes = SIZE_CLASSES.flatMap((size) => (sizes[size] ? [SIZE_CLASS_SPANS[size][sizes[size]]] : []))
     return `${classes.join(' ')} min-w-0`
   }
-  const span = columnSpan(gridColumns) ?? 12
-  return `col-span-12 min-w-0 ${COLUMN_SPANS[span]}`
+  return containerSpanClasses(columnSpan(gridColumns) ?? 12, widgetType && TABLE_WIDGET_TYPES.has(widgetType) ? 'cards' : 'widgets')
 }
 
 /** Classes for a dashboard grid item: an in-page anchor target (`#widgetName`) clear of the header. */

@@ -20,14 +20,15 @@ describe('metadata driven form layout', () => {
   it('uses a half-width default, valid 12-column spans, and full-width file uploads', () => {
     expect(formFieldColumns(field())).toBe(6)
     expect(formFieldColumns(field({ gridColumns: 4 }))).toBe(4)
-    expect(formFieldColumnClasses(field({ gridColumns: 4 }))).toContain('lg:col-span-4')
+    expect(formFieldColumnClasses(field({ gridColumns: 4 }))).toBe('col-span-12 @min-[30rem]:col-span-6 @min-[44rem]:col-span-4 min-w-0')
+    expect(formFieldColumnClasses(field())).toBe('col-span-12 @min-[30rem]:col-span-6 min-w-0')
     expect(formFieldColumns(field({ gridColumns: 0 }))).toBe(6)
     expect(formFieldColumns(field({ gridColumns: 13 }))).toBe(6)
     expect(formFieldColumns(field({ gridColumns: Number.NaN }))).toBe(6)
     const upload = field({ gridColumns: 3, adornments: [{ type: 'FILE_UPLOAD', values: { width: 'full' } }] })
     expect(fileUploadWidth(upload)).toBe('full')
     expect(formFieldColumns(upload)).toBe(12)
-    expect(formFieldColumnClasses(upload)).toContain('sm:col-span-12 lg:col-span-12')
+    expect(formFieldColumnClasses(upload)).toBe('col-span-12 min-w-0')
     expect(fileUploadWidth(field())).toBe('half')
   })
 

@@ -41,6 +41,7 @@ import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import { languageFor } from '@/lib/utils/code-highlight'
 import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 import { CodeBlock } from './HighlightedCode'
 import { ScriptEditorDialog } from './ScriptEditorDialog'
 import { ALERT_CLASS, BUTTON_CLASS, INPUT_CLASS, ScriptDocs, ScriptTest, type ScriptTestFields } from './ScriptPanels'
@@ -509,7 +510,7 @@ function ScriptLogs({ idKey, source, scriptRevisionId }: {
             const hadError = log.values.hadError
             return (
               <tr key={text(log.values.id)} className="border-t border-border align-top" data-qqq-id={`script-log-${text(log.values.id)}`}>
-                <td className="whitespace-nowrap px-3 py-2 text-foreground">{dateTimeText(log.values.startTimestamp)}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-foreground"><DateTimeText type="DATE_TIME" value={log.values.startTimestamp} /></td>
                 <td className="px-3 py-2 text-right text-foreground">{text(log.values.runTimeMillis)}</td>
                 <td className={cn('px-3 py-2', hadError === true ? 'text-destructive' : 'text-foreground')}>
                   {hadError === true ? 'Yes' : hadError === false ? 'No' : ''}

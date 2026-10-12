@@ -30,7 +30,7 @@ import { X } from 'lucide-react'
 import type { EsbMessage, EsbPermissions } from '@/types'
 import { ESB_PAGE_SIZE, getEsbDeadLetters, getEsbMessages } from '@/lib/api/esb'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
-import { formatDateTime } from '@/lib/utils/datetime-utils'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 import {
   EsbQueueActions,
   EsbSelectionActions,
@@ -223,7 +223,7 @@ function MessageRow({
       )}
       <td className="px-2 py-2 font-mono text-xs text-foreground">{message.messageId}</td>
       <td className="whitespace-nowrap px-2 py-2 text-foreground">
-        {formatDateTime(message.timestamp) ?? message.timestamp}
+        <DateTimeText type="DATE_TIME" value={message.timestamp} relative className="text-xs" />
       </td>
       <td className="px-2 py-2 tabular-nums text-foreground">{message.deliveryCount}</td>
       <td className="space-y-1 px-2 py-2">
