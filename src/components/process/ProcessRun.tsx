@@ -63,6 +63,8 @@ export interface ProcessRunProps {
    * stepper, no Cancel or Close, and Return starts a fresh run in place instead of leaving the page.
    */
   isEmbedded?: boolean
+  /** Called once, with the process's final values, when the run completes (e.g. a picker selects an uploaded record). */
+  onComplete?: (values: Record<string, unknown>) => void
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
@@ -149,6 +151,7 @@ export function ProcessRun({
   initialRequest,
   returnTo,
   isEmbedded = false,
+  onComplete,
   className,
 }: ProcessRunProps) {
   const router = useRouter()
@@ -177,6 +180,13 @@ export function ProcessRun({
     startedRef.current = true
     start()
   }, [boundsMessage, start])
+
+  const completedRef = useRef(false)
+  useEffect(() => {
+    if (state.phase !== 'complete' || completedRef.current) return
+    completedRef.current = true
+    onComplete?.(state.values)
+  }, [state.phase, state.values, onComplete])
 
   //////////////////////////////////////////////////////////////////
   // move focus to the new screen's heading (WCAG 2.4.3), not on  //

@@ -327,6 +327,8 @@ export function DynamicFormField({
             initialLabel={displayValueOverrides?.[field.name] ?? record?.displayValues?.[field.name]}
             inlineOptions={inlineOptions}
             chipField={field}
+            picker={field.picker}
+            pickerTableName={field.pickerTableName}
             context={pvContext}
             error={fieldError}
             disabled={isDisabled}

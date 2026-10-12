@@ -32,6 +32,11 @@
       "marker": "qqq-sql-workbench-editor",
       "gzipKB": 135
     },
+    "recordPicker": {
+      "$comment": "The record picker dialog (RecordPickerDialog: search, filters, thumbnail grid and list, preview, upload) for fields whose possible value source declares a picker, loaded when Browse/Change is clicked: import() in PossibleValueSelect. Turbopack emits one variant of the async chunk per parent context that bundles PossibleValueSelect (record forms, process forms, bulk-load mapping), so the budget covers all variants; a session loads one (about 5.9 KB gzip, with the dialog-only record-picker-query helpers). Measured 17.0 KB gzip across the three variants at introduction; budget about 6% above. The inline field (thumbnails, Browse/Preview/View) adds 2.5 KB to total JS (main 1005.4 KB, this branch 1007.9 KB on 2026-10-12) and nothing to any route first load or the shared CSS.",
+      "marker": "qqq-record-picker-grid",
+      "gzipKB": 18
+    },
     "sqlFormatter": {
       "$comment": "sql-formatter with the postgresql, mysql, sqlite and sql dialects only (formatDialect), loaded when a workbench cell's Format button is first used: import() in SqlCell. Measured 60.2 KB gzip at introduction; budget about 8% above.",
       "marker": "logicalOperatorNewline",
