@@ -539,7 +539,7 @@
       "feature": "Global search (header box, '/' dialog, search page) lists the records a backend record search (POST /qqq/v1/search over each table's searchFields) finds, after the matching pages, by record label with the table label; results open by keyboard and the search page survives refresh",
       "source": [
         "src/lib/hooks/use-record-search.ts, src/lib/utils/record-search.ts, src/lib/utils/navigation-search.ts",
-        "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/components/layout/NavigationSearchResults.tsx, src/app/(dashboard)/app/search/page.tsx",
+        "src/components/layout/GlobalSearch.tsx, src/components/feedback/SearchDialog.tsx, src/components/search/QuickSearchListbox.tsx, src/components/search/SearchPage.tsx, src/app/(dashboard)/app/search/page.tsx",
         "qqq-backend-core RecordSearchAction, QTableMetaData.searchFields; qqq-middleware-javalin RecordSearchSpecV1"
       ],
       "fixture": "stock sample + NavigationFixtures (search fields on person, pet, savedView)",

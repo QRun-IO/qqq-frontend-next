@@ -23,6 +23,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
+import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 
@@ -31,7 +32,12 @@ import type { NavTarget } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { buildTableActions, commandMatches, compareCommandLabels, tableScreenFor, type TableAction } from '@/lib/utils/command-palette'
 import { getRecentRecords, type RecentRecord } from '@/lib/utils/recent-records'
+import { searchableTables } from '@/lib/utils/record-search'
+import { openInNewTab, searchPagePath } from '@/lib/search/search-url'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+
+/** Record search results, loaded when the palette opens with searchable tables. */
+const CommandRecordResults = dynamic(() => import('@/components/search/CommandRecordResults').then((module) => module.CommandRecordResults), { ssr: false })
 
 /** Fallback icon kind for each app-tree node type. */
 const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
@@ -90,6 +96,8 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
   const [search, setSearch] = useState('')
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
   const [hash, setHash] = useState('')
+  // value of the highlighted entry (cmdk), for Ctrl/Cmd+Enter
+  const [selectedValue, setSelectedValue] = useState('')
 
   // Recently viewed records and the hash (an open audit dialog hides the table actions) are read on open
   useEffect(() => {
@@ -162,6 +170,24 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
   const screen = useMemo(() => (open ? tableScreenFor(pathname ?? '', hash, metaData) : null), [open, pathname, hash, metaData])
   const tableActions = useMemo(() => (screen && metaData ? buildTableActions(screen, metaData) : []), [screen, metaData])
 
+  // Records found by record search (only when the metadata lists searchable tables)
+  const tables = useMemo(() => searchableTables(metaData), [metaData])
+  const [recordState, setRecordState] = useState({ count: 0, searching: false })
+  const trimmedSearch = search.trim()
+
+  /**
+   * Ctrl/Cmd+Enter opens the highlighted entry in a new tab (cmdk handles plain Enter).
+   *
+   * @param event - Keydown inside the palette (runs before cmdk's own handler).
+   */
+  const handlePaletteKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
+    const prefix = selectedValue.slice(0, selectedValue.indexOf(':') + 1)
+    if (!['page:', 'recent:', 'record:', 'search:'].includes(prefix)) return
+    event.preventDefault()
+    openInNewTab(selectedValue.slice(prefix.length))
+  }
+
   // Material's filter (per-word substring) and ranking (labels that start with the search first)
   const visibleActions = search ? tableActions.filter((action) => commandMatches(action.label, search)) : tableActions
   const visibleTargets = useMemo(() => {
@@ -176,6 +202,12 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
       .filter((record) => commandMatches(`${record.recordLabel} ${record.tableLabel}`, search))
       .sort((a, b) => compareCommandLabels(a.recordLabel, b.recordLabel, search))
   }, [recentRecords, search])
+
+  // first entries around the records, for moving cmdk's highlight when records arrive
+  const firstValueBefore = (screen && visibleActions[0] && `action:${visibleActions[0].key}`)
+    || (visibleTargets[0] && `page:${visibleTargets[0].path}`)
+    || undefined
+  const firstValueAfter = visibleRecent[0] ? `recent:${visibleRecent[0].path}` : undefined
 
   /**
    * Runs a table action: navigates to it, or opens the record's audit dialog (`#audit`).
@@ -218,14 +250,14 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
         ref={dialogRef}
         onKeyDown={trapFocus}
       >
-        <Command shouldFilter={false} label="Command palette">
+        <Command shouldFilter={false} label="Command palette" value={selectedValue} onValueChange={setSelectedValue} onKeyDown={handlePaletteKeyDown}>
           {/* Search input */}
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder="Search for tables, actions, or recently viewed items..."
+              placeholder={tables.length > 0 ? 'Search for tables, actions, records, or recently viewed items...' : 'Search for tables, actions, or recently viewed items...'}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
               data-qqq-id="command-menu-search"
@@ -248,7 +280,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
             aria-live="polite"
             data-qqq-id="command-menu-results"
           >
-            {visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && (
+            {visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && recordState.count === 0 && !recordState.searching && (
               <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-qqq-id="command-menu-empty">
                 No results found.
               </p>
@@ -295,6 +327,22 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
               </Command.Group>
             )}
 
+            {open && tables.length > 0 && (
+              <CommandRecordResults
+                search={search}
+                open={open}
+                tables={tables}
+                selectedValue={selectedValue}
+                setSelectedValue={setSelectedValue}
+                firstValueBefore={firstValueBefore}
+                firstValueAfter={firstValueAfter}
+                onSelect={handleSelect}
+                onState={setRecordState}
+                itemClassName={ITEM_CLASS}
+                heading={(text) => <GroupHeading>{text}</GroupHeading>}
+              />
+            )}
+
             {visibleRecent.length > 0 && (
               <Command.Group heading={<GroupHeading>Recently Viewed Records</GroupHeading>} data-qqq-id="command-group-recent">
                 {visibleRecent.map((record) => (
@@ -312,6 +360,20 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
                 ))}
               </Command.Group>
             )}
+
+            {trimmedSearch && (
+              <Command.Group heading={<GroupHeading>Search</GroupHeading>} data-qqq-id="command-group-search">
+                <Command.Item
+                  value={`search:${searchPagePath({ q: trimmedSearch })}`}
+                  onSelect={() => handleSelect(searchPagePath({ q: trimmedSearch }))}
+                  className={ITEM_CLASS}
+                  data-qqq-id="command-search-all"
+                >
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="flex-1 truncate">Search everything for <span className="font-medium">&ldquo;{trimmedSearch}&rdquo;</span></span>
+                </Command.Item>
+              </Command.Group>
+            )}
           </Command.List>
 
           {/* Footer hint */}
@@ -324,6 +386,10 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
               <span>
                 <kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd>{' '}
                 open
+              </span>
+              <span className="hidden sm:inline">
+                <kbd className="rounded border border-border px-1 py-0.5 font-mono">Ctrl/⌘ ↵</kbd>{' '}
+                new tab
               </span>
               <span>
                 <kbd className="rounded border border-border px-1 py-0.5 font-mono">esc</kbd>{' '}

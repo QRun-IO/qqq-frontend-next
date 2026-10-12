@@ -197,12 +197,34 @@ describe('RecordSearchResultSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('fails when recordLabel is missing', () => {
+  it('accepts a missing or null recordLabel (the client falls back to the table and id)', () => {
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '123' }).success).toBe(true)
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '123', recordLabel: null, tableLabel: null }).success).toBe(true)
+  })
+
+  it('accepts a numeric recordId as a string', () => {
+    const result = RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: 7, recordLabel: 'x' })
+    expect(result.success && result.data.recordId).toBe('7')
+  })
+
+  it('fails without a table name or record id', () => {
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordLabel: 'x' }).success).toBe(false)
+    expect(RecordSearchResultSchema.safeParse({ tableName: '', recordId: '1' }).success).toBe(false)
+    expect(RecordSearchResultSchema.safeParse({ tableName: 'person', recordId: '' }).success).toBe(false)
+  })
+
+  it('parses the extended fields and drops a malformed one instead of failing', () => {
     const result = RecordSearchResultSchema.safeParse({
-      tableName: 'person',
-      recordId: '123',
+      tableName: 'person', recordId: '1', recordLabel: 'Alice',
+      score: 3.2, updatedAt: '2026-10-01T00:00:00Z',
+      highlights: [{ fieldName: 'email', fieldLabel: 'Email', text: 'alice@x.io', matches: [{ start: 0, end: 5 }] }],
+      details: 'not-a-list',
     })
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.score).toBe(3.2)
+    expect(result.data.highlights?.[0].matches).toEqual([{ start: 0, end: 5 }])
+    expect(result.data.details).toBeUndefined()
   })
 })
 
@@ -228,11 +250,11 @@ describe('RecordSearchResponseSchema', () => {
     expect(RecordSearchResponseSchema.safeParse({}).success).toBe(false)
   })
 
-  it('fails when a result is missing required fields', () => {
+  it('leaves result validation to RecordSearchResultSchema (one bad result must not fail the search)', () => {
     const result = RecordSearchResponseSchema.safeParse({ results: [
-      { tableName: 'person' }, // missing recordId and recordLabel
+      { tableName: 'person' }, // missing recordId
     ] })
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 })
 
