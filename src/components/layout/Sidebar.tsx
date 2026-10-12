@@ -38,9 +38,11 @@ import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
 import { gravatarUrl } from '@/lib/utils/gravatar'
+import { NAV_WIDTH_CSS } from '@/lib/utils/nav-width'
 import { UserPreferencesDialog } from './UserPreferencesDialog'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
+import { NavResizeHandle } from './NavResizeHandle'
 
 /** Fallback icon kind for each app-tree node type. */
 const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
@@ -179,8 +181,8 @@ function SidebarBranding({ branding, href }: { branding?: QBrandingMetaData; hre
  *
  * @param props - Component properties.
  * @returns On desktop: a `hidden md:flex` wrapper containing the `<aside>`
- *   column. In mobile-drawer mode (when `open` prop is provided): a Radix
- *   dialog whose content (the `<aside>` panel) is mounted only while `open`.
+ *   column and its resize handle (the width persists per browser). In
+ *   mobile-drawer mode (when `open` prop is provided): a Radix dialog whose content (the `<aside>` panel) is mounted only while `open`.
  */
 export default function Sidebar({
   routes,
@@ -232,7 +234,8 @@ export default function Sidebar({
 
   const asideEl = (
     <aside
-      className="flex h-full w-64 flex-col overflow-hidden border-r border-border bg-sidebar text-foreground"
+      id={isMobileDrawer ? undefined : 'qqq-desktop-nav'}
+      className={cn('flex h-full flex-col overflow-hidden border-r border-border bg-sidebar text-foreground', isMobileDrawer ? 'w-64' : 'w-full')}
       onMouseEnter={!isMobileDrawer ? onMouseEnter : undefined}
       onMouseLeave={!isMobileDrawer ? onMouseLeave : undefined}
       data-qqq-id="sidebar"
@@ -331,10 +334,11 @@ export default function Sidebar({
     )
   }
 
-  // Desktop: render as a static sidebar
+  // Desktop: a static column whose width the user sets with the handle on its right edge
   return (
-    <div className="hidden md:flex h-full flex-shrink-0" data-qqq-id="sidebar-desktop">
+    <div className="relative hidden md:flex h-full flex-shrink-0" style={{ width: NAV_WIDTH_CSS }} data-qqq-id="sidebar-desktop">
       {asideEl}
+      <NavResizeHandle controls="qqq-desktop-nav" />
     </div>
   )
 }
