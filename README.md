@@ -55,6 +55,8 @@ How an existing QQQ backend application (for example one still on QQQ 0.x with t
 5. URLs change from `/<app>/<table>/<id>` (Material) to `/app/<table>/<id>` (Next). Map old bookmarks and links with `QInstance.redirects` (exact or wildcard paths).
 6. Optional: set `homeAppName`, add `FILE_PREVIEW` adornments, add the SQL Workbench QBit (table above). No database migrations are needed for the dashboard itself; the SQL Workbench QBit needs its five tables (DDL in its README).
 
+For a full per-feature checklist (backend upgrade, QBits, migrations, permissions) see the QQQ adoption checklist: https://github.com/QRun-IO/qqq/blob/develop/docs/migration/adoption-checklist.adoc
+
 To upgrade between RCs, change only the `qqq-frontend-next` version and check the minimum QQQ version in the table above and in the [release notes](docs/releases/).
 
 ### Configuration
