@@ -30,6 +30,8 @@ import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
 import { canAccessProcess, canReadRecords, canRunReport } from '@/lib/auth/permissions'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
+import { cn } from '@/lib/utils/cn'
+import { cssMaxWidth } from '@/lib/utils/responsive-grid'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
 import { ConnectedWidget } from './ConnectedWidget'
@@ -230,9 +232,12 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
     { showAppLabelOnHomeScreen?: boolean; includeTableCountsOnHomeScreen?: boolean } | undefined
   const showLabel = homeSettings?.showAppLabelOnHomeScreen !== false
   const includeTableCounts = homeSettings?.includeTableCountsOnHomeScreen !== false
+  // Optional page cap for ultra-wide screens (QSupplementalAppMetaData of type `dashboardLayout`)
+  const dashboardLayout = appMetaData.supplementalAppMetaData?.dashboardLayout as { maxContentWidth?: unknown } | undefined
+  const maxContentWidth = cssMaxWidth(dashboardLayout?.maxContentWidth)
 
   return (
-    <div className="space-y-6" data-qqq-id={`app-home-${name}`}>
+    <div className={cn('space-y-6', maxContentWidth && 'mx-auto w-full')} style={maxContentWidth ? { maxWidth: maxContentWidth } : undefined} data-qqq-id={`app-home-${name}`}>
       {/* App heading */}
       {showLabel ? (
         <div className="flex items-center gap-3">

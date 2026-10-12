@@ -312,6 +312,21 @@ These examples are payload fragments emitted by an application's backend rendere
 {"gridColumns":6,"defaultValues":{"gridCols:sizeClass:xs":12,"gridCols:sizeClass:md":6}}
 ```
 
+**Readable widths (Next UI).** Without per-breakpoint overrides, a widget's span follows the width of the dashboard grid itself (CSS container queries, so an open sidebar counts), not the viewport. Two `defaultValues` hints tune it, and neither needs a QQQ change:
+
+- `gridMinWidth`: the narrowest the widget may be, in rem (a number, or `"28rem"` / `"448px"`). The widget shares a row only when it, and a neighbour of the same minimum, each get at least that much; otherwise it takes the full row. Values snap up to the tiers 16, 20, 24, 28, 32, 40, 48 or 64 rem; anything wider always takes the full row. Two `gridColumns: 6` widgets with `gridMinWidth: 28` pair from a 57.5rem (920 px) grid and go to thirds (`gridColumns: 4`) from 86.5rem.
+- `gridProfile`: `widgets` (charts, statistics: half from a 40rem grid), `cards` or `table` (tables: half from 66rem), or `fields` (small tiles: half from 30rem). The default is `cards` for table-type widgets and `widgets` for the rest.
+
+`gridCols:sizeClass:*` wins over `gridMinWidth`, which wins over `gridProfile`.
+
+```json
+{"type":"table","gridColumns":6,"defaultValues":{"gridMinWidth":28}}
+```
+
+Table widgets (`table`, `multiTable`) stop growing at 96rem (1536 px) so columns stay readable on ultra-wide screens; set `defaultValues.tableMaxWidth` to another width (rem, or a CSS length in `rem`, `px`, `ch`, `em` or `%`) or to `"none"`. Where a table widget is narrower than 30rem, or than its declared column widths need (6rem per `fr` or unsized column plus the fixed widths), each row renders as a stacked card of `label: value` lines instead of a table that scrolls sideways.
+
+To cap a whole dashboard page on ultra-wide screens, give the app a supplemental app metadata of type `dashboardLayout` (a backend `QSupplementalAppMetaData` subclass whose `getType()` returns `dashboardLayout` and that is included in frontend metadata) with `maxContentWidth` (rem, or a CSS length). The page then centres at that width: `{"supplementalAppMetaData":{"dashboardLayout":{"maxContentWidth":160}}}`.
+
 See [`widgetColumnClasses`](../../src/components/widgets/widget-utils.ts). Parent grids use the same sizing. A `parentWidget` payload such as `{"childWidgetNameList":["totals","trend"],"layoutType":"TABS"}` resolves those names in the instance widget registry. Children inherit parent request parameters and dropdown selections and fetch their own data; tab selection is remembered locally. A child omitted from permitted metadata cannot be configured into existence by listing its name.
 
 **Dropdown data.** Metadata and response lists are paired by position; keep their lengths and order aligned. For the `region` dropdown example above, a response fragment is:
