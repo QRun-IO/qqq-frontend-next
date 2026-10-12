@@ -43,8 +43,14 @@
   display: block;
   width: 100%;
 }
+/* headers stay in the accessibility tree (screen-reader only); each value is labelled visually */
 [data-qqq-table-layout="cards"] .qqq-table-widget-table thead {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 [data-qqq-table-layout="cards"] .qqq-table-widget-table tr {
   position: static;
