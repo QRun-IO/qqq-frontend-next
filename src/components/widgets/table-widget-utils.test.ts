@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { htmlToExportText, minTableWidth, pageSizeOptions, resolveColumnWidths, tableExportCsv } from './table-widget-utils'
+import { htmlToExportText, minTableWidth, pageSizeOptions, resolveColumnWidths, tableCardBreakpointPx, tableExportCsv } from './table-widget-utils'
 
 describe('resolveColumnWidths', () => {
   it('keeps auto layout when no column declares a width', () => {
@@ -44,6 +44,16 @@ describe('minTableWidth', () => {
     expect(minTableWidth(['1fr', '1fr'])).toBe('12rem')
     expect(minTableWidth(['2fr', '180px', undefined, '60px'])).toBe('calc(12rem + 180px + 60px)')
     expect(minTableWidth(['100%'])).toBe('6rem')
+  })
+})
+
+describe('tableCardBreakpointPx', () => {
+  it('is 30rem unless the declared columns need more', () => {
+    expect(tableCardBreakpointPx([undefined, undefined])).toBe(480)
+    expect(tableCardBreakpointPx(['2fr', '180px', undefined, '60px'])).toBe(480)
+    expect(tableCardBreakpointPx(['1fr', '1fr', '1fr', '1fr', '1fr', '1fr'])).toBe(576)
+    expect(tableCardBreakpointPx(['300px', '20rem', '1fr'])).toBe(300 + 320 + 96)
+    expect(tableCardBreakpointPx(['30rem', '1fr'], 20)).toBe(600 + 120)
   })
 })
 

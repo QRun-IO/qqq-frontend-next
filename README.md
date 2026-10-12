@@ -2,7 +2,7 @@
 
 A metadata-driven admin UI for the QQQ low-code application framework, rewritten from React + Material UI to Next.js 16 + Tailwind CSS + shadcn/ui. The UI renders entirely from backend metadata — no table names, field lists, or navigation items are hardcoded in the frontend.
 
-**This checkout targets Next UI 1.0.0-RC.14**, an urgent fix release: record search no longer fails when one result has no label. Confirm availability in the [RC14 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14) before installing; see the [RC14 notes](docs/releases/1.0.0-RC.14.md) for the preparation checkpoint and verification scope. [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
+**This checkout targets Next UI 1.0.0-RC.14**, an urgent fix release: record search no longer fails when one result has no label. RC14 is published (Maven Central and GHCR); hashes and image digests are in the [RC14 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14). See the [RC14 notes](docs/releases/1.0.0-RC.14.md) for the preparation checkpoint and verification scope. [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13) was the previously verified public candidate at that checkpoint and remains immutable. Final 1.0 remains held for application soak and explicit owner approval.
 
 **Current roadmap and known issues:** [Next UI 1.0 tracker](https://github.com/QRun-IO/qqq/issues/713). GitHub issues are the source of truth for status and remaining work; see [issue tracking](docs/ISSUE-TRACKING.md).
 
@@ -23,6 +23,54 @@ The explicit version overrides an older BOM-managed frontend. RC14 requires a pu
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 
 Feature coverage is recorded in the real-backend acceptance matrix in [`docs/acceptance/feature-matrix.md`](docs/acceptance/feature-matrix.md) ([QRun-IO/qqq#649](https://github.com/QRun-IO/qqq/issues/649)). Run it with `pnpm test:acceptance` (see [`tests/acceptance/README.md`](tests/acceptance/README.md)).
+
+## Adopting in another app
+
+How an existing QQQ backend application (for example one still on QQQ 0.x with the Material Dashboard) switches to, or upgrades, the Next dashboard. The frontend is distributed only as a Maven jar; there is no npm package (`package.json` is `private`).
+
+### Coordinates and compatible versions
+
+| Piece | Coordinates | Version |
+|---|---|---|
+| Next dashboard | `com.kingsrook.qqq:qqq-frontend-next` | `1.0.0-RC.13` (latest; [all versions](https://repo1.maven.org/maven2/com/kingsrook/qqq/qqq-frontend-next/)) |
+| QQQ BOM | `com.kingsrook.qqq:qqq-bom-pom` (import scope) | `4.1.0-RC.3` (manages `qqq-frontend-next` at `1.0.0-RC.11`, so pin `1.0.0-RC.13` explicitly) |
+| SQL Workbench QBit (optional) | `com.kingsrook.qbits:qbit-sql-workbench` | `1.0.0-RC.1` (built against QQQ `4.1.0-RC.2`) |
+| Container image (optional, separate Node server) | `ghcr.io/qrun-io/qqq-frontend-next` | `1.0.0-RC.13` |
+
+| Next feature | Minimum QQQ | Backend work |
+|---|---|---|
+| Dashboard at `/` | 4.1.0-RC.1 | Add the jar; `QApplicationJavalinServer` (`qqq-middleware-javalin`) serves it. |
+| Standalone branding images | 4.1.0-RC.2 | Branding metadata ([qqq#1009](https://github.com/QRun-IO/qqq/issues/1009)). |
+| FILE_PREVIEW thumbnails and lightbox | 4.1.0-RC.3 | Adorn each field with `AdornmentType.FilePreviewValues.newFieldAdornment()` ([qqq#1056](https://github.com/QRun-IO/qqq/issues/1056)). The field value, or `thumbnailUrlField` / `fullSizeUrlField`, must be an http(s) URL or a same-origin path; a BLOB field needs a `FILE_DOWNLOAD` adornment as well. Plain URL fields are never auto-detected. |
+| Instance home app | 4.1.0-RC.3 | `qInstance.setHomeAppName("<app>")` ([qqq#1059](https://github.com/QRun-IO/qqq/issues/1059)). Users who may not open that app get Next's `/app` overview. |
+| SQL Workbench | 4.1.0-RC.2 + QBit | Produce the QBit (`new SqlWorkbenchQBitProducer().withQBitConfig(...).produce(qInstance)`); it adds the `sqlWorkbench` app with the `SQL_WORKBENCH` widget, five tables and `/qqq/v1/sql-workbench/*` routes. Grant `sqlWorkbench.hasAccess` (and `sqlWorkbench.write` only for write mode) to super-users; configure `readOnlyCredentials` in production. See the [QBit README](https://github.com/QRun-IO/qbit-sql-workbench#readme). |
+| Responsive layouts, readable child lists, compact dates | 4.1.0-RC.1 | None; frontend only. Child-record widgets honour `onlyIncludeFieldNames` order. |
+
+### Switching from the Material Dashboard
+
+1. Move the application to QQQ 4.1 (`qqq-bom-pom` `4.1.0-RC.3`). This is a major upgrade from QQQ 0.x; follow the QQQ 4.1 upgrade notes for the backend itself.
+2. Add the `qqq-frontend-next` dependency above. When the jar is on the classpath, QQQ serves Next at `/` unless the Material Dashboard is requested explicitly.
+3. Choose the dashboard in code with `withServeFrontendNext(true)` / `withServeFrontendMaterialDashboard(true)`, or, when neither is set in code, with `-Dqqq.javalin.frontend=next|material|none`. An app that sets `withServeFrontendMaterialDashboard(false)` and serves Material through its own route provider gets Next at `/` as soon as the jar is added; remove that custom route, or set `withServeFrontendNext(false)` to keep Material.
+4. Authentication: keep the existing identity-provider client. OAUTH2 redirects to `{origin}/token` and AUTH_0 to `{origin}/`, as Material did; both use PKCE.
+5. URLs change from `/<app>/<table>/<id>` (Material) to `/app/<table>/<id>` (Next). Map old bookmarks and links with `QInstance.redirects` (exact or wildcard paths).
+6. Optional: set `homeAppName`, add `FILE_PREVIEW` adornments, add the SQL Workbench QBit (table above). No database migrations are needed for the dashboard itself; the SQL Workbench QBit needs its five tables (DDL in its README).
+
+For a full per-feature checklist (backend upgrade, QBits, migrations, permissions) see the QQQ adoption checklist: https://github.com/QRun-IO/qqq/blob/develop/docs/migration/adoption-checklist.adoc
+
+To upgrade between RCs, change only the `qqq-frontend-next` version and check the minimum QQQ version in the table above and in the [release notes](docs/releases/).
+
+### Configuration
+
+Served from the jar there is nothing to configure in the frontend: it calls the API on the same origin at `/qqq/v1`, and the Javalin server sends the security headers and Content-Security-Policy. External embeds (for example QuickSight frames) need an allowed CSP source, not a disabled policy. The build-time variables under [Environment Variables](#environment-variables) apply only to frontend development and the standalone container image.
+
+### Known limitations
+
+- Release candidates only; final 1.0 is held for application soak and owner approval ([#712](https://github.com/QRun-IO/qqq/issues/712), tracker [#713](https://github.com/QRun-IO/qqq/issues/713)).
+- Served at `/` only: sub-path hosting is not supported ([#732](https://github.com/QRun-IO/qqq/issues/732)).
+- Material parity is not complete ([#714](https://github.com/QRun-IO/qqq/issues/714)); check the parity ledger for the screens your app relies on.
+- Real Auth0, Google Drive and QuickSight integrations are not yet verified end to end ([#713](https://github.com/QRun-IO/qqq/issues/713)).
+- The container image fixes the backend origin at build time (`host.docker.internal:8000`); use the jar, or rebuild the image, for another origin.
+- WebKit and tablet acceptance runs show intermittent navigation diagnostics ([#985](https://github.com/QRun-IO/qqq/issues/985), [#904](https://github.com/QRun-IO/qqq/issues/904)).
 
 ## Run the local QQQ sample
 
@@ -55,7 +103,7 @@ The dev server starts at [http://localhost:3000](http://localhost:3000).
 | `QQQ_NEXT_OUTPUT` | _(unset)_ | `export` produces the static export for QQQ hosting (`pnpm build:export`) |
 | `NEXT_PUBLIC_MOCK_API` | _(unset)_ | Set to `true` to activate MSW browser mocks for dev/demo without a live backend |
 
-Copy `.env.example` to `.env.local` and adjust as needed.
+Copy `.env.mock` to `.env.local` to run against MSW mocks, or set `NEXT_PUBLIC_MOCK_API=false` and point `NEXT_PUBLIC_API_BASE_URL` at a real backend.
 
 ## Available Commands
 
