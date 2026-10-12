@@ -548,8 +548,10 @@ export const queryKeys = {
    * @param searchTerm - The trimmed search term.
    * @param tableNames - The searched tables.
    * @param limitPerTable - Maximum records per table.
+   * @param offset - Records skipped per table.
+   * @param sort - Requested order.
    * @returns The record search query key tuple.
    */
-  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number) =>
-    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance') =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort] as const,
 }
