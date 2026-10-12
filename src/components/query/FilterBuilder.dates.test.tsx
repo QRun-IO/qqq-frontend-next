@@ -228,6 +228,16 @@ describe('date-first conditions in the filter builder', () => {
     expect(buildRows([...pair, { fieldName: 'name', operator: 'CONTAINS', values: ['x'] }], fields, true, context)).toEqual([{ start: 0, count: 2 }, { start: 2, count: 1 }])
   })
 
+  it('keeps exact values where a value may be a filter variable (a report setup)', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FilterBuilder tableMetaData={table} filter={filterOf({ fieldName: 'created', operator: 'EQUALS', values: [] })} onChange={() => undefined} allowVariables />
+      </QueryClientProvider>
+    )
+    expect(screen.getByLabelText('Filter value for Created')).toHaveAttribute('type', 'datetime-local')
+    expect(screen.queryByRole('checkbox', { name: /Include time/ })).not.toBeInTheDocument()
+  })
+
   it('the time zone is named in a tooltip', async () => {
     render(<Harness initial={filterOf({ fieldName: 'created', operator: 'EQUALS', values: [] })} />)
     expect(screen.getByRole('button', { name: new RegExp(`Time zone: Days start and end at midnight in your time zone, ${zone.replace('/', '\\/')}`) })).toBeInTheDocument()

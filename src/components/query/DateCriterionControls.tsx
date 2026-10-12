@@ -145,14 +145,16 @@ export interface DateRow {
  * @param args.field - The field the condition is on.
  * @param args.criteria - The row's criteria: one, or a `>=` and a `<` bound.
  * @param args.onChange - Receives the row's new criteria.
+ * @param args.enabled - False keeps the exact-value inputs (a report setup, where a value may be a filter variable that a date range cannot take).
  * @returns The row's date state and actions.
  */
-export function useDateRow({ field, criteria, onChange }: {
+export function useDateRow({ field, criteria, onChange, enabled = true }: {
   field: Pick<DateField, 'name' | 'type'> | undefined
   criteria: QFilterCriteria[]
   onChange: (criteria: QFilterCriteria[]) => void
+  enabled?: boolean
 }): DateRow {
-  const isDate = isDateField(field)
+  const isDate = isDateField(field) && enabled
   const type: QFieldType = field?.type ?? 'DATE'
   const context = useMemo(() => defaultDateContext(), [])
   const [state, setState] = useState<RowState>(() => initialState(criteria, type, context))
@@ -166,7 +168,7 @@ export function useDateRow({ field, criteria, onChange }: {
 
   const fieldName = field?.name ?? ''
   const weekday = criteria.some((criterion) => isWeekdayFunction(criterion.fieldFunction))
-  const canIncludeTime = type === 'DATE_TIME' && !weekday
+  const canIncludeTime = isDate && type === 'DATE_TIME' && !weekday
 
   const emit = (next: QFilterCriteria[], patch: Partial<RowState>) => {
     setState((previous) => ({ ...previous, ...patch, key: JSON.stringify(next) }))

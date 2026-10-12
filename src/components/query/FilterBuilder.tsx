@@ -451,7 +451,8 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criteria, fi
   const { weekday } = useFilterSettings()
   const criterion = criteria[0]
   const selectedField = fields.find((f) => f.name === criterion.fieldName)
-  const dateRow = useDateRow({ field: selectedField, criteria, onChange })
+  // a report setup lets a value be a filter variable, which a whole-day range cannot take: those rows keep exact values
+  const dateRow = useDateRow({ field: selectedField, criteria, onChange, enabled: !allowVariables })
   const options = selectedField ? getOperatorOptions(selectedField, { weekday }) : []
   const selected = selectedOperatorOption(options, criterion)
   const allOptions = options.some((o) => o.id === selected.id) ? options : [...options, selected]
