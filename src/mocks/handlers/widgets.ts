@@ -37,6 +37,7 @@ import {
   invValueTrend,
   invLowStockItems,
 } from '../fixtures/widgets/inventory'
+import { cmsWidgetData } from '../fixtures/cms'
 
 const widgetData: Record<string, unknown> = {
   // CRM widgets
@@ -59,7 +60,7 @@ export const widgetHandlers = [
   // GET /widget/:widgetName
   http.post('/qqq/v1/widget/:widgetName', ({ params }) => {
     const { widgetName } = params as { widgetName: string }
-    const data = widgetData[widgetName]
+    const data = widgetData[widgetName] ?? cmsWidgetData[widgetName]?.()
 
     if (!data) {
       return HttpResponse.json(

@@ -22,7 +22,9 @@ test('[REC-001] record view shows the label, tiered sections and formatted value
   await expect(page.getByRole('heading', { level: 3, name: 'Basic Info' })).toBeVisible()
   await expect(page.getByRole('heading', { level: 3, name: 'Employment Info' })).toBeVisible()
   await expect(fieldValue(page, 'email')).toHaveText(person.email!)
-  await expect(fieldValue(page, 'birthDate')).toHaveText(person.birth_date!)
+  // a DATE shows compactly (`Jan 15, 1990`, never a time) and keeps the exact calendar day as its machine value
+  await expect(fieldValue(page, 'birthDate')).toHaveAttribute('dateTime', person.birth_date!)
+  await expect(fieldValue(page, 'birthDate')).toHaveText(/^[A-Z][a-z]{2} \d{1,2}(, \d{4})?$/)
   expect(person.annual_salary).toBe('75003.50')
   await expect(fieldValue(page, 'annualSalary')).toHaveText('$75,003.50')
   expect(person.days_worked).toBe('1001')

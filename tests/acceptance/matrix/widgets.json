@@ -437,7 +437,8 @@
       ],
       "fixture": "tests/acceptance/fixture/WidgetsFixtures.java accWidgetHost section accWidgetHostJoinChild (maxRows 2)",
       "scenarios": [
-        "rows link to child records, Showing 2 of 3, View All filter link"
+        "rows link to child records, Showing 2 of 3, View All filter link",
+        "the key column is behind the more-columns toggle while the name identifies the row"
       ],
       "negative": [
         "host with no children shows empty state"

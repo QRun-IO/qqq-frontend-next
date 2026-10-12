@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { CodeBlock } from './HighlightedCode'
 import { dateTimeText, domId, text } from './script-utils'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 
 export const BUTTON_CLASS = cn(
   'inline-flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground',
@@ -202,7 +203,7 @@ export function ScriptTest({ idKey, scriptId, files, inputFields, outputFields, 
                 <tbody>
                   {result.logLines.map((line, index) => (
                     <tr key={index} className="border-t border-border align-top">
-                      <td className="whitespace-nowrap px-3 py-2 text-foreground">{dateTimeText(line.timestamp)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-foreground"><DateTimeText type="DATE_TIME" value={line.timestamp} /></td>
                       <td className="whitespace-pre-wrap px-3 py-2 text-foreground">{line.text}</td>
                     </tr>
                   ))}

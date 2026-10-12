@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils/cn'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { useAuditRecords } from '@/lib/hooks/use-audit-records'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 
 /**
  * Props for {@link AuditHistoryDialog}.
@@ -215,7 +216,7 @@ function AuditEntry({ entry, tableMetaData }: { entry: QAuditRecord; tableMetaDa
   return (
     <li className="rounded-lg border border-border p-3" data-qqq-id={`audit-entry-${entry.id}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 text-xs text-muted-foreground">
-        <time dateTime={entry.timestamp} data-qqq-id="audit-entry-timestamp">{formatDateTime(entry.timestamp) ?? entry.timestamp}</time>
+        <DateTimeText type="DATE_TIME" value={entry.timestamp} className="text-xs text-muted-foreground" dataQqqId="audit-entry-timestamp" />
         {entry.user && <span data-qqq-id="audit-entry-user">{entry.user}</span>}
       </div>
       {entry.message && <p className="mt-1 text-sm font-medium text-foreground" data-qqq-id="audit-entry-message">{entry.message}</p>}
