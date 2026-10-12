@@ -196,7 +196,9 @@ test.describe('Dashboard widths', () => {
     await page.goto('/app/widthLab')
     const table = page.locator('[data-qqq-id="table-widget-ordersTable"]')
     await expect(table).toHaveAttribute('data-qqq-table-layout', 'cards')
-    await expect(table.locator('thead')).toBeHidden()
+    // headers are screen-reader only: still column headers, but clipped to 1px
+    await expect(table.getByRole('columnheader')).toHaveText(['Order', 'Customer', 'Status', 'Total'])
+    expect((await table.locator('thead').boundingBox())!.height).toBeLessThanOrEqual(1)
     const label = await table.locator('tbody td').first().evaluate((cell) => getComputedStyle(cell, '::before').content)
     expect(label).toBe('"Order"')
   })
