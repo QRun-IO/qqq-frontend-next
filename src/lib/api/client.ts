@@ -100,6 +100,14 @@ class APIClient {
   }
 
   /**
+   * Starts the re-authentication flow for a 401 received outside this client (streamed
+   * `fetch` requests, which axios cannot make).
+   */
+  notifyUnauthorized(): void {
+    this.unauthorizedCallback?.()
+  }
+
+  /**
    * Performs an HTTP GET request and returns the response body.
    *
    * On a 401 response the global unauthorized callback is invoked (typically

@@ -59,6 +59,8 @@ export interface HeaderProps {
   navTargets?: NavTarget[]
   /** Tables the backend record search covers, for the header search (empty: local search only). */
   searchTables?: SearchableTable[]
+  /** The assistant toggle, shown before the help button when the assistant is available. */
+  assistantButton?: React.ReactNode
 }
 
 /**
@@ -77,7 +79,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables }: HeaderProps) {
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton }: HeaderProps) {
   const [notificationCount] = useState(0)
   // toasts appear below the header, never over its controls
   const headerRef = useRef<HTMLElement>(null)
@@ -140,6 +142,8 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
             <Command className="h-5 w-5 text-foreground/60" aria-hidden="true" />
           </button>
         )}
+
+        {assistantButton}
 
         {/* Keyboard shortcuts hint */}
         <button

@@ -24,7 +24,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Command } from 'cmdk'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, X } from 'lucide-react'
+import { Search, Sparkles, X } from 'lucide-react'
 
 import type { QInstance } from '@/types'
 import type { NavTarget } from '@/lib/hooks/use-routes'
@@ -51,6 +51,12 @@ interface CommandMenuProps {
   navTargets: NavTarget[]
   /** Instance metadata, for the current table's actions (omit for navigation only). */
   metaData?: QInstance
+  /**
+   * When set (the assistant is available), typed text can be handed to the assistant.
+   *
+   * @param text - The typed text.
+   */
+  onAskAssistant?: (text: string) => void
 }
 
 /** Shared classes of a palette entry (44 px tall on touch screens). */
@@ -84,7 +90,7 @@ function GroupHeading({ children }: { children: React.ReactNode }) {
  * @returns A fixed full-screen backdrop with the command palette dialog, or
  *   `null` when `open` is `false`. Keyboard: ↑↓ navigate, ↵ open, Esc close.
  */
-export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenuProps) {
+export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistant }: CommandMenuProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [search, setSearch] = useState('')
@@ -248,7 +254,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
             aria-live="polite"
             data-qqq-id="command-menu-results"
           >
-            {visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && (
+            {visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && !(onAskAssistant && search.trim()) && (
               <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-qqq-id="command-menu-empty">
                 No results found.
               </p>
@@ -310,6 +316,23 @@ export function CommandMenu({ open, onClose, navTargets, metaData }: CommandMenu
                     <span className="shrink-0 text-xs text-muted-foreground">{record.tableLabel}</span>
                   </Command.Item>
                 ))}
+              </Command.Group>
+            )}
+            {/* Last, so Enter still opens the best navigation match; alone when nothing else matches */}
+            {onAskAssistant && search.trim() && (
+              <Command.Group heading={<GroupHeading>Assistant</GroupHeading>} data-qqq-id="command-group-assistant">
+                <Command.Item
+                  value="assistant:ask"
+                  onSelect={() => {
+                    onClose()
+                    onAskAssistant(search.trim())
+                  }}
+                  className={ITEM_CLASS}
+                  data-qqq-id="command-ask-assistant"
+                >
+                  <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="flex-1 truncate font-medium">Ask Assistant: {search.trim()}</span>
+                </Command.Item>
               </Command.Group>
             )}
           </Command.List>
