@@ -16,32 +16,30 @@
 
 /**
  * @file RecordPreview — a search result's record without leaving the results: its key
- * fields (the table's first-tier sections, as on the record view), file thumbnails, the
- * fields that matched the search, and quick actions (open, open in a new tab, copy link,
- * edit when permitted). Loaded on demand by the search page.
+ * fields (the table's first-tier sections, as on the record view) as text, Yes/No and links,
+ * the fields that matched the search, and quick actions (open, open in a new tab, copy link,
+ * edit when permitted). Loaded on demand by the search page. File thumbnails and chips are
+ * left to the record view: their modules measured +9.3 KB total JS here.
  */
 
 'use client'
 
 import React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { ExternalLink, Link2, Loader2, Pencil, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { QFieldMetaData, QIcon, QRecord, QTableMetaData } from '@/types'
 import type { RecordSearchResult } from '@/lib/api/record-search'
-import { useRecord } from '@/lib/hooks/use-record'
-import { useTableMetaData } from '@/lib/hooks/use-metadata'
-import { canEditRecords } from '@/lib/auth/permissions'
-import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
+import { getRecord } from '@/lib/api/tables'
+import { loadTableMetaData } from '@/lib/api/metadata'
+import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
+import { findAdornment } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
-import { filePreview } from '@/lib/utils/file-preview'
 import { isEmail, isHttpUrl } from '@/lib/utils/string-utils'
-import { storedRecordVariantJson } from '@/lib/utils/table-variant'
 import { recordSearchResultPath } from '@/lib/utils/record-search'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
-import { DateTimeText } from '@/components/ui/DateTimeText'
-import { FileThumbnail } from '@/components/preview/FileThumbnail'
 import { HighlightedText } from './HighlightedText'
 
 /** Most fields shown in a preview. */
@@ -83,9 +81,9 @@ function previewable(field: QFieldMetaData): boolean {
 const LINK_CLASS = 'text-primary hover:text-primary/80 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center'
 
 /**
- * A field's value at a glance: file thumbnails, chips, Yes/No, dates, email and web links,
- * else the display value. Lighter than the record view's FieldValue (no widgets), so the
- * preview loads quickly.
+ * A field's value at a glance: Yes/No, email and web links, else the display value (which
+ * QQQ formats for dates, possible values and files). Lighter than the record view's
+ * FieldValue (no widgets), so the preview loads quickly.
  *
  * @param props - Component properties.
  * @param props.field - The field.
@@ -99,25 +97,11 @@ function PreviewValue({ field, record, table }: { field: QFieldMetaData; record:
   const value = displayValue ?? rawValue
   const dataQqqId = `search-preview-value-${field.name}`
 
-  const file = filePreview(field, record, storedRecordVariantJson(table))
-  if (file) return <FileThumbnail field={field} record={record} item={file} size={96} showName dataQqqId={dataQqqId} />
   if (value === null || value === undefined || value === '') return <span className="text-muted-foreground" data-qqq-id={dataQqqId}>—</span>
 
-  if (findAdornment(field, 'CHIP')) {
-    const { color, icon } = chipStyle(field, rawValue)
-    return (
-      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold', CHIP_COLOR_CLASSES[color])} data-qqq-id={dataQqqId}>
-        {icon && <MetadataIcon iconName={icon} className="h-3.5 w-3.5" />}
-        {String(value)}
-      </span>
-    )
-  }
   if (field.type === 'BOOLEAN') {
     const yes = rawValue === true || rawValue === 'true' || rawValue === 1
     return <span data-qqq-id={dataQqqId}>{yes ? 'Yes' : 'No'}</span>
-  }
-  if (field.type === 'DATE' || field.type === 'DATE_TIME') {
-    return <DateTimeText type={field.type} value={rawValue} displayValue={displayValue} dataQqqId={dataQqqId} />
   }
   const text = String(value)
   if (field.type === 'STRING' && isHttpUrl(text)) {
@@ -154,17 +138,27 @@ const ACTION_CLASS = 'inline-flex items-center gap-1.5 rounded-md border border-
  */
 export function RecordPreview({ result, tableLabel, icon, term, headingId }: RecordPreviewProps) {
   const path = recordSearchResultPath(result)
-  const metadata = useTableMetaData(result.tableName)
-  const { record, isLoading, isError } = useRecord({
-    tableName: result.tableName,
-    primaryKey: result.recordId,
-    enabled: Boolean(metadata.data) && !metadata.isError,
-    includeAssociations: false,
-    staleTime: 60_000,
+  // The queries of useTableMetaData and useRecord (same keys, so the caches are shared),
+  // called directly: importing those hooks here re-bundles them into more screen chunks
+  // (measured +12 KB total JS with Turbopack)
+  const metadata = useQuery<QTableMetaData>({
+    queryKey: queryKeys.tableMetadata(result.tableName),
+    queryFn: () => loadTableMetaData(result.tableName),
+    staleTime: 30 * 60_000, // as useTableMetaData
   })
+  const recordQuery = useQuery({
+    queryKey: [...queryKeys.tableRecord(result.tableName, result.recordId), { includeAssociations: false }],
+    queryFn: () => getRecord(result.tableName, result.recordId, { includeAssociations: false }),
+    enabled: Boolean(metadata.data) && !metadata.isError,
+    staleTime: 60_000,
+    meta: HANDLES_OWN_ERRORS,
+  })
+  const record = recordQuery.data
+  const { isLoading, isError } = recordQuery
   const table = metadata.data
   const fields = table ? previewFields(table) : []
-  const canEdit = canEditRecords(table)
+  // as canEditRecords: the edit permission and the TABLE_UPDATE capability
+  const canEdit = Boolean(table?.editPermission) && Boolean(table?.capabilities?.includes('TABLE_UPDATE'))
   const highlights = (result.highlights ?? []).filter((highlight) => highlight.text.trim())
 
   /** Copies the record's link. */

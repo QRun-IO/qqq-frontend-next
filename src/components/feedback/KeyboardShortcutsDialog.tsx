@@ -111,6 +111,8 @@ interface KeyboardShortcutsDialogProps {
    * opened (Safari and iPad do not focus a tapped or clicked button).
    */
   returnFocusRef?: React.RefObject<HTMLElement | null>
+  /** Lists the assistant shortcut (Ctrl/⌘+J) when the assistant is available. */
+  assistantEnabled?: boolean
 }
 
 /**
@@ -126,7 +128,12 @@ interface KeyboardShortcutsDialogProps {
  *   sections (max 60 vh), and a footer reminder. Each section groups related
  *   shortcuts under a heading with {@link Kbd} badges for each key combination.
  */
-export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef }: KeyboardShortcutsDialogProps) {
+export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef, assistantEnabled = false }: KeyboardShortcutsDialogProps) {
+  const sections = assistantEnabled
+    ? shortcutSections.map((section) => (section.title === 'Global'
+      ? { ...section, shortcuts: [...section.shortcuts, { keys: ['⌘', 'J'], description: 'Assistant (Ctrl+J on Windows and Linux)' }] }
+      : section))
+    : shortcutSections
   const restoreFocus = useRestoreFocus(open)
   /**
    * Returns focus to where it was, or else to the help button.
@@ -177,7 +184,7 @@ export function KeyboardShortcutsDialog({ open, onClose, returnFocusRef }: Keybo
 
           {/* Shortcut sections */}
           <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
-            {shortcutSections.map((section, sectionIndex) => (
+            {sections.map((section, sectionIndex) => (
               <div key={section.title} className={cn(sectionIndex > 0 && 'mt-5')}>
                 <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {section.title}
