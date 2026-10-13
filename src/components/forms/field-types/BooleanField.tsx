@@ -30,6 +30,7 @@ import { Controller } from 'react-hook-form'
 import { Minus } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
 
 /**
  * Props for the {@link BooleanField} component.
@@ -127,7 +128,7 @@ export function BooleanField({
   )
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <Controller
           name={name}
@@ -195,14 +196,10 @@ export function BooleanField({
           data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
         >
           {label}
-          {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
         </label>
       </div>
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} />
     </div>
   )
 }

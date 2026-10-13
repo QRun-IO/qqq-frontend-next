@@ -335,9 +335,15 @@ test('[REC-023] dynamic defaults fill the user and dates; NONE stays empty @mobi
 test('[REC-024] max-length policies truncate, add an ellipsis, pass through or reject @mobile', async ({ page, backend, diagnostics }) => {
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
   const before = await sqlCount(backend, 'select count(*) as n from field_lab')
-  await createFieldLab(page, { name: 'Too Long', rejectLongValue: 'abcdefghij' })
-  await expect(page.getByRole('alert').filter({ hasText: 'Error inserting Field Lab: The value for Reject Long Value is too long (max allowed length=8)' })).toBeVisible()
-  await expect(control(page, 'rejectLongValue')).toHaveValue('abcdefghij')
+  // The metadata declares the refusing ERROR policy, so the form caps typing at the limit: a longer
+  // value never reaches the request. The backend still refuses it, with its own message, when sent directly.
+  await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
+  await control(page, 'name').fill('Too Long')
+  await control(page, 'rejectLongValue').fill('abcdefghij')
+  await expect(control(page, 'rejectLongValue')).toHaveValue('abcdefgh')
+  const refused = await backend.api.post('/data/fieldLab', { multipart: { name: 'Too Long Direct', rejectLongValue: 'abcdefghij' } })
+  expect(refused.status()).toBe(400)
+  expect(await refused.text()).toContain('The value for Reject Long Value is too long (max allowed length=8)')
   expect(await sqlCount(backend, 'select count(*) as n from field_lab')).toBe(before)
 
   await control(page, 'rejectLongValue').fill('abcdefgh')
