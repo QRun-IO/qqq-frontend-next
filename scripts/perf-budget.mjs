@@ -10,6 +10,9 @@
 //   node scripts/perf-budget.mjs            # check out/ against perf-budget.json, exit 1 on a breach
 //   node scripts/perf-budget.mjs --json     # also print the measurement as JSON
 //
+// With "enforce": false in perf-budget.json the script still measures and reports every size and
+// every cap it is over, but exits 0: the caps are reference points, not gates.
+//
 // First-load JS of a route is every script the route's HTML loads before hydration (script src
 // and preload links), gzip-compressed the way the server sends it. Next 16 no longer prints these
 // sizes, so they are measured from out/. The report lands in test-results/performance/bundle.json.
