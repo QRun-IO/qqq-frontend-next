@@ -25,6 +25,17 @@ const report = JSON.parse(readFileSync('test-results/acceptance/report.json', 'u
 const rows = new Map(matrix.rows.map((row) => [row.id, row]))
 const results = new Map()
 const problems = []
+const quarantine = JSON.parse(readFileSync('tests/acceptance/quarantine.json', 'utf8'))
+const quarantined = new Set()
+for (const entry of quarantine) {
+  if (!rows.has(entry.id)) problems.push(`Unknown quarantine ID ${entry.id}`)
+  if (typeof entry.issue !== 'string' || !/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+$/.test(entry.issue)) {
+    problems.push(`${entry.id} quarantine entry needs an issue link`)
+  }
+  if (quarantined.has(entry.id)) problems.push(`Duplicate quarantine ID ${entry.id}`)
+  quarantined.add(entry.id)
+}
+for (const error of report.errors ?? []) problems.push(`Playwright error: ${error.message ?? JSON.stringify(error)}`)
 const byProject = Object.fromEntries((report.config?.projects ?? []).map((project) => [project.name, { passed: 0, failed: 0, skipped: 0, flaky: 0 }]))
 
 function walk(suite, titles = []) {
@@ -50,8 +61,12 @@ function walk(suite, titles = []) {
 }
 for (const suite of report.suites ?? []) walk(suite)
 
-const summary = { passed: 0, failed: 0, missing: 0, excluded: 0 }
+const summary = { passed: 0, failed: 0, missing: 0, excluded: 0, quarantined: 0 }
 for (const row of matrix.rows) {
+  if (quarantined.has(row.id)) {
+    summary.quarantined++
+    continue
+  }
   if (row.required === false) {
     summary.excluded++
     if (!row.approval) problems.push(`${row.id} is excluded without a recorded approval`)
@@ -76,7 +91,7 @@ for (const row of matrix.rows) {
 const touchProjects = ['mobile', 'tablet'].filter((project) => byProject[project])
 const phone = { covered: 0, desktopOnly: 0, uncovered: 0 }
 if (touchProjects.length) for (const row of matrix.rows) {
-  if (row.required === false) continue
+  if (row.required === false || quarantined.has(row.id)) continue
   if (row.desktopOnly !== undefined) {
     if (typeof row.desktopOnly !== 'string' || !row.desktopOnly.trim()) problems.push(`${row.id} desktopOnly needs the reason it is not a touch scenario`)
     phone.desktopOnly++
@@ -97,8 +112,8 @@ if (!partial) for (const [project, counts] of Object.entries(byProject)) {
   if (Object.values(counts).every((count) => count === 0)) problems.push(`Project ${project} ran no tests`)
 }
 
-const status = { partial, generatedAt: new Date().toISOString(), summary, byProject, problems,
-  rows: matrix.rows.map((row) => ({ id: row.id, results: results.get(row.id) ?? [] })) }
+const status = { partial, generatedAt: new Date().toISOString(), summary, byProject, problems, quarantine,
+  rows: matrix.rows.map((row) => ({ id: row.id, quarantined: quarantined.has(row.id), results: results.get(row.id) ?? [] })) }
 writeFileSync('test-results/acceptance/gate.json', JSON.stringify(status, null, 2) + '\n')
 console.log(`Acceptance gate${partial ? ' (partial run, not an acceptance result)' : ''}:`, JSON.stringify(summary), JSON.stringify(byProject))
 for (const problem of problems) console.log(`  FAIL ${problem}`)
