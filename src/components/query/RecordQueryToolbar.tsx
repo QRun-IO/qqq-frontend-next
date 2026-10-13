@@ -43,6 +43,7 @@ import type { TableVariant } from '@/lib/api/tables'
 import type { ColumnPins } from '@/lib/utils/query-columns'
 import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
 
+import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 import { GotoRecordButton } from '@/components/records/GotoRecordDialog'
 
 import { ColumnConfig } from './ColumnConfig'
@@ -406,6 +407,7 @@ export function RecordQueryToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <LazyFavoriteToggle target={{ targetType: 'TABLE', targetName: tableName }} label={tableMetaData.label} href={`/app/${encodeURIComponent(tableName)}`} />
       {/* Create button */}
       {canCreate && (
         <button

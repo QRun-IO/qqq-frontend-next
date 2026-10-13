@@ -228,9 +228,9 @@ describe('RecordViewPage independent association loading', () => {
     expect(within(dialog).queryByLabelText('Person')).not.toBeInTheDocument()
     fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: 'Created child' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
-    await waitFor(() => expect(post).toHaveBeenCalled())
-    expect(post.mock.calls[0][0]).toBe('/table/pet')
-    const values = post.mock.calls[0][1] as FormData
+    // the record view also records a recent view (collaboration) through POST; find the insert
+    await waitFor(() => expect(post.mock.calls.some((call) => call[0] === '/table/pet')).toBe(true))
+    const values = post.mock.calls.find((call) => call[0] === '/table/pet')![1] as FormData
     expect(values.get('personId')).toBe('2')
     expect(values.get('birthDate')).toBe('1990-01-15')
     expect(values.get('name')).toBe('Created child')

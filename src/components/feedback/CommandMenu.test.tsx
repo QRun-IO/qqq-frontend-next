@@ -21,6 +21,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-client'
 
 const pushMock = vi.fn()
 let pathname = '/app'
@@ -40,6 +41,8 @@ vi.mock('@/lib/api/record-search', async (importOriginal) => ({
  */
 function render(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Existing navigation/history tests exercise the no-qbit fallback.
+  client.setQueryData(queryKeys.collaborationAvailable(), false)
   return rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> })
 }
 

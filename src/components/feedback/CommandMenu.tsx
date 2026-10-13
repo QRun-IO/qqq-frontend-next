@@ -34,7 +34,12 @@ import { buildTableActions, commandMatches, compareCommandLabels, tableScreenFor
 import { getRecentRecords, type RecentRecord } from '@/lib/utils/recent-records'
 import { searchableTables } from '@/lib/utils/record-search'
 import { openInNewTab, searchPagePath } from '@/lib/search/search-url'
+import type { PaletteFavoritesState } from '@/components/collaboration/PaletteFavorites'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
+import { GroupHeading, ITEM_CLASS } from './command-menu-parts'
+
+/** Favorites, the page's star action and server recents, loaded when the palette opens. */
+const PaletteFavorites = dynamic(() => import('@/components/collaboration/PaletteFavorites').then((module) => module.PaletteFavorites), { ssr: false })
 
 /** Record search results, loaded when the palette opens with searchable tables. */
 const CommandRecordResults = dynamic(() => import('@/components/search/CommandRecordResults').then((module) => module.CommandRecordResults), { ssr: false })
@@ -65,26 +70,6 @@ interface CommandMenuProps {
   onAskAssistant?: (text: string) => void
 }
 
-/** Shared classes of a palette entry (44 px tall on touch screens). */
-const ITEM_CLASS = cn(
-  'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm pointer-coarse:min-h-11',
-  'text-foreground',
-  'hover:bg-accent',
-  'aria-selected:bg-primary/10 aria-selected:text-primary',
-  'outline-none transition-colors'
-)
-
-/**
- * A palette group heading.
- *
- * @param props - Component properties.
- * @param props.children - Heading text.
- * @returns The heading element.
- */
-function GroupHeading({ children }: { children: React.ReactNode }) {
-  return <span className="px-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">{children}</span>
-}
-
 /**
  * Renders the Cmd+K command palette overlay.
  *
@@ -102,6 +87,9 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
   const [search, setSearch] = useState('')
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
   const [hash, setHash] = useState('')
+  // what the lazy favorites groups show; until they load, the palette keeps browser history
+  const [collaboration, setCollaboration] = useState<PaletteFavoritesState | null>(null)
+  const paletteHistory = collaboration?.history ?? recentRecords
   // value of the highlighted entry (cmdk), for Ctrl/Cmd+Enter
   const [selectedValue, setSelectedValue] = useState('')
 
@@ -156,6 +144,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
   useEffect(() => {
     if (!open) {
       setSearch('')
+      setCollaboration(null)
     }
   }, [open])
 
@@ -189,7 +178,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
   const handlePaletteKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
     const prefix = selectedValue.slice(0, selectedValue.indexOf(':') + 1)
-    if (!['page:', 'recent:', 'record:', 'search:'].includes(prefix)) return
+    if (!['favorite:', 'page:', 'recent:', 'record:', 'search:'].includes(prefix)) return
     event.preventDefault()
     openInNewTab(selectedValue.slice(prefix.length))
   }
@@ -203,16 +192,39 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
       .sort((a, b) => compareCommandLabels(a.label, b.label, search))
   }, [navTargets, search])
   const visibleRecent = useMemo(() => {
-    if (!search) return recentRecords
-    return recentRecords
+    if (!search) return paletteHistory
+    return paletteHistory
       .filter((record) => commandMatches(`${record.recordLabel} ${record.tableLabel}`, search))
       .sort((a, b) => compareCommandLabels(a.recordLabel, b.recordLabel, search))
-  }, [recentRecords, search])
+  }, [paletteHistory, search])
 
   // first entries around the records, for moving cmdk's highlight when records arrive
-  const firstValueBefore = (screen && visibleActions[0] && `action:${visibleActions[0].key}`)
+  const firstStaticValue = (screen && visibleActions[0] && `action:${visibleActions[0].key}`)
     || (visibleTargets[0] && `page:${visibleTargets[0].path}`)
     || undefined
+  const firstValueBefore = collaboration?.firstValue || firstStaticValue
+
+  // The favorites groups load after the palette opens, above the entry cmdk highlighted first.
+  // Move the highlight up to their first entry (and along as they fill in) until the
+  // highlight moves by any other means; reset on each opening.
+  const favoritesHighlight = useRef<{ armed: boolean; value?: string }>({ armed: true })
+  const firstFavoriteValue = collaboration?.firstValue
+  useEffect(() => {
+    const highlight = favoritesHighlight.current
+    if (!open) {
+      favoritesHighlight.current = { armed: true }
+      return
+    }
+    if (!highlight.armed || !firstFavoriteValue) return
+    const automatic = highlight.value ? selectedValue === highlight.value : !selectedValue || selectedValue === firstStaticValue
+    if (!automatic) {
+      highlight.armed = false
+      return
+    }
+    if (selectedValue === firstFavoriteValue) return
+    highlight.value = firstFavoriteValue
+    setSelectedValue(firstFavoriteValue)
+  }, [open, firstFavoriteValue, firstStaticValue, selectedValue])
   const firstValueAfter = visibleRecent[0] ? `recent:${visibleRecent[0].path}` : undefined
 
   /**
@@ -264,7 +276,7 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
               value={search}
               onValueChange={setSearch}
               placeholder={tables.length > 0 ? 'Search for tables, actions, records, or recently viewed items...' : 'Search for tables, actions, or recently viewed items...'}
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
               data-qqq-id="command-menu-search"
             />
@@ -286,11 +298,14 @@ export function CommandMenu({ open, onClose, navTargets, metaData, onAskAssistan
             aria-live="polite"
             data-qqq-id="command-menu-results"
           >
-            {visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && recordState.count === 0 && !recordState.searching && !(onAskAssistant && search.trim()) && (
+            {!collaboration?.hasEntries && visibleActions.length === 0 && visibleTargets.length === 0 && visibleRecent.length === 0 && recordState.count === 0 && !recordState.searching && !(onAskAssistant && search.trim()) && (
               <p className="py-8 text-center text-sm text-muted-foreground" role="status" data-qqq-id="command-menu-empty">
                 No results found.
               </p>
             )}
+
+            <PaletteFavorites search={search} pathname={pathname ?? ''} hash={hash} metaData={metaData}
+              recentRecords={recentRecords} onSelect={handleSelect} onState={setCollaboration} />
 
             {screen && visibleActions.length > 0 && (
               <Command.Group heading={<GroupHeading>{screen.table.label} Actions</GroupHeading>} data-qqq-id="command-group-actions">
