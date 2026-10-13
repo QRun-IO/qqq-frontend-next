@@ -87,7 +87,7 @@ test.describe('Record form validation', () => {
     await field(page, 'status').fill('ACTIVE')
     await field(page, 'email').fill('ada.lovelace@example.com')
     await page.locator('[data-qqq-id="button-save"]').click()
-    await expect(page.getByText('Must be 20 characters or fewer')).toBeVisible()
+    await expect(page.getByText('The value for Email is too long (max allowed length=20)')).toBeVisible()
     await expect(field(page, 'email')).toBeFocused()
     await expect(field(page, 'email')).toHaveValue('ada.lovelace@example.com')
     await expect(page.getByText(/Failed to create/)).toHaveCount(0)

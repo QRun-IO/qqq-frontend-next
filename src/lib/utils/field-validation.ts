@@ -89,14 +89,14 @@ export function requiredMessage(label: string): string {
 }
 
 /**
- * The message for a value that is too long, with how long it is now.
+ * The message for a value that is too long, worded exactly as the backend words the same refusal.
  *
+ * @param label - The field's label.
  * @param max - The field's `maxLength`.
- * @param length - Current number of characters.
- * @returns The message for a value that is too long.
+ * @returns The message, such as `The value for Code is too long (max allowed length=8)`.
  */
-export function tooLongMessage(max: number, length: number): string {
-  return `Must be ${max} characters or fewer (currently ${length})`
+export function tooLongMessage(label: string, max: number): string {
+  return `The value for ${label} is too long (max allowed length=${max})`
 }
 
 /**
@@ -223,7 +223,7 @@ export function mapServerErrors(messages: readonly string[], fields: readonly QF
       text = requiredMessage(field?.label ?? match[1])
     } else if ((match = TOO_LONG_PATTERN.exec(message))) {
       field = exact(match[1])
-      text = `Must be ${match[2]} characters or fewer`
+      text = match[0]
     } else if ((match = TOO_SMALL_PATTERN.exec(message))) {
       field = exact(match[1])
       text = match[0]

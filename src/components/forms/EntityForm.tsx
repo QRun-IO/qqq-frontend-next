@@ -372,6 +372,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     getValues,
     watch,
     setError,
+    setFocus,
     trigger,
   } = form
   const formElementRef = useRef<HTMLFormElement>(null)
@@ -397,10 +398,14 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     const root = formElementRef.current
     if (!root) return
     const elements = inPageOrder(root, names).map((name) => fieldElement(root, name)).filter((element): element is HTMLElement => element !== null)
-    if (elements.length === 0) return
+    // A control the form does not render itself (the schedule editor) takes focus through its own ref.
+    if (elements.length === 0) {
+      if (names.length > 0) setFocus(names[0])
+      return
+    }
     setSummaryOpen(anyOffScreen(elements[0], elements.slice(1)))
     revealField(elements[0])
-  }, [])
+  }, [setFocus])
 
   /**
    * Puts the backend's refusal beside the fields it names, keeping what the user typed.

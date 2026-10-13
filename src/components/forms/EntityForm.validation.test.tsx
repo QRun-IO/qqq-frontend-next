@@ -98,13 +98,13 @@ describe('Quiet record form validation', () => {
     expect(input).not.toHaveAttribute('aria-invalid')
   })
 
-  it('states the current length when an existing value is over a refused limit', async () => {
+  it('words an over-long value as the backend does when an existing value is over a refused limit', async () => {
     const user = userEvent.setup()
     const stored = { tableName: 'company', values: { id: 1, code: 'a-value-that-is-too-long' } }
     renderForm([field('id', 'Id', { type: 'INTEGER', isEditable: false }), field('code', 'Code', { maxLength: 10, behaviors: ['ERROR'] })], { record: stored })
     await user.type(screen.getByLabelText(/Code/), '!')
     await user.tab()
-    expect(await screen.findByText(/Must be 10 characters or fewer \(currently \d+\)/)).toBeVisible()
+    expect(await screen.findByText('The value for Code is too long (max allowed length=10)')).toBeVisible()
   })
 
   it('keeps non-numeric characters out of a whole-number field and words a broken range as the backend does', async () => {
@@ -129,7 +129,7 @@ describe('Quiet record form validation', () => {
     renderForm([field('code', 'Code'), field('other', 'Other')])
     await user.type(screen.getByLabelText(/Code/), 'abcdefgh')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Must be 5 characters or fewer')).toBeVisible()
+    expect(await screen.findByText('The value for Code is too long (max allowed length=5)')).toBeVisible()
     expect(screen.getByLabelText(/Code/)).toHaveValue('abcdefgh')
     await waitFor(() => expect(screen.getByLabelText(/Code/)).toHaveFocus())
     expect(screen.queryByText(/Error:/)).toBeNull()

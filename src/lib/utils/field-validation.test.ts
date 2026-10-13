@@ -78,8 +78,8 @@ describe('field validators', () => {
 
   it('says how long a refused value is, only for fields that refuse over-long values', () => {
     const refusing = zodFieldFromMetadata(field('a', 'A', { maxLength: 5, behaviors: ['ERROR'] }), { enforceMaxLength: false })
-    expect(messages(refusing, 'abcdefgh')).toEqual([tooLongMessage(5, 8)])
-    expect(tooLongMessage(200, 214)).toBe('Must be 200 characters or fewer (currently 214)')
+    expect(messages(refusing, 'abcdefgh')).toEqual(['The value for A is too long (max allowed length=5)'])
+    expect(tooLongMessage('Notes', 200)).toBe('The value for Notes is too long (max allowed length=200)')
     expect(messages(refusing, 'abcde')).toEqual([])
     const trimmed = zodFieldFromMetadata(field('a', 'A', { maxLength: 5, behaviors: ['TRUNCATE'] }), { enforceMaxLength: false })
     expect(messages(trimmed, 'abcdefgh')).toEqual([])
@@ -145,7 +145,7 @@ describe('mapServerErrors', () => {
     expect(result).toEqual({
       fieldErrors: {
         name: 'Name is required',
-        code: 'Must be 5 characters or fewer',
+        code: 'The value for Code is too long (max allowed length=5)',
         qty: 'The value for Quantity is too small (minimum allowed value is 1)',
       },
       unmatched: [],

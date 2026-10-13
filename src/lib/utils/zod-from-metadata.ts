@@ -33,7 +33,7 @@ import { notANumberMessage, outOfRangeMessage, requiredMessage, tooLongMessage, 
  *   validation with a `"<Label> is required"` message; `false` makes the field optional.
  * @param label - The field's label, named in its "is required" message.
  * @param maxLength - When provided (from `QFieldMetaData.maxLength`), a longer value fails
- *   with "Must be N characters or fewer (currently M)".
+ *   with the backend's "The value for <Label> is too long (max allowed length=N)".
  * @returns A `z.ZodString` when required, or `z.ZodOptional<z.ZodString>` when optional.
  *   The returned schema is typed as `z.ZodTypeAny` because the exact generic depends on
  *   the `isRequired` branch.
@@ -42,7 +42,7 @@ function buildStringSchema(isRequired: boolean, label: string, maxLength?: numbe
   let schema = z.string()
   if (isRequired) schema = schema.min(1, requiredMessage(label))
   const limited = maxLength
-    ? schema.refine((value) => value.length <= maxLength, (value) => ({ message: tooLongMessage(maxLength, value.length) }))
+    ? schema.refine((value) => value.length <= maxLength, () => ({ message: tooLongMessage(label, maxLength) }))
     : schema
   return isRequired ? limited : limited.optional()
 }
