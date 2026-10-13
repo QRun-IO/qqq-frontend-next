@@ -52,6 +52,12 @@ export function userTimeZoneHeader(): Record<string, string> {
 }
 
 /**
+ * The UI API client channel of this app (QRun-IO/qqq docs/UI-API-CLIENT-CHANNELS.md): every
+ * request names its client, for audit attribution. A channel never grants anything.
+ */
+export const CLIENT_CHANNEL_HEADER = { 'X-QQQ-Client': 'next-ui' } as const
+
+/**
  * Singleton HTTP client wrapping Axios for all QQQ API communication.
  *
  * Automatically attaches the `sessionUUID` cookie on every request via
@@ -80,6 +86,7 @@ class APIClient {
       headers: {
         'Content-Type': 'application/json',
         ...userTimeZoneHeader(),
+        ...CLIENT_CHANNEL_HEADER,
       },
     })
 

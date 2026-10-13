@@ -29,7 +29,7 @@ import type {
   AssistantPageContext,
   AssistantStreamEvent,
 } from '@/types/assistant'
-import apiClient, { apiUrl } from './client'
+import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
@@ -314,7 +314,7 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
     ...init,
     credentials: 'include',
     cache: 'no-store',
-    headers: { Accept: 'text/event-stream', ...(init.headers as Record<string, string> | undefined) },
+    headers: { Accept: 'text/event-stream', ...CLIENT_CHANNEL_HEADER, ...(init.headers as Record<string, string> | undefined) },
     signal,
   })
   if (!response.ok) {
