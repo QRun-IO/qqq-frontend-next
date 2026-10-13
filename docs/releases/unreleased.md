@@ -1,6 +1,6 @@
 # Next UI — unreleased
 
-[RC16 preparation](1.0.0-RC.16.md) collects every change merged since [RC15](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.15). RC15 is published and immutable. Changes merged after the RC16 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC17 preparation](1.0.0-RC.17.md) collects every change merged since [RC16](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.16). RC16 is published and immutable. Changes merged after the RC17 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Features
 
