@@ -176,7 +176,7 @@ function QuickFilterEditor(props: QuickFilterEditorProps) {
       data-qqq-id={`quick-filter-editor-${field.name}`}>
       <span className="text-sm font-medium">{field.label}</span>
       {dateRow.dateMode ? (
-        <DateModeInputs field={field} row={dateRow} pairAllowed settings={{ weekday }} criterion={draft} dataId={`quick-filter-${field.name}`} touch />
+        <DateModeInputs field={field} row={dateRow} pairAllowed settings={{ weekday }} criterion={draft} dataId={`quick-filter-${field.name}`} touch operatorLabel={`Operator for ${field.label}`} />
       ) : (
         <>
           <select aria-label={`Operator for ${field.label}`} value={booleanChosen ? selected.id : ''}

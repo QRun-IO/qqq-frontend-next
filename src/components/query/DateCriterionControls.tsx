@@ -231,6 +231,8 @@ interface DateModeInputsProps {
   dataId: string
   /** Larger touch targets, as the quick filters use. */
   touch?: boolean
+  /** The comparison select's accessible name (the quick filters name it "Operator for <Field>"). */
+  operatorLabel?: string
 }
 
 /**
@@ -240,7 +242,7 @@ interface DateModeInputsProps {
  * @param props - Component properties.
  * @returns The controls.
  */
-export function DateModeInputs({ field, row, pairAllowed, settings, criterion, dataId, touch = false }: DateModeInputsProps) {
+export function DateModeInputs({ field, row, pairAllowed, settings, criterion, dataId, touch = false, operatorLabel = 'Filter operator' }: DateModeInputsProps) {
   const { condition, context, setCondition } = row
   const modes = dateModesFor(field.type, pairAllowed)
   const weekdayOptions = getOperatorOptions(field, settings).filter((option) => option.valueMode === 'weekdays')
@@ -263,7 +265,7 @@ export function DateModeInputs({ field, row, pairAllowed, settings, criterion, d
 
   return (
     <>
-      <select value={condition.mode} onChange={(e) => onMode(e.target.value)} aria-label="Filter operator"
+      <select value={condition.mode} onChange={(e) => onMode(e.target.value)} aria-label={operatorLabel}
         className={`min-w-[160px] ${inputClass} ${size}`} data-qqq-id={`${dataId}-operator`}>
         {modeList.map((mode) => <option key={mode} value={mode}>{DATE_MODE_LABELS[mode]}</option>)}
         {field.type === 'DATE' && <option value={RELATIVE_OPTION}>is relative to today</option>}

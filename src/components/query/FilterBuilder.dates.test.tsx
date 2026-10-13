@@ -278,7 +278,7 @@ describe('date quick filters', () => {
   it('says a range in plain language on the chip, and reopens on the same dates', async () => {
     render(<Bar initial={emptyFilter()} />)
     await userEvent.click(screen.getByRole('button', { name: 'Created' }))
-    expect(screen.getByLabelText('Filter operator')).toHaveValue('between')
+    expect(screen.getByLabelText('Operator for Created')).toHaveValue('between')
     await userEvent.type(screen.getByLabelText('Filter value from for Created'), '2026-10-01')
     await userEvent.type(screen.getByLabelText('Filter value to for Created'), '2026-10-12')
     await userEvent.click(screen.getByRole('button', { name: 'Apply quick filter' }))
