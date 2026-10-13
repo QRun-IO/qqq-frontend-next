@@ -27,6 +27,7 @@ import type {
   AssistantConversationUpdate,
   AssistantFeedback,
   AssistantPageContext,
+  AssistantPendingAction,
   AssistantStreamEvent,
 } from '@/types/assistant'
 import apiClient, { apiUrl } from './client'
@@ -144,6 +145,36 @@ export async function cancelAssistantTurn(turnId: number): Promise<{ status: str
  */
 export async function sendAssistantFeedback(messageId: number, feedback: AssistantFeedback): Promise<void> {
   await apiClient.post(`/assistant/messages/${messageId}/feedback`, feedback)
+}
+
+/**
+ * Loads a pending action (a write the assistant proposed) and its current state.
+ *
+ * @param actionId - The action id from the `pending_action` render.
+ * @returns The action.
+ */
+export async function getAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.get<AssistantPendingAction>(`/assistant/actions/${actionId}`)
+}
+
+/**
+ * Confirms a pending action: the server runs the write through the UI API with this session.
+ *
+ * @param actionId - The action id.
+ * @returns The action after it ran, with the outcome and message.
+ */
+export async function confirmAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.post<AssistantPendingAction>(`/assistant/actions/${actionId}/confirm`)
+}
+
+/**
+ * Cancels a pending action; nothing changes.
+ *
+ * @param actionId - The action id.
+ * @returns The rejected action.
+ */
+export async function rejectAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.post<AssistantPendingAction>(`/assistant/actions/${actionId}/reject`)
 }
 
 // ─── Streaming ────────────────────────────────────────────────────────────────

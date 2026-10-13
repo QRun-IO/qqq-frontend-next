@@ -30,7 +30,18 @@ export interface AssistantConfig {
   shortcut?: string
   model?: string
   limits?: { maxTurnSeconds?: number; maxToolCallsPerTurn?: number }
-  features?: { writes?: boolean }
+  features?: { writes?: boolean; pendingActions?: boolean }
+  /** The assistant's persona (admin-configured profile); text only, it never changes access. */
+  profile?: AssistantProfile
+}
+
+/** How the assistant presents itself. */
+export interface AssistantProfile {
+  displayName?: string
+  /** A Material icon name. */
+  icon?: string
+  greeting?: string | null
+  starterPrompts?: string[]
 }
 
 /** Lifecycle of a conversation. */
@@ -125,6 +136,36 @@ export interface AssistantHistoryRender {
   entries: AssistantHistoryEntry[]
 }
 
+/** A write the assistant proposed; nothing changes until the user confirms it. */
+export interface AssistantPendingActionRender {
+  type: 'pending_action'
+  actionId: number
+  toolName: 'create_record' | 'update_record' | 'delete_record'
+  tableName: string
+  tableLabel: string
+  recordId?: string | null
+  summary: string
+  changes: Array<{ field: string; label: string; value: string | null }>
+  href?: string
+}
+
+/** A pending action's state on the server. */
+export interface AssistantPendingAction {
+  id: number
+  status: 'PENDING' | 'RUNNING' | 'EXECUTED' | 'FAILED' | 'REJECTED' | 'EXPIRED'
+  toolName: string
+  tableName: string
+  recordId?: string | null
+  summary: string
+  httpStatus?: number | null
+  resultSummary?: string | null
+  expiresAt?: string | null
+  /** After a confirm: the tool outcome and message, and a link to the record. */
+  outcome?: string
+  message?: string
+  href?: string
+}
+
 /** Structured UI payload of a tool result (never model-written HTML). */
 export type AssistantRender =
   | AssistantRecordsRender
@@ -132,6 +173,7 @@ export type AssistantRender =
   | AssistantCountRender
   | AssistantWidgetRender
   | AssistantHistoryRender
+  | AssistantPendingActionRender
 
 /** Markdown text written by the model. */
 export interface AssistantTextPart { type: 'text'; text: string }
