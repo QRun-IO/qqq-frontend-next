@@ -39,6 +39,7 @@ import { internalAppHref } from '@/lib/utils/assistant-links'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { RecordHoverCard } from '@/components/records/RecordHoverCard'
 
+const PendingActionCard = lazy(() => import('./AssistantPendingActionCard'))
 const WidgetRenderer = lazy(() => import('@/components/widgets/WidgetRenderer').then((m) => ({ default: m.WidgetRenderer })))
 
 /** Widget types the panel renders inline (charts and statistics); others link to their screen. */
@@ -303,6 +304,12 @@ export function AssistantRenderView({ render }: { render: AssistantRender }) {
       return <HistoryView render={render} />
     case 'widget':
       return <WidgetView render={render} />
+    case 'pending_action':
+      return (
+        <Suspense fallback={<div className="h-24 rounded-lg bg-muted motion-safe:animate-pulse" />}>
+          <PendingActionCard render={render} />
+        </Suspense>
+      )
     default:
       return null
   }
