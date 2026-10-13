@@ -42,6 +42,7 @@ export type {
   QThemeMetaData,
   QTableMetaData,
   QFieldMetaData,
+  QPossibleValuePicker,
   QVirtualFieldMetaData,
   QProcessMetaData,
   QFrontendStepMetaData,

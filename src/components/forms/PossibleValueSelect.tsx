@@ -20,21 +20,31 @@
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { lazy, Suspense, useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { Control, FieldError } from 'react-hook-form'
 import { Controller, useWatch } from 'react-hook-form'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 
-import type { QFieldMetaData, QPossibleValue } from '@/types'
+import type { QFieldMetaData, QPossibleValue, QPossibleValuePicker } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import {
   fetchTablePossibleValues,
   fetchProcessPossibleValues,
   fetchPossibleValues,
+  fetchPossibleValuesPage,
 } from '@/lib/api/possible-values'
 import { chipStyle, CHIP_COLOR_CLASSES, findAdornment } from '@/lib/utils/adornment-utils'
 import { cn } from '@/lib/utils/cn'
+import { pickerPreviewUrl, pickerRecordPath, pickerSubtitle, pickerThumbnailUrl } from '@/lib/utils/record-picker'
+import { buttonClass } from '@/components/ui/controls'
 import { MetadataIcon } from '@/components/layout/MetadataIcon'
+
+// the record picker dialog and the full-size preview load only when opened
+const RecordPickerDialog = lazy(() => import('./RecordPickerDialog'))
+import { FilePreviewLightbox } from '@/components/preview/FilePreviewLightboxLazy'
+
+/** How many options the inline typeahead of a picker field asks for (the dialog pages the rest). */
+const PICKER_INLINE_LIMIT = 20
 
 /**
  * Props for the {@link PossibleValueSelect} component.
@@ -75,6 +85,13 @@ interface PossibleValueSelectProps {
   chipField?: QFieldMetaData
   /** Keep the label for assistive technology only (the host shows its own caption). */
   hideLabel?: boolean
+  /**
+   * The record picker of the field's source (`field.picker`): options show thumbnails, the
+   * selection shows its thumbnail with Browse, Preview and Open, and Browse opens the picker dialog.
+   */
+  picker?: QPossibleValuePicker
+  /** The table the picker reads (`field.pickerTableName`). */
+  pickerTableName?: string
 }
 
 /**
@@ -136,6 +153,8 @@ export function PossibleValueSelect({
   required = false,
   placeholder,
   hideLabel = false,
+  picker,
+  pickerTableName,
   'data-qqq-id': dataQqqId,
 }: PossibleValueSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -150,6 +169,8 @@ export function PossibleValueSelect({
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestSequence = useRef(0)
+  const [browsing, setBrowsing] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const formValues = useWatch({ control }) as Record<string, unknown> | undefined
   // What every request carries for the field's filter: the form's current values.
   const scope = useMemo(() => ({ formValues: formValues ?? {} }), [formValues])
@@ -175,7 +196,9 @@ export function PossibleValueSelect({
       try {
         const request = { searchTerm: term || undefined, ...scope }
         let results: QPossibleValue[]
-        if (context.type === 'table') {
+        if (picker) {
+          results = (await fetchPossibleValuesPage(context, fieldName, possibleValueSourceName, { ...request, picker: { limit: PICKER_INLINE_LIMIT } })).options
+        } else if (context.type === 'table') {
           results = await fetchTablePossibleValues(context.tableName, fieldName, request)
         } else if (context.type === 'process') {
           results = await fetchProcessPossibleValues(context.processName, fieldName, request)
@@ -192,7 +215,7 @@ export function PossibleValueSelect({
         if (sequence === requestSequence.current) setIsLoading(false)
       }
     },
-    [context, fieldName, possibleValueSourceName, scope, inlineOptions]
+    [context, fieldName, possibleValueSourceName, scope, inlineOptions, picker]
   )
 
   /**
@@ -236,10 +259,12 @@ export function PossibleValueSelect({
       if (inline) setSelectedOption(inline)
       return
     }
-    if (initialLabel) return
+    if (initialLabel && !picker) return
     let cancelled = false
     const request = { ids: held, ...scope }
-    const lookup = context.type === 'table'
+    const lookup = picker
+      ? fetchPossibleValuesPage(context, fieldName, possibleValueSourceName, { ...request, picker: {} }).then((page) => page.options)
+      : context.type === 'table'
       ? fetchTablePossibleValues(context.tableName, fieldName, request)
       : context.type === 'process'
         ? fetchProcessPossibleValues(context.processName, fieldName, request)
@@ -278,7 +303,24 @@ export function PossibleValueSelect({
 
   // A CHIP adornment styles each option by its value (color and icon), as Material's renderOption does.
   const hasChips = Boolean(chipField && findAdornment(chipField, 'CHIP'))
+  const pickerThumbnail = (option: QPossibleValue | null, size: string) => {
+    const url = pickerThumbnailUrl(option, picker)
+    // eslint-disable-next-line @next/next/no-img-element -- record URLs from any allowed origin; the static export has no image optimizer
+    return url ? <img src={url} alt="" loading="lazy" decoding="async" className={cn(size, 'shrink-0 rounded bg-muted object-cover')} data-qqq-id="picker-thumbnail" /> : null
+  }
   const optionContent = (option: QPossibleValue) => {
+    if (picker) {
+      const subtitle = pickerSubtitle(option, picker)
+      return (
+        <span className="flex min-w-0 items-center gap-2">
+          {pickerThumbnail(option, 'h-8 w-8')}
+          <span className="min-w-0">
+            <span className="block truncate">{option.label}</span>
+            {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
+          </span>
+        </span>
+      )
+    }
     if (!hasChips || !chipField) return <span>{option.label}</span>
     const { color, icon } = chipStyle(chipField, option.id)
     return (
@@ -367,6 +409,7 @@ export function PossibleValueSelect({
             : heldValue ? (initialLabel ?? heldValue) : ''
 
           return (
+            <>
             <div ref={containerRef} className="relative">
               <div
                 ref={triggerRef}
@@ -398,6 +441,7 @@ export function PossibleValueSelect({
                   error ? 'border-destructive' : 'border-input'
                 )}
               >
+                {picker && heldValue && selectedOption && String(selectedOption.id) === heldValue && pickerThumbnail(selectedOption, 'mr-2 h-8 w-8')}
                 <span
                   className={cn(
                     'flex-1 truncate text-sm',
@@ -507,6 +551,60 @@ export function PossibleValueSelect({
                 </div>
               )}
             </div>
+              {picker && !disabled && (
+                <div className="mt-1 flex flex-wrap gap-1" data-qqq-id={dataQqqId ? `picker-actions-${dataQqqId}` : 'picker-actions'}>
+                  <button type="button" onClick={() => { setIsOpen(false); setBrowsing(true) }} className={buttonClass('secondary', 'sm')} data-qqq-id="picker-browse">
+                    {heldValue ? 'Change…' : 'Browse…'}
+                  </button>
+                  {heldValue && pickerPreviewUrl(selectedOption, picker) && (
+                    <button type="button" onClick={() => setPreviewing(true)} className={buttonClass('ghost', 'sm')} data-qqq-id="picker-preview">Preview</button>
+                  )}
+                  {heldValue && pickerTableName && (
+                    <a href={pickerRecordPath(pickerTableName, heldValue)} target="_blank" rel="noopener noreferrer" className={buttonClass('ghost', 'sm')} data-qqq-id="picker-view">View</a>
+                  )}
+                </div>
+              )}
+              {picker && browsing && (
+                <Suspense fallback={null}>
+                  <RecordPickerDialog
+                    label={label}
+                    fieldName={fieldName}
+                    context={context}
+                    possibleValueSourceName={possibleValueSourceName}
+                    picker={picker}
+                    pickerTableName={pickerTableName}
+                    formValues={scope.formValues}
+                    selectedIds={heldValue ? [heldValue] : []}
+                    onConfirm={(chosen) => {
+                      setBrowsing(false)
+                      if (chosen[0]) {
+                        field.onChange(chosen[0].id)
+                        setSelectedOption(chosen[0])
+                      }
+                    }}
+                    onClose={() => setBrowsing(false)}
+                  />
+                </Suspense>
+              )}
+              {picker && previewing && selectedOption && (
+                <Suspense fallback={null}>
+                  <FilePreviewLightbox
+                    items={[{
+                      url: pickerPreviewUrl(selectedOption, picker) ?? '',
+                      thumbnailUrl: pickerThumbnailUrl(selectedOption, picker),
+                      fileName: selectedOption.label,
+                      kind: 'image',
+                      alt: selectedOption.label,
+                      previewable: true,
+                      thumbnailSize: 40,
+                    }]}
+                    index={0}
+                    onIndexChange={() => { /* a single image */ }}
+                    onClose={() => setPreviewing(false)}
+                  />
+                </Suspense>
+              )}
+            </>
           )
         }}
       />

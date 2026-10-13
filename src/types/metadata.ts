@@ -405,6 +405,13 @@ export interface QFieldMetaData {
    * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
    */
   inlinePossibleValueSource?: { enumValues?: Array<{ id: string | number; label: string }> }
+  /**
+   * The record picker declared by the field's possible value source (sources over large tables,
+   * e.g. 100,000+ media): forms offer a searchable, filterable, paged picker dialog.
+   */
+  picker?: QPossibleValuePicker
+  /** The table the picker reads (its field labels and types describe the picker's fields). */
+  pickerTableName?: string
   /** A printf-style or date-format string used when rendering the field value. */
   displayFormat?: string
   /** Maximum character length enforced during validation (for STRING/TEXT fields). */
@@ -428,6 +435,34 @@ export interface QFieldMetaData {
   supplementalMetaData?: Record<string, unknown>
   /** The same supplemental metadata under the legacy key (form adjuster output, legacy routes). */
   supplementalFieldMetaData?: Record<string, unknown>
+}
+
+/**
+ * A record picker declared on a table possible value source (backend `QPossibleValuePicker`).
+ * Every field named here belongs to {@link QFieldMetaData.pickerTableName}; the possible-values API
+ * filters, sorts and returns values only for these fields.
+ */
+export interface QPossibleValuePicker {
+  /** Image URL field shown for each option and the selection. */
+  thumbnailField?: string
+  /** Larger image URL field for the preview pane (else the thumbnail). */
+  previewField?: string
+  /** Short secondary text under each option label. */
+  subtitleFields?: string[]
+  /** Fields listed in the preview pane (e.g. dimensions, size, alt text). */
+  detailFields?: string[]
+  /** Fields offered as filters. */
+  filterFields?: string[]
+  /** Fields matched by the search box (CONTAINS). */
+  searchFields?: string[]
+  /** Offered orderings; the first is the default. A primary-key sort pages by keyset. */
+  sorts?: Array<{ label: string; fieldName: string; isAscending: boolean }>
+  /** Options per page. */
+  pageSize?: number
+  /** A process the picker can run to add a record (e.g. upload an image). */
+  uploadProcessName?: string
+  /** The output value of that process holding the new record's id, which is then selected. */
+  uploadResultIdField?: string
 }
 
 /**
