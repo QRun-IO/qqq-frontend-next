@@ -200,7 +200,7 @@ export default function RecordViewPage() {
       {record && associations.isError && (
         <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
       )}
-      <AlertsRecordPanelSlot tableName={slug} recordId={recordId} />
+      <AlertsRecordPanelSlot metaData={metaData} tableName={slug} recordId={recordId} />
       <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
         instance={metaData}
         tableMetaData={tableMetaData}

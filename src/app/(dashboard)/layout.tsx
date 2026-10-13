@@ -51,7 +51,7 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
-import { AlertsBell } from '@/components/alerts/AlertsBell'
+import { AlertsBell, isAlertsInstalled } from '@/components/alerts/AlertsBell'
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -332,7 +332,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             navTargets={navTargets}
             searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
-            notificationsButton={isAuthenticated ? <AlertsBell /> : null}
+            notificationsButton={isAuthenticated && isAlertsInstalled(metaData) ? <AlertsBell metaData={metaData} /> : null}
           />
 
           {/* Page content */}

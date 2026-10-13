@@ -16,9 +16,10 @@
 
 /**
  * @file Alerts API — the Alerts qbit's bell (`/alerts/inbox/*`) and record panel
- * (`/alerts/record-panel*`). The inbox summary doubles as the feature probe: 403 and 404 (or
- * a body that is not a summary, e.g. a root SPA's not-found page) mean the qbit is absent or
- * not for this user, so the bell and panel stay hidden.
+ * (`/alerts/record-panel*`). Callers only request these when the instance metadata lists the
+ * qbit's `alerts` app (see `isAlertsInstalled`). As a fallback, 403 and 404 from the inbox
+ * summary (or a body that is not a summary, e.g. a root SPA's not-found page) still mean Alerts
+ * is not for this user, so the bell and panel stay hidden.
  */
 
 import type { AlertsInboxSummary, AlertsRecordPanel } from '@/types/alerts'

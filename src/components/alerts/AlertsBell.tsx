@@ -15,10 +15,13 @@
  */
 
 /**
- * @file AlertsBell — the header bell for the Alerts qbit. It polls the inbox summary every 60
- * seconds while the tab is visible (TanStack Query pauses interval refetches in a hidden tab)
- * and renders nothing when Alerts is not available to the user. The popover's code loads on
- * first open, so the shell stays small.
+ * @file AlertsBell — the header bell for the Alerts qbit. Like the QQQ Assistant, it is gated
+ * on instance metadata: unless the metadata lists the qbit's `alerts` app (which QQQ includes
+ * only when qbit-alerts is installed and the user holds `alerts.view`, the same permission its
+ * `/alerts/*` routes require), it renders nothing and sends no request at all. When enabled it
+ * polls the inbox summary every 60 seconds while the tab is visible (TanStack Query pauses
+ * interval refetches in a hidden tab). The popover's code loads on first open, so the shell
+ * stays small.
  */
 
 'use client'
@@ -30,17 +33,36 @@ import { useQuery } from '@tanstack/react-query'
 import { getAlertsInboxSummary } from '@/lib/api/alerts'
 import { queryKeys } from '@/lib/query-client'
 import type { AlertsInboxSummary } from '@/types/alerts'
+import type { QInstance } from '@/types/metadata'
 
 const AlertsBellPopover = lazy(() => import('./AlertsBellPopover'))
 
+/** The app qbit-alerts publishes (`AlertsQBitConfig.APP_NAME`), gated on `alerts.view`. */
+export const ALERTS_APP_NAME = 'alerts'
+
 /**
- * The bell's inbox summary (null when Alerts is not available). Shared with the record panel
- * slot, which shows its panel only when this probe succeeds.
+ * Whether the instance metadata announces qbit-alerts to this user: its `alerts` app is
+ * present. QQQ leaves an app out of the metadata when the qbit is not installed or the user
+ * lacks its permission (`alerts.view`, which the `/alerts/*` routes also require), so this is
+ * the precondition for any Alerts request.
  *
- * @param enabled - Whether to load it (e.g. only when authenticated).
+ * @param metaData - Instance metadata.
+ * @returns True when the Alerts app is present.
+ */
+export function isAlertsInstalled(metaData: QInstance | undefined): boolean {
+  const app = metaData?.apps?.[ALERTS_APP_NAME]
+  return Boolean(app) && typeof app === 'object'
+}
+
+/**
+ * The bell's inbox summary (null when the backend still answers that Alerts is unavailable).
+ * Shared with the record panel slot, which shows its panel only when this succeeds. It never
+ * fetches (nor polls) unless `enabled`.
+ *
+ * @param enabled - Whether to load it: authenticated and {@link isAlertsInstalled}.
  * @returns The TanStack Query result.
  */
-export function useAlertsInbox(enabled = true) {
+export function useAlertsInbox(enabled: boolean) {
   return useQuery<AlertsInboxSummary | null>({
     queryKey: queryKeys.alertsInbox(),
     queryFn: getAlertsInboxSummary,
@@ -55,10 +77,11 @@ export function useAlertsInbox(enabled = true) {
 /**
  * The header bell with its unread badge (red when a CRITICAL alert is unread).
  *
+ * @param props - `metaData`: instance metadata, which must announce Alerts ({@link isAlertsInstalled}).
  * @returns The bell, or null when Alerts is not available.
  */
-export function AlertsBell() {
-  const { data } = useAlertsInbox()
+export function AlertsBell({ metaData }: { metaData: QInstance | undefined }) {
+  const { data } = useAlertsInbox(isAlertsInstalled(metaData))
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   if (!data) return null
