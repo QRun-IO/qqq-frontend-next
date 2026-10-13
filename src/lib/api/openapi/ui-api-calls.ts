@@ -41,6 +41,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
     'GET /assistant/config', 'GET /assistant/conversations', 'POST /assistant/conversations', 'GET /assistant/conversations/{}',
     'PATCH /assistant/conversations/{}', 'DELETE /assistant/conversations/{}', 'POST /assistant/conversations/{}/turns',
     'GET /assistant/turns/{}/events', 'POST /assistant/turns/{}/cancel', 'POST /assistant/messages/{}/feedback',
+    'GET /assistant/actions/{}', 'POST /assistant/actions/{}/confirm', 'POST /assistant/actions/{}/reject',
   ].map((c) => call(c, 'qbit-assistant'))),
   ...(['GET /esb/overview', 'GET /esb/table/{}', 'GET /esb/process/{}', 'GET /esb/messages/{}', 'GET /esb/deadLetters/{}'].map((c) => call(c, 'qqq-esb'))),
   ...([
