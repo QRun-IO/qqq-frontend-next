@@ -259,7 +259,9 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   }
 
   const showMessages = wide || !railOpen
-  const title = activeConversationId === null ? 'Assistant' : conversationTitle(conversation)
+  const profile = assistant.config?.profile
+  const assistantName = profile?.displayName?.trim() || 'Assistant'
+  const title = activeConversationId === null ? assistantName : conversationTitle(conversation)
   const iconButton = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-11'
   const menuItem = 'flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-accent pointer-coarse:min-h-11'
 
@@ -392,8 +394,24 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
             >
               {activeConversationId === null && (
                 <div className="py-6 text-center text-sm text-muted-foreground" data-qqq-id="assistant-empty">
-                  <p className="font-medium text-foreground">Ask about your data</p>
-                  <p className="mt-1">Find records, count and explain them, or ask to be taken to a screen. The assistant sees only what you can see.</p>
+                  <p className="font-medium text-foreground">{profile?.greeting?.trim() || 'Ask about your data'}</p>
+                  <p className="mt-1">Find records, count and explain them, or ask to be taken to a screen. {assistantName} sees and does only what you can, through the same API as these screens.</p>
+                  {(profile?.starterPrompts?.length ?? 0) > 0 && (
+                    <ul className="mt-4 flex flex-wrap justify-center gap-2" aria-label="Suggested questions" data-qqq-id="assistant-starters">
+                      {profile?.starterPrompts?.map((prompt) => (
+                        <li key={prompt} className="max-w-full">
+                          <button
+                            type="button"
+                            onClick={() => send(prompt)}
+                            disabled={Boolean(run)}
+                            className="max-w-full rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                          >
+                            {prompt}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
               {activeConversationId !== null && detailQuery.isLoading && <p className="text-xs text-muted-foreground" role="status">Loading conversation...</p>}

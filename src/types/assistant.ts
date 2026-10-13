@@ -30,7 +30,18 @@ export interface AssistantConfig {
   shortcut?: string
   model?: string
   limits?: { maxTurnSeconds?: number; maxToolCallsPerTurn?: number }
-  features?: { writes?: boolean }
+  features?: { writes?: boolean; pendingActions?: boolean }
+  /** The assistant's persona (admin-configured profile); text only, it never changes access. */
+  profile?: AssistantProfile
+}
+
+/** How the assistant presents itself. */
+export interface AssistantProfile {
+  displayName?: string
+  /** A Material icon name. */
+  icon?: string
+  greeting?: string | null
+  starterPrompts?: string[]
 }
 
 /** Lifecycle of a conversation. */

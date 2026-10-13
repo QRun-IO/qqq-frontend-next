@@ -235,6 +235,25 @@ describe('asking a question', () => {
     expect(await axe(panel)).toHaveNoViolations()
   })
 
+  it('shows the configured persona: name, greeting and starter prompts that send', async () => {
+    mockAssistant({ enabled: true, profile: { displayName: 'Ada', icon: 'school', greeting: 'Hi, I am Ada.', starterPrompts: ['How many posts?'] } })
+    const stream = controllableStream()
+    let turnBody: unknown
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      turnBody = await request.json()
+      return stream.response()
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    expect(within(panel).getAllByText('Ada').length).toBeGreaterThan(0)
+    expect(within(panel).getByText('Hi, I am Ada.')).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: 'How many posts?' }))
+    await waitFor(() => expect(turnBody).toMatchObject({ text: 'How many posts?' }))
+    act(() => stream.close())
+  })
+
   it('stops a reply through the cancel endpoint', async () => {
     mockAssistant()
     const stream = controllableStream()
