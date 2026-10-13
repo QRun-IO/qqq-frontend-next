@@ -23,6 +23,7 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
+  Legend,
   Line,
   ResponsiveContainer,
   Scatter,
@@ -37,7 +38,14 @@ import type {
   DataAnalysisPointV1,
 } from '@/types/data-analysis'
 import { drillHref } from '@/lib/utils/data-analysis'
-import { AnalysisDrillContext, AnalysisNavigationContext, controlClass, DrillLink, MetricValue } from './ProfileParts'
+import { DEFAULT_COLORS } from '@/lib/utils/chart-colors'
+import {
+  AnalysisDrillContext,
+  AnalysisNavigationContext,
+  controlClass,
+  DrillLink,
+  MetricValue,
+} from './ProfileParts'
 
 type ChartKind = NonNullable<NonNullable<DataAnalysisChartV1>['kind']>
 const KIND_LABELS: Record<ChartKind, string> = {
@@ -49,18 +57,30 @@ const KIND_LABELS: Record<ChartKind, string> = {
   SCATTER: 'Scatter',
   HEATMAP: 'Heatmap',
 }
-const color = (i: number) => `var(--color-chart-${(i % 10) + 1})`
+const color = (i: number) => DEFAULT_COLORS[i % DEFAULT_COLORS.length]
+const tickStyle = { fill: 'currentColor', opacity: 0.7, fontSize: 11 }
 const tooltipStyle = {
   backgroundColor: 'var(--color-popover)',
   color: 'var(--color-popover-foreground)',
   border: '1px solid var(--color-border)',
+  borderRadius: '0.5rem',
+  fontSize: '12px',
 }
+const tooltipItemStyle = { color: 'var(--color-popover-foreground)' }
+
+/** Rounds a moving average to one decimal for display; null stays null.
+ * @param value - The average.
+ * @returns The rounded average.
+ */
+const round1 = (value: number | null | undefined) => (value == null ? null : Math.round(value * 10) / 10)
 
 /** Computes complete seven-point trailing windows, leaving earlier points empty.
  * @param points - Ordered API points.
+ * @param averages - Optional server-computed moving average, matched by the original x value.
  * @returns Chart rows with cumulative shares and moving averages.
  */
-export function chartRows(points: DataAnalysisPointV1[]) {
+export function chartRows(points: DataAnalysisPointV1[], averages?: DataAnalysisPointV1[] | null) {
+  const averageByX = new Map(averages?.filter((p) => p !== null).map((p) => [p.x, p.y]))
   const valid = points.filter((p): p is NonNullable<DataAnalysisPointV1> => p !== null)
   const total = valid.reduce((sum, p) => sum + (p.y ?? 0), 0)
   let sum = 0
@@ -73,8 +93,8 @@ export function chartRows(points: DataAnalysisPointV1[]) {
         : null
     return {
       ...point,
-      x: typeof point.x === 'number' ? point.x : (point.label ?? String(point.x ?? '')),
-      average,
+      label: point.label ?? String(point.x ?? ''),
+      average: round1(averages ? (averageByX.get(point.x) ?? null) : average),
       cumulative: total ? (sum / total) * 100 : 0,
     }
   })
@@ -157,6 +177,8 @@ export default function ProfileChart({
   ]
   const kind = chosen && kinds.includes(chosen) ? chosen : (chart.kind ?? 'BAR')
   const series = (chart.series ?? []).filter((s) => s !== null)
+  // The time-series contract carries Count followed by its server-computed moving average.
+  const plottedSeries = chart.kind === 'TIME_SERIES' ? series.slice(0, 1) : series
   const navigate = (point: DataAnalysisPointV1) => {
     const href = drillHref(point?.drill)
     if (href) {
@@ -258,35 +280,43 @@ export default function ProfileChart({
           ))}
         </div>
       ) : (
-        series.map((s, index) => {
+        plottedSeries.map((s, index) => {
           const points = [...(s.points ?? [])]
           if (kind === 'PARETO') points.sort((a, b) => (b?.y ?? 0) - (a?.y ?? 0))
-          const rows = chartRows(points)
+          const rows = chartRows(
+            points,
+            chart.kind === 'TIME_SERIES' ? series[1]?.points : undefined
+          )
+          const angledTicks = rows.length > 8 || rows.some((p) => p.label.length > 10)
+          const tickHeight = angledTicks ? 90 : 30
           return (
             <div key={index} className="min-w-0">
               <p className="text-sm">{s.name}</p>
               <div
-                className="h-60 w-full"
+                className="w-full"
+                style={{ height: 240 + tickHeight }}
                 role="img"
                 aria-label={`${KIND_LABELS[kind]}: ${s.name ?? chart.y?.label ?? 'Profile'}`}
               >
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   {kind === 'SCATTER' ? (
                     <ScatterChart margin={{ right: 15, bottom: 15 }}>
-                      <CartesianGrid stroke="var(--color-border)" />
+                      <CartesianGrid stroke="currentColor" strokeOpacity={0.1} />
                       <XAxis
                         type="number"
                         dataKey="x"
                         name={chart.x?.label ?? undefined}
                         stroke="currentColor"
+                        tick={tickStyle}
                       />
                       <YAxis
                         type="number"
                         dataKey="y"
                         name={chart.y?.label ?? undefined}
                         stroke="currentColor"
+                        tick={tickStyle}
                       />
-                      <Tooltip contentStyle={tooltipStyle} />
+                      <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} />
                       <Scatter
                         data-qqq-id="analysis-chart-scatter"
                         data={rows}
@@ -300,21 +330,37 @@ export default function ProfileChart({
                       margin={{ right: 15, bottom: 15 }}
                       accessibilityLayer
                     >
-                      <CartesianGrid stroke="var(--color-border)" />
-                      <XAxis dataKey="x" tick={{ fill: 'currentColor', fontSize: 11 }} />
-                      <YAxis tick={{ fill: 'currentColor', fontSize: 11 }} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      {kind === 'TIME_SERIES' ? (
-                        <>
-                          <Line
-                            dataKey="y"
-                            name={s.name ?? 'Value'}
-                            stroke={color(index)}
-                            dot={(props: {
-                              cx?: number
-                              cy?: number
-                              payload?: DataAnalysisPointV1
-                            }) => (
+                      <CartesianGrid stroke="currentColor" strokeOpacity={0.1} />
+                      <XAxis
+                        type="category"
+                        dataKey="label"
+                        tick={tickStyle}
+                        angle={angledTicks ? -35 : 0}
+                        textAnchor={angledTicks ? 'end' : 'middle'}
+                        height={tickHeight}
+                        interval="preserveStartEnd"
+                        minTickGap={12}
+                        tickFormatter={(label: string) =>
+                          label.length > 22 ? `${label.slice(0, 21)}…` : label
+                        }
+                      />
+                      <YAxis tick={tickStyle} />
+                      <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} />
+                      {kind === 'TIME_SERIES' && <Legend wrapperStyle={{ fontSize: '12px' }} />}
+                      {kind === 'TIME_SERIES' && (
+                        <Line
+                          dataKey="y"
+                          name={s.name ?? 'Value'}
+                          stroke={color(index)}
+                          isAnimationActive={false}
+                          dot={(props: {
+                            cx?: number
+                            cy?: number
+                            payload?: DataAnalysisPointV1
+                          }) =>
+                            props.cx == null || props.cy == null ? (
+                              <g />
+                            ) : (
                               <circle
                                 cx={props.cx}
                                 cy={props.cy}
@@ -329,18 +375,22 @@ export default function ProfileChart({
                                 }}
                                 data-qqq-id="analysis-chart-point"
                               />
-                            )}
-                            activeDot={false}
-                          />
-                          <Line
-                            dataKey="average"
-                            name="7-point moving average"
-                            stroke={color(index + 1)}
-                            dot={false}
-                            strokeDasharray="5 3"
-                          />
-                        </>
-                      ) : (
+                            )
+                          }
+                          activeDot={false}
+                        />
+                      )}
+                      {kind === 'TIME_SERIES' && (
+                        <Line
+                          dataKey="average"
+                          name="7-bucket moving average"
+                          stroke={color(index + 1)}
+                          dot={{ r: 2 }}
+                          isAnimationActive={false}
+                          strokeDasharray="5 3"
+                        />
+                      )}
+                      {kind !== 'TIME_SERIES' && (
                         <Bar
                           data-qqq-id="analysis-chart-bar"
                           dataKey="y"
@@ -350,22 +400,22 @@ export default function ProfileChart({
                         />
                       )}
                       {kind === 'PARETO' && (
-                        <>
-                          <YAxis
-                            yAxisId="share"
-                            orientation="right"
-                            domain={[0, 100]}
-                            unit="%"
-                            tick={{ fill: 'currentColor', fontSize: 11 }}
-                          />
-                          <Line
-                            yAxisId="share"
-                            dataKey="cumulative"
-                            name="Cumulative %"
-                            stroke={color(index + 1)}
-                            dot={false}
-                          />
-                        </>
+                        <YAxis
+                          yAxisId="share"
+                          orientation="right"
+                          domain={[0, 100]}
+                          unit="%"
+                          tick={tickStyle}
+                        />
+                      )}
+                      {kind === 'PARETO' && (
+                        <Line
+                          yAxisId="share"
+                          dataKey="cumulative"
+                          name="Cumulative %"
+                          stroke={color(index + 1)}
+                          dot={false}
+                        />
                       )}
                     </ComposedChart>
                   )}

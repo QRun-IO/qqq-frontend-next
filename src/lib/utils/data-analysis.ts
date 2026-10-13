@@ -98,15 +98,5 @@ export function drillHref(drill: DataAnalysisDrillV1 | undefined): string | null
 export function metricText(metric: DataAnalysisMetricV1): string {
   if (!metric) return '—'
   if (metric.suppressed) return 'Hidden'
-  if (metric.formatted != null) return metric.formatted
-  if (typeof metric.value === 'number')
-    return metric.valueType === 'PERCENT'
-      ? new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(
-          metric.value
-        )
-      : new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(metric.value)
-  if (metric.value == null) return '—'
-  if (metric.valueType === 'DATE_TIME' && typeof metric.value === 'string')
-    return new Date(metric.value).toLocaleString()
-  return typeof metric.value === 'object' ? JSON.stringify(metric.value) : String(metric.value)
+  return metric.formatted ?? '—'
 }

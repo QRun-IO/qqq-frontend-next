@@ -150,7 +150,7 @@ export default function ColumnProfilePanel({
       ) : (
         <>
           <ProfileBadges profile={data} />
-          <ExactRun exact={exact} />
+          {data.estimate === true && <ExactRun exact={exact} />}
           {!data.counts?.length &&
             !data.numeric &&
             !data.dates &&
@@ -161,14 +161,14 @@ export default function ColumnProfilePanel({
           {data.chart && <ProfileChart chart={data.chart} metrics={data.numeric?.metrics ?? []} />}
           {data.numeric && (
             <section aria-label="Numeric statistics" className="space-y-3">
-              <h3 className="font-semibold">Numeric statistics and percentiles</h3>
+              <h3 className="font-semibold">Numeric statistics</h3>
               <Metrics metrics={data.numeric.metrics} />
               <Values label="Outliers" values={data.numeric.outliers} />
             </section>
           )}
           {data.dates && (
             <section aria-label="Date statistics" className="space-y-3">
-              <h3 className="font-semibold">Date range</h3>
+              <h3 className="font-semibold">Dates</h3>
               <Metrics metrics={data.dates.metrics} />
               <Values label="Gaps" values={data.dates.gaps} />
               <BucketChart label="Day of week" values={data.dates.dayOfWeek} />
@@ -189,7 +189,7 @@ export default function ColumnProfilePanel({
             </section>
           )}
           {Boolean(data.booleans?.length) && (
-            <section aria-label="Boolean statistics">
+            <section aria-label="Boolean statistics" className="space-y-3">
               <h3 className="font-semibold">Booleans</h3>
               <Metrics metrics={data.booleans} />
             </section>

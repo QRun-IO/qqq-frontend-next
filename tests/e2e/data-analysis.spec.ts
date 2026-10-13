@@ -85,6 +85,9 @@ test('profiles a column, switches charts, runs exact, drills and profiles the ta
   const panel = page.locator(PANEL)
   await expect(panel.getByRole('link', { name: '1,000', exact: true })).toBeVisible()
   await expect(panel.getByText('Hidden', { exact: true })).toBeVisible()
+  await expect(panel.getByText('Distinct values', { exact: true })).toBeVisible()
+  await expect(panel.getByText('98.8%', { exact: true })).toBeVisible()
+  await expect(panel.getByRole('note')).toContainText('Statistics describe a sample')
   await panel.getByRole('combobox', { name: 'Chart kind' }).selectOption('PARETO')
   await expect(panel.getByRole('img', { name: 'Pareto: Status distribution' })).toBeVisible()
   await panel.getByRole('button', { name: 'Show as table' }).click()
@@ -105,6 +108,7 @@ test('profiles a column, switches charts, runs exact, drills and profiles the ta
   await expect(panel.getByText('Exact analysis running…')).toBeVisible()
   await expect(panel.getByRole('link', { name: '12,500', exact: true })).toBeVisible()
   await expect(panel.getByText('Estimate', { exact: true })).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'Run exact' })).toHaveCount(0)
   await panel.getByRole('link', { name: '12,498', exact: true }).click()
   await expect(page).toHaveURL(/filter=/)
   await expect(panel).toHaveCount(0)
@@ -119,8 +123,8 @@ test('profiles a column, switches charts, runs exact, drills and profiles the ta
   await panel.getByRole('checkbox', { name: 'Status', exact: true }).check()
   await panel.getByRole('button', { name: 'Find duplicates' }).click()
   await expect(panel.getByRole('link', { name: 'Active 800' })).toBeVisible()
-  await panel.getByRole('button', { name: 'Run exact' }).click()
-  await expect(panel.getByText('Exact analysis complete')).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Run exact' })).toHaveCount(0)
+  await expect(panel.getByText('Nulls 51 · Blanks 51', { exact: true })).toBeVisible()
 })
 
 for (const width of [390, 768, 1024]) {

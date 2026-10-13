@@ -84,6 +84,13 @@ export const column = {
       suppressed: true,
       suppressedReason: 'Hidden: fewer than 5 records',
     },
+    {
+      key: 'completeness',
+      label: 'Completeness',
+      value: 0.988,
+      valueType: 'PERCENT',
+      formatted: '98.8%',
+    },
   ],
   numeric: null,
   dates: null,
@@ -162,16 +169,97 @@ export const numericColumn = {
   fieldType: 'INTEGER',
   numeric: {
     metrics: [
-      { key: 'min', label: 'Minimum', value: 1, valueType: 'DECIMAL' },
-      { key: 'p25', label: '25th percentile', value: 250, valueType: 'DECIMAL' },
-      { key: 'p50', label: 'Median', value: 500, valueType: 'DECIMAL' },
-      { key: 'p75', label: '75th percentile', value: 750, valueType: 'DECIMAL' },
-      { key: 'max', label: 'Maximum', value: 1000, valueType: 'DECIMAL' },
+      { key: 'min', label: 'Minimum', value: 60000, valueType: 'DECIMAL', formatted: '$60,000.00' },
+      {
+        key: 'p25',
+        label: '25th percentile',
+        value: 65000,
+        valueType: 'DECIMAL',
+        formatted: '$65,000.00',
+      },
+      {
+        key: 'p50',
+        label: 'Median',
+        value: 81753.32,
+        valueType: 'DECIMAL',
+        formatted: '$81,753.32',
+      },
+      {
+        key: 'p75',
+        label: '75th percentile',
+        value: 95000,
+        valueType: 'DECIMAL',
+        formatted: '$95,000.00',
+      },
+      {
+        key: 'max',
+        label: 'Maximum',
+        value: 100000,
+        valueType: 'DECIMAL',
+        formatted: '$100,000.00',
+      },
+      {
+        key: 'stddev',
+        label: 'Standard deviation',
+        value: 12498,
+        valueType: 'DECIMAL',
+        formatted: '12,498',
+      },
     ],
     histogram: [],
     outliers: [],
   },
-  chart: { ...column.chart, kind: 'HISTOGRAM', alternatives: ['BOX'] },
+  chart: {
+    ...column.chart,
+    kind: 'HISTOGRAM',
+    alternatives: ['BOX'],
+    series: [
+      {
+        name: 'Count',
+        points: Array.from({ length: 12 }, (_, i) => ({
+          x: 60000 + i * 5000,
+          label: `${(60000 + i * 5000).toLocaleString('en-US')} – ${(65000 + i * 5000).toLocaleString('en-US')}`,
+          y: (i + 1) * 10,
+        })),
+      },
+    ],
+  },
+} satisfies NonNullable<DataAnalysisColumnProfileV1>
+
+const yearlyPoints = Array.from({ length: 40 }, (_, i) => ({
+  x: `${1969 + i}-01-01`,
+  label: String(1969 + i),
+  y: (i + 1) * 10,
+}))
+
+export const dateColumn = {
+  ...column,
+  fieldName: 'birthDate',
+  fieldLabel: 'Birth date',
+  fieldType: 'DATE',
+  dates: {
+    metrics: [
+      { key: 'min', label: 'Earliest', value: '1969-01-01', valueType: 'DATE', formatted: '1969' },
+    ],
+  },
+  chart: {
+    kind: 'TIME_SERIES',
+    alternatives: ['BAR'],
+    x: { label: 'Year', valueType: 'TEXT' },
+    y: { label: 'Count', valueType: 'COUNT' },
+    series: [
+      { name: 'Count', points: yearlyPoints },
+      {
+        name: '7-bucket moving average',
+        points: yearlyPoints.map((point, i) => ({
+          ...point,
+          y:
+            yearlyPoints.slice(Math.max(0, i - 6), i + 1).reduce((sum, p) => sum + p.y, 0) /
+            Math.min(7, i + 1),
+        })),
+      },
+    ],
+  },
 } satisfies NonNullable<DataAnalysisColumnProfileV1>
 
 export const table = {
@@ -192,7 +280,7 @@ export const table = {
       uniqueness: 1,
       constant: false,
       empty: false,
-      nulls: { key: 'nulls', label: 'Nulls', value: 0, valueType: 'COUNT' },
+      nulls: { key: 'nulls', label: 'Nulls', value: 0, valueType: 'COUNT', formatted: '0' },
       blanks: null,
     },
     {
@@ -204,8 +292,8 @@ export const table = {
       uniqueness: 0.003,
       constant: false,
       empty: false,
-      nulls: column.counts[3],
-      blanks: null,
+      nulls: { key: 'nulls', label: 'Nulls', value: 51, valueType: 'COUNT', formatted: '51' },
+      blanks: { key: 'blanks', label: 'Blanks', value: 51, valueType: 'COUNT', formatted: '51' },
     },
   ],
   heatmap: {

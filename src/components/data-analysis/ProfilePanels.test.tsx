@@ -23,6 +23,7 @@ import * as api from '@/lib/api/data-analysis'
 import {
   capabilities,
   column,
+  dateColumn,
   distinctPage,
   duplicatesResult,
   exactColumn,
@@ -31,6 +32,7 @@ import {
 } from '../../../tests/fixtures/data-analysis'
 import ColumnProfilePanel from './ColumnProfilePanel'
 import TableProfilePanel from './TableProfilePanel'
+import { Metrics } from './ProfileParts'
 
 vi.mock('@/lib/api/data-analysis')
 vi.mock('next/dynamic', () => ({ default: () => () => <div>Chart placeholder</div> }))
@@ -81,11 +83,29 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+it('wraps long formatted metrics and never falls back to raw values', () => {
+  const formatted = '$123,456,789,012,345,678.90'
+  render(
+    <Metrics
+      metrics={[
+        { key: 'total', label: 'Total amount', value: 123, formatted },
+        { key: 'missing', label: 'Missing format', value: 'raw-value-must-not-render' },
+      ]}
+    />
+  )
+  expect(screen.getByText(formatted)).toHaveClass('break-words', 'tabular-nums')
+  expect(screen.queryByText('raw-value-must-not-render')).not.toBeInTheDocument()
+  expect(screen.getByText('—')).toBeVisible()
+})
+
 describe('column profile', () => {
   it('renders metrics, suppression, estimate, top-value drills and passes axe', async () => {
     mount(<ColumnProfilePanel {...props} />)
     expect(await screen.findByText('1,000')).toBeVisible()
     expect(screen.getByText('Estimate')).toBeVisible()
+    expect(screen.getByRole('note')).toHaveTextContent(column.warnings[0])
+    expect(screen.getByText('98.8%')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Top values', level: 3 })).toBeVisible()
     expect(screen.getByText('Hidden')).not.toHaveAttribute('href')
     fireEvent.focus(screen.getByText('Hidden'))
     expect(await screen.findByRole('tooltip')).toHaveTextContent('fewer than 5 records')
@@ -161,6 +181,8 @@ describe('column profile', () => {
     })
     expect(screen.getByText('12,500')).toBeVisible()
     expect(screen.queryByText('Estimate')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run exact' })).not.toBeInTheDocument()
+    expect(screen.getByText(/As of/)).toBeVisible()
     const finished = vi.mocked(api.getRun).mock.calls.length
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000)
@@ -187,6 +209,9 @@ describe('column profile', () => {
     vi.mocked(api.columnProfile).mockResolvedValue(numericColumn)
     const view = mount(<ColumnProfilePanel {...props} />)
     await screen.findByText('25th percentile')
+    expect(screen.getByText('Standard deviation')).toBeVisible()
+    expect(screen.getByText('$81,753.32')).toHaveClass('break-words', 'tabular-nums')
+    expect(screen.getByRole('heading', { name: 'Numeric statistics', level: 3 })).toBeVisible()
     view.unmount()
     vi.mocked(api.columnProfile).mockResolvedValue(null)
     const empty = mount(<ColumnProfilePanel {...props} />)
@@ -201,6 +226,21 @@ describe('column profile', () => {
     vi.mocked(api.columnProfile).mockReturnValue(new Promise(() => {}))
     mount(<ColumnProfilePanel {...props} />)
     expect(screen.getByRole('status', { name: 'Loading analysis' })).toBeVisible()
+  })
+  it.each([false, null, undefined])('hides Run exact when estimate is %s', async (estimate) => {
+    vi.mocked(api.columnProfile).mockResolvedValue({ ...exactColumn, estimate })
+    mount(<ColumnProfilePanel {...props} />)
+    await screen.findByText('12,498')
+    expect(screen.queryByRole('button', { name: 'Run exact' })).not.toBeInTheDocument()
+    expect(screen.getByText(/As of/)).toBeVisible()
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+  it('uses a Dates heading and initially focuses the dialog instead of Close', async () => {
+    vi.mocked(api.columnProfile).mockResolvedValue(dateColumn)
+    mount(<ColumnProfilePanel {...props} />)
+    await screen.findByRole('heading', { name: 'Dates', level: 3 })
+    expect(screen.getByRole('dialog')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Close analysis' })).not.toHaveFocus()
   })
   it('fails closed for unsupported scope and summarizes nested filters', async () => {
     mount(
@@ -218,6 +258,9 @@ it('renders table completeness, keys and selected duplicate drills, with no axe 
   mount(<TableProfilePanel {...props} fields={capabilities.fields} />)
   await screen.findByRole('table', { name: 'Field completeness' })
   expect(screen.getByText('Candidate key')).toBeVisible()
+  expect(screen.getByText('Rows')).toBeVisible()
+  expect(screen.getByText('Nulls 51').parentElement).toHaveTextContent('Nulls 51 · Blanks 51')
+  expect(screen.queryByRole('button', { name: 'Run exact' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Find duplicates' })).toBeDisabled()
   fireEvent.click(screen.getByRole('checkbox', { name: 'Status' }))
   fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }))
@@ -228,4 +271,16 @@ it('renders table completeness, keys and selected duplicate drills, with no axe 
     limit: 50,
   })
   expect(await axe(screen.getByRole('dialog'))).toHaveNoViolations()
+})
+
+it('offers an exact table run only while displaying an estimate', async () => {
+  vi.mocked(api.tableProfile).mockResolvedValue({ ...table, estimate: true })
+  vi.mocked(api.getRun).mockResolvedValue({ status: 'COMPLETE', tableProfile: table })
+  mount(<TableProfilePanel {...props} fields={capabilities.fields} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Run exact' }))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Run exact' })).not.toBeInTheDocument()
+  )
+  expect(api.startRun).toHaveBeenCalledWith(expect.objectContaining({ operation: 'TABLE_PROFILE' }))
+  expect(screen.getByText(/As of/)).toBeVisible()
 })

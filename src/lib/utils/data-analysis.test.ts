@@ -75,8 +75,11 @@ describe('analysis drills and filters', () => {
     ).toThrow('does not yet support')
   })
   it('formats semantic values', () => {
-    expect(metricText({ value: 0.25, valueType: 'PERCENT' })).toBe('25%')
-    expect(metricText({ value: 12500, valueType: 'COUNT' })).toBe('12,500')
+    expect(metricText({ value: 0.988, valueType: 'PERCENT', formatted: '98.8%' })).toBe('98.8%')
+    expect(metricText({ value: 12498, valueType: 'COUNT', formatted: '12,498' })).toBe('12,498')
+    expect(metricText({ value: 81753.32, formatted: '$81,753.32' })).toBe('$81,753.32')
+    expect(metricText({ value: 123456789 })).toBe('—')
+    expect(metricText({ value: 'raw date' })).toBe('—')
     expect(metricText(null)).toBe('—')
   })
 })

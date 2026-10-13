@@ -17,7 +17,7 @@
 /** @file Shared accessible profile sheet, metric cards, value lists and loading states. */
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import * as Dialog from '@radix-ui/react-dialog'
 import type {
@@ -35,10 +35,12 @@ export const AnalysisNavigationContext = createContext<() => void>(() => undefin
  * Applies a drill in place when the host can (e.g. the query page already showing that table, whose
  * URL state is read only on mount). Returns true when handled; otherwise the link navigates.
  */
-export const AnalysisDrillContext = createContext<((drill: DataAnalysisDrillV1) => boolean) | null>(null)
+export const AnalysisDrillContext = createContext<((drill: DataAnalysisDrillV1) => boolean) | null>(
+  null
+)
 
 export const controlClass =
-  'rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50'
+  'rounded border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50'
 
 /** A modal right-hand sheet with exactly one scrolling body.
  * @param props - Heading, summary, content and close action.
@@ -55,6 +57,7 @@ export function ProfileSheet({
   onClose: () => void
   children: ReactNode
 }) {
+  const contentRef = useRef<HTMLDivElement>(null)
   return (
     <AnalysisNavigationContext.Provider value={onClose}>
       <Dialog.Root
@@ -66,10 +69,15 @@ export function ProfileSheet({
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[170] bg-black/40" />
           <Dialog.Content
-            className="fixed inset-y-0 right-0 z-[180] flex h-dvh w-full flex-col overflow-hidden border-l border-border bg-background text-foreground shadow-xl min-[900px]:w-[560px]"
+            ref={contentRef}
+            onOpenAutoFocus={(event) => {
+              event.preventDefault()
+              contentRef.current?.focus()
+            }}
+            className="fixed inset-y-0 right-0 z-[180] flex h-dvh w-full flex-col overflow-hidden border-l border-border bg-background text-foreground shadow-xl outline-none min-[900px]:w-[560px]"
             data-qqq-id="data-analysis-panel"
           >
-            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-5">
+            <header className="sticky top-0 z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-background p-5">
               <div className="min-w-0 break-words">
                 <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
                 <Dialog.Description className="text-sm text-muted-foreground">
@@ -115,7 +123,8 @@ export function DrillLink({
     <Link
       href={href}
       onClick={(event) => {
-        if (drill && !event.metaKey && !event.ctrlKey && !event.shiftKey && applyDrill?.(drill)) event.preventDefault()
+        if (drill && !event.metaKey && !event.ctrlKey && !event.shiftKey && applyDrill?.(drill))
+          event.preventDefault()
         close()
       }}
       data-qqq-id="analysis-drill"
@@ -152,16 +161,23 @@ export function Metrics({ metrics }: { metrics?: DataAnalysisMetricV1[] | null }
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(140px,100%),1fr))] gap-3">
       {metrics?.map(
-        (metric, index) =>
-          metric && (
-            <div key={metric.key ?? index} className="min-w-0 rounded border border-border p-3">
-              <div className="text-sm text-muted-foreground">{metric.label}</div>
-              <div className="mt-1 text-xl font-semibold">
-                <MetricValue metric={metric} />
-              </div>
-            </div>
-          )
+        (metric, index) => metric && <MetricCard key={metric.key ?? index} metric={metric} />
       )}
+    </div>
+  )
+}
+
+/** Displays the backend's label and formatted value in a wrapping metric card.
+ * @param props - Semantic metric.
+ * @returns A metric card shared by column and table profiles.
+ */
+export function MetricCard({ metric }: { metric: NonNullable<DataAnalysisMetricV1> }) {
+  return (
+    <div className="min-w-0 rounded border border-border p-3">
+      <div className="text-sm text-muted-foreground">{metric.label}</div>
+      <div className="mt-1 break-words text-xl font-semibold tabular-nums">
+        <MetricValue metric={metric} />
+      </div>
     </div>
   )
 }
@@ -179,7 +195,7 @@ export function Values({
 }) {
   if (!values?.length) return null
   return (
-    <section aria-label={label} className="space-y-2">
+    <section aria-label={label} className="space-y-3">
       <h3 className="font-semibold">{label}</h3>
       <ul className="space-y-3">
         {values.map(
@@ -255,11 +271,15 @@ export function ProfileBadges({
         )}
       </div>
       {profile.truncated && <p>Row limit reached; this profile is incomplete.</p>}
-      {profile.warnings?.map((warning, i) => (
-        <p key={i} className="text-muted-foreground">
-          {warning}
-        </p>
-      ))}
+      {Boolean(profile.warnings?.length) && (
+        <div role="note" className="text-xs text-muted-foreground">
+          <ul className="list-disc space-y-1 pl-4">
+            {profile.warnings?.map((warning, i) => (
+              <li key={i}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

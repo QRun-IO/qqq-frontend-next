@@ -116,7 +116,7 @@ export default function TableProfilePanel({
       ) : (
         <>
           <ProfileBadges profile={data} />
-          <ExactRun exact={exact} />
+          {data.estimate === true && <ExactRun exact={exact} />}
           <Metrics metrics={[data.rowCount ?? null]} />
           {!data.fields?.length ? (
             <p>No analyzable fields.</p>
@@ -159,16 +159,19 @@ export default function TableProfilePanel({
                               />
                             </div>
                           )}
-                          {field.nulls && (
-                            <div>
-                              {field.nulls.label}: <MetricValue metric={field.nulls} />
-                            </div>
-                          )}
-                          {field.blanks && (
-                            <div>
-                              {field.blanks.label}: <MetricValue metric={field.blanks} />
-                            </div>
-                          )}
+                          <div className="flex flex-wrap gap-x-1 text-xs text-muted-foreground">
+                            {field.nulls && (
+                              <span>
+                                {field.nulls.label} <MetricValue metric={field.nulls} />
+                              </span>
+                            )}
+                            {field.nulls && field.blanks && <span>{' · '}</span>}
+                            {field.blanks && (
+                              <span>
+                                {field.blanks.label} <MetricValue metric={field.blanks} />
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="block py-2 pr-2 align-top sm:table-cell">
                           <span className="sm:hidden">Distinct: </span>
@@ -192,7 +195,7 @@ export default function TableProfilePanel({
             </table>
           )}
           {data.heatmap && <ProfileChart chart={data.heatmap} />}
-          <section className="space-y-2">
+          <section className="space-y-3">
             <h3 className="font-semibold">Candidate keys</h3>
             {data.candidateKeys?.length ? (
               <ul>
