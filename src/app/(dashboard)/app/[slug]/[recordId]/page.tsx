@@ -33,6 +33,7 @@ import React, { lazy, Suspense, useEffect } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useRouteParams } from '@/lib/hooks/use-route-params'
+import { AlertsRecordPanelSlot } from '@/components/alerts/AlertsRecordPanelSlot'
 import { addRecentRecord, removeRecentRecord } from '@/lib/utils/recent-records'
 import { recordAnalytics } from '@/lib/analytics'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
@@ -199,6 +200,7 @@ export default function RecordViewPage() {
       {record && associations.isError && (
         <p role="alert" className="mb-4 text-destructive">Related records could not be loaded.</p>
       )}
+      <AlertsRecordPanelSlot metaData={metaData} tableName={slug} recordId={recordId} />
       <Suspense fallback={<div role="status" aria-label="Loading record view" className="py-12 text-center">Loading record…</div>}><RecordView
         instance={metaData}
         tableMetaData={tableMetaData}
