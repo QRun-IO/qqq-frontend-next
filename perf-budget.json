@@ -62,6 +62,11 @@
       "marker": "command-menu-searching",
       "gzipKB": 8.1
     },
+    "notificationCenter": {
+      "$comment": "The notification center (qbit-alerts phase b): the bell popover (import() in AlertsBell on first open), the sticky-notification banners (import() in NotificationBannerSlot when the summary has banners) and the /app/notifications page (next/dynamic in its route). Turbopack bundles the shared parts (severity icons, per-item actions, the optimistic inbox mutation, MarkdownView) into each of the three async chunks, so the budget covers all three; the marker is the per-item read/unread button they share. Measured 15.2 KB gzip across the three (popover 4.3, banners 4.3, page 6.7) on 2026-10-13; budget about 8% above. The shell keeps the badge, poller with backoff, summary normalizer and banner slot: +0.7 KB first load on the /app routes (/app/_/_ 348.5 -> 349.2 KB, inside its 350 KB cap); the new /app/notifications route measures 339.5 KB; total JS 1092.9 -> 1098.0 KB excluding these chunks; CSS unchanged at 23.2 KB.",
+      "marker": "notification-toggle-read",
+      "gzipKB": 16.5
+    },
     "recordPreview": {
       "$comment": "The search result record preview (first-tier fields with file thumbnails, chips and dates; quick actions), loaded when a preview first shows: import() in SearchPage. It runs its own two queries (the useTableMetaData and useRecord keys) rather than importing those hooks, which measured +12.4 KB more total JS. Measured 7.1 KB gzip with thumbnails and chips (3.7 KB without); budget about 8% above.",
       "marker": "search-record-preview",

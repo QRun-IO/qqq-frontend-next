@@ -15,21 +15,21 @@
  */
 
 /**
- * @file AlertsBellPopover — the bell's popover (loaded on first open): one column of the latest
- * alerts (severity dot, title, group, age), "Mark all read" and "Open Alerts". Opening an item
- * marks it read. Focus stays inside while it is open; Escape or a click outside closes it.
+ * @file AlertsBellPopover — the bell's popover (loaded on first open): the latest
+ * notifications, newest first (severity icon, title, source, relative time), each with mark
+ * read/unread and dismiss when the backend sends its recipient id, plus "Mark all read" and
+ * "View all". Opening an item marks it read. Focus stays inside while it is open; Escape or a
+ * click outside closes it.
  */
 
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
 
-import { markAlertsRead } from '@/lib/api/alerts'
-import { queryKeys } from '@/lib/query-client'
-import type { AlertsInboxSummary } from '@/types/alerts'
-import { SeverityDot } from './SeverityDot'
+import { useInboxActions } from '@/lib/hooks/use-inbox-actions'
+import type { AlertsInboxSummary, InboxItem } from '@/types/alerts'
+import { ItemActions, SeverityIcon, itemMeta, linkKind, readRequest } from './NotificationParts'
 
 /** Props for the popover. */
 export interface AlertsBellPopoverProps {
@@ -47,7 +47,6 @@ export interface AlertsBellPopoverProps {
  */
 export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopoverProps) {
   const router = useRouter()
-  const queryClient = useQueryClient()
   const panelRef = useRef<HTMLDivElement>(null)
   // a dropdown under the bell from 640 px; full width under the header below that (inline, so no new CSS)
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 640px)').matches)
@@ -73,7 +72,7 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
         return
       }
       if (event.key !== 'Tab' || !panel) return
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('a,button'))
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('a,button:not([disabled])'))
       if (focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -96,18 +95,13 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
     }
   }, [onClose])
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.alertsInbox() })
+  const actions = useInboxActions()
 
-  const open = async (alertId: number, href: string, unread: boolean | undefined) => {
+  const openItem = (item: InboxItem) => {
+    const read = readRequest(item)
+    if (read) actions.mutate(read)
     onClose()
-    router.push(href)
-    if (unread) {
-      try {
-        await markAlertsRead({ alertId })
-      } finally {
-        refresh()
-      }
-    }
+    if (item.href) router.push(item.href)
   }
 
   return (
@@ -115,70 +109,80 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      aria-label="Alerts"
+      aria-label="Notifications"
       className="z-50 overflow-y-auto rounded-xl border border-border bg-card shadow-lg"
       style={placement}
       data-qqq-id="alerts-popover"
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">Alerts</h2>
+        <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
         <span className="text-xs text-muted-foreground">{summary.unreadCount > 0 ? `${summary.unreadCount} unread` : 'All read'}</span>
       </div>
       {summary.items.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-muted-foreground" data-qqq-id="alerts-popover-empty">Nothing needs you right now.</p>
+        <p className="px-4 py-6 text-sm text-muted-foreground" data-qqq-id="alerts-popover-empty">You have no notifications.</p>
       ) : (
         <ul className="divide-y divide-border">
-          {summary.items.map((item) => (
-            <li key={item.alertId}>
-              <a
-                href={item.href}
-                onClick={(event) => {
-                  event.preventDefault()
-                  void open(item.alertId, item.href, item.unread)
-                }}
-                className={`flex items-start gap-3 px-4 py-3 text-sm hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${item.unread ? '' : 'opacity-75'}`}
-                data-qqq-id={`alerts-popover-item-${item.alertId}`}
-              >
-                <SeverityDot severity={item.severity} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block break-words text-foreground ${item.unread ? 'font-semibold' : ''}`}>{item.title}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {[item.group, item.age === 'just now' ? 'just now' : `${item.age} ago`].filter(Boolean).join(' · ')}
+          {summary.items.map((item) => {
+            const kind = linkKind(item.href)
+            const title = <span className={`block break-words text-foreground ${item.unread ? 'font-semibold' : ''}`}>{item.title}</span>
+            const meta = <span className="block text-xs text-muted-foreground">{itemMeta(item)}</span>
+            const linkClass = 'block min-w-0 flex-1 rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:underline'
+            return (
+              <li key={item.key} className={`flex items-start gap-3 py-3 pl-4 pr-2 text-sm ${item.unread ? '' : 'opacity-75'}`} data-qqq-id={`alerts-popover-item-${item.key}`}>
+                <SeverityIcon severity={item.severity} />
+                {kind === 'app' ? (
+                  <a
+                    href={item.href ?? undefined}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      openItem(item)
+                    }}
+                    className={linkClass}
+                  >
+                    {title}
+                    {meta}
+                    {item.unread && <span className="sr-only">(unread)</span>}
+                  </a>
+                ) : kind === 'external' ? (
+                  <a href={item.href ?? undefined} target="_blank" rel="noopener noreferrer" onClick={() => openItem({ ...item, href: null })} className={linkClass}>
+                    {title}
+                    {meta}
+                    {item.unread && <span className="sr-only">(unread)</span>}
+                  </a>
+                ) : (
+                  <span className="min-w-0 flex-1">
+                    {title}
+                    {meta}
+                    {item.unread && <span className="sr-only">(unread)</span>}
                   </span>
-                </span>
-                {item.unread && <span className="sr-only">(unread)</span>}
-              </a>
-            </li>
-          ))}
+                )}
+                <ItemActions item={item} onAction={(request) => actions.mutate(request)} />
+              </li>
+            )
+          })}
         </ul>
       )}
       <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm">
         <button
           type="button"
           disabled={summary.unreadCount === 0}
-          onClick={async () => {
-            try {
-              await markAlertsRead({ all: true })
-            } finally {
-              refresh()
-            }
-          }}
+          onClick={() => actions.mutate({ action: 'read', target: { all: true } })}
           className="rounded-md px-2 py-1 text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           data-qqq-id="alerts-mark-all-read"
         >
           Mark all read
         </button>
         <a
-          href={summary.alertsHref}
+          href={summary.notificationsHref}
           onClick={(event) => {
             event.preventDefault()
             onClose()
-            router.push(summary.alertsHref)
+            router.push(summary.notificationsHref)
           }}
           className="rounded-md px-2 py-1 font-medium text-primary hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          data-qqq-id="alerts-open-app"
+          data-qqq-id="alerts-view-all"
         >
-          Open Alerts
+          View all
         </a>
       </div>
     </div>

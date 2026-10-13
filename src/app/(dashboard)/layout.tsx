@@ -52,6 +52,7 @@ import { AssistantProvider, useAssistantController } from '@/components/assistan
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
 import { AlertsBell, isAlertsInstalled } from '@/components/alerts/AlertsBell'
+import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -349,6 +350,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             ) : (
               <>
                 <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_BODY" className="mb-4 rounded-lg" />
+                <NotificationBannerSlot metaData={metaData} enabled={isAuthenticated} />
                 {children}
                 <CompanyFooter branding={metaData?.branding} />
               </>

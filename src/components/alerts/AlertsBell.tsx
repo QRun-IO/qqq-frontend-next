@@ -15,13 +15,14 @@
  */
 
 /**
- * @file AlertsBell — the header bell for the Alerts qbit. Like the QQQ Assistant, it is gated
- * on instance metadata: unless the metadata lists the qbit's `alerts` app (which QQQ includes
- * only when qbit-alerts is installed and the user holds `alerts.view`, the same permission its
- * `/alerts/*` routes require), it renders nothing and sends no request at all. When enabled it
- * polls the inbox summary every 60 seconds while the tab is visible (TanStack Query pauses
- * interval refetches in a hidden tab). The popover's code loads on first open, so the shell
- * stays small.
+ * @file AlertsBell — the header bell of the notification center (qbit-alerts). Like the QQQ
+ * Assistant, it is gated on instance metadata: unless the metadata lists the qbit's `alerts`
+ * app (which QQQ includes only when qbit-alerts is installed and the user holds `alerts.view`,
+ * the same permission its `/alerts/*` routes require), it renders nothing and sends no request
+ * at all. When enabled it polls the inbox summary every `pollSeconds` (60) while the tab is
+ * visible (TanStack Query pauses interval refetches in a hidden tab and refetches when it shows
+ * again), backing off exponentially to 5 minutes after errors. The popover's code loads on
+ * first open, so the shell stays small.
  */
 
 'use client'
@@ -54,10 +55,46 @@ export function isAlertsInstalled(metaData: QInstance | undefined): boolean {
   return Boolean(app) && typeof app === 'object'
 }
 
+/** The longest wait between polls after errors (5 minutes). */
+export const MAX_POLL_MS = 300_000
+
+/** Consecutive failed summary loads (one shared query, so one counter). */
+let failures = 0
+
+/**
+ * The summary loader, counting consecutive failures for the backoff.
+ *
+ * @returns The summary.
+ */
+async function loadSummary(): Promise<AlertsInboxSummary | null> {
+  try {
+    const summary = await getAlertsInboxSummary()
+    failures = 0
+    return summary
+  } catch (error) {
+    failures++
+    throw error
+  }
+}
+
+/**
+ * The wait before the next poll: `pollSeconds` normally, doubling per consecutive failure up to
+ * {@link MAX_POLL_MS}; no polling once the backend has said Alerts is not for this user.
+ *
+ * @param data - The last summary (null: not available; undefined: none yet).
+ * @param failed - Consecutive failures.
+ * @returns Milliseconds, or false.
+ */
+export function pollDelay(data: AlertsInboxSummary | null | undefined, failed: number): number | false {
+  if (data === null && failed === 0) return false
+  const base = (data?.pollSeconds ?? 60) * 1000
+  return failed > 0 ? Math.min(base * 2 ** failed, MAX_POLL_MS) : base
+}
+
 /**
  * The bell's inbox summary (null when the backend still answers that Alerts is unavailable).
- * Shared with the record panel slot, which shows its panel only when this succeeds. It never
- * fetches (nor polls) unless `enabled`.
+ * Shared with the record panel slot and the banner slot. It never fetches (nor polls) unless
+ * `enabled`.
  *
  * @param enabled - Whether to load it: authenticated and {@link isAlertsInstalled}.
  * @returns The TanStack Query result.
@@ -65,12 +102,13 @@ export function isAlertsInstalled(metaData: QInstance | undefined): boolean {
 export function useAlertsInbox(enabled: boolean) {
   return useQuery<AlertsInboxSummary | null>({
     queryKey: queryKeys.alertsInbox(),
-    queryFn: getAlertsInboxSummary,
+    queryFn: loadSummary,
     enabled,
     retry: false,
     staleTime: 30_000,
-    refetchInterval: (query) => (query.state.data ? (query.state.data.pollSeconds ?? 60) * 1000 : false),
+    refetchInterval: (query) => pollDelay(query.state.data, failures),
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: (query) => (query.state.data === null ? false : 'always'),
   })
 }
 
@@ -87,7 +125,7 @@ export function AlertsBell({ metaData }: { metaData: QInstance | undefined }) {
   if (!data) return null
 
   const unread = data.unreadCount
-  const label = unread > 0 ? `Alerts, ${unread} unread` : 'Alerts, none unread'
+  const label = unread > 0 ? `Notifications, ${unread} unread` : 'Notifications, none unread'
   const critical = data.highestUnreadSeverity === 'CRITICAL'
   return (
     <div className="relative">
@@ -108,7 +146,7 @@ export function AlertsBell({ metaData }: { metaData: QInstance | undefined }) {
             aria-hidden="true"
             data-qqq-id="alerts-unread-badge"
           >
-            {unread > 9 ? '9+' : unread}
+            {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>

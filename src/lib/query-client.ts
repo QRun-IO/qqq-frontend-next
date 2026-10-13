@@ -456,6 +456,13 @@ export const queryKeys = {
    */
   alertsInbox: () => [...queryKeys.alerts(), 'inbox'] as const,
   /**
+   * Key for the pages of the notifications page (`/alerts/inbox`); with a filter, one page.
+   *
+   * @param filter - The page's filter (omit for every page).
+   * @returns The inbox page query key tuple.
+   */
+  alertsInboxPage: (filter?: object) => (filter ? ([...queryKeys.alerts(), 'inboxPage', filter] as const) : ([...queryKeys.alerts(), 'inboxPage'] as const)),
+  /**
    * Key for a record's "Open alerts" panel.
    *
    * @param tableName - Backend table name.
