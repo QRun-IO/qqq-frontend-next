@@ -1,12 +1,12 @@
 # Next UI developer guide
 
-> **This checkout targets RC15.** Confirm availability in the [RC15 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.15) before installing. [RC15 notes](../releases/1.0.0-RC.15.md) record the preparation checkpoint and verification scope; RC14 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
+> **This checkout targets RC16.** Confirm availability in the [RC16 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.16) before installing. [RC16 notes](../releases/1.0.0-RC.16.md) record the preparation checkpoint and verification scope; RC15 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
 
 > **RC9:** application code is unchanged from RC8. See [RC9 notes](../releases/1.0.0-RC.9.md) and [published releases](https://github.com/QRun-IO/qqq-frontend-next/releases) for versioned verification and public delivery status. Earlier RC8 receipts below remain historical evidence.
 
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
-This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The previously verified public candidate at the RC15 preparation checkpoint was [1.0.0-RC.14](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.14) (commit `03e7415`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
+This guide describes the `feature/next-1.0` release worktree as of 2026-10-01. It explains the current frontend and backend metadata contract. The previously verified public candidate at the RC16 preparation checkpoint was [1.0.0-RC.15](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.15) (commit `7398f1a`); final `1.0.0` remains on hold. Later branch changes are not retroactive changes to that immutable release. For behavior proven against a real server use the [feature matrix](../acceptance/feature-matrix.md); for the full Material inventory use the [parity ledger](../acceptance/material-parity.md). Some ledger rows predate recent work, so verify an individual status against current source and acceptance results before making a release claim.
 
 The visual baseline is the September 25 Next UI design (`e42ad2b2`). Material remains the reference for backend contracts and functional behavior. The layout defaults below describe current source; they do not certify a completed visual review.
 
@@ -35,7 +35,7 @@ The preferred QQQ-hosted distribution is the `com.kingsrook.qqq:qqq-frontend-nex
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.15</version>
+    <version>1.0.0-RC.16</version>
 </dependency>
 ```
 
