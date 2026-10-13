@@ -117,16 +117,20 @@ export function evaluateCompatibility(info: UiApiVersionInfo): UiApiCompatibilit
 }
 
 /**
- * Reads the server's UI API version. A server without the endpoint (404) predates it and is
- * treated as {@link PRE_SEMVER_UI_API_VERSION}.
+ * Reads the server's UI API version. A server without the endpoint (a 404, or a non-JSON answer such
+ * as an SPA page) predates it and is treated as {@link PRE_SEMVER_UI_API_VERSION}.
  *
  * @returns The version info.
  */
 export async function getUiApiVersion(): Promise<UiApiVersionInfo> {
   try {
-    const body = await apiClient.get<Partial<UiApiVersionInfo>>('/version')
+    const body = await apiClient.get<Partial<UiApiVersionInfo> | string>('/version')
+    // a server without the endpoint may answer with its SPA page or another non-JSON body
+    if (typeof body !== 'object' || body === null || typeof body.apiVersion !== 'string') {
+      return { apiVersion: PRE_SEMVER_UI_API_VERSION, features: [], extensions: [], preSemver: true }
+    }
     return {
-      apiVersion: typeof body?.apiVersion === 'string' ? body.apiVersion : '',
+      apiVersion: body.apiVersion,
       features: Array.isArray(body?.features) ? body.features.filter((f): f is string => typeof f === 'string') : [],
       extensions: Array.isArray(body?.extensions) ? body.extensions : [],
       preSemver: false,

@@ -90,9 +90,12 @@ describe('getUiApiVersion', () => {
     expect(result.preSemver).toBe(true)
   })
 
-  it('tolerates a malformed body', async () => {
+  it('treats a body without apiVersion (e.g. an SPA page) as the pre-semver 1.0.0', async () => {
     server.use(http.get('*/qqq/v1/version', () => HttpResponse.json({})))
-    expect(await getUiApiVersion()).toEqual({ apiVersion: '', features: [], extensions: [], preSemver: false })
+    expect(await getUiApiVersion()).toEqual({ apiVersion: PRE_SEMVER_UI_API_VERSION, features: [], extensions: [], preSemver: true })
+    server.use(http.get('*/qqq/v1/version', () => HttpResponse.text('<!doctype html><html></html>')))
+    expect((await getUiApiVersion()).preSemver).toBe(true)
+    expect((await checkUiApiCompatibility()).compatible).toBe(true)
   })
 })
 
