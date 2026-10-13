@@ -1351,6 +1351,70 @@
         "QRun-IO/qqq#679"
       ],
       "required": true
+    },
+    {
+      "id": "REC-066",
+      "feature": "SINGLE related-record picker: form-driven default filter, quick-create and select",
+      "source": [
+        "QRun-IO/qqq docs/RELATED-RECORD-PICKER.md",
+        "src/components/forms/RelatedRecordPickerDialog.tsx",
+        "src/components/forms/PossibleValueSelect.tsx"
+      ],
+      "fixture": "Sample Sales app: customer (quick-create section identity), sales_order.customer picker (isActive filter, region default filter)",
+      "scenarios": [
+        "Browse lists only active customers of the form's region",
+        "Quick-create saves through the insert route and fills the field",
+        "Saved order references the new customer in SQL"
+      ],
+      "negative": [
+        "The inactive customer is never offered"
+      ],
+      "issues": [
+        "QRun-IO/qqq#1131"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-067",
+      "feature": "MULTI_CHILD related-record picker adds child rows after a review step",
+      "source": [
+        "QRun-IO/qqq docs/RELATED-RECORD-PICKER.md",
+        "src/components/forms/RelatedRecordPickerDialog.tsx",
+        "src/components/widgets/ChildListRelatedPickers.tsx"
+      ],
+      "fixture": "Sample Sales app: sales_order addSkus picker (quantity default 1, unitPrice from SKU price, review quantity and unitPrice)",
+      "scenarios": [
+        "Search, mouse and keyboard multi-select",
+        "Review rows prefilled from the SKU price; user quantity saved",
+        "Lines list reloads with the new SKUs; SQL rows match"
+      ],
+      "negative": [
+        "Nothing is saved before the review is confirmed"
+      ],
+      "issues": [
+        "QRun-IO/qqq#1131"
+      ],
+      "required": true
+    },
+    {
+      "id": "REC-068",
+      "feature": "LINK related-record picker links and unlinks join rows; the API refuses unavailable targets",
+      "source": [
+        "QRun-IO/qqq docs/RELATED-RECORD-PICKER.md",
+        "src/components/forms/RelatedRecordPickerDialog.tsx"
+      ],
+      "fixture": "Sample Sales app: sales_order tags picker over sales_order_tag",
+      "scenarios": [
+        "Linked tags start checked",
+        "Checking links and unchecking unlinks in one save; SQL join rows match"
+      ],
+      "negative": [
+        "Adding an inactive SKU through the v1 add route is a 400 and writes nothing"
+      ],
+      "issues": [
+        "QRun-IO/qqq#1131"
+      ],
+      "required": true
     }
   ]
 }

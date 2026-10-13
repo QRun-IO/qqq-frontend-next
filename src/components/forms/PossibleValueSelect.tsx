@@ -42,6 +42,7 @@ import { MetadataIcon } from '@/components/layout/MetadataIcon'
 // the record picker dialog and the full-size preview load only when opened
 const RecordPickerDialog = lazy(() => import('./RecordPickerDialog'))
 import { FilePreviewLightbox } from '@/components/preview/FilePreviewLightboxLazy'
+import { RelatedPickerActions } from './RelatedPickerActions'
 
 /** How many options the inline typeahead of a picker field asks for (the dialog pages the rest). */
 const PICKER_INLINE_LIMIT = 20
@@ -92,6 +93,12 @@ interface PossibleValueSelectProps {
   picker?: QPossibleValuePicker
   /** The table the picker reads (`field.pickerTableName`). */
   pickerTableName?: string
+  /**
+   * The table whose form hosts the field: when it declares a SINGLE related-record picker for the
+   * field (`relatedRecordPickers`), Browse opens the related-record picker (filters, saved views,
+   * quick-create).
+   */
+  relatedPickerTableName?: string
 }
 
 /**
@@ -155,6 +162,7 @@ export function PossibleValueSelect({
   hideLabel = false,
   picker,
   pickerTableName,
+  relatedPickerTableName,
   'data-qqq-id': dataQqqId,
 }: PossibleValueSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -563,6 +571,21 @@ export function PossibleValueSelect({
                     <a href={pickerRecordPath(pickerTableName, heldValue)} target="_blank" rel="noopener noreferrer" className={buttonClass('ghost', 'sm')} data-qqq-id="picker-view">View</a>
                   )}
                 </div>
+              )}
+              {relatedPickerTableName && !picker && (
+                <RelatedPickerActions
+                  tableName={relatedPickerTableName}
+                  fieldName={fieldName}
+                  heldValue={heldValue}
+                  disabled={disabled}
+                  formValues={scope.formValues}
+                  dataQqqId={dataQqqId}
+                  onPicked={(id, label) => {
+                    setIsOpen(false)
+                    field.onChange(id)
+                    setSelectedOption({ id, label })
+                  }}
+                />
               )}
               {picker && browsing && (
                 <Suspense fallback={null}>

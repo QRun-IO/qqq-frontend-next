@@ -43,6 +43,7 @@ export type {
   QTableMetaData,
   QFieldMetaData,
   QPossibleValuePicker,
+  QRelatedRecordPicker,
   QVirtualFieldMetaData,
   QProcessMetaData,
   QFrontendStepMetaData,

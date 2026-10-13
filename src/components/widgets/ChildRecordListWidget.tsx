@@ -52,6 +52,8 @@ import { widgetField } from './widget-field-values'
 import { downloadText, widgetExportFileName } from './widget-utils'
 import { WidgetEmpty, WidgetPayloadNotice } from './WidgetNotice'
 import { ChildRecordListEditor } from './ChildRecordListEditor'
+import { ChildListRelatedPickers } from './ChildListRelatedPickers'
+import { childPickersFor } from '@/lib/utils/related-record-picker'
 
 /** Field metadata subset used for columns (the rest of the serialized field passes through). */
 interface ChildFieldMetaData {
@@ -378,7 +380,7 @@ export function compactChildColumns(columns: ChildColumn[], table: ChildTableMet
  * @param props - Widget props with a `ChildRecordListRenderer` payload.
  * @returns A table of child records, an empty state, or a payload notice.
  */
-export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onWidgetData }: WidgetComponentProps<ChildRecordListPayload>) {
+export function ChildRecordListWidget({ widgetMetaData, data, recordContext, formContext, onWidgetData, onReload }: WidgetComponentProps<ChildRecordListPayload>) {
   const widgetName = widgetMetaData.name
   const { data: instance } = useMetaData()
   const table = data?.childFrontendTableMetaData ?? data?.childTableMetaData
@@ -427,7 +429,10 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
   const totalRows = typeof data.totalRows === 'number' ? data.totalRows : undefined
   const viewAllHref = data.viewAllLink ? nextViewAllHref(data.viewAllLink, table.name) : undefined
   const allTables = instance?.tables as Record<string, QTableMetaData> | undefined
-  const showToolbar = data.canAddChildRecord === true || widgetMetaData.showExportButton === true
+  // related-record pickers (MULTI_CHILD, LINK) of the hosting record whose rows go into this list;
+  // they save immediately, so only on the record view (not inside an edit form)
+  const relatedPickers = recordContext?.recordId && !formContext ? childPickersFor(recordContext.tableMetaData, table.name) : []
+  const showToolbar = data.canAddChildRecord === true || widgetMetaData.showExportButton === true || relatedPickers.length > 0
 
   const columnToggle = hiddenCount > 0 || showAllColumns ? (
     <button
@@ -447,6 +452,9 @@ export function ChildRecordListWidget({ widgetMetaData, data, recordContext, onW
         <div className="flex flex-wrap items-center justify-end gap-3">
           {widgetMetaData.showExportButton === true && (
             <ChildRecordExportButton widgetMetaData={widgetMetaData} data={data} />
+          )}
+          {relatedPickers.length > 0 && recordContext?.recordId && (
+            <ChildListRelatedPickers pickers={relatedPickers} tableName={recordContext.tableName} primaryKey={recordContext.recordId} widgetName={widgetName} onChanged={onReload} />
           )}
           {data.canAddChildRecord === true && (
             // a plain anchor: the record view reacts to the hash change (Next's Link would not fire it)

@@ -26,14 +26,12 @@
 'use client'
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
-import { Check, ExternalLink, Grid2x2, List, Loader2, Maximize2, Search, Upload, X } from 'lucide-react'
+import { Check, ExternalLink, Grid2x2, List, Loader2, Maximize2, Search, Upload } from 'lucide-react'
 
 import type { QFieldMetaData, QPossibleValue, QPossibleValuePicker } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { fetchPossibleValuesPage, fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { useProcessMetaData, useTableMetaData } from '@/lib/hooks/use-metadata'
-import { useRestoreFocus } from '@/lib/hooks/use-restore-focus'
 import { cn } from '@/lib/utils/cn'
 import {
   type PickerFilterValue,
@@ -48,6 +46,7 @@ import { pickerPreviewUrl, pickerRecordPath, pickerSubtitle, pickerThumbnailUrl,
 import { buttonClass, iconButtonClass, INPUT_CLASS, SELECT_CLASS, ALERT_CLASS, LABEL_CLASS } from '@/components/ui/controls'
 
 import { FilePreviewLightbox } from '@/components/preview/FilePreviewLightboxLazy'
+import { PickerDialogClose, PickerDialogFrame } from './PickerDialogFrame'
 import { ProcessRun } from '@/components/process/ProcessRunLazy'
 
 /** Search debounce, in milliseconds. */
@@ -163,7 +162,6 @@ export function RecordPickerDialog({
   onConfirm,
   onClose,
 }: RecordPickerDialogProps) {
-  const restoreFocus = useRestoreFocus(true)
   const { data: table } = useTableMetaData(pickerTableName)
   const { data: uploadProcess } = useProcessMetaData(picker.uploadProcessName)
   const storageKey = pickerStorageKey(pickerTableName, fieldName)
@@ -360,28 +358,18 @@ export function RecordPickerDialog({
   const previewUrl = pickerPreviewUrl(previewOption, picker)
 
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose() }}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[2000] bg-black/80" />
-        <Dialog.Content
-          onCloseAutoFocus={restoreFocus}
-          aria-describedby={undefined}
-          className="fixed inset-0 z-[2001] flex flex-col overflow-hidden border border-border bg-card text-foreground shadow-xl focus:outline-none sm:inset-6 sm:rounded-lg"
-          data-qqq-id="record-picker-dialog"
-          data-multiple={multiple || undefined}
-        >
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2 sm:px-4">
-            <Dialog.Title className="min-w-0 flex-1 truncate text-sm font-semibold">{`Choose ${label}`}</Dialog.Title>
-            {uploadProcess?.hasPermission && !uploading && (
-              <button type="button" onClick={() => setUploading(true)} className={buttonClass('secondary', 'sm')} data-qqq-id="record-picker-upload">
-                <Upload className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">{uploadProcess.label || 'Upload new'}</span>
-              </button>
-            )}
-            <Dialog.Close className={iconButtonClass()} aria-label="Close" data-qqq-id="record-picker-close">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
+    <PickerDialogFrame
+      title={`Choose ${label}`}
+      dataQqqId="record-picker-dialog"
+      dataAttributes={{ 'data-multiple': multiple || undefined }}
+      onClose={onClose}
+      headerActions={uploadProcess?.hasPermission && !uploading && (
+        <button type="button" onClick={() => setUploading(true)} className={buttonClass('secondary', 'sm')} data-qqq-id="record-picker-upload">
+          <Upload className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{uploadProcess.label || 'Upload new'}</span>
+        </button>
+      )}
+    >
 
           {uploading && picker.uploadProcessName && uploadProcess ? (
             <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4" data-qqq-id="record-picker-upload-panel">
@@ -572,7 +560,7 @@ export function RecordPickerDialog({
                     <Maximize2 className="h-4 w-4" aria-hidden="true" />
                   </button>
                 )}
-                <Dialog.Close className={buttonClass('secondary')} data-qqq-id="record-picker-cancel">Cancel</Dialog.Close>
+                <PickerDialogClose className={buttonClass('secondary')} data-qqq-id="record-picker-cancel">Cancel</PickerDialogClose>
                 <button type="button" onClick={() => confirm()} disabled={chosen.length === 0} className={buttonClass('primary')} data-qqq-id="record-picker-select">
                   Select
                 </button>
@@ -597,9 +585,7 @@ export function RecordPickerDialog({
               />
             </Suspense>
           )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    </PickerDialogFrame>
   )
 }
 
