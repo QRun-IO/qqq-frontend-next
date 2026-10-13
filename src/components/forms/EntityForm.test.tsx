@@ -94,7 +94,7 @@ describe('Base copy starts a new record identity', () => {
     expect(screen.getByLabelText(/Code/)).toHaveValue('')
     expect(screen.getByLabelText(/Name/)).toHaveValue('Original')
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Required')).toBeVisible()
+    expect(await screen.findByText('Code is required')).toBeVisible()
     expect(post).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText(/Code/), { target: { value: 'draft/key' } })
     rerender(view(nextSource))

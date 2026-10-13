@@ -79,12 +79,13 @@ export function truncateNote(policy: TooLongPolicy, length: number, max: number 
 }
 
 /**
- * The message for a missing required value.
+ * The message for a missing required value: the standard "<Field> is required" sentence.
  *
- * @returns The plain word `Required`.
+ * @param label - The field's label.
+ * @returns The message for a missing required value.
  */
-export function requiredMessage(): string {
-  return 'Required'
+export function requiredMessage(label: string): string {
+  return `${label} is required`
 }
 
 /**
@@ -101,26 +102,27 @@ export function tooLongMessage(max: number, length: number): string {
 /**
  * The message for text that is not a number.
  *
+ * @param label - The field's label.
  * @param isInteger - Whether the field takes whole numbers only.
  * @returns The message for text that is not a number.
  */
-export function notANumberMessage(isInteger: boolean): string {
-  return isInteger ? 'Enter a whole number' : 'Enter a number'
+export function notANumberMessage(label: string, isInteger: boolean): string {
+  return isInteger ? `${label} must be a whole number` : `${label} must be a number`
 }
 
 /**
- * The message for a number outside the metadata's range.
+ * The message for a number outside the metadata's range, worded exactly as the backend words the
+ * same refusal, so a user sees one text whether the form or the server stops the value.
  *
+ * @param label - The field's label.
  * @param side - Which bound was broken.
- * @param min - The field's `minValue`, if any.
- * @param max - The field's `maxValue`, if any.
- * @returns A message that names the range when both ends are known.
+ * @param bound - The field's `minValue` or `maxValue`.
+ * @returns The message, such as `The value for Age is too large (maximum allowed value is 100)`.
  */
-export function outOfRangeMessage(side: 'min' | 'max', min?: number | string | null, max?: number | string | null): string {
-  const hasMin = min !== undefined && min !== null
-  const hasMax = max !== undefined && max !== null
-  if (hasMin && hasMax) return `Must be between ${min} and ${max}`
-  return side === 'min' ? `Must be at least ${min}` : `Must be ${max} or less`
+export function outOfRangeMessage(label: string, side: 'min' | 'max', bound: number | string | null | undefined): string {
+  return side === 'min'
+    ? `The value for ${label} is too small (minimum allowed value is ${bound})`
+    : `The value for ${label} is too large (maximum allowed value is ${bound})`
 }
 
 /** Messages for native inputs whose browsers keep unreadable text out of the value (`validity.badInput`). */
@@ -137,8 +139,8 @@ const BAD_INPUT_MESSAGES: Record<string, string> = {
  * @param input - The input whose `validity.badInput` is set.
  * @returns The message to show.
  */
-export function badInputMessage(field: Pick<QFieldMetaData, 'type'> | undefined, input: HTMLInputElement): string {
-  if (input.type === 'number') return notANumberMessage(field?.type === 'INTEGER' || field?.type === 'LONG')
+export function badInputMessage(field: Pick<QFieldMetaData, 'type' | 'label'> | undefined, input: HTMLInputElement): string {
+  if (input.type === 'number') return notANumberMessage(field?.label ?? 'This field', field?.type === 'INTEGER' || field?.type === 'LONG')
   return BAD_INPUT_MESSAGES[input.type] ?? 'Enter a valid value'
 }
 
@@ -218,16 +220,16 @@ export function mapServerErrors(messages: readonly string[], fields: readonly QF
     let match: RegExpExecArray | null
     if ((match = REQUIRED_PATTERN.exec(message))) {
       field = exact(match[1])
-      text = requiredMessage()
+      text = requiredMessage(field?.label ?? match[1])
     } else if ((match = TOO_LONG_PATTERN.exec(message))) {
       field = exact(match[1])
       text = `Must be ${match[2]} characters or fewer`
     } else if ((match = TOO_SMALL_PATTERN.exec(message))) {
       field = exact(match[1])
-      text = match[2] ? `Must be greater than ${match[3]}` : `Must be at least ${match[3]}`
+      text = match[0]
     } else if ((match = TOO_LARGE_PATTERN.exec(message))) {
       field = exact(match[1])
-      text = match[2] ? `Must be less than ${match[3]}` : `Must be ${match[3]} or less`
+      text = match[0]
     }
     field ??= mentioned(message)
     if (!field) {

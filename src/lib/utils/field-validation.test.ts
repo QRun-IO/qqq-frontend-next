@@ -69,11 +69,11 @@ describe('field validators', () => {
     return result.success ? [] : result.error.issues.map((issue) => issue.message)
   }
 
-  it('requires a value with the plain word Required', () => {
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { isRequired: true })), '')).toEqual(['Required'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DATE', isRequired: true })), '')).toEqual(['Required'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER', isRequired: true })), '')).toEqual(['Required'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'BOOLEAN', isRequired: true })), undefined)).toEqual(['Required'])
+  it('requires a value with the standard "<Field> is required" sentence', () => {
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { isRequired: true })), '')).toEqual(['A is required'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DATE', isRequired: true })), '')).toEqual(['A is required'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER', isRequired: true })), '')).toEqual(['A is required'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'BOOLEAN', isRequired: true })), undefined)).toEqual(['A is required'])
   })
 
   it('says how long a refused value is, only for fields that refuse over-long values', () => {
@@ -87,21 +87,21 @@ describe('field validators', () => {
     expect(messages(undeclared, 'abcdefgh')).toEqual([])
   })
 
-  it('asks for a whole number or a number in plain words, never a type name', () => {
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER' })), '1.5')).toEqual(['Enter a whole number'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER' })), 'abc')).toEqual(['Enter a whole number'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DECIMAL' })), 'abc')).toEqual(['Enter a number'])
+  it('names the field and asks for a whole number or a number in plain words, never a type name', () => {
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER' })), '1.5')).toEqual(['A must be a whole number'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER' })), 'abc')).toEqual(['A must be a whole number'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DECIMAL' })), 'abc')).toEqual(['A must be a number'])
     expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DECIMAL' })), '2.75')).toEqual([])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'LONG' })), '1.5')).toEqual(['Enter a whole number'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'LONG' })), '1.5')).toEqual(['A must be a whole number'])
   })
 
-  it('names the range when the metadata gives both ends, and the one bound otherwise', () => {
+  it('words a broken range exactly as the backend does', () => {
     const both = field('a', 'A', { type: 'INTEGER', minValue: 1, maxValue: 5 })
-    expect(messages(zodFieldFromMetadata(both), '0')).toEqual(['Must be between 1 and 5'])
-    expect(messages(zodFieldFromMetadata(both), '6')).toEqual(['Must be between 1 and 5'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DECIMAL', minValue: 0 })), '-1')).toEqual(['Must be at least 0'])
-    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER', maxValue: 9 })), '10')).toEqual(['Must be 9 or less'])
-    expect(outOfRangeMessage('max', null, 9)).toBe('Must be 9 or less')
+    expect(messages(zodFieldFromMetadata(both), '0')).toEqual(['The value for A is too small (minimum allowed value is 1)'])
+    expect(messages(zodFieldFromMetadata(both), '6')).toEqual(['The value for A is too large (maximum allowed value is 5)'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'DECIMAL', minValue: 0 })), '-1')).toEqual(['The value for A is too small (minimum allowed value is 0)'])
+    expect(messages(zodFieldFromMetadata(field('a', 'A', { type: 'INTEGER', maxValue: 9 })), '10')).toEqual(['The value for A is too large (maximum allowed value is 9)'])
+    expect(outOfRangeMessage('Bounded Value', 'max', 100)).toBe('The value for Bounded Value is too large (maximum allowed value is 100)')
   })
 
   it('does not block on rules the metadata does not express', () => {
@@ -125,11 +125,11 @@ describe('number keys and unreadable input', () => {
 
   it('explains an input the browser could not read', () => {
     const input = (type: string) => Object.assign(document.createElement('input'), { type })
-    expect(badInputMessage({ type: 'INTEGER' }, input('number'))).toBe('Enter a whole number')
-    expect(badInputMessage({ type: 'DECIMAL' }, input('number'))).toBe('Enter a number')
-    expect(badInputMessage({ type: 'DATE' }, input('date'))).toBe('Enter a valid date')
-    expect(badInputMessage({ type: 'DATE_TIME' }, input('datetime-local'))).toBe('Enter a valid date and time')
-    expect(badInputMessage({ type: 'TIME' }, input('time'))).toBe('Enter a valid time')
+    expect(badInputMessage({ type: 'INTEGER', label: 'Qty' }, input('number'))).toBe('Qty must be a whole number')
+    expect(badInputMessage({ type: 'DECIMAL', label: 'Price' }, input('number'))).toBe('Price must be a number')
+    expect(badInputMessage({ type: 'DATE', label: 'Day' }, input('date'))).toBe('Enter a valid date')
+    expect(badInputMessage({ type: 'DATE_TIME', label: 'When' }, input('datetime-local'))).toBe('Enter a valid date and time')
+    expect(badInputMessage({ type: 'TIME', label: 'At' }, input('time'))).toBe('Enter a valid time')
   })
 })
 
@@ -143,14 +143,20 @@ describe('mapServerErrors', () => {
       'The value for Quantity is too small (minimum allowed value is 1)',
     ], fields)
     expect(result).toEqual({
-      fieldErrors: { name: 'Required', code: 'Must be 5 characters or fewer', qty: 'Must be at least 1' },
+      fieldErrors: {
+        name: 'Name is required',
+        code: 'Must be 5 characters or fewer',
+        qty: 'The value for Quantity is too small (minimum allowed value is 1)',
+      },
       unmatched: [],
     })
   })
 
-  it('words exclusive range bounds plainly', () => {
-    expect(mapServerErrors(['The value for Quantity is too small (minimum allowed value is greater than 0)'], fields).fieldErrors).toEqual({ qty: 'Must be greater than 0' })
-    expect(mapServerErrors(['The value for Quantity is too large (maximum allowed value is 9)'], fields).fieldErrors).toEqual({ qty: 'Must be 9 or less' })
+  it("keeps the backend's own range sentence, exclusive bounds included", () => {
+    expect(mapServerErrors(['The value for Quantity is too small (minimum allowed value is greater than 0)'], fields).fieldErrors)
+      .toEqual({ qty: 'The value for Quantity is too small (minimum allowed value is greater than 0)' })
+    expect(mapServerErrors(['The value for Quantity is too large (maximum allowed value is 9)'], fields).fieldErrors)
+      .toEqual({ qty: 'The value for Quantity is too large (maximum allowed value is 9)' })
   })
 
   it('matches any other message by the longest field label it mentions, as whole words', () => {
@@ -165,6 +171,6 @@ describe('mapServerErrors', () => {
   })
 
   it('keeps the first message for a field', () => {
-    expect(mapServerErrors(['Missing value in required field: Name', 'Name is wrong'], fields).fieldErrors).toEqual({ name: 'Required' })
+    expect(mapServerErrors(['Missing value in required field: Name', 'Name is wrong'], fields).fieldErrors).toEqual({ name: 'Name is required' })
   })
 })

@@ -371,7 +371,10 @@ test('[REC-026] numeric range policies reject or clip as declared @mobile', asyn
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
   const before = await sqlCount(backend, 'select count(*) as n from field_lab')
   await createFieldLab(page, { name: 'Ranges', boundedValue: '150' })
-  await expect(page.getByRole('alert').filter({ hasText: 'Error inserting Field Lab: The value for Bounded Value is too large (maximum allowed value is 100)' })).toBeVisible()
+  // The metadata declares the 0..100 range (QRun-IO/qqq#1100), so the form refuses 150 before any
+  // request, in the backend's own words. The exclusive bound below is not published and is the server's.
+  await expect(page.getByText('The value for Bounded Value is too large (maximum allowed value is 100)')).toBeVisible()
+  expect(await sqlCount(backend, 'select count(*) as n from field_lab')).toBe(before)
   await control(page, 'boundedValue').fill('100')
   await control(page, 'exclusiveBoundedValue').fill('0')
   await page.getByRole('button', { name: 'Save' }).click()
@@ -417,8 +420,9 @@ test('[REC-027] unique keys are enforced with the backend message on create and 
 test('[REC-048] a server validation error is shown once with the backend message and keeps the form @mobile', async ({ page, backend, diagnostics }) => {
   for (const pattern of FIELD_LAB_ERRORS) diagnostics.allow(pattern)
   await openForm(page, '/app/fieldLab/create', 'Create Field Lab')
-  for (const [name, value] of Object.entries({ name: 'Kept Values', decimalValue: '42.25', boundedValue: '101' })) await control(page, name).fill(value)
-  const message = 'Error inserting Field Lab: The value for Bounded Value is too large (maximum allowed value is 100)'
+  // The exclusive lower bound is enforced by the backend only (the form is told just the inclusive ranges).
+  for (const [name, value] of Object.entries({ name: 'Kept Values', decimalValue: '42.25', exclusiveBoundedValue: '0' })) await control(page, name).fill(value)
+  const message = 'Error inserting Field Lab: The value for Exclusive Bounded Value is too small (minimum allowed value is greater than 0)'
   await expectToastDuringAction(page, `Failed to create Field Lab: ${message}`, () => page.getByRole('button', { name: 'Save' }).click())
   await expect(page.getByRole('alert').filter({ hasText: message })).toBeVisible()
   await expect(control(page, 'name')).toHaveValue('Kept Values')

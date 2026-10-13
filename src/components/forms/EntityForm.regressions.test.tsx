@@ -174,7 +174,7 @@ describe('Record form regressions (#649)', () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><EntityForm tableMetaData={scheduled} widgets={widgets} /></QueryClientProvider>)
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Required')).toBeVisible()
+    expect(await screen.findByText('Cron Expression is required')).toBeVisible()
     expect(post).not.toHaveBeenCalled()
   })
 

@@ -48,13 +48,13 @@ describe('Quiet record form validation', () => {
     const input = screen.getByLabelText(/Code/)
     await user.type(input, 'ab')
     await user.clear(input)
-    expect(screen.queryByText('Required')).toBeNull()
+    expect(screen.queryByText('Code is required')).toBeNull()
     await user.tab()
-    expect(await screen.findByText('Required')).toBeVisible()
+    expect(await screen.findByText('Code is required')).toBeVisible()
     expect(input).toHaveAttribute('aria-invalid', 'true')
-    expect(input).toHaveAccessibleDescription('Required')
+    expect(input).toHaveAccessibleDescription('Code is required')
     await user.type(input, 'x')
-    await waitFor(() => expect(screen.queryByText('Required')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('Code is required')).toBeNull())
     expect(input).not.toHaveAttribute('aria-invalid')
   })
 
@@ -62,10 +62,12 @@ describe('Quiet record form validation', () => {
     const user = userEvent.setup()
     renderForm([field('first', 'First', { isRequired: true }), field('second', 'Second', { isRequired: true })])
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findAllByText('Required')).toHaveLength(2)
+    expect(await screen.findByText('First is required')).toBeVisible()
+    expect(screen.getByText('Second is required')).toBeVisible()
     await waitFor(() => expect(screen.getByLabelText(/First/)).toHaveFocus())
     await user.type(screen.getByLabelText(/Second/), 'y')
-    await waitFor(() => expect(screen.getAllByText('Required')).toHaveLength(1))
+    await waitFor(() => expect(screen.queryByText('Second is required')).toBeNull())
+    expect(screen.getByText('First is required')).toBeVisible()
   })
 
   it('caps typing and counts only near the limit when too-long values are refused (ERROR)', async () => {
@@ -105,14 +107,14 @@ describe('Quiet record form validation', () => {
     expect(await screen.findByText(/Must be 10 characters or fewer \(currently \d+\)/)).toBeVisible()
   })
 
-  it('keeps non-numeric characters out of a whole-number field and reports a missing range bound plainly', async () => {
+  it('keeps non-numeric characters out of a whole-number field and words a broken range as the backend does', async () => {
     const user = userEvent.setup()
     renderForm([field('qty', 'Quantity', { type: 'INTEGER', minValue: 1, maxValue: 5 })])
     const input = screen.getByLabelText(/Quantity/)
     await user.type(input, 'a1e.2')
     expect(input).toHaveValue(12)
     await user.tab()
-    expect(await screen.findByText('Must be between 1 and 5')).toBeVisible()
+    expect(await screen.findByText('The value for Quantity is too large (maximum allowed value is 5)')).toBeVisible()
   })
 
   it('shows a read-only field as its value, not a disabled input', () => {

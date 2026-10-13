@@ -112,7 +112,7 @@ describe('ReportRun', () => {
     expect(within(form).getByRole('checkbox', { name: 'Include Retired' })).toBeInTheDocument()
     expect(within(form).getByRole('combobox', { name: /Species/ })).toBeInTheDocument()
     await user.click(within(form).getByRole('button', { name: 'Generate Report' }))
-    expect(await within(form).findByText('Required')).toBeInTheDocument()
+    expect(await within(form).findByText('Minimum Id is required')).toBeInTheDocument()
     expect(processStep).not.toHaveBeenCalled()
     await user.type(within(form).getByLabelText(/Minimum Id/), '3')
     await user.click(within(form).getByRole('checkbox', { name: 'Include Retired' }))

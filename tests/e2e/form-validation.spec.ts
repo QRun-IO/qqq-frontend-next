@@ -35,12 +35,12 @@ test.describe('Record form validation', () => {
     const first = field(page, 'firstName')
     await first.fill('Al')
     await first.fill('')
-    await expect(page.getByText('Required')).toHaveCount(0)
+    await expect(page.getByText('First Name is required')).toHaveCount(0)
     await first.blur()
-    await expect(page.getByText('Required')).toHaveCount(1)
+    await expect(page.getByText('First Name is required')).toHaveCount(1)
     await expect(first).toHaveAttribute('aria-invalid', 'true')
     await first.pressSequentially('A')
-    await expect(page.getByText('Required')).toHaveCount(0)
+    await expect(page.getByText('First Name is required')).toHaveCount(0)
     await expect(first).not.toHaveAttribute('aria-invalid', 'true')
   })
 
@@ -56,20 +56,20 @@ test.describe('Record form validation', () => {
     await expect(page.getByText('10 / 10')).toBeVisible()
   })
 
-  test('number entry rejects letters and signs, and names the range when out of it', async ({ page }) => {
+  test('number entry rejects letters and signs, and words the range as the backend does', async ({ page }) => {
     await openCreate(page)
     const age = field(page, 'age')
     await age.pressSequentially('a1e.2')
     await expect(age).toHaveValue('12')
     await age.fill('130')
     await age.blur()
-    await expect(page.getByText('Must be between 1 and 120')).toBeVisible()
+    await expect(page.getByText('The value for Age is too large (maximum allowed value is 120)')).toBeVisible()
   })
 
   test('save moves focus to the first invalid field', async ({ page }) => {
     await openCreate(page)
     await page.locator('[data-qqq-id="button-save"]').click()
-    await expect(page.getByText('Required').first()).toBeVisible()
+    await expect(page.getByText(/is required/).first()).toBeVisible()
     await expect(field(page, 'firstName')).toBeFocused()
   })
 
@@ -111,7 +111,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await field(page, 'firstName').fill('')
       await field(page, 'age').fill('130')
       await page.locator('[data-qqq-id="button-save"]').click()
-      await expect(page.getByText('Required').first()).toBeVisible()
+      await expect(page.getByText(/is required/).first()).toBeVisible()
       await page.waitForTimeout(400)
       await form.screenshot({ path: `${SHOTS}/errors-${scheme}-${width}.png` })
     })
