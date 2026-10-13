@@ -16,7 +16,11 @@ import { stageStandalone } from './acceptance-standalone.mjs'
 
 const args = process.argv.slice(2)
 const skipBuild = args.includes('--skip-build')
-const passthrough = args.filter((arg) => arg !== '--skip-build')
+const selectedSpecs = JSON.parse(process.env.QQQ_ACCEPTANCE_SPEC_PATHS ?? '[]')
+if (!Array.isArray(selectedSpecs) || selectedSpecs.some((spec) => typeof spec !== 'string' || !spec.startsWith('tests/acceptance/specs/'))) {
+  throw new Error('QQQ_ACCEPTANCE_SPEC_PATHS must be a JSON array of acceptance spec paths')
+}
+const passthrough = [...selectedSpecs, ...args.filter((arg) => arg !== '--skip-build')]
 const backend = `http://127.0.0.1:${process.env.QQQ_ACCEPTANCE_BACKEND_PORT ?? '18765'}`
 resolveSampleJar()
 
@@ -50,6 +54,8 @@ if (!skipBuild && ACCEPTANCE_MODE === 'standalone') {
   writeFileSync(BUILD_MARKER, backend + '\n')
 }
 const tests = run('pnpm', ['exec', 'playwright', 'test', '-c', 'tests/acceptance/playwright.config.ts', ...passthrough])
-const filtered = passthrough.some((arg) => !arg.startsWith('--project'))
+// CI shards emit blobs only. The single gate evaluates the merged evidence.
+if (process.env.QQQ_ACCEPTANCE_BLOB === '1') process.exit(tests)
+const filtered = process.env.QQQ_ACCEPTANCE_QUARANTINE === 'only' || passthrough.some((arg) => !arg.startsWith('--project'))
 const gate = run('node', ['scripts/acceptance-gate.mjs', ...(filtered ? ['--partial'] : [])])
 process.exit(tests || gate)
