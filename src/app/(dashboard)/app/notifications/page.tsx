@@ -1,0 +1,47 @@
+/*
+ * Copyright 2026 QRun.IO, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file Notifications page — the notification center's full list (qbit-alerts), with filters
+ * and paging in the URL (`status`, `category`, `severity`, `offset`). A fixed page under `/app`
+ * like `/app/search`, so the static export emits it and the dashboard layout wraps it.
+ */
+
+'use client'
+
+import React from 'react'
+import dynamic from 'next/dynamic'
+import { Loader2 } from 'lucide-react'
+
+/** The page loads on demand, so its code stays out of every route's first load. */
+const NotificationsPage = dynamic(() => import('@/components/alerts/NotificationsPage').then((module) => module.NotificationsPage), {
+  ssr: false,
+  loading: () => (
+    <p className="flex items-center gap-2 p-6 text-sm text-muted-foreground" role="status" data-qqq-id="notifications-page-loading">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      Loading notifications…
+    </p>
+  ),
+})
+
+/**
+ * Renders the notifications page at `/app/notifications`.
+ *
+ * @returns The page.
+ */
+export default function NotificationsRoute() {
+  return <NotificationsPage />
+}

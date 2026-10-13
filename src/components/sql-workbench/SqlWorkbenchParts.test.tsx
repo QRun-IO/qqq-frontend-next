@@ -133,6 +133,14 @@ describe('MarkdownView', () => {
     const { container } = render(<MarkdownView source="[x](javascript:alert(1))" />)
     expect(container.querySelector('a')).toBeNull()
   })
+
+  it('links relative app paths in the same tab, but not protocol-relative URLs', () => {
+    const { container } = render(<MarkdownView source="[open](/app/orders/7) and [bad](//evil.example)" />)
+    const links = container.querySelectorAll('a')
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/app/orders/7')
+    expect(links[0]).not.toHaveAttribute('target')
+  })
 })
 
 describe('PlanTree', () => {
