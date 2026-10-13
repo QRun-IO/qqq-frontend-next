@@ -85,3 +85,16 @@ export function recordLoadFailure(tableLabel: string, recordId: string | number,
   if (status === 403) return `You do not have permission to view ${tableLabel} records`
   return getErrorMessage(error, `Failed to load ${tableLabel} ${recordId}`)
 }
+
+/**
+ * The backend's own messages when a record write was refused (see `RecordWriteError`), so a form can
+ * place each beside the field it names.
+ *
+ * @param error - The unknown error thrown by an insert or update.
+ * @returns The record's messages, or `undefined` for any other error.
+ */
+export function recordWriteMessages(error: unknown): string[] | undefined {
+  if (!(error instanceof Error) || error.name !== 'RecordWriteError') return undefined
+  const { errors, forRecord } = error as Error & { errors?: unknown; forRecord?: unknown }
+  return forRecord === true && Array.isArray(errors) ? errors.filter((item): item is string => typeof item === 'string') : undefined
+}

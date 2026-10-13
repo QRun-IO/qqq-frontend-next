@@ -35,8 +35,9 @@ import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
-import { countActiveCriteria, emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
+import { emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
+import { countFilterConditions } from '@/lib/utils/date-range-utils'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
 import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
@@ -254,7 +255,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   }
   useEffect(() => () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }, [])
 
-  const activeFilterCount = countActiveCriteria(rq.filter.userFilter)
+  const activeFilterCount = countFilterConditions(rq.filter.userFilter, (name) => resolveField(tableMetaData, name)?.field.type)
   const basicModeCheck = canFilterWorkAsBasic(tableMetaData, rq.filter.userFilter)
   const availableFilterFields = useMemo(() => buildFilterFields(tableMetaData), [tableMetaData])
   const quickFilterNames = [...new Set([...rq.filter.defaultQuickFilterFieldNames, ...rq.filter.quickFilterFieldNames])]

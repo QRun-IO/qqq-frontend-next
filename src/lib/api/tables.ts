@@ -265,13 +265,32 @@ const DeleteRecordResponseSchema = z.object({
 })
 
 /**
+ * A record write the backend refused, with its messages kept apart so a form can show each one
+ * beside the field it names. The message joins them, as before, for callers that only show text.
+ */
+export class RecordWriteError extends Error {
+  /** The backend's messages for the record. */
+  readonly errors: string[]
+  /** True when the messages belong to the record being saved (not to one of its child records). */
+  readonly forRecord: boolean
+
+  constructor(errors: readonly string[], forRecord: boolean) {
+    super(errors.join('; '))
+    this.name = 'RecordWriteError'
+    this.errors = [...errors]
+    this.forRecord = forRecord
+  }
+}
+
+/**
  * Reject partial association failures before announcing a successful save.
  * @param record - A validated response record and any returned children.
+ * @param isRoot - Whether the record is the one being saved (not a child).
  */
-function checkRecordErrors(record: QRecord): void {
-  if (record.errors?.length) throw new Error(record.errors.join('; '))
+function checkRecordErrors(record: QRecord, isRoot = true): void {
+  if (record.errors?.length) throw new RecordWriteError(record.errors, isRoot)
   for (const records of Object.values(record.associatedRecords ?? {})) {
-    for (const child of records) checkRecordErrors(child)
+    for (const child of records) checkRecordErrors(child, false)
   }
 }
 

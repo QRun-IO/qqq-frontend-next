@@ -442,6 +442,28 @@ export const queryKeys = {
    */
   recordDeveloperPanels: (tableName: string, primaryKey: string | number) => [...queryKeys.all(), 'developerPanels', tableName, String(primaryKey)] as const,
 
+  // Alerts
+  /**
+   * Key for all Alerts queries (the Alerts qbit's bell and record panel).
+   *
+   * @returns The Alerts namespace query key tuple.
+   */
+  alerts: () => [...queryKeys.all(), 'alerts'] as const,
+  /**
+   * Key for the bell's inbox summary (also the Alerts feature probe).
+   *
+   * @returns The inbox summary query key tuple.
+   */
+  alertsInbox: () => [...queryKeys.alerts(), 'inbox'] as const,
+  /**
+   * Key for a record's "Open alerts" panel.
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Record identifier.
+   * @returns The record panel query key tuple.
+   */
+  alertsRecordPanel: (tableName: string, primaryKey: string | number) => [...queryKeys.alerts(), 'recordPanel', tableName, String(primaryKey)] as const,
+
   // ESB
   /**
    * Key for all ESB queries.

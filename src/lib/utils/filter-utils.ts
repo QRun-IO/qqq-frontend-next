@@ -34,6 +34,7 @@ import type {
   NowExpression,
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
+  StartOfPeriodExpression,
   ExpressionTimeUnit,
   QFieldFunction,
   QInstance,
@@ -43,7 +44,7 @@ import type {
 export type CriteriaValue = QFilterCriteria['values'][number]
 
 /** Any backend-evaluated criteria value expression. */
-export type FilterExpression = FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression
+export type FilterExpression = FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression | StartOfPeriodExpression
 
 /**
  * Returns a blank {@link QQueryFilter} with no criteria, no sort, and the given page size.
@@ -982,13 +983,23 @@ export function isThisOrLastPeriodExpression(v: unknown): v is ThisOrLastPeriodE
 }
 
 /**
+ * Type guard for the `StartOfPeriod` expression.
+ *
+ * @param v - Any criterion value.
+ * @returns Whether it is a `StartOfPeriod` expression.
+ */
+export function isStartOfPeriodExpression(v: unknown): v is StartOfPeriodExpression {
+  return typeof v === 'object' && v !== null && (v as { type?: string }).type === 'StartOfPeriod'
+}
+
+/**
  * Type guard for any backend-evaluated expression.
  *
  * @param v - Any criterion value.
  * @returns Whether it is any backend-evaluated expression.
  */
 export function isFilterExpression(v: unknown): v is FilterExpression {
-  return isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isFilterVariableExpression(v)
+  return isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isStartOfPeriodExpression(v) || isFilterVariableExpression(v)
 }
 
 /**
@@ -998,7 +1009,7 @@ export function isFilterExpression(v: unknown): v is FilterExpression {
  * @param amount - The amount (plural unless 1).
  * @returns The word, e.g. "day" or "days".
  */
-function unitWord(unit: ExpressionTimeUnit, amount = 1): string {
+function unitWord(unit: string, amount = 1): string {
   const singular = unit.toLowerCase().replace(/s$/, '')
   return amount === 1 ? singular : `${singular}s`
 }
@@ -1021,6 +1032,12 @@ export function describeExpression(expression: FilterExpression, fieldType: QFie
       ? (expression.operator === 'LAST' ? 'yesterday' : 'today')
       : `${expression.operator === 'LAST' ? 'last' : 'this'} ${unitWord(expression.timeUnit)}`
     return fieldType === 'DATE_TIME' || expression.timeUnit !== 'DAYS' ? `start of ${period}` : period
+  }
+  if (isStartOfPeriodExpression(expression)) {
+    const unit = unitWord(expression.unit)
+    const when = expression.offset === 0 ? `this ${unit}` : expression.offset === -1 ? `last ${unit}` : expression.offset === 1 ? `next ${unit}`
+      : expression.offset < 0 ? `${-expression.offset} ${unit}s ago` : `${expression.offset} ${unit}s from now`
+    return `start of ${when}`
   }
   return describeVariable(expression)
 }

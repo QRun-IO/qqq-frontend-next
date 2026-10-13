@@ -24,6 +24,8 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { blockedNumberKeys } from '@/lib/utils/field-validation'
+import { FieldFooter } from '../FieldFooter'
 
 /**
  * Props for the {@link NumberField} component.
@@ -48,9 +50,9 @@ interface NumberFieldProps {
    * Use `1` for integers/longs; use `"any"` for decimals.
    */
   step?: string | number
-  /** Minimum allowed value from field metadata; displayed as hint text below the input. */
+  /** Minimum allowed value from field metadata; shown as a hint while the field has focus. */
   minValue?: number | string | null
-  /** Maximum allowed value from field metadata; displayed as hint text below the input. */
+  /** Maximum allowed value from field metadata; shown as a hint while the field has focus. */
   maxValue?: number | string | null
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
   'data-qqq-id'?: string
@@ -69,8 +71,8 @@ interface NumberFieldProps {
  * (with `step="any"`). Values remain input strings until schema validation,
  * preserving an empty input separately from a numeric zero.
  *
- * When `minValue` or `maxValue` is provided, a hint line is rendered below
- * the input showing the allowed range or bound before any error message.
+ * When `minValue` or `maxValue` is provided, the allowed range or bound shows quietly
+ * under the input while it has focus.
  *
  * @param props - See {@link NumberFieldProps}.
  * @returns The rendered numeric input field with label, optional constraint hint, and optional error message.
@@ -91,21 +93,25 @@ export function NumberField({
   prefix,
   suffix,
 }: NumberFieldProps) {
-  const hintId = (minValue != null || maxValue != null) ? `${id}-hint` : undefined
+  const hint = minValue != null && maxValue != null
+    ? `Range: ${minValue} \u2013 ${maxValue}`
+    : minValue != null ? `Minimum: ${minValue}` : maxValue != null ? `Maximum: ${maxValue}` : undefined
+  const hintId = hint && !error ? `${id}-hint` : undefined
+  const blockedKeys = blockedNumberKeys(step === 1, minValue)
   const prefixId = prefix ? `${id}-prefix` : undefined
   const suffixId = suffix ? `${id}-suffix` : undefined
   const describedByIds = [prefixId, suffixId, hintId, error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined
   const adornmentClass = 'inline-flex shrink-0 items-center border border-input bg-muted px-3 text-sm text-muted-foreground'
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
       </label>
       <div className="flex">
         {prefix && (
@@ -117,9 +123,14 @@ export function NumberField({
           id={id}
           type="number"
           step={step}
+          inputMode={step === 1 ? 'numeric' : 'decimal'}
           {...registration}
           // the mouse wheel scrolls the page instead of changing a focused number (as in Material)
           onWheel={(event) => event.currentTarget.blur()}
+          // typing a letter, a second sign or (for whole numbers) a decimal point does nothing
+          onKeyDown={(event) => {
+            if (!event.ctrlKey && !event.metaKey && !event.altKey && blockedKeys.includes(event.key)) event.preventDefault()
+          }}
           disabled={disabled}
           placeholder={placeholder}
           aria-required={required}
@@ -146,20 +157,7 @@ export function NumberField({
           </span>
         )}
       </div>
-      {(minValue != null || maxValue != null) && (
-        <p id={hintId} className="mt-0.5 text-xs text-muted-foreground">
-          {minValue != null && maxValue != null
-            ? `Range: ${minValue} \u2013 ${maxValue}`
-            : minValue != null
-            ? `Minimum: ${minValue}`
-            : `Maximum: ${maxValue}`}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} hint={hint} />
     </div>
   )
 }

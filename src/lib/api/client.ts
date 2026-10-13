@@ -35,6 +35,23 @@ export function isSessionEndpoint(url: string | undefined): boolean {
 }
 
 /**
+ * The browser's time zone as the `X-QQQ-UserTimezone` header, which the backend keeps in the
+ * session and evaluates relative dates in ("Today", "Last 7 days", "This month"). Without it
+ * those are read in the instance's default zone, which can differ from the zone dates are
+ * shown and picked in.
+ *
+ * @returns The header, or nothing when the browser does not report a zone.
+ */
+export function userTimeZoneHeader(): Record<string, string> {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return timeZone ? { 'X-QQQ-UserTimezone': timeZone } : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
  * Singleton HTTP client wrapping Axios for all QQQ API communication.
  *
  * Automatically attaches the `sessionUUID` cookie on every request via
@@ -62,6 +79,7 @@ class APIClient {
       timeout: 30_000,
       headers: {
         'Content-Type': 'application/json',
+        ...userTimeZoneHeader(),
       },
     })
 
