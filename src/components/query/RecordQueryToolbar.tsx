@@ -185,6 +185,8 @@ function ViewModeToggle({
  * Props for the RecordQueryToolbar component.
  */
 export interface RecordQueryToolbarProps {
+  /** Opens table analysis when capabilities permit it. */
+  onAnalyzeTable?: () => void
   /** The backend table name used in API calls and URL routing. */
   tableName: string
   /** Full table metadata from the QQQ backend. */
@@ -322,6 +324,7 @@ export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, 
  * @returns The rendered toolbar.
  */
 export function RecordQueryToolbar({
+  onAnalyzeTable,
   tableName,
   tableMetaData,
   processes,
@@ -449,6 +452,7 @@ export function RecordQueryToolbar({
         </button>
       )}
 
+      {onAnalyzeTable && <button type="button" onClick={onAnalyzeTable} data-qqq-id="query-analyze-table" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">Analyze table</button>}
       {/* Quick search */}
       <div className="relative flex-1 min-w-[200px] max-w-md">
         <label htmlFor="quick-search" className="sr-only">
