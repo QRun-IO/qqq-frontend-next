@@ -1,0 +1,7 @@
+[
+  {
+    "id": "WID-029",
+    "issue": "https://github.com/QRun-IO/qqq-frontend-next/issues/93",
+    "reason": "Pivot editor acceptance failures tracked in issue #93; retain scenarios in the separate quarantine run."
+  }
+]

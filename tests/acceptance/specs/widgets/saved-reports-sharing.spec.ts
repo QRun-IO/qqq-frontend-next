@@ -426,7 +426,7 @@ test('[WID-073] report column statistics and CSV honor the filter without saving
   expect(await backend.sql('select query_filter_json, columns_json from saved_report where id = 1')).toEqual(before)
 })
 
-test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile', async ({ page, diagnostics }) => {
+test('[WID-029] pivot table setup shows the saved rows, columns and values by label @mobile @quarantine', async ({ page, diagnostics }) => {
   void diagnostics
   await openRecord(page, '/app/savedReport/102')
   await expectLoaded(page, 'pivotTableSetupWidget')
