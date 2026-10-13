@@ -80,6 +80,8 @@ vi.mock('@/lib/api/record-search', async (importOriginal) => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { SearchPage } from './SearchPage'
+import { loadTableMetaData } from '@/lib/api/metadata'
+import { getRecord } from '@/lib/api/tables'
 import { addRecentSearch, getRecentSearches } from '@/lib/search/recent-searches'
 import { addRecentRecord, clearRecentRecords } from '@/lib/utils/recent-records'
 
@@ -287,6 +289,36 @@ describe('SearchPage', () => {
     // pointer: hovering a result previews it
     await user.hover(cards[0])
     await waitFor(() => expect(within(pane).getByRole('heading', { level: 2 })).toHaveTextContent('Acme 1'))
+  })
+
+  it('previews file thumbnails and chips as the record view does', async () => {
+    media.wide = true
+    vi.mocked(loadTableMetaData).mockResolvedValueOnce({
+      ...ACCOUNT_TABLE,
+      fields: {
+        ...ACCOUNT_TABLE.fields,
+        logo: { name: 'logo', label: 'Logo', type: 'STRING', isHidden: false, isHeavy: false, adornments: [{ type: 'FILE_PREVIEW', values: {} }] },
+        status: { ...ACCOUNT_TABLE.fields.status, adornments: [{ type: 'CHIP', values: { 'color.Active': 'success' } }] },
+      },
+      sections: [{ name: 'identity', label: 'Identity', tier: 'T1', isHidden: false, fieldNames: ['name', 'status', 'logo'] }],
+    } as unknown as Awaited<ReturnType<typeof loadTableMetaData>>)
+    vi.mocked(getRecord).mockResolvedValueOnce({
+      tableName: 'account', recordLabel: 'Acme 1',
+      values: { id: 1, name: 'Acme 1', status: 'Active', logo: '/files/acme-logo.png' },
+      displayValues: { id: '1', name: 'Acme 1', status: 'Active', logo: 'acme-logo.png' },
+    })
+    searchRecordsMock.mockResolvedValue({ results: [{ tableName: 'account', recordId: '1', recordLabel: 'Acme 1' }] })
+    renderPage('q=acme')
+    const pane = await screen.findByRole('complementary', { name: 'Record preview' })
+    const logo = await waitFor(() => {
+      const found = pane.querySelector('[data-qqq-id="search-preview-value-logo"]')
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    }, { timeout: 5000 })
+    expect(logo.querySelector('img')).toHaveAttribute('src', expect.stringContaining('/files/acme-logo.png'))
+    const chip = pane.querySelector('[data-qqq-id="search-preview-value-status"]')
+    expect(chip).toHaveTextContent('Active')
+    expect(chip?.className).toContain('rounded-full')
   })
 
   it('narrow screens open the preview in a side sheet from the Preview button', async () => {
