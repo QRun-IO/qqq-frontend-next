@@ -76,6 +76,7 @@ describe('FilterBuilder', () => {
 
   it('stores relative date expressions in the backend class format', async () => {
     render(<Harness initial={{ ...emptyFilter(), criteria: [{ fieldName: 'when', operator: 'GREATER_THAN', values: [] }] }} />)
+    await userEvent.selectOptions(screen.getByLabelText('Filter operator'), 'is relative to today')
     await userEvent.click(screen.getByRole('button', { name: 'Relative date for When' }))
     await userEvent.clear(screen.getByLabelText('Amount'))
     await userEvent.type(screen.getByLabelText('Amount'), '7')
