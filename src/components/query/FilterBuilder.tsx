@@ -56,11 +56,13 @@ import {
   type FilterExpression,
   type OperatorOption,
 } from '@/lib/utils/filter-utils'
+import { criteriaToDateCondition, defaultDateContext } from '@/lib/utils/date-range-utils'
 import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { useAsyncCombobox } from '@/lib/hooks/use-async-combobox'
 import { useFilterSettings } from '@/lib/context/filter-settings-context'
 import { queryKeys } from '@/lib/query-client'
 
+import { DateModeInputs, IncludeTimeToggle, UseDatePickerButton, isDateField, useDateRow } from './DateCriterionControls'
 import { EvaluatedExpression } from './EvaluatedExpression'
 import { FilterValuePaster, type PasterKind } from './FilterValuePaster'
 import { HintTooltip } from './HintTooltip'
@@ -205,6 +207,41 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClea
   )
 }
 
+/** One row of a group: its first criterion's position and how many criteria it covers (1, or 2 for a date range). */
+interface RowSpan {
+  start: number
+  count: 1 | 2
+}
+
+/**
+ * Groups a list of criteria into rows. A `>=` criterion followed by a `<` criterion on the same
+ * date field is one row (a whole-day range or a relative range) when the group is ANDed and
+ * the pair reads back as dates; every other criterion is its own row.
+ *
+ * @param criteria - The group's criteria.
+ * @param fields - The filterable fields.
+ * @param pairAllowed - Whether the group is ANDed (two bounds mean "and").
+ * @param context - Zone and week start.
+ * @returns The rows, in order.
+ */
+export function buildRows(criteria: QFilterCriteria[], fields: Pick<FilterField, 'name' | 'type'>[], pairAllowed: boolean, context: ReturnType<typeof defaultDateContext>): RowSpan[] {
+  const rows: RowSpan[] = []
+  for (let i = 0; i < criteria.length; i++) {
+    const first = criteria[i]
+    const second = criteria[i + 1]
+    const type = fields.find((f) => f.name === first.fieldName)?.type
+    if (pairAllowed && second && type && isDateField({ type }) && second.fieldName === first.fieldName
+      && first.operator === 'GREATER_THAN_OR_EQUALS' && second.operator === 'LESS_THAN'
+      && criteriaToDateCondition([first, second], type, context)) {
+      rows.push({ start: i, count: 2 })
+      i++
+    } else {
+      rows.push({ start: i, count: 1 })
+    }
+  }
+  return rows
+}
+
 // ------------------------------------------------------------------
 // FilterGroup — handles one AND/OR group of criteria + sub-groups
 // ------------------------------------------------------------------
@@ -274,16 +311,21 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
     onChange({ ...filter, subFilters: [...(filter.subFilters ?? []), sub] })
   }, [filter, onChange])
 
-  const updateCriterion = useCallback((index: number, updated: QFilterCriteria) => {
+  // A date range on a date field is two criteria (`>=` and `<`) that one row shows and edits together.
+  const dateContext = useMemo(() => defaultDateContext(), [])
+  const pairAllowed = filter.booleanOperator === 'AND'
+  const rows = useMemo(() => buildRows(filter.criteria, fields, pairAllowed, dateContext), [filter.criteria, fields, pairAllowed, dateContext])
+
+  const updateRow = useCallback((start: number, count: number, updated: QFilterCriteria[]) => {
     const criteria = [...filter.criteria]
     // keep the row's React key, so editing a value does not remount the row (and lose focus)
-    criteriaIdMapRef.current.set(updated, getCriterionKey(criteria[index]))
-    criteria[index] = updated
+    if (updated[0]) criteriaIdMapRef.current.set(updated[0], getCriterionKey(criteria[start]))
+    criteria.splice(start, count, ...updated)
     onChange({ ...filter, criteria })
   }, [filter, onChange, getCriterionKey])
 
-  const removeCriterion = useCallback((index: number) => {
-    onChange({ ...filter, criteria: filter.criteria.filter((_, i) => i !== index) })
+  const removeRow = useCallback((start: number, count: number) => {
+    onChange({ ...filter, criteria: filter.criteria.filter((_, i) => i < start || i >= start + count) })
   }, [filter, onChange])
 
   const updateSubFilter = useCallback((index: number, updated: QQueryFilter) => {
@@ -299,7 +341,7 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
 
   return (
     <div className={`flex flex-col gap-2 ${indent}`} data-qqq-id={`filter-group-${depth}`}>
-      {(filter.criteria.length > 1 || (filter.subFilters ?? []).length > 0) && (
+      {(rows.length > 1 || (filter.subFilters ?? []).length > 0) && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Match</span>
           <select
@@ -318,16 +360,17 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
         </div>
       )}
 
-      {filter.criteria.map((criterion, idx) => (
+      {rows.map((row, idx) => (
         <CriteriaRow
-          key={getCriterionKey(criterion)}
+          key={getCriterionKey(filter.criteria[row.start])}
           index={idx}
-          criterion={criterion}
+          criteria={filter.criteria.slice(row.start, row.start + row.count)}
           fields={fields}
-          onChange={(updated) => updateCriterion(idx, updated)}
-          onRemove={() => removeCriterion(idx)}
+          onChange={(updated) => updateRow(row.start, row.count, updated)}
+          onRemove={() => removeRow(row.start, row.count)}
           depth={depth}
           allowVariables={allowVariables}
+          pairAllowed={pairAllowed}
         />
       ))}
 
@@ -382,18 +425,20 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
 interface CriteriaRowProps {
   /** Display index of this row within its group. */
   index: number
-  /** The criterion this row represents. */
-  criterion: QFilterCriteria
+  /** The criteria this row represents: one, or a `>=` and a `<` bound that make a date range. */
+  criteria: QFilterCriteria[]
   /** Available filterable fields. */
   fields: FilterField[]
-  /** Callback invoked when the criterion changes. */
-  onChange: (updated: QFilterCriteria) => void
+  /** Callback invoked with the row's new criteria. */
+  onChange: (updated: QFilterCriteria[]) => void
   /** Callback invoked when the user removes the row. */
   onRemove: () => void
   /** Nesting depth, used in data-qqq-id attributes. */
   depth: number
   /** Whether the value may be a filter variable. */
   allowVariables?: boolean
+  /** Whether a condition that is two bounds (a day, a range, a relative range) may be written: only in an ANDed group. */
+  pairAllowed?: boolean
 }
 
 /**
@@ -402,18 +447,25 @@ interface CriteriaRowProps {
  * Changing to a field of a different type (or possible value source) resets the operator
  * and values, as in Material; otherwise the operator and values are kept.
  */
-export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, fields, onChange, onRemove, depth, allowVariables = false }: CriteriaRowProps) {
+export const CriteriaRow = React.memo(function CriteriaRow({ index, criteria, fields, onChange, onRemove, depth, allowVariables = false, pairAllowed = true }: CriteriaRowProps) {
   const { weekday } = useFilterSettings()
+  const criterion = criteria[0]
   const selectedField = fields.find((f) => f.name === criterion.fieldName)
+  // a report setup lets a value be a filter variable, which a whole-day range cannot take: those rows keep exact values
+  const dateRow = useDateRow({ field: selectedField, criteria, onChange, enabled: !allowVariables })
   const options = selectedField ? getOperatorOptions(selectedField, { weekday }) : []
   const selected = selectedOperatorOption(options, criterion)
   const allOptions = options.some((o) => o.id === selected.id) ? options : [...options, selected]
-  const status = validateCriterion(criterion)
+  const status = dateRow.dateMode
+    ? { valid: dateRow.complete, message: dateRow.complete ? 'This condition is fully defined and is part of your filter.' : 'You must pick a date to complete the definition of this condition.' }
+    : validateCriterion(criterion)
   const groups = useMemo(() => {
     const byGroup = new Map<string, FilterField[]>()
     for (const f of fields) if (f.isSelectable !== false) byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
     return [...byGroup.entries()]
   }, [fields])
+  // exact-value edits of a date field go through the date row, which keeps its state in step
+  const commitCriterion = (updated: QFilterCriteria) => (dateRow.isDate ? dateRow.commitExact([updated]) : onChange([updated]))
 
   const handleFieldChange = (fieldName: string) => {
     const field = fields.find((f) => f.name === fieldName)
@@ -421,16 +473,16 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
     const sameKind = selectedField && selectedField.type === field.type && selectedField.possibleValueSourceName === field.possibleValueSourceName
       && selectedField.tableName === field.tableName
     if (!sameKind) {
-      onChange(newCriterionForField(fieldName, field))
+      onChange([newCriterionForField(fieldName, field)])
       return
     }
-    onChange({ ...criterion, fieldName, ...(criterion.fieldFunction ? { fieldFunction: { ...criterion.fieldFunction, fieldName } } : {}) })
+    onChange(criteria.map((c) => ({ ...c, fieldName, ...(c.fieldFunction ? { fieldFunction: { ...c.fieldFunction, fieldName } } : {}) })))
   }
 
   const handleOperatorChange = (optionId: string) => {
     const next = allOptions.find((o) => o.id === optionId)
     if (!next) return
-    onChange(changeCriterionOperator(criterion, selected, next))
+    commitCriterion(changeCriterionOperator(criterion, selected, next))
   }
 
   return (
@@ -453,27 +505,40 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criterion, f
           ))}
       </select>
 
-      <select
-        value={selected.id}
-        onChange={(e) => handleOperatorChange(e.target.value)}
-        className="min-w-[160px] rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-        aria-label="Filter operator"
-        data-qqq-id={`filter-operator-${depth}-${index}`}
-      >
-        {allOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-      </select>
+      {selectedField && dateRow.dateMode ? (
+        <DateModeInputs field={selectedField} row={dateRow} pairAllowed={pairAllowed} settings={{ weekday }} criterion={criterion}
+          dataId={`filter-${depth}-${index}`} />
+      ) : (
+        <>
+          <select
+            value={selected.id}
+            onChange={(e) => handleOperatorChange(e.target.value)}
+            className="min-w-[160px] rounded border border-input bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+            aria-label="Filter operator"
+            data-qqq-id={`filter-operator-${depth}-${index}`}
+          >
+            {allOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
 
-      {selectedField && selected.valueMode !== 'none' && !selected.implicitValues && (
-        <FilterValueInput
-          field={selectedField}
-          valueMode={selected.valueMode}
-          values={criterion.values}
-          onChange={(values) => onChange({ ...criterion, values })}
-          depth={depth}
-          index={index}
-          allowVariables={allowVariables}
-        />
+          {selectedField && selected.valueMode !== 'none' && !selected.implicitValues && (
+            <FilterValueInput
+              field={selectedField}
+              valueMode={selected.valueMode}
+              values={criterion.values}
+              onChange={(values) => commitCriterion({ ...criterion, values })}
+              depth={depth}
+              index={index}
+              allowVariables={allowVariables}
+            />
+          )}
+        </>
       )}
+
+      {selectedField && dateRow.canIncludeTime && (
+        <IncludeTimeToggle fieldLabel={selectedField.label} checked={dateRow.includeTime} onChange={dateRow.setIncludeTime}
+          dataId={`filter-include-time-${depth}-${index}`} />
+      )}
+      {dateRow.canUseDatePicker && <UseDatePickerButton onClick={dateRow.useDatePicker} dataId={`filter-use-date-picker-${depth}-${index}`} />}
 
       <button
         type="button"
@@ -579,7 +644,7 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     const setFrom = (v: CriteriaValue) => onChange([v, at(1)])
     const setTo = (v: CriteriaValue) => onChange([at(0), v])
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {slot(0, fromId, <SingleValueInput field={field} value={at(0)} onChange={setFrom} placeholder="From"
           ariaLabel={`Filter value from for ${field.label}`} dataId={fromId} />, setFrom)}
         <span className="text-sm text-muted-foreground">and</span>
@@ -793,7 +858,7 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, 
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = controlledOpen ?? uncontrolledOpen
   const setOpen = onOpenChange ?? setUncontrolledOpen
-  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' ? expression.type : 'NowWithOffset'
+  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' ? expression.type : 'NowWithOffset'
   const [kind, setKind] = useState<ExpressionKind>(initialKind)
   const [amount, setAmount] = useState(expression?.type === 'NowWithOffset' ? expression.amount : 1)
   const [offsetUnit, setOffsetUnit] = useState<ExpressionTimeUnit>(expression?.type === 'NowWithOffset' ? expression.timeUnit : 'DAYS')
@@ -1228,7 +1293,8 @@ function TypedInput({ fieldType, value, onChange, transform, placeholder, 'aria-
   }
   const common = { value, onChange: handleChange, placeholder, 'aria-label': ariaLabel, 'data-qqq-id': dataId }
   if (fieldType === 'DATE') return <input type="date" {...common} className={`${baseClass} w-36`} />
-  if (fieldType === 'DATE_TIME') return <input type="datetime-local" {...common} className={`${baseClass} w-48`} />
+  // a value with seconds and milliseconds (the end of a day) needs the room to show them
+  if (fieldType === 'DATE_TIME') return <input type="datetime-local" {...common} className={`${baseClass} ${value.includes('.') ? 'w-60' : 'w-48'}`} />
   if (fieldType === 'TIME') return <input type="time" {...common} className={`${baseClass} w-28`} />
   if (fieldType === 'INTEGER' || fieldType === 'LONG' || fieldType === 'DECIMAL') {
     return <input type="number" step={fieldType === 'DECIMAL' ? 'any' : 1} {...common} className={`${baseClass} w-32`} />
