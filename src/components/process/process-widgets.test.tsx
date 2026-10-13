@@ -271,7 +271,7 @@ describe('process screens: blocks (#725)', () => {
     expect(onSubmit).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '9007199254740992' } })
     await user.click(screen.getByRole('button', { name: 'Submit' }))
-    expect(await screen.findByText('Quantity must be at least 9007199254740993')).toBeVisible()
+    expect(await screen.findByText('The value for Quantity is too small (minimum allowed value is 9007199254740993)')).toBeVisible()
     expect(onSubmit).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '9007199254740993' } })
     await user.click(screen.getByRole('button', { name: 'Submit' }))
