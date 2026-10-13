@@ -18,6 +18,7 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it } from 'vitest'
 import { axe } from 'jest-axe'
 
@@ -63,7 +64,7 @@ function serve(confirmStatus: 'EXECUTED' | 'FAILED' = 'EXECUTED') {
 describe('AssistantPendingActionCard', () => {
   it('shows the proposed change and runs it only when confirmed', async () => {
     const calls = serve()
-    const { container } = render(<AssistantPendingActionCard render={RENDER} />)
+    const { container } = render(<QueryClientProvider client={new QueryClient()}><AssistantPendingActionCard render={RENDER} /></QueryClientProvider>)
     expect(screen.getByText('Create a Blog Post: Title = Hello')).toBeInTheDocument()
     expect(screen.getByText('Hello')).toBeInTheDocument()
     await waitFor(() => expect(calls).toContain('get'))
@@ -79,7 +80,7 @@ describe('AssistantPendingActionCard', () => {
 
   it('cancels without running anything', async () => {
     const calls = serve()
-    render(<AssistantPendingActionCard render={RENDER} />)
+    render(<QueryClientProvider client={new QueryClient()}><AssistantPendingActionCard render={RENDER} /></QueryClientProvider>)
     await waitFor(() => expect(calls).toContain('get'))
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     await waitFor(() => expect(screen.getByText(/Cancelled, nothing changed/)).toBeInTheDocument())

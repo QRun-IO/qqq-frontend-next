@@ -25,6 +25,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useQueryClient } from '@tanstack/react-query'
 import { Check, PencilLine, Plus, Trash2, X } from 'lucide-react'
 
 import type { AssistantPendingAction, AssistantPendingActionRender } from '@/types/assistant'
@@ -53,6 +54,7 @@ export default function AssistantPendingActionCard({ render }: { render: Assista
   const [action, setAction] = useState<AssistantPendingAction | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     let live = true
@@ -84,7 +86,10 @@ export default function AssistantPendingActionCard({ render }: { render: Assista
     setBusy(true)
     setError(null)
     try {
-      setAction(confirm ? await confirmAssistantAction(render.actionId) : await rejectAssistantAction(render.actionId))
+      const decided = confirm ? await confirmAssistantAction(render.actionId) : await rejectAssistantAction(render.actionId)
+      setAction(decided)
+      // the record screens on the page show the saved values without a reload
+      if (decided.status === 'EXECUTED') await queryClient.invalidateQueries()
     } catch (e) {
       setError(getErrorMessage(e, confirm ? 'The change could not be saved.' : 'The action could not be cancelled.'))
       getAssistantAction(render.actionId).then(setAction).catch(() => undefined)
