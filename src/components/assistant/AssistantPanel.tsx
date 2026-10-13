@@ -28,7 +28,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, MoreHorizontal, PanelLeft, Pencil, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Eye, MoreHorizontal, PanelLeft, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
@@ -309,6 +309,25 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           </form>
         ) : (
           <h2 id={titleId} className="min-w-0 flex-1 truncate px-1 text-sm font-semibold text-foreground" data-qqq-id="assistant-title">{title}</h2>
+        )}
+        {conversation && activeConversationId !== null && assistant.config?.features?.writeMode && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(conversation.writeMode)}
+            onClick={() => void updateConversation({ writeMode: !conversation.writeMode })}
+            title={conversation.writeMode
+              ? 'Write mode: the assistant may propose changes, which you confirm. It acts only with your own permissions.'
+              : 'Read-only: the assistant cannot change anything. Switch to Write to let it propose changes you confirm.'}
+            className={cn(
+              'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-medium pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              conversation.writeMode ? 'border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'border-border text-muted-foreground hover:bg-accent'
+            )}
+            data-qqq-id="assistant-write-mode"
+          >
+            {conversation.writeMode ? <PencilLine className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+            {conversation.writeMode ? 'Write' : 'Read-only'}
+          </button>
         )}
         {conversation && activeConversationId !== null && (
           <DropdownMenu.Root>
