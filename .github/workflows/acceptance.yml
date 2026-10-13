@@ -56,6 +56,8 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Bundled UI API document matches the server's (src/lib/api/openapi/qqq-v1.json)
+        run: node scripts/check-ui-api-spec.mjs --server-spec qqq-backend/qqq-middleware-javalin/src/main/resources/openapi/v1/openapi.yaml
       - name: Build QQQ from source
         run: mvn -B -q -f qqq-backend/pom.xml install -DskipTests -Dspotbugs.skip=true -Dpmd.skip=true -Dcheckstyle.skip=true -Djacoco.skip=true
       - name: Build and install the dashboard jar (static export)
