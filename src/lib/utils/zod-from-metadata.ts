@@ -85,8 +85,8 @@ function buildLongSchema(isRequired: boolean, label: string, minValue?: number |
   // Refinements on one schema all run, even after a previous refinement fails.
   // Pipe only valid integer text into BigInt comparisons so bad input stays a field error.
   const checked = integer.pipe(z.string()
-    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= longRangeBound(minValue), `${label} must be at least ${minValue}`)
-    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= longRangeBound(maxValue), `${label} must be at most ${maxValue}`))
+    .refine((value) => value === '' || minValue === undefined || minValue === null || BigInt(value) >= longRangeBound(minValue), `The value for ${label} is too small (minimum allowed value is ${minValue})`)
+    .refine((value) => value === '' || maxValue === undefined || maxValue === null || BigInt(value) <= longRangeBound(maxValue), `The value for ${label} is too large (maximum allowed value is ${maxValue})`))
   return isRequired ? checked : checked.optional()
 }
 
@@ -129,10 +129,10 @@ function buildNumberSchema(
     ? z.coerce.number().int(`${label} must be a whole number`)
     : z.coerce.number({ message: `${label} must be a number` })
   if (minValue !== undefined && minValue !== null) {
-    schema = schema.min(Number(minValue), `${label} must be at least ${minValue}`)
+    schema = schema.min(Number(minValue), `The value for ${label} is too small (minimum allowed value is ${minValue})`)
   }
   if (maxValue !== undefined && maxValue !== null) {
-    schema = schema.max(Number(maxValue), `${label} must be at most ${maxValue}`)
+    schema = schema.max(Number(maxValue), `The value for ${label} is too large (maximum allowed value is ${maxValue})`)
   }
   return isRequired
     ? z.union([z.string().trim().min(1, `${label} is required`), z.number()]).pipe(schema)

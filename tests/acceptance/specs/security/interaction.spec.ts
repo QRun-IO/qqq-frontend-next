@@ -261,10 +261,11 @@ test.describe('validation', () => {
     diagnostics.allow(/status of (400|500)/)
     await open(page, '/app/fieldLab/create')
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Range check')
-    // the backend enforces the 0..100 range of Bounded Value (ValueRangeBehavior)
-    await page.getByLabel('Bounded Value', { exact: true }).fill('150')
+    // the backend enforces the exclusive lower bound of Exclusive Bounded Value (ValueRangeBehavior);
+    // the form is told only the inclusive ranges, which it checks itself before any request
+    await page.getByLabel('Exclusive Bounded Value', { exact: true }).fill('0')
     await page.locator('[data-qqq-id="button-save"]').click()
-    await expect(page.getByText(/Failed to create Field Lab: .*Bounded Value/)).toBeVisible()
+    await expect(page.getByText(/Failed to create Field Lab: .*Exclusive Bounded Value/)).toBeVisible()
     await expect(page).toHaveURL(/\/app\/fieldLab\/create\/?$/)
     expect(await backend.sql('select count(*) as n from field_lab')).toEqual([{ n: '0' }])
   })
