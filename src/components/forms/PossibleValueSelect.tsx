@@ -41,7 +41,7 @@ import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
 // the record picker dialog and the full-size preview load only when opened
 const RecordPickerDialog = lazy(() => import('./RecordPickerDialog'))
-const FilePreviewLightbox = lazy(() => import('@/components/preview/FilePreviewLightbox'))
+import { FilePreviewLightbox } from '@/components/preview/FilePreviewLightboxLazy'
 
 /** How many options the inline typeahead of a picker field asks for (the dialog pages the rest). */
 const PICKER_INLINE_LIMIT = 20

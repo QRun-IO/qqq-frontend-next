@@ -47,8 +47,8 @@ import {
 import { pickerPreviewUrl, pickerRecordPath, pickerSubtitle, pickerThumbnailUrl, pickerValueText } from '@/lib/utils/record-picker'
 import { buttonClass, iconButtonClass, INPUT_CLASS, SELECT_CLASS, ALERT_CLASS, LABEL_CLASS } from '@/components/ui/controls'
 
-const FilePreviewLightbox = lazy(() => import('@/components/preview/FilePreviewLightbox'))
-const ProcessRun = lazy(() => import('@/components/process/ProcessRun').then((module) => ({ default: module.ProcessRun })))
+import { FilePreviewLightbox } from '@/components/preview/FilePreviewLightboxLazy'
+import { ProcessRun } from '@/components/process/ProcessRunLazy'
 
 /** Search debounce, in milliseconds. */
 const SEARCH_DEBOUNCE_MS = 300
