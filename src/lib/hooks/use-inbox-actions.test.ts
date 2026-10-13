@@ -85,12 +85,19 @@ describe('relativeTime and linkKind', () => {
     expect(relativeTime({}, now)).toBe('')
   })
 
-  it('links only relative app paths and https', () => {
+  it('links only same-origin app paths and https, refusing open redirects', () => {
     expect(linkKind('/app/x')).toBe('app')
-    expect(linkKind('https://qrun.io')).toBe('external')
-    expect(linkKind('//evil.example')).toBeNull()
-    expect(linkKind('http://plain.example')).toBeNull()
+    expect(linkKind('https://qrun.io/releases')).toBe('external')
+    expect(linkKind('//evil.com')).toBeNull()
+    expect(linkKind('/\\evil.com')).toBeNull()
+    expect(linkKind('\\\\evil.com')).toBeNull()
+    expect(linkKind('/app/x\\y')).toBeNull()
+    expect(linkKind('/app/ x')).toBeNull()
+    expect(linkKind('/app/\tx')).toBeNull()
     expect(linkKind('javascript:alert(1)')).toBeNull()
+    expect(linkKind('data:text/html,x')).toBeNull()
+    expect(linkKind('http://x')).toBeNull()
+    expect(linkKind('https://')).toBeNull()
     expect(linkKind(null)).toBeNull()
   })
 })

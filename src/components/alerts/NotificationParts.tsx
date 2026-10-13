@@ -83,17 +83,24 @@ export function relativeTime(item: Pick<InboxItem, 'age' | 'deliveredAt'>, now: 
 }
 
 /**
- * Classifies an item's link: a relative app path (client navigation), https (a new tab), or
- * none (anything else is not linked).
+ * Classifies an item's link: a same-origin path starting with a single `/` (client navigation),
+ * https (a new tab), or none (rendered as plain text). Backslashes, whitespace and control
+ * characters are refused outright, since browsers normalize `\` to `/` (`/\evil.com` would
+ * leave the app), as is a second character of `/` or `\`.
  *
  * @param href - The link.
  * @returns The kind.
  */
 export function linkKind(href: string | null | undefined): 'app' | 'external' | null {
-  if (!href) return null
-  if (href.startsWith('/') && !href.startsWith('//')) return 'app'
-  if (href.startsWith('https://')) return 'external'
-  return null
+  if (!href || /[\\\s\u0000-\u001f\u007f]/.test(href) || href[1] === '/' || href[1] === '\\') return null
+  let url: URL
+  try {
+    url = new URL(href, window.location.origin)
+  } catch {
+    return null
+  }
+  if (href.startsWith('/')) return url.origin === window.location.origin ? 'app' : null
+  return url.protocol === 'https:' ? 'external' : null
 }
 
 /**
