@@ -34,7 +34,6 @@ import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
 
 const ROOT = '/qbit/data-analysis'
-const tablePath = (table: string) => `${ROOT}/tables/${encodeURIComponent(table)}`
 
 /** Detects availability without changing the legacy query UI.
  * @param table - Metadata table name.
@@ -42,7 +41,7 @@ const tablePath = (table: string) => `${ROOT}/tables/${encodeURIComponent(table)
  */
 export async function getCapabilities(table: string): Promise<DataAnalysisCapabilitiesV1> {
   try {
-    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(`${tablePath(table)}/capabilities`)
+    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(`${ROOT}/tables/${encodeURIComponent(table)}/capabilities`)
     return data && typeof data.canAnalyze === 'boolean' ? data : null
   } catch (error) {
     if ([403, 404].includes(getErrorStatusCode(error) ?? 0)) return null
@@ -59,7 +58,7 @@ export async function columnProfile(
   table: string,
   request: DataAnalysisColumnProfileRequestV1
 ): Promise<DataAnalysisColumnProfileV1> {
-  return apiClient.post(`${tablePath(table)}/column-profile`, request)
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/column-profile`, request)
 }
 
 /** Enumerates distinct values.
@@ -71,7 +70,7 @@ export async function distinctValues(
   table: string,
   request: DataAnalysisDistinctValuesRequestV1
 ): Promise<DataAnalysisDistinctValuesPageV1> {
-  return apiClient.post(`${tablePath(table)}/distinct-values`, request)
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/distinct-values`, request)
 }
 
 /** Profiles table completeness and keys.
@@ -83,7 +82,7 @@ export async function tableProfile(
   table: string,
   request: DataAnalysisTableProfileRequestV1
 ): Promise<DataAnalysisTableProfileV1> {
-  return apiClient.post(`${tablePath(table)}/table-profile`, request)
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/table-profile`, request)
 }
 
 /** Finds duplicate groups.
@@ -95,7 +94,7 @@ export async function duplicates(
   table: string,
   request: DataAnalysisDuplicatesRequestV1
 ): Promise<DataAnalysisDuplicatesResultV1> {
-  return apiClient.post(`${tablePath(table)}/duplicates`, request)
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/duplicates`, request)
 }
 
 /** Starts an owner-scoped exact analysis.
