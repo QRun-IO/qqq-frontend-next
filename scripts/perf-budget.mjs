@@ -150,9 +150,18 @@ mkdirSync(path.dirname(REPORT), { recursive: true })
 writeFileSync(REPORT, JSON.stringify({ budget, result, problems }, null, 2) + '\n')
 if (process.argv.includes('--json')) console.log(JSON.stringify(result, null, 2))
 
-if (problems.length) {
-  console.error(`\nPerformance budget exceeded (${problems.length}):\n- ${problems.join('\n- ')}`)
+// Structural problems (a lazy chunk on a first load, or a marker no chunk contains) always fail.
+// Size problems fail only while perf-budget.json enforces the caps ("enforce": false makes them warnings).
+const structural = problems.filter((p) => p.includes(': no chunk contains its marker') || p.includes('is loaded on first load of a route'))
+const sizeProblems = problems.filter((p) => !structural.includes(p))
+const enforce = budget.enforce !== false
+if (sizeProblems.length && !enforce) {
+  console.warn(`\nPerformance budget (report-only, "enforce": false): over the reference sizes (${sizeProblems.length}):\n- ${sizeProblems.join('\n- ')}`)
+}
+const failures = enforce ? problems : structural
+if (failures.length) {
+  console.error(`\nPerformance budget exceeded (${failures.length}):\n- ${failures.join('\n- ')}`)
   console.error('Reduce the bundle, or raise the budget in perf-budget.json with the reason in the commit.')
   process.exit(1)
 }
-console.log('\nPerformance budget: OK')
+console.log(enforce ? '\nPerformance budget: OK' : '\nPerformance budget: OK (report-only)')

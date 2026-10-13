@@ -4,6 +4,68 @@ Executable acceptance for every supported QQQ UI feature, against the QRun-owned
 application and the production Next build. Mocked unit and e2e tests complement this
 suite; they never replace it.
 
+## CI: build → shards → gate
+
+`.github/workflows/acceptance.yml` plans coverage while one `build` job builds QQQ
+from `QQQ_REF`, the static export, dashboard JAR and sample fat JAR. Its artifact
+contains `out/`, the sample JAR (with its versioned filename) and the matching
+`qqq-middleware-api` JAR. Shards download these and run
+`node scripts/acceptance.mjs --skip-build --shard=i/n`. Each shard compiles the owned
+Java fixture at startup against those two JARs and runs its own backend with
+**one worker and zero retries**. No Maven or Next build runs in a test job.
+
+| Mode | Projects and shard counts | Specs |
+| --- | --- | --- |
+| Ordinary PR | Chromium 2, mobile 2 | Changed areas plus fixed smoke |
+| Full: main, `v*` tags, manual dispatch | Chromium 3, Firefox 3, WebKit 4, mobile 4, tablet 4 | All specs, subject to the existing touch tags and quarantine |
+| PR with `full-acceptance` label | Same as full | Same as full |
+
+Adding or removing the label replans the PR. `scripts/acceptance-select.mjs` owns
+the path mapping and smoke list: landing, navigation, record CRUD, query grid and
+sample dashboard. A changed acceptance spec/helper selects its whole area. Source
+paths select matching widget, query, record/form, process, navigation/theme,
+security/auth or ESB areas. Shared infrastructure (including API/client code,
+fixtures, support, matrix definitions, dependencies and build configuration) and
+unmapped production paths select every area on Chromium and mobile. Docs-only PRs
+run smoke. Deleted/renamed paths are included using a merge-base diff.
+
+`QQQ_ACCEPTANCE_BLOB=1` selects the blob reporter and defers the per-run gate.
+CI sets `QQQ_ACCEPTANCE_BLOB_NAME` to a unique project/shard ZIP filename.
+`QQQ_ACCEPTANCE_SPEC_PATHS` is a JSON array of spec/directory paths used by CI;
+leave both unset for the usual local JSON/HTML reports and gate. The final
+**`acceptance gate`** job always runs, merges every shard's blob into
+`test-results/acceptance/report.json` and `html/`, then runs `acceptance-gate.mjs`.
+PR mode uses `--partial`; full mode requires all non-quarantined matrix rows.
+Build/plan/shard failures, skipped shards or missing blobs fail this job even if a partial report
+looks green. Configure branch protection to require this single acceptance signal.
+Merged reports, blobs (including failure attachments) and `gate.json` are retained
+in the `acceptance` artifact for 30 days; per-shard blobs are retained too.
+
+The target is ordinary PRs under 30 minutes; hosted timings still need measurement.
+pnpm and browser binaries are cached; only the required browser engine is installed
+(mobile uses Chromium, tablet uses WebKit), with OS dependencies installed every run.
+QQQ's installed Maven modules are cached by resolved source commit SHA. Every Maven
+command has four attempts with 15/45/120-second backoff plus HTTP transport retries.
+
+## Quarantine
+
+`WID-029` is quarantined under [issue #93](https://github.com/QRun-IO/qqq-frontend-next/issues/93).
+Its tests retain their assertions and touch tags and add `@quarantine`. Normal runs
+exclude that tag; `QQQ_ACCEPTANCE_QUARANTINE=only` runs only those tests (intersected
+with the project's touch tags). Full CI also runs them in a separate, non-blocking
+Chromium `quarantine` job with its own `acceptance-quarantine` artifact.
+
+`tests/acceptance/quarantine.json` records each ID, issue link and reason. The gate
+lists entries and test outcomes in `gate.json`, counts rows in `summary.quarantined`,
+and excludes them from required desktop/touch coverage. Unknown IDs and missing
+issue links still fail the gate. A quarantine pass does not close the issue: remove
+both the registry entry and test tags once the fix is verified.
+
+```bash
+QQQ_ACCEPTANCE_QUARANTINE=only QQQ_ACCEPTANCE_BROWSERS=chromium \
+  node scripts/acceptance.mjs --skip-build
+```
+
 ## RC1 priority: workflow depth in Chromium
 
 For RC1, prioritize complete real-application workflows in Chromium before expanding
@@ -26,7 +88,7 @@ additional browser and responsive work follows the workflow depth pass.
 export QQQ_SAMPLE_JAR=/path/to/qqq-sample-project-<version>-jar-with-dependencies.jar
 pnpm test:acceptance                          # static export + full suite + gate
 node scripts/acceptance.mjs --skip-build specs/records   # reuse out/, filtered (partial gate)
-QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile pnpm test:acceptance
+QQQ_ACCEPTANCE_BROWSERS=chromium,firefox,webkit,mobile,tablet pnpm test:acceptance
 QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build instead
 ```
 
@@ -106,7 +168,7 @@ QQQ_ACCEPTANCE_MODE=standalone pnpm test:acceptance      # container-image build
   lost during destruction. Retain source/export/runner provenance and raw traces privately;
   passing instrumented cells do not attribute historical failures or establish a fix.
 - **Browsers.** `QQQ_ACCEPTANCE_BROWSERS` picks the Playwright projects (default `chromium`).
-  The documented matrix is `chromium,firefox,webkit,mobile`; results and the exact commands
+  The documented matrix is `chromium,firefox,webkit,mobile,tablet`; results and the exact commands
   are in `docs/acceptance/browser-matrix.md`.
 
 ## Phone scope (`mobile` project)
