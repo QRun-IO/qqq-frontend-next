@@ -36,21 +36,12 @@ export interface OffSpecCall {
 
 /** Off-spec calls, by owner. Remove entries as their owners move onto spec classes. */
 export const OFF_SPEC_CALLS: OffSpecCall[] = [
-  ...(['GET /alerts/inbox/summary', 'GET /alerts/inbox', 'POST /alerts/inbox/{}', 'GET /alerts/record-panel', 'POST /alerts/record-panel/watch'].map((c) => call(c, 'qbit-alerts'))),
   ...([
     'GET /assistant/config', 'GET /assistant/conversations', 'POST /assistant/conversations', 'GET /assistant/conversations/{}',
     'PATCH /assistant/conversations/{}', 'DELETE /assistant/conversations/{}', 'POST /assistant/conversations/{}/turns',
     'GET /assistant/turns/{}/events', 'POST /assistant/turns/{}/cancel', 'POST /assistant/messages/{}/feedback',
     'GET /assistant/actions/{}', 'POST /assistant/actions/{}/confirm', 'POST /assistant/actions/{}/reject',
   ].map((c) => call(c, 'qbit-assistant'))),
-  ...([
-    'GET /sql-workbench/capabilities', 'GET /sql-workbench/schema/{}', 'POST /sql-workbench/execute', 'POST /sql-workbench/explain',
-    'GET /sql-workbench/executions/{}/rows', 'POST /sql-workbench/executions/{}/cancel', 'GET /sql-workbench/executions/{}/export',
-    'GET /sql-workbench/history', 'GET /sql-workbench/notebooks', 'POST /sql-workbench/notebooks', 'GET /sql-workbench/notebooks/{}',
-    'PUT /sql-workbench/notebooks/{}', 'DELETE /sql-workbench/notebooks/{}', 'POST /sql-workbench/notebooks/{}/publish',
-    'POST /sql-workbench/notebooks/{}/duplicate', 'GET /sql-workbench/notebooks/{}/versions', 'POST /sql-workbench/notebooks/{}/versions/{}/restore',
-    'GET /sql-workbench/notebooks/{}/snapshots', 'POST /sql-workbench/notebooks/{}/snapshots', 'DELETE /sql-workbench/notebooks/{}/snapshots/{}',
-  ].map((c) => call(c, 'qbit-sql-workbench'))),
   ...(['GET {}/metaData/table/{}', 'POST {}/table/{}/query', 'POST {}/table/{}/count'].map((c) => call(c, 'qqq-middleware-api ApiAwareMiddlewareVersionV1'))),
   // legacy, outside /qqq/v1 (their own baseURL)
   call('POST /material-dashboard-backend/form-adjuster/{}/{}', 'legacy material-dashboard backend'),
@@ -68,7 +59,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
 // 46 while POST /uploads waits: vendor once QRun-IO/qqq#1181 ships in an RC, then lower to 45
-export const OFF_SPEC_CEILING = 46
+export const OFF_SPEC_CEILING = 21
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
