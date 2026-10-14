@@ -1423,7 +1423,7 @@
         "src/components/forms/PossibleValueSelect.tsx",
         "src/lib/utils/contingent-fields.ts"
       ],
-      "fixture": "Core sample ContingentPlaceMetaData: addressBook / addressBookPickPlace; USA and Canada, four states, eight cities",
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
       "scenarios": [
         "Contingent create: scoped choices, cascade clearing and persisted v1 values"
       ],
@@ -1440,7 +1440,7 @@
         "src/components/forms/PossibleValueSelect.tsx",
         "src/lib/utils/contingent-fields.ts"
       ],
-      "fixture": "Core sample ContingentPlaceMetaData: addressBook / addressBookPickPlace; USA and Canada, four states, eight cities",
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
       "scenarios": [
         "Contingent edit: saved values survive load; state changes clear city"
       ],
@@ -1457,7 +1457,7 @@
         "src/components/forms/PossibleValueSelect.tsx",
         "src/lib/utils/contingent-fields.ts"
       ],
-      "fixture": "Core sample ContingentPlaceMetaData: addressBook / addressBookPickPlace; USA and Canada, four states, eight cities",
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
       "scenarios": [
         "Server rejects an invalid dependent value posted directly through v1"
       ],
@@ -1474,7 +1474,7 @@
         "src/components/forms/PossibleValueSelect.tsx",
         "src/lib/utils/contingent-fields.ts"
       ],
-      "fixture": "Core sample ContingentPlaceMetaData: addressBook / addressBookPickPlace; USA and Canada, four states, eight cities",
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
       "scenarios": [
         "Filter PV requests use filter context and current dependency criteria"
       ],

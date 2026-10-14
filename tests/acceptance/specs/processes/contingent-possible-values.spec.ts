@@ -11,7 +11,7 @@ import { advance, choosePossibleValue, openProcess, screen, viewValue } from './
 test('[PRC-068] process country/state/city inputs share metadata, cascade clears, and submit the chosen city @mobile', async ({ page, backend, diagnostics }) => {
   void backend
   void diagnostics
-  await openProcess(page, 'addressBookPickPlace')
+  await openProcess(page, 'placeAddressPick')
   const state = page.getByRole('combobox', { name: 'State / province', exact: true })
   const city = page.getByRole('combobox', { name: 'City', exact: true })
   await expect(state).toHaveAttribute('aria-disabled', 'true')

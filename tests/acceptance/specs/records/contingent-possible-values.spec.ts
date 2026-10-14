@@ -27,7 +27,7 @@ async function choices(page: Page, field: string, label: string, expected: strin
 
 test('[REC-069] contingent create narrows country/state/city, cascades clears, and persists via v1 @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await openForm(page, '/app/addressBook/create', 'Create Address book')
+  await openForm(page, '/app/placeAddress/create', 'Create Address book')
   await control(page, 'label').fill('Contingent acceptance')
   await expect(control(page, 'stateId')).toHaveAttribute('aria-disabled', 'true')
   await expect(control(page, 'stateId')).toHaveAccessibleDescription('Choose Country first')
@@ -48,15 +48,15 @@ test('[REC-069] contingent create narrows country/state/city, cascades clears, a
   await choose(page, 'cityId', 'City', 'Toronto')
   await expect(page.locator('[data-qqq-id^="contingent-cleared-"]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/addressBook\/\d+$/)
-  const response = await backend.api.get(`/qqq/v1/table/addressBook/${recordIdFromUrl(page, 'addressBook')}`)
+  await expect(page).toHaveURL(/\/app\/placeAddress\/\d+$/)
+  const response = await backend.api.get(`/qqq/v1/table/placeAddress/${recordIdFromUrl(page, 'placeAddress')}`)
   expect(response.ok()).toBe(true)
   expect((await response.json()).record.values).toMatchObject({ label: 'Contingent acceptance', countryId: 2, stateId: 3, cityId: 5 })
 })
 
 test('[REC-070] contingent edit retains saved selections and clears a city after a state change @mobile', async ({ page, backend, diagnostics }) => {
   void diagnostics
-  await openForm(page, '/app/addressBook/1/edit', 'Edit Address book')
+  await openForm(page, '/app/placeAddress/1/edit', 'Edit Address book')
   await expect(control(page, 'countryId')).toContainText('USA')
   await expect(control(page, 'stateId')).toContainText('Illinois')
   await expect(control(page, 'cityId')).toContainText('Chester')
@@ -67,19 +67,19 @@ test('[REC-070] contingent edit retains saved selections and clears a city after
   await choices(page, 'cityId', 'City', ['St. Louis', 'Kansas City'])
   await choose(page, 'cityId', 'City', 'St. Louis')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/addressBook\/1$/)
-  const response = await backend.api.get('/qqq/v1/table/addressBook/1')
+  await expect(page).toHaveURL(/\/app\/placeAddress\/1$/)
+  const response = await backend.api.get('/qqq/v1/table/placeAddress/1')
   expect(response.ok()).toBe(true)
   expect((await response.json()).record.values).toMatchObject({ countryId: 1, stateId: 2, cityId: 3 })
 })
 
 test('[REC-071] v1 refuses a directly posted invalid dependent choice without saving it', async ({ backend, diagnostics }) => {
   void diagnostics
-  const response = await backend.api.post('/qqq/v1/table/addressBook', { multipart: { label: 'Invalid acceptance', countryId: '2', stateId: '1', cityId: '1' } })
+  const response = await backend.api.post('/qqq/v1/table/placeAddress', { multipart: { label: 'Invalid acceptance', countryId: '2', stateId: '1', cityId: '1' } })
   // v1 writes can report record validation errors in a successful HTTP envelope.
   const body = await response.json()
   expect(JSON.stringify(body)).toContain('State / province [1] is not a valid choice for the selected Country')
-  const query = await backend.api.post('/qqq/v1/table/addressBook/query', { data: { filter: { criteria: [{ fieldName: 'label', operator: 'EQUALS', values: ['Invalid acceptance'] }] } } })
+  const query = await backend.api.post('/qqq/v1/table/placeAddress/query', { data: { filter: { criteria: [{ fieldName: 'label', operator: 'EQUALS', values: ['Invalid acceptance'] }] } } })
   expect(query.ok()).toBe(true)
   expect((await query.json()).records ?? []).toHaveLength(0)
 })
@@ -89,9 +89,9 @@ test('[REC-072] filter builder offers all cities without a state and narrows aft
   void diagnostics
   const requests: Array<{ useCase?: string; values?: Record<string, unknown> }> = []
   page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/addressBook/possibleValues/cityId') requests.push(request.postDataJSON())
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/qqq/v1/table/placeAddress/possibleValues/cityId') requests.push(request.postDataJSON())
   })
-  await page.goto(filterUrl('addressBook', { criteria: [{ fieldName: 'cityId', operator: 'EQUALS', values: [] }] }))
+  await page.goto(filterUrl('placeAddress', { criteria: [{ fieldName: 'cityId', operator: 'EQUALS', values: [] }] }))
   await openFilter(page)
   await page.getByRole('combobox', { name: 'Filter value for City' }).click()
   await expect(page.getByRole('listbox', { name: 'City options' }).getByRole('option')).toHaveCount(8)
