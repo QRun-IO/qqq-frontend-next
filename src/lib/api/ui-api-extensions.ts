@@ -27,6 +27,7 @@ export const UI_API_EXTENSION = {
   esb: 'esb',
   collaboration: 'collaboration',
   dataAnalysis: 'data-analysis',
+  quickSearch: 'quick-search',
 } as const
 
 /**
