@@ -106,6 +106,15 @@ describe('process one-time secrets', () => {
     expect(JSON.stringify(result.current)).not.toContain(secret.value)
   })
 
+  it('shows secrets handed to the first completed status poll after the step went async', async () => {
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ type: 'JOB_STARTED', processUUID: 'run', jobUUID: 'job' })
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ type: 'COMPLETE', processUUID: 'run', values: { oneTimeSecretsMasked: [secret.masked] }, oneTimeSecrets: [secret] })
+    const { result } = renderHook(() => useProcess(process.name, process, {}))
+    await act(async () => result.current.start())
+    await waitFor(() => expect(result.current.oneTimeSecrets).toEqual([secret]), { timeout: 5000 })
+    expect(JSON.stringify(result.current.state)).not.toContain(secret.value)
+  })
+
   it('renders ordinary results without a dialog or masked notice', async () => {
     vi.mocked(apiClient.post).mockResolvedValueOnce({ processUUID: 'run', values: {} })
     renderRun()

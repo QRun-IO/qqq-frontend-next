@@ -271,6 +271,14 @@ export function useProcess(
           fail('Unexpected server response.', false)
           return
         }
+        if (response.type === 'COMPLETE') {
+          // a step that went async hands its one-time secrets to the first
+          // completed status poll (QRun-IO/qqq#1174); same isolation as run()
+          const { oneTimeSecrets: secrets, ...safeResponse } = response
+          if (secrets?.length) setOneTimeSecrets(secrets)
+          handle(safeResponse, generation)
+          return
+        }
         handle(response, generation)
       } catch (error) {
         if (generation !== generationRef.current) return
