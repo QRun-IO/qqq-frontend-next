@@ -265,12 +265,14 @@ export function FilesTab({
           }}
           data-qqq-id="files-dropzone"
         >
-          <label className="block cursor-pointer text-sm font-medium">
-            Drop files or choose files
+          <p className="text-sm font-medium">Drop files here</p>
+          {/* the native picker's "Choose Files / No file chosen" text ignores the theme; a styled label opens it */}
+          <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+            Choose files
             <input
               type="file"
               multiple
-              className="mt-3 block w-full text-xs"
+              className="sr-only"
               data-qqq-id="files-picker"
               onChange={(event) => {
                 void upload(Array.from(event.target.files ?? []))
