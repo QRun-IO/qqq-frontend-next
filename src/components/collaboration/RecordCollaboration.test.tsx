@@ -105,11 +105,13 @@ it('sanitizes HTML, active links and remote images in markdown preview', () => {
   const { container } = mount(
     <CollaborationMarkdown
       body={
-        '<script>alert(1)</script>\n<img src=x onerror=alert(1)>\n[bad](javascript:alert(1)) ![remote](https://other.test/image) **Safe** @[Sam](user:sam)'
+        // a blank line ends each CommonMark HTML block; without one, the markdown after an HTML line belongs to the block
+        '<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n[bad](javascript:alert(1)) ![remote](https://other.test/image) **Safe** @[Sam](user:sam)'
       }
     />
   )
   expect(container.querySelector('script,img,iframe,[onerror],a[href^="javascript:"]')).toBeNull()
+  expect(container.textContent).not.toContain('alert(1)</script>')
   expect(screen.getByText('Safe').tagName).toBe('STRONG')
   expect(container.querySelector('[data-qqq-id="mention-chip"]')).toHaveTextContent('Sam')
 })
