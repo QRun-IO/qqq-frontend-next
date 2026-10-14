@@ -16,12 +16,40 @@
 
 /** @file Lazy realtime subscription hooks. Import only from feature chunks. */
 'use client'
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { useQContext } from '@/lib/context/q-context'
-import { realtimeClient, type RealtimeChannel, type RealtimeEvent } from '@/lib/realtime/client'
+import { QContext } from '@/lib/context/q-context'
+import {
+  realtimeClient,
+  type RealtimeChannel,
+  type RealtimeClient,
+  type RealtimeEvent,
+} from '@/lib/realtime/client'
 import { invalidateRealtime } from '@/lib/realtime/invalidate'
-const bridges = new WeakMap<QueryClient, { count: number; off: () => void }>()
+/** One cache-invalidation bridge per (realtime client, query cache), shared by every hook. */
+const bridges = new WeakMap<RealtimeClient, Map<QueryClient, { count: number; off: () => void }>>()
+/** Retains the bridge that applies realtime hints to the cache.
+ * @param client - Session realtime client.
+ * @param cache - Query cache.
+ * @returns Release.
+ */
+function retainBridge(client: RealtimeClient, cache: QueryClient) {
+  let byCache = bridges.get(client)
+  if (!byCache) bridges.set(client, (byCache = new Map()))
+  let bridge = byCache.get(cache)
+  if (!bridge) {
+    bridge = { count: 0, off: client.onEvent((event) => invalidateRealtime(cache, event)) }
+    byCache.set(cache, bridge)
+  }
+  const retained = bridge
+  retained.count++
+  return () => {
+    if (--retained.count === 0) {
+      retained.off()
+      byCache.delete(cache)
+    }
+  }
+}
 /** Retains one channel and forwards its hints to the cache and optional consumer.
  * @param channel - Record, table or current user channel.
  * @param receive - Optional event listener.
@@ -32,28 +60,22 @@ export function useRealtimeChannel(
   receive?: (event: RealtimeEvent) => void,
   enabled = true
 ) {
-  const { userId } = useQContext()
+  const userId = useContext(QContext)?.userId
   const cache = useQueryClient()
   const callback = useRef(receive)
-  callback.current = receive
+  useEffect(() => {
+    callback.current = receive
+  })
   useEffect(() => {
     if (!enabled) return
     const client = realtimeClient(String(userId ?? 'anonymous'))
-    let bridge = bridges.get(cache)
-    if (!bridge) {
-      bridge = { count: 0, off: client.onEvent((event) => invalidateRealtime(cache, event)) }
-      bridges.set(cache, bridge)
-    }
-    bridge.count++
+    const releaseBridge = retainBridge(client, cache)
     const off = client.onEvent((event) => callback.current?.(event))
     const release = client.subscribe(channel)
     return () => {
       off()
       release()
-      if (--bridge.count === 0) {
-        bridge.off()
-        bridges.delete(cache)
-      }
+      releaseBridge()
     }
   }, [channel, enabled, userId, cache])
 }

@@ -16,13 +16,13 @@
 
 /** @file Live edit warnings and optimistic-conflict review without replacing unsaved values. */
 'use client'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { QRecord, QTableMetaData } from '@/types'
 import type { PresenceViewer } from '@/types/collaboration'
 import { getRecord } from '@/lib/api/tables'
 import { searchPeople } from '@/lib/api/collaboration'
-import { useQContext } from '@/lib/context/q-context'
+import { QContext } from '@/lib/context/q-context'
 import { useRealtimeChannel } from '@/lib/hooks/use-realtime-channel'
 import { useCollaborationPresence } from '@/lib/hooks/use-collaboration-presence'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
@@ -34,7 +34,10 @@ export interface CollaborationEditProps {
   table: QTableMetaData
   pk: string
   fieldName?: string
+  /** Qbit installed: presence, actor names and notifications. */
   available: boolean
+  /** Table publishes record events (PRESENCE or FOLLOW). */
+  realtime: boolean
   error: Error | null
   getValues: () => Record<string, unknown>
   onViewers: (viewers: PresenceViewer[]) => void
@@ -74,6 +77,7 @@ export function CollaborationEdit({
   pk,
   fieldName,
   available,
+  realtime,
   error,
   getValues,
   onViewers,
@@ -81,8 +85,7 @@ export function CollaborationEdit({
   onReload,
   pending,
 }: CollaborationEditProps) {
-  const { userId } = useQContext()
-  useRealtimeChannel('user:me', undefined, available)
+  const userId = useContext(QContext)?.userId
   const [conflict, setConflict] = useState<Conflict | null>(null)
   const [open, setOpen] = useState(false)
   const presence = useCollaborationPresence(
@@ -96,21 +99,32 @@ export function CollaborationEdit({
   useEffect(() => {
     onViewers(JSON.parse(signature) as PresenceViewer[])
   }, [signature, onViewers])
-  useRealtimeChannel(`record:${table.name}:${pk}`, ({ event, data }) => {
-    if (
-      event === 'record.changed' &&
-      data.table === table.name &&
-      String(data.pk) === pk &&
-      data.changedBy !== userId
-    )
-      setConflict({
-        fields: Array.isArray(data.fields)
-          ? data.fields.filter((f): f is string => typeof f === 'string' && !!table.fields[f])
-          : [],
-        actor: typeof data.changedBy === 'string' ? data.changedBy : undefined,
-        rejected: false,
-      })
-  })
+  useRealtimeChannel(
+    `record:${table.name}:${pk}`,
+    ({ event, data }) => {
+      if (
+        event === 'record.changed' &&
+        data.table === table.name &&
+        String(data.pk) === pk &&
+        data.changedBy !== userId
+      )
+        setConflict((previous) =>
+          // A pending 409 keeps its server version; a later hint only refreshes the warning.
+          previous?.rejected
+            ? previous
+            : {
+                fields: Array.isArray(data.fields)
+                  ? data.fields.filter(
+                      (f): f is string => typeof f === 'string' && !!table.fields[f]
+                    )
+                  : [],
+                actor: typeof data.changedBy === 'string' ? data.changedBy : undefined,
+                rejected: false,
+              }
+        )
+    },
+    realtime
+  )
   useEffect(() => {
     const next = recordConflict(error)
     if (next) {
@@ -194,7 +208,7 @@ export function CollaborationEdit({
             {fields.map((field) => (
               <section key={field} className="min-w-0 rounded border border-border p-3">
                 <h3 className="font-semibold">{table.fields[field].label}</h3>
-                <dl className="grid grid-cols-2 gap-2 break-words text-sm">
+                <dl className="grid grid-cols-1 gap-2 break-words text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-muted-foreground">Theirs</dt>
                     <dd>
@@ -219,7 +233,11 @@ export function CollaborationEdit({
               disabled={pending || version === undefined || !current.isSuccess}
               className={collaborationButton}
               onClick={() => {
-                if (version !== undefined) onOverwrite(version)
+                if (version === undefined) return
+                // Re-sends with the version just read; another 409 reopens the review.
+                setOpen(false)
+                setConflict(null)
+                onOverwrite(version)
               }}
               data-qqq-id="conflict-overwrite"
             >

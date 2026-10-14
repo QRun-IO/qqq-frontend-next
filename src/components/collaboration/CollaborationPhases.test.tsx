@@ -36,7 +36,10 @@ vi.mock('@/lib/hooks/use-realtime-channel', () => ({
 vi.mock('@/lib/hooks/use-collaboration-presence', () => ({
   useCollaborationPresence: () => ({ viewers: [] }),
 }))
-vi.mock('@/lib/context/q-context', () => ({ useQContext: () => ({ userId: 'me' }) }))
+vi.mock('@/lib/context/q-context', async () => {
+  const { createContext } = await import('react')
+  return { useQContext: () => ({ userId: 'me' }), QContext: createContext({ userId: 'me' }) }
+})
 vi.mock('@/lib/hooks/use-collaboration-core', () => ({
   useCollaborationAvailable: () => ({ data: true }),
 }))
@@ -149,6 +152,7 @@ it('shows a stream warning, compares theirs and mine, and uses the same dialog o
     table: qInstance.tables.person,
     pk: '1',
     available: true,
+    realtime: true,
     error: null,
     getValues: () => ({ firstName: 'My value' }),
     onViewers: vi.fn(),
@@ -185,6 +189,7 @@ it('opens 409 review automatically and overwrites only with the refreshed versio
       table={qInstance.tables.person}
       pk="1"
       available
+      realtime
       error={error}
       getValues={() => ({ firstName: 'Mine' })}
       onViewers={vi.fn()}

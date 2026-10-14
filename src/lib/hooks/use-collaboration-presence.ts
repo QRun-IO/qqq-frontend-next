@@ -16,12 +16,12 @@
 
 /** @file Ephemeral presence leases with focus changes, polling fallback and realtime refresh. */
 'use client'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PresenceSnapshot, PresenceViewer } from '@/types/collaboration'
 import { renewPresence, leavePresence, getPresence, beaconPresence } from '@/lib/api/collaboration'
 import { queryKeys } from '@/lib/query-client'
-import { useQContext } from '@/lib/context/q-context'
+import { QContext } from '@/lib/context/q-context'
 import { useRealtimeChannel } from './use-realtime-channel'
 
 /** Deduplicates tabs, excludes the current user, and prefers editing leases.
@@ -53,7 +53,7 @@ export function useCollaborationPresence(
 ) {
   const [connectionId] = useState(() => crypto.randomUUID())
   const [ended, setEnded] = useState(false)
-  const { userId } = useQContext()
+  const userId = useContext(QContext)?.userId
   const cache = useQueryClient()
   const key = queryKeys.collaborationResource(table, pk ?? '', 'presence')
   const query = useQuery({

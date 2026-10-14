@@ -20,7 +20,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useCollaborationPresence, otherViewers } from './use-collaboration-presence'
 import * as api from '@/lib/api/collaboration'
-vi.mock('@/lib/context/q-context', () => ({ useQContext: () => ({ userId: 'me' }) }))
+vi.mock('@/lib/context/q-context', async () => {
+  const { createContext } = await import('react')
+  return { useQContext: () => ({ userId: 'me' }), QContext: createContext({ userId: 'me' }) }
+})
 vi.mock('./use-realtime-channel', () => ({ useRealtimeChannel: vi.fn() }))
 vi.mock('@/lib/api/collaboration', () => ({
   renewPresence: vi.fn(),

@@ -49,7 +49,8 @@ export function RecordCollaborationHeader({
   const [role, setRole] = useState<'ownerUserId' | 'assigneeUserId'>('assigneeUserId')
   const [selected, setSelected] = useState<string[]>([])
   const cache = useQueryClient()
-  useRealtimeChannel(`record:${table.name}:${pk}`)
+  const realtime = features?.features?.some((f) => f === 'PRESENCE' || f === 'FOLLOW') === true
+  useRealtimeChannel(`record:${table.name}:${pk}`, undefined, realtime)
   useRealtimeChannel('user:me', undefined, available)
   const presence = useCollaborationPresence(
     table.name,

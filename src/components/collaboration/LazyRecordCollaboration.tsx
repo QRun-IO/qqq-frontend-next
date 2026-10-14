@@ -20,6 +20,7 @@ import type { ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import type { QRecord, QTableMetaData } from '@/types'
 import { useCollaborationAvailable } from '@/lib/hooks/use-collaboration-core'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 
 const Panel = dynamic(
   () => import('./RecordCollaborationPanel').then((m) => m.RecordCollaborationPanel),
@@ -119,7 +120,22 @@ const Access = dynamic(() => import('./RequestAccess').then((m) => m.RequestAcce
 const Edit = dynamic(() => import('./CollaborationEdit').then((m) => m.CollaborationEdit), {
   ssr: false,
 })
-/** Enables core realtime for presence/follow, and qbit UI only when installed.
+/** Whether the table enables any of the named record features.
+ * @param table - Table metadata.
+ * @param names - Feature names.
+ * @returns True when one is enabled.
+ */
+function hasFeature(table: QTableMetaData, ...names: string[]) {
+  return table.recordFeatures?.features?.some((f) => names.includes(f)) === true
+}
+/** Core realtime (record and table channels) is published only for PRESENCE or FOLLOW tables.
+ * @param table - Table metadata.
+ * @returns Whether the table has realtime events.
+ */
+export function hasRealtime(table: QTableMetaData) {
+  return hasFeature(table, 'PRESENCE', 'FOLLOW')
+}
+/** Loads presence, sharing and ownership controls only for tables that enable them.
  * @param props - Loaded record.
  * @returns Lazy header.
  */
@@ -130,22 +146,22 @@ export function LazyCollaborationHeader({
   table: QTableMetaData
   record: QRecord
 }) {
-  const available = useCollaborationAvailable()
-  const realtime = table.recordFeatures?.features?.some((f) => f === 'PRESENCE' || f === 'FOLLOW')
-  return realtime || available.data ? (
+  const realtime = hasRealtime(table)
+  const wanted =
+    realtime || hasFeature(table, 'SHARING', 'ASSIGNMENT') || !!table.recordFeatures?.ownership
+  const available = useCollaborationAvailable(wanted)
+  return realtime || (wanted && available.data) ? (
     <Header table={table} record={record} available={available.data === true} />
   ) : null
 }
-/** Table presence is loaded only for opted-in tables.
+/** Table presence is loaded only for tables with realtime features.
  * @param props - Table metadata.
  * @returns Count.
  */
 export function LazyTablePresence({ table }: { table: QTableMetaData }) {
-  const enabled = table.recordFeatures?.features?.some((f) => f === 'PRESENCE' || f === 'FOLLOW')
-  const available = useCollaborationAvailable()
-  return enabled || available.data ? (
-    <TableViewers table={table} available={available.data === true} />
-  ) : null
+  const enabled = hasRealtime(table)
+  const available = useCollaborationAvailable(enabled)
+  return enabled ? <TableViewers table={table} available={available.data === true} /> : null
 }
 /** The unavailable route keeps its target opaque.
  * @param props - Table and attempted key.
@@ -156,19 +172,18 @@ export function LazyRequestAccess({ table, pk }: Props) {
   const available = useCollaborationAvailable(enabled)
   return enabled && available.data ? <Access tableName={table.name} recordId={pk} /> : null
 }
-/** Lazy edit transport, including the 409 path on non-presence tables.
+/** Lazy edit layer: presence and live warnings on realtime tables, and the 409 review on any
+ * table (the chunk loads only once a save is rejected).
  * @param props - Form bridge.
  * @returns Edit collaboration layer.
  */
 export function LazyCollaborationEdit(
-  props: Omit<import('./CollaborationEdit').CollaborationEditProps, 'available'>
+  props: Omit<import('./CollaborationEdit').CollaborationEditProps, 'available' | 'realtime'>
 ) {
-  const available = useCollaborationAvailable()
-  const enabled = props.table.recordFeatures?.features?.some(
-    (f) => f === 'PRESENCE' || f === 'FOLLOW'
-  )
-  return enabled || available.data || props.error ? (
-    <Edit {...props} available={available.data === true} />
+  const realtime = hasRealtime(props.table)
+  const available = useCollaborationAvailable(realtime)
+  return realtime || getErrorStatusCode(props.error) === 409 ? (
+    <Edit {...props} realtime={realtime} available={available.data === true} />
   ) : null
 }
 

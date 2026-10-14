@@ -15,14 +15,18 @@
  */
 
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
 import apiClient from '@/lib/api/client'
 import { qInstance } from '@/mocks/fixtures/q-instance'
 import { EntityForm } from './EntityForm'
+const edit = vi.hoisted(() => ({ props: undefined as undefined | { onOverwrite: (v: string) => void; error: unknown } }))
 vi.mock('@/components/collaboration/LazyRecordCollaboration', () => ({
-  LazyCollaborationEdit: () => null,
+  LazyCollaborationEdit: (props: { onOverwrite: (v: string) => void; error: unknown }) => {
+    edit.props = props
+    return null
+  },
 }))
 it('keeps edited values and loaded expectedVersion across a realtime record refetch', async () => {
   const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate' }
@@ -53,5 +57,40 @@ it('keeps edited values and loaded expectedVersion across a realtime record refe
   expect(save.mock.calls[0][2]?.params).toEqual({ expectedVersion: 'v1' })
   expect((save.mock.calls[0][1] as FormData).get('name')).toBe('My value')
   expect((save.mock.calls[0][1] as FormData).has('modifyDate')).toBe(false)
+  save.mockRestore()
+})
+
+it('surfaces a 409 to the review layer and "Keep mine" re-sends the dirty values with the new version', async () => {
+  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate' }
+  const record = { tableName: 'company', values: { id: 1, name: 'Original', modifyDate: 'v1' } }
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const conflict = Object.assign(new Error('Conflict'), {
+    isAxiosError: true,
+    status: 409,
+    response: { status: 409, data: { currentVersion: 'v2', changedFields: ['name'] } },
+  })
+  const save = vi
+    .spyOn(apiClient, 'patch')
+    .mockRejectedValueOnce(conflict)
+    .mockResolvedValue({ record: { ...record, values: { ...record.values, name: 'Mine', modifyDate: 'v3' } } })
+  const onSuccess = vi.fn()
+  render(
+    <QueryClientProvider client={client}>
+      <EntityForm tableMetaData={table} record={record} onSuccess={onSuccess} />
+    </QueryClientProvider>
+  )
+  fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Mine' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(edit.props?.error).toBe(conflict))
+  // No silent overwrite: nothing else was sent and the form keeps the user's value.
+  expect(save).toHaveBeenCalledTimes(1)
+  expect(screen.getByLabelText(/Name/)).toHaveValue('Mine')
+  act(() => edit.props!.onOverwrite('v2'))
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+  expect(save.mock.calls[1][2]?.params).toEqual({ expectedVersion: 'v2' })
+  expect((save.mock.calls[1][1] as FormData).get('name')).toBe('Mine')
+  await waitFor(() => expect(onSuccess).toHaveBeenCalled())
   save.mockRestore()
 })
