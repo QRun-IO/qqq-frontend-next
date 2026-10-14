@@ -239,13 +239,15 @@ export function RecordView({
           data-qqq-id={`record-view-not-found-${tableMetaData.name}`}
           role="alert"
         >
-          {requestedPrimaryKey && <LazyRequestAccess table={tableMetaData} pk={requestedPrimaryKey} />}
           <FileQuestion className="mb-3 h-10 w-10 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-base font-semibold text-foreground">
             Record Not Found
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            This link is unavailable. The record may be unavailable or you may not have access.
+            {tableMetaData.recordFeatures?.features?.includes('SHARING')
+              // shared links must not reveal whether a record exists (collaboration spec §8.2)
+              ? 'This link is unavailable. The record may not exist, or you may not have access.'
+              : `The ${tableMetaData.label} record you are looking for does not exist or has been deleted.`}
           </p>
           <button
             type="button"
@@ -261,6 +263,7 @@ export function RecordView({
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back to {tableMetaData.label}
           </button>
+          {requestedPrimaryKey && <LazyRequestAccess table={tableMetaData} pk={requestedPrimaryKey} />}
         </div>
       )
     }

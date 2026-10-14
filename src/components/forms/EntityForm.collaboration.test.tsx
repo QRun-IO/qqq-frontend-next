@@ -29,7 +29,7 @@ vi.mock('@/components/collaboration/LazyRecordCollaboration', () => ({
   },
 }))
 it('keeps edited values and loaded expectedVersion across a realtime record refetch', async () => {
-  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate' }
+  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate', recordFeatures: { features: ['PRESENCE' as const] } }
   const record = { tableName: 'company', values: { id: 1, name: 'Original', modifyDate: 'v1' } }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -61,7 +61,7 @@ it('keeps edited values and loaded expectedVersion across a realtime record refe
 })
 
 it('surfaces a 409 to the review layer and "Keep mine" re-sends the dirty values with the new version', async () => {
-  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate' }
+  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate', recordFeatures: { features: ['PRESENCE' as const] } }
   const record = { tableName: 'company', values: { id: 1, name: 'Original', modifyDate: 'v1' } }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -93,4 +93,12 @@ it('surfaces a 409 to the review layer and "Keep mine" re-sends the dirty values
   expect((save.mock.calls[1][1] as FormData).get('name')).toBe('Mine')
   await waitFor(() => expect(onSuccess).toHaveBeenCalled())
   save.mockRestore()
+})
+
+it('keeps the established save payload and sends no version on tables without collaboration realtime', async () => {
+  const table = { ...qInstance.tables.company, recordVersionField: 'modifyDate' }
+  expect(table.recordFeatures?.features?.includes('PRESENCE')).toBeFalsy()
+  const { recordVersionForEdit } = await import('./entity-form-version')
+  expect(recordVersionForEdit(table, { tableName: 'company', values: { id: 1, modifyDate: '2026-01-01T00:00:00Z' } } as never)).toBeUndefined()
+  expect(recordVersionForEdit({ ...table, recordFeatures: { features: ['FOLLOW'] } } as never, { tableName: 'company', values: { id: 1, modifyDate: '2026-01-01T00:00:00Z' } } as never)).toBe('2026-01-01T00:00:00Z')
 })
