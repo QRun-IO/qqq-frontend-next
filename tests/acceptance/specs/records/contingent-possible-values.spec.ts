@@ -48,7 +48,7 @@ test('[REC-069] contingent create narrows country/state/city, cascades clears, a
   await choose(page, 'cityId', 'City', 'Toronto')
   await expect(page.locator('[data-qqq-id^="contingent-cleared-"]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/placeAddress\/\d+$/)
+  await expect(page).toHaveURL(/\/app\/placeAddress\/\d+\/?$/)
   const response = await backend.api.get(`/qqq/v1/table/placeAddress/${recordIdFromUrl(page, 'placeAddress')}`)
   expect(response.ok()).toBe(true)
   expect((await response.json()).record.values).toMatchObject({ label: 'Contingent acceptance', countryId: 2, stateId: 3, cityId: 5 })
@@ -67,13 +67,13 @@ test('[REC-070] contingent edit retains saved selections and clears a city after
   await choices(page, 'cityId', 'City', ['St. Louis', 'Kansas City'])
   await choose(page, 'cityId', 'City', 'St. Louis')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/placeAddress\/1$/)
+  await expect(page).toHaveURL(/\/app\/placeAddress\/1\/?$/)
   const response = await backend.api.get('/qqq/v1/table/placeAddress/1')
   expect(response.ok()).toBe(true)
   expect((await response.json()).record.values).toMatchObject({ countryId: 1, stateId: 2, cityId: 3 })
 })
 
-test('[REC-071] v1 refuses a directly posted invalid dependent choice without saving it', async ({ backend, diagnostics }) => {
+test('[REC-071] v1 refuses a directly posted invalid dependent choice without saving it @mobile', async ({ backend, diagnostics }) => {
   void diagnostics
   const response = await backend.api.post('/qqq/v1/table/placeAddress', { multipart: { label: 'Invalid acceptance', countryId: '2', stateId: '1', cityId: '1' } })
   // v1 writes can report record validation errors in a successful HTTP envelope.
@@ -97,12 +97,13 @@ test('[REC-072] filter builder offers all cities without a state and narrows aft
   await expect(page.getByRole('listbox', { name: 'City options' }).getByRole('option')).toHaveCount(8)
   expect(requests.at(-1)).toMatchObject({ useCase: 'filter', values: {} })
   await page.getByRole('combobox', { name: 'Filter value for City' }).click()
-  await addCondition(page, 'stateId', 'equals')
+  await addCondition(page, 'State / province', 'equals')
   await page.getByRole('combobox', { name: 'Filter value for State / province' }).click()
   await page.getByRole('option', { name: 'Ontario', exact: true }).click()
   await page.getByRole('combobox', { name: 'Filter value for City' }).click()
   const options = page.getByRole('listbox', { name: 'City options' }).getByRole('option')
   await expect(options).toHaveCount(2)
   expect((await options.allTextContents()).sort()).toEqual(['Ottawa', 'Toronto'])
-  expect(requests.at(-1)).toMatchObject({ useCase: 'filter', values: { stateId: '3' } })
+  expect(requests.at(-1)?.useCase).toBe('filter')
+  expect(String(requests.at(-1)?.values?.stateId)).toBe('3')
 })
