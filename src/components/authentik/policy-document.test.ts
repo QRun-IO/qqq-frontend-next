@@ -24,7 +24,7 @@ const FORMAT = { spec: 'qqq-iam', version: '1.0.0' }
 
 describe('generatePolicy', () => {
   it('writes the canonical form the qbit writes (byte for byte)', () => {
-    const doc = generatePolicy(['cms_page.edit', 'contentApp.hasAccess', 'cms_page.read', 'cms_media.read', 'bad', 'x.write'], FORMAT)
+    const doc = generatePolicy(['cms_page.edit', 'contentApp.hasAccess', 'cms_page.read', 'cms_media.read', 'bad', 'x.bad-action'], FORMAT)
     expect(doc.compact).toBe('{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":['
       + '{"Effect":"Allow","Action":["hasAccess"],"Resource":["contentApp"]},'
       + '{"Effect":"Allow","Action":["read"],"Resource":["cms_media","cms_page"]},'
@@ -69,13 +69,26 @@ describe('generatePolicy', () => {
     expect(doc.pretty).toBe('{\n  "PolicySpec": "qqq-iam",\n  "PolicyVersion": "1.0.0",\n  "Statement": []\n}\n')
   })
 
+  it('orders named features after standard actions and preserves unknown names', () => {
+    const permissions = new Set(['person.write', 'person.comment', 'person.analyze', 'person.read', 'other.analyze', 'person.retiredFeature'])
+    const doc = generatePolicy(permissions, FORMAT)
+    expect(JSON.parse(doc.compact).Statement).toEqual([
+      { Effect: 'Allow', Action: ['read'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['analyze'], Resource: ['other', 'person'] },
+      { Effect: 'Allow', Action: ['comment'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['retiredFeature'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['write'], Resource: ['person'] },
+    ])
+    expect(roundTrips(permissions, FORMAT)).toBe(true)
+  })
+
   it('sorts resources like Java (UTF-16 code units: upper case first)', () => {
     expect(generatePolicy(['b.read', 'B.read', 'a_1.read', 'a.read'], FORMAT).compact).toContain('["B","a","a_1","b"]')
   })
 
   it('round-trips random sets', () => {
     const resources = ['a', 'B_2', 'cms_page', 'contentApp', 'x9']
-    const actions = ['hasAccess', 'read', 'insert', 'edit', 'delete']
+    const actions = ['hasAccess', 'read', 'insert', 'edit', 'delete', 'analyze', 'comment', 'write', 'Export_2']
     let seed = 7
     const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) % 3
     for (let run = 0; run < 200; run++) {
@@ -112,7 +125,7 @@ describe('parsePolicy', () => {
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[1]}', 'must be an object'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Deny","Action":["read"],"Resource":["a"]}]}', 'Deny is not supported'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":"read","Resource":["a"]}]}', 'Action must be an array'],
-    ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["write"],"Resource":["a"]}]}', 'unknown action "write"'],
+    ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["bad-action"],"Resource":["a"]}]}', 'invalid action "bad-action"'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["read"],"Resource":[2]}]}', 'Resource must be an array'],
     ['{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["read"],"Resource":["a.b"]}]}', 'must match'],
   ])('fails closed on %s', (text, message) => {
@@ -130,7 +143,9 @@ describe('parsePolicy', () => {
 describe('splitPermission', () => {
   it('splits valid policy permissions only', () => {
     expect(splitPermission('cms_page.read')).toEqual({ resource: 'cms_page', action: 'read' })
-    expect(splitPermission('a.write')).toBeNull()
+    expect(splitPermission('a.write')).toEqual({ resource: 'a', action: 'write' })
+    expect(splitPermission('a.2bad')).toBeNull()
+    expect(splitPermission('a.bad-action')).toBeNull()
     expect(splitPermission('.read')).toBeNull()
     expect(splitPermission('a.')).toBeNull()
     expect(splitPermission('authentik.users.read')).toBeNull()
