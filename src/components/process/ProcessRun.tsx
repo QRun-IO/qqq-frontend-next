@@ -28,7 +28,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { useQuery } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
 
 import type { QAppTreeNode, QInstance, QProcessMetaData } from '@/types'
 import { processJob, type ProcessFiles, type ProcessInitRequest, type ProcessJobRequest } from '@/lib/api/processes'
@@ -41,16 +40,15 @@ import { useProcess } from '@/lib/hooks/use-process'
 import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { readStoredTableVariant } from '@/lib/utils/table-variant'
-import { pickerRecordPath } from '@/lib/utils/record-picker'
 import { getErrorMessage } from '@/lib/utils/error-utils'
-import BannerComponent from '@/components/layout/Banner'
+import { JobDetailView } from '@/components/jobs/JobDetailView'
+import { InlineJobProgress } from '@/components/jobs/InlineJobProgress'
 
 import { HelpIcon } from '@/components/help/HelpIcon'
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
 import { ProcessResultStep } from './ProcessResultStep'
-import { ProcessSummaryLines, readSummaryLines } from './ProcessSummaryLines'
 import { ProcessStepScreen } from './ProcessStepScreen'
 
 /**
@@ -248,7 +246,7 @@ export function ProcessRun({
         startAfterStep: state.currentStep.name,
         label: processMetaData.label,
       })
-      router.push(pickerRecordPath('jobs_job', job.jobId))
+      router.push(`/app/jobs/${job.jobId}`)
     } catch (error) {
       setJobError(getErrorMessage(error, 'Could not start the background job.'))
       jobSubmittingRef.current = false
@@ -266,12 +264,6 @@ export function ProcessRun({
     >
       <div className="mb-3 flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold">{processMetaData.label}</h1><HelpIcon label={processMetaData.label} helpContents={processMetaData.helpContents?.help} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`process:${processName};slot:help`} data-qqq-id={`process-help-${processName}`} /></div>
       <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>
-        {typeof state.values.durableJobId === 'number' && (
-          <BannerComponent slot="QFMD_TOP_OF_BODY" banners={{ QFMD_TOP_OF_BODY: {
-            severity: 'INFO',
-            messageHTML: `Running as a background job <a data-qqq-id="link-open-job" class="underline" href="${pickerRecordPath('jobs_job', state.values.durableJobId)}">Open job</a>`,
-          } }} />
-        )}
         {jobError && <p role="alert" className="p-4 text-sm text-destructive" data-qqq-id="process-job-error">{jobError}</p>}
         {children}
       </div>
@@ -287,6 +279,10 @@ export function ProcessRun({
 
   const steps = state.steps
   const showWizard = !isEmbedded && (processMetaData.stepFlow ?? 'LINEAR') === 'LINEAR' && steps.length > 1
+
+  if (typeof state.values.durableJobId === 'number') {
+    return container(<JobDetailView key={state.values.durableJobId} jobId={state.values.durableJobId} onLeave={isEmbedded ? undefined : leave} autoBackground={!isEmbedded && processMetaData.durableJobAlways === true} />)
+  }
 
   if (state.phase === 'error') {
     return container(
@@ -310,9 +306,6 @@ export function ProcessRun({
           </div>
         )}
         <div className="p-8">
-          {typeof state.values.durableJobId === 'number' && (
-            <ProcessSummaryLines lines={readSummaryLines(state.values.processResults)} table={sourceTableMetaData ?? tableMetaData} isResultScreen />
-          )}
           <ProcessResultStep
             processMetaData={processMetaData}
             resultValues={state.values}
@@ -336,44 +329,9 @@ export function ProcessRun({
     return container(<p role="status" className="p-8 text-center text-sm text-muted-foreground">Process cancelled.</p>)
   }
 
-  const progress = state.progress
-  const hasCounts = progress?.current !== undefined && progress?.total !== undefined && progress.total > 0
-  const working = (
-    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" role="status" aria-live="polite" data-qqq-id="process-working">
-      <h3 className="text-lg font-semibold text-foreground">Working</h3>
-      <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-      <p className="text-sm text-foreground" data-qqq-id="process-working-message">{progress?.message ?? 'Working...'}</p>
-      {hasCounts && (
-        <div className="w-72">
-          <p className="text-sm text-foreground" data-qqq-id="process-working-counts">{`${progress!.current!.toLocaleString('en-US')} of ${progress!.total!.toLocaleString('en-US')}`}</p>
-          <div
-            role="progressbar"
-            aria-label="Process progress"
-            aria-valuemin={0}
-            aria-valuemax={progress!.total}
-            aria-valuenow={progress!.current}
-            className="mt-1 h-2 rounded-full bg-muted"
-            data-qqq-id="process-progress-bar"
-          >
-            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${Math.min(100, (100 * progress!.current!) / progress!.total!)}%` }} />
-          </div>
-        </div>
-      )}
-      {progress?.updatedAt && state.jobUUID && (
-        <p className="text-xs italic text-muted-foreground" data-qqq-id="process-working-updated">{`Updated at ${progress.updatedAt.toLocaleTimeString()}`}</p>
-      )}
-      {state.processUUID && state.jobUUID && (
-        <button
-          type="button"
-          onClick={() => setConfirmCancel(true)}
-          className="mt-2 inline-flex items-center rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          data-qqq-id="button-cancel-working"
-        >
-          Cancel
-        </button>
-      )}
-    </div>
-  )
+  const working = <InlineJobProgress key={state.jobUUID ?? 'starting'} label={processMetaData.label} processName={processName}
+    processUUID={state.processUUID} jobUUID={state.jobUUID} progress={state.progress}
+    onLeave={leave} onCancel={() => { void cancelAndLeave() }} embedded={isEmbedded} />
 
   if (state.phase !== 'step' || !state.currentStep) {
     return container(

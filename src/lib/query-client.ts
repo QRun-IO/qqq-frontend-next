@@ -180,6 +180,10 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  jobs: () => ['qqq', 'jobs'] as const,
+  jobList: (filter: import('@/types/jobs').JobListFilter) => [...queryKeys.jobs(), 'list', filter] as const,
+  jobDetail: (id: number) => [...queryKeys.jobs(), 'detail', id] as const,
+  jobProgress: (id: number) => [...queryKeys.jobs(), 'progress', id] as const,
   /** All current-user preference queries.
    * @returns The preferences namespace.
    */

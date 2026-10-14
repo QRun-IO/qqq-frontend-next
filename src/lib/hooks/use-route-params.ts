@@ -20,7 +20,7 @@ import { EXPORT_PLACEHOLDER } from '@/lib/utils/export-placeholder'
 export { EXPORT_PLACEHOLDER }
 
 /** Position of each dynamic segment within `/app/[slug]/[recordId]/[action]`, `/app/[slug]/[recordId]/createChild/[childTable]` and `/app/[slug]/savedView/[viewId]`. */
-const SEGMENT_INDEX: Record<string, number> = { slug: 1, recordId: 2, viewId: 3, action: 3, childTable: 4 }
+const SEGMENT_INDEX: Record<string, number> = { slug: 1, recordId: 2, jobId: 2, viewId: 3, action: 3, childTable: 4 }
 
 /**
  * Replaces placeholder params with the matching segment of `pathname`.
