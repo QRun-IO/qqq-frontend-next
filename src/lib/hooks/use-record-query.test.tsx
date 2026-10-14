@@ -445,11 +445,16 @@ describe('useRecordQuery — immediate shareable URL', () => {
 describe('useRecordQuery — default columns', () => {
   beforeEach(() => localStorage.clear())
 
-  const metadata = () => makeTableMeta({ sections: [{ name: 'main', label: 'Main', isHidden: false, tier: 'T1', fieldNames: ['firstName'] }] })
+  // Wider than the twelve-field threshold: heavy fillers count as visible fields but are never default columns.
+  const fillers = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`filler${i}`, { name: `filler${i}`, label: `Filler ${i}`, type: 'STRING' as const, isRequired: false, isEditable: true, isHeavy: true, isHidden: false, adornments: [] }]))
+  const metadata = () => {
+    const base = makeTableMeta({ sections: [{ name: 'main', label: 'Main', isHidden: false, tier: 'T1', fieldNames: ['firstName'] }] })
+    return { ...base, fields: { ...base.fields, ...fillers } }
+  }
 
   it('starts short, searches only visible fields, and lets the picker enable excluded fields', () => {
     const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata() }), { wrapper: createWrapper() })
-    expect(result.current.columns.columnVisibility).toEqual({ id: true, firstName: true, lastName: false, age: false })
+    expect(result.current.columns.columnVisibility).toMatchObject({ id: true, firstName: true, lastName: false, age: false })
     act(() => result.current.filter.setQuickSearch('Alice'))
     expect(result.current.filter.effectiveFilter.criteria.map((criterion) => criterion.fieldName)).toEqual(['firstName'])
     act(() => result.current.columns.toggleColumn('lastName'))
@@ -473,7 +478,7 @@ describe('useRecordQuery — default columns', () => {
   it('uses short defaults when only legacy widths are stored', () => {
     localStorage.setItem('qqq-person-column-widths', JSON.stringify({ firstName: 220 }))
     const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata() }), { wrapper: createWrapper() })
-    expect(result.current.columns.columnVisibility).toEqual({ id: true, firstName: true, lastName: false, age: false })
+    expect(result.current.columns.columnVisibility).toMatchObject({ id: true, firstName: true, lastName: false, age: false })
     expect(result.current.columns.columnWidths).toEqual({ firstName: 220 })
   })
 })

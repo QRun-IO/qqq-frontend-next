@@ -25,14 +25,23 @@ import type { QFieldMetaData, QTableMetaData, QVirtualFieldMetaData } from '@/ty
 import { sizeWidth } from './adornment-utils'
 import { DATE_COLUMN_WIDTH, DATE_TIME_COLUMN_WIDTH } from './datetime-utils'
 
+/** Tables with at most this many visible fields open with every column. */
+export const SHORT_TABLE_FIELD_COUNT = 12
+
 /**
  * Selects a compact initial query view, leaving every other column explicitly unchecked.
  * An explicit Next UI hint overrides the six-field heuristic, including its type exclusions.
+ * Without a hint, a table with at most {@link SHORT_TABLE_FIELD_COUNT} visible fields keeps
+ * every column (an empty map), since it fits without the wide-table problem.
  *
  * @param table - Table metadata.
+ * @param shortTableFieldCount - Tables with at most this many visible fields keep every column.
  * @returns Visibility for every base, virtual and available joined column.
  */
-export function defaultColumnVisibility(table: QTableMetaData): Record<string, boolean> {
+export function defaultColumnVisibility(table: QTableMetaData, shortTableFieldCount = SHORT_TABLE_FIELD_COUNT): Record<string, boolean> {
+  const nextUiHint = (table.supplementalMetaData?.nextUi ?? table.supplementalTableMetaData?.nextUi) as { defaultColumns?: unknown } | undefined
+  const hasHint = Array.isArray(nextUiHint?.defaultColumns) && nextUiHint.defaultColumns.every((name) => typeof name === 'string')
+  if (!hasHint && Object.values(table.fields).filter((field) => !field.isHidden).length <= shortTableFieldCount) return {}
   const nextUi = table.supplementalMetaData?.nextUi ?? table.supplementalTableMetaData?.nextUi
   const hint = nextUi && typeof nextUi === 'object' && 'defaultColumns' in nextUi ? nextUi.defaultColumns : undefined
   const columns = getQueryColumns(table)
