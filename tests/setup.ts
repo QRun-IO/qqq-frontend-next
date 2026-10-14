@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom'
 import { configureAxe, toHaveNoViolations } from 'jest-axe'
 import { vi, beforeAll, afterEach, afterAll, expect } from 'vitest'
+import { resetUiApiExtensions } from '@/lib/api/ui-api-extensions'
 import { server } from '@/mocks/node'
 
 // jsdom has no layout observer; Radix tooltip positioning requires the browser API.
@@ -23,7 +24,10 @@ configureAxe({ rules: { 'color-contrast': { enabled: false } } })
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
 
 // Reset any request handlers added during a test
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  resetUiApiExtensions()
+})
 
 // Clean up after all tests are done
 afterAll(() => server.close())

@@ -28,11 +28,39 @@
 
 import { AxiosError } from 'axios'
 
-import type { ProcessMetaDataAdjustment, QRecord } from '@/types'
+import type { ProcessMetaDataAdjustment, QQueryFilter, QRecord } from '@/types'
 import apiClient, { apiUrl } from './client'
 
 /** Files to upload with a process request, keyed by the form field name (e.g. `theFile`). */
 export type ProcessFiles = Record<string, File | File[]>
+
+/** JSON input for a durable background job through the UI API. */
+export interface ProcessJobRequest {
+  values?: Record<string, unknown>
+  filter?: QQueryFilter
+  recordIds?: (string | number)[]
+  uploadRefs?: string[]
+  label?: string
+  startAfterStep?: string
+  notifyEmail?: boolean
+  priority?: number
+}
+
+/** A durable job accepted by the UI API. */
+export interface ProcessJobResponse {
+  jobId: number
+  status: string
+}
+
+/**
+ * Submit a durable background job; HTTP failures retain the server's error body.
+ * @param processName - Backend process name.
+ * @param request - Collected values, launch selection and continuation step.
+ * @returns The accepted job's id and status.
+ */
+export function processJob(processName: string, request: ProcessJobRequest): Promise<ProcessJobResponse> {
+  return apiClient.post<ProcessJobResponse>(`/processes/${encodeURIComponent(processName)}/jobs`, request)
+}
 
 /**
  * Request for initialising a process execution via {@link processInit}.

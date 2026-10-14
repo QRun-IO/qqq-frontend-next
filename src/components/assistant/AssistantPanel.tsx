@@ -32,7 +32,8 @@ import { Archive, ArchiveRestore, Eye, MoreHorizontal, PanelLeft, Pencil, Pencil
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import type { AssistantAttachment, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import { uploadFile } from '@/lib/api/uploads'
 import {
   deleteAssistantConversation,
   getAssistantConversation,
@@ -151,6 +152,30 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const [dismissedRoute, setDismissedRoute] = useState<string | null>(null)
   const [pageInfo, setPageInfo] = useState(() => readPageInfo(metaData))
   const [prefill, setPrefill] = useState<{ id: number; text: string } | null>(null)
+  const [attachments, setAttachments] = useState<AssistantAttachment[]>([])
+  const [attaching, setAttaching] = useState(false)
+  // attaching is offered where saved bulk load profiles are (the bulk-load tools use the files)
+  const canAttach = Boolean(metaData?.processes?.storeSavedBulkLoadProfile)
+
+  // attachments belong to one conversation
+  useEffect(() => setAttachments([]), [activeConversationId])
+
+  /**
+   * Uploads a picked file (POST /uploads, as the user) and attaches its ref.
+   *
+   * @param file - The file.
+   */
+  const attach = async (file: File) => {
+    setAttaching(true)
+    try {
+      const uploaded = await uploadFile(file)
+      setAttachments((current) => [...current.filter((a) => a.uploadRef !== uploaded.ref), { uploadRef: uploaded.ref, fileName: uploaded.fileName }].slice(-5))
+    } catch (error) {
+      toast.error(`Could not attach ${file.name}: ${getErrorMessage(error)}`)
+    } finally {
+      setAttaching(false)
+    }
+  }
   const listId = useId()
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -222,7 +247,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
    */
   const send = (text: string) => {
     const info = readPageInfo(metaData)
-    const context = info && dismissedRoute !== info.context.route ? info.context : null
+    const pageContext = info && dismissedRoute !== info.context.route ? info.context : null
+    const context = attachments.length ? { ...(pageContext ?? {}), attachments } : pageContext
     stickToBottom.current = true
     void engine.send(text, activeConversationId, context)
   }
@@ -450,6 +476,10 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               onSend={send}
               onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
               prefill={prefill}
+              attachments={attachments}
+              onAttach={canAttach ? (file) => void attach(file) : undefined}
+              onRemoveAttachment={(uploadRef) => setAttachments((current) => current.filter((a) => a.uploadRef !== uploadRef))}
+              attaching={attaching}
             />
           </div>
         )}

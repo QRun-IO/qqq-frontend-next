@@ -82,6 +82,8 @@ export interface FilterField {
   type: QFieldMetaData['type']
   /** Possible value source, when the field has one. */
   possibleValueSourceName?: string
+  /** Explicit operator declarations on virtual fields. */
+  supportedOperators?: QFieldMetaData['supportedOperators']
   /** Table that owns the field (for possible-value lookups). */
   tableName: string
   /** Field name within its owning table. */
@@ -121,7 +123,7 @@ function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isV
  */
 export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] {
   const fields: FilterField[] = filterableFieldsOf(tableMetaData).map(({ field: f, isVirtual }) => ({
-    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName,
+    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}),
     tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
     ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
   }))
@@ -132,7 +134,7 @@ export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] 
     for (const { field: f, isVirtual } of filterableFieldsOf(joinTable)) {
       fields.push({
         name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type,
-        possibleValueSourceName: f.possibleValueSourceName, tableName: joinTable.name, tableFieldName: f.name,
+        possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}), tableName: joinTable.name, tableFieldName: f.name,
         group: `${joinTable.label} Fields`, ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
       })
     }
@@ -678,6 +680,8 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     )
   }
 
+  if (values.some((value) => isFilterExpression(value) && value.type === 'CurrentUser')) return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`filter-value-${depth}-${index}-expression`}>Me</span>
+
   const valueId = `filter-value-${depth}-${index}`
   const setValue = (v: CriteriaValue) => onChange([v])
   if (hasPossibleValues) {
@@ -792,6 +796,7 @@ function SingleValueInput({ field, value, onChange, placeholder, ariaLabel, data
   const presets = isDate && (
     <RelativeDateMenu fieldType={field.type} fieldLabel={field.label} onSelect={onChange} onCustom={() => setCustomOpen(true)} dataId={dataId} />
   )
+  if (isFilterExpression(value) && value.type === 'CurrentUser') return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`${dataId}-expression`}>Me</span>
   if (isDate && isFilterExpression(value)) {
     return (
       <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-expression`}>
@@ -858,7 +863,7 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, 
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = controlledOpen ?? uncontrolledOpen
   const setOpen = onOpenChange ?? setUncontrolledOpen
-  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' ? expression.type : 'NowWithOffset'
+  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' && expression.type !== 'CurrentUser' ? expression.type : 'NowWithOffset'
   const [kind, setKind] = useState<ExpressionKind>(initialKind)
   const [amount, setAmount] = useState(expression?.type === 'NowWithOffset' ? expression.amount : 1)
   const [offsetUnit, setOffsetUnit] = useState<ExpressionTimeUnit>(expression?.type === 'NowWithOffset' ? expression.timeUnit : 'DAYS')

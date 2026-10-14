@@ -343,20 +343,22 @@ export async function insertRecord(
  * @param values - Field values to change; undefined fields remain untouched.
  * @param associations - Named child records the record keeps (same wire format as insert): the
  *   backend updates children with a key, inserts those without, and deletes the ones left out.
+ * @param expectedVersion - Version as loaded; omitted only when the table has no version.
  * @returns The validated saved record.
  */
 export async function updateRecord(
   tableName: string,
   primaryKey: string | number,
   values: Record<string, unknown>,
-  associations?: Record<string, QRecordInput[]>
+  associations?: Record<string, QRecordInput[]>,
+  expectedVersion?: string
 ): Promise<QRecord> {
   const formData = recordFormData(values)
   if (associations !== undefined) formData.set('associations', JSON.stringify(await associationWireValues(associations)))
   const response = await apiClient.patch(
     `/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) } }
+    { ...(expectedVersion === undefined ? {} : { params: { expectedVersion } }), headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) } }
   )
   return savedRecord(response, tableName)
 }

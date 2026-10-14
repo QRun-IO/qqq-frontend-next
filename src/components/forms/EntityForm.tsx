@@ -22,21 +22,18 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-
 import { useForm } from 'react-hook-form'
+import type { FieldErrors, Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { AlertTriangle, Loader2, Save, X } from 'lucide-react'
 
-import type { FieldErrors, Resolver } from 'react-hook-form'
 import type { QFieldMetaData, QTableMetaData, QTableSection, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
-import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
-import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
-
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { runFormAdjuster } from '@/lib/api/form-adjuster'
+import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
 import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import {
@@ -56,7 +53,13 @@ import { toast } from '@/lib/hooks/use-toast'
 
 import { HelpIcon } from '@/components/help/HelpIcon'
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
+import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm } from './DynamicForm'
+import { LazyCollaborationEdit } from '@/components/collaboration/LazyRecordCollaboration'
+import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
+import type { PresenceViewer } from '@/types/collaboration'
+import { recordVersionForEdit as recordVersion } from './entity-form-version'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { FormErrorSummary } from './FormErrorSummary'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
@@ -294,6 +297,18 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const isEdit = Boolean(record) && !isCopy
+  const expectedVersion = useRef(recordVersion(tableMetaData, record))
+  const [focusedField, setFocusedField] = useState<string>()
+  const [viewers, setViewers] = useState<PresenceViewer[]>([])
+  const fieldEditors = useMemo(() => {
+    const editors: Record<string, string[]> = {}
+    for (const viewer of viewers) {
+      if (viewer.mode === 'EDITING' && viewer.fieldName) {
+        ;(editors[viewer.fieldName] ??= []).push(viewer.displayName)
+      }
+    }
+    return editors
+  }, [viewers])
   const mergedDefaults = prepared.values
   const defaultsError = prepared.error
 
@@ -436,12 +451,16 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   dirtyFieldsRef.current = dirtyFields as Record<string, unknown>
 
-  // Reset when record changes (e.g., navigating between records)
+  // Realtime refetches must never replace the snapshot being edited.
+  const loadedIdentity = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (record) {
+    const identity = `${tableMetaData.name}/${String(record?.values[tableMetaData.primaryKeyField])}`
+    if (record && loadedIdentity.current !== identity) {
+      loadedIdentity.current = identity
+      expectedVersion.current = recordVersion(tableMetaData, record)
       reset(mergedDefaults)
     }
-  }, [record, mergedDefaults, reset])
+  }, [record, mergedDefaults, reset, tableMetaData])
 
   const hasChanges = isDirty || Boolean(copyAssociations?.dirty) || Object.keys(associations).length > 0
 
@@ -691,13 +710,11 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     mutationFn: async (values: Record<string, unknown>) => {
       recordAnalytics({ category: 'tableEvents', action: 'saveEdit', label: tableMetaData.label })
       const pk = record!.values[tableMetaData.primaryKeyField] as string | number
-      // Values that cannot round-trip through the form are sent only when changed: a
-      // masked password, a LONG beyond 2^53, a date-time shown at minute/second precision
-      // and a file (a download URL or bytes). Other values are re-sent as stored, as the
-      // Material dashboard does, so omission never triggers a write default.
+      // Versioned edits send only dirty fields so unrelated changes remain intact.
+      // Unversioned backends keep Material's round-trip rules for ordinary values.
       const submitted = Object.fromEntries(Object.entries(values).filter(([name]) =>
-        Boolean(dirtyFieldsRef.current[name]) || !onlyWhenChanged(tableMetaData.fields[name])))
-      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations()))
+        Boolean(dirtyFieldsRef.current[name]) || (expectedVersion.current === undefined && !onlyWhenChanged(tableMetaData.fields[name]))))
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations(), expectedVersion.current))
     },
     meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
@@ -705,6 +722,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       finishUpdate(pk, firstRecordWarning(savedRecord), () => onSuccess?.(savedRecord))
     },
     onError: (err: Error) => {
+      if (getErrorStatusCode(err) === 409) return
       const message = placeServerErrors(err)
       if (message === null) return
       // Material: a save error starting with "warning" is a success with that warning, back on the view
@@ -738,7 +756,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   }
 
   const activeMutation = isEdit ? updateMutation : insertMutation
-  const failure = activeMutation.error as Error | null
+  const failure = isEdit && getErrorStatusCode(activeMutation.error) === 409 ? null : activeMutation.error as Error | null
   const failureMessage = serverUnmatched !== null
     ? (serverUnmatched.length > 0 ? serverUnmatched.join('; ') : null)
     : failure ? getErrorMessage(failure, 'An error occurred while saving.') : null
@@ -939,6 +957,13 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const formContent = (
     <form
       ref={formElementRef}
+      onFocusCapture={(event) => {
+        const element = event.target as HTMLElement
+        const input = element.closest('[name]') ?? element
+        const name = input.getAttribute('name') ?? input.closest('[data-presence-field]')?.getAttribute('data-presence-field')
+        setFocusedField(name && tableMetaData.fields[name] ? name : undefined)
+      }}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusedField(undefined) }}
       onSubmit={onFormSubmit}
       onKeyDown={(event) => {
         // Enter in a single-line input does not save the record (Material): only the Save button does
@@ -948,6 +973,26 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       className={cn('flex min-w-0 flex-col gap-6', className)}
       data-qqq-id={`entity-form-${tableMetaData.name}`}
     >
+      {isEdit && record && (
+        <LazyCollaborationEdit
+          table={tableMetaData}
+          pk={String(record.values[tableMetaData.primaryKeyField])}
+          fieldName={focusedField}
+          error={updateMutation.error}
+          getValues={getValues}
+          onViewers={setViewers}
+          pending={isSaving}
+          onOverwrite={(version) => {
+            expectedVersion.current = version
+            void handleSubmit(onSubmit)()
+          }}
+          onReload={(current) => {
+            expectedVersion.current = recordVersion(tableMetaData, current)
+            reset(defaultValuesFromRecord(tableMetaData, current.values))
+            updateMutation.reset()
+          }}
+        />
+      )}
       {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
@@ -1016,6 +1061,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       )}
 
       {/* Fields */}
+      <FormPresenceContext.Provider value={fieldEditors}>
       <DynamicForm
         register={register}
         control={control}
@@ -1036,6 +1082,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         onFieldBlur={onFieldBlur}
         displayValueOverrides={displayOverrides}
       />
+      </FormPresenceContext.Provider>
 
       {children && <fieldset disabled={disabled || isSaving} className="min-w-0">{children}</fieldset>}
 

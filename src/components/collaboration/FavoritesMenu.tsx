@@ -141,6 +141,7 @@ export function FavoritesMenu() {
               </section>
             ))}
           </div>
+          <Link href={withTrailingSlash('/app/my-work')} onClick={() => setOpen(false)} data-qqq-id="favorites-my-work" className="block rounded border-t border-border px-2 py-3 text-sm font-medium hover:underline">My work</Link>
           <Link
             href={withTrailingSlash('/app/collaboration_favorite')}
             onClick={() => setOpen(false)}

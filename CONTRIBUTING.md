@@ -35,3 +35,17 @@ Release notes live in `docs/releases/`.
 
 Dependabot opens grouped weekly updates for npm, GitHub Actions and Maven (`.github/dependabot.yml`),
 plus security updates as they are published.
+
+## UI API calls (merge order)
+Next calls the backend only through operations described in the vendored UI API documents:
+`src/lib/api/openapi/qqq-v1.json`, plus one JSON file per extension in `extensions/`.
+`ui-api-contract.test.ts` fails on any other call.
+
+A feature that needs new backend calls lands in this order:
+1. The qbit or module ships the operations as a UI API extension, with spec classes and its
+   committed `openapi/qqq-v1/<name>.yaml`.
+2. That document is vendored here, as `extensions/<name>.json` or a re-vendored `qqq-v1.json`.
+3. The UI PR that calls them.
+
+`OFF_SPEC_CALLS` in `ui-api-calls.ts` is a shrinking list of calls that predate the extension point.
+`OFF_SPEC_CEILING` caps it: lower the ceiling as entries move onto specs, and never raise it.

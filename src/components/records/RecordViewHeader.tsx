@@ -44,6 +44,7 @@ import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuIte
 import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
 import { HEADER_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 
+import { LazyRecordTags, LazyRecordFollow, LazyCollaborationHeader } from '@/components/collaboration/LazyRecordCollaboration'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 
 import { HelpIcon } from '@/components/help/HelpIcon'
@@ -336,6 +337,7 @@ export function RecordViewHeader({
           </h1>
           <LazyFavoriteToggle target={{ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) }} label={record.recordLabel || tableMetaData.label} href={recordPath} />
           <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={VIEW_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};slot:help`} data-qqq-id={`table-help-${tableMetaData.name}`} />
+          <LazyRecordFollow table={tableMetaData} pk={String(primaryKey)} />
           {/* D-V-5: Copy record ID to clipboard */}
           <button
             type="button"
@@ -356,7 +358,11 @@ export function RecordViewHeader({
             }
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
+          {/* Presence, owner/assignee and Share take their own full-width row, so they never strand
+              the copy button (or the inline actions) on a line of its own */}
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
         </div>
+        <LazyRecordTags table={tableMetaData} pk={String(primaryKey)} />
         {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
         {t1Fields.length > 0 && (
           <dl

@@ -52,6 +52,23 @@ describe('Processes API', () => {
     vi.clearAllMocks()
   })
 
+  it('posts a typed durable job as JSON through the UI client', async () => {
+    const { default: client } = await import('./client')
+    const { processJob } = await import('./processes')
+    const request = { values: { count: 3 }, recordIds: [7, 'eight'], uploadRefs: ['upload-1'], label: 'Generic process', startAfterStep: 'review', notifyEmail: true, priority: 2 }
+    vi.mocked(client.post).mockResolvedValueOnce({ jobId: 42, status: 'QUEUED' })
+    expect(await processJob('process/name', request)).toEqual({ jobId: 42, status: 'QUEUED' })
+    expect(client.post).toHaveBeenCalledWith('/processes/process%2Fname/jobs', request)
+  })
+
+  it.each([400, 403, 404, 429])('preserves the durable job error body on HTTP %s', async (status) => {
+    const { default: client } = await import('./client')
+    const { processJob } = await import('./processes')
+    const error = httpError(status, { error: 'Server explanation' })
+    vi.mocked(client.post).mockRejectedValueOnce(error)
+    await expect(processJob('genericProcess', {})).rejects.toBe(error)
+  })
+
   describe('normalizeProcessResponse', () => {
     it('normalizes the registered-route shapes', async () => {
       const { normalizeProcessResponse } = await import('./processes')

@@ -127,13 +127,17 @@ export function RecordViewSection({
     if (widgetMeta) {
       // We have full widget metadata -- render the ConnectedWidget
       const primaryKey = record.values[tableMetaData.primaryKeyField]
+      // A card widget already titles itself with its label; repeating the same words as a
+      // section heading right above it reads as a stutter, so the card's title stands alone.
+      const cardRepeatsLabel = Boolean(section.label) && widgetMeta.isCard !== false && widgetMeta.label === section.label
       return (
         <section
           className={cn('space-y-4', className)}
           data-qqq-id={`section-widget-${section.widgetName}`}
-          aria-labelledby={`section-heading-${section.name}`}
+          aria-labelledby={cardRepeatsLabel ? undefined : `section-heading-${section.name}`}
+          aria-label={cardRepeatsLabel ? section.label : undefined}
         >
-          {section.label && (
+          {section.label && !cardRepeatsLabel && (
             <div className="flex flex-wrap items-center gap-2 border-b border-border/50 pb-2">
               <h3
                 id={`section-heading-${section.name}`}

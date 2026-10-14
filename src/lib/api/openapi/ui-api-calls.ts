@@ -36,22 +36,6 @@ export interface OffSpecCall {
 
 /** Off-spec calls, by owner. Remove entries as their owners move onto spec classes. */
 export const OFF_SPEC_CALLS: OffSpecCall[] = [
-  ...(['GET /alerts/inbox/summary', 'GET /alerts/inbox', 'POST /alerts/inbox/{}', 'GET /alerts/record-panel', 'POST /alerts/record-panel/watch'].map((c) => call(c, 'qbit-alerts'))),
-  ...([
-    'GET /assistant/config', 'GET /assistant/conversations', 'POST /assistant/conversations', 'GET /assistant/conversations/{}',
-    'PATCH /assistant/conversations/{}', 'DELETE /assistant/conversations/{}', 'POST /assistant/conversations/{}/turns',
-    'GET /assistant/turns/{}/events', 'POST /assistant/turns/{}/cancel', 'POST /assistant/messages/{}/feedback',
-    'GET /assistant/actions/{}', 'POST /assistant/actions/{}/confirm', 'POST /assistant/actions/{}/reject',
-  ].map((c) => call(c, 'qbit-assistant'))),
-  ...(['GET /esb/overview', 'GET /esb/table/{}', 'GET /esb/process/{}', 'GET /esb/messages/{}', 'GET /esb/deadLetters/{}'].map((c) => call(c, 'qqq-esb'))),
-  ...([
-    'GET /sql-workbench/capabilities', 'GET /sql-workbench/schema/{}', 'POST /sql-workbench/execute', 'POST /sql-workbench/explain',
-    'GET /sql-workbench/executions/{}/rows', 'POST /sql-workbench/executions/{}/cancel', 'GET /sql-workbench/executions/{}/export',
-    'GET /sql-workbench/history', 'GET /sql-workbench/notebooks', 'POST /sql-workbench/notebooks', 'GET /sql-workbench/notebooks/{}',
-    'PUT /sql-workbench/notebooks/{}', 'DELETE /sql-workbench/notebooks/{}', 'POST /sql-workbench/notebooks/{}/publish',
-    'POST /sql-workbench/notebooks/{}/duplicate', 'GET /sql-workbench/notebooks/{}/versions', 'POST /sql-workbench/notebooks/{}/versions/{}/restore',
-    'GET /sql-workbench/notebooks/{}/snapshots', 'POST /sql-workbench/notebooks/{}/snapshots', 'DELETE /sql-workbench/notebooks/{}/snapshots/{}',
-  ].map((c) => call(c, 'qbit-sql-workbench'))),
   ...(['GET {}/metaData/table/{}', 'POST {}/table/{}/query', 'POST {}/table/{}/count'].map((c) => call(c, 'qqq-middleware-api ApiAwareMiddlewareVersionV1'))),
   // legacy, outside /qqq/v1 (their own baseURL)
   call('POST /material-dashboard-backend/form-adjuster/{}/{}', 'legacy material-dashboard backend'),
@@ -59,6 +43,14 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
   call('GET {}versions.json', 'qqq-middleware-api discovery'),
   call('GET {}', 'qqq-middleware-api table spec URL'),
 ]
+
+/**
+ * The most off-spec calls allowed (QRun-IO/qqq-frontend-next#107). Lower it whenever an owner moves
+ * calls onto spec'd operations; never raise it. A feature that needs new backend calls lands in this
+ * order: the qbit or module ships its UI API extension, its document is vendored into
+ * `extensions/`, then the UI calls it - so new calls never need this list.
+ */
+export const OFF_SPEC_CEILING = 7
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
@@ -75,6 +67,7 @@ export const DYNAMIC_CALL_SITES: Record<string, string[]> = {
 /** Path helper functions used inside call templates (`${helper(...)}/rest`), to their paths. */
 export const PATH_HELPERS: Record<string, string> = {
   developerPath: '/table/{}/{}/developer',
+  recordPath: '/qbit/collaboration/records/{}/{}',
 }
 
 /**
