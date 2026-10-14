@@ -34,11 +34,13 @@ import {
   X,
   Settings,
   LogOut,
+  Moon,
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
+import { useTheme } from '@/lib/theme/theme-provider'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
 import { gravatarUrl } from '@/lib/utils/gravatar'
 import { NAV_WIDTH_CSS } from '@/lib/utils/nav-width'
@@ -540,6 +542,7 @@ function UserFooter({
   gravatarDefault?: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { theme, isDarkMode, setDarkMode } = useTheme()
   const preferences = useQuery({
     queryKey: queryKeys.preferencesIndex(),
     queryFn: getPreferences,
@@ -606,6 +609,38 @@ function UserFooter({
                 <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 Preferences
               </Link>
+              {/* Applies immediately, without leaving the page; full display settings live on the Preferences page. */}
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={isDarkMode}
+                disabled={Boolean(theme)}
+                title={theme ? 'This application theme requires light mode.' : undefined}
+                onClick={() => setDarkMode(!isDarkMode)}
+                className={cn(
+                  'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
+                  'hover:bg-accent transition-colors focus:outline-none focus:bg-accent',
+                  'disabled:cursor-not-allowed disabled:opacity-60'
+                )}
+                data-qqq-id="menu-item-dark-mode"
+              >
+                <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1 text-left">Dark mode</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    isDarkMode ? 'bg-primary' : 'bg-muted-foreground/30'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform',
+                      isDarkMode ? 'translate-x-4' : 'translate-x-0.5'
+                    )}
+                  />
+                </span>
+              </button>
               {preferences.data?.sections.filter((section) => section.showInUserMenu).map((section) => (
                 <Link key={section.name} href={`/app/preferences?section=${encodeURIComponent(section.name)}`} role="menuitem"
                   onClick={() => setMenuOpen(false)}

@@ -62,6 +62,8 @@ function field(
 // ─── person table ─────────────────────────────────────────────────────────────
 
 const personTable: QTableMetaData = {
+  recordFeatures: { features: ['COMMENTS', 'ATTACHMENTS', 'TIMELINE', 'TAGS', 'FOLLOW', 'FAVORITES', 'RECENTS'], settings: { TAGS: { mode: 'FREE' }, ATTACHMENTS: { maxBytes: 10485760 } }, capabilities: { comment: true, attach: true, tag: true, createTag: true, share: false, task: false, assign: false } },
+  virtualFields: { collaborationTags: { ...field('collaborationTags', 'Tags', 'STRING', { possibleValueSourceName: 'collaboration_tag' }), isQueryCriteria: true, isQuerySelectable: true } },
   name: 'person',
   label: 'People',
   isHidden: false,
@@ -905,6 +907,20 @@ export const qInstance: QInstance = {
   },
   appTree: [crmTreeNode, inventoryTreeNode, cmsTreeNode],
   tables: {
+    collaboration_favorite: {
+      ...personTable, name: 'collaboration_favorite', label: 'My Favorites',
+      recordFeatures: undefined, virtualFields: {},
+      fields: {
+        id: field('id', 'ID', 'INTEGER', { isEditable: false }),
+        label: field('label', 'Favorite', 'STRING', { isEditable: false }),
+        targetType: field('targetType', 'Type', 'STRING', { isEditable: false }),
+        folder: field('folder', 'Folder', 'STRING'),
+        sortOrder: field('sortOrder', 'Position', 'INTEGER'),
+      },
+      sections: [{ name: 'favorite', label: 'Favorite', tier: 'T1', fieldNames: ['label', 'targetType', 'folder', 'sortOrder'], isHidden: false }],
+      capabilities: ['TABLE_QUERY', 'TABLE_COUNT', 'TABLE_GET', 'TABLE_UPDATE', 'TABLE_DELETE'],
+      insertPermission: false,
+    },
     person: personTable,
     company: companyTable,
     order: orderTable,

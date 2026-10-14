@@ -70,6 +70,14 @@ export interface AssistantPageContext {
   /** A QQueryFilter as JSON. */
   filter?: Record<string, unknown>
   selectedIds?: Array<string | number>
+  /** Files the user attached in the panel (already uploaded): refs and names only. */
+  attachments?: AssistantAttachment[]
+}
+
+/** A file attached in the panel: its upload ref (POST /uploads) and name. */
+export interface AssistantAttachment {
+  uploadRef: string
+  fileName?: string
 }
 
 /** Outcome of one tool call. */
@@ -202,8 +210,59 @@ export interface AssistantNavigatePart { type: 'navigate'; href: string }
 /** An informational, warning or error notice. */
 export interface AssistantNoticePart { type: 'notice'; level: 'info' | 'warning' | 'error'; text: string }
 
-/** One part of a message. Unknown part types (later phases) are ignored by the UI. */
+/** A server-formatted value with an optional destination. */
+export interface AssistantPresentationMetric {
+  label: string
+  value: string | number
+  display?: string
+  href?: string
+}
+
+/** A compact results table. */
+export interface AssistantPresentationTable {
+  kind: 'table'
+  title?: string
+  columns: Array<{ key: string; label: string; align?: 'left' | 'center' | 'right' }>
+  rows: Array<{
+    cells: Record<string, string | number | boolean | null>
+    display?: Record<string, string>
+    href?: string
+  }>
+}
+
+/** A small chart with server-built point destinations. */
+export interface AssistantPresentationChart {
+  kind: 'chart'
+  chartType: 'bar' | 'pie' | 'line'
+  title?: string
+  points: Array<{ label: string; value: number; display?: string; href?: string }>
+}
+
+/** Either sends the next user message or opens a server-built path. */
+export type AssistantPresentationAction =
+  | { label: string; prompt: string; href?: never }
+  | { label: string; href: string; prompt?: never }
+
+/** Known v1 blocks, discriminated by kind. */
+export type AssistantPresentationBlock =
+  | { kind: 'metrics'; items: AssistantPresentationMetric[] }
+  | AssistantPresentationTable
+  | AssistantPresentationChart
+  | { kind: 'filterLinks'; items: Array<{ label: string; tableName: string; href: string }> }
+  | { kind: 'recordLinks'; items: Array<{ label: string; tableName: string; recordId: string | number; href: string }> }
+  | { kind: 'actions'; items: AssistantPresentationAction[] }
+
+/** Forward-compatible answer from present_results; unknown blocks are skipped. */
+export interface AssistantPresentationPart {
+  type: 'presentation'
+  summary: string
+  markdown: string
+  blocks: Array<AssistantPresentationBlock | { kind: string; [key: string]: unknown }>
+}
+
+/** One part of a message. Unknown part types are ignored by the UI. */
 export type AssistantPart =
+  | AssistantPresentationPart
   | AssistantTextPart
   | AssistantToolPart
   | AssistantRecordRefsPart
@@ -252,6 +311,7 @@ export type AssistantStreamErrorCode = 'KILL_SWITCH' | 'BUDGET' | 'RATE_LIMIT' |
 
 /** Typed events of a turn stream; every event carries its `seq`. */
 export type AssistantStreamEvent =
+  | { type: 'presentation'; seq: number; messageId: number; part: AssistantPresentationPart }
   | { type: 'message.start'; seq: number; turnId: number; conversationId: number; userMessageId: number; messageId: number }
   | { type: 'text.delta'; seq: number; messageId: number; text: string }
   | { type: 'tool.start'; seq: number; messageId: number; toolCallId: string; name: string; summary: string }

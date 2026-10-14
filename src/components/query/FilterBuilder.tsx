@@ -82,6 +82,8 @@ export interface FilterField {
   type: QFieldMetaData['type']
   /** Possible value source, when the field has one. */
   possibleValueSourceName?: string
+  /** Explicit operator declarations on virtual fields. */
+  supportedOperators?: QFieldMetaData['supportedOperators']
   /** Table that owns the field (for possible-value lookups). */
   tableName: string
   /** Field name within its owning table. */
@@ -121,7 +123,7 @@ function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isV
  */
 export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] {
   const fields: FilterField[] = filterableFieldsOf(tableMetaData).map(({ field: f, isVirtual }) => ({
-    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName,
+    name: f.name, label: f.label, type: f.type, possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}),
     tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
     ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
   }))
@@ -132,7 +134,7 @@ export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] 
     for (const { field: f, isVirtual } of filterableFieldsOf(joinTable)) {
       fields.push({
         name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type,
-        possibleValueSourceName: f.possibleValueSourceName, tableName: joinTable.name, tableFieldName: f.name,
+        possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}), tableName: joinTable.name, tableFieldName: f.name,
         group: `${joinTable.label} Fields`, ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
       })
     }

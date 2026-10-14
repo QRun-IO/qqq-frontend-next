@@ -184,6 +184,27 @@ describe('assistant gating', () => {
 })
 
 describe('asking a question', () => {
+  it('sends a presentation prompt through the same engine and context as the composer', async () => {
+    mockAssistant()
+    const reply = { type: 'presentation', summary: 'Images found.', markdown: 'Images found.', blocks: [{ kind: 'actions', items: [{ label: 'Show PNG', prompt: 'Show me PNG files' }] }] }
+    const requests: unknown[] = []
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      const body = await request.json() as { text: string }
+      requests.push(body)
+      persisted.messages = storedTurn(body.text, [reply])
+      return new HttpResponse(sse(START, ['presentation', { seq: 2, messageId: 11, part: reply }], ['message.end', { seq: 3, messageId: 11, status: 'COMPLETE' }]), { headers: { 'Content-Type': 'text/event-stream' } })
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const composer = await screen.findByRole('textbox', { name: 'Message the assistant' })
+    await user.type(composer, 'Count images{Enter}')
+    const action = await screen.findByRole('button', { name: 'Show PNG' })
+    await waitFor(() => expect(action).toBeEnabled())
+    await user.click(action)
+    await waitFor(() => expect(requests[1]).toEqual({ text: 'Show me PNG files', pageContext: { route: '/app/person', tableName: 'person' } }))
+  })
+
   it('streams the reply with a tool step and record chip, follows navigation, and passes axe', async () => {
     mockAssistant()
     const stream = controllableStream()
