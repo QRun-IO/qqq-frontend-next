@@ -124,6 +124,7 @@ export type QCriteriaOperator =
   | 'NOT_LIKE'
   | 'STARTS_WITH'
   | 'ENDS_WITH'
+  | 'CONTAINS_ALL'
   | 'CONTAINS'
   | 'NOT_STARTS_WITH'
   | 'NOT_ENDS_WITH'

@@ -70,6 +70,14 @@ export interface AssistantPageContext {
   /** A QQueryFilter as JSON. */
   filter?: Record<string, unknown>
   selectedIds?: Array<string | number>
+  /** Files the user attached in the panel (already uploaded): refs and names only. */
+  attachments?: AssistantAttachment[]
+}
+
+/** A file attached in the panel: its upload ref (POST /uploads) and name. */
+export interface AssistantAttachment {
+  uploadRef: string
+  fileName?: string
 }
 
 /** Outcome of one tool call. */

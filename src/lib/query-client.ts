@@ -192,6 +192,13 @@ export const queryKeys = {
    * @returns The section key.
    */
   preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
+  collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
+  collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
+  collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,
+  collaborationVocabulary: (table: string, q: string) => [...queryKeys.collaborationVocabularyRoot(table), q] as const,
+  collaborationMentions: (table: string, pk: string, q: string) => [...queryKeys.collaborationRecord(table, pk), 'mentions', q] as const,
+  collaborationHistory: (id: number) => ['qqq', 'collaboration', 'history', id] as const,
+
   collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
   collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
   collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,

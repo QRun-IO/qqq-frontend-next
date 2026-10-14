@@ -62,6 +62,8 @@ function field(
 // ─── person table ─────────────────────────────────────────────────────────────
 
 const personTable: QTableMetaData = {
+  recordFeatures: { features: ['COMMENTS', 'ATTACHMENTS', 'TIMELINE', 'TAGS', 'FOLLOW', 'FAVORITES', 'RECENTS'], settings: { TAGS: { mode: 'FREE' }, ATTACHMENTS: { maxBytes: 10485760 } }, capabilities: { comment: true, attach: true, tag: true, createTag: true, share: false, task: false, assign: false } },
+  virtualFields: { collaborationTags: { ...field('collaborationTags', 'Tags', 'STRING', { possibleValueSourceName: 'collaboration_tag' }), isQueryCriteria: true, isQuerySelectable: true } },
   name: 'person',
   label: 'People',
   isHidden: false,
@@ -907,6 +909,7 @@ export const qInstance: QInstance = {
   tables: {
     collaboration_favorite: {
       ...personTable, name: 'collaboration_favorite', label: 'My Favorites',
+      recordFeatures: undefined, virtualFields: {},
       fields: {
         id: field('id', 'ID', 'INTEGER', { isEditable: false }),
         label: field('label', 'Favorite', 'STRING', { isEditable: false }),
