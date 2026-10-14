@@ -497,3 +497,337 @@ export type QueryFilter = {
   /** Records to skip (e.g., to implement pagination) */
   skip?: number
 }
+
+/** DataAnalysisPivotCellV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotCellV1 = {
+  /** Zero-based index in rowHeaders. */
+  rowIndex?: number
+  /** Zero-based index in columnHeaders. */
+  columnIndex?: number
+  /** Metrics in requested measure order; suppressed metrics have no value or drill. */
+  values?: Array<DataAnalysisMetricV1>
+}
+
+/** DataAnalysisPivotDimensionV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotDimensionV1 = {
+  /** FULL field name, optionally joinTable.field through an exposed join. */
+  field: string
+  /** Optional calendar or cyclic bucket in the session timezone. */
+  dateBucket?:
+    | 'YEAR'
+    | 'QUARTER'
+    | 'MONTH'
+    | 'WEEK'
+    | 'DAY'
+    | 'HOUR'
+    | 'DAY_OF_WEEK'
+    | 'HOUR_OF_DAY'
+  /** Optional equal-width numeric bins; mutually exclusive with dateBucket. */
+  numericBins?: DataAnalysisPivotNumericBinsV1
+}
+
+/** DataAnalysisPivotHeaderV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotHeaderV1 = {
+  /** Typed group key; null for a blank group or Other. */
+  value?: unknown
+  /** Display label, including Other (k groups). */
+  label?: string
+}
+
+/** DataAnalysisPivotMeasureInfoV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotMeasureInfoV1 = {
+  /** Stable measure key by request position. */
+  key?: string
+  /** Display label. */
+  label?: string
+  /** Semantic metric type. */
+  valueType?: 'COUNT' | 'DECIMAL' | 'PERCENT' | 'DATE' | 'DATE_TIME' | 'DURATION' | 'TEXT'
+}
+
+/** DataAnalysisPivotMeasureV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotMeasureV1 = {
+  /** Aggregate operator. COUNT counts records, including null values. */
+  operator: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT_DISTINCT' | 'PERCENTILE'
+  /** FULL field to aggregate; optional for COUNT. */
+  field?: string
+  /** PERCENTILE only: percentile_cont fraction from 0 to 1. */
+  percentile?: number
+}
+
+/** DataAnalysisPivotNumericBinsV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotNumericBinsV1 = {
+  /** Number of bins, 1–200; defaults to 20. */
+  count?: number
+  /** Optional explicit lower bound; otherwise a nice enclosing edge. */
+  min?: number
+  /** Optional explicit upper bound; final interior bin includes this value. */
+  max?: number
+}
+
+/** DataAnalysisPivotRequestV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotRequestV1 = {
+  /** User query filter, passed through for core enforcement. */
+  filter?: QueryFilter
+  /** One to three row dimensions. */
+  rows: Array<DataAnalysisPivotDimensionV1>
+  /** Zero to two column dimensions; defaults to empty. */
+  columns?: Array<DataAnalysisPivotDimensionV1>
+  /** One to six measures. */
+  values: Array<DataAnalysisPivotMeasureV1>
+  /** Include row, column and grand totals; defaults to true. */
+  showTotals?: boolean
+  /** Kept groups per dimension; default 50, maximum 200. */
+  limitGroups?: number
+}
+
+/** DataAnalysisPivotV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotV1 = {
+  /** Row header tuples in cell-index order. */
+  rowHeaders?: Array<Array<DataAnalysisPivotHeaderV1>>
+  /** Column header tuples; an empty tuple represents no column dimensions. */
+  columnHeaders?: Array<Array<DataAnalysisPivotHeaderV1>>
+  /** Measure metadata in request order. */
+  measures?: Array<DataAnalysisPivotMeasureInfoV1>
+  /** Sparse cells; absent combinations are not materialized. */
+  cells?: Array<DataAnalysisPivotCellV1>
+  /** Metric tuples aligned with rowHeaders; empty when totals disabled. */
+  rowTotals?: Array<Array<DataAnalysisMetricV1>>
+  /** Metric tuples aligned with columnHeaders; empty when totals disabled. */
+  columnTotals?: Array<Array<DataAnalysisMetricV1>>
+  /** Grand-total metrics; empty when totals disabled. */
+  grandTotals?: Array<DataAnalysisMetricV1>
+  /** Row groups were merged into Other. */
+  truncatedRows?: boolean
+  /** Column groups were merged into Other. */
+  truncatedColumns?: boolean
+  /** True when bounded streamed fallback produced a partial result. */
+  estimate?: boolean
+  /** Privacy, partial-result and joined-drill limitations. */
+  warnings?: Array<string>
+  /** UTC timestamp of computation. */
+  asOf?: string
+}
+
+/** DataAnalysisCompareRequestV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCompareRequestV1 = {
+  /** Population A filter; null selects the whole permitted table. */
+  filterA?: QueryFilter | null
+  /** Population B filter; null selects the whole permitted table. */
+  filterB?: QueryFilter | null
+  /** Display name of population A; default A. */
+  labelA?: string
+  /** Display name of population B; default B. */
+  labelB?: string
+  /** Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields. */
+  fields: Array<string>
+}
+
+/** DataAnalysisCompareV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCompareV1 = {
+  /** Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields. */
+  fields?: Array<DataAnalysisFieldComparisonV1> | null
+}
+
+/** DataAnalysisComparisonSideV1 wire schema (extension 1.2.0). */
+export type DataAnalysisComparisonSideV1 = {
+  /** Label. */
+  label?: string | null
+  /** Typed metrics with exact population drills unless privacy suppresses them. */
+  metrics?: Array<DataAnalysisMetricV1> | null
+}
+
+/** DataAnalysisComparisonValueV1 wire schema (extension 1.2.0). */
+export type DataAnalysisComparisonValueV1 = {
+  /** Value. */
+  value?: unknown
+  /** Label. */
+  label?: string | null
+  /** Side a. */
+  sideA?: DataAnalysisComparisonSideV1 | null
+  /** Side b. */
+  sideB?: DataAnalysisComparisonSideV1 | null
+  /** B minus A, in original units (share differences are fractions). */
+  delta?: DataAnalysisMetricV1 | null
+  /** (B minus A) divided by absolute A, a fraction; null at a zero baseline. */
+  percentDelta?: DataAnalysisMetricV1 | null
+  /** Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion. */
+  significance?: DataAnalysisSignificanceV1 | null
+}
+
+/** DataAnalysisCorrelationCellV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCorrelationCellV1 = {
+  /** FULL numeric field on the x axis. */
+  xField?: string | null
+  /** FULL numeric field on the y axis. */
+  yField?: string | null
+  /** Pairwise non-null population count; null when privacy suppresses it. */
+  n?: number | null
+  /** Pearson correlation; null for insufficient data, zero variance or privacy suppression. */
+  r?: number | null
+  /** POST the included parameters to the table scatter endpoint. */
+  scatter?: DataAnalysisScatterRequestV1 | null
+}
+
+/** DataAnalysisCorrelationRequestV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCorrelationRequestV1 = {
+  /** Current-user query filter; record locks and core field rules apply. */
+  filter?: QueryFilter | null
+  /** Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields. */
+  fields: Array<string>
+}
+
+/** DataAnalysisCorrelationV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCorrelationV1 = {
+  /** Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields. */
+  fields?: Array<string> | null
+  /** Cells. */
+  cells?: Array<DataAnalysisCorrelationCellV1> | null
+  /** Semantic series; category comparisons are grouped and category time series are stacked. */
+  chart?: DataAnalysisChartV1 | null
+}
+
+/** DataAnalysisCrosstabCellV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCrosstabCellV1 = {
+  /** Row index. */
+  rowIndex?: number | null
+  /** Column index. */
+  columnIndex?: number | null
+  /** Cell count with its exact drill, or a suppressed metric. */
+  count?: DataAnalysisMetricV1 | null
+  /** Cell count divided by row total; suppressed if it could disclose a hidden cell. */
+  rowShare?: DataAnalysisMetricV1 | null
+  /** Cell count divided by column total; suppressed if it could disclose a hidden cell. */
+  columnShare?: DataAnalysisMetricV1 | null
+}
+
+/** DataAnalysisCrosstabRequestV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCrosstabRequestV1 = {
+  /** Current-user query filter; record locks and core field rules apply. */
+  filter?: QueryFilter | null
+  /** FULL field defining crosstab rows. */
+  rowField: string
+  /** FULL field defining crosstab columns. */
+  columnField: string
+  /** Maximum sample points (1 to 2000, default 2000) or kept crosstab categories per axis (1 to 20, default 20). */
+  limit?: number
+}
+
+/** DataAnalysisCrosstabV1 wire schema (extension 1.2.0). */
+export type DataAnalysisCrosstabV1 = {
+  /** Rows. */
+  rows?: Array<DataAnalysisPivotHeaderV1> | null
+  /** Columns. */
+  columns?: Array<DataAnalysisPivotHeaderV1> | null
+  /** Cells. */
+  cells?: Array<DataAnalysisCrosstabCellV1> | null
+  /** Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion. */
+  significance?: DataAnalysisSignificanceV1 | null
+}
+
+/** DataAnalysisFieldComparisonV1 wire schema (extension 1.2.0). */
+export type DataAnalysisFieldComparisonV1 = {
+  /** FULL field whose distribution is compared over time. */
+  field?: string | null
+  /** Values. */
+  values?: Array<DataAnalysisComparisonValueV1> | null
+  /** Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion. */
+  significance?: DataAnalysisSignificanceV1 | null
+  /** Semantic series; category comparisons are grouped and category time series are stacked. */
+  chart?: DataAnalysisChartV1 | null
+}
+
+/** DataAnalysisScatterRequestV1 wire schema (extension 1.2.0). */
+export type DataAnalysisScatterRequestV1 = {
+  /** Table for the scatter link; route parameter takes precedence. */
+  tableName?: string | null
+  /** Compatibility flag; scatter always returns the bounded sample. */
+  exact?: boolean | null
+  /** Current-user query filter; record locks and core field rules apply. */
+  filter?: QueryFilter | null
+  /** FULL numeric field on the x axis. */
+  xField: string
+  /** FULL numeric field on the y axis. */
+  yField: string
+  /** Maximum sample points (1 to 2000, default 2000) or kept crosstab categories per axis (1 to 20, default 20). */
+  limit?: number
+}
+
+/** DataAnalysisScatterV1 wire schema (extension 1.2.0). */
+export type DataAnalysisScatterV1 = {
+  /** Pairwise non-null population count; null when privacy suppresses it. */
+  n?: number | null
+  /** Number of displayed paired records. */
+  sampleSize?: number | null
+  /** Sampling method; core query currently uses a deterministic primary-key prefix. */
+  sampling?: string | null
+  /** Points. */
+  points?: Array<DataAnalysisPointV1> | null
+  /** Least-squares slope, intercept and r fitted to the displayed sample. */
+  trend?: DataAnalysisTrendLineV1 | null
+  /** Semantic series; category comparisons are grouped and category time series are stacked. */
+  chart?: DataAnalysisChartV1 | null
+}
+
+/** DataAnalysisShiftBucketV1 wire schema (extension 1.2.0). */
+export type DataAnalysisShiftBucketV1 = {
+  /** Value. */
+  value?: unknown
+  /** Label. */
+  label?: string | null
+  /** True when the calendar bucket end has passed in the session timezone. */
+  complete?: boolean | null
+  /** Typed metrics with exact population drills unless privacy suppresses them. */
+  metrics?: Array<DataAnalysisMetricV1> | null
+}
+
+/** DataAnalysisShiftRequestV1 wire schema (extension 1.2.0). */
+export type DataAnalysisShiftRequestV1 = {
+  /** Current-user query filter; record locks and core field rules apply. */
+  filter?: QueryFilter | null
+  /** FULL field whose distribution is compared over time. */
+  field: string
+  /** FULL DATE or DATE_TIME field for session-timezone calendar buckets. */
+  dateField: string
+  /** Calendar unit: HOUR, DAY, WEEK, MONTH, QUARTER or YEAR; default MONTH. */
+  bucket?: string
+}
+
+/** DataAnalysisShiftV1 wire schema (extension 1.2.0). */
+export type DataAnalysisShiftV1 = {
+  /** Buckets. */
+  buckets?: Array<DataAnalysisShiftBucketV1> | null
+  /** Population stability index, null when inapplicable; zero shares are floored at 0.000001. */
+  psi?: DataAnalysisMetricV1 | null
+  /** Plain-language result or reason the statistic is not applicable. */
+  sentence?: string | null
+  /** Semantic series; category comparisons are grouped and category time series are stacked. */
+  chart?: DataAnalysisChartV1 | null
+}
+
+/** DataAnalysisSignificanceV1 wire schema (extension 1.2.0). */
+export type DataAnalysisSignificanceV1 = {
+  /** Test. */
+  test?: string | null
+  /** Statistic. */
+  statistic?: number | null
+  /** Degrees of freedom; null when undefined. */
+  df?: number | null
+  /** Two-sided p-value; p >= 0.05 is never significant. */
+  pValue?: number | null
+  /** Whether all test validity and privacy requirements hold. */
+  applicable?: boolean | null
+  /** Plain-language result or reason the statistic is not applicable. */
+  sentence?: string | null
+  /** Cramer association strength computed on the pooled contingency table; null when invalid. */
+  cramersV?: number | null
+}
+
+/** DataAnalysisTrendLineV1 wire schema (extension 1.2.0). */
+export type DataAnalysisTrendLineV1 = {
+  /** Slope. */
+  slope?: number | null
+  /** Intercept. */
+  intercept?: number | null
+  /** Pearson correlation; null for insufficient data, zero variance or privacy suppression. */
+  r?: number | null
+}
