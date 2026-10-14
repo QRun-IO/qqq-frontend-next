@@ -18,7 +18,7 @@ import { useState } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { QRecord, QTableMetaData } from '@/types/metadata'
+import type { QRecord, QTableMetaData } from '@/types'
 
 vi.mock('@/lib/hooks/use-media-query', async (original) => ({ ...(await original<typeof import('@/lib/hooks/use-media-query')>()), useMediaQuery: () => false }))
 
