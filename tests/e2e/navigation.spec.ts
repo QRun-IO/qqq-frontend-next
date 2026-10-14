@@ -89,14 +89,10 @@ for (const width of [320, 390, 768, 1440]) {
         return box.left >= bounds.left && box.right <= bounds.right + 1 && box.top >= bounds.top && box.bottom <= bounds.bottom + 1
       })
     })).toBe(true)
-    const height = await header.evaluate((element) => element.clientHeight)
-    if (width <= 390) {
-      await nav.getByRole('button', { name: 'Show hidden breadcrumbs' }).click()
-      await expect(page.getByRole('menuitem', { name: 'People', exact: true })).toHaveAttribute('href', '/app/person')
-      await page.keyboard.press('Escape')
-    }
-    await page.goto('/app/person')
-    await waitForAppReady(page)
-    expect(await header.evaluate((element) => element.clientHeight)).toBe(height)
+    // every crumb stays a visible link, in order; none is hidden behind a menu
+    await expect(nav.getByRole('button')).toHaveCount(0)
+    await expect(nav.getByRole('link', { name: 'People', exact: true })).toHaveAttribute('href', '/app/person')
+    // the header grows to hold a wrapped trail rather than clipping it
+    expect(await nav.evaluate((element) => element.getBoundingClientRect().bottom <= element.closest('header')!.getBoundingClientRect().bottom + 1)).toBe(true)
   })
 }
