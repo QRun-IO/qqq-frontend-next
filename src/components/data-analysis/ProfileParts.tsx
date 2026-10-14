@@ -47,17 +47,25 @@ export const controlClass =
  * @returns The accessible sheet.
  */
 export function ProfileSheet({
+  inline = false,
   title,
   description,
   onClose,
   children,
 }: {
+  inline?: boolean
   title: string
   description: string
   onClose: () => void
   children: ReactNode
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
+  if (inline)
+    return (
+      <section aria-label={title} className="min-w-0 space-y-4">
+        {children}
+      </section>
+    )
   return (
     <AnalysisNavigationContext.Provider value={onClose}>
       <Dialog.Root
