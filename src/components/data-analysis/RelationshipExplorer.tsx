@@ -350,7 +350,7 @@ export default function RelationshipExplorer({
         {(view === 'compare' || view === 'correlation') && (
           <fieldset className="min-w-0">
             <legend className="mb-2 font-medium">
-              {view === 'correlation' ? 'Numeric fields (2â€“12)' : 'Fields'}
+              {view === 'correlation' ? 'Numeric fields (2–12)' : 'Fields'}
             </legend>
             <div className="grid grid-cols-1 gap-2 min-[900px]:grid-cols-3">
               {(view === 'correlation' ? numeric : fields).map(

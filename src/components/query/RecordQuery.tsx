@@ -15,7 +15,7 @@
  */
 
 /**
- * @file RecordQuery â€” orchestrator page component for the record query page. Brings together
+ * @file RecordQuery — orchestrator page component for the record query page. Brings together
  * DataGrid, FilterBuilder, Pagination, ColumnConfig, selection, the Actions menu, backend saved
  * views, export and table variants.
  */
@@ -84,7 +84,7 @@ const RelationshipExplorer = dynamic(() => import('@/components/data-analysis/Re
 const SavedAnalysisViewer = dynamic(() => import('@/components/data-analysis/SavedAnalysisViewer'), { ssr: false })
 const PivotExplorer = dynamic(() => import('@/components/data-analysis/PivotExplorer'), { ssr: false })
 
-/** Display mode for the record list â€” either a tabular grid or a card layout. */
+/** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
 
 /**
@@ -278,7 +278,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   })
   const filterSettings = useMemo(() => filterSettingsFrom(metaData), [metaData])
 
-  // View mode: grid vs card â€” default from user preferences; mobile override after mount
+  // View mode: grid vs card — default from user preferences; mobile override after mount
   // A chosen view mode is remembered per table, so returning from a record keeps the table view on a phone.
   const viewModeKey = `qqq-${tableName}-view-mode`
   const [viewMode, setViewModeState] = useState<ViewMode>(preferences.tableDefaultViewMode)
