@@ -67,7 +67,8 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * order: the qbit or module ships its UI API extension, its document is vendored into
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
-export const OFF_SPEC_CEILING = 45
+// 46 while POST /uploads waits: vendor once QRun-IO/qqq#1181 ships in an RC, then lower to 45
+export const OFF_SPEC_CEILING = 46
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
