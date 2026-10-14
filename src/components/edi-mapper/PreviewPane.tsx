@@ -169,8 +169,8 @@ export default function PreviewPane({ mapId, rules }: { mapId: number; rules: Ed
       {samples.isError && (
         <p role="alert">Could not load samples. You can still upload a sample.</p>
       )}
-      <label className="grid gap-1" htmlFor="edi-sample">
-        Sample
+      <div className="grid gap-1">
+        <label htmlFor="edi-sample">Sample</label>
         <select
           id="edi-sample"
           data-qqq-id="edi-sample"
@@ -191,7 +191,7 @@ export default function PreviewPane({ mapId, rules }: { mapId: number; rules: Ed
             </option>
           ))}
         </select>
-      </label>
+      </div>
       <label className="grid gap-1" htmlFor="edi-upload">
         Upload sample (maximum 5 MB)
         <input
@@ -231,8 +231,8 @@ export default function PreviewPane({ mapId, rules }: { mapId: number; rules: Ed
       </label>
       {upload && <p className="break-words">Selected upload: {upload.sampleName}</p>}
       {uploadError && <p role="alert">{uploadError}</p>}
-      <label className="grid gap-1" htmlFor="edi-revision">
-        Guide revision
+      <div className="grid gap-1">
+        <label htmlFor="edi-revision">Guide revision</label>
         <select
           id="edi-revision"
           data-qqq-id="edi-revision"
@@ -246,7 +246,7 @@ export default function PreviewPane({ mapId, rules }: { mapId: number; rules: Ed
           <option value="ORIGINAL">Pinned guide</option>
           <option value="CURRENT">Newest active guide</option>
         </select>
-      </label>
+      </div>
       <button
         type="button"
         data-qqq-id="edi-run-preview"
