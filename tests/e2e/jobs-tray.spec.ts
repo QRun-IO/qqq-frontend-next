@@ -31,7 +31,7 @@ async function mockJobs(page: Page, alreadyTracked = false) {
   const job = () => ({ jobId: 42, label: 'Back up workspace', processName: 'backupWorkspace', status: finished ? 'COMPLETED' : 'RUNNING', startedAt,
     finishedAt: finished ? new Date().toISOString() : null, logSeq: 4, ...snapshot() })
   await page.route('**/qqq/v1/version', (route) => route.fulfill({ json: { apiVersion: '1.4.0', features: ['durableJobs'], extensions: [] } }))
-  await page.route(/\/qqq\/v1\/metaData(?:\?|$)/, (route) => route.fulfill({ json: { ...METADATA, processes: {
+  await page.route(/\/qqq\/v1\/metaData(?:\?|$)/, (route) => route.fulfill({ json: { ...METADATA, tables: { ...METADATA.tables, jobs_job: { name: 'jobs_job', label: 'Jobs', fields: {} }, jobs_log: { name: 'jobs_log', label: 'Job Log', fields: {} } }, processes: {
     ...METADATA.processes,
     backupWorkspace: { ...METADATA.processes.importData, name: 'backupWorkspace', label: 'Back up workspace', frontendSteps: [], durableJobEligible: true },
   } } }))

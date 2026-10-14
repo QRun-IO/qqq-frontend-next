@@ -42,6 +42,12 @@ vi.mock('@/lib/api/ui-api-extensions', async (original) => ({
   useUiApiFeatureSupported: vi.fn(() => true),
 }))
 vi.mock('@/lib/hooks/use-realtime-channel', () => ({ useRealtimeChannel: vi.fn() }))
+const jobsTables = { jobs_job: { name: 'jobs_job' }, jobs_log: { name: 'jobs_log' } }
+const metaData = { tables: jobsTables as Record<string, unknown> }
+vi.mock('@/lib/hooks/use-metadata', async (original) => ({
+  ...(await original<typeof import('@/lib/hooks/use-metadata')>()),
+  useMetaData: vi.fn(() => ({ data: metaData })),
+}))
 
 const running = { jobId: 42, status: 'RUNNING', label: 'Backup', percent: 25 }
 const finished = { jobId: 43, status: 'FAILED', label: 'Import' }
@@ -86,6 +92,16 @@ describe('JobsHeaderButton and JobsPopover', () => {
     renderConnected(<JobsHeaderButton />)
     expect(screen.queryByRole('button', { name: /Jobs/ })).not.toBeInTheDocument()
     expect(listJobs).not.toHaveBeenCalled()
+  })
+  it('makes no jobs calls when the instance has no jobs tables (an older server)', () => {
+    metaData.tables = {}
+    try {
+      renderConnected(<JobsHeaderButton />)
+      expect(screen.queryByRole('button', { name: /Jobs/ })).not.toBeInTheDocument()
+      expect(listJobs).not.toHaveBeenCalled()
+    } finally {
+      metaData.tables = jobsTables
+    }
   })
   it('shows an active badge, both lists, keyboard trap and restores focus on Escape', async () => {
     renderConnected(<JobsHeaderButton />)

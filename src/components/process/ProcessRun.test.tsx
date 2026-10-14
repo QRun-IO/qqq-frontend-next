@@ -39,7 +39,7 @@ vi.mock('@/lib/api/processes', async (importOriginal) => ({
   processJob: vi.fn(),
 }))
 vi.mock('@/lib/api/metadata', () => ({ loadMetaData: vi.fn().mockResolvedValue({ apps: {}, appTree: [] }) }))
-vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: undefined }) }))
+vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: undefined }), useMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/hooks/use-process', () => ({
   useProcess: () => ({ state: processState.current, start: vi.fn(), submit: vi.fn(), back: vi.fn(), cancel: vi.fn() }),
 }))

@@ -21,15 +21,21 @@ import { useQuery } from '@tanstack/react-query'
 import { listJobs } from '@/lib/api/jobs'
 import { useUiApiFeatureSupported } from '@/lib/api/ui-api-extensions'
 import { queryKeys } from '@/lib/query-client'
+import { useMetaData } from './use-metadata'
 import { useRealtimeChannel } from './use-realtime-channel'
 import { jobAccessDenied, useJobVisibility } from './use-job-progress'
 import type { JobListFilter } from '@/types/jobs'
 
-/** Whether the server advertises its durable jobs feature.
+/** Whether the jobs operations are available: the server advertises durable jobs and this
+ * instance defines the jobs tables the operations need (`jobs_job` and `jobs_log`, the core
+ * job contract) for this user. A server without them never receives a jobs request.
  * @returns Capability gate, false while discovering.
  */
 export function useJobsInstalled() {
-  return useUiApiFeatureSupported('durableJobs')
+  const feature = useUiApiFeatureSupported('durableJobs')
+  const { data: metaData } = useMetaData()
+  const tables = metaData?.tables as Record<string, unknown> | undefined
+  return feature && !!tables?.jobs_job && !!tables?.jobs_log
 }
 
 /** Observes a job list with realtime refresh and a ten-second visible-tab fallback.
