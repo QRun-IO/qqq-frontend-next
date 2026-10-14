@@ -264,7 +264,7 @@ function CopyValue({
  * @param props - One-time values and explicit dismissal callbacks.
  * @returns An acknowledgement-gated secret dialog.
  */
-function SecretDialog({
+export function OneTimeSecretDialog({
   secrets,
   onClose,
   onReturnFocus,
@@ -499,7 +499,7 @@ export function usePreferenceActions({
           />
         )}
         {secrets.length > 0 && (
-          <SecretDialog
+          <OneTimeSecretDialog
             secrets={secrets}
             onClose={() => {
               showingSecrets.current = false
