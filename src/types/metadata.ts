@@ -281,6 +281,8 @@ export interface QThemeMetaData {
  * field display, permissions, sections layout, and join relationships.
  */
 export interface QTableMetaData {
+  /** Effective collaboration features and session capabilities from core. */
+  recordFeatures?: import('./collaboration').RecordFeaturesV1
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */
@@ -379,6 +381,8 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  /** Explicitly supported virtual-field criteria operators. */
+  supportedOperators?: import('./enums').QCriteriaOperator[]
   /** Backend name for this field (used as the key in record value maps). */
   name: string
   /** Human-readable label shown as the column header or form label. */

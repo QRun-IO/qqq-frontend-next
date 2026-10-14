@@ -22,6 +22,7 @@
  */
 
 import { http, HttpResponse } from 'msw'
+import { mockRecordTags } from './collaboration'
 import type { QRecord } from '@/types'
 import { personRecords } from '../fixtures/records/person'
 import { companyRecords } from '../fixtures/records/company'
@@ -103,6 +104,14 @@ function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
   const filterValues = criteria.values.map((v) => String(v).toLowerCase())
   const first = filterValues[0] ?? ''
 
+  if (criteria.fieldName === 'collaborationTags') {
+    const values = Array.isArray(rawValue) ? rawValue.map(String) : []
+    if (criteria.operator === 'IN') return filterValues.some((id) => values.includes(id))
+    if (criteria.operator === 'NOT_IN') return !filterValues.some((id) => values.includes(id))
+    if (criteria.operator === 'CONTAINS_ALL') return filterValues.every((id) => values.includes(id))
+    if (criteria.operator === 'IS_BLANK') return values.length === 0
+    if (criteria.operator === 'IS_NOT_BLANK') return values.length > 0
+  }
   switch (criteria.operator) {
     case 'EQUALS':
       return value === first
@@ -148,7 +157,10 @@ function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
  * @returns A new array containing only the records that match the filter, in sort order.
  */
 function applyFilter(records: QRecord[], filter: QueryFilter): QRecord[] {
-  let result = [...records]
+  let result = records.map((record) => {
+    const tags = mockRecordTags(record.tableName, String(record.values[primaryKeyFields[record.tableName] ?? 'id']))
+    return tags ? { ...record, values: { ...record.values, collaborationTags: tags.map((tag) => tag.id) }, displayValues: { ...record.displayValues, collaborationTags: tags.map((tag) => tag.label).join(', ') } } : record
+  })
 
   if (filter.criteria && filter.criteria.length > 0) {
     const op = filter.booleanOperator ?? 'AND'
