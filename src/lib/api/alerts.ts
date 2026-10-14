@@ -117,6 +117,7 @@ export async function getAlertsInboxSummary(): Promise<AlertsInboxSummary | null
     items: normalizeItems(summary.items),
     banners: normalizeItems(summary.banners),
     notificationsHref: href && href.startsWith('/app/') ? href : NOTIFICATIONS_PATH,
+    preferencesSection: str(summary.preferencesSection),
     pollSeconds: num(summary.pollSeconds),
   }
 }

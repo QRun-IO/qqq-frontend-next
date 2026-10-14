@@ -32,6 +32,10 @@ vi.mock('next/navigation', () => ({
 
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
+import { server } from '@/mocks/node'
+import { preferencesFixture } from '@/mocks/fixtures/preferences'
 
 /**
  * Renders the sidebar with the same appearance context as the application.
@@ -39,7 +43,8 @@ import { ThemeProvider } from '@/lib/theme/theme-provider'
  * @returns Testing Library render result.
  */
 function render(ui: React.ReactElement) {
-  return renderWithoutProviders(ui, { wrapper: ThemeProvider })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderWithoutProviders(<QueryClientProvider client={client}>{ui}</QueryClientProvider>, { wrapper: ThemeProvider })
 }
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import type { QBrandingMetaData } from '@/types'
@@ -472,15 +477,12 @@ describe('Sidebar', () => {
 
   // ─── User entry (Material: Gravatar with gravatarDefault, "Anonymous") ──────
 
-  it('returns preferences focus to the user menu button after the menu item unmounts', async () => {
+  it('links the user menu Preferences item to the Preferences page', async () => {
     const user = userEvent.setup()
     render(<Sidebar routes={leafRoutes} userName="Alice" />)
     const trigger = screen.getByRole('button', { name: 'Alice' })
     await user.click(trigger)
-    await user.click(screen.getByRole('menuitem', { name: 'Preferences' }))
-    expect(screen.getByRole('dialog', { name: 'Preferences' })).toBeVisible()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(screen.getByRole('menuitem', { name: 'Preferences' })).toHaveAttribute('href', '/app/preferences')
   })
 
   it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
@@ -509,4 +511,21 @@ describe('Sidebar logo link', () => {
     const plain = render(<Sidebar routes={leafRoutes} />)
     expect(plain.container.querySelector('[data-qqq-id="sidebar-logo-link"]')).toHaveAttribute('href', '/app')
   })
+})
+
+it('loads menu sections lazily and only lists sections that opt in', async () => {
+  const request = vi.fn()
+  server.use(http.get('/qqq/v1/preferences', () => {
+    request()
+    return HttpResponse.json(preferencesFixture)
+  }))
+  render(<Sidebar routes={leafRoutes} userName="Alice" />)
+  expect(request).not.toHaveBeenCalled()
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Alice' }))
+  const item = await screen.findByRole('menuitem', { name: 'Access tokens' })
+  expect(request).toHaveBeenCalledTimes(1)
+  expect(item).toHaveAttribute('href', '/app/preferences?section=access-tokens')
+  expect(item.querySelector('[data-qqq-icon="key"]')).not.toBeNull()
+  expect(screen.queryByRole('menuitem', { name: 'Regional settings' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('menuitem', { name: 'Notifications' })).not.toBeInTheDocument()
 })

@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom'
 import { configureAxe, toHaveNoViolations } from 'jest-axe'
 import { vi, beforeAll, afterEach, afterAll, expect } from 'vitest'
+import { resetPreferencesMock } from '@/mocks/handlers/preferences'
 import { server } from '@/mocks/node'
 
 // Extend Vitest's expect with jest-axe accessibility matchers
@@ -16,7 +17,7 @@ configureAxe({ rules: { 'color-contrast': { enabled: false } } })
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
 
 // Reset any request handlers added during a test
-afterEach(() => server.resetHandlers())
+afterEach(() => { server.resetHandlers(); resetPreferencesMock() })
 
 // Clean up after all tests are done
 afterAll(() => server.close())

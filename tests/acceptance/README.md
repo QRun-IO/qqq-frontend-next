@@ -300,3 +300,13 @@ and raw reports. Never use a stale static export to make standalone variants pas
 The original loaded-branding assertion also remains required; missing standalone
 assets must be investigated, not skipped. Local discovery or unit success is not
 native qualification or issue closeout.
+
+## User preferences (NAV-057)
+
+`specs/preferences.spec.ts` uses the sample backend's `regional` section (label
+`Regional settings`, scalar `timeZone`, `dateFormat`, `weekStartsOn`) and core
+key-value persistence. It does not register metadata or mock the preferences API.
+Build the backend revision that includes `docs/USER-PREFERENCES.md` and its sample
+registration before running this spec. It exercises user-menu navigation, saving
+an alternate week start, reload persistence, a deep link, overflow and accessibility.
+The acceptance selector includes this root-level spec with the navigation area.

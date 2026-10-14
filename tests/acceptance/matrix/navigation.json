@@ -782,6 +782,24 @@
         "QRun-IO/qqq-frontend-next#719"
       ],
       "required": true
+    },
+    {
+      "id": "NAV-057",
+      "feature": "Current-user Preferences page and persisted regional section",
+      "source": [
+        "qqq/docs/USER-PREFERENCES.md",
+        "src/components/preferences/PreferencesPage.tsx",
+        "src/components/preferences/PreferenceSectionForm.tsx"
+      ],
+      "fixture": "Sample backend regional section backed by the core user-preference key-value store",
+      "scenarios": [
+        "User menu opens Preferences; Regional settings week start persists after Save and reload",
+        "Deep link ?section=regional selects the section",
+        "Responsive layout has no horizontal overflow and passes accessibility checks"
+      ],
+      "issues": [],
+      "required": true,
+      "negative": []
     }
   ]
 }

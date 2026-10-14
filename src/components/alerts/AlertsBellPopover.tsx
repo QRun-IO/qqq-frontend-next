@@ -27,6 +27,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { NotificationSettingsButton } from './NotificationSettingsButton'
 import { useInboxActions } from '@/lib/hooks/use-inbox-actions'
 import type { AlertsInboxSummary, InboxItem } from '@/types/alerts'
 import { ItemActions, SeverityIcon, itemMeta, linkKind, readRequest } from './NotificationParts'
@@ -47,6 +48,7 @@ export interface AlertsBellPopoverProps {
  */
 export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopoverProps) {
   const router = useRouter()
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   // a dropdown under the bell from 640 px; full width under the header below that (inline, so no new CSS)
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 640px)').matches)
@@ -62,6 +64,7 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
     : { position: 'fixed', left: '0.5rem', right: '0.5rem', top: 'calc(var(--qqq-header-height) + 0.25rem)', maxHeight: '70vh' }
 
   useEffect(() => {
+    if (settingsOpen) return
     const panel = panelRef.current
     panel?.querySelector<HTMLElement>('a,button')?.focus({ preventScroll: true })
 
@@ -93,7 +96,7 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onPointer)
     }
-  }, [onClose])
+  }, [onClose, settingsOpen])
 
   const actions = useInboxActions()
 
@@ -107,6 +110,7 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
   return (
     <div
       ref={panelRef}
+      hidden={settingsOpen}
       role="dialog"
       aria-modal="false"
       aria-label="Notifications"
@@ -116,6 +120,7 @@ export default function AlertsBellPopover({ summary, onClose }: AlertsBellPopove
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
+        <NotificationSettingsButton sectionName={summary.preferencesSection} onOpenChange={setSettingsOpen} />
         <span className="text-xs text-muted-foreground">{summary.unreadCount > 0 ? `${summary.unreadCount} unread` : 'All read'}</span>
       </div>
       {summary.items.length === 0 ? (

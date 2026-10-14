@@ -136,6 +136,8 @@ export interface AlertsInboxSummary {
   banners: InboxItem[]
   /** The notifications page path ("View all"). */
   notificationsHref: string
+  /** Registered section offered by the notification settings shortcut. */
+  preferencesSection?: string | null
   /** How often to poll (seconds). */
   pollSeconds?: number
 }

@@ -37,7 +37,8 @@ import type { InboxFilter, InboxItem } from '@/types/alerts'
 import { NOTIFICATION_CATEGORIES, NOTIFICATION_SEVERITIES } from '@/types/alerts'
 import { BUTTON_CLASS } from '@/components/ui/controls'
 import { MarkdownView } from '@/components/sql-workbench/MarkdownView'
-import { isAlertsInstalled } from './AlertsBell'
+import { NotificationSettingsButton } from './NotificationSettingsButton'
+import { isAlertsInstalled, useAlertsInbox } from './AlertsBell'
 import { ItemActions, SeverityIcon, itemMeta, linkKind, readRequest, severityLabel } from './NotificationParts'
 
 /** Items per page. */
@@ -126,6 +127,7 @@ export function NotificationsPage() {
  * @returns The list.
  */
 function NotificationsList() {
+  const { data: summary } = useAlertsInbox(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const filter = filterFromParams(new URLSearchParams(searchParams?.toString() ?? ''))
@@ -159,6 +161,10 @@ function NotificationsList() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4" data-qqq-id="notifications-page">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold text-foreground">Notifications</h1>
+        <NotificationSettingsButton sectionName={summary?.preferencesSection} />
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Show" className="inline-flex rounded-md border border-input bg-card p-0.5">
           {(['all', 'unread'] as const).map((status) => (
