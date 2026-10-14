@@ -227,3 +227,14 @@ it('replaces an ended singleton for the same user', async () => {
   expect(realtimeClient('u1')).toBe(second)
   second.close()
 })
+it('stops syncing when the server neither activates nor refuses a channel', async () => {
+  const t = transport()
+  t.update.mockImplementation(async () => ({ active: [], refused: [] }))
+  const client = make(t)
+  client.subscribe('user:me')
+  await vi.advanceTimersByTimeAsync(1)
+  t.emit('hello', { connectionId: 'c' })
+  await vi.advanceTimersByTimeAsync(0)
+  // Without a progress check the sync loop re-adds the channel forever in one microtask run.
+  expect(t.update).toHaveBeenCalledTimes(1)
+})

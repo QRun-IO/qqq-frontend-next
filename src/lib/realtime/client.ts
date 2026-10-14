@@ -278,6 +278,9 @@ export class RealtimeClient {
         if (connection !== this.connection) break
         this.active = new Set(result.active ?? [])
         for (const channel of result.refused ?? []) this.refused.add(channel)
+        // A channel the server neither activated nor refused would be re-added forever in this
+        // loop (no await ever yields to the event loop); treat it as refused until reconnect.
+        for (const channel of add) if (!this.active.has(channel)) this.refused.add(channel)
       }
     } catch {
       /* The next lease tick retries; a reconnect also restores all channels. */
