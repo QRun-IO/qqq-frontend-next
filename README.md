@@ -14,11 +14,11 @@ The dashboard is the default admin UI for QQQ 4.1+. Add the jar (managed by `qqq
 <dependency>
     <groupId>com.kingsrook.qqq</groupId>
     <artifactId>qqq-frontend-next</artifactId>
-    <version>1.0.0-RC.20</version>
+    <version>1.0.0-RC.21</version>
 </dependency>
 ```
 
-The explicit version overrides an older BOM-managed frontend. RC20 requires a published QQQ 4.1 candidate: 4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images (QQQ #1009); and **4.1.0-RC.3 or later** for FILE_PREVIEW thumbnails (QQQ #1056) and the instance home app (QQQ #1059); **4.1.0-RC.4 or later** for record developer panels (QQQ #1076); **4.1.0-RC.5 or later** for the record picker (QQQ #1099), form validation limits (QQQ #1100) and date filter presets (QQQ #1115). The Alerts bell appears only with qbit-alerts (0.1.0-RC.1 or later); the notification center needs qbit-alerts 0.1.0-RC.2 or later. The assistant panel appears only with the qbit-assistant backend (0.1.0-RC.3 or later). The SQL Workbench needs the qbit-sql-workbench QBit (1.0.0-RC.1 or later); see the release notes for the verified backend. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
+The explicit version overrides an older BOM-managed frontend. RC21 requires a published QQQ 4.1 candidate: 4.1.0-RC.1 or later; 4.1.0-RC.2 or later for standalone branding images (QQQ #1009); and **4.1.0-RC.3 or later** for FILE_PREVIEW thumbnails (QQQ #1056) and the instance home app (QQQ #1059); **4.1.0-RC.4 or later** for record developer panels (QQQ #1076); **4.1.0-RC.5 or later** for the record picker (QQQ #1099), form validation limits (QQQ #1100) and date filter presets (QQQ #1115). The Alerts bell appears only with qbit-alerts (0.1.0-RC.1 or later); the notification center needs qbit-alerts 0.1.0-RC.2 or later. The assistant panel appears only with the qbit-assistant backend (0.1.0-RC.3 or later). The SQL Workbench needs the qbit-sql-workbench QBit (1.0.0-RC.1 or later); see the release notes for the verified backend. Select Next explicitly with `-Dqqq.javalin.frontend=next`. This does not release QQQ 4.1.
 
 The jar holds the static export (`pnpm build:export`) under `next-dashboard/`. Deep links such as `/app/person/1` are served from placeholder pages and read their route from the browser path, so no Node.js server is involved. The Material Dashboard remains available: select it with `withServeFrontendMaterialDashboard(true)` or `-Dqqq.javalin.frontend=material`. Material routes are `/<app>/<table>/<id>`; Next routes are `/app/<table>/<id>`.
 
