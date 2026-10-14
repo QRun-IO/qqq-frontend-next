@@ -1,6 +1,6 @@
 # Next UI — unreleased
 
-[RC24 preparation](1.0.0-RC.24.md) collects every change merged since [RC23](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.23). RC23 is published and immutable. Changes merged after the RC24 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC25 preparation](1.0.0-RC.25.md) collects every change merged since [RC24](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.24). RC24 is published and immutable. Changes merged after the RC25 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Features
 

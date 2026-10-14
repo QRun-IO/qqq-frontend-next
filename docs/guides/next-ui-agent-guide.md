@@ -1,6 +1,6 @@
 # Next UI agent guide
 
-> **This checkout targets RC24.** Confirm availability in the [RC24 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.24) before installing. [RC24 notes](../releases/1.0.0-RC.24.md) record the preparation checkpoint and verification scope; RC23 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
+> **This checkout targets RC25.** Confirm availability in the [RC25 GitHub release](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.25) before installing. [RC25 notes](../releases/1.0.0-RC.25.md) record the preparation checkpoint and verification scope; RC24 was the previously verified public candidate at that checkpoint. Earlier versioned receipts remain historical evidence; final 1.0 remains held.
 
 > **Live roadmap and known issues:** [QRun-IO/qqq#713](https://github.com/QRun-IO/qqq/issues/713). GitHub issues own current status and remaining work. Follow the [issue-tracking policy](../ISSUE-TRACKING.md) when reporting or resolving findings; keep this guide focused on usage and evidence.
 
