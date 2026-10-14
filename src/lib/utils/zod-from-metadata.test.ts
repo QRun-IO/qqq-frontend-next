@@ -163,6 +163,14 @@ describe('zodFieldFromMetadata', () => {
     })
   })
 
+  describe('range messages', () => {
+    it('word a value outside the metadata range exactly as the backend does', () => {
+      const schema = zodFieldFromMetadata(makeField({ type: 'DECIMAL', label: 'Bounded Value', minValue: 0, maxValue: 100 }))
+      expect(schema.safeParse('150').error?.issues[0].message).toBe('The value for Bounded Value is too large (maximum allowed value is 100)')
+      expect(schema.safeParse('-1').error?.issues[0].message).toBe('The value for Bounded Value is too small (minimum allowed value is 0)')
+    })
+  })
+
   describe('DECIMAL type', () => {
     it('accepts decimal numbers', () => {
       const schema = zodFieldFromMetadata(makeField({ type: 'DECIMAL' }))

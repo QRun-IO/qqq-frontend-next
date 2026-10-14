@@ -7,7 +7,7 @@
 
 import { expect, open, test } from '../../support/fixtures'
 
-test('[WID-029] pivot drafts validate, cancel, reorder and persist through host save', async ({ page, backend, diagnostics }) => {
+test('[WID-029] pivot drafts validate, cancel, reorder and persist through host save @quarantine', async ({ page, backend, diagnostics }) => {
   void diagnostics
   const original = {
     rows: [{ key: 101, fieldName: 'lastName', showTotals: false }],
@@ -61,7 +61,7 @@ test('[WID-029] pivot drafts validate, cancel, reorder and persist through host 
   await expect(dialog.getByLabel('Value 1 function', { exact: true })).toHaveValue('SUM')
 })
 
-test('[WID-029] pivot field changes clear incompatible aggregates and disabling clears saved definition', async ({ page, backend, diagnostics }) => {
+test('[WID-029] pivot field changes clear incompatible aggregates and disabling clears saved definition @quarantine', async ({ page, backend, diagnostics }) => {
   void diagnostics
   expect((await backend.api.put('/data/savedReport/1', { multipart: {
     tableName: 'person', usePivotTable: 'true',

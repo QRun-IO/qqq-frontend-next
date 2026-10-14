@@ -179,6 +179,31 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  /** All current-user preference queries.
+   * @returns The preferences namespace.
+   */
+  preferences: () => [...queryKeys.all(), 'preferences'] as const,
+  /** Visible preference sections.
+   * @returns The section index key.
+   */
+  preferencesIndex: () => [...queryKeys.preferences(), 'index'] as const,
+  /** One preference section.
+   * @param name - Section name.
+   * @returns The section key.
+   */
+  preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
+  collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
+  collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
+  collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,
+  collaborationVocabulary: (table: string, q: string) => [...queryKeys.collaborationVocabularyRoot(table), q] as const,
+  collaborationMentions: (table: string, pk: string, q: string) => [...queryKeys.collaborationRecord(table, pk), 'mentions', q] as const,
+  collaborationHistory: (id: number) => ['qqq', 'collaboration', 'history', id] as const,
+
+  collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
+  collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
+  collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
+  collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
+  collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
@@ -424,6 +449,57 @@ export const queryKeys = {
    * @returns The API versions query key tuple.
    */
   apiVersions: (apiPath: string) => [...queryKeys.all(), 'apis', 'versions', apiPath] as const,
+  /**
+   * Key for one table's OpenAPI spec in one application API version.
+   *
+   * @param apiPath - The API's base path.
+   * @param version - The API version.
+   * @param tableName - Backend table name.
+   * @returns The table spec query key tuple.
+   */
+  apiTableSpec: (apiPath: string, version: string, tableName: string) => [...queryKeys.all(), 'apis', 'spec', apiPath, version, tableName] as const,
+  /**
+   * Key for a record's developer panels (contributed by developer panel providers).
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Record identifier.
+   * @returns The developer panels query key tuple.
+   */
+  recordDeveloperPanels: (tableName: string, primaryKey: string | number) => [...queryKeys.all(), 'developerPanels', tableName, String(primaryKey)] as const,
+
+  /** Personal task and assignment summary.
+   * @returns Work key.
+   */
+  collaborationMyWork: () => ['qqq', 'collaboration', 'my-work'] as const,
+
+  // Alerts
+  /**
+   * Key for all Alerts queries (the Alerts qbit's bell and record panel).
+   *
+   * @returns The Alerts namespace query key tuple.
+   */
+  alerts: () => [...queryKeys.all(), 'alerts'] as const,
+  /**
+   * Key for the bell's inbox summary (also the Alerts feature probe).
+   *
+   * @returns The inbox summary query key tuple.
+   */
+  alertsInbox: () => [...queryKeys.alerts(), 'inbox'] as const,
+  /**
+   * Key for the pages of the notifications page (`/alerts/inbox`); with a filter, one page.
+   *
+   * @param filter - The page's filter (omit for every page).
+   * @returns The inbox page query key tuple.
+   */
+  alertsInboxPage: (filter?: object) => (filter ? ([...queryKeys.alerts(), 'inboxPage', filter] as const) : ([...queryKeys.alerts(), 'inboxPage'] as const)),
+  /**
+   * Key for a record's "Open alerts" panel.
+   *
+   * @param tableName - Backend table name.
+   * @param primaryKey - Record identifier.
+   * @returns The record panel query key tuple.
+   */
+  alertsRecordPanel: (tableName: string, primaryKey: string | number) => [...queryKeys.alerts(), 'recordPanel', tableName, String(primaryKey)] as const,
 
   // ESB
   /**
@@ -462,6 +538,12 @@ export const queryKeys = {
    */
   esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
     [...queryKeys.esb(), 'messages', kind, name, offset] as const,
+
+  /** Analysis namespace for a table.
+   * @param table - Metadata table name.
+   * @returns The query key.
+   */
+  dataAnalysis: (table: string) => [...queryKeys.all(), 'data-analysis', table] as const,
 
   // SQL Workbench
   /**
@@ -531,8 +613,10 @@ export const queryKeys = {
    * @param searchTerm - The trimmed search term.
    * @param tableNames - The searched tables.
    * @param limitPerTable - Maximum records per table.
+   * @param offset - Records skipped per table.
+   * @param sort - Requested order.
    * @returns The record search query key tuple.
    */
-  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number) =>
-    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable] as const,
+  recordSearch: (searchTerm: string, tableNames: string[], limitPerTable: number, offset = 0, sort = 'relevance') =>
+    [...queryKeys.search(), 'records', searchTerm, tableNames, limitPerTable, offset, sort] as const,
 }

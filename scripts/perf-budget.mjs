@@ -10,6 +10,9 @@
 //   node scripts/perf-budget.mjs            # check out/ against perf-budget.json, exit 1 on a breach
 //   node scripts/perf-budget.mjs --json     # also print the measurement as JSON
 //
+// With "enforce": false in perf-budget.json the script still measures and reports every size and
+// every cap it is over, but exits 0: the caps are reference points, not gates.
+//
 // First-load JS of a route is every script the route's HTML loads before hydration (script src
 // and preload links), gzip-compressed the way the server sends it. Next 16 no longer prints these
 // sizes, so they are measured from out/. The report lands in test-results/performance/bundle.json.
@@ -147,9 +150,18 @@ mkdirSync(path.dirname(REPORT), { recursive: true })
 writeFileSync(REPORT, JSON.stringify({ budget, result, problems }, null, 2) + '\n')
 if (process.argv.includes('--json')) console.log(JSON.stringify(result, null, 2))
 
-if (problems.length) {
-  console.error(`\nPerformance budget exceeded (${problems.length}):\n- ${problems.join('\n- ')}`)
+// Structural problems (a lazy chunk on a first load, or a marker no chunk contains) always fail.
+// Size problems fail only while perf-budget.json enforces the caps ("enforce": false makes them warnings).
+const structural = problems.filter((p) => p.includes(': no chunk contains its marker') || p.includes('is loaded on first load of a route'))
+const sizeProblems = problems.filter((p) => !structural.includes(p))
+const enforce = budget.enforce !== false
+if (sizeProblems.length && !enforce) {
+  console.warn(`\nPerformance budget (report-only, "enforce": false): over the reference sizes (${sizeProblems.length}):\n- ${sizeProblems.join('\n- ')}`)
+}
+const failures = enforce ? problems : structural
+if (failures.length) {
+  console.error(`\nPerformance budget exceeded (${failures.length}):\n- ${failures.join('\n- ')}`)
   console.error('Reduce the bundle, or raise the budget in perf-budget.json with the reason in the commit.')
   process.exit(1)
 }
-console.log('\nPerformance budget: OK')
+console.log(enforce ? '\nPerformance budget: OK' : '\nPerformance budget: OK (report-only)')

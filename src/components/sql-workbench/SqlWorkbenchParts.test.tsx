@@ -133,6 +133,14 @@ describe('MarkdownView', () => {
     const { container } = render(<MarkdownView source="[x](javascript:alert(1))" />)
     expect(container.querySelector('a')).toBeNull()
   })
+
+  it('links relative app paths in the same tab, but not protocol-relative URLs', () => {
+    const { container } = render(<MarkdownView source="[open](/app/orders/7) and [bad](//evil.example)" />)
+    const links = container.querySelectorAll('a')
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/app/orders/7')
+    expect(links[0]).not.toHaveAttribute('target')
+  })
 })
 
 describe('PlanTree', () => {
@@ -145,7 +153,7 @@ describe('PlanTree', () => {
     expect(within(tree).getByText('cost 10..12.5')).toBeInTheDocument()
     expect(within(tree).getByText('Sort Key')).toBeInTheDocument()
     expect(await axe(container)).toHaveNoViolations()
-    await user.click(screen.getByRole('button', { name: 'Raw' }))
+    await user.click(screen.getByRole('button', { name: 'Raw text' }))
     expect(screen.queryByRole('list', { name: 'Query plan' })).not.toBeInTheDocument()
   })
 
@@ -220,7 +228,7 @@ describe('ResultGrid', () => {
         />
       </QueryClientProvider>
     )
-    expect(screen.queryByRole('link', { name: /CSV/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Copy page/ }))
   })
 })
@@ -242,9 +250,9 @@ describe('QuickChart', () => {
       />
     )
     expect(screen.getByRole('img', { name: /bar chart of signups by month/ })).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Chart'), 'line')
+    await user.selectOptions(screen.getByLabelText('Chart type'), 'line')
     expect(screen.getByRole('img', { name: /line chart/ })).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Chart'), 'pie')
+    await user.selectOptions(screen.getByLabelText('Chart type'), 'pie')
     await user.click(screen.getByLabelText('signups'))
     expect(screen.getByRole('img', { name: /pie chart of signups/ })).toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Category'), '1')

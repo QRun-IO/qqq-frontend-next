@@ -15,9 +15,8 @@ import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
-import com.kingsrook.qqq.esb.api.EsbRouteProvider;
 import com.kingsrook.qqq.esb.metadata.EsbOverviewWidgetMetaDataProducer;
-import com.kingsrook.qqq.middleware.javalin.QJavalinMetaData;
+import com.kingsrook.qqq.middleware.javalin.specs.extensions.MiddlewareSpecExtensionsMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
@@ -69,10 +68,11 @@ public class EsbFixtures
             throw new QException("The sample JAR must register its ESB process " + name);
          }
       }
-      List<QCodeReference> routes = QJavalinMetaData.ofOrWithNew(instance).getAdditionalRouteProviderReferences();
-      if(routes == null || routes.stream().noneMatch(route -> EsbRouteProvider.class.getName().equals(route.getName())))
+      // the /qqq/v1/esb endpoints are the "esb" UI API extension (QRun-IO/qqq#1129)
+      MiddlewareSpecExtensionsMetaData extensions = MiddlewareSpecExtensionsMetaData.of(instance);
+      if(extensions == null || !extensions.getExtensions().containsKey("esb"))
       {
-         throw new QException("The sample JAR must register EsbRouteProvider");
+         throw new QException("The sample JAR must register the esb UI API extension");
       }
       QBackendStepMetaData step = (QBackendStepMetaData) instance.getProcess("syncPerson").getStep("sync");
       step.setCode(new QCodeReference(ReceiptStep.class));

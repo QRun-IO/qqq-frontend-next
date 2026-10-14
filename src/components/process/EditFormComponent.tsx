@@ -55,6 +55,8 @@ export function EditFormComponent({ component, index }: EditFormComponentProps) 
   const processFields = formFields.filter((field) => !inputFieldNames.has(field.name))
   const inputFields = formFields.filter((field) => inputFieldNames.has(field.name))
   const common = {
+    formMethods: form,
+    fieldsByName: Object.fromEntries(formFields.map((field) => [field.name, field])),
     register: form.register,
     control: form.control,
     errors: form.formState.errors,

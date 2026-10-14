@@ -15,17 +15,21 @@
  */
 
 import React from 'react'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@/lib/theme/theme-provider'
-import { UserPreferencesDialog } from './UserPreferencesDialog'
+import { DisplayPreferencesPanel } from './DisplayPreferencesPanel'
 
 beforeEach(() => localStorage.clear())
 
 it('applies the selected appearance immediately, restores it on remount, and resets to light', async () => {
   const user = userEvent.setup()
-  const dialog = <ThemeProvider><UserPreferencesDialog open onOpenChange={vi.fn()} /></ThemeProvider>
+  const dialog = (
+    <ThemeProvider>
+      <DisplayPreferencesPanel />
+    </ThemeProvider>
+  )
   const first = render(dialog)
   expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
   await user.click(screen.getByRole('radio', { name: 'Dark' }))
@@ -42,9 +46,11 @@ it('applies the selected appearance immediately, restores it on remount, and res
 it('explains an application theme restriction and can reset a saved dark preference', async () => {
   localStorage.setItem('qqq-dark-mode', 'true')
   const user = userEvent.setup()
-  render(<ThemeProvider initialTheme={{ primaryColor: '#0f766e' }}>
-    <UserPreferencesDialog open onOpenChange={vi.fn()} />
-  </ThemeProvider>)
+  render(
+    <ThemeProvider initialTheme={{ primaryColor: '#0f766e' }}>
+      <DisplayPreferencesPanel />
+    </ThemeProvider>
+  )
   expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked()
   expect(screen.getByRole('radio', { name: 'Dark' })).toBeDisabled()
   expect(screen.getByText(/application theme requires light mode/i)).toBeVisible()

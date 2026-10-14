@@ -1,10 +1,14 @@
 # Next UI — unreleased
 
-[RC14 preparation](1.0.0-RC.14.md) collects every change merged since [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13): the record search fix and the Next.js security update. RC13 is published and immutable. Changes merged after the RC14 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC22 preparation](1.0.0-RC.22.md) collects every change merged since [RC20](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.20). RC20 is published and immutable. Changes merged after the RC22 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+
+## Features
+
+None yet.
 
 ## Product fixes
 
-- One scroll container per page: on long pages the document no longer grows a second scrollbar beside the content area's (and no longer slides the header off-screen). The app shell and `<main>` are now positioned, so absolutely positioned descendants such as `sr-only` text (the company footer's "opens in a new tab") stay inside the scrolling area instead of stretching the document. Covered by `tests/e2e/single-scroll-container.spec.ts` at 390-3200px.
+None yet.
 
 ## Browser testing and infrastructure
 

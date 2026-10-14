@@ -21,6 +21,7 @@
  */
 
 import type { QFieldMetaData, QFilterCriteria, QQueryFilter, QTableMetaData } from '@/types'
+import { criteriaToDateCondition, defaultDateContext } from './date-range-utils'
 import {
   getOperatorOptions,
   isFilterVariableExpression,
@@ -107,7 +108,7 @@ export function canFilterWorkAsBasic(table: QTableMetaData, filter: Pick<QQueryF
   const warned = new Set<string>()
   for (const criterion of criteria) {
     if (!criterion?.fieldName) continue
-    if (seen.has(criterion.fieldName) && !warned.has(criterion.fieldName)) {
+    if (seen.has(criterion.fieldName) && !warned.has(criterion.fieldName) && !isDateRangeOf(table, criteria, criterion.fieldName)) {
       reasons.push(`Filter contains more than 1 condition for the field: ${resolveField(table, criterion.fieldName)?.label ?? criterion.fieldName}`)
       warned.add(criterion.fieldName)
     }
@@ -145,8 +146,27 @@ export function reconcileBasicMode(table: QTableMetaData, filter: QQueryFilter, 
   return { ...state, quickFilterFieldNames: [...state.quickFilterFieldNames, ...new Set(added)] }
 }
 
+/**
+ * Whether a field's conditions are one date range (a `>=` and a `<` bound that read back as
+ * dates), which a quick filter shows as a single condition.
+ *
+ * @param table - Table metadata.
+ * @param criteria - The filter's criteria.
+ * @param fieldName - The field.
+ * @returns True when the field's two conditions are one date range.
+ */
+function isDateRangeOf(table: QTableMetaData, criteria: QFilterCriteria[], fieldName: string): boolean {
+  const type = resolveField(table, fieldName)?.field.type
+  const own = criteria.filter((c) => c?.fieldName === fieldName)
+  return own.length === 2 && (type === 'DATE' || type === 'DATE_TIME') && criteriaToDateCondition(own, type, defaultDateContext()) !== null
+}
+
 /** What a quick filter shows for its field: no condition, the one condition, or "too complex". */
-export type QuickFilterCriterion = { kind: 'none' } | { kind: 'criterion'; criterion: QFilterCriteria } | { kind: 'tooComplex' }
+export type QuickFilterCriterion =
+  | { kind: 'none' }
+  /** The one condition; `companion` is the `<` bound when a date range is two criteria. */
+  | { kind: 'criterion'; criterion: QFilterCriteria; companion?: QFilterCriteria }
+  | { kind: 'tooComplex' }
 
 /**
  * Finds the condition a quick filter edits (Material's `getQuickCriteriaParam`). More than one
@@ -162,8 +182,12 @@ export type QuickFilterCriterion = { kind: 'none' } | { kind: 'criterion'; crite
 export function quickFilterCriterion(filter: QQueryFilter, fieldName: string, field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>, settings: OperatorOptionSettings = {}): QuickFilterCriterion {
   const matches = (filter.criteria ?? []).filter((criterion) => criterion?.fieldName === fieldName)
   if (matches.length === 0) return { kind: 'none' }
-  if (matches.length > 1) return { kind: 'tooComplex' }
-  const criterion = matches[0]
+  const [criterion, companion] = matches
+  if (matches.length > 2 || (companion && !(field.type === 'DATE' || field.type === 'DATE_TIME') )) return { kind: 'tooComplex' }
+  if (companion) {
+    // a whole-day range or a relative range on a date field is one condition made of two bounds
+    return criteriaToDateCondition(matches, field.type, defaultDateContext()) ? { kind: 'criterion', criterion, companion } : { kind: 'tooComplex' }
+  }
   if (!isOfferedOperator(getOperatorOptions(field, settings), criterion) || criterion.values.some(isFilterVariableExpression)) return { kind: 'tooComplex' }
   return { kind: 'criterion', criterion }
 }
@@ -177,10 +201,27 @@ export function quickFilterCriterion(filter: QQueryFilter, fieldName: string, fi
  * @returns The new filter.
  */
 export function setQuickFilterCriterion(filter: QQueryFilter, criterion: QFilterCriteria): QQueryFilter {
+  return setQuickFilterCriteria(filter, criterion.fieldName, [criterion])
+}
+
+/**
+ * Sets a quick filter's condition when it is more than one criterion (a date range is a `>=` and
+ * a `<` bound): replaces all of the field's criteria with these, where the first was, or adds them.
+ *
+ * @param filter - The current filter.
+ * @param fieldName - The quick filter's field.
+ * @param next - The field's new criteria.
+ * @returns The new filter.
+ */
+export function setQuickFilterCriteria(filter: QQueryFilter, fieldName: string, next: QFilterCriteria[]): QQueryFilter {
   const criteria = filter.criteria ?? []
-  const index = criteria.findIndex((c) => c?.fieldName === criterion.fieldName)
-  if (index >= 0) return { ...filter, criteria: criteria.map((c, i) => (i === index ? criterion : c)) }
-  return { ...filter, criteria: [...criteria, criterion], booleanOperator: criteria.length <= 1 ? 'AND' : filter.booleanOperator }
+  const index = criteria.findIndex((c) => c?.fieldName === fieldName)
+  if (index >= 0) {
+    const rest = criteria.filter((c) => c?.fieldName !== fieldName)
+    const before = criteria.slice(0, index).filter((c) => c?.fieldName !== fieldName).length
+    return { ...filter, criteria: [...rest.slice(0, before), ...next, ...rest.slice(before)] }
+  }
+  return { ...filter, criteria: [...criteria, ...next], booleanOperator: criteria.length <= 1 ? 'AND' : filter.booleanOperator }
 }
 
 /**

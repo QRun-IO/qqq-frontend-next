@@ -25,6 +25,7 @@
 
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, Loader2, Lock, Pin, Play, Square, WrapText } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type {
@@ -45,11 +46,25 @@ import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { formatDuration, newCellKey } from '@/lib/utils/sql-workbench'
 import { cn } from '@/lib/utils/cn'
+import {
+  ALERT_CLASS,
+  BADGE_CLASS,
+  buttonClass,
+  CARD_CLASS,
+  CHECKBOX_CLASS,
+  SELECT_CLASS,
+  WARNING_CLASS,
+} from '@/components/ui/controls'
+import { DateTimeText } from '@/components/ui/DateTimeText'
 import { PlanTree } from './PlanTree'
 import { QuickChart } from './QuickChart'
 import { ResultGrid } from './ResultGrid'
 import { SqlEditor } from './SqlEditor'
+import { WorkbenchTabs } from './WorkbenchTabs'
 import { WriteConfirmDialog } from './WriteConfirmDialog'
+
+/** The result views of a cell. */
+type ResultTab = 'grid' | 'chart' | 'plan'
 
 /** Props for {@link SqlCell}. */
 export interface SqlCellProps {
@@ -61,6 +76,8 @@ export interface SqlCellProps {
   paramsFor: (sql: string) => Record<string, string | number | boolean | null>
   notebookId: number | null
   canEdit: boolean
+  /** Cell controls (move, delete) shown in the header. */
+  actions?: React.ReactNode
   snapshots: SqlResultSnapshot[]
   onChange: (cell: SqlNotebookCell) => void
   onSnapshotsChanged: () => void
@@ -81,6 +98,7 @@ export function SqlCell(props: SqlCellProps) {
     paramsFor,
     notebookId,
     canEdit,
+    actions,
     snapshots,
     onChange,
     onSnapshotsChanged,
@@ -95,7 +113,8 @@ export function SqlCell(props: SqlCellProps) {
   const [preview, setPreview] = useState<SqlExecuteResponse | null>(null)
   const [committing, setCommitting] = useState(false)
   const [requestError, setRequestError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'grid' | 'chart' | 'plan'>('grid')
+  const [tab, setTab] = useState<ResultTab>('grid')
+  const resultsId = React.useId()
 
   const { data: schema } = useQuery({
     queryKey: queryKeys.sqlWorkbenchSchema(backendName),
@@ -215,27 +234,35 @@ export function SqlCell(props: SqlCellProps) {
     }
   }
 
-  const button = 'rounded border px-2 py-1 text-xs disabled:opacity-50'
+  const resultTabs: { value: ResultTab; label: string; qqqId: string }[] = [
+    { value: 'grid', label: 'Results', qqqId: `tab-sql-grid-${index}` },
+    { value: 'chart', label: 'Chart', qqqId: `tab-sql-chart-${index}` },
+    { value: 'plan', label: 'Plan', qqqId: `tab-sql-plan-${index}` },
+  ]
 
   return (
     <section
-      className="space-y-2 rounded-md border p-3"
+      className={cn(CARD_CLASS, 'space-y-3 p-3')}
       aria-label={`SQL cell ${index + 1}`}
       data-qqq-id={`section-sql-cell-${index}`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex items-center gap-2">
         <input
-          className="min-w-0 flex-1 rounded border-transparent bg-transparent px-1 py-0.5 text-sm font-medium hover:border-border focus:border-border"
+          className="h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 text-sm font-semibold text-foreground placeholder:text-muted-foreground hover:border-input focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
           value={cell.title ?? ''}
           placeholder={`SQL cell ${index + 1}`}
           aria-label={`Title of SQL cell ${index + 1}`}
           onChange={(e) => onChange({ ...cell, title: e.target.value })}
           data-qqq-id={`input-sql-cell-title-${index}`}
         />
-        <label className="inline-flex items-center gap-1">
-          Backend
+        {actions}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <label className="inline-flex min-w-0 max-w-full items-center gap-2 text-sm text-foreground">
+          <span className="whitespace-nowrap">Backend</span>
           <select
-            className="rounded border px-1 py-0.5"
+            className={SELECT_CLASS}
             value={backendName}
             onChange={(e) => onChange({ ...cell, backendName: e.target.value })}
             data-qqq-id={`select-sql-backend-${index}`}
@@ -250,12 +277,15 @@ export function SqlCell(props: SqlCellProps) {
         {capabilities.canWrite ? (
           <label
             className={cn(
-              'inline-flex items-center gap-1 rounded px-1.5 py-0.5',
-              writeMode ? 'bg-destructive/15 text-destructive' : 'bg-muted'
+              'inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 text-sm font-medium transition-colors',
+              writeMode
+                ? 'border-destructive/50 bg-destructive/10 text-destructive'
+                : 'border-input bg-card text-foreground hover:bg-accent'
             )}
           >
             <input
               type="checkbox"
+              className={CHECKBOX_CLASS}
               checked={writeMode}
               onChange={(e) => setWriteMode(e.target.checked)}
               data-qqq-id={`checkbox-sql-write-mode-${index}`}
@@ -263,7 +293,10 @@ export function SqlCell(props: SqlCellProps) {
             Write mode
           </label>
         ) : (
-          <span className="rounded bg-muted px-1.5 py-0.5">Read-only</span>
+          <span className={BADGE_CLASS}>
+            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+            Read-only
+          </span>
         )}
       </div>
 
@@ -281,26 +314,28 @@ export function SqlCell(props: SqlCellProps) {
         {runningUuid ? (
           <button
             type="button"
-            className={button}
+            className={buttonClass('secondary', 'sm')}
             onClick={cancel}
             data-qqq-id={`button-sql-cancel-${index}`}
           >
+            <Square className="h-4 w-4" aria-hidden="true" />
             Cancel
           </button>
         ) : (
           <button
             type="button"
-            className={cn(button, 'bg-primary text-primary-foreground')}
+            className={buttonClass(writeMode ? 'danger' : 'primary', 'sm')}
             onClick={run}
             disabled={!backend}
             data-qqq-id={`button-sql-run-${index}`}
           >
+            <Play className="h-4 w-4" aria-hidden="true" />
             {writeMode ? 'Preview write' : 'Run'}
           </button>
         )}
         <button
           type="button"
-          className={button}
+          className={buttonClass('secondary', 'sm')}
           onClick={() => runExplain(false)}
           disabled={!backend || !!runningUuid}
           data-qqq-id={`button-sql-explain-${index}`}
@@ -310,7 +345,7 @@ export function SqlCell(props: SqlCellProps) {
         {capabilities.canWrite && (
           <button
             type="button"
-            className={button}
+            className={buttonClass('secondary', 'sm')}
             onClick={() => runExplain(true)}
             disabled={!backend || !!runningUuid}
             title="Executes the statement in a transaction that is rolled back"
@@ -321,26 +356,32 @@ export function SqlCell(props: SqlCellProps) {
         )}
         <button
           type="button"
-          className={button}
+          className={buttonClass('ghost', 'sm')}
           onClick={format}
           data-qqq-id={`button-sql-format-${index}`}
         >
+          <WrapText className="h-4 w-4" aria-hidden="true" />
           Format
         </button>
         {runningUuid && (
-          <span className="text-xs text-muted-foreground" role="status">
+          <span
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+            role="status"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Running…
-          </span>
-        )}
-        {backend && !backend.readOnlyEnforced && !writeMode && (
-          <span className="text-xs text-amber-600">
-            This backend does not enforce read-only sessions; only the statement check applies.
           </span>
         )}
       </div>
 
+      {backend && !backend.readOnlyEnforced && !writeMode && (
+        <p className={WARNING_CLASS}>
+          This backend does not enforce read-only sessions; only the statement check applies.
+        </p>
+      )}
+
       {requestError && (
-        <p className="text-sm text-destructive" role="alert">
+        <p className={ALERT_CLASS} role="alert">
           {requestError}
         </p>
       )}
@@ -356,78 +397,96 @@ export function SqlCell(props: SqlCellProps) {
       )}
 
       {(result || explain) && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-1 text-xs" role="tablist" aria-label="Result views">
-            {(['grid', 'chart', 'plan'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                className={cn(
-                  'rounded px-2 py-0.5',
-                  tab === t ? 'bg-muted font-medium' : 'text-muted-foreground'
-                )}
-                onClick={() => setTab(t)}
-                data-qqq-id={`tab-sql-${t}-${index}`}
-              >
-                {t === 'grid' ? 'Grid' : t === 'chart' ? 'Chart' : 'Plan'}
-              </button>
-            ))}
-            {result && (
-              <span className="ml-2 text-muted-foreground">
-                {result.status}
-                {result.durationMs != null && ` · ${formatDuration(result.durationMs)}`}
-                {result.rowsAffected != null && ` · ${result.rowsAffected} rows affected`}
-              </span>
-            )}
-            {result?.status === 'SUCCEEDED' &&
-              notebookId &&
-              canEdit &&
-              (result.columns?.length ?? 0) > 0 && (
-                <button
-                  type="button"
-                  className={cn(button, 'ml-auto')}
-                  onClick={pin}
-                  data-qqq-id={`button-sql-pin-${index}`}
+        <div className="space-y-3">
+          <WorkbenchTabs
+            label="Result views"
+            idBase={resultsId}
+            value={tab}
+            onChange={setTab}
+            tabs={resultTabs}
+          >
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
+              {result && (
+                <span
+                  className="text-sm text-muted-foreground"
+                  data-qqq-id={`text-sql-status-${index}`}
                 >
-                  Pin result
-                </button>
+                  {resultSummary(result)}
+                </span>
               )}
+              {result?.status === 'SUCCEEDED' &&
+                notebookId &&
+                canEdit &&
+                (result.columns?.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className={buttonClass('secondary', 'sm')}
+                    onClick={pin}
+                    data-qqq-id={`button-sql-pin-${index}`}
+                  >
+                    <Pin className="h-4 w-4" aria-hidden="true" />
+                    Pin result
+                  </button>
+                )}
+            </span>
+          </WorkbenchTabs>
+          <div
+            role="tabpanel"
+            id={`${resultsId}-panel`}
+            aria-labelledby={`${resultsId}-tab-${tab}`}
+          >
+            {tab === 'grid' &&
+              (result ? (
+                <ResultView
+                  key={result.executionUuid}
+                  result={result}
+                  pageSize={capabilities.limits.pageSize}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Run the cell to see results.</p>
+              ))}
+            {tab === 'chart' &&
+              (result?.status === 'SUCCEEDED' ? (
+                <QuickChart
+                  key={result.executionUuid}
+                  columns={result.columns ?? []}
+                  rows={result.rows ?? []}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Run the cell to chart its results.</p>
+              ))}
+            {tab === 'plan' &&
+              (explain ? (
+                <PlanTree explain={explain} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Use Explain to see the plan.</p>
+              ))}
           </div>
-          {tab === 'grid' && result && (
-            <ResultView
-              key={result.executionUuid}
-              result={result}
-              pageSize={capabilities.limits.pageSize}
-            />
-          )}
-          {tab === 'chart' && result?.status === 'SUCCEEDED' && (
-            <QuickChart
-              key={result.executionUuid}
-              columns={result.columns ?? []}
-              rows={result.rows ?? []}
-            />
-          )}
-          {tab === 'plan' &&
-            (explain ? (
-              <PlanTree explain={explain} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Use Explain to see the plan.</p>
-            ))}
         </div>
       )}
 
       {snapshots.length > 0 && (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-xs text-muted-foreground">
+        <details className="group">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <ChevronRight
+              className="h-4 w-4 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
             Pinned results ({snapshots.length})
           </summary>
           {snapshots.map((s) => (
-            <div key={s.id} className="mt-2 space-y-1">
-              <p className="text-xs text-muted-foreground">
-                {s.label ?? 'Snapshot'} · {s.createDate ?? ''} · {s.rowCount} rows
-                {s.truncated ? ' (truncated)' : ''}
+            <div key={s.id} className="mt-3 space-y-2">
+              <p className="flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{s.label ?? 'Pinned result'}</span>
+                <DateTimeText
+                  value={s.createDate}
+                  type="DATE_TIME"
+                  className="text-muted-foreground"
+                />
+                <span>
+                  {s.rowCount} {s.rowCount === 1 ? 'row' : 'rows'}
+                  {s.truncated ? ' (truncated)' : ''}
+                </span>
               </p>
               <ResultGrid
                 executionUuid={s.executionUuid ?? String(s.id)}
@@ -445,6 +504,39 @@ export function SqlCell(props: SqlCellProps) {
   )
 }
 
+/** Plain names of the run statuses. */
+const STATUS_LABELS: Record<SqlExecuteResponse['status'], string> = {
+  SUCCEEDED: 'Succeeded',
+  FAILED: 'Failed',
+  TIMED_OUT: 'Timed out',
+  CANCELLED: 'Cancelled',
+  REJECTED: 'Rejected',
+  PREVIEW: 'Preview',
+  DRIFTED: 'Not committed',
+}
+
+/**
+ * One line about a run: its status, duration, and rows returned or affected.
+ *
+ * @param result - The run.
+ * @returns The summary.
+ */
+export function resultSummary(result: SqlExecuteResponse): string {
+  const parts = [STATUS_LABELS[result.status] ?? result.status]
+  if (result.durationMs != null) parts.push(formatDuration(result.durationMs))
+  if (result.rowsAffected != null)
+    parts.push(
+      `${result.rowsAffected.toLocaleString()} ${result.rowsAffected === 1 ? 'row' : 'rows'} affected`
+    )
+  else if (
+    result.status === 'SUCCEEDED' &&
+    (result.columns?.length ?? 0) > 0 &&
+    result.rowCount != null
+  )
+    parts.push(`${result.rowCount.toLocaleString()} ${result.rowCount === 1 ? 'row' : 'rows'}`)
+  return parts.join(' · ')
+}
+
 /**
  * Renders a run's outcome: the grid, or the failure, drift or rejection message.
  *
@@ -456,7 +548,7 @@ export function SqlCell(props: SqlCellProps) {
 function ResultView({ result, pageSize }: { result: SqlExecuteResponse; pageSize: number }) {
   if (result.status === 'DRIFTED') {
     return (
-      <p className="text-sm text-amber-700" role="alert">
+      <p className={WARNING_CLASS} role="alert">
         Nothing was committed: the affected rows changed since the preview (
         {result.previewAffectedRows} → {result.actualAffectedRows}). Preview again.
       </p>
@@ -464,13 +556,13 @@ function ResultView({ result, pageSize }: { result: SqlExecuteResponse; pageSize
   }
   if (result.status !== 'SUCCEEDED') {
     return (
-      <p className="whitespace-pre-wrap text-sm text-destructive" role="alert">
+      <p className={cn(ALERT_CLASS, 'font-mono')} role="alert">
         {result.status === 'TIMED_OUT'
           ? 'Timed out: '
           : result.status === 'CANCELLED'
             ? 'Cancelled: '
             : ''}
-        {result.error ?? result.status}
+        {result.error ?? STATUS_LABELS[result.status] ?? result.status}
       </p>
     )
   }

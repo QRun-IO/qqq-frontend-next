@@ -1,2 +1,5 @@
 # Default reviewers for every change.
 * @KofTwentyTwo
+
+# The UI API contract (QRun-IO/qqq-frontend-next#107): the vendored documents and the off-spec list
+/src/lib/api/openapi/ @KofTwentyTwo

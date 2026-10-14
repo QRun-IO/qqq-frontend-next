@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 // polyfills (crypto-browserify -> elliptic, GHSA-848j-6mx2-7j84) that no story needs.
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
+  staticDirs: ['../public'],
   addons: [
     '@storybook/addon-docs',
   ],

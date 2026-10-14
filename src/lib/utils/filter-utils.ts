@@ -34,6 +34,7 @@ import type {
   NowExpression,
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
+  StartOfPeriodExpression,
   ExpressionTimeUnit,
   QFieldFunction,
   QInstance,
@@ -43,7 +44,7 @@ import type {
 export type CriteriaValue = QFilterCriteria['values'][number]
 
 /** Any backend-evaluated criteria value expression. */
-export type FilterExpression = FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression
+export type FilterExpression = { type: 'CurrentUser' } | FilterVariableExpression | NowExpression | NowWithOffsetExpression | ThisOrLastPeriodExpression | StartOfPeriodExpression
 
 /**
  * Returns a blank {@link QQueryFilter} with no criteria, no sort, and the given page size.
@@ -100,6 +101,7 @@ export const OPERATOR_CONFIG: Record<QCriteriaOperator, OperatorConfig> = {
   NOT_LIKE: { label: 'is not like', valueCount: 'single', applicableTypes: [], description: 'Does not match a SQL LIKE pattern' },
   STARTS_WITH: { label: 'starts with', valueCount: 'single', applicableTypes: STRING_TYPES, description: 'Text begins with the value' },
   ENDS_WITH: { label: 'ends with', valueCount: 'single', applicableTypes: STRING_TYPES, description: 'Text ends with the value' },
+  CONTAINS_ALL: { label: 'has all of', valueCount: 'multiple', applicableTypes: [], description: 'Contains every selected value' },
   CONTAINS: { label: 'contains', valueCount: 'single', applicableTypes: STRING_TYPES, description: 'Text contains the value' },
   NOT_STARTS_WITH: { label: 'does not start with', valueCount: 'single', applicableTypes: STRING_TYPES, description: 'Text does not begin with the value' },
   NOT_ENDS_WITH: { label: 'does not end with', valueCount: 'single', applicableTypes: STRING_TYPES, description: 'Text does not end with the value' },
@@ -293,7 +295,10 @@ function weekdayOptionsFor(fieldType: 'DATE' | 'DATE_TIME', settings: OperatorOp
  * @param settings - Weekday criteria settings; without them the plain Material list is returned.
  * @returns Ordered operator options.
  */
-export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>, settings: OperatorOptionSettings = {}): OperatorOption[] {
+export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName' | 'supportedOperators'>, settings: OperatorOptionSettings = {}): OperatorOption[] {
+  if (field.possibleValueSourceName === 'collaboration_tag' || field.supportedOperators?.includes('CONTAINS_ALL')) {
+    return [option('IN', 'is any of', 'multi'), option('NOT_IN', 'is none of', 'multi'), option('CONTAINS_ALL', 'has all of', 'multi'), option('IS_BLANK', 'is empty', 'none'), option('IS_NOT_BLANK', 'is not empty', 'none')]
+  }
   if (field.possibleValueSourceName) {
     return [
       option('EQUALS', 'equals', 'single'),
@@ -497,7 +502,7 @@ export function getDefaultOperatorForFieldType(fieldType: QFieldType): QCriteria
  * @param field - Field metadata.
  * @returns A new, not yet complete criterion (unless the option implies values).
  */
-export function newCriterionForField(fieldName: string, field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>): QFilterCriteria {
+export function newCriterionForField(fieldName: string, field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName' | 'supportedOperators'>): QFilterCriteria {
   const first = getOperatorOptions(field)[0] ?? option('EQUALS', 'equals', 'single')
   return { fieldName, operator: first.operator, values: first.implicitValues ? [...first.implicitValues] : [] }
 }
@@ -982,13 +987,23 @@ export function isThisOrLastPeriodExpression(v: unknown): v is ThisOrLastPeriodE
 }
 
 /**
+ * Type guard for the `StartOfPeriod` expression.
+ *
+ * @param v - Any criterion value.
+ * @returns Whether it is a `StartOfPeriod` expression.
+ */
+export function isStartOfPeriodExpression(v: unknown): v is StartOfPeriodExpression {
+  return typeof v === 'object' && v !== null && (v as { type?: string }).type === 'StartOfPeriod'
+}
+
+/**
  * Type guard for any backend-evaluated expression.
  *
  * @param v - Any criterion value.
  * @returns Whether it is any backend-evaluated expression.
  */
 export function isFilterExpression(v: unknown): v is FilterExpression {
-  return isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isFilterVariableExpression(v)
+  return (typeof v === 'object' && v !== null && (v as { type?: string }).type === 'CurrentUser') || isNowExpression(v) || isNowWithOffsetExpression(v) || isThisOrLastPeriodExpression(v) || isStartOfPeriodExpression(v) || isFilterVariableExpression(v)
 }
 
 /**
@@ -998,7 +1013,7 @@ export function isFilterExpression(v: unknown): v is FilterExpression {
  * @param amount - The amount (plural unless 1).
  * @returns The word, e.g. "day" or "days".
  */
-function unitWord(unit: ExpressionTimeUnit, amount = 1): string {
+function unitWord(unit: string, amount = 1): string {
   const singular = unit.toLowerCase().replace(/s$/, '')
   return amount === 1 ? singular : `${singular}s`
 }
@@ -1011,6 +1026,7 @@ function unitWord(unit: ExpressionTimeUnit, amount = 1): string {
  * @returns The description.
  */
 export function describeExpression(expression: FilterExpression, fieldType: QFieldType = 'DATE_TIME'): string {
+  if (expression.type === 'CurrentUser') return 'Me'
   if (isNowExpression(expression)) return fieldType === 'DATE' ? 'today' : 'now'
   if (isNowWithOffsetExpression(expression)) {
     return `${expression.amount} ${unitWord(expression.timeUnit, expression.amount)} ${expression.operator === 'MINUS' ? 'ago' : 'from now'}`
@@ -1021,6 +1037,12 @@ export function describeExpression(expression: FilterExpression, fieldType: QFie
       ? (expression.operator === 'LAST' ? 'yesterday' : 'today')
       : `${expression.operator === 'LAST' ? 'last' : 'this'} ${unitWord(expression.timeUnit)}`
     return fieldType === 'DATE_TIME' || expression.timeUnit !== 'DAYS' ? `start of ${period}` : period
+  }
+  if (isStartOfPeriodExpression(expression)) {
+    const unit = unitWord(expression.unit)
+    const when = expression.offset === 0 ? `this ${unit}` : expression.offset === -1 ? `last ${unit}` : expression.offset === 1 ? `next ${unit}`
+      : expression.offset < 0 ? `${-expression.offset} ${unit}s ago` : `${expression.offset} ${unit}s from now`
+    return `start of ${when}`
   }
   return describeVariable(expression)
 }

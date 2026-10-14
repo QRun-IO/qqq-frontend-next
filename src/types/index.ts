@@ -42,6 +42,8 @@ export type {
   QThemeMetaData,
   QTableMetaData,
   QFieldMetaData,
+  QPossibleValuePicker,
+  QRelatedRecordPicker,
   QVirtualFieldMetaData,
   QProcessMetaData,
   QFrontendStepMetaData,
@@ -80,6 +82,9 @@ export type {
   NowExpression,
   NowWithOffsetExpression,
   ThisOrLastPeriodExpression,
+  StartOfPeriodExpression,
+  PeriodUnit,
+  WeekStartName,
   ExpressionTimeUnit,
 } from './query'
 

@@ -2,6 +2,42 @@
 
 > **Current status lives in GitHub:** [Next UI 1.0 roadmap](https://github.com/QRun-IO/qqq/issues/713). This document records scoped evidence and historical checkpoints; older open/closed wording and summary counts do not override current issue status. See [tracking policy](../ISSUE-TRACKING.md). Final 1.0 remains held for owner testing and explicit approval.
 
+## CI layout
+
+`plan` and `build` run concurrently. The build produces one static export, dashboard
+JAR and sample backend; the sample and middleware API JARs plus `out/` are shared
+with all shards. Each shard has its own backend, one worker and zero retries.
+The dependency graph is `plan + build → shards → acceptance gate`, with an
+independent, non-blocking `quarantine` job after `plan + build` in full mode.
+
+| Trigger | Chromium | Firefox | WebKit | Mobile | Tablet | Selection |
+| --- | --- | --- | --- | --- | --- | --- |
+| PR | 2 | — | — | 2 | — | Changed areas plus landing/navigation/CRUD/query/dashboard smoke |
+| main, `v*` tag, workflow dispatch | 3 | 3 | 4 | 4 | 4 | Entire suite, respecting touch tags |
+| PR labeled `full-acceptance` | 3 | 3 | 4 | 4 | 4 | Same as full |
+
+Counts are independent Playwright shards. Mobile and tablet are separate projects
+and jobs. `scripts/acceptance-select.mjs` owns path selection: docs-only runs smoke;
+shared infrastructure changes select all areas on the two PR projects. Label changes
+trigger replanning. No change narrows full runs on main or tags except the explicit
+quarantine below.
+
+Require **`acceptance gate`** in branch protection. It always runs, merges blobs
+into JSON and HTML, checks the matrix (`--partial` only for PR mode), and requires
+all planned shards to succeed. Its `acceptance` artifact retains the merged report,
+gate summary and failure attachments for 30 days. Full browser coverage cannot be
+claimed from a partial PR run. The under-30-minute PR target needs hosted timing
+validation; local syntax/unit checks do not measure it.
+
+`WID-029` ([#93](https://github.com/QRun-IO/qqq-frontend-next/issues/93)) has
+`@quarantine` tags and an entry in `tests/acceptance/quarantine.json`. The default
+suite excludes it and reports it in `summary.quarantined`. Full runs execute it
+separately on Chromium with `QQQ_ACCEPTANCE_QUARANTINE=only` and
+`continue-on-error: true`, retaining `acceptance-quarantine` results. This is a
+visible known failure, not evidence of a passing feature. Missing issue links or
+unknown quarantine IDs fail the gate. See the [acceptance README](../../tests/acceptance/README.md)
+for local commands, artifact contents and cache/retry behavior.
+
 ## September 30 — post-RC4 report and menu checkpoint
 
 Local production export at `a8e4d3b`:583 Chromium tests and all391 required feature rows passed, zero failures/skips/flaky results, three approved external-service exclusions. This includes the uniform table backgrounds, record overview spacing and hidePreview compatibility fixes. Retained full report/gate: `report-preview-full-chromium/` in local visual-review evidence.
@@ -11,8 +47,8 @@ The subsequent column-menu height correction passes28 targeted Chromium/WebKit c
 
 The acceptance suite runs against the owned sample backend and the production static
 export (javalin mode). The default gate runs Chromium only; the documented matrix is the
-five configured Playwright projects below. CI runs Chromium separately from phone/tablet
-so the primary workflow gate can finish independently. Prioritize Chromium
+five configured Playwright projects below. CI shards each project separately and merges
+their evidence into the single gate described above. Prioritize Chromium
 workflow depth for RC1 and final 1.0; the complete final browser claim still requires all five projects.
 
 ## Verification order
