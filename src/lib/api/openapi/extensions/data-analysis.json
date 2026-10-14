@@ -1231,7 +1231,7 @@
       "DataAnalysisPivotNumericBinsV1": {
         "properties": {
           "count": {
-            "description": "Number of bins, 1\u00e2\u20ac\u201c200; defaults to 20.",
+            "description": "Number of bins, 1–200; defaults to 20.",
             "type": "integer"
           },
           "min": {
@@ -2195,6 +2195,7 @@
               "STARTS_WITH",
               "ENDS_WITH",
               "CONTAINS",
+              "CONTAINS_ALL",
               "NOT_STARTS_WITH",
               "NOT_ENDS_WITH",
               "NOT_CONTAINS",
