@@ -179,6 +179,11 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
+  collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
+  collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
+  collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
+  collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *
