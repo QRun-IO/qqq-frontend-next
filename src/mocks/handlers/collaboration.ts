@@ -36,6 +36,19 @@ import { orderRecords } from '../fixtures/records/order'
 import { productRecords } from '../fixtures/records/product'
 
 const BASE = '/qqq/v1/qbit/collaboration'
+/** Directory display names the mock service sends beside each user id ('me' is the mock session). */
+const displayNames: Record<string, string> = {
+  me: 'Anonymous',
+  alex: 'Alex Rivera',
+  sam: 'Sam Parker',
+  morgan: 'Morgan Lee',
+  unknown: 'Taylor Chen',
+}
+/** Display name for a mock user id, or null when unknown (the UI then shows the id).
+ * @param id - User id.
+ * @returns Display name or null.
+ */
+const nameOf = (id?: string | null) => (id ? (displayNames[id] ?? null) : null)
 const records = [...personRecords, ...companyRecords, ...orderRecords, ...productRecords]
 let nextId = 10
 const identity = (target: CollaborationTarget) =>
@@ -233,7 +246,8 @@ function recordState(table: string, pk: string): RecordState {
           contentType: 'text/plain',
           sizeBytes: 64,
           description: 'Notes from our introductory call.',
-          createdByUserId: 'Morgan Lee',
+          createdByUserId: 'morgan',
+          createdByDisplayName: nameOf('morgan'),
           createDate: '2026-10-12T15:00:00Z',
           canDelete: true,
           tableName: table,
@@ -418,7 +432,8 @@ collaborationHandlers.push(
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
       sizeBytes: file.size,
-      createdByUserId: 'You',
+      createdByUserId: 'me',
+      createdByDisplayName: nameOf('me'),
       createDate: new Date().toISOString(),
       canDelete: true,
       tableName: String(params.table),
@@ -602,6 +617,9 @@ const taskStore: import('@/types/collaboration').CollaborationTaskV1[] = [
     title: 'Review customer requirements',
     notes: 'Confirm the **delivery date**.',
     assigneeUserId: 'alex',
+    assigneeDisplayName: nameOf('alex'),
+    createdByUserId: 'morgan',
+    createdByDisplayName: nameOf('morgan'),
     status: 'OPEN',
     dueAt: '2026-10-01T12:00:00Z',
   },
@@ -697,13 +715,21 @@ collaborationHandlers.push(
         tableName: params.table,
         recordId: params.pk,
         toUserId: id,
+        toDisplayName: nameOf(id),
+        fromUserId: 'me',
+        fromDisplayName: nameOf('me'),
         recipientCouldRead: id === 'alex',
         message: input.message,
       })),
     })
   }),
   http.post(`${BASE}/access-requests`, async () =>
-    HttpResponse.json({ id: objectId++, status: 'PENDING' })
+    HttpResponse.json({
+      id: objectId++,
+      status: 'PENDING',
+      requesterUserId: 'me',
+      requesterDisplayName: nameOf('me'),
+    })
   ),
   http.get(`${BASE}/records/:table/:pk/tasks`, ({ params, request }) =>
     HttpResponse.json(
@@ -721,6 +747,9 @@ collaborationHandlers.push(
     const task = {
       ...input,
       id: objectId++,
+      assigneeDisplayName: nameOf(input.assigneeUserId),
+      createdByUserId: 'me',
+      createdByDisplayName: nameOf('me'),
       status: 'OPEN',
       tableName: String(params.table),
       recordId: String(params.pk),
@@ -741,6 +770,15 @@ collaborationHandlers.push(
     if (input.assigneeUserId && input.assigneeUserId !== 'alex')
       return HttpResponse.json({ error: 'The assignee cannot open this record.' }, { status: 400 })
     Object.assign(task, input)
+    if (input.assigneeUserId !== undefined) task.assigneeDisplayName = nameOf(input.assigneeUserId)
+    if (input.status === 'DONE')
+      Object.assign(task, {
+        completedAt: new Date().toISOString(),
+        completedByUserId: 'me',
+        completedByDisplayName: nameOf('me'),
+      })
+    if (input.status === 'OPEN')
+      Object.assign(task, { completedAt: null, completedByUserId: null, completedByDisplayName: null })
     publishCollaborationEvent('task.changed', {
       table: task.tableName,
       pk: task.recordId,

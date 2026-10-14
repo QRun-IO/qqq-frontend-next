@@ -107,6 +107,8 @@ export interface CollaborationAttachmentV1 {
   contentType?: string | null
   /** Upload time. */
   createDate?: string | null
+  /** Uploader display name, when the service provides it; the UI falls back to the id. */
+  createdByDisplayName?: string | null
   /** Uploader identity. */
   createdByUserId?: string | null
   /** Optional description. */
@@ -620,9 +622,15 @@ export interface RecordFeatureSummary {
 
 /** Collaboration wire contract. */
 export interface CollaborationTaskV1 {
+  /** Assignee display name, when provided; the UI falls back to assigneeUserId. */
+  assigneeDisplayName?: string | null
   assigneeUserId?: string | null
   completedAt?: string | null
+  /** Completer display name, when provided; the UI falls back to completedByUserId. */
+  completedByDisplayName?: string | null
   completedByUserId?: string | null
+  /** Creator display name, when provided; the UI falls back to createdByUserId. */
+  createdByDisplayName?: string | null
   createdByUserId?: string | null
   dueAt?: string | null
   id?: number | null
@@ -636,6 +644,8 @@ export interface CollaborationTaskV1 {
 
 /** Collaboration wire contract. */
 export interface CollaborationShareV1 {
+  /** Sender display name, when provided; the UI falls back to fromUserId. */
+  fromDisplayName?: string | null
   fromUserId?: string | null
   id?: number | null
   message?: string | null
@@ -643,6 +653,8 @@ export interface CollaborationShareV1 {
   recordId?: string | null
   sentAt?: string | null
   tableName?: string | null
+  /** Recipient display name, when provided; the UI falls back to toUserId. */
+  toDisplayName?: string | null
   toUserId?: string | null
 }
 
@@ -660,6 +672,8 @@ export interface CollaborationAccessRequestV1 {
   message?: string | null
   note?: string | null
   recordId?: string | null
+  /** Requester display name, when provided; the UI falls back to requesterUserId. */
+  requesterDisplayName?: string | null
   requesterUserId?: string | null
   status?: string | null
   tableName?: string | null

@@ -129,7 +129,8 @@ export function ShareDialog({
           <ul className="space-y-2 text-sm">
             {send.data.items?.map((item) => (
               <li key={item.id ?? item.toUserId}>
-                {preview.data?.recipients?.find((p) => p.userId === item.toUserId)?.displayName ||
+                {item.toDisplayName ||
+                  preview.data?.recipients?.find((p) => p.userId === item.toUserId)?.displayName ||
                   item.toUserId}
                 : {item.recipientCouldRead ? 'Notified' : 'Offered access'}
               </li>

@@ -236,6 +236,32 @@ it('refuses unreadable assignees, creates and toggles a task', async () => {
     )
   )
 })
+it('names task people by display name and falls back to the user id', async () => {
+  vi.mocked(api.listTasks).mockResolvedValue({
+    items: [
+      {
+        id: 1,
+        title: 'Named',
+        status: 'DONE',
+        assigneeUserId: 'alex',
+        assigneeDisplayName: 'Alex Rivera',
+        createdByUserId: 'morgan',
+        createdByDisplayName: 'Morgan Lee',
+        completedByUserId: 'sam',
+        completedByDisplayName: 'Sam Parker',
+      },
+      { id: 2, title: 'Unnamed', status: 'OPEN', assigneeUserId: 'u7', createdByUserId: 'u8' },
+    ],
+    nextCursor: null,
+  })
+  mount(<TasksTab record={record} features={{ capabilities: { task: true } }} />)
+  expect(await screen.findByText('Assigned to u7')).toBeVisible()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Show done' }))
+  expect(await screen.findByText('Assigned to Alex Rivera')).toBeVisible()
+  expect(screen.getByText('Created by Morgan Lee · Completed by Sam Parker')).toBeVisible()
+  expect(screen.getByText('Assigned to u7')).toBeVisible()
+  expect(screen.getByText('Created by u8')).toBeVisible()
+})
 it('renders My work with overdue task, assigned table and unread mentions links', async () => {
   vi.mocked(api.getMyWork).mockResolvedValue({
     openTaskCount: 1,

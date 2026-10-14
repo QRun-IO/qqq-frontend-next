@@ -37,6 +37,21 @@ function localDate(value?: string | null) {
   if (!Number.isFinite(date.getTime())) return ''
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
+/** Who created and (once done) completed a task, by display name when the service sends one.
+ * @param task - Task.
+ * @param status - Status as shown, including an optimistic toggle.
+ * @returns "Created by A · Completed by B", or an empty string.
+ */
+function taskPeople(task: CollaborationTaskV1, status?: string | null) {
+  return [
+    task.createdByUserId && `Created by ${task.createdByDisplayName || task.createdByUserId}`,
+    status === 'DONE' &&
+      task.completedByUserId &&
+      `Completed by ${task.completedByDisplayName || task.completedByUserId}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
 /** Task form shared by create and edit.
  * @param props - Task and parent.
  * @returns Editor dialog.
@@ -243,7 +258,14 @@ export function TasksTab({
               </div>
             )}
             {task.assigneeUserId && (
-              <p className="text-xs text-muted-foreground">Assigned to {task.assigneeUserId}</p>
+              <p className="text-xs text-muted-foreground">
+                Assigned to {task.assigneeDisplayName || task.assigneeUserId}
+              </p>
+            )}
+            {taskPeople(task, statusOf(task)) && (
+              <p className="text-xs text-muted-foreground" data-qqq-id={`task-people-${task.id}`}>
+                {taskPeople(task, statusOf(task))}
+              </p>
             )}
             {task.dueAt && (
               <p className="text-xs">

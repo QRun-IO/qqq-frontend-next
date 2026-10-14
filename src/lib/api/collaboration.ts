@@ -266,6 +266,7 @@ export function normalizeAttachment(raw: unknown): Attachment {
     description: string(data.description),
     contentType: string(data.contentType),
     sizeBytes: number(data.sizeBytes),
+    createdByDisplayName: string(data.createdByDisplayName),
     createdByUserId: string(data.createdByUserId),
     createDate: string(data.createDate),
     canDelete: data.canDelete === true,
