@@ -34,11 +34,66 @@ import {
   resetDataAnalysisInstalled,
   startRun,
   tableProfile,
+  compare,
+  correlation,
+  crosstab,
+  scatter,
+  shift,
 } from './data-analysis'
+import {
+  compareResult,
+  correlationResult,
+  crosstabResult,
+  scatterResult,
+  shiftResult,
+} from '../../../tests/fixtures/data-analysis-compare'
 
 const ROOT = '/qqq/v1/qbit/data-analysis'
+
+it('posts all five relationship operations with encoded tables and exact request bodies', async () => {
+  const responses = {
+    compare: compareResult,
+    correlation: correlationResult,
+    crosstab: crosstabResult,
+    scatter: scatterResult,
+    shift: shiftResult,
+  }
+  const scope = {
+    booleanOperator: 'AND' as const,
+    criteria: [{ fieldName: 'status', operator: 'EQUALS' as const, values: ['active'] }],
+  }
+  const bodies: unknown[] = []
+  server.use(
+    http.post(`${ROOT}/tables/:table/:operation`, async ({ request, params }) => {
+      expect(request.url).toContain('/sales%2Fpeople/')
+      bodies.push(await request.json())
+      return HttpResponse.json(responses[params.operation as keyof typeof responses])
+    })
+  )
+  const a = { fields: ['status'], filterA: scope, filterB: null, labelA: 'A', labelB: 'All' }
+  const b = { fields: ['id', 'amount'], filter: scope }
+  const c = { rowField: 'status', columnField: 'firstName', filter: scope }
+  const d = { xField: 'id', yField: 'amount', filter: scope, limit: 2000 }
+  const e = { field: 'status', dateField: 'createdAt', bucket: 'MONTH', filter: scope }
+  expect(await compare('sales/people', a)).toEqual(compareResult)
+  expect(await correlation('sales/people', b)).toEqual(correlationResult)
+  expect(await crosstab('sales/people', c)).toEqual(crosstabResult)
+  expect(await scatter('sales/people', d)).toEqual(scatterResult)
+  expect(await shift('sales/people', e)).toEqual(shiftResult)
+  expect(bodies).toEqual([a, b, c, d, e])
+  server.use(
+    http.post(`${ROOT}/tables/:table/:operation`, () => new HttpResponse(null, { status: 403 }))
+  )
+  await expect(compare('person', a)).rejects.toThrow()
+  await expect(correlation('person', b)).rejects.toThrow()
+  await expect(crosstab('person', c)).rejects.toThrow()
+  await expect(scatter('person', d)).rejects.toThrow()
+  await expect(shift('person', e)).rejects.toThrow()
+})
 const version = (extensions: { name: string }[]) =>
-  http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.1.0', basePath: '/qqq/v1', features: [], extensions }))
+  http.get('/qqq/v1/version', () =>
+    HttpResponse.json({ apiVersion: '1.1.0', basePath: '/qqq/v1', features: [], extensions })
+  )
 
 beforeEach(() => {
   resetDataAnalysisInstalled()
@@ -49,7 +104,12 @@ describe('data-analysis installation', () => {
   it('asks capabilities only when the server registers the extension', async () => {
     server.use(version([{ name: 'alerts' }]))
     let asked = false
-    server.use(http.get(`${ROOT}/tables/:table/capabilities`, () => { asked = true; return HttpResponse.json(capabilities) }))
+    server.use(
+      http.get(`${ROOT}/tables/:table/capabilities`, () => {
+        asked = true
+        return HttpResponse.json(capabilities)
+      })
+    )
     expect(await isDataAnalysisInstalled()).toBe(false)
     expect(await getCapabilities('person')).toBeNull()
     expect(asked).toBe(false)
@@ -149,4 +209,28 @@ it('starts and polls typed exact runs and propagates permission failures', async
     http.post(`${ROOT}/tables/:table/column-profile`, () => new HttpResponse(null, { status: 403 }))
   )
   await expect(columnProfile('person', { fieldName: 'status' })).rejects.toThrow()
+})
+
+it('posts a pivot with the complete filter and encoded table name', async () => {
+  const { pivot } = await import('./data-analysis')
+  const { pivotRequest, pivotResult } = await import('../../../tests/fixtures/data-analysis')
+  const request = {
+    ...pivotRequest,
+    filter: {
+      booleanOperator: 'AND' as const,
+      criteria: [{ fieldName: 'status', operator: 'EQUALS' as const, values: ['active'] }],
+    },
+  }
+  server.use(
+    http.post(`${ROOT}/tables/:table/pivot`, async ({ request: wire }) => {
+      expect(wire.url).toContain('/sales%2Fpeople/pivot')
+      expect(await wire.json()).toEqual(request)
+      return HttpResponse.json(pivotResult)
+    })
+  )
+  expect(await pivot('sales/people', request)).toEqual(pivotResult)
+  server.use(
+    http.post(`${ROOT}/tables/:table/pivot`, () => new HttpResponse(null, { status: 403 }))
+  )
+  await expect(pivot('sales/people', request)).rejects.toThrow()
 })
