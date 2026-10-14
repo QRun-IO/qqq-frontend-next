@@ -831,3 +831,95 @@ export type DataAnalysisTrendLineV1 = {
   /** Pearson correlation; null for insufficient data, zero variance or privacy suppression. */
   r?: number | null
 }
+
+/** DataAnalysisSavedEntryV1 wire schema (extension 1.4.0). */
+export type DataAnalysisSavedEntryV1 = {
+  id?: number
+  name?: string
+  kind?: string
+  tableName?: string
+  tableLabel?: string
+  owner?: string
+  updated?: string | null
+  shared?: boolean
+  starred?: boolean
+}
+
+/** DataAnalysisSavedListV1 wire schema (extension 1.4.0). */
+export type DataAnalysisSavedListV1 = {
+  analyses?: Array<DataAnalysisSavedEntryV1>
+}
+
+/** DataAnalysisSavedResultV1 wire schema (extension 1.4.0). */
+export type DataAnalysisSavedResultV1 = {
+  kind?:
+    | 'COLUMN_PROFILE'
+    | 'TABLE_PROFILE'
+    | 'PIVOT'
+    | 'COMPARE'
+    | 'CORRELATION'
+    | 'CROSSTAB'
+    | 'SHIFT'
+  warnings?: Array<string>
+  columnProfile?: DataAnalysisColumnProfileV1 | null
+  compare?: DataAnalysisCompareV1 | null
+  correlation?: DataAnalysisCorrelationV1 | null
+  crosstab?: DataAnalysisCrosstabV1 | null
+  pivot?: DataAnalysisPivotV1 | null
+  shift?: DataAnalysisShiftV1 | null
+  tableProfile?: DataAnalysisTableProfileV1 | null
+}
+
+/** DataAnalysisSqlV1 wire schema (extension 1.4.0). */
+export type DataAnalysisSqlV1 = {
+  available?: boolean
+  note?: string
+  sql?: string | null
+}
+
+/** DataAnalysisStarV1 wire schema (extension 1.4.0). */
+export type DataAnalysisStarV1 = {
+  starred?: boolean
+}
+
+/** DataAnalysisWatchBucketV1 wire schema (extension 1.4.0). */
+export type DataAnalysisWatchBucketV1 = {
+  start?: string
+  value?: number | null
+  categories?: Array<string>
+  drill?: DataAnalysisDrillV1 | null
+}
+
+/** DataAnalysisWatchPreviewV1 wire schema (extension 1.4.0). */
+export type DataAnalysisWatchPreviewV1 = {
+  series?: Array<DataAnalysisWatchBucketV1>
+  chart?: DataAnalysisChartV1
+  verdict?: DataAnalysisWatchVerdictV1
+}
+
+/** DataAnalysisWatchVerdictV1 wire schema (extension 1.4.0). */
+export type DataAnalysisWatchVerdictV1 = {
+  evaluated?: boolean
+  firing?: boolean
+  value?: number | null
+  baseline?: number | null
+  baselineLow?: number | null
+  baselineHigh?: number | null
+  message?: string
+  drill?: DataAnalysisDrillV1 | null
+}
+
+/** Typed operation shared by saved records, exports and SQL. */
+export type AnalysisDefinition =
+  | { kind: 'COLUMN_PROFILE'; request: DataAnalysisColumnProfileRequestV1 }
+  | { kind: 'TABLE_PROFILE'; request: DataAnalysisTableProfileRequestV1 }
+  | { kind: 'PIVOT'; request: DataAnalysisPivotRequestV1 }
+  | { kind: 'COMPARE'; request: DataAnalysisCompareRequestV1 }
+  | { kind: 'CORRELATION'; request: DataAnalysisCorrelationRequestV1 }
+  | { kind: 'CROSSTAB'; request: DataAnalysisCrosstabRequestV1 }
+  | { kind: 'SHIFT'; request: DataAnalysisShiftRequestV1 }
+/** Export/SQL operation envelope. */
+export type DataAnalysisSavedRequestV1 = AnalysisDefinition & {
+  tableName?: string
+  format?: 'csv' | 'xlsx'
+}

@@ -30,6 +30,7 @@ import {
   validatePivot,
   type PivotLayout,
 } from '@/lib/utils/data-analysis-pivot'
+import { AnalysisActions } from './AnalysisActions'
 import PivotBuilder from './PivotBuilder'
 import PivotResult from './PivotResult'
 import { controlClass, ProfileBadges, ProfileError, ProfileLoading } from './ProfileParts'
@@ -52,6 +53,7 @@ export default function PivotExplorer({
   onRun,
   onBack,
   unavailableReason,
+  sqlAvailable = false,
 }: {
   tableName: string
   tableLabel: string
@@ -60,6 +62,7 @@ export default function PivotExplorer({
   encoded: string | null
   onRun: (request: PivotLayout) => void
   onBack: () => void
+  sqlAvailable?: boolean
   unavailableReason?: string
 }) {
   let initial: PivotLayout | null = null
@@ -152,6 +155,12 @@ export default function PivotExplorer({
         <ProfileLoading />
       ) : result.data && initial ? (
         <>
+          <AnalysisActions
+            definition={{ kind: 'PIVOT', request: request! }}
+            tableName={tableName}
+            chartKind={kind}
+            sqlAvailable={sqlAvailable}
+          />
           <ProfileBadges profile={result.data} />
           <button
             className={controlClass}
