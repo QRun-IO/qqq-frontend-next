@@ -150,3 +150,27 @@ it('starts and polls typed exact runs and propagates permission failures', async
   )
   await expect(columnProfile('person', { fieldName: 'status' })).rejects.toThrow()
 })
+
+it('posts a pivot with the complete filter and encoded table name', async () => {
+  const { pivot } = await import('./data-analysis')
+  const { pivotRequest, pivotResult } = await import('../../../tests/fixtures/data-analysis')
+  const request = {
+    ...pivotRequest,
+    filter: {
+      booleanOperator: 'AND' as const,
+      criteria: [{ fieldName: 'status', operator: 'EQUALS' as const, values: ['active'] }],
+    },
+  }
+  server.use(
+    http.post(`${ROOT}/tables/:table/pivot`, async ({ request: wire }) => {
+      expect(wire.url).toContain('/sales%2Fpeople/pivot')
+      expect(await wire.json()).toEqual(request)
+      return HttpResponse.json(pivotResult)
+    })
+  )
+  expect(await pivot('sales/people', request)).toEqual(pivotResult)
+  server.use(
+    http.post(`${ROOT}/tables/:table/pivot`, () => new HttpResponse(null, { status: 403 }))
+  )
+  await expect(pivot('sales/people', request)).rejects.toThrow()
+})

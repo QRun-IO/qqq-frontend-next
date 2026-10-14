@@ -497,3 +497,113 @@ export type QueryFilter = {
   /** Records to skip (e.g., to implement pagination) */
   skip?: number
 }
+
+/** DataAnalysisPivotCellV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotCellV1 = {
+  /** Zero-based index in rowHeaders. */
+  rowIndex?: number
+  /** Zero-based index in columnHeaders. */
+  columnIndex?: number
+  /** Metrics in requested measure order; suppressed metrics have no value or drill. */
+  values?: Array<DataAnalysisMetricV1>
+}
+
+/** DataAnalysisPivotDimensionV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotDimensionV1 = {
+  /** FULL field name, optionally joinTable.field through an exposed join. */
+  field: string
+  /** Optional calendar or cyclic bucket in the session timezone. */
+  dateBucket?:
+    | 'YEAR'
+    | 'QUARTER'
+    | 'MONTH'
+    | 'WEEK'
+    | 'DAY'
+    | 'HOUR'
+    | 'DAY_OF_WEEK'
+    | 'HOUR_OF_DAY'
+  /** Optional equal-width numeric bins; mutually exclusive with dateBucket. */
+  numericBins?: DataAnalysisPivotNumericBinsV1
+}
+
+/** DataAnalysisPivotHeaderV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotHeaderV1 = {
+  /** Typed group key; null for a blank group or Other. */
+  value?: unknown
+  /** Display label, including Other (k groups). */
+  label?: string
+}
+
+/** DataAnalysisPivotMeasureInfoV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotMeasureInfoV1 = {
+  /** Stable measure key by request position. */
+  key?: string
+  /** Display label. */
+  label?: string
+  /** Semantic metric type. */
+  valueType?: 'COUNT' | 'DECIMAL' | 'PERCENT' | 'DATE' | 'DATE_TIME' | 'DURATION' | 'TEXT'
+}
+
+/** DataAnalysisPivotMeasureV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotMeasureV1 = {
+  /** Aggregate operator. COUNT counts records, including null values. */
+  operator: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT_DISTINCT' | 'PERCENTILE'
+  /** FULL field to aggregate; optional for COUNT. */
+  field?: string
+  /** PERCENTILE only: percentile_cont fraction from 0 to 1. */
+  percentile?: number
+}
+
+/** DataAnalysisPivotNumericBinsV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotNumericBinsV1 = {
+  /** Number of bins, 1–200; defaults to 20. */
+  count?: number
+  /** Optional explicit lower bound; otherwise a nice enclosing edge. */
+  min?: number
+  /** Optional explicit upper bound; final interior bin includes this value. */
+  max?: number
+}
+
+/** DataAnalysisPivotRequestV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotRequestV1 = {
+  /** User query filter, passed through for core enforcement. */
+  filter?: QueryFilter
+  /** One to three row dimensions. */
+  rows: Array<DataAnalysisPivotDimensionV1>
+  /** Zero to two column dimensions; defaults to empty. */
+  columns?: Array<DataAnalysisPivotDimensionV1>
+  /** One to six measures. */
+  values: Array<DataAnalysisPivotMeasureV1>
+  /** Include row, column and grand totals; defaults to true. */
+  showTotals?: boolean
+  /** Kept groups per dimension; default 50, maximum 200. */
+  limitGroups?: number
+}
+
+/** DataAnalysisPivotV1 wire schema (extension 1.1.0). */
+export type DataAnalysisPivotV1 = {
+  /** Row header tuples in cell-index order. */
+  rowHeaders?: Array<Array<DataAnalysisPivotHeaderV1>>
+  /** Column header tuples; an empty tuple represents no column dimensions. */
+  columnHeaders?: Array<Array<DataAnalysisPivotHeaderV1>>
+  /** Measure metadata in request order. */
+  measures?: Array<DataAnalysisPivotMeasureInfoV1>
+  /** Sparse cells; absent combinations are not materialized. */
+  cells?: Array<DataAnalysisPivotCellV1>
+  /** Metric tuples aligned with rowHeaders; empty when totals disabled. */
+  rowTotals?: Array<Array<DataAnalysisMetricV1>>
+  /** Metric tuples aligned with columnHeaders; empty when totals disabled. */
+  columnTotals?: Array<Array<DataAnalysisMetricV1>>
+  /** Grand-total metrics; empty when totals disabled. */
+  grandTotals?: Array<DataAnalysisMetricV1>
+  /** Row groups were merged into Other. */
+  truncatedRows?: boolean
+  /** Column groups were merged into Other. */
+  truncatedColumns?: boolean
+  /** True when bounded streamed fallback produced a partial result. */
+  estimate?: boolean
+  /** Privacy, partial-result and joined-drill limitations. */
+  warnings?: Array<string>
+  /** UTC timestamp of computation. */
+  asOf?: string
+}
