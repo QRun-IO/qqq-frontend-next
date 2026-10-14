@@ -441,3 +441,39 @@ describe('useRecordQuery — immediate shareable URL', () => {
     expect(window.history.length).toBe(length)
   })
 })
+
+describe('useRecordQuery — default columns', () => {
+  beforeEach(() => localStorage.clear())
+
+  const metadata = () => makeTableMeta({ sections: [{ name: 'main', label: 'Main', isHidden: false, tier: 'T1', fieldNames: ['firstName'] }] })
+
+  it('starts short, searches only visible fields, and lets the picker enable excluded fields', () => {
+    const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata() }), { wrapper: createWrapper() })
+    expect(result.current.columns.columnVisibility).toEqual({ id: true, firstName: true, lastName: false, age: false })
+    act(() => result.current.filter.setQuickSearch('Alice'))
+    expect(result.current.filter.effectiveFilter.criteria.map((criterion) => criterion.fieldName)).toEqual(['firstName'])
+    act(() => result.current.columns.toggleColumn('lastName'))
+    expect(result.current.filter.effectiveFilter.criteria.map((criterion) => criterion.fieldName)).toEqual(['firstName', 'lastName'])
+  })
+
+  it.each([{}, { id: false, lastName: true }] as Record<string, boolean>[])('keeps saved visibility %j untouched', (columnVisibility) => {
+    const initialView = { userFilter: emptyFilter(50), sortOrder: [], columnVisibility, columnOrder: ['lastName'], columnWidths: { lastName: 220 }, pageSize: 50 as const, filterMode: 'basic' as const }
+    const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata(), initialView }), { wrapper: createWrapper() })
+    expect(result.current.columns.columnVisibility).toEqual(columnVisibility)
+    expect(result.current.columns.columnOrder).toEqual(['lastName'])
+    expect(result.current.columns.columnWidths).toEqual({ lastName: 220 })
+  })
+
+  it.each([{}, { age: true, firstName: false }])('keeps legacy visibility %j untouched', (columnVisibility) => {
+    localStorage.setItem('qqq-person-columns', JSON.stringify(columnVisibility))
+    const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata() }), { wrapper: createWrapper() })
+    expect(result.current.columns.columnVisibility).toEqual(columnVisibility)
+  })
+
+  it('uses short defaults when only legacy widths are stored', () => {
+    localStorage.setItem('qqq-person-column-widths', JSON.stringify({ firstName: 220 }))
+    const { result } = renderHook(() => useRecordQuery({ tableName: 'person', allTables: {}, tableMetaData: metadata() }), { wrapper: createWrapper() })
+    expect(result.current.columns.columnVisibility).toEqual({ id: true, firstName: true, lastName: false, age: false })
+    expect(result.current.columns.columnWidths).toEqual({ firstName: 220 })
+  })
+})

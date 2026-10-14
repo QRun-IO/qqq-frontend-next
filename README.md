@@ -178,3 +178,35 @@ src/
 - **Charts:** Recharts
 - **Testing:** Vitest (unit), Playwright (E2E), axe-core (a11y)
 - **Package Manager:** pnpm
+
+## Default query columns
+
+A new query view shows at most six fields: the visible primary key first, then
+eligible fields from T1 sections followed by T2 sections, preserving section and
+field order within each tier. Tables without sections use metadata field order.
+Hidden fields, heavy fields, TEXT/HTML/BLOB/JSON-like types, and CODE_EDITOR or
+RENDER_HTML adornments are excluded from the automatic selection (the primary key
+is retained unless hidden). Fields outside T1/T2 are initially unchecked.
+Other available columns remain selectable in the column picker.
+
+Applications can override this selection with a string-array hint:
+
+```json
+{
+  "supplementalMetaData": {
+    "nextUi": {
+      "defaultColumns": ["id", "title", "status"]
+    }
+  }
+}
+```
+
+The legacy `supplementalTableMetaData.nextUi.defaultColumns` path is also accepted;
+the modern `supplementalMetaData.nextUi` object takes precedence. A valid hint
+selects exactly the named available columns, without the six-field cap or automatic
+primary-key inclusion. Unknown or unavailable fields are ignored; an empty array
+selects no columns, and malformed hints fall back to the automatic selection.
+Saved views and legacy stored visibility (including `{}`, meaning all base columns)
+are preserved. New View and Reset All Changes on an unsaved view restore these
+metadata defaults. Quick search searches only visible string fields. Responsive
+card/grid behavior is unchanged.

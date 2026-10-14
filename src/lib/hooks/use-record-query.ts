@@ -51,7 +51,7 @@ import {
 } from '@/lib/utils/filter-utils'
 import { isColumnVisible, type ViewState } from '@/lib/utils/saved-view-utils'
 import { getDefaultQuickFilterFieldNames, reconcileBasicMode } from '@/lib/utils/quick-filter-utils'
-import { hasCapability, withReadableExposedJoins, type ColumnPins } from '@/lib/utils/query-columns'
+import { defaultColumnVisibility, hasCapability, withReadableExposedJoins, type ColumnPins } from '@/lib/utils/query-columns'
 import { DENSITY_STORAGE_KEY, readLegacyColumnState } from '@/lib/utils/query-view-storage'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { useColumnConfig } from '@/lib/hooks/use-column-config'
@@ -350,7 +350,7 @@ export function useRecordQuery({
       filterMode: initialView?.filterMode ?? storedMode ?? 'basic',
       quickFilterFieldNames: (initialView?.quickFilterFieldNames ?? storedQuickFilters ?? []).filter((name) => Boolean(tableMetaData && resolveField(tableMetaData, name))),
       sortOrder: initialFilter.orderBys?.length ? initialFilter.orderBys : defaultSort,
-      columnVisibility: initialView?.columnVisibility ?? legacy?.columnVisibility ?? {},
+      columnVisibility: initialView?.columnVisibility ?? legacy?.columnVisibility ?? (tableMetaData ? defaultColumnVisibility(tableMetaData) : {}),
       columnOrder: initialView?.columnOrder ?? legacy?.columnOrder ?? [],
       columnWidths: initialView?.columnWidths ?? legacy?.columnWidths ?? {},
       columnPins: initialView?.columnPins ?? null,
