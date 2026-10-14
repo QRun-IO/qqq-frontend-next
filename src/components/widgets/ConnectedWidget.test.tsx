@@ -17,8 +17,8 @@
 // Tests for ConnectedWidget: payload dropdowns, stored selections, export, reload, errors and permission
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -64,10 +64,53 @@ function renderWidget(meta: QWidgetMetaData = controls, params?: Record<string, 
 }
 
 describe('ConnectedWidget', () => {
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     localStorage.clear()
     fetchMock.mockReset()
     fetchMock.mockImplementation(async (_name, params) => controlsPayload(params))
+  })
+
+  it.each([undefined, { tableName: 'items', id: '7' }])('refreshes dashboard and record widgets without replacing their content with a skeleton (%j)', async (params) => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    fetchMock.mockResolvedValueOnce({ type: 'html', html: 'Original widget content' })
+    let resolveRefresh!: (value: WidgetData) => void
+    fetchMock.mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve }))
+    const { unmount } = renderWidget({ name: 'refresh', label: 'Refresh', type: 'html', hasPermission: true, defaultValues: { refreshSeconds: 3 } }, params)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(screen.getByText('Original widget content')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenLastCalledWith('refresh', params ?? {})
+    expect(screen.getByText('Original widget content')).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading widget' })).not.toBeInTheDocument()
+    await act(async () => { resolveRefresh({ type: 'html', html: 'Refreshed widget content' }); await vi.advanceTimersByTimeAsync(1) })
+    expect(screen.getByText('Refreshed widget content')).toBeInTheDocument()
+    unmount()
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000) })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('refreshes a seeded record widget from metadata while preserving its initial payload until the interval', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    fetchMock.mockResolvedValue({ type: 'html', html: 'Updated record widget' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><SeededWidget
+      widgetMetaData={{ name: 'seeded-refresh', label: 'Seeded', type: 'html', hasPermission: true, defaultValues: { refreshSeconds: 2 } }}
+      data={{ type: 'html', html: 'Seeded record widget' }} params={{ tableName: 'items', id: 7 }}
+    /></QueryClientProvider>)
+    expect(screen.getByText('Seeded record widget')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => { await vi.advanceTimersByTimeAsync(2001) })
+    expect(fetchMock).toHaveBeenCalledWith('seeded-refresh', { tableName: 'items', id: 7 })
+    expect(screen.getByText('Updated record widget')).toBeInTheDocument()
   })
 
   it('hydrates backend date and choice defaults without persisting caller defaults', async () => {

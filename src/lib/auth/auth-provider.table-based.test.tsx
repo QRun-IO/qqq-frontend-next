@@ -21,6 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { AxiosError, type AxiosResponse } from 'axios'
 
+// the UI API version check (a real request otherwise) is covered in ui-api-version.test.ts
+vi.mock('@/lib/api/ui-api-version', () => ({ checkUiApiCompatibility: vi.fn(async () => ({ compatible: true, info: { apiVersion: '1.1.0', features: [], extensions: [], preSemver: false } })) }))
 vi.mock('@/lib/api/auth', () => ({
   getAuthenticationMetaData: vi.fn(async () => ({ name: 'tableBased', type: 'TABLE_BASED' })),
   manageSession: vi.fn(),

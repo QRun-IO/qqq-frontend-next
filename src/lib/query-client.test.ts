@@ -98,8 +98,9 @@ describe('queryKeys factory', () => {
     expect(queryKeys.audits('person', 1)).toEqual(['qqq', 'records', 'person', '1', 'audits'])
   })
 
-  it('recordSearch includes the term, tables and limit', () => {
-    expect(queryKeys.recordSearch('Alice', ['person'], 5)).toEqual(['qqq', 'search', 'records', 'Alice', ['person'], 5])
+  it('recordSearch includes the term, tables, limit, offset and order', () => {
+    expect(queryKeys.recordSearch('Alice', ['person'], 5)).toEqual(['qqq', 'search', 'records', 'Alice', ['person'], 5, 0, 'relevance'])
+    expect(queryKeys.recordSearch('Alice', ['person'], 25, 50, 'recent')).toEqual(['qqq', 'search', 'records', 'Alice', ['person'], 25, 50, 'recent'])
   })
 
   it('keys are distinct across different entities', () => {

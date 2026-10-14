@@ -1,15 +1,14 @@
 # Next UI — unreleased
 
-[RC14 preparation](1.0.0-RC.14.md) collects every change merged since [RC13](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.13): the record search fix and the Next.js security update. RC13 is published and immutable. Changes merged after the RC14 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
+[RC22 preparation](1.0.0-RC.22.md) collects every change merged since [RC20](https://github.com/QRun-IO/qqq-frontend-next/releases/tag/v1.0.0-RC.20). RC20 is published and immutable. Changes merged after the RC22 preparation commit are listed below. Central tracking: [qqq#713](https://github.com/QRun-IO/qqq/issues/713), [browser investigations #985](https://github.com/QRun-IO/qqq/issues/985), and [QQQ Roadmap Project 12](https://github.com/orgs/QRun-IO/projects/12).
 
 ## Features
 
-- **QQQ Assistant panel (Phase 1: read-only questions and navigation).** When the `qbit-assistant` backend is installed and `GET /qqq/v1/assistant/config` enables it for the user, a header button (with unread badge), `Ctrl/⌘+J` and a command palette "Ask Assistant" item open a chat panel. It docks beside the page from 1024 px (resizable 360-640 px, its own scrolling message list) and is a full-height sheet below that. Replies stream over SSE with resume after a dropped connection and a Stop button; tool steps, record chips, records/record/count/history renders and chart widgets come from structured payloads, and markdown renders without raw HTML or images, with links only to same-origin `/app` paths. `?assistant=open&assistantPrompt=...` opens a new conversation with the prompt pre-filled. Without the backend nothing renders and the shortcut is inert. The panel code loads on first open (about 1.7 KB added to first load).
+None yet.
 
 ## Product fixes
 
-- **Record developer view** (`/app/{table}/{id}/dev`): the record screen's navigation (back to the record, record title, Edit, Actions, Audit, breadcrumbs) and a sticky section bar (a section picker on phones, wrapping links elsewhere) over Fields (display and raw values, types, possible-value sources and adornments, filterable), **API Access** (the v1 routes this screen uses and every application API that exposes the table, read from its OpenAPI spec and limited to what the user may do, with copyable curl, fetch and Java examples built from the record's values, placeholder credentials only, and links to the API docs and specs), **developer panels** from QQQ's provider contract ([qqq#1076](https://github.com/QRun-IO/qqq/pull/1076): record security, ESB events, and any qbit's panel such as quick search, SQL workbench or the assistant, shown only when installed and active for the table; QQQ before 4.1.0-RC.4 has no panels endpoint, so the view shows none and asks for it only once per session), Relations, recent Audit, associated scripts, raw JSON and a searchable Table Metadata explorer. Readable from 360 to 3200px with no sideways scrolling. The view loads on demand, keeping the route's first-load JavaScript at 333.5 KB (budget 360 KB).
-- One scroll container per page: on long pages the document no longer grows a second scrollbar beside the content area's (and no longer slides the header off-screen). The app shell and `<main>` are now positioned, so absolutely positioned descendants such as `sr-only` text (the company footer's "opens in a new tab") stay inside the scrolling area instead of stretching the document. Covered by `tests/e2e/single-scroll-container.spec.ts` at 390-3200px.
+None yet.
 
 ## Browser testing and infrastructure
 

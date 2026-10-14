@@ -27,14 +27,15 @@ import type {
   AssistantConversationUpdate,
   AssistantFeedback,
   AssistantPageContext,
+  AssistantPendingAction,
   AssistantStreamEvent,
 } from '@/types/assistant'
-import apiClient, { apiUrl } from './client'
+import apiClient, { apiUrl, CLIENT_CHANNEL_HEADER } from './client'
 import { SseParser, type SseEvent } from './sse-parser'
 
 /** Stream event types this client understands; others (later phases) are skipped. */
 const KNOWN_EVENTS = new Set<AssistantStreamEvent['type']>([
-  'message.start', 'text.delta', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
+  'message.start', 'text.delta', 'presentation', 'tool.start', 'tool.result', 'ui.navigate', 'notice', 'usage', 'message.end', 'error', 'ping',
 ])
 
 /** An HTTP error from a streamed request, with the backend's `{ error }` message. */
@@ -144,6 +145,36 @@ export async function cancelAssistantTurn(turnId: number): Promise<{ status: str
  */
 export async function sendAssistantFeedback(messageId: number, feedback: AssistantFeedback): Promise<void> {
   await apiClient.post(`/assistant/messages/${messageId}/feedback`, feedback)
+}
+
+/**
+ * Loads a pending action (a write the assistant proposed) and its current state.
+ *
+ * @param actionId - The action id from the `pending_action` render.
+ * @returns The action.
+ */
+export async function getAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.get<AssistantPendingAction>(`/assistant/actions/${actionId}`)
+}
+
+/**
+ * Confirms a pending action: the server runs the write through the UI API with this session.
+ *
+ * @param actionId - The action id.
+ * @returns The action after it ran, with the outcome and message.
+ */
+export async function confirmAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.post<AssistantPendingAction>(`/assistant/actions/${actionId}/confirm`)
+}
+
+/**
+ * Cancels a pending action; nothing changes.
+ *
+ * @param actionId - The action id.
+ * @returns The rejected action.
+ */
+export async function rejectAssistantAction(actionId: number): Promise<AssistantPendingAction> {
+  return apiClient.post<AssistantPendingAction>(`/assistant/actions/${actionId}/reject`)
 }
 
 // ─── Streaming ────────────────────────────────────────────────────────────────
@@ -314,7 +345,7 @@ async function openStream(path: string, init: RequestInit, signal?: AbortSignal)
     ...init,
     credentials: 'include',
     cache: 'no-store',
-    headers: { Accept: 'text/event-stream', ...(init.headers as Record<string, string> | undefined) },
+    headers: { Accept: 'text/event-stream', ...CLIENT_CHANNEL_HEADER, ...(init.headers as Record<string, string> | undefined) },
     signal,
   })
   if (!response.ok) {

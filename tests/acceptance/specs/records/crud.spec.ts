@@ -147,16 +147,17 @@ test('[REC-010] edit shows non-editable fields read-only and never submits them 
   const writes = recordRequests(page, '/qqq/v1/table/person/3')
   await openForm(page, '/app/person/3/edit', 'Edit Person')
 
-  await expect(control(page, 'id')).toHaveValue('3')
+  // A non-editable field reads as its value, not as a greyed-out input: nothing to focus or type in.
+  await expect(control(page, 'id')).toHaveText('3')
   for (const name of ['id', 'createDate', 'modifyDate']) {
-    await expect(control(page, name)).toBeDisabled()
-    await expect(control(page, name)).toHaveAttribute('aria-readonly', 'true')
+    await expect(page.locator(`input#field-${name}, textarea#field-${name}`)).toHaveCount(0)
+    await expect(control(page, name)).toBeVisible()
   }
   // The creation instant is shown in the viewer's zone (America/New_York).
   const created = new Date(`${before.create_date!.replace(' ', 'T')}Z`)
   const expected = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(created)
   const ymd = `${expected.find((part) => part.type === 'year')!.value}-${expected.find((part) => part.type === 'month')!.value}-${expected.find((part) => part.type === 'day')!.value}`
-  await expect(control(page, 'createDate')).toHaveValue(new RegExp(`^${ymd} \\d{2}:\\d{2}:\\d{2} [AP]M E[DS]T$`))
+  await expect(control(page, 'createDate')).toHaveText(new RegExp(`^${ymd} \\d{2}:\\d{2}:\\d{2} [AP]M E[DS]T$`))
 
   await control(page, 'daysWorked').fill('100101')
   await page.getByRole('button', { name: 'Save' }).click()

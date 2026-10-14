@@ -18,17 +18,38 @@
 
 import React from 'react'
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-client'
 
 const pushMock = vi.fn()
 let pathname = '/app'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }), usePathname: () => pathname }))
 
+const searchRecordsMock = vi.fn()
+vi.mock('@/lib/api/record-search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/record-search')>()),
+  searchRecords: (...args: unknown[]) => searchRecordsMock(...args),
+}))
+
+/**
+ * Renders inside a fresh query client (the palette runs record search through TanStack Query).
+ *
+ * @param ui - Element to render.
+ * @returns The render result.
+ */
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // Existing navigation/history tests exercise the no-qbit fallback.
+  client.setQueryData(queryKeys.collaborationAvailable(), false)
+  return rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> })
+}
+
 import { CommandMenu } from './CommandMenu'
 import type { NavTarget } from '@/lib/hooks/use-routes'
 import type { QInstance, QTableMetaData } from '@/types'
-import { addRecentRecord } from '@/lib/utils/recent-records'
+import { addRecentRecord, clearRecentRecords } from '@/lib/utils/recent-records'
 
 const app = { label: 'People App', path: '/app/peopleApp' }
 const targets: NavTarget[] = [
@@ -80,12 +101,13 @@ describe('CommandMenu', () => {
     ]
     render(<CommandMenu open onClose={vi.fn()} navTargets={more} />)
     await user.type(screen.getByRole('combobox'), 'pet')
-    expect(screen.getAllByRole('option').map((option) => option.querySelector('span.font-medium')?.textContent)).toEqual(['Pet', 'Pet Species', 'Carpet'])
+    expect(Array.from(document.querySelectorAll('[data-qqq-id="command-group-navigation"] [role="option"]')).map((option) => option.querySelector('span.font-medium')?.textContent)).toEqual(['Pet', 'Pet Species', 'Carpet'])
     await user.type(screen.getByRole('combobox'), ' spe')
-    expect(screen.getAllByRole('option').map((option) => option.querySelector('span.font-medium')?.textContent)).toEqual(['Pet Species'])
+    expect(Array.from(document.querySelectorAll('[data-qqq-id="command-group-navigation"] [role="option"]')).map((option) => option.querySelector('span.font-medium')?.textContent)).toEqual(['Pet Species'])
     await user.clear(screen.getByRole('combobox'))
     await user.type(screen.getByRole('combobox'), 'nothing here')
-    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    // only the search-everything entry remains
+    expect(screen.queryAllByRole('option').map((option) => option.textContent)).toEqual(['Search everything for “nothing here”'])
     expect(screen.getByRole('status')).toHaveTextContent('No results found.')
   })
 
@@ -140,6 +162,64 @@ describe('CommandMenu', () => {
       await user.type(screen.getByRole('combobox'), 'avery')
       await user.keyboard('{Enter}')
       expect(pushMock).toHaveBeenCalledWith('/app/person/7')
+    })
+  })
+
+  describe('record search', () => {
+    const searchMeta = {
+      tables: {
+        person: { name: 'person', label: 'Person', isHidden: false, readPermission: true, primaryKeyField: 'id', fields: {}, searchFields: ['firstName'], icon: { name: 'person' } },
+      },
+      processes: {},
+      apps: {},
+    } as unknown as QInstance
+
+    beforeEach(() => {
+      pathname = '/app'
+      pushMock.mockReset()
+      searchRecordsMock.mockReset()
+      clearRecentRecords()
+      window.open = vi.fn() as unknown as typeof window.open
+    })
+
+    it('lists found records under their table with a count, and a search-everything entry', async () => {
+      searchRecordsMock.mockResolvedValue({
+        results: [{ tableName: 'person', tableLabel: 'Person', recordId: '7', recordLabel: 'Avery Sample', updatedAt: '2026-10-01T10:00:00Z', highlights: [{ fieldName: 'email', fieldLabel: 'Email', text: 'avery@example.com', matches: [{ start: 0, end: 5 }] }] }],
+        tables: [{ tableName: 'person', resultCount: 1, hasMore: true, totalCount: 12, source: 'PROVIDER' }],
+      })
+      const user = userEvent.setup()
+      render(<CommandMenu open onClose={vi.fn()} navTargets={targets} metaData={searchMeta} />)
+      await user.type(screen.getByRole('combobox'), 'avery')
+      const record = await screen.findByRole('option', { name: /Avery Sample/ })
+      expect(record).toHaveTextContent('Email: avery@example.com')
+      expect(Array.from(record.querySelectorAll('mark')).map((mark) => mark.textContent)).toEqual(['Avery', 'avery'])
+      expect(document.querySelector('[data-qqq-id="command-group-records-person"]')).toHaveTextContent('Person · 12')
+      expect(screen.getByRole('option', { name: /See all matches in Person/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /Search everything for/ })).toBeInTheDocument()
+      expect(searchRecordsMock).toHaveBeenCalledWith('avery', expect.objectContaining({ tableNames: ['person'], limitPerTable: 5 }))
+    })
+
+    it('opens the highlighted record in a new tab on Ctrl+Enter', async () => {
+      searchRecordsMock.mockResolvedValue({ results: [{ tableName: 'person', recordId: '7', recordLabel: 'Avery Sample' }] })
+      const user = userEvent.setup()
+      render(<CommandMenu open onClose={vi.fn()} navTargets={targets} metaData={searchMeta} />)
+      await user.type(screen.getByRole('combobox'), 'avery')
+      await screen.findByRole('option', { name: /Avery Sample/ })
+      // the record is the first entry, so cmdk highlights it
+      await user.keyboard('{Control>}{Enter}{/Control}')
+      expect(window.open).toHaveBeenCalledWith('/app/person/7', '_blank', 'noopener,noreferrer')
+      expect(pushMock).not.toHaveBeenCalled()
+    })
+
+    it('names the failure class when record search fails, keeping navigation results', async () => {
+      const { AxiosError } = await import('axios')
+      searchRecordsMock.mockRejectedValue(new AxiosError('Index unavailable', 'ERR_BAD_RESPONSE', undefined, null, { status: 503, data: {}, statusText: '', headers: {}, config: {} as never }))
+      const user = userEvent.setup()
+      render(<CommandMenu open onClose={vi.fn()} navTargets={targets} metaData={searchMeta} />)
+      await user.type(screen.getByRole('combobox'), 'pe')
+      expect(await screen.findByText('Record search failed: server error (HTTP 503)')).toBeInTheDocument()
+      expect(screen.getByText(/Index unavailable/)).toBeInTheDocument()
+      expect(document.querySelector('[data-qqq-id="command-item-peopleApp"]')).toBeInTheDocument()
     })
   })
 })

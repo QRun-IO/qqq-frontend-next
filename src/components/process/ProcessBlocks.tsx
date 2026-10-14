@@ -175,7 +175,7 @@ function ProcessInputField({ block, widgetName }: HostInputFieldProps) {
   if (field.type === 'BLOB' || needsBlockInputEditor(field)) {
     const processField = formFields.some((item) => item.name === field.name) && !inputFieldNames.has(field.name)
     return <div data-qqq-id={blockQqqId('INPUT_FIELD', widgetName)} data-block-type="INPUT_FIELD" data-block-id={block.blockId}>
-      <BlockInputEditor contextValues={processValues} field={field} widgetName={widgetName} form={form} disabled={isWorking}
+      <BlockInputEditor fieldsByName={Object.fromEntries(formFields.map((item) => [item.name, item]))} contextValues={processValues} field={field} widgetName={widgetName} form={form} disabled={isWorking}
         autoFocus={values.autoFocus === true} placeholder={typeof values.placeholder === 'string' ? values.placeholder : undefined}
         possibleValueContext={processField || field.adornments?.some((item) => item.type === 'WIDGET') ? { type: 'process', processName } : { type: 'standalone' }}
         onEnter={submitInput} />

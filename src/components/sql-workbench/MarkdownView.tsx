@@ -17,7 +17,8 @@
 /**
  * @file MarkdownView — renders a markdown cell's text as React elements (never as HTML):
  * headings, paragraphs, bullet and numbered lists, fenced code, and inline bold, italic, code
- * and http(s) links. Anything else is shown as text, so a notebook can never inject markup.
+ * and http(s) or relative app-path links. Anything else is shown as text, so a notebook (or a
+ * notification body) can never inject markup.
  */
 
 'use client'
@@ -33,7 +34,7 @@ import React from 'react'
  */
 export function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = []
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\((https?:\/\/[^\s)]+)\))/g
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\((https?:\/\/[^\s)]+|\/(?![/\\])[^\s)]*)\))/g
   let last = 0
   let match: RegExpExecArray | null
   let index = 0
@@ -53,12 +54,13 @@ export function renderInline(text: string, keyPrefix: string): React.ReactNode[]
       nodes.push(<em key={key}>{token.slice(1, -1)}</em>)
     } else {
       const label = token.slice(1, token.indexOf(']'))
+      const external = !match[2].startsWith('/')
       nodes.push(
         <a
           key={key}
           href={match[2]}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={external ? '_blank' : undefined}
+          rel={external ? 'noopener noreferrer' : undefined}
           className="text-primary underline"
         >
           {label}

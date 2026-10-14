@@ -100,7 +100,8 @@ test('[QRY-080] quick filter operators start from field-type defaults @mobile', 
 
   await picker.selectOption('checkedAt')
   const dateTimeEditor = page.getByRole('group', { name: 'Checked At quick filter' })
-  await expect(dateTimeEditor.getByRole('combobox', { name: 'Operator for Checked At' }).locator('option:checked')).toHaveText('is after')
+  // date fields start from the most common date question, a range (the date-first quick filter)
+  await expect(dateTimeEditor.getByRole('combobox', { name: 'Operator for Checked At' }).locator('option:checked')).toHaveText('is between')
 })
 
 test('[QRY-080] a quick-filter chip summarizes multiple values while retaining the full query @mobile', async ({ page, backend, diagnostics }) => {
@@ -311,7 +312,8 @@ test('[QRY-086] Relative date preset shows its evaluated value and queries recen
   await open(page, '/app/qryItem')
   await showTable(page)
   await openFilter(page)
-  const row = await addCondition(page, 'Received Date', 'is after')
+  // a relative expression is an exact-value condition: "is relative to today" switches the row to it
+  const row = await addCondition(page, 'Received Date', 'is relative to today')
   await row.getByRole('button', { name: 'Common relative date expressions for Received Date' }).click()
   await expectWithinViewport(page.locator('[data-qqq-id="relative-date-menu"]'))
   await page.getByRole('menuitem', { name: /7 days ago/ }).click()
@@ -330,6 +332,8 @@ test('[QRY-086] relative date-time preset evaluates live and queries recent reco
   await showTable(page)
   await openFilter(page)
   const row = await addCondition(page, 'Checked At', 'is after')
+  // a relative expression is an exact-value condition: "Include time" switches the row to it
+  await row.getByLabel('Include time for Checked At').check()
   await row.getByRole('button', { name: 'Common relative date-time expressions for Checked At' }).click()
   await page.getByRole('menuitem', { name: /7 days ago/ }).click()
   const expression = row.locator('[data-qqq-id="filter-value-0-0-expression"]')

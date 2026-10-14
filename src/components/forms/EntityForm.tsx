@@ -23,7 +23,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
-import type { Resolver } from 'react-hook-form'
+import type { FieldErrors, Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -42,7 +42,9 @@ import {
 } from '@/lib/utils/zod-from-metadata'
 import { applyAdjustedDefinitions, fieldFormAdjusters, hasTableOnLoadAdjuster, tableFieldRules } from '@/lib/utils/form-adjuster-utils'
 import { cn } from '@/lib/utils/cn'
-import { getErrorMessage } from '@/lib/utils/error-utils'
+import { getErrorMessage, recordWriteMessages } from '@/lib/utils/error-utils'
+import { badInputMessage, mapServerErrors } from '@/lib/utils/field-validation'
+import { anyOffScreen, fieldElement, inPageOrder, revealField } from '@/lib/utils/form-focus'
 import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { EDIT_SCREEN_HELP_ROLES, INSERT_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
@@ -52,6 +54,12 @@ import { toast } from '@/lib/hooks/use-toast'
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
 import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm } from './DynamicForm'
+import { LazyCollaborationEdit } from '@/components/collaboration/LazyRecordCollaboration'
+import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
+import type { PresenceViewer } from '@/types/collaboration'
+import { recordVersionForEdit as recordVersion } from './entity-form-version'
+import { getErrorStatusCode } from '@/lib/utils/error-utils'
+import { FormErrorSummary } from './FormErrorSummary'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 
@@ -288,6 +296,18 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const isEdit = Boolean(record) && !isCopy
+  const expectedVersion = useRef(recordVersion(tableMetaData, record))
+  const [focusedField, setFocusedField] = useState<string>()
+  const [viewers, setViewers] = useState<PresenceViewer[]>([])
+  const fieldEditors = useMemo(() => {
+    const editors: Record<string, string[]> = {}
+    for (const viewer of viewers) {
+      if (viewer.mode === 'EDITING' && viewer.fieldName) {
+        ;(editors[viewer.fieldName] ??= []).push(viewer.displayName)
+      }
+    }
+    return editors
+  }, [viewers])
   const mergedDefaults = prepared.values
   const defaultsError = prepared.error
 
@@ -332,14 +352,32 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   // Adjusters may change field definitions after the form mounts: validate with the latest schema.
   const schemaRef = useRef(schema)
   schemaRef.current = schema
+  // The schema plus what the browser itself could not read (a half-typed date, letters in a number),
+  // which never reaches the value, so the check looks at the input element.
+  const formTableForResolver = useRef(formTable)
+  formTableForResolver.current = formTable
   const resolver = useCallback<Resolver<Record<string, unknown>>>(
-    (values, context, options) => zodResolver(schemaRef.current)(values, context, options),
+    async (values, context, options) => {
+      const result = await zodResolver(schemaRef.current)(values, context, options)
+      const unreadable: FieldErrors<Record<string, unknown>> = {}
+      for (const [name, config] of Object.entries(options.fields ?? {})) {
+        const input = config?.ref
+        if (input instanceof HTMLInputElement && input.validity?.badInput && !input.disabled) {
+          unreadable[name] = { type: 'badInput', message: badInputMessage(formTableForResolver.current.fields[name], input), ref: input }
+        }
+      }
+      return Object.keys(unreadable).length > 0 ? { values: {}, errors: { ...result.errors, ...unreadable } } : result
+    },
     []
   )
 
+  // Quiet by default: a field is checked when the user leaves it (or on save), then live while it
+  // shows an error, so fixing it clears the message at once.
   const form = useForm<Record<string, unknown>>({
     resolver,
     defaultValues: mergedDefaults,
+    mode: 'onBlur',
+    shouldFocusError: false,
   })
   const {
     register,
@@ -350,7 +388,61 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     setValue,
     getValues,
     watch,
+    setError,
+    setFocus,
+    trigger,
   } = form
+  const formElementRef = useRef<HTMLFormElement>(null)
+  // After a failed save the summary shows only when some invalid fields are out of sight.
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  // Fields to move to once the form is unlocked again (its inputs are disabled while a save runs).
+  const [focusRequest, setFocusRequest] = useState<string[] | null>(null)
+  // Server messages that name no field (shown as the form's general error); null when none or not a field-mapped failure.
+  const [serverUnmatched, setServerUnmatched] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    const subscription = form.watch((_values, { name }) => {
+      if (name && form.getFieldState(name).error) void trigger(name)
+    })
+    return () => subscription.unsubscribe()
+  }, [form, trigger])
+
+  /**
+   * Takes the user to the first field that needs attention, and opens the summary when others are out of sight.
+   * @param names - Names of the invalid fields.
+   */
+  const focusInvalid = useCallback((names: string[]) => {
+    const root = formElementRef.current
+    if (!root) return
+    const elements = inPageOrder(root, names).map((name) => fieldElement(root, name)).filter((element): element is HTMLElement => element !== null)
+    // A control the form does not render itself (the schedule editor) takes focus through its own ref.
+    if (elements.length === 0) {
+      if (names.length > 0) setFocus(names[0])
+      return
+    }
+    setSummaryOpen(anyOffScreen(elements[0], elements.slice(1)))
+    revealField(elements[0])
+  }, [setFocus])
+
+  /**
+   * Puts the backend's refusal beside the fields it names, keeping what the user typed.
+   * @param error - The failed write.
+   * @returns The text still to report as a general error, or `null` when every message found its field.
+   */
+  function placeServerErrors(error: Error): string | null {
+    const messages = recordWriteMessages(error)
+    const whole = getErrorMessage(error)
+    if (!messages || isWarningMessage(whole)) {
+      setServerUnmatched(null)
+      return whole
+    }
+    const editable = Object.values(formTableRef.current.fields).filter((field) => field.isEditable && !field.isHidden)
+    const { fieldErrors, unmatched } = mapServerErrors(messages, editable)
+    for (const [name, message] of Object.entries(fieldErrors)) setError(name, { type: 'server', message })
+    setServerUnmatched(unmatched)
+    setFocusRequest(Object.keys(fieldErrors))
+    return unmatched.length > 0 ? unmatched.join('; ') : null
+  }
 
   // Latest dirty-field map for the update mutation (values that cannot round-trip are sent only when changed).
   const dirtyFieldsRef = useRef<Record<string, unknown>>({})
@@ -358,12 +450,16 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   dirtyFieldsRef.current = dirtyFields as Record<string, unknown>
 
-  // Reset when record changes (e.g., navigating between records)
+  // Realtime refetches must never replace the snapshot being edited.
+  const loadedIdentity = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (record) {
+    const identity = `${tableMetaData.name}/${String(record?.values[tableMetaData.primaryKeyField])}`
+    if (record && loadedIdentity.current !== identity) {
+      loadedIdentity.current = identity
+      expectedVersion.current = recordVersion(tableMetaData, record)
       reset(mergedDefaults)
     }
-  }, [record, mergedDefaults, reset])
+  }, [record, mergedDefaults, reset, tableMetaData])
 
   const hasChanges = isDirty || Boolean(copyAssociations?.dirty) || Object.keys(associations).length > 0
 
@@ -601,7 +697,8 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       }
     },
     onError: (err: Error) => {
-      const message = getErrorMessage(err)
+      const message = placeServerErrors(err)
+      if (message === null) return
       // a "warning..." refusal is reported as a warning on the form, not as a failure
       if (isWarningMessage(message)) toast.warning(message, { duration: WARNING_TOAST_MILLIS })
       else toast.error(`Failed to create ${tableMetaData.label}: ${message}`)
@@ -612,13 +709,11 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     mutationFn: async (values: Record<string, unknown>) => {
       recordAnalytics({ category: 'tableEvents', action: 'saveEdit', label: tableMetaData.label })
       const pk = record!.values[tableMetaData.primaryKeyField] as string | number
-      // Values that cannot round-trip through the form are sent only when changed: a
-      // masked password, a LONG beyond 2^53, a date-time shown at minute/second precision
-      // and a file (a download URL or bytes). Other values are re-sent as stored, as the
-      // Material dashboard does, so omission never triggers a write default.
+      // Versioned edits send only dirty fields so unrelated changes remain intact.
+      // Unversioned backends keep Material's round-trip rules for ordinary values.
       const submitted = Object.fromEntries(Object.entries(values).filter(([name]) =>
-        Boolean(dirtyFieldsRef.current[name]) || !onlyWhenChanged(tableMetaData.fields[name])))
-      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations()))
+        Boolean(dirtyFieldsRef.current[name]) || (expectedVersion.current === undefined && !onlyWhenChanged(tableMetaData.fields[name]))))
+      return validateSavedRecord(await updateRecord(tableMetaData.name, pk, recordWireValues(submitted), widgetAssociations(), expectedVersion.current))
     },
     meta: HANDLES_OWN_ERRORS,
     onSuccess: (savedRecord) => {
@@ -626,7 +721,9 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       finishUpdate(pk, firstRecordWarning(savedRecord), () => onSuccess?.(savedRecord))
     },
     onError: (err: Error) => {
-      const message = getErrorMessage(err)
+      if (getErrorStatusCode(err) === 409) return
+      const message = placeServerErrors(err)
+      if (message === null) return
       // Material: a save error starting with "warning" is a success with that warning, back on the view
       if (isWarningMessage(message) && record && !onSuccess) {
         finishUpdate(record.values[tableMetaData.primaryKeyField] as string | number, message)
@@ -658,13 +755,25 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   }
 
   const activeMutation = isEdit ? updateMutation : insertMutation
-  const failure = activeMutation.error as Error | null
-  const failureMessage = failure ? getErrorMessage(failure, 'An error occurred while saving.') : null
+  const failure = isEdit && getErrorStatusCode(activeMutation.error) === 409 ? null : activeMutation.error as Error | null
+  const failureMessage = serverUnmatched !== null
+    ? (serverUnmatched.length > 0 ? serverUnmatched.join('; ') : null)
+    : failure ? getErrorMessage(failure, 'An error occurred while saving.') : null
   // a "warning..." refusal that did not return to the view is shown as a warning, not an error
   const mutationWarning = failureMessage && isWarningMessage(failureMessage) ? failureMessage : null
-  const mutationError = mutationWarning ? null : failure
+  const mutationError = mutationWarning ? null : failureMessage
   const isSaving = isSubmitting || activeMutation.isPending
+  useEffect(() => {
+    if (!focusRequest || isSaving) return
+    setFocusRequest(null)
+    focusInvalid(focusRequest)
+  }, [focusRequest, isSaving, focusInvalid])
   const formDisabledMessage = prepared.disabledMessage
+  const summaryItems = (() => {
+    const root = formElementRef.current
+    const names = Object.keys(errors)
+    return (root ? inPageOrder(root, names) : names).map((name) => ({ name, label: formTable.fields[name]?.label ?? name }))
+  })()
 
   /**
    * React Hook Form submit handler — runs the widgets' checks, then delegates to the
@@ -676,6 +785,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
     (values: Record<string, unknown>) => {
       const problems = [...validatorsRef.current.values()].flatMap((validate) => validate())
       setWidgetErrors(problems)
+      setServerUnmatched(null)
       if (problems.length > 0) return
       if (onSubmitValues) {
         onSubmitValues(values)
@@ -687,9 +797,9 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
   )
 
   /**
-   * Preserve the browser's distinction between malformed numeric input and a blank.
+   * Validates on save: a field with a problem gets its message, and the first one is scrolled into view and focused.
    * @param event - The form submission event.
-   * @returns Metadata validation when native numeric input is readable.
+   * @returns The validation promise.
    */
   function onFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     // A form in a dialog over another form (a child record) must not submit its parent too.
@@ -698,14 +808,15 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       event.preventDefault()
       return
     }
-    const invalidNumber = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="number"]'))
+    // Full copy drafts keep their own inputs outside this form's resolver: the browser reports those.
+    const unreadableDraft = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('fieldset[data-qqq-id^="copy-node-"] input[type="number"]'))
       .find((input) => !input.matches(':disabled') && input.validity.badInput)
-    if (invalidNumber) {
+    if (unreadableDraft) {
       event.preventDefault()
-      invalidNumber.reportValidity()
+      unreadableDraft.reportValidity()
       return
     }
-    return handleSubmit(onSubmit)(event)
+    return handleSubmit(onSubmit, (invalid) => setFocusRequest(Object.keys(invalid)))(event)
   }
 
   /**
@@ -844,6 +955,14 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
 
   const formContent = (
     <form
+      ref={formElementRef}
+      onFocusCapture={(event) => {
+        const element = event.target as HTMLElement
+        const input = element.closest('[name]') ?? element
+        const name = input.getAttribute('name') ?? input.closest('[data-presence-field]')?.getAttribute('data-presence-field')
+        setFocusedField(name && tableMetaData.fields[name] ? name : undefined)
+      }}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusedField(undefined) }}
       onSubmit={onFormSubmit}
       onKeyDown={(event) => {
         // Enter in a single-line input does not save the record (Material): only the Save button does
@@ -853,6 +972,26 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       className={cn('flex min-w-0 flex-col gap-6', className)}
       data-qqq-id={`entity-form-${tableMetaData.name}`}
     >
+      {isEdit && record && (
+        <LazyCollaborationEdit
+          table={tableMetaData}
+          pk={String(record.values[tableMetaData.primaryKeyField])}
+          fieldName={focusedField}
+          error={updateMutation.error}
+          getValues={getValues}
+          onViewers={setViewers}
+          pending={isSaving}
+          onOverwrite={(version) => {
+            expectedVersion.current = version
+            void handleSubmit(onSubmit)()
+          }}
+          onReload={(current) => {
+            expectedVersion.current = recordVersion(tableMetaData, current)
+            reset(defaultValuesFromRecord(tableMetaData, current.values))
+            updateMutation.reset()
+          }}
+        />
+      )}
       {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
@@ -883,7 +1022,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
           className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <strong>Error: </strong>
-          {defaultsError || copyAssociations?.error || (mutationError ? getErrorMessage(mutationError, 'An error occurred while saving.') : 'An error occurred while saving.')}
+          {defaultsError || copyAssociations?.error || mutationError || 'An error occurred while saving.'}
         </div>
       )}
       {mutationWarning && (
@@ -908,8 +1047,21 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {isCopy && Object.values(tableMetaData.fields).some(field => field.type === 'PASSWORD' && field.isEditable && !field.isHidden && !field.adornments?.some(item => item.type === 'REVEAL')) &&
         <p className="text-sm text-muted-foreground">Unreadable passwords are not copied. Enter new values before saving.</p>}
 
+      {summaryOpen && (
+        <FormErrorSummary
+          items={summaryItems}
+          onSelect={(name) => {
+            const root = formElementRef.current
+            const element = root && fieldElement(root, name)
+            if (element) revealField(element)
+          }}
+        />
+      )}
+
       {/* Fields */}
+      <FormPresenceContext.Provider value={fieldEditors}>
       <DynamicForm
+        formMethods={form}
         register={register}
         control={control}
         errors={errors}
@@ -929,6 +1081,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
         onFieldBlur={onFieldBlur}
         displayValueOverrides={displayOverrides}
       />
+      </FormPresenceContext.Provider>
 
       {children && <fieldset disabled={disabled || isSaving} className="min-w-0">{children}</fieldset>}
 

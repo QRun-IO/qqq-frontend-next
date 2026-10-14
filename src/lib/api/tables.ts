@@ -26,8 +26,6 @@ import {
   QRecordSchema,
   QueryRecordsResponseSchema,
   CountRecordsResponseSchema,
-  RecordSearchResponseSchema,
-  RecordSearchResultSchema,
 } from './schemas'
 
 /**
@@ -267,13 +265,32 @@ const DeleteRecordResponseSchema = z.object({
 })
 
 /**
+ * A record write the backend refused, with its messages kept apart so a form can show each one
+ * beside the field it names. The message joins them, as before, for callers that only show text.
+ */
+export class RecordWriteError extends Error {
+  /** The backend's messages for the record. */
+  readonly errors: string[]
+  /** True when the messages belong to the record being saved (not to one of its child records). */
+  readonly forRecord: boolean
+
+  constructor(errors: readonly string[], forRecord: boolean) {
+    super(errors.join('; '))
+    this.name = 'RecordWriteError'
+    this.errors = [...errors]
+    this.forRecord = forRecord
+  }
+}
+
+/**
  * Reject partial association failures before announcing a successful save.
  * @param record - A validated response record and any returned children.
+ * @param isRoot - Whether the record is the one being saved (not a child).
  */
-function checkRecordErrors(record: QRecord): void {
-  if (record.errors?.length) throw new Error(record.errors.join('; '))
+function checkRecordErrors(record: QRecord, isRoot = true): void {
+  if (record.errors?.length) throw new RecordWriteError(record.errors, isRoot)
   for (const records of Object.values(record.associatedRecords ?? {})) {
-    for (const child of records) checkRecordErrors(child)
+    for (const child of records) checkRecordErrors(child, false)
   }
 }
 
@@ -326,20 +343,22 @@ export async function insertRecord(
  * @param values - Field values to change; undefined fields remain untouched.
  * @param associations - Named child records the record keeps (same wire format as insert): the
  *   backend updates children with a key, inserts those without, and deletes the ones left out.
+ * @param expectedVersion - Version as loaded; omitted only when the table has no version.
  * @returns The validated saved record.
  */
 export async function updateRecord(
   tableName: string,
   primaryKey: string | number,
   values: Record<string, unknown>,
-  associations?: Record<string, QRecordInput[]>
+  associations?: Record<string, QRecordInput[]>,
+  expectedVersion?: string
 ): Promise<QRecord> {
   const formData = recordFormData(values)
   if (associations !== undefined) formData.set('associations', JSON.stringify(await associationWireValues(associations)))
   const response = await apiClient.patch(
     `/table/${encodeURIComponent(tableName)}/${encodeURIComponent(String(primaryKey))}`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) } }
+    { ...(expectedVersion === undefined ? {} : { params: { expectedVersion } }), headers: { 'Content-Type': 'multipart/form-data', ...(associations !== undefined ? { 'X-QQQ-Association-Format': 'record-v1' } : {}) } }
   )
   return savedRecord(response, tableName)
 }
@@ -362,75 +381,6 @@ export async function deleteRecord(
   if (parsed.success && parsed.data.errors?.length) throw new Error(parsed.data.errors.join('; '))
   if (!parsed.success || parsed.data.deletedRecordCount !== 1) throw new Error('Invalid delete response: record deletion was not confirmed')
   return { deletedCount: parsed.data.deletedRecordCount }
-}
-
-/**
- * One record matched by record search (`POST /search`).
- */
-export interface RecordSearchResult {
-  /** Backend-registered name of the table containing this record. */
-  tableName: string
-  /** User-facing label of the table. */
-  tableLabel?: string
-  /** Primary key of the matching record, serialised as a string. */
-  recordId: string
-  /** User-facing label of the matching record. */
-  recordLabel: string
-}
-
-/** Options for {@link searchRecords}. */
-export interface RecordSearchOptions {
-  /** Tables to search; when omitted the backend searches every searchable table the user may read. */
-  tableNames?: string[]
-  /** Maximum records per table (the backend caps it). */
-  limitPerTable?: number
-}
-
-/**
- * Record search across tables: `POST /search` (QQQ v1). Call it only when the
- * metadata advertises searchable tables (`searchFields`); a backend without the
- * capability has no such endpoint, so every error is re-thrown.
- *
- * The backend matches the term against each table's declared search fields,
- * searches only the tables the session may read, and applies record security locks.
- *
- * @param searchTerm - Free-text search term (the backend trims it).
- * @param options - Table scope and per-table limit.
- * A result without a record label (its label fields are empty) is labeled
- * "{table label} {record id}"; a result that cannot link to a record (no table
- * name or record id) is skipped with a console warning, so the other results
- * still show.
- *
- * @returns Matching records, grouped by table in backend order.
- * @throws When the request fails or the response is not a record search response.
- */
-export async function searchRecords(searchTerm: string, options: RecordSearchOptions = {}): Promise<RecordSearchResult[]> {
-  const result = await apiClient.post<unknown>('/search', {
-    searchTerm,
-    ...(options.tableNames ? { tableNames: options.tableNames } : {}),
-    ...(options.limitPerTable ? { limitPerTable: options.limitPerTable } : {}),
-  })
-  const parsed = RecordSearchResponseSchema.safeParse(result)
-  if (!parsed.success) throw new Error('Invalid record search response')
-
-  const results: RecordSearchResult[] = []
-  let skipped = 0
-  for (const entry of parsed.data.results) {
-    const item = RecordSearchResultSchema.safeParse(entry)
-    if (!item.success) {
-      skipped++
-      continue
-    }
-    const { tableName, tableLabel, recordId, recordLabel } = item.data
-    results.push({
-      tableName,
-      ...(tableLabel ? { tableLabel } : {}),
-      recordId,
-      recordLabel: recordLabel?.trim() ? recordLabel : `${tableLabel ?? tableName} ${recordId}`,
-    })
-  }
-  if (skipped > 0) console.warn(`Record search skipped ${skipped} malformed result(s) without a table name or record id.`)
-  return results
 }
 
 /**

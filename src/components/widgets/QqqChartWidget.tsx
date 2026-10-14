@@ -470,32 +470,36 @@ function useCategoryAxisLayout(element: HTMLDivElement | null, enabled: boolean)
  */
 function ChartDataTable({ chart, caption, currency, widgetName }: { chart: NormalizedChart; caption: string; currency: boolean; widgetName: string }) {
   return (
-    <table className="sr-only" data-qqq-id={`chart-data-${widgetName}`}>
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          <th scope="col">Label</th>
-          {chart.datasets.map((dataset, index) => (
-            <th key={`${dataset.label}-${index}`} scope="col">{dataset.label}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {chart.labels.map((label, row) => (
-          <tr key={`${label}-${row}`}>
-            <th scope="row">{label}</th>
-            {chart.datasets.map((dataset, column) => {
-              const value = dataset.data[row] ?? null
-              return (
-                <td key={column} data-value={value === null ? '' : String(value)}>
-                  {value === null ? '' : currency ? formatValue(value, true) : String(value)}
-                </td>
-              )
-            })}
+    // `sr-only` goes on a wrapper: a table cannot shrink to the 1px it sets, so on the table
+    // itself the hidden values widened the page (a horizontal scroll at phone widths).
+    <div className="sr-only">
+      <table data-qqq-id={`chart-data-${widgetName}`}>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Label</th>
+            {chart.datasets.map((dataset, index) => (
+              <th key={`${dataset.label}-${index}`} scope="col">{dataset.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {chart.labels.map((label, row) => (
+            <tr key={`${label}-${row}`}>
+              <th scope="row">{label}</th>
+              {chart.datasets.map((dataset, column) => {
+                const value = dataset.data[row] ?? null
+                return (
+                  <td key={column} data-value={value === null ? '' : String(value)}>
+                    {value === null ? '' : currency ? formatValue(value, true) : String(value)}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

@@ -24,6 +24,7 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
 
 /**
  * Props for the {@link DateField} component.
@@ -31,6 +32,8 @@ import { cn } from '@/lib/utils/cn'
 interface DateFieldProps {
   /** The HTML `id` for the `<input>` element and its associated `<label>`. */
   id: string
+  /** Native calendar date or time-of-day editor. */
+  type?: 'date' | 'time'
   /** Human-readable field label rendered above the input. */
   label: string
   /** Return value of `register(fieldName)` from React Hook Form. */
@@ -50,14 +53,14 @@ interface DateFieldProps {
 /**
  * Renders an accessible date input field with label and validation error display.
  *
- * Uses `<input type="date">` which provides native date picker UI in supported
- * browsers.  The value format is `YYYY-MM-DD` as managed by the browser.
+ * Uses a native date picker (`YYYY-MM-DD`) or time picker (`HH:mm:ss`).
  *
  * @param props - See {@link DateFieldProps}.
  * @returns The rendered date input field with label and optional error message.
  */
 export function DateField({
   id,
+  type = 'date',
   label,
   registration,
   error,
@@ -67,18 +70,19 @@ export function DateField({
   describedBy,
 }: DateFieldProps) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
       </label>
       <input
         id={id}
-        type="date"
+        type={type}
+        step={type === 'time' ? 1 : undefined}
         {...registration}
         disabled={disabled}
         aria-required={required}
@@ -96,11 +100,7 @@ export function DateField({
             : 'border-input'
         )}
       />
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} />
     </div>
   )
 }
