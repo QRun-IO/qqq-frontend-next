@@ -55,11 +55,9 @@ test('[REC-052] create: Item choices follow the chosen Category and the chosen i
   await openForm(page, '/app/recPvPick/create', 'Create Lab Pick')
   await control(page, 'name').fill('Dinner')
 
-  // No Category yet: ${input.categoryId} is unset, and for a form the backend offers nothing.
-  await toggle(page, 'itemId')
-  await expect(itemList(page)).toContainText('No options found')
-  await expect(itemList(page).getByRole('option')).toHaveCount(0)
-  await toggle(page, 'itemId')
+  // A missing Category disables the contingent field before any request.
+  await expect(control(page, 'itemId')).toHaveAttribute('aria-disabled', 'true')
+  await expect(control(page, 'itemId')).toHaveAccessibleDescription('Choose Category first')
 
   await choose(page, 'categoryId', 'Category', 'Fruit')
   await toggle(page, 'itemId')
@@ -82,10 +80,9 @@ test('[REC-052] create: Item choices follow the chosen Category and the chosen i
   await itemList(page).getByRole('option', { name: 'Carrot', exact: true }).click()
   await expect(control(page, 'itemId')).toHaveText(/^Carrot/)
 
-  // Every search posted the form's current values; the first had no Category, the later ones the chosen one.
+  // Every search posted the form's current values; each request includes the chosen Category.
   expect(searches.length).toBeGreaterThanOrEqual(4)
   expect(searches.map((request) => request.method())).toEqual(searches.map(() => 'POST'))
-  expect(postedValues(searches[0]).categoryId ?? null).toBeNull()
   expect(searches.map((request) => postedValues(request).categoryId)).toContain(1)
   expect(postedValues(searches.at(-1)!)).toMatchObject({ name: 'Dinner', categoryId: 2 })
   expect(postedBody(searches.at(-1)!).searchTerm).toBe('Car')
