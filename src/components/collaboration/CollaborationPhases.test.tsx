@@ -132,9 +132,9 @@ it('previews inaccessible and unknown recipients, then reports notified and offe
 it('leaves the signed-in user out of share recipients even when the service returns them', async () => {
   vi.mocked(api.searchPeople).mockResolvedValueOnce({
     items: [
-      { userId: 'ME', displayName: 'Me Myself' },
+      { userId: 'ME', displayName: 'Me Myself', email: null },
       { userId: 'x9', displayName: 'Mail Match', email: 'Me' },
-      { userId: 'alex', displayName: 'Alex Rivera' },
+      { userId: 'alex', displayName: 'Alex Rivera', email: null },
     ],
     nextCursor: null,
   })
