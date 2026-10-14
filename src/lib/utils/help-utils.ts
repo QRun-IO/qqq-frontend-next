@@ -117,10 +117,20 @@ export function selectSlotHelp(map: Record<string, QHelpContent[]> | undefined, 
  */
 export function helpSummary(entry: QHelpContent): string {
   if (entry.summary?.trim()) return entry.summary.trim()
-  const source = entry.contentAsHtml || entry.content || ''
-  const text = source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+  const text = helpPlainText(entry)
+  return text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() || text
+}
+
+/**
+ * The whole help text as plain text (no HTML or Markdown markup), e.g. for an
+ * empty table's placeholder: what the table is for and how its rows get created.
+ * @param entry - Long help in its declared format.
+ * @returns Plain text, whitespace collapsed.
+ */
+export function helpPlainText(entry: QHelpContent): string {
+  const source = entry.contentAsHtml || entry.content || entry.summary || ''
+  return source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<\/?(?:p|div|br|li|h[1-6])\b[^>]*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2').replace(/[#*_`~]/g, '')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ').trim()
-  return text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() || text
 }
