@@ -36,6 +36,19 @@ import { orderRecords } from '../fixtures/records/order'
 import { productRecords } from '../fixtures/records/product'
 
 const BASE = '/qqq/v1/qbit/collaboration'
+/** Directory display names the mock service sends beside each user id ('me' is the mock session). */
+const displayNames: Record<string, string> = {
+  me: 'Anonymous',
+  alex: 'Alex Rivera',
+  sam: 'Sam Parker',
+  morgan: 'Morgan Lee',
+  unknown: 'Taylor Chen',
+}
+/** Display name for a mock user id, or null when unknown (the UI then shows the id).
+ * @param id - User id.
+ * @returns Display name or null.
+ */
+const nameOf = (id?: string | null) => (id ? (displayNames[id] ?? null) : null)
 const records = [...personRecords, ...companyRecords, ...orderRecords, ...productRecords]
 let nextId = 10
 const identity = (target: CollaborationTarget) =>
@@ -233,7 +246,8 @@ function recordState(table: string, pk: string): RecordState {
           contentType: 'text/plain',
           sizeBytes: 64,
           description: 'Notes from our introductory call.',
-          createdByUserId: 'Morgan Lee',
+          createdByUserId: 'morgan',
+          createdByDisplayName: nameOf('morgan'),
           createDate: '2026-10-12T15:00:00Z',
           canDelete: true,
           tableName: table,
@@ -418,7 +432,8 @@ collaborationHandlers.push(
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
       sizeBytes: file.size,
-      createdByUserId: 'You',
+      createdByUserId: 'me',
+      createdByDisplayName: nameOf('me'),
       createDate: new Date().toISOString(),
       canDelete: true,
       tableName: String(params.table),
@@ -548,4 +563,270 @@ export function mockRecordTags(table: string, pk: string): CollaborationTag[] | 
   return qInstance.tables[table]?.recordFeatures?.features?.includes('TAGS')
     ? recordState(table, pk).tags
     : null
+}
+
+// Realtime/phase g–i mock backend. Controllers stay in this MSW client's lifetime.
+const streams = new Map<
+  string,
+  {
+    controller: ReadableStreamDefaultController<Uint8Array>
+    channels: Set<string>
+    sequence: number
+  }
+>()
+const encoder = new TextEncoder()
+/** Publishes a fixture event to subscribed mock streams.
+ * @param event - Named event.
+ * @param data - Contract payload.
+ */
+export function publishCollaborationEvent(event: string, data: Record<string, unknown>) {
+  for (const [id, stream] of streams) {
+    const channel = data.table
+      ? data.pk
+        ? `record:${data.table}:${data.pk}`
+        : `table:${data.table}`
+      : 'user:me'
+    if (!stream.channels.has(channel) && event !== 'resync' && event !== 'session-ended') continue
+    try {
+      stream.controller.enqueue(
+        encoder.encode(
+          `id: ${id}:${++stream.sequence}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+        )
+      )
+    } catch {
+      streams.delete(id)
+    }
+  }
+}
+const people = [
+  // The mock session's own directory entry; the share picker leaves it out.
+  { userId: 'me', displayName: 'Anonymous', email: 'anonymous@localhost' },
+  { userId: 'alex', displayName: 'Alex Rivera' },
+  { userId: 'sam', displayName: 'Sam Parker' },
+  { userId: 'unknown', displayName: 'Taylor Chen' },
+]
+const viewers = [
+  { userId: 'sam', displayName: 'Sam Parker', mode: 'EDITING', fieldName: 'firstName' },
+  { userId: 'alex', displayName: 'Alex Rivera', mode: 'VIEWING' },
+]
+const taskStore: import('@/types/collaboration').CollaborationTaskV1[] = [
+  {
+    id: 8001,
+    tableName: 'person',
+    recordId: '1',
+    title: 'Review customer requirements',
+    notes: 'Confirm the **delivery date**.',
+    assigneeUserId: 'alex',
+    assigneeDisplayName: nameOf('alex'),
+    createdByUserId: 'morgan',
+    createdByDisplayName: nameOf('morgan'),
+    status: 'OPEN',
+    dueAt: '2026-10-01T12:00:00Z',
+  },
+]
+const assignments = new Map<
+  string,
+  { ownerUserId?: string | null; assigneeUserId?: string | null }
+>()
+collaborationHandlers.push(
+  http.get('/qqq/v1/realtime/stream', ({ request }) => {
+    const id = `mock-${objectId++}`
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streams.set(id, { controller, channels: new Set(), sequence: 0 })
+        controller.enqueue(
+          encoder.encode(
+            `id: ${id}:0\nevent: hello\ndata: ${JSON.stringify({ connectionId: id, heartbeatSeconds: 25, metaDataGeneration: 1 })}\n\n`
+          )
+        )
+        if (request.headers.get('Last-Event-ID'))
+          controller.enqueue(encoder.encode('event: resync\ndata: {}\n\n'))
+        request.signal.addEventListener('abort', () => {
+          streams.delete(id)
+          try {
+            controller.close()
+          } catch {
+            /* Already closed. */
+          }
+        })
+      },
+      cancel() {
+        streams.delete(id)
+      },
+    })
+    return new HttpResponse(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    })
+  }),
+  http.post('/qqq/v1/realtime/subscriptions', async ({ request }) => {
+    const body = (await request.json()) as {
+      connectionId: string
+      add?: string[]
+      remove?: string[]
+    }
+    const stream = streams.get(body.connectionId)
+    if (!stream) return missing()
+    for (const channel of body.add ?? []) stream.channels.add(channel)
+    for (const channel of body.remove ?? []) stream.channels.delete(channel)
+    return HttpResponse.json({ active: [...stream.channels], refused: [] })
+  }),
+  http.post('/qqq/v1/mock/realtime', async ({ request }) => {
+    const body = (await request.json()) as { event: string; data: Record<string, unknown> }
+    publishCollaborationEvent(body.event, body.data)
+    return HttpResponse.json({ success: true })
+  }),
+  http.get(`${BASE}/presence`, ({ request }) => {
+    const params = new URL(request.url).searchParams
+    return HttpResponse.json({ table: params.get('table'), pk: params.get('pk'), viewers })
+  }),
+  http.post(`${BASE}/presence`, async ({ request }) => {
+    const input = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ table: input.table, pk: input.pk, viewers })
+  }),
+  http.delete(`${BASE}/presence`, () => HttpResponse.json({ success: true })),
+  http.get(`${BASE}/people`, ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q')?.toLowerCase() ?? ''
+    return HttpResponse.json({
+      items: people.filter((p) => `${p.displayName} ${p.userId}`.toLowerCase().includes(q)),
+      nextCursor: null,
+    })
+  }),
+  http.get(`${BASE}/records/:table/:pk/link`, ({ params, request }) =>
+    HttpResponse.json({
+      url: `${new URL(request.url).origin}/app/${params.table}/${params.pk}`,
+      label: 'Record link',
+    })
+  ),
+  http.post(`${BASE}/records/:table/:pk/shares/preview`, async ({ request }) => {
+    const input = (await request.json()) as { toUserIds: string[] }
+    return HttpResponse.json({
+      recipients: input.toUserIds.map((id) => ({
+        userId: id,
+        displayName: people.find((p) => p.userId === id)?.displayName,
+        canRead: id === 'unknown' ? null : id !== 'sam',
+      })),
+    })
+  }),
+  http.post(`${BASE}/records/:table/:pk/shares`, async ({ params, request }) => {
+    const input = (await request.json()) as { toUserIds: string[]; message: string }
+    return HttpResponse.json({
+      items: input.toUserIds.map((id) => ({
+        id: objectId++,
+        tableName: params.table,
+        recordId: params.pk,
+        toUserId: id,
+        toDisplayName: nameOf(id),
+        fromUserId: 'me',
+        fromDisplayName: nameOf('me'),
+        recipientCouldRead: id === 'alex',
+        message: input.message,
+      })),
+    })
+  }),
+  http.post(`${BASE}/access-requests`, async () =>
+    HttpResponse.json({
+      id: objectId++,
+      status: 'PENDING',
+      requesterUserId: 'me',
+      requesterDisplayName: nameOf('me'),
+    })
+  ),
+  http.get(`${BASE}/records/:table/:pk/tasks`, ({ params, request }) =>
+    HttpResponse.json(
+      mockPage(
+        taskStore.filter((task) => task.tableName === params.table && task.recordId === params.pk),
+        request
+      )
+    )
+  ),
+  http.post(`${BASE}/records/:table/:pk/tasks`, async ({ params, request }) => {
+    const input =
+      (await request.json()) as import('@/types/collaboration').CollaborationTaskCreateRequestV1
+    if (input.assigneeUserId && input.assigneeUserId !== 'alex')
+      return HttpResponse.json({ error: 'The assignee cannot open this record.' }, { status: 400 })
+    const task = {
+      ...input,
+      id: objectId++,
+      assigneeDisplayName: nameOf(input.assigneeUserId),
+      createdByUserId: 'me',
+      createdByDisplayName: nameOf('me'),
+      status: 'OPEN',
+      tableName: String(params.table),
+      recordId: String(params.pk),
+    }
+    taskStore.push(task)
+    publishCollaborationEvent('task.changed', {
+      table: params.table,
+      pk: params.pk,
+      taskId: task.id,
+    })
+    return HttpResponse.json(task)
+  }),
+  http.patch(`${BASE}/tasks/:id`, async ({ params, request }) => {
+    const task = taskStore.find((t) => String(t.id) === params.id)
+    if (!task) return missing()
+    const input =
+      (await request.json()) as import('@/types/collaboration').CollaborationTaskPatchRequestV1
+    if (input.assigneeUserId && input.assigneeUserId !== 'alex')
+      return HttpResponse.json({ error: 'The assignee cannot open this record.' }, { status: 400 })
+    Object.assign(task, input)
+    if (input.assigneeUserId !== undefined) task.assigneeDisplayName = nameOf(input.assigneeUserId)
+    if (input.status === 'DONE')
+      Object.assign(task, {
+        completedAt: new Date().toISOString(),
+        completedByUserId: 'me',
+        completedByDisplayName: nameOf('me'),
+      })
+    if (input.status === 'OPEN')
+      Object.assign(task, { completedAt: null, completedByUserId: null, completedByDisplayName: null })
+    publishCollaborationEvent('task.changed', {
+      table: task.tableName,
+      pk: task.recordId,
+      taskId: task.id,
+    })
+    return HttpResponse.json(task)
+  }),
+  http.get(`${BASE}/tasks/mine`, ({ request }) =>
+    HttpResponse.json(
+      mockPage(
+        taskStore.filter((t) => t.status === 'OPEN'),
+        request
+      )
+    )
+  ),
+  http.put(`${BASE}/records/:table/:pk/assignment`, async ({ params, request }) => {
+    const input = (await request.json()) as { ownerUserId?: string; assigneeUserId?: string }
+    const key = `${params.table}/${params.pk}`
+    const value = { ...assignments.get(key), ...input }
+    assignments.set(key, value)
+    return HttpResponse.json(value)
+  }),
+  http.get('/qqq/v1/table/:table/:pk/features', ({ params }) => {
+    const assignment = assignments.get(`${params.table}/${params.pk}`)
+    return HttpResponse.json({
+      capabilities: qInstance.tables[String(params.table)]?.recordFeatures?.capabilities,
+      owner: assignment?.ownerUserId ?? 'Alex Rivera',
+      assignee: assignment?.assigneeUserId ?? 'Sam Parker',
+    })
+  }),
+  http.get(`${BASE}/my-work`, () =>
+    HttpResponse.json({
+      tasks: taskStore.filter((t) => t.status === 'OPEN'),
+      openTaskCount: taskStore.filter((t) => t.status === 'OPEN').length,
+      assignedRecordsByTable: { person: 1 },
+      unreadMentionCount: 2,
+    })
+  )
+)
+
+/** Assignment fields used by the mock query expander.
+ * @param table - Parent table.
+ * @param pk - Parent key.
+ * @returns Fixture assignment.
+ */
+export function mockRecordAssignment(table: string, pk: string) {
+  return (
+    assignments.get(`${table}/${pk}`) ??
+    (table === 'person' && pk === '1' ? { ownerUserId: 'me', assigneeUserId: 'alex' } : undefined)
+  )
 }

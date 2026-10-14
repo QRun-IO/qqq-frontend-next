@@ -20,7 +20,12 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CollaborationRecord, RecordFeaturesV1 } from '@/types/collaboration'
-import { useComments, useAttachments, useTimeline } from '@/lib/hooks/use-collaboration-record'
+import {
+  useComments,
+  useAttachments,
+  useTimeline,
+  useTasks,
+} from '@/lib/hooks/use-collaboration-record'
 const loading = () => (
   <p role="status" className="p-4 text-sm text-muted-foreground">
     Loading collaboration…
@@ -29,6 +34,7 @@ const loading = () => (
 const Comments = dynamic(() => import('./CommentsTab').then((m) => m.CommentsTab), { loading })
 const Files = dynamic(() => import('./FilesTab').then((m) => m.FilesTab), { loading })
 const Activity = dynamic(() => import('./ActivityTab').then((m) => m.ActivityTab), { loading })
+const Tasks = dynamic(() => import('./TasksTab').then((m) => m.TasksTab), { loading })
 const STORAGE_KEY = 'qqq-collaboration-panel-collapsed'
 
 /** Metadata-driven tabs with stable counts, lazy content and remembered desktop collapse.
@@ -48,6 +54,7 @@ export function RecordCollaborationPanel({
   const tabs = [
     { id: 'COMMENTS', label: 'Comments' },
     { id: 'ATTACHMENTS', label: 'Files' },
+    { id: 'TASKS', label: 'Tasks' },
     { id: 'TIMELINE', label: 'Activity' },
   ].filter((tab) => enabled.includes(tab.id as NonNullable<RecordFeaturesV1['features']>[number]))
   const [selected, setSelected] = useState(tabs[0]?.id)
@@ -62,7 +69,11 @@ export function RecordCollaborationPanel({
   const comments = useComments(record, enabled.includes('COMMENTS'))
   const files = useAttachments(record, enabled.includes('ATTACHMENTS'))
   const activity = useTimeline(record, enabled.includes('TIMELINE'))
+  const tasks = useTasks(record, enabled.includes('TASKS'))
   const counts: Record<string, string> = {
+    TASKS: tasks.data
+      ? `${tasks.data.pages.flatMap((p) => p.items).filter((t) => t.status === 'OPEN').length}${tasks.hasNextPage ? '+' : ''}`
+      : '…',
     COMMENTS: comments.data
       ? `${comments.data.pages.reduce((n, page) => n + page.threads.length, 0)}${comments.hasNextPage ? '+' : ''}`
       : '…',
@@ -150,6 +161,7 @@ export function RecordCollaborationPanel({
             <Comments record={record} features={features} fieldLabels={fieldLabels} />
           )}
           {active === 'ATTACHMENTS' && <Files record={record} features={features} />}
+          {active === 'TASKS' && <Tasks record={record} features={features} />}
           {active === 'TIMELINE' && <Activity record={record} />}
         </div>
       </div>

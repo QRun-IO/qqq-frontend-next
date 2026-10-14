@@ -40,6 +40,26 @@ import type {
   CollaborationTarget,
   CollaborationTargetType,
 } from '@/types/collaboration'
+import type {
+  PresenceRequest,
+  PresenceTarget,
+  PresenceSnapshot,
+  CollaborationLinkV1,
+  CollaborationShareRequestV1,
+  CollaborationSharePreviewV1,
+  CollaborationShareListV1,
+  CollaborationAccessRequestCreateRequestV1,
+  CollaborationAccessRequestV1,
+  CollaborationTaskV1,
+  CollaborationTaskCreateRequestV1,
+  CollaborationTaskPatchRequestV1,
+  CollaborationAssignmentRequestV1,
+  CollaborationAssignmentV1,
+  CollaborationMyWorkV1,
+  RecordFeatureSummary,
+  CollaborationPersonV1,
+} from '@/types/collaboration'
+
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import { internalAppHref } from '@/lib/utils/internal-app-href'
 import apiClient from './client'
@@ -246,6 +266,7 @@ export function normalizeAttachment(raw: unknown): Attachment {
     description: string(data.description),
     contentType: string(data.contentType),
     sizeBytes: number(data.sizeBytes),
+    createdByDisplayName: string(data.createdByDisplayName),
     createdByUserId: string(data.createdByUserId),
     createDate: string(data.createDate),
     canDelete: data.canDelete === true,
@@ -620,5 +641,133 @@ export async function listTimeline(record: CollaborationRecord, cursor?: string,
         }),
       }
     }
+  )
+}
+
+/** Renews a presence lease.
+ * @param input - Client identity and focus.
+ * @returns Current merged viewers.
+ */
+export const renewPresence = (input: PresenceRequest) =>
+  apiClient.post<PresenceSnapshot>(`${BASE}/presence`, input)
+/** Leaves a target.
+ * @param input - Lease identity.
+ * @returns Acknowledgement.
+ */
+export const leavePresence = (input: PresenceTarget) =>
+  apiClient.delete(`${BASE}/presence`, { data: input })
+/** Reads current viewers.
+ * @param target - Target identity.
+ * @returns Snapshot.
+ */
+export const getPresence = (target: { table: string; pk?: string }) =>
+  apiClient.get<PresenceSnapshot>(`${BASE}/presence`, { params: target })
+/** Sends the last heartbeat on pagehide. Beacon only supports POST; DELETE remains the
+ * unmount cleanup, and the server's 45-second TTL handles a closed document.
+ * @param input - Last presence lease.
+ */
+export function beaconPresence(input: PresenceRequest) {
+  navigator.sendBeacon?.(
+    `${process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'}${BASE}/presence`,
+    new Blob([JSON.stringify(input)], { type: 'application/json' })
+  )
+}
+/** Reads directory candidates.
+ * @param q - Search text.
+ * @returns Directory page.
+ */
+export async function searchPeople(q: string) {
+  return page(await apiClient.get(`${BASE}/people`, { params: { q, limit: 50 } }), (raw) => {
+    const data = object(raw)
+    return {
+      userId: string(data.userId),
+      displayName: string(data.displayName),
+      email: string(data.email),
+    } satisfies CollaborationPersonV1
+  })
+}
+/** Reads a canonical record link.
+ * @param record - Parent identity.
+ * @returns Link and label.
+ */
+export const getRecordLink = (record: CollaborationRecord) =>
+  apiClient.get<CollaborationLinkV1>(`${recordPath(record)}/link`)
+/** Checks recipient visibility before sending.
+ * @param record - Parent identity.
+ * @param toUserIds - Recipients.
+ * @returns Access decisions, including unknown.
+ */
+export const previewShares = (record: CollaborationRecord, toUserIds: string[]) =>
+  apiClient.post<CollaborationSharePreviewV1>(`${recordPath(record)}/shares/preview`, { toUserIds })
+/** Sends a share without granting permissions.
+ * @param record - Parent identity.
+ * @param input - Recipients and message.
+ * @returns Per-recipient results.
+ */
+export const shareRecord = (record: CollaborationRecord, input: CollaborationShareRequestV1) =>
+  apiClient.post<CollaborationShareListV1>(`${recordPath(record)}/shares`, input)
+/** Requests access without probing record existence.
+ * @param input - Opaque target and message.
+ * @returns Request acknowledgement.
+ */
+export const requestAccess = (input: CollaborationAccessRequestCreateRequestV1) =>
+  apiClient.post<CollaborationAccessRequestV1>(`${BASE}/access-requests`, input)
+/** Reads one page of tasks.
+ * @param record - Parent identity.
+ * @param cursor - Continuation.
+ * @returns Task page.
+ */
+export async function listTasks(record: CollaborationRecord, cursor?: string) {
+  return page(
+    await apiClient.get(`${recordPath(record)}/tasks`, {
+      params: { includeDone: true, limit: 50, cursor },
+    }),
+    (raw) => identified(raw) as CollaborationTaskV1 & { id: number }
+  )
+}
+/** Creates a task.
+ * @param record - Parent identity.
+ * @param input - Task details.
+ * @returns Task.
+ */
+export const createTask = (record: CollaborationRecord, input: CollaborationTaskCreateRequestV1) =>
+  apiClient.post<CollaborationTaskV1>(`${recordPath(record)}/tasks`, input)
+/** Edits, completes or reopens a task.
+ * @param id - Task identity.
+ * @param input - Changed fields.
+ * @returns Updated task.
+ */
+export const patchTask = (id: number, input: CollaborationTaskPatchRequestV1) =>
+  apiClient.patch<CollaborationTaskV1>(`${BASE}/tasks/${id}`, input)
+/** Assigns a record.
+ * @param record - Parent identity.
+ * @param input - Owner and assignee changes.
+ * @returns Assignment.
+ */
+export const putAssignment = (
+  record: CollaborationRecord,
+  input: CollaborationAssignmentRequestV1
+) => apiClient.put<CollaborationAssignmentV1>(`${recordPath(record)}/assignment`, input)
+/** Reads record-specific capabilities and assignment.
+ * @param record - Parent identity.
+ * @returns Feature summary.
+ */
+export const getRecordFeatures = (record: CollaborationRecord) =>
+  apiClient.get<RecordFeatureSummary>(
+    `/table/${encodeURIComponent(record.table)}/${encodeURIComponent(record.pk)}/features`
+  )
+/** Reads the personal work summary.
+ * @returns Work counts and tasks.
+ */
+export const getMyWork = () => apiClient.get<CollaborationMyWorkV1>(`${BASE}/my-work`)
+
+/** Reads a page of the current user's open tasks.
+ * @param cursor - Opaque continuation.
+ * @returns Task page.
+ */
+export async function listMyTasks(cursor?: string) {
+  return page(
+    await apiClient.get(`${BASE}/tasks/mine`, { params: { status: 'OPEN', limit: 50, cursor } }),
+    (raw) => identified(raw) as CollaborationTaskV1 & { id: number }
   )
 }

@@ -56,7 +56,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * order: the qbit or module ships its UI API extension, its document is vendored into
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
-export const OFF_SPEC_CEILING = 21
+export const OFF_SPEC_CEILING = 20
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
