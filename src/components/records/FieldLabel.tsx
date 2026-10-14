@@ -21,14 +21,12 @@
 'use client'
 
 import React from 'react'
-import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QFieldMetaData } from '@/types'
-import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
-import { cn } from '@/lib/utils/cn'
-import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
-import { useHelpHelpActive } from '@/lib/context/q-context'
-import { HelpContent } from './HelpContent'
+
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 
 interface FieldLabelProps {
   /**
@@ -57,7 +55,7 @@ interface FieldLabelProps {
  * @param props.'data-qqq-id' - Optional `data-qqq-id` attribute for CSS customization hooks.
  * @param props.id - Optional DOM `id` for `aria-labelledby` linkage.
  * @param props.helpRoles - Screen roles for choosing the help entry.
- * @returns A plain `<span>` when no help applies, otherwise a focusable label with a Radix tooltip.
+ * @returns A plain `<span>` when no help applies, otherwise the label with a focusable help button.
  */
 export function FieldLabel({
   field,
@@ -67,53 +65,11 @@ export function FieldLabel({
   helpRoles = VIEW_SCREEN_HELP_ROLES,
   helpKey,
 }: FieldLabelProps) {
-  const helpContent = selectSlotHelpContent(field.helpContents, helpRoles, helpKey, useHelpHelpActive())
-  const tooltipState = useFocusSafeTooltip()
-
-  if (!helpContent) {
-    return (
-      <span
-        className={className}
-        data-qqq-id={dataQqqId}
-        id={id}
-      >
-        {field.label}
-      </span>
-    )
-  }
-
-  return (
-    <TooltipPrimitive.Provider delayDuration={300}>
-      <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-        <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
-          onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
-          <span
-            className={cn(className, 'cursor-help underline decoration-dotted decoration-muted-foreground underline-offset-4')}
-            data-qqq-id={dataQqqId}
-            data-has-help="true"
-            id={id}
-            tabIndex={0}
-          >
-            {field.label}
-          </span>
-        </TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Content
-            side="top"
-            sideOffset={4}
-            data-qqq-id={`field-help-tooltip-${field.name}`}
-            className={cn(
-              'z-50 max-w-xs rounded-md border border-border bg-card px-3 py-2 text-sm shadow-md',
-              'text-foreground',
-              'animate-in fade-in-0 zoom-in-95'
-            )}
-          >
-            <p className="mb-1 font-semibold">{field.label}</p>
-            <HelpContent helpContent={helpContent} />
-            <TooltipPrimitive.Arrow className="fill-border" />
-          </TooltipPrimitive.Content>
-        </TooltipPrimitive.Portal>
-      </TooltipPrimitive.Root>
-    </TooltipPrimitive.Provider>
-  )
+  return <span className={className} data-qqq-id={dataQqqId}>
+    <span className="inline-flex items-center">
+      <span id={id}>{field.label}</span>
+      <HelpIcon label={field.label} helpContents={field.helpContents} roles={helpRoles} helpKey={helpKey}
+        data-qqq-id={`field-help-${field.name}`} tooltipId={`field-help-tooltip-${field.name}`} />
+    </span>
+  </span>
 }

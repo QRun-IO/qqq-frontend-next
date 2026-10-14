@@ -561,7 +561,7 @@ function Footer({ error, children }: { error: string | null; children: React.Rea
  * @returns The row's form.
  */
 function ReviewRow({ idPrefix, table, fieldNames, values, onChange }: { idPrefix: string; table: QTableMetaData; fieldNames: string[]; values: Record<string, unknown>; onChange: (values: Record<string, unknown>) => void }) {
-  const { register, control, formState, watch } = useForm<Record<string, unknown>>({ defaultValues: values })
+  const { register, control, formState, watch, getValues, setValue } = useForm<Record<string, unknown>>({ defaultValues: values })
   useEffect(() => {
     const subscription = watch((next) => onChange(next as Record<string, unknown>))
     return () => subscription.unsubscribe()
@@ -571,7 +571,7 @@ function ReviewRow({ idPrefix, table, fieldNames, values, onChange }: { idPrefix
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {fields.map((field) => (
-        <DynamicFormField key={field.name} idPrefix={idPrefix} field={field} register={register} control={control} errors={formState.errors} possibleValueContext={{ type: 'table', tableName: table.name }} />
+        <DynamicFormField formMethods={{ getValues, setValue }} fieldsByName={table.fields} key={field.name} idPrefix={idPrefix} field={field} register={register} control={control} errors={formState.errors} possibleValueContext={{ type: 'table', tableName: table.name }} />
       ))}
     </div>
   )
@@ -585,7 +585,7 @@ function ReviewRow({ idPrefix, table, fieldNames, values, onChange }: { idPrefix
  * @returns The form.
  */
 function QuickCreatePanel({ table, onCreated, onCancel }: { table: QTableMetaData; onCreated: (record: QRecord) => void; onCancel: () => void }) {
-  const { register, control, formState, handleSubmit } = useForm<Record<string, unknown>>()
+  const { register, control, formState, handleSubmit, getValues, setValue } = useForm<Record<string, unknown>>()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fields = useMemo(() => quickCreateFields(table), [table])
@@ -610,7 +610,7 @@ function QuickCreatePanel({ table, onCreated, onCancel }: { table: QTableMetaDat
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="grid gap-3">
           {fields.map((field) => (
-            <DynamicFormField key={field.name} idPrefix="related-picker-create" field={field} register={register} control={control} errors={formState.errors} possibleValueContext={{ type: 'table', tableName: table.name }} />
+            <DynamicFormField formMethods={{ getValues, setValue }} fieldsByName={table.fields} key={field.name} idPrefix="related-picker-create" field={field} register={register} control={control} errors={formState.errors} possibleValueContext={{ type: 'table', tableName: table.name }} />
           ))}
         </div>
         <a href={`/app/${encodeURIComponent(table.name)}/create`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline" data-qqq-id="related-picker-full-create">

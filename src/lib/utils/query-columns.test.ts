@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { QTableMetaData } from '@/types'
-import { fieldsInSectionOrder, getQueryColumns, withReadableExposedJoins } from './query-columns'
+import { defaultColumnVisibility, fieldsInSectionOrder, getQueryColumns, withReadableExposedJoins } from './query-columns'
 
 const table = {
   name: 'thing',
@@ -72,5 +72,73 @@ describe('withReadableExposedJoins', () => {
     expect(filtered.exposedJoins.map((join) => join.label)).toEqual(['Allowed'])
     expect(getQueryColumns(filtered).some((column) => column.label.startsWith('Blocked:'))).toBe(false)
     expect(joined.exposedJoins).toHaveLength(2)
+  })
+})
+
+
+it('exposes collaboration tags as a selectable virtual column', () => {
+  const columns = getQueryColumns({ ...table, virtualFields: { collaborationTags: { ...table.fields.alpha, name: 'collaborationTags', label: 'Tags', possibleValueSourceName: 'collaboration_tag', isQueryCriteria: true, isQuerySelectable: true } } })
+  expect(columns.find((column) => column.name === 'collaborationTags')).toMatchObject({ label: 'Tags', isVirtual: true, isQueryCriteria: true, field: { possibleValueSourceName: 'collaboration_tag' } })
+})
+
+describe('defaultColumnVisibility', () => {
+  const visible = (metadata: QTableMetaData) => Object.entries(defaultColumnVisibility(metadata, 0)).filter(([, shown]) => shown).map(([name]) => name)
+
+  it('selects the primary key, then T1 and T2 in section order, with every other field false', () => {
+    const metadata = { ...table, sections: [table.sections[1], table.sections[0]] }
+    expect(visible(metadata)).toEqual(['id', 'alpha', 'zeta'])
+    expect(defaultColumnVisibility(metadata, 0)).toEqual({ id: true, alpha: true, zeta: true, notes: false, secret: false, loose: false })
+  })
+
+  it('uses field order without sections, putting the primary key first', () => {
+    expect(visible({ ...table, sections: [] })).toEqual(['id', 'zeta', 'alpha', 'loose'])
+  })
+
+  it('caps the heuristic at six including the primary key', () => {
+    const fields = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`field${i}`, { ...table.fields.alpha, name: `field${i}` }]))
+    expect(visible({ ...table, fields: { ...fields, id: table.fields.id }, sections: [] })).toEqual(['id', 'field0', 'field1', 'field2', 'field3', 'field4'])
+  })
+
+  it('excludes heavy fields, long types and large editor adornments', () => {
+    const fields = Object.fromEntries(['TEXT', 'HTML', 'BLOB', 'JSON', 'JSONB'].map((type) => [type, { ...table.fields.alpha, name: type, type }]))
+    const metadata = { ...table, sections: [], fields: {
+      ...fields, id: table.fields.id,
+      heavy: { ...table.fields.alpha, name: 'heavy', isHeavy: true },
+      code: { ...table.fields.alpha, name: 'code', adornments: [{ type: 'CODE_EDITOR' }] },
+      html: { ...table.fields.alpha, name: 'html', adornments: [{ type: 'RENDER_HTML' }] },
+    } } as QTableMetaData
+    expect(visible(metadata)).toEqual(['id'])
+    expect(Object.values(defaultColumnVisibility(metadata, 0)).filter((shown) => !shown)).toHaveLength(8)
+  })
+
+  it.each(['supplementalMetaData', 'supplementalTableMetaData'] as const)('honours %s.nextUi.defaultColumns, ignoring unavailable fields', (key) => {
+    expect(visible({ ...table, [key]: { nextUi: { defaultColumns: ['loose', 'zeta', 'secret', 'missing'] } } })).toEqual(['loose', 'zeta'])
+    expect(visible({ ...table, [key]: { nextUi: { defaultColumns: [] } } })).toEqual([])
+  })
+
+  it('allows explicit hints to select long text and more than six fields', () => {
+    const fields = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`field${i}`, { ...table.fields.alpha, name: `field${i}`, type: 'TEXT' as const }]))
+    const metadata = { ...table, fields, supplementalMetaData: { nextUi: { defaultColumns: Object.keys(fields) } } }
+    expect(visible(metadata)).toEqual(Object.keys(fields))
+  })
+
+  it('keeps every column on a table with at most twelve visible fields', () => {
+    expect(defaultColumnVisibility(table)).toEqual({})
+    const fields = Object.fromEntries(Array.from({ length: 13 }, (_, i) => [`field${i}`, { ...table.fields.alpha, name: `field${i}` }]))
+    expect(Object.values(defaultColumnVisibility({ ...table, sections: [], fields: { ...fields, id: table.fields.id } })).filter(Boolean)).toHaveLength(6)
+  })
+
+  it('falls back to field order when the T1/T2 sections hold no usable field', () => {
+    const metadata = { ...table, sections: [{ name: 'notes', label: 'Notes', tier: 'T3', fieldNames: ['alpha'] }] } as QTableMetaData
+    expect(visible(metadata)[0]).toBe('id')
+    expect(visible(metadata).length).toBeGreaterThan(1)
+  })
+
+  it('falls back for malformed hints and explicitly hides virtual columns', () => {
+    const metadata = { ...table, supplementalMetaData: { nextUi: { defaultColumns: 'alpha' } }, virtualFields: {
+      computed: { ...table.fields.alpha, name: 'computed', isQuerySelectable: true, isQueryCriteria: false },
+    } }
+    expect(visible(metadata)).toEqual(['id', 'alpha', 'zeta'])
+    expect(defaultColumnVisibility(metadata, 0).computed).toBe(false)
   })
 })

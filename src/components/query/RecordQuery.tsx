@@ -27,6 +27,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
+
 import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -35,15 +36,20 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
 import type { DataAnalysisDrillV1 } from '@/types/data-analysis'
 import { getCapabilities } from '@/lib/api/data-analysis'
+import type { PageSize } from '@/lib/hooks/use-record-query'
+
+import { QUERY_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { encodeExplore, EXPLORE_VIEWS, type RelationshipView, type ExploreLayout } from '@/lib/utils/data-analysis-explore'
+import { encodePivot, type PivotLayout } from '@/lib/utils/data-analysis-pivot'
+import { deserializeFilter } from '@/lib/utils/filter-utils'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
-import type { PageSize } from '@/lib/hooks/use-record-query'
 import { useSavedViews, useSavedView } from '@/lib/hooks/use-saved-views'
 import { emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, normalizeFilter, prepFilterForBackend, resolveField } from '@/lib/utils/filter-utils'
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { countFilterConditions } from '@/lib/utils/date-range-utils'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
-import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
+import { defaultColumnVisibility, getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { AD_HOC_VIEW_IDENTITY, clearStoredQueryState, readCurrentSavedViewId, readStoredQueryView, savedViewIdentity, writeCurrentSavedViewId, writeStoredQueryView } from '@/lib/utils/query-view-storage'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -62,14 +68,16 @@ import { DEFAULT_COPY_FULL_QUERY_VALUES_LIMIT, PAGE_SIZE_OPTIONS, SEARCH_DEBOUNC
 import { recordAnalytics } from '@/lib/analytics'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { GotoRecordDialog } from '@/components/records/GotoRecordDialog'
-
 import { FilterBuilder, buildFilterFields } from './FilterBuilder'
 import { QuickFilterBar } from './QuickFilterBar'
 import { HintTooltip } from './HintTooltip'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
+import { LazyTablePresence } from '@/components/collaboration/LazyRecordCollaboration'
+import { builtInViewHref } from '@/lib/utils/built-in-views'
 import { SavedViewsMenu } from './SavedViewsMenu'
 import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
@@ -77,8 +85,11 @@ import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 import { QuickSavedViews } from './QuickSavedViews'
 
 const ColumnProfilePanel = dynamic(() => import('@/components/data-analysis/ColumnProfilePanel'), { ssr: false })
-import { AnalysisDrillContext } from '@/components/data-analysis/ProfileParts'
+import { AnalysisDrillContext, ProfileError, ProfileLoading, controlClass } from '@/components/data-analysis/ProfileParts'
 const TableProfilePanel = dynamic(() => import('@/components/data-analysis/TableProfilePanel'), { ssr: false })
+const RelationshipExplorer = dynamic(() => import('@/components/data-analysis/RelationshipExplorer'), { ssr: false })
+const SavedAnalysisViewer = dynamic(() => import('@/components/data-analysis/SavedAnalysisViewer'), { ssr: false })
+const PivotExplorer = dynamic(() => import('@/components/data-analysis/PivotExplorer'), { ssr: false })
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
@@ -144,7 +155,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable)
   const currentView: SavedView | null = savedViewId !== undefined ? savedViewQuery.data ?? null : null
   const [viewWarnings, setViewWarnings] = useState<string[]>([])
-  const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize'].some((key) => searchParams.has(key)))
+  const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize', 'view'].some((key) => searchParams.has(key)))
   const appliedViewRef = useRef<string | null>(null)
   const viewLoading = savedViewId !== undefined && savedViews.isAvailable && savedViewQuery.isLoading
 
@@ -191,12 +202,12 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const defaultViewState = useMemo<ViewState>(() => ({
     userFilter: emptyFilter(preferences.tableDefaultPageSize),
     sortOrder: rq.filter.defaultSort,
-    columnVisibility: {},
+    columnVisibility: defaultColumnVisibility(tableMetaData),
     columnOrder: [],
     columnWidths: {},
     pageSize: preferences.tableDefaultPageSize,
     filterMode: 'basic',
-  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort])
+  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort, tableMetaData])
   const currentViewJson = useMemo(() => buildViewJson(tableMetaData, rq.viewState), [tableMetaData, rq.viewState])
   const reportHref = useMemo(() => {
     if (!canInsertRecords(metaData?.tables?.savedReport)) return undefined
@@ -312,11 +323,44 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const openAnalysis = (field?: { name: string; label: string }) => setAnalysis({ field, filter: rq.filter.baseFilter, returnFocus: field ? document.querySelector<HTMLElement>(`[data-qqq-id="grid-column-menu-${CSS.escape(field.name)}"]`) : document.activeElement instanceof HTMLElement ? document.activeElement : null })
   const closeAnalysis = () => { const target = analysis?.returnFocus; setAnalysis(null); requestAnimationFrame(() => target?.focus()) }
   const canAnalyze = capabilities.data?.canAnalyze === true
+  const pivotOpen = searchParams.get('view') === 'pivot'
+  const relationshipView = EXPLORE_VIEWS.find(v => v !== 'pivot' && v === searchParams.get('view')) as RelationshipView | undefined
+  const explorerOpen = pivotOpen || Boolean(relationshipView)
+  const { setUserFilter: restorePivotFilter, setQuickSearch: restorePivotSearch } = rq.filter
+  useEffect(() => {
+    const restore = () => {
+      const params = new URLSearchParams(window.location.search)
+      if (!explorerOpen && !EXPLORE_VIEWS.some(v => v === params.get('view'))) return
+      restorePivotFilter(deserializeFilter(params.get('filter') ?? '', rq.viewState.pageSize))
+      restorePivotSearch(params.get('q') ?? '')
+      setLocalSearchTerm(params.get('q') ?? '')
+    }
+    window.addEventListener('popstate', restore)
+    return () => window.removeEventListener('popstate', restore)
+  }, [explorerOpen, restorePivotFilter, restorePivotSearch, rq.viewState.pageSize])
+  const updatePivotUrl = (open: boolean, request?: PivotLayout) => {
+    const url = new URL(window.location.href)
+    if (open) url.searchParams.set('view', 'pivot')
+    else { url.searchParams.delete('view'); url.searchParams.delete('pivot') }
+    if (request) url.searchParams.set('pivot', encodePivot(request))
+    if (open && !pivotOpen) window.history.pushState(null, '', url)
+    else window.history.replaceState(null, '', url)
+  }
+  const updateExploreUrl = (view?: RelationshipView, layout?: ExploreLayout) => {
+    const url = new URL(window.location.href)
+    if (view) url.searchParams.set('view', view)
+    else { url.searchParams.delete('view'); EXPLORE_VIEWS.forEach(v => url.searchParams.delete(v)) }
+    if (view && layout) url.searchParams.set(view, encodeExplore(view, layout))
+    if (view && !explorerOpen) window.history.pushState(null, '', url)
+    else window.history.replaceState(null, '', url)
+  }
   // A drill on this table applies its filter here: this page reads the URL only on mount.
   const applyAnalysisDrill = (drill: DataAnalysisDrillV1) => {
     if (!drill || drill.tableName !== tableName || !drill.filter) return false
     const filter = normalizeFilter(drill.filter, rq.viewState.pageSize)
     rq.filter.setUserFilter({ ...filter, orderBys: [] })
+    rq.filter.setQuickSearch('')
+    setLocalSearchTerm('')
     return true
   }
   const analysisUnavailableReason = tableMetaData.usesVariants ? 'Analysis is not available for table variants in this API version.' : undefined
@@ -536,7 +580,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
           onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
           className="min-h-8 [@media(any-pointer:coarse)]:min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
+          data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? 'â†‘' : 'â†“'}</button>
       </div>
       {rq.filter.filterMode === 'basic' && (activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
         <button type="button" onClick={() => setClearConfirmOpen(true)}
@@ -565,6 +609,55 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     </>
   )
 
+  if (searchParams.get('view') === 'saved') {
+    const closeSaved = () => {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('view')
+      url.searchParams.delete('saved')
+      window.history.replaceState(null, '', url)
+    }
+    return <AnalysisDrillContext.Provider value={drill => {
+      if (!applyAnalysisDrill(drill)) return false
+      closeSaved()
+      return true
+    }}>
+      <SavedAnalysisViewer key={`${tableName}:${searchParams.get('saved')}`} id={searchParams.get('saved') ?? ''}
+        tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []}
+        sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} onBack={closeSaved} />
+    </AnalysisDrillContext.Provider>
+  }
+
+  if (relationshipView) return (
+    <FilterSettingsProvider value={filterSettings}>
+      <div className="w-full min-w-0 max-w-full">
+        {capabilities.isPending ? <ProfileLoading /> : !canAnalyze ? <>
+          <button className={controlClass} onClick={() => updateExploreUrl()} data-qqq-id="explore-back">Back to records</button>
+          <ProfileError error={capabilities.error ?? new Error("You don't have permission to analyze this table")} />
+        </> : <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
+          <RelationshipExplorer key={`${tableName}:${relationshipView}:${searchParams.get(relationshipView) ?? ''}`}
+            view={relationshipView} tableName={tableName} tableMetaData={tableMetaData} fields={capabilities.data?.fields ?? []}
+            filter={rq.filter.baseFilter} encoded={searchParams.get(relationshipView)}
+            onRun={layout => updateExploreUrl(relationshipView, layout)} onBack={() => updateExploreUrl()}
+            savedViews={savedViews.isAvailable ? [...savedViews.yourViews, ...savedViews.sharedViews] : undefined}
+            sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
+        </AnalysisDrillContext.Provider>}
+      </div>
+    </FilterSettingsProvider>
+  )
+
+  if (pivotOpen) return (
+    <div className="w-full min-w-0 max-w-full">
+      {capabilities.isPending ? <ProfileLoading /> : !canAnalyze ? <>
+        <button className={controlClass} onClick={() => updatePivotUrl(false)} data-qqq-id="pivot-back">Back to records</button>
+        <ProfileError error={capabilities.error ?? new Error("You don't have permission to analyze this table")} />
+      </> : <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
+        <PivotExplorer key={`${tableName}:${searchParams.get('pivot') ?? ''}`} tableName={tableName} tableLabel={tableMetaData.label}
+          fields={capabilities.data?.fields ?? []} filter={rq.filter.baseFilter} encoded={searchParams.get('pivot')}
+          onRun={request => updatePivotUrl(true, request)} onBack={() => updatePivotUrl(false)} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
+      </AnalysisDrillContext.Provider>}
+    </div>
+  )
+
   return (
     <FilterSettingsProvider value={filterSettings}>
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`} data-view-mode={viewModeReady ? viewMode : undefined}>
@@ -575,10 +668,13 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </Link>
       )}
 
-      <h1 className="sr-only" data-qqq-id="query-heading">
+      <div className="flex flex-wrap items-center gap-2">
+      <h1 className="text-xl font-semibold" data-qqq-id="query-heading">
         {tableMetaData.label}{currentView ? ` / ${currentView.label}` : ''}
         {joinedLabels.length > 0 && `, joined with ${joinedLabels.join(', ')}`}
       </h1>
+      <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={QUERY_SCREEN_HELP_ROLES} helpKey={`table:${tableName};slot:help`} data-qqq-id={`table-help-${tableName}`} />
+      </div>
 
       {viewWarnings.length > 0 && (
         <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-qqq-id="query-view-warning">
@@ -615,7 +711,9 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </div>
       )}
 
+      <LazyTablePresence table={tableMetaData} />
       <RecordQueryToolbar
+        onExplore={canAnalyze ? view => view === 'pivot' ? updatePivotUrl(true) : updateExploreUrl(view) : undefined}
         onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
         tableName={tableName}
         tableMetaData={tableMetaData}
@@ -642,6 +740,14 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         tableVariant={tableVariant}
         savedViewsMenu={
           <SavedViewsMenu
+            builtInViews={tableMetaData.builtInViews}
+            onBuiltInView={(view) => {
+              setLocalSearchTerm('')
+              rq.filter.setQuickSearch('')
+              rq.filter.setUserFilter({ criteria: [], booleanOperator: 'AND', skip: 0, limit: rq.pagination.pageSize, ...view.filter })
+              rq.filter.setFilterMode('advanced')
+              if (savedViewId !== undefined) { clearStoredQueryState(tableName); router.push(builtInViewHref(tableName, view.filter)) }
+            }}
             savedViews={savedViews}
             currentView={currentView}
             viewDiffs={viewDiffs}
@@ -811,8 +917,8 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       {canAnalyze && analysis && (
         <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
         {analysis.field
-        ? <ColumnProfilePanel key={`${tableName}:${analysis.field.name}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fieldName={analysis.field.name} fieldLabel={analysis.field.label} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />
-        : <TableProfilePanel key={`${tableName}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />}
+        ? <ColumnProfilePanel fields={capabilities.data?.fields ?? []} key={`${tableName}:${analysis.field.name}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fieldName={analysis.field.name} fieldLabel={analysis.field.label} filter={analysis.filter} onClose={closeAnalysis} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
+        : <TableProfilePanel key={`${tableName}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []} filter={analysis.filter} onClose={closeAnalysis} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />}
         </AnalysisDrillContext.Provider>
       )}
 

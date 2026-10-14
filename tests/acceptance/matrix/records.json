@@ -1415,6 +1415,74 @@
         "QRun-IO/qqq#1131"
       ],
       "required": true
+    },
+    {
+      "id": "REC-069",
+      "feature": "Contingent create: scoped choices, cascade clearing and persisted v1 values",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Contingent create: scoped choices, cascade clearing and persisted v1 values"
+      ],
+      "negative": [
+        "Missing or incompatible parent input cannot silently preserve an invalid selection"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-070",
+      "feature": "Contingent edit: saved values survive load; state changes clear city",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Contingent edit: saved values survive load; state changes clear city"
+      ],
+      "negative": [
+        "Missing or incompatible parent input cannot silently preserve an invalid selection"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-071",
+      "feature": "Server rejects an invalid dependent value posted directly through v1",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Server rejects an invalid dependent value posted directly through v1"
+      ],
+      "negative": [
+        "Missing or incompatible parent input cannot silently preserve an invalid selection"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "REC-072",
+      "feature": "Filter PV requests use filter context and current dependency criteria",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Filter PV requests use filter context and current dependency criteria"
+      ],
+      "negative": [
+        "An unset state criterion must still offer all eight cities"
+      ],
+      "issues": [],
+      "required": true
     }
   ]
 }

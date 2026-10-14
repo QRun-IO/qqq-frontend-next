@@ -58,6 +58,7 @@ import {
   type OperatorOption,
 } from '@/lib/utils/filter-utils'
 import { criteriaToDateCondition, defaultDateContext } from '@/lib/utils/date-range-utils'
+import { filterDependencyValues, getDependencies } from '@/lib/utils/contingent-fields'
 import { fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { useAsyncCombobox } from '@/lib/hooks/use-async-combobox'
 import { useFilterSettings } from '@/lib/context/filter-settings-context'
@@ -78,6 +79,8 @@ export interface FilterField {
   accessTier?: QFieldMetaData['accessTier']
   allowedFilterOperators?: string[]
   isSortable?: boolean
+  /** Metadata for dependency resolution in the owning table's namespace. */
+  dependencyField?: QFieldMetaData
   /** Name used in criteria: `field` or `joinTable.field`. */
   name: string
   /** Label shown in the selector; join fields read "Join: Field". */
@@ -86,6 +89,8 @@ export interface FilterField {
   type: QFieldMetaData['type']
   /** Possible value source, when the field has one. */
   possibleValueSourceName?: string
+  /** Explicit operator declarations on virtual fields. */
+  supportedOperators?: QFieldMetaData['supportedOperators']
   /** Table that owns the field (for possible-value lookups). */
   tableName: string
   /** Field name within its owning table. */
@@ -125,7 +130,8 @@ function filterableFieldsOf(table: QTableMetaData): { field: QFieldMetaData; isV
  */
 export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] {
   const fields: FilterField[] = filterableFieldsOf(tableMetaData).map(({ field: f, isVirtual }) => ({
-    name: f.name, label: f.label, type: f.type, accessTier: f.accessTier, allowedFilterOperators: f.allowedFilterOperators, isSortable: f.isSortable, possibleValueSourceName: f.possibleValueSourceName,
+    ...(getDependencies(f).length ? { dependencyField: f } : {}),
+    name: f.name, label: f.label, type: f.type, accessTier: f.accessTier, allowedFilterOperators: f.allowedFilterOperators, isSortable: f.isSortable, possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}),
     tableName: tableMetaData.name, tableFieldName: f.name, group: `${tableMetaData.label} Fields`,
     ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
   }))
@@ -135,8 +141,9 @@ export function buildFilterFields(tableMetaData: QTableMetaData): FilterField[] 
     const joinLabel = join.label || joinTable.label
     for (const { field: f, isVirtual } of filterableFieldsOf(joinTable)) {
       fields.push({
+        ...(getDependencies(f).length ? { dependencyField: f } : {}),
         name: `${joinTable.name}.${f.name}`, label: `${joinLabel}: ${f.label}`, type: f.type, accessTier: f.accessTier, allowedFilterOperators: f.allowedFilterOperators, isSortable: f.isSortable,
-        possibleValueSourceName: f.possibleValueSourceName, tableName: joinTable.name, tableFieldName: f.name,
+        possibleValueSourceName: f.possibleValueSourceName, ...(f.supportedOperators ? { supportedOperators: f.supportedOperators } : {}), tableName: joinTable.name, tableFieldName: f.name,
         group: `${joinTable.label} Fields`, ...(f.behaviors?.length ? { behaviors: f.behaviors } : {}), ...(isVirtual ? { isVirtual } : {}),
       })
     }
@@ -184,7 +191,7 @@ export function FilterBuilder({ tableMetaData, filter, onChange, onClose, onClea
 
   return (
     <div className="flex flex-col gap-3 p-4" data-qqq-id="filter-builder">
-      <FilterGroup filter={filter} fields={fields} onChange={onChange} depth={0} allowVariables={allowVariables} />
+      <FilterGroup currentFilter={filter} filter={filter} fields={fields} onChange={onChange} depth={0} allowVariables={allowVariables} />
 
       <div className="flex items-center justify-between border-t border-border pt-3">
         <button
@@ -254,6 +261,8 @@ export function buildRows(criteria: QFilterCriteria[], fields: Pick<FilterField,
  * Props for the FilterGroup component.
  */
 interface FilterGroupProps {
+  /** Full current filter, including constraints in sibling groups. */
+  currentFilter?: QQueryFilter
   /** The filter state for this group. */
   filter: QQueryFilter
   /** Available filterable fields. */
@@ -269,7 +278,7 @@ interface FilterGroupProps {
 /**
  * Renders one AND/OR group of filter criteria with nested sub-group support.
  */
-const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, depth, allowVariables }: FilterGroupProps) {
+const FilterGroup = React.memo(function FilterGroup({ currentFilter, filter, fields, onChange, depth, allowVariables }: FilterGroupProps) {
   const indent = depth > 0 ? 'ml-4 border-l-2 border-primary/20 pl-3' : ''
 
   const criteriaIdCounterRef = useRef(0)
@@ -366,6 +375,7 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
 
       {rows.map((row, idx) => (
         <CriteriaRow
+          currentFilter={currentFilter}
           key={getCriterionKey(filter.criteria[row.start])}
           index={idx}
           criteria={filter.criteria.slice(row.start, row.start + row.count)}
@@ -380,7 +390,7 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
 
       {(filter.subFilters ?? []).map((sub, idx) => (
         <div key={getSubFilterKey(sub)} className="relative">
-          <FilterGroup filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} allowVariables={allowVariables} />
+          <FilterGroup currentFilter={currentFilter} filter={sub} fields={fields} onChange={(updated) => updateSubFilter(idx, updated)} depth={depth + 1} allowVariables={allowVariables} />
           <button
             type="button"
             onClick={() => removeSubFilter(idx)}
@@ -427,6 +437,8 @@ const FilterGroup = React.memo(function FilterGroup({ filter, fields, onChange, 
  * Props for the CriteriaRow component.
  */
 interface CriteriaRowProps {
+  /** Full current filter, including constraints in sibling groups. */
+  currentFilter?: QQueryFilter
   /** Display index of this row within its group. */
   index: number
   /** The criteria this row represents: one, or a `>=` and a `<` bound that make a date range. */
@@ -451,7 +463,7 @@ interface CriteriaRowProps {
  * Changing to a field of a different type (or possible value source) resets the operator
  * and values, as in Material; otherwise the operator and values are kept.
  */
-export const CriteriaRow = React.memo(function CriteriaRow({ index, criteria, fields, onChange, onRemove, depth, allowVariables = false, pairAllowed = true }: CriteriaRowProps) {
+export const CriteriaRow = React.memo(function CriteriaRow({ currentFilter, index, criteria, fields, onChange, onRemove, depth, allowVariables = false, pairAllowed = true }: CriteriaRowProps) {
   const { weekday } = useFilterSettings()
   const criterion = criteria[0]
   const selectedField = fields.find((f) => f.name === criterion.fieldName)
@@ -527,6 +539,7 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criteria, fi
 
           {selectedField && selected.valueMode !== 'none' && !selected.implicitValues && (
             <FilterValueInput
+              currentFilter={currentFilter}
               field={selectedField}
               valueMode={selected.valueMode}
               values={criterion.values}
@@ -574,6 +587,8 @@ export const CriteriaRow = React.memo(function CriteriaRow({ index, criteria, fi
  * Props for the FilterValueInput component.
  */
 interface FilterValueInputProps {
+  /** Full current filter, including constraints in sibling groups. */
+  currentFilter?: QQueryFilter
   /** The field being filtered. */
   field: FilterField
   /** The operator option's value mode. */
@@ -617,7 +632,15 @@ function pasterKindFor(field: FilterField): PasterKind {
 /**
  * Renders the value input widget(s) for a criterion.
  */
-export const FilterValueInput = React.memo(function FilterValueInput({ field, valueMode, values, onChange, depth, index, allowVariables = false }: FilterValueInputProps) {
+export const FilterValueInput = React.memo(function FilterValueInput({ currentFilter, field, valueMode, values, onChange, depth, index, allowVariables = false }: FilterValueInputProps) {
+  // Joined criteria are qualified; the owning table's PV route expects unqualified inputs.
+  const qualify = (filter: QQueryFilter): QQueryFilter => ({ ...filter,
+    criteria: filter.criteria.map((criterion) => ({ ...criterion, fieldName: criterion.fieldName.startsWith(`${field.tableName}.`)
+      ? criterion.fieldName.slice(field.tableName.length + 1) : `other.${criterion.fieldName}` })),
+    subFilters: filter.subFilters?.map(qualify) ?? [],
+  })
+  const dependencyFilter = currentFilter && field.name !== field.tableFieldName ? qualify(currentFilter) : currentFilter
+  const formValues = field.dependencyField ? filterDependencyValues(field.dependencyField, dependencyFilter) : undefined
   const hasPossibleValues = Boolean(field.possibleValueSourceName)
   const at = (i: number): CriteriaValue => values[i] ?? ''
   if (isRestricted(field)) return valueMode === 'multi'
@@ -665,13 +688,13 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
   if (valueMode === 'multi') {
     const scalars = values.filter((v) => !isFilterExpression(v)).map((v) => String(v))
     const paster = (
-      <FilterValuePaster kind={pasterKindFor(field)} fieldLabel={field.label} tableName={field.tableName} fieldName={field.tableFieldName}
+      <FilterValuePaster formValues={formValues} kind={pasterKindFor(field)} fieldLabel={field.label} tableName={field.tableName} fieldName={field.tableFieldName}
         onAdd={(added) => onChange(withAddedValues(scalars, added))} dataId={`filter-value-${depth}-${index}`} />
     )
     if (hasPossibleValues) {
       return (
         <span className="flex items-center gap-1">
-          <PossibleValueMultiSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
+          <PossibleValueMultiSelect formValues={formValues} tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
             values={scalars} onChange={onChange} data-qqq-id={`filter-value-${depth}-${index}`} />
           {paster}
         </span>
@@ -686,11 +709,13 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     )
   }
 
+  if (values.some((value) => isFilterExpression(value) && value.type === 'CurrentUser')) return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`filter-value-${depth}-${index}-expression`}>Me</span>
+
   const valueId = `filter-value-${depth}-${index}`
   const setValue = (v: CriteriaValue) => onChange([v])
   if (hasPossibleValues) {
     return slot(0, valueId, (
-      <PossibleValueSingleSelect tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
+      <PossibleValueSingleSelect formValues={formValues} tableName={field.tableName} fieldName={field.tableFieldName} fieldLabel={field.label}
         value={String(at(0) ?? '')} onChange={setValue} data-qqq-id={valueId} />
     ), setValue)
   }
@@ -800,6 +825,7 @@ function SingleValueInput({ field, value, onChange, placeholder, ariaLabel, data
   const presets = isDate && (
     <RelativeDateMenu fieldType={field.type} fieldLabel={field.label} onSelect={onChange} onCustom={() => setCustomOpen(true)} dataId={dataId} />
   )
+  if (isFilterExpression(value) && value.type === 'CurrentUser') return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`${dataId}-expression`}>Me</span>
   if (isDate && isFilterExpression(value)) {
     return (
       <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-expression`}>
@@ -866,7 +892,7 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, 
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = controlledOpen ?? uncontrolledOpen
   const setOpen = onOpenChange ?? setUncontrolledOpen
-  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' ? expression.type : 'NowWithOffset'
+  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' && expression.type !== 'CurrentUser' ? expression.type : 'NowWithOffset'
   const [kind, setKind] = useState<ExpressionKind>(initialKind)
   const [amount, setAmount] = useState(expression?.type === 'NowWithOffset' ? expression.amount : 1)
   const [offsetUnit, setOffsetUnit] = useState<ExpressionTimeUnit>(expression?.type === 'NowWithOffset' ? expression.timeUnit : 'DAYS')
@@ -961,13 +987,14 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, 
  * @param tableName - Table owning the field.
  * @param fieldName - Field with the possible value source.
  * @param ids - Selected ids.
+ * @param formValues - Literal dependency inputs from the current filter.
  * @returns A map from id to label.
  */
-export function useSelectedLabels(tableName: string, fieldName: string, ids: string[]): Record<string, string> {
+export function useSelectedLabels(tableName: string, fieldName: string, ids: string[], formValues?: Record<string, unknown>): Record<string, string> {
   const key = ids.filter(Boolean).join(',')
   const { data } = useQuery({
-    queryKey: [...queryKeys.tablePossibleValues(tableName, fieldName), 'ids', key],
-    queryFn: () => fetchTablePossibleValues(tableName, fieldName, { ids: key }),
+    queryKey: [...queryKeys.tablePossibleValues(tableName, fieldName), 'ids', key, formValues],
+    queryFn: () => fetchTablePossibleValues(tableName, fieldName, { ids: key, useCase: 'filter', ...(formValues ? { formValues } : {}) }),
     enabled: key.length > 0,
     staleTime: 5 * 60 * 1000,
   })
@@ -978,6 +1005,8 @@ export function useSelectedLabels(tableName: string, fieldName: string, ids: str
  * Props for the PossibleValueSingleSelect component.
  */
 interface PossibleValueSingleSelectProps {
+  /** Dependency inputs from the current query filter. */
+  formValues?: Record<string, unknown>
   tableName: string
   fieldName: string
   fieldLabel: string
@@ -992,11 +1021,11 @@ interface PossibleValueSingleSelectProps {
  * @param root0 - Component properties.
  * @returns The combobox.
  */
-function PossibleValueSingleSelect({ tableName, fieldName, fieldLabel, value, onChange, 'data-qqq-id': dataId }: PossibleValueSingleSelectProps) {
+function PossibleValueSingleSelect({ formValues, tableName, fieldName, fieldLabel, value, onChange, 'data-qqq-id': dataId }: PossibleValueSingleSelectProps) {
   const [selectedLabel, setSelectedLabel] = useState<string>('')
   const listboxId = useId()
-  const resolved = useSelectedLabels(tableName, fieldName, value ? [value] : [])
-  const { isOpen, setIsOpen, searchTerm, setSearchTerm, options, isLoading, containerRef, inputRef, debouncedFetch } = useAsyncCombobox({ tableName, fieldName })
+  const resolved = useSelectedLabels(tableName, fieldName, value ? [value] : [], formValues)
+  const { isOpen, setIsOpen, searchTerm, setSearchTerm, options, isLoading, containerRef, inputRef, debouncedFetch } = useAsyncCombobox({ tableName, fieldName, formValues })
 
   const handleSelect = (option: QPossibleValue) => {
     onChange(String(option.id))
@@ -1073,6 +1102,8 @@ function PossibleValueSingleSelect({ tableName, fieldName, fieldLabel, value, on
  * Props for the PossibleValueMultiSelect component.
  */
 interface PossibleValueMultiSelectProps {
+  /** Dependency inputs from the current query filter. */
+  formValues?: Record<string, unknown>
   tableName: string
   fieldName: string
   fieldLabel: string
@@ -1087,11 +1118,12 @@ interface PossibleValueMultiSelectProps {
  * @param root0 - Component properties.
  * @returns The combobox.
  */
-function PossibleValueMultiSelect({ tableName, fieldName, fieldLabel, values, onChange, 'data-qqq-id': dataId }: PossibleValueMultiSelectProps) {
+function PossibleValueMultiSelect({ formValues, tableName, fieldName, fieldLabel, values, onChange, 'data-qqq-id': dataId }: PossibleValueMultiSelectProps) {
   const [labelMap, setLabelMap] = useState<Record<string, string>>({})
   const listboxId = useId()
-  const resolved = useSelectedLabels(tableName, fieldName, values)
+  const resolved = useSelectedLabels(tableName, fieldName, values, formValues)
   const { isOpen, setIsOpen, searchTerm, setSearchTerm, options, isLoading, containerRef, inputRef, debouncedFetch } = useAsyncCombobox({
+    formValues,
     tableName,
     fieldName,
     onOptionsFetched: (results) => {

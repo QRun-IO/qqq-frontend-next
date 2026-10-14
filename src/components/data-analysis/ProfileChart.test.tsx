@@ -190,3 +190,14 @@ describe('semantic profile charts', () => {
     expect(screen.getByText('ID: 100%')).toBeVisible()
   })
 })
+
+it('renders a watch baseline band and its accessible annotations', () => {
+  const { container } = render(
+    <ProfileChart
+      chart={{ ...dateColumn.chart, annotations: ['Baseline band: 8 to 14.'] }}
+      baselineBand={[8, 14]}
+    />
+  )
+  expect(container.querySelector('.recharts-reference-area')).toBeInTheDocument()
+  expect(screen.getByText('Baseline band: 8 to 14.')).toBeVisible()
+})

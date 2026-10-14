@@ -136,3 +136,10 @@ describe('FilterBuilder', () => {
     expect(latest.criteria[0].values).toEqual(['ABC'])
   })
 })
+
+
+it('includes the collaboration tag virtual field with its possible-value source', () => {
+  const tags = { ...field('collaborationTags', 'Tags', 'STRING'), possibleValueSourceName: 'collaboration_tag', isQueryCriteria: true, isQuerySelectable: true }
+  const fields = buildFilterFields({ ...table, virtualFields: { collaborationTags: tags } })
+  expect(fields.find((entry) => entry.name === 'collaborationTags')?.possibleValueSourceName).toBe('collaboration_tag')
+})

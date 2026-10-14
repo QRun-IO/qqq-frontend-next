@@ -21,20 +21,21 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+
 import { ChevronDown } from 'lucide-react'
 
 import type { QTableMetaData, QTableSection, QRecord, QWidgetMetaData } from '@/types'
+
 import { associationWidgetBinding } from '@/lib/utils/association-utils'
 import { cn } from '@/lib/utils/cn'
 import { gridSpanClasses, initialSectionOpen, isCollapsibleSection, recordSectionField, storeSectionOpen, twelfths } from '@/lib/utils/record-layout-utils'
 import { DEFAULT_FIELD_SPAN_CLASSES } from '@/lib/utils/responsive-grid'
-import { selectSlotHelpContent, VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
-import { useHelpHelpActive } from '@/lib/context/q-context'
-
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { RECORD_VIEW_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { FieldValue } from '@/components/records/FieldValue'
 import { FieldLabel } from '@/components/records/FieldLabel'
-import { HelpContent } from '@/components/records/HelpContent'
 import { ConnectedWidget } from '@/components/widgets/ConnectedWidget'
 import { SectionIcon } from '@/components/layout/MetadataIcon'
 
@@ -85,7 +86,6 @@ export function RecordViewSection({
   defaultFieldColumns = 1,
   className,
 }: RecordViewSectionProps) {
-  const helpHelpActive = useHelpHelpActive()
   const collapsible = isCollapsibleSection(section)
   const [open, setOpen] = useState(!collapsible || section.collapsible?.initiallyOpen === true)
   useEffect(() => {
@@ -127,21 +127,26 @@ export function RecordViewSection({
     if (widgetMeta) {
       // We have full widget metadata -- render the ConnectedWidget
       const primaryKey = record.values[tableMetaData.primaryKeyField]
+      // A card widget already titles itself with its label; repeating the same words as a
+      // section heading right above it reads as a stutter, so the card's title stands alone.
+      const cardRepeatsLabel = Boolean(section.label) && widgetMeta.isCard !== false && widgetMeta.label === section.label
       return (
         <section
           className={cn('space-y-4', className)}
           data-qqq-id={`section-widget-${section.widgetName}`}
-          aria-labelledby={`section-heading-${section.name}`}
+          aria-labelledby={cardRepeatsLabel ? undefined : `section-heading-${section.name}`}
+          aria-label={cardRepeatsLabel ? section.label : undefined}
         >
-          {section.label && (
-            <div className="border-b border-border/50 pb-2">
+          {section.label && !cardRepeatsLabel && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/50 pb-2">
               <h3
                 id={`section-heading-${section.name}`}
                 className="text-lg font-bold text-foreground"
               >
                 <SectionIcon section={section} />
                 {section.label}
-              </h3>
+                </h3>
+          <HelpIcon label={section.label} helpContents={section.helpContents} roles={VIEW_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};section:${section.name}`} data-qqq-id={`section-help-${section.name}`} />
             </div>
           )}
           <ConnectedWidget
@@ -170,14 +175,15 @@ export function RecordViewSection({
         aria-labelledby={`section-heading-${section.name}`}
       >
         {section.label && (
-          <div className="border-b border-border/50 pb-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/50 pb-2">
             <h3
               id={`section-heading-${section.name}`}
               className="text-lg font-bold text-foreground"
             >
               <SectionIcon section={section} />
               {section.label}
-            </h3>
+              </h3>
+          <HelpIcon label={section.label} helpContents={section.helpContents} roles={VIEW_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};section:${section.name}`} data-qqq-id={`section-help-${section.name}`} />
           </div>
         )}
         <div className="rounded-md border border-border bg-muted p-4 text-sm text-muted-foreground">
@@ -191,7 +197,6 @@ export function RecordViewSection({
   const visibleFields = section.fieldNames
     .map((fn) => recordSectionField(tableMetaData, allTables, fn))
     .filter((f) => f && !f.isHidden)
-  const sectionHelp = selectSlotHelpContent(section.helpContents, VIEW_SCREEN_HELP_ROLES, `table:${tableMetaData.name};section:${section.name}`, helpHelpActive)
 
   if (visibleFields.length === 0) return null
 
@@ -202,7 +207,7 @@ export function RecordViewSection({
       aria-labelledby={`section-heading-${section.name}`}
     >
       {section.label && (
-        <div className={cn(compact ? 'pb-1' : 'border-b border-border/50 pb-2')}>
+        <div className={cn('flex flex-wrap items-center gap-2', compact ? 'pb-1' : 'border-b border-border/50 pb-2')}>
           <h3
             id={`section-heading-${section.name}`}
             className={cn(
@@ -219,12 +224,9 @@ export function RecordViewSection({
                 <ChevronDown className={cn('h-5 w-5 transition-transform', open && 'rotate-180')} aria-hidden="true" />
               </button>
             ) : <><SectionIcon section={section} />{section.label}</>}
-          </h3>
-          {open && sectionHelp && (
-            <p className="mt-1 text-sm text-muted-foreground" data-qqq-id={`section-help-${section.name}`}>
-              <HelpContent helpContent={sectionHelp} />
-            </p>
-          )}
+            </h3>
+          <HelpIcon label={section.label} helpContents={section.helpContents} roles={VIEW_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};section:${section.name}`} data-qqq-id={`section-help-${section.name}`} />
+
         </div>
       )}
       <div id={`record-section-body-${section.name}`} hidden={!open}>

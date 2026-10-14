@@ -151,17 +151,22 @@ test('[WID-044] help content shows sanitized HTML help on the widget label @mobi
   await openControls(page)
   await expectLoaded(page, 'accHelp')
   const help = page.locator('[data-qqq-id="widget-help-accHelp"]')
+  const button = page.locator('[data-qqq-id="button-widget-help-accHelp"]')
   await expect(help).toBeHidden()
-  await page.locator('[data-qqq-id="button-widget-help-accHelp"]').hover()
+  // the tooltip shows the plain summary; the long help (sanitized HTML) opens in the help panel
+  await button.hover()
   await expect(help).toBeVisible()
-  await expect(help).toHaveText('Owned help content')
-  await expect(help.locator('b')).toHaveText('content')
+  await expect(help).toContainText('Owned help content')
+  await button.click()
+  const panel = page.locator('[data-qqq-id="help-panel-content"]')
+  await expect(panel.locator('b')).toHaveText('content')
+  await expect(panel.locator('script, [onerror]')).toHaveCount(0)
 })
 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 412, height: 839 }, hasTouch: true })
 
-  test('[WID-044] a tap on the help icon shows the sanitized help and a tap elsewhere hides it @mobile', async ({ page, diagnostics }) => {
+  test('[WID-044] a tap on the help icon opens the sanitized help and it closes @mobile', async ({ page, diagnostics }) => {
     void diagnostics
     await openControls(page)
     await expectLoaded(page, 'accHelp')
@@ -169,13 +174,13 @@ test.describe('on a phone', () => {
     const help = page.locator('[data-qqq-id="widget-help-accHelp"]')
     const target = await trigger.boundingBox()
     expect(Math.min(target!.width, target!.height), 'the help icon is a 44 px touch target').toBeGreaterThanOrEqual(44)
-    await trigger.tap()
-    await expect(help).toBeVisible()
-    await expect(help).toHaveText('Owned help content')
-    await expect(help.locator('b')).toHaveText('content')
     await expectTouchReady(page, widget(page, 'accHelp'))
-    await page.getByRole('heading', { level: 1, name: 'Widget Controls' }).tap()
-    await expect(help).toBeHidden()
+    // a tap opens the help panel with the sanitized long help; closing it hides it again
+    await trigger.tap()
+    const panel = page.locator('[data-qqq-id="help-panel"]')
+    await expect(panel.locator('[data-qqq-id="help-panel-content"] b')).toHaveText('content')
+    await page.getByRole('button', { name: 'Close help', exact: true }).tap()
+    await expect(panel).toHaveCount(0)
   })
 
   test('[WID-047] [WID-048] [WID-045] [WID-046] dropdowns, the date picker, reload and export are touch-sized and work by tap @mobile', async ({ page, diagnostics }) => {

@@ -26,7 +26,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { SUPPORTED_UI_API, parseSemver } from '../ui-api-version'
-import { DYNAMIC_CALL_SITES, OFF_SPEC_CALLS, PATH_HELPERS } from './ui-api-calls'
+import { DYNAMIC_CALL_SITES, OFF_SPEC_CALLS, OFF_SPEC_CEILING, PATH_HELPERS } from './ui-api-calls'
 
 const SRC = path.resolve(__dirname, '../../..')
 const OPENAPI_DIR = __dirname
@@ -189,6 +189,10 @@ describe('UI API contract', () => {
     const used = new Set(calls.map((c) => c.key))
     expect(OFF_SPEC_CALLS.filter((c) => !used.has(`${c.method} ${c.path}`) || operations.has(`${c.method} ${c.path}`)).map((c) => `${c.method} ${c.path}`)).toEqual([])
     expect(Object.keys(DYNAMIC_CALL_SITES).filter((key) => !dynamicSites.has(key))).toEqual([])
+  })
+
+  it('never grows the off-spec list (ship the extension and vendor its document instead)', () => {
+    expect(OFF_SPEC_CALLS.length, 'OFF_SPEC_CALLS may only shrink: add the operation to the backend as a UI API extension and vendor its document').toBeLessThanOrEqual(OFF_SPEC_CEILING)
   })
 
   it('vendors a document inside the supported UI API range', () => {

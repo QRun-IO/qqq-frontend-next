@@ -106,6 +106,14 @@ test('[REC-030] SIZE adornment sets the query grid column width @mobile', async 
   void diagnostics
   await page.goto('/app/recordLab', { waitUntil: 'domcontentloaded' })
   await showTable(page)
+  // Record Lab is wider than twelve fields, so it opens with the short default set: show the two columns under test.
+  await page.getByRole('button', { name: 'Configure columns' }).click()
+  const config = page.getByRole('dialog', { name: 'Configure columns' })
+  for (const label of ['Short Code', 'Website']) {
+    const show = config.getByRole('button', { name: `Show column ${label}`, exact: true })
+    if (await show.count()) await show.click()
+  }
+  await page.keyboard.press('Escape')
   const grid = page.getByRole('grid', { name: 'Record Lab records' })
   await expect(grid.getByRole('gridcell', { name: 'ALPHA-01', exact: true })).toBeVisible()
   const header = (label: string) => grid.getByRole('columnheader').filter({ hasText: label }).first()

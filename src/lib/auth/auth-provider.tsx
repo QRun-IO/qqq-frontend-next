@@ -43,6 +43,7 @@
 import React, { createContext, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { resetUiApiExtensions } from '@/lib/api/ui-api-extensions'
 import type { QAuthenticationMetaData } from '@/types'
 import {
   clearAuthMetadataCache,
@@ -281,6 +282,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       setUser(null)
       setSessionHint(false)
       clearAuthMetadataCache()
+      resetUiApiExtensions()
       // Drop cached data once protected pages have unmounted, so nothing refetches with the dead session.
       setTimeout(() => queryClient.clear(), 0)
       if (redirectingToLogin.current || /^\/login(\/|$)/.test(window.location.pathname)) return
@@ -377,6 +379,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       if (previous && previous.email !== signedIn.email) {
         // a different user on this browser: drop the previous user's cached pages and recents
         clearUserClientData()
+        resetUiApiExtensions()
         queryClient.clear()
       }
       storeUser(signedIn)
@@ -425,6 +428,7 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
       // Forget the analytics identity with the session (Material resets its providers on logout)
       analytics.reset()
       clearAuthMetadataCache()
+      resetUiApiExtensions()
       queryClient.clear()
 
       if (metadata && PROVIDER_TYPES.has(metadata.type)) {

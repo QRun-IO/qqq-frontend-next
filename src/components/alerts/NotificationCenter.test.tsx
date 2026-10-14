@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Tests for the notification center's bell, popover and banner slot: metadata gating (no request
+// Tests for the notification center's bell, popover and banner slot: extension gating (no request
 // without the qbit's app), polling with backoff and the hidden-tab pause, badge, a11y, per-item
 // and bulk actions (optimistic, rolled back on failure), and older backends.
 
@@ -26,6 +26,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'jest-axe'
 
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { server } from '@/mocks/node'
 import type { QInstance } from '@/types/metadata'
 import { AlertsBell, MAX_POLL_MS, pollDelay } from './AlertsBell'
@@ -115,6 +116,7 @@ describe('pollDelay', () => {
 
 describe('AlertsBell', () => {
   beforeEach(() => {
+    server.use(uiApiVersionHandler('alerts'))
     router.push.mockReset()
   })
 
@@ -122,7 +124,8 @@ describe('AlertsBell', () => {
     focusManager.setFocused(undefined)
   })
 
-  it('sends no request and renders nothing when the metadata does not announce Alerts', async () => {
+  it('sends no request and renders nothing when the version does not announce Alerts', async () => {
+    server.use(uiApiVersionHandler())
     let calls = 0
     server.use(http.get('/qqq/v1/alerts/*', () => {
       calls++
@@ -138,7 +141,7 @@ describe('AlertsBell', () => {
     expect(banners.container).toBeEmptyDOMElement()
   })
 
-  it('renders and polls the inbox summary when the metadata announces Alerts', async () => {
+  it('renders and polls the inbox summary when the version announces Alerts', async () => {
     let calls = 0
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => {
       calls++
@@ -336,6 +339,7 @@ describe('AlertsBell', () => {
 })
 
 describe('NotificationBannerSlot', () => {
+  beforeEach(() => server.use(uiApiVersionHandler('alerts')))
   it('shows sticky notifications until dismissed', async () => {
     const dismissals: unknown[] = []
     let summary = {

@@ -20,7 +20,7 @@ import path from 'node:path'
 
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete']
 // operations the app works without (it checks for them), so an older server may lack them
-const OPTIONAL_OPERATIONS = new Set(['GET /qqq/v1/version'])
+const OPTIONAL_OPERATIONS = new Set(['GET /qqq/v1/version', 'GET /qqq/v1/help/search', 'GET /qqq/v1/help/coverage'])
 const bundled = JSON.parse(readFileSync(path.resolve('src/lib/api/openapi/qqq-v1.json'), 'utf-8'))
 
 /** @param {string} version @returns {number[] | null} */

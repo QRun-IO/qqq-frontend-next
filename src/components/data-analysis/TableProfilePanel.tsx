@@ -21,7 +21,7 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type { QQueryFilter } from '@/types'
-import type { DataAnalysisCapabilityFieldV1 } from '@/types/data-analysis'
+import type { DataAnalysisCapabilityFieldV1, DataAnalysisChartV1 } from '@/types/data-analysis'
 import { duplicates, tableProfile } from '@/lib/api/data-analysis'
 import { analysisFilter } from '@/lib/utils/data-analysis'
 import { normalizeFilter } from '@/lib/utils/filter-utils'
@@ -40,6 +40,9 @@ import {
 } from './ProfileParts'
 import { useExactRun } from './use-exact-run'
 import { ExactRun } from './ExactRun'
+import { AnalysisActions } from './AnalysisActions'
+import { WatchDialog } from './WatchDialog'
+import type { DataAnalysisTableProfileV1 } from '@/types/data-analysis'
 
 const ProfileChart = dynamic(() => import('./ProfileChart'), {
   ssr: false,
@@ -54,6 +57,9 @@ export interface TableProfilePanelProps {
   fields: DataAnalysisCapabilityFieldV1[]
   onClose: () => void
   unavailableReason?: string
+  sqlAvailable?: boolean
+  savedChartKind?: NonNullable<NonNullable<DataAnalysisChartV1>['kind']>
+  savedResult?: DataAnalysisTableProfileV1
 }
 
 /** Displays the current table profile and on-demand duplicate groups.
@@ -67,7 +73,12 @@ export default function TableProfilePanel({
   fields,
   onClose,
   unavailableReason,
+  sqlAvailable = false,
+  savedResult,
+  savedChartKind,
 }: TableProfilePanelProps) {
+  const [chartKind, setChartKind] =
+    useState<NonNullable<NonNullable<DataAnalysisChartV1>['kind']>>()
   const [selected, setSelected] = useState<string[]>([])
   let requestFilter
   let filterError: unknown
@@ -81,11 +92,13 @@ export default function TableProfilePanel({
   const profile = useQuery({
     queryKey: [...queryKeys.dataAnalysis(tableName), 'table', request],
     queryFn: () => tableProfile(tableName, request),
-    enabled: !filterError,
+    enabled: savedResult === undefined && !filterError,
     retry: false,
   })
   const exact = useExactRun({ operation: 'TABLE_PROFILE', tableName, request })
-  const data = exact.run.data?.status === 'COMPLETE' ? exact.run.data.tableProfile : profile.data
+  const data =
+    savedResult ??
+    (exact.run.data?.status === 'COMPLETE' ? exact.run.data.tableProfile : profile.data)
   const duplicateQuery = useMutation({
     mutationFn: () => duplicates(tableName, { ...request, fields: selected, limit: 50 }),
   })
@@ -94,11 +107,12 @@ export default function TableProfilePanel({
     fields.find((f) => f?.name === name)?.label ?? 'Unlabeled field'
   return (
     <ProfileSheet
+      inline={savedResult !== undefined}
       title={`Analyze ${tableLabel}`}
       description={conditions ? `Filtered: ${conditions} conditions` : 'All records'}
       onClose={onClose}
     >
-      {filterError || profile.error ? (
+      {filterError || (savedResult === undefined && profile.error) ? (
         <ProfileError
           error={filterError ?? profile.error}
           retry={
@@ -109,14 +123,25 @@ export default function TableProfilePanel({
                 }
           }
         />
-      ) : profile.isPending ? (
+      ) : savedResult === undefined && profile.isPending ? (
         <ProfileLoading />
       ) : !data ? (
         <p>No profile data is available.</p>
       ) : (
         <>
+          {savedResult === undefined && (
+            <div className="space-y-2">
+              <AnalysisActions
+                definition={{ kind: 'TABLE_PROFILE', request }}
+                tableName={tableName}
+                chartKind={chartKind ?? data.heatmap?.kind}
+                sqlAvailable={sqlAvailable}
+              />
+              <WatchDialog tableName={tableName} fields={fields} filter={requestFilter} />
+            </div>
+          )}
           <ProfileBadges profile={data} />
-          {data.estimate === true && <ExactRun exact={exact} />}
+          {savedResult === undefined && data.estimate === true && <ExactRun exact={exact} />}
           <Metrics metrics={[data.rowCount ?? null]} />
           {!data.fields?.length ? (
             <p>No analyzable fields.</p>
@@ -194,7 +219,13 @@ export default function TableProfilePanel({
               </tbody>
             </table>
           )}
-          {data.heatmap && <ProfileChart chart={data.heatmap} />}
+          {data.heatmap && (
+            <ProfileChart
+              initialKind={savedChartKind}
+              onKindChange={setChartKind}
+              chart={data.heatmap}
+            />
+          )}
           <section className="space-y-3">
             <h3 className="font-semibold">Candidate keys</h3>
             {data.candidateKeys?.length ? (
@@ -215,51 +246,53 @@ export default function TableProfilePanel({
               <p>No candidate keys found.</p>
             )}
           </section>
-          <section className="space-y-3">
-            <h3 className="font-semibold">Duplicates</h3>
-            <fieldset className="flex flex-wrap gap-3">
-              <legend className="mb-2 text-sm">Choose fields</legend>
-              {fields.map(
-                (field) =>
-                  field?.name && (
-                    <label key={field.name} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(field.name)}
-                        disabled={duplicateQuery.isPending}
-                        onChange={(e) => {
-                          setSelected(
-                            e.target.checked
-                              ? [...selected, field.name!]
-                              : selected.filter((name) => name !== field.name)
-                          )
-                          duplicateQuery.reset()
-                        }}
-                        data-qqq-id={`analysis-duplicate-field-${field.name}`}
-                      />
-                      {field.label}
-                    </label>
-                  )
+          {savedResult === undefined && (
+            <section className="space-y-3">
+              <h3 className="font-semibold">Duplicates</h3>
+              <fieldset className="flex flex-wrap gap-3">
+                <legend className="mb-2 text-sm">Choose fields</legend>
+                {fields.map(
+                  (field) =>
+                    field?.name && (
+                      <label key={field.name} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(field.name)}
+                          disabled={duplicateQuery.isPending}
+                          onChange={(e) => {
+                            setSelected(
+                              e.target.checked
+                                ? [...selected, field.name!]
+                                : selected.filter((name) => name !== field.name)
+                            )
+                            duplicateQuery.reset()
+                          }}
+                          data-qqq-id={`analysis-duplicate-field-${field.name}`}
+                        />
+                        {field.label}
+                      </label>
+                    )
+                )}
+              </fieldset>
+              <button
+                className={controlClass}
+                disabled={!selected.length || duplicateQuery.isPending}
+                onClick={() => duplicateQuery.mutate()}
+                data-qqq-id="analysis-find-duplicates"
+              >
+                Find duplicates
+              </button>
+              {duplicateQuery.isPending && <ProfileLoading />}
+              {duplicateQuery.error && <ProfileError error={duplicateQuery.error} />}
+              {duplicateQuery.isSuccess && (
+                <>
+                  <ProfileBadges profile={duplicateQuery.data ?? {}} />
+                  <Values label="Duplicate groups" values={duplicateQuery.data?.groups} />
+                  {!duplicateQuery.data?.groups?.length && <p>No duplicate groups found.</p>}
+                </>
               )}
-            </fieldset>
-            <button
-              className={controlClass}
-              disabled={!selected.length || duplicateQuery.isPending}
-              onClick={() => duplicateQuery.mutate()}
-              data-qqq-id="analysis-find-duplicates"
-            >
-              Find duplicates
-            </button>
-            {duplicateQuery.isPending && <ProfileLoading />}
-            {duplicateQuery.error && <ProfileError error={duplicateQuery.error} />}
-            {duplicateQuery.isSuccess && (
-              <>
-                <ProfileBadges profile={duplicateQuery.data ?? {}} />
-                <Values label="Duplicate groups" values={duplicateQuery.data?.groups} />
-                {!duplicateQuery.data?.groups?.length && <p>No duplicate groups found.</p>}
-              </>
-            )}
-          </section>
+            </section>
+          )}
         </>
       )}
     </ProfileSheet>

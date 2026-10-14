@@ -329,6 +329,12 @@ export interface QRelatedRecordPicker {
 export interface QTableMetaData {
   /** Whether any visible field has restricted access. */
   hasRestrictedFields?: boolean
+  /** Effective collaboration features and session capabilities from core. */
+  recordFeatures?: import('./collaboration').RecordFeaturesV1
+  /** Optional backend version column; empty disables optimistic checks. */
+  recordVersionField?: string
+  /** Server-supplied views; expression values are resolved by the backend. */
+  builtInViews?: Array<{ name: string; label: string; filter: Partial<QQueryFilter> }>
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */
@@ -437,6 +443,8 @@ export interface QFieldMetaData {
   allowedFilterOperators?: string[]
   /** False disables sorting. */
   isSortable?: boolean
+  /** Explicitly supported virtual-field criteria operators. */
+  supportedOperators?: import('./enums').QCriteriaOperator[]
   /** Backend name for this field (used as the key in record value maps). */
   name: string
   /** Human-readable label shown as the column header or form label. */
@@ -458,6 +466,12 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /** Input field names required by this field's possible-value source (UI API 1.2.0). */
+  possibleValueSourceDependsOn?: string[]
+  /** Missing-input behavior; unknown values are treated as DISABLE_UNTIL_SET. */
+  possibleValueSourceDependencyBehavior?: 'DISABLE_UNTIL_SET' | 'SHOW_ALL_UNTIL_SET'
+  /** Legacy possible-value filter, used to discover input dependencies on older servers. */
+  possibleValueSourceFilter?: Partial<QQueryFilter>
   /**
    * Possible values declared inline on the field (an ENUM source on the field itself; never
    * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
@@ -541,6 +555,12 @@ export interface QVirtualFieldMetaData extends QFieldMetaData {
  * list of frontend steps to render.
  */
 export interface QProcessMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
+  /** Whether this process may be submitted as a durable background job. */
+  durableJobEligible?: boolean
+  /** Whether this process always executes as a durable background job. */
+  durableJobAlways?: boolean
   /** Unique backend name for this process (used in API calls). */
   name: string
   /** Human-readable label shown in navigation and page headings. */
@@ -612,6 +632,8 @@ export interface QFrontendComponent {
  * navigation section in the sidebar.
  */
 export interface QAppMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
   /** Unique backend name for this app. */
   name: string
   /** Human-readable label shown in the sidebar and app home page heading. */
@@ -628,7 +650,7 @@ export interface QAppMetaData {
   widgets?: string[]
   /** Ordered sections that group tables, processes, and reports on the app home; omitted when empty. */
   sections?: QAppSection[]
-  /** Frontend-specific app settings keyed by type (`materialDashboard`: home-screen label and counts). */
+  /** Frontend-specific app settings keyed by type (`materialDashboard`: label/counts; `nextUi.showChildGrid`: boolean override for automatic home grids). */
   supplementalAppMetaData?: Record<string, unknown>
 }
 
@@ -723,11 +745,7 @@ export interface QWidgetIcon {
 }
 
 /** One help-content entry as served by the full widget metadata route. */
-export interface QWidgetHelpContent {
-  content?: string
-  format?: 'TEXT' | 'HTML' | 'MARKDOWN'
-  roles?: string[]
-}
+export type QWidgetHelpContent = QHelpContent
 
 /**
  * Metadata for a QQQ widget that can be placed on an app dashboard.
@@ -869,6 +887,8 @@ export interface QJoinMetaData {
  * Metadata for a QQQ report, which represents a pre-defined backend data export.
  */
 export interface QReportMetaData {
+  /** Role-scoped help entries keyed by slot (standard slot: help). */
+  helpContents?: Record<string, QHelpContent[]>
   /** Unique backend name for this report. */
   name: string
   /** Human-readable label shown in navigation and page headings. */
@@ -891,6 +911,8 @@ export interface QReportMetaData {
  * Rendered as a popover or inline section near the element it annotates.
  */
 export interface QHelpContent {
+  /** Short plain-text tooltip, separate from the long body. */
+  summary?: string
   /** Optional heading text shown at the top of the help panel. */
   title?: string
   /** Main help body, in `format`. */

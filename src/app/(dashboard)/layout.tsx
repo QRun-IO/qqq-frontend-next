@@ -25,6 +25,7 @@
 import { SecuredDataProvider, SecuredDataBannerSlot } from '@/components/secured-data/SecuredDataProvider'
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+
 import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/lib/auth/use-auth'
@@ -41,6 +42,7 @@ import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 import dynamic from 'next/dynamic'
+
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -50,10 +52,11 @@ import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadc
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
+import { HelpPanelProvider } from '@/components/help/HelpPanelProvider'
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
-import { AlertsBell, isAlertsInstalled } from '@/components/alerts/AlertsBell'
+import { AlertsBell, useAlertsInstalled } from '@/components/alerts/AlertsBell'
 import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
 
 // The favorites menu checks for collaboration and loads after hydration, so neither it nor the
@@ -110,6 +113,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // QQQ Assistant (qbit-assistant): hidden and inert unless its /assistant/config probe enables it
+  const alertsInstalled = useAlertsInstalled()
   const assistant = useAssistantController(metaData, isAuthenticated)
   const { enabled: assistantEnabled, toggle: toggleAssistant } = assistant
 
@@ -281,6 +285,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // cannot clip it, and one near the end of a long page (the company footer's "opens in a new
   // tab") makes the document taller than the window, a second scrollbar beside main's.
   return (
+    <HelpPanelProvider instance={metaData}>
     <SecuredDataProvider enabled={isAuthenticated}><AssistantProvider value={assistant}>
     <div className="relative flex h-screen flex-col overflow-hidden bg-background" data-qqq-id="app-shell">
       <SecuredDataBannerSlot />
@@ -341,7 +346,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
             favoritesButton={isAuthenticated ? <LazyFavoritesMenu /> : null}
-            notificationsButton={isAuthenticated && isAlertsInstalled(metaData) ? <AlertsBell metaData={metaData} /> : null}
+            notificationsButton={isAuthenticated && alertsInstalled ? <AlertsBell metaData={metaData} /> : null}
           />
 
           {/* Page content */}
@@ -386,6 +391,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
     </div>
     </AssistantProvider></SecuredDataProvider>
+    </HelpPanelProvider>
   )
 }
 

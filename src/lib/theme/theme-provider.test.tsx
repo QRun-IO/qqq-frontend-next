@@ -17,18 +17,20 @@
 // Tests for ThemeProvider
 
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 
+import { themeScript } from './theme-script'
 import { ThemeProvider, useTheme } from './theme-provider'
 
 function TestConsumer() {
-  const { isDarkMode, toggleDarkMode, theme, setTheme } = useTheme()
+  const { isDarkMode, toggleDarkMode, theme, setTheme, setDarkMode } = useTheme()
   return (
     <div>
       <span data-testid="dark-mode">{String(isDarkMode)}</span>
       <span data-testid="theme">{theme?.primaryColor ?? 'none'}</span>
+      <button onClick={() => setDarkMode(null)}>System</button>
       <button onClick={toggleDarkMode}>Toggle Dark</button>
       <button onClick={() => setTheme({ primaryColor: '#ff0000' })}>
         Set Theme
@@ -38,8 +40,23 @@ function TestConsumer() {
 }
 
 describe('ThemeProvider', () => {
+  const listeners = new Set<() => void>()
+  const media = {
+    matches: false,
+    addEventListener: (_event: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+  }
+  /** Simulates a matchMedia change with the updated OS preference. */
+  function changeSystem(dark: boolean) {
+    media.matches = dark
+    listeners.forEach((listener) => listener())
+  }
+  afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
     localStorage.clear()
+    listeners.clear()
+    media.matches = false
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue(media))
     document.documentElement.classList.remove('dark')
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.style.removeProperty('--color-primary')
@@ -55,16 +72,64 @@ describe('ThemeProvider', () => {
     expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
   })
 
-  it('opens in light mode even when the operating system prefers dark', () => {
-    const original = window.matchMedia
-    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as typeof window.matchMedia
-    try {
-      render(<ThemeProvider><TestConsumer /></ThemeProvider>)
-      expect(screen.getByTestId('dark-mode')).toHaveTextContent('false')
-      expect(document.documentElement.getAttribute('data-theme')).toBe('light')
-    } finally {
-      window.matchMedia = original
-    }
+  it('follows OS changes and removes the listener on unmount', () => {
+    media.matches = true
+    const view = render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    act(() => changeSystem(false))
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+    act(() => changeSystem(true))
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    view.unmount()
+    expect(listeners.size).toBe(0)
+  })
+
+  it.each([true, false])('keeps explicit %s over OS changes, then returns to System', async (dark) => {
+    localStorage.setItem('qqq-dark-mode', String(dark))
+    media.matches = !dark
+    render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    expect(screen.getByTestId('dark-mode')).toHaveTextContent(String(dark))
+    act(() => changeSystem(dark))
+    act(() => changeSystem(!dark))
+    expect(screen.getByTestId('dark-mode')).toHaveTextContent(String(dark))
+    await userEvent.setup().click(screen.getByText('System'))
+    expect(localStorage.getItem('qqq-dark-mode')).toBeNull()
+    expect(screen.getByTestId('dark-mode')).toHaveTextContent(String(!dark))
+  })
+
+  it('syncs changes and clearing from another tab', () => {
+    media.matches = true
+    render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    act(() => {
+      localStorage.setItem('qqq-dark-mode', 'false')
+      window.dispatchEvent(new StorageEvent('storage', { key: 'qqq-dark-mode' }))
+    })
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+    act(() => {
+      localStorage.removeItem('qqq-dark-mode')
+      window.dispatchEvent(new StorageEvent('storage', { key: 'qqq-dark-mode' }))
+    })
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  })
+
+  it.each([
+    [null, true, 'dark'], [null, false, 'light'],
+    ['true', false, 'dark'], ['false', true, 'light'],
+  ])('initializes before hydration with stored %s and OS %s', (stored, osDark, expected) => {
+    if (stored !== null) localStorage.setItem('qqq-dark-mode', String(stored))
+    media.matches = Boolean(osDark)
+    new Function(themeScript)()
+    expect(document.documentElement).toHaveAttribute('data-theme', expected)
+    expect(document.documentElement.classList.contains('dark')).toBe(expected === 'dark')
+    render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    expect(document.documentElement).toHaveAttribute('data-theme', expected)
+  })
+
+  it('supports browsers without matchMedia', () => {
+    vi.stubGlobal('matchMedia', undefined)
+    new Function(themeScript)()
+    render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
   })
 
   it('should toggle dark mode', async () => {

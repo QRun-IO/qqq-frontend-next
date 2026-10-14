@@ -32,8 +32,12 @@ import { FieldFooter } from '../FieldFooter'
 interface DateFieldProps {
   /** The HTML `id` for the `<input>` element and its associated `<label>`. */
   id: string
+  /** Native calendar date or time-of-day editor. */
+  type?: 'date' | 'time'
   /** Human-readable field label rendered above the input. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** Return value of `register(fieldName)` from React Hook Form. */
   registration: UseFormRegisterReturn
   /** Validation error; when present triggers error styling and an error message. */
@@ -51,15 +55,16 @@ interface DateFieldProps {
 /**
  * Renders an accessible date input field with label and validation error display.
  *
- * Uses `<input type="date">` which provides native date picker UI in supported
- * browsers.  The value format is `YYYY-MM-DD` as managed by the browser.
+ * Uses a native date picker (`YYYY-MM-DD`) or time picker (`HH:mm:ss`).
  *
  * @param props - See {@link DateFieldProps}.
  * @returns The rendered date input field with label and optional error message.
  */
 export function DateField({
   id,
+  type = 'date',
   label,
+  labelExtra,
   registration,
   error,
   disabled = false,
@@ -69,17 +74,21 @@ export function DateField({
 }: DateFieldProps) {
   return (
     <div className="group flex flex-col gap-1">
-      <label
-        htmlFor={id}
-        className="text-sm font-medium text-foreground"
-        data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-      >
-        {label}
-        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
-      </label>
+      <div className="flex items-center">
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-foreground"
+          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+        >
+          {label}
+          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
+        </label>
+        {labelExtra}
+      </div>
       <input
         id={id}
-        type="date"
+        type={type}
+        step={type === 'time' ? 1 : undefined}
         {...registration}
         disabled={disabled}
         aria-required={required}

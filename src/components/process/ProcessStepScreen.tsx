@@ -24,6 +24,7 @@
 'use client'
 
 import React, { useCallback, useMemo, useRef, useState } from 'react'
+
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,14 +32,15 @@ import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
 import type { ProcessFiles } from '@/lib/api/processes'
+
+import { PROCESS_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
+import { canAccessProcess } from '@/lib/auth/permissions'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
-import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
-import { useHelpHelpActive } from '@/lib/context/q-context'
-import { HelpContent } from '@/components/records/HelpContent'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
 import { ProcessCompositeHost, inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
@@ -73,6 +75,8 @@ export interface ProcessStepScreenProps {
   /** Compact presentation for a report process screen containing only report inputs. */
   compactReportInputs?: boolean
   onSubmit: (values: Record<string, unknown>, files?: ProcessFiles) => void
+  /** Submit the same validated screen payload as a durable job. */
+  onRunInBackground?: (values: Record<string, unknown>, files?: ProcessFiles) => void
   onBack: () => void
   onCancel: () => void
   onReturn: () => void
@@ -154,13 +158,7 @@ function sameFields(a: QFieldMetaData[], b: QFieldMetaData[]): boolean {
  * @returns The help element, or `null`.
  */
 function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processName: string }) {
-  const help = selectSlotHelpContent(step.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};step:${step.name}`, useHelpHelpActive())
-  if (!help) return null
-  return (
-    <p className="text-sm text-muted-foreground" data-qqq-id="process-step-help">
-      <HelpContent helpContent={help} />
-    </p>
-  )
+  return <HelpIcon label={step.label} helpContents={step.helpContents} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`process:${processName};step:${step.name}`} data-qqq-id="process-step-help" />
 }
 
 /**
@@ -171,7 +169,7 @@ function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processN
 export function ProcessStepScreen({
   processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
   tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false, compactReportInputs = false,
-  onSubmit, onBack, onCancel, onReturn,
+  onSubmit, onRunInBackground, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
   const [overrideOnLastStep, setOverrideOnLastStep] = useState<boolean | null>(null)
   const [stepLabel, setStepLabel] = useState<string | null>(null)
@@ -240,8 +238,9 @@ export function ProcessStepScreen({
   /**
    * Build the screen payload and submit it.
    * @param formValues - Validated form values.
+   * @param background - Whether to submit as a durable job.
    */
-  const submitValues = useCallback((formValues: Record<string, unknown>) => {
+  const submitValues = useCallback((formValues: Record<string, unknown>, background = false) => {
     const payload: Record<string, unknown> = {}
     const files: ProcessFiles = {}
     if (!isBulkEdit) {
@@ -271,13 +270,14 @@ export function ProcessStepScreen({
       if (field.type === 'DATE_TIME' && typeof value === 'string') payload[field.name] = fromLocalDateTimeInput(value, values[field.name])
     }
     extraValuesRef.current = {}
-    onSubmit(payload, Object.keys(files).length > 0 ? files : undefined)
-  }, [fields, hasValidationReview, isBulkEdit, onSubmit, values])
+    const submit = background ? onRunInBackground : onSubmit
+    submit?.(payload, Object.keys(files).length > 0 ? files : undefined)
+  }, [fields, hasValidationReview, isBulkEdit, onSubmit, onRunInBackground, values])
 
   const requestSubmit = useCallback((extraValues?: Record<string, unknown>) => {
     if (isWorking) return
     extraValuesRef.current = extraValues ?? {}
-    void form.handleSubmit(submitValues)()
+    void form.handleSubmit((formValues) => submitValues(formValues))()
   }, [form, isWorking, submitValues])
 
   const widgetFormHost = useMemo<WidgetFormHost>(() => ({
@@ -322,15 +322,15 @@ export function ProcessStepScreen({
         data-qqq-id={`process-step-${step.name}`}
       >
         <div className={isScanner || compactReportInputs ? 'sr-only' : 'border-b border-border px-6 py-4'}>
-          <h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
+          <div className="flex flex-wrap items-center gap-2"><h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
             {stepLabel ?? step.label}
-          </h3>
+          </h3>{!isScanner && !compactReportInputs && <StepHelp step={step} processName={processName} />}</div>
           {!compactReportInputs && isLinear && steps.length > 1 && index >= 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">{`Step ${index + 1} of ${steps.length}`}</p>
           )}
         </div>
         <div className={compactReportInputs ? 'space-y-4' : 'space-y-6 p-6'}>
-          <StepHelp step={step} processName={processName} />
+          {(isScanner || compactReportInputs) && <StepHelp step={step} processName={processName} />}
           <ProcessCompositeHost>
             {components.map((component, componentIndex) => (
               <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
@@ -362,6 +362,17 @@ export function ProcessStepScreen({
                 </button>
               )}
               {!compactReportInputs && nextButton}
+              {onRunInBackground && canAccessProcess(processMetaData) && (processMetaData.durableJobEligible || processMetaData.durableJobAlways) && typeof values.durableJobId !== 'number' && (
+                <button
+                  type="button"
+                  disabled={isWorking}
+                  className={secondaryButton}
+                  data-qqq-id="button-run-in-background"
+                  onClick={() => { if (!isWorking) void form.handleSubmit((formValues) => submitValues(formValues, true))() }}
+                >
+                  Run in background
+                </button>
+              )}
             </>
           )}
         </div>}

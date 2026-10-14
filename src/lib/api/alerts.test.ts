@@ -20,12 +20,12 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import { server } from '@/mocks/node'
-import { getAlertsInbox, getAlertsInboxSummary, getAlertsRecordPanel, normalizeInboxItem, postInboxAction, watchAlertsRecord } from './alerts'
+import { getAlertsInbox, getAlertsInboxSummary, getAlertsRecordPanel, normalizeInboxItem, postInboxAction } from './alerts'
 
 describe('getAlertsInboxSummary', () => {
   it('returns the summary, with defaults filled in', async () => {
     server.use(http.get('/qqq/v1/alerts/inbox/summary', () => HttpResponse.json({ unreadCount: 1, items: [] })))
-    await expect(getAlertsInboxSummary()).resolves.toEqual({ unreadCount: 1, highestUnreadSeverity: null, items: [], banners: [], notificationsHref: '/app/notifications', pollSeconds: undefined })
+    await expect(getAlertsInboxSummary()).resolves.toEqual({ unreadCount: 1, highestUnreadSeverity: null, items: [], banners: [], notificationsHref: '/app/notifications', preferencesSection: null, pollSeconds: undefined })
   })
 
   it('normalizes items and banners, and keeps an app notificationsHref', async () => {
@@ -33,6 +33,7 @@ describe('getAlertsInboxSummary', () => {
       unreadCount: 1,
       highestUnreadSeverity: 'SUCCESS',
       notificationsHref: '/app/inbox',
+      preferencesSection: 'notifications',
       pollSeconds: 30,
       items: [{ id: 3, title: 'Hi', severity: 'SUCCESS', category: 'JOB', source: 'Jobs', unread: true }, { title: '' }, null],
       banners: [{ id: 4, title: 'Down tonight', severity: 'WARNING', body: '**soon**', sticky: true }],
@@ -41,6 +42,7 @@ describe('getAlertsInboxSummary', () => {
     expect(summary?.highestUnreadSeverity).toBe('SUCCESS')
     expect(summary?.notificationsHref).toBe('/app/inbox')
     expect(summary?.pollSeconds).toBe(30)
+    expect(summary?.preferencesSection).toBe('notifications')
     expect(summary?.items).toEqual([expect.objectContaining({ key: 'n3', id: 3, title: 'Hi', category: 'JOB', source: 'Jobs', unread: true })])
     expect(summary?.banners).toEqual([expect.objectContaining({ key: 'n4', body: '**soon**', sticky: true, unread: false })])
 
@@ -95,33 +97,24 @@ describe('getAlertsInbox', () => {
   })
 })
 
-describe('postInboxAction and watchAlertsRecord', () => {
+describe('postInboxAction', () => {
   it('posts JSON bodies and returns the counts', async () => {
     const bodies: unknown[] = []
     server.use(
       http.post('/qqq/v1/alerts/inbox/:action', async ({ request, params }) => {
         bodies.push([params.action, await request.json()])
         return HttpResponse.json({ updated: 3 })
-      }),
-      http.post('/qqq/v1/alerts/record-panel/watch', async ({ request }) => {
-        bodies.push(await request.json())
-        return HttpResponse.json({ created: true })
       })
     )
     await expect(postInboxAction('read', { all: true })).resolves.toBe(3)
     await expect(postInboxAction('unread', { id: 4 })).resolves.toBe(3)
     await expect(postInboxAction('dismiss', { ids: [4, 5] })).resolves.toBe(3)
-    await expect(watchAlertsRecord('blog_post', 5)).resolves.toBe(true)
-    expect(bodies).toEqual([['read', { all: true }], ['unread', { id: 4 }], ['dismiss', { ids: [4, 5] }], { tableName: 'blog_post', recordId: 5 }])
+    expect(bodies).toEqual([['read', { all: true }], ['unread', { id: 4 }], ['dismiss', { ids: [4, 5] }]])
   })
 
-  it('treats odd bodies as zero / false', async () => {
-    server.use(
-      http.post('/qqq/v1/alerts/inbox/read', () => HttpResponse.json({})),
-      http.post('/qqq/v1/alerts/record-panel/watch', () => HttpResponse.json({ created: false }))
-    )
+  it('treats odd bodies as zero', async () => {
+    server.use(http.post('/qqq/v1/alerts/inbox/read', () => HttpResponse.json({})))
     await expect(postInboxAction('read', { alertId: 1 })).resolves.toBe(0)
-    await expect(watchAlertsRecord('blog_post', 5)).resolves.toBe(false)
   })
 })
 

@@ -21,12 +21,16 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+
+import { LayoutGrid, List, MoreVertical, Pencil, Copy, Trash2, Play, X, Check, ClipboardCopy, History } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+
 import type { QTableMetaData, QRecord, QProcessMetaData, QFieldMetaData, QWidgetMetaData, QTableMenu } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
 import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils'
+
+import { VIEW_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
@@ -38,13 +42,16 @@ import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/ut
 import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
 import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
+import { HEADER_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 
+import { LazyRecordTags, LazyRecordFollow, LazyCollaborationHeader } from '@/components/collaboration/LazyRecordCollaboration'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
+import { ProcessActionHelp } from '@/components/help/ProcessActionHelp'
 import { RecordActions } from './RecordActions'
 import { RecordMenuIcon } from './RecordMenuIcon'
 import { FieldLabel } from './FieldLabel'
-import { HEADER_THUMBNAIL_SIZE } from '@/lib/utils/file-preview'
 import { FieldValue } from './FieldValue'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { AuditHistoryDialog } from './AuditHistoryDialog'
@@ -97,11 +104,11 @@ function PhoneRecordMenuItems({ entries, onAction }: { entries: RecordMenuEntry[
           <PhoneRecordMenuItems entries={entry.entries} onAction={onAction} />
         </div>
       )
-      return <button key={entry.key} type="button" disabled={entry.disabled} onClick={() => onAction(entry.action)}
+      return <div key={entry.key} className="flex items-center"><button type="button" disabled={entry.disabled} onClick={() => onAction(entry.action)}
         className="flex min-h-11 w-full items-center gap-3 px-6 py-3 text-left text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
         data-qqq-id={`mobile-action-${entry.id}`}>
         <RecordMenuIcon entry={entry} />{entry.label}
-      </button>
+      </button>{entry.action.type === 'runProcess' && <ProcessActionHelp process={entry.action.process} />}</div>
     })}
   </>
 }
@@ -329,6 +336,8 @@ export function RecordViewHeader({
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
           <LazyFavoriteToggle target={{ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) }} label={record.recordLabel || tableMetaData.label} href={recordPath} />
+          <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={VIEW_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};slot:help`} data-qqq-id={`table-help-${tableMetaData.name}`} />
+          <LazyRecordFollow table={tableMetaData} pk={String(primaryKey)} />
           {/* D-V-5: Copy record ID to clipboard */}
           <button
             type="button"
@@ -349,7 +358,11 @@ export function RecordViewHeader({
             }
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
+          {/* Presence, owner/assignee and Share take their own full-width row, so they never strand
+              the copy button (or the inline actions) on a line of its own */}
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
         </div>
+        <LazyRecordTags table={tableMetaData} pk={String(primaryKey)} />
         {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
         {t1Fields.length > 0 && (
           <dl
@@ -551,7 +564,7 @@ export function RecordViewHeader({
 
               {/* Processes */}
               {!hasCustomActionsMenu && availableProcesses.map((process) => (
-                <button
+                <div key={process.name} className="flex items-center"><button
                   key={process.name}
                   type="button"
                   onClick={() => onAction({ type: 'runProcess', process })}
@@ -564,7 +577,7 @@ export function RecordViewHeader({
                 >
                   <Play className="h-4 w-4" aria-hidden="true" />
                   {process.label}
-                </button>
+                </button><ProcessActionHelp process={process} /></div>
               ))}
 
               {hasMenuItems(phoneActionEntries) && <PhoneRecordMenuItems entries={phoneActionEntries} onAction={onAction} />}

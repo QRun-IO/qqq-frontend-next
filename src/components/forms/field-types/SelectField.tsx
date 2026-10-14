@@ -49,6 +49,8 @@ interface SelectFieldProps {
   placeholder?: string
   /** `data-qqq-id` attribute forwarded to the select element for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help or read-only text describing the control. */
+  describedBy?: string
 }
 
 /**
@@ -74,6 +76,7 @@ export function SelectField({
   required = false,
   placeholder,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: SelectFieldProps) {
   return (
     <div className="group flex flex-col gap-1">
@@ -91,7 +94,7 @@ export function SelectField({
         disabled={disabled}
         aria-required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
         data-qqq-id={dataQqqId}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',

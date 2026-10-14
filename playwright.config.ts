@@ -12,7 +12,7 @@ const production = process.env.QQQ_E2E_SERVER === 'production'
 export default defineConfig({
   testDir: './tests/e2e',
   // This feature needs MSW and the full browser matrix; use playwright.collaboration.config.ts.
-  testIgnore: 'collaboration-favorites.spec.ts',
+  testIgnore: 'collaboration-*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // No retries: a test that needs one is flaky and must be fixed, not re-run.

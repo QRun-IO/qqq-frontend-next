@@ -330,3 +330,113 @@ export const duplicatesResult = {
   estimate: false,
   groups: [column.topValues[0]],
 } satisfies NonNullable<DataAnalysisDuplicatesResultV1>
+
+/** Pivot fixtures use only capability-advertised local fields. */
+export const pivotCapabilities = {
+  ...capabilities,
+  fields: [
+    ...capabilities.fields,
+    { name: 'createdAt', label: 'Created at', type: 'DATE_TIME', kind: 'DATE_TIME' },
+    { name: 'amount', label: 'Amount', type: 'DECIMAL', kind: 'NUMERIC' },
+  ],
+} satisfies NonNullable<DataAnalysisCapabilitiesV1>
+
+export const pivotRequest = {
+  rows: [{ field: 'status' }],
+  columns: [{ field: 'createdAt', dateBucket: 'MONTH' }],
+  values: [{ operator: 'COUNT' }, { operator: 'AVG', field: 'amount' }],
+  showTotals: true,
+} satisfies import('../../src/types/data-analysis').DataAnalysisPivotRequestV1
+
+const januaryDrill = {
+  tableName: 'person',
+  filter: {
+    booleanOperator: 'AND' as const,
+    criteria: [
+      ...activeDrill.filter.criteria,
+      {
+        fieldName: 'createdAt',
+        operator: 'GREATER_THAN_OR_EQUALS' as const,
+        values: ['2026-01-01T00:00:00Z'],
+      },
+      { fieldName: 'createdAt', operator: 'LESS_THAN' as const, values: ['2026-02-01T00:00:00Z'] },
+    ],
+  },
+}
+const hiddenPivotMetric = {
+  suppressed: true,
+  suppressedReason: 'Fewer than 5 records',
+  value: null,
+  formatted: null,
+  drill: null,
+}
+export const pivotResult = {
+  rowHeaders: [
+    [{ value: 'active', label: 'Active' }],
+    [{ value: null, label: 'Other (3 groups)' }],
+  ],
+  columnHeaders: [
+    [{ value: '2026-01-01T00:00:00Z', label: 'January 2026' }],
+    [{ value: '2026-02-01T00:00:00Z', label: 'February 2026' }],
+  ],
+  measures: [
+    { key: 'm0', label: 'Count', valueType: 'COUNT' },
+    { key: 'm1', label: 'Average Amount', valueType: 'DECIMAL' },
+  ],
+  cells: [
+    {
+      rowIndex: 0,
+      columnIndex: 0,
+      values: [
+        { value: 6, formatted: '6', valueType: 'COUNT', drill: januaryDrill },
+        { value: 125.5, formatted: '125.50', valueType: 'DECIMAL', drill: januaryDrill },
+      ],
+    },
+    {
+      rowIndex: 0,
+      columnIndex: 1,
+      values: [
+        {
+          value: 8,
+          formatted: '8',
+          valueType: 'COUNT',
+          drill: {
+            ...januaryDrill,
+            filter: {
+              ...januaryDrill.filter,
+              criteria: [
+                activeDrill.filter.criteria[0],
+                {
+                  fieldName: 'createdAt',
+                  operator: 'BETWEEN',
+                  values: ['2026-02-01T00:00:00Z', '2026-02-28T23:59:59Z'],
+                },
+              ],
+            },
+          },
+        },
+        { value: 80, formatted: '80.00', valueType: 'DECIMAL', drill: null },
+      ],
+    },
+    { rowIndex: 1, columnIndex: 0, values: [hiddenPivotMetric, hiddenPivotMetric] },
+  ],
+  rowTotals: [
+    [
+      { value: 14, formatted: '14', valueType: 'COUNT', drill: activeDrill },
+      { value: 99.5, formatted: '99.50', valueType: 'DECIMAL', drill: activeDrill },
+    ],
+    [hiddenPivotMetric, hiddenPivotMetric],
+  ],
+  columnTotals: [
+    [hiddenPivotMetric, hiddenPivotMetric],
+    [hiddenPivotMetric, hiddenPivotMetric],
+  ],
+  grandTotals: [hiddenPivotMetric, hiddenPivotMetric],
+  truncatedRows: true,
+  truncatedColumns: false,
+  estimate: false,
+  warnings: [
+    'Small groups and their dependent totals are hidden. Remaining groups are merged into Other.',
+  ],
+  asOf: '2026-10-13T15:00:00Z',
+} satisfies import('../../src/types/data-analysis').DataAnalysisPivotV1
