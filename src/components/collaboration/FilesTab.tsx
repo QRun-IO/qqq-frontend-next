@@ -90,7 +90,7 @@ function AttachmentRow({ file, record }: { file: Attachment; record: Collaborati
         <span className="min-w-0 break-words">
           <span className="block text-sm font-medium">{file.fileName ?? 'Attachment'}</span>
           <span className="block text-xs text-muted-foreground">
-            {formatBytes(file.sizeBytes ?? 0)} · {file.createdByUserId ?? 'Unknown'}
+            {formatBytes(file.sizeBytes ?? 0)} · {file.createdByDisplayName ?? file.createdByUserId ?? 'Unknown'}
           </span>
           <time className="text-xs text-muted-foreground" dateTime={file.createDate ?? undefined}>
             {file.createDate ? new Date(file.createDate).toLocaleDateString() : ''}

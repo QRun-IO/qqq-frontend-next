@@ -72,6 +72,8 @@ import { HintTooltip } from './HintTooltip'
 import { RecordQueryToolbar } from './RecordQueryToolbar'
 import { RecordQueryBulkBar } from './RecordQueryBulkBar'
 import { RecordQueryContent } from './RecordQueryContent'
+import { LazyTablePresence } from '@/components/collaboration/LazyRecordCollaboration'
+import { builtInViewHref } from '@/lib/utils/built-in-views'
 import { SavedViewsMenu } from './SavedViewsMenu'
 import { SelectionMenu } from './SelectionMenu'
 import { VariantPicker } from './VariantPicker'
@@ -82,6 +84,7 @@ const ColumnProfilePanel = dynamic(() => import('@/components/data-analysis/Colu
 import { AnalysisDrillContext, ProfileError, ProfileLoading, controlClass } from '@/components/data-analysis/ProfileParts'
 const TableProfilePanel = dynamic(() => import('@/components/data-analysis/TableProfilePanel'), { ssr: false })
 const RelationshipExplorer = dynamic(() => import('@/components/data-analysis/RelationshipExplorer'), { ssr: false })
+const SavedAnalysisViewer = dynamic(() => import('@/components/data-analysis/SavedAnalysisViewer'), { ssr: false })
 const PivotExplorer = dynamic(() => import('@/components/data-analysis/PivotExplorer'), { ssr: false })
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
@@ -573,7 +576,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
           onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
           className="min-h-8 [@media(any-pointer:coarse)]:min-h-11 rounded border border-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? '↑' : '↓'}</button>
+          data-qqq-id="query-sort-direction">{rq.filter.sortOrder[0]?.isAscending ? 'â†‘' : 'â†“'}</button>
       </div>
       {rq.filter.filterMode === 'basic' && (activeFilterCount > 0 || rq.filter.quickSearchTerm) && (
         <button type="button" onClick={() => setClearConfirmOpen(true)}
@@ -602,6 +605,24 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     </>
   )
 
+  if (searchParams.get('view') === 'saved') {
+    const closeSaved = () => {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('view')
+      url.searchParams.delete('saved')
+      window.history.replaceState(null, '', url)
+    }
+    return <AnalysisDrillContext.Provider value={drill => {
+      if (!applyAnalysisDrill(drill)) return false
+      closeSaved()
+      return true
+    }}>
+      <SavedAnalysisViewer key={`${tableName}:${searchParams.get('saved')}`} id={searchParams.get('saved') ?? ''}
+        tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []}
+        sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} onBack={closeSaved} />
+    </AnalysisDrillContext.Provider>
+  }
+
   if (relationshipView) return (
     <FilterSettingsProvider value={filterSettings}>
       <div className="w-full min-w-0 max-w-full">
@@ -614,7 +635,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
             filter={rq.filter.baseFilter} encoded={searchParams.get(relationshipView)}
             onRun={layout => updateExploreUrl(relationshipView, layout)} onBack={() => updateExploreUrl()}
             savedViews={savedViews.isAvailable ? [...savedViews.yourViews, ...savedViews.sharedViews] : undefined}
-            unavailableReason={analysisUnavailableReason} />
+            sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
         </AnalysisDrillContext.Provider>}
       </div>
     </FilterSettingsProvider>
@@ -628,7 +649,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       </> : <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
         <PivotExplorer key={`${tableName}:${searchParams.get('pivot') ?? ''}`} tableName={tableName} tableLabel={tableMetaData.label}
           fields={capabilities.data?.fields ?? []} filter={rq.filter.baseFilter} encoded={searchParams.get('pivot')}
-          onRun={request => updatePivotUrl(true, request)} onBack={() => updatePivotUrl(false)} unavailableReason={analysisUnavailableReason} />
+          onRun={request => updatePivotUrl(true, request)} onBack={() => updatePivotUrl(false)} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
       </AnalysisDrillContext.Provider>}
     </div>
   )
@@ -683,6 +704,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         </div>
       )}
 
+      <LazyTablePresence table={tableMetaData} />
       <RecordQueryToolbar
         onExplore={canAnalyze ? view => view === 'pivot' ? updatePivotUrl(true) : updateExploreUrl(view) : undefined}
         onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
@@ -711,6 +733,14 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
         tableVariant={tableVariant}
         savedViewsMenu={
           <SavedViewsMenu
+            builtInViews={tableMetaData.builtInViews}
+            onBuiltInView={(view) => {
+              setLocalSearchTerm('')
+              rq.filter.setQuickSearch('')
+              rq.filter.setUserFilter({ criteria: [], booleanOperator: 'AND', skip: 0, limit: rq.pagination.pageSize, ...view.filter })
+              rq.filter.setFilterMode('advanced')
+              if (savedViewId !== undefined) { clearStoredQueryState(tableName); router.push(builtInViewHref(tableName, view.filter)) }
+            }}
             savedViews={savedViews}
             currentView={currentView}
             viewDiffs={viewDiffs}
@@ -880,8 +910,8 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       {canAnalyze && analysis && (
         <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
         {analysis.field
-        ? <ColumnProfilePanel key={`${tableName}:${analysis.field.name}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fieldName={analysis.field.name} fieldLabel={analysis.field.label} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />
-        : <TableProfilePanel key={`${tableName}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []} filter={analysis.filter} onClose={closeAnalysis} unavailableReason={analysisUnavailableReason} />}
+        ? <ColumnProfilePanel fields={capabilities.data?.fields ?? []} key={`${tableName}:${analysis.field.name}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fieldName={analysis.field.name} fieldLabel={analysis.field.label} filter={analysis.filter} onClose={closeAnalysis} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />
+        : <TableProfilePanel key={`${tableName}:${JSON.stringify(analysis.filter)}`} tableName={tableName} tableLabel={tableMetaData.label} fields={capabilities.data?.fields ?? []} filter={analysis.filter} onClose={closeAnalysis} sqlAvailable={capabilities.data?.sqlWorkbenchAvailable === true} unavailableReason={analysisUnavailableReason} />}
         </AnalysisDrillContext.Provider>
       )}
 

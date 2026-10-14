@@ -24,7 +24,7 @@ import { CommentComposer } from './CommentComposer'
 import { CollaborationMarkdown } from './CollaborationMarkdown'
 import { FilesTab } from './FilesTab'
 import { TagChips } from './TagChips'
-import { ActivityTab } from './ActivityTab'
+import { ActivityTab, activitySummary } from './ActivityTab'
 import { FollowBell } from './FollowBell'
 
 vi.mock('@/lib/api/collaboration', () => ({
@@ -115,6 +115,15 @@ it('sanitizes HTML, active links and remote images in markdown preview', () => {
   expect(screen.getByText('Safe').tagName).toBe('STRONG')
   expect(container.querySelector('[data-qqq-id="mention-chip"]')).toHaveTextContent('Sam')
 })
+it('renders each mention as one unbreakable @Name chip with no stray @', () => {
+  const { container } = mount(
+    <CollaborationMarkdown body={'Thanks @[Alice Morgan](user:alice), and [Bob](user:bob).'} />
+  )
+  const chips = container.querySelectorAll('[data-qqq-id="mention-chip"]')
+  expect([...chips].map((chip) => chip.textContent)).toEqual(['@Alice Morgan', '@Bob'])
+  expect(chips[0]).toHaveClass('whitespace-nowrap')
+  expect(container.textContent).toBe('Thanks @Alice Morgan, and @Bob.')
+})
 it('rejects oversized files before uploading', async () => {
   mount(<FilesTab record={record} features={features} />)
   await screen.findByText('No files yet.')
@@ -190,6 +199,32 @@ it('pages activity with the returned cursor and shows audit details', async () =
   expect(api.listTimeline).toHaveBeenLastCalledWith(record, 'older')
   expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
 })
+it('hides empty audit details and words old audit summaries in sentence case', async () => {
+  vi.mocked(api.listTimeline).mockResolvedValue({
+    items: [
+      {
+        kind: 'AUDIT',
+        id: 1,
+        summary: 'Record was Edited',
+        details: [{ fieldName: null, message: '  ', oldValue: null, newValue: null }],
+      },
+      { kind: 'AUDIT', id: 2, summary: 'Record was Inserted', details: [] },
+      { kind: 'ACTIVITY', id: 3, summary: 'Thread resolved' },
+    ],
+    nextCursor: null,
+  })
+  mount(<ActivityTab record={record} />)
+  expect(await screen.findByText('Edited')).toBeVisible()
+  expect(screen.getByText('Created')).toBeVisible()
+  expect(screen.getByText('Thread resolved')).toBeVisible()
+  expect(screen.queryByText('Details')).toBeNull()
+})
+it('maps only the old audit summary shape', () => {
+  expect(activitySummary('Record was Deleted')).toBe('Deleted')
+  expect(activitySummary('record was updated.')).toBe('Edited')
+  expect(activitySummary('Edited Email and Phone')).toBe('Edited Email and Phone')
+  expect(activitySummary(null)).toBe('')
+})
 it.each(['FREE', 'APPROVED_ONLY'])(
   'handles tag mode %s without applying pending suggestions',
   async (mode) => {
@@ -247,6 +282,6 @@ it('follows and exposes notification preferences and follower count', async () =
   fireEvent.click(bell)
   await waitFor(() => expect(bell).toHaveAttribute('aria-pressed', 'true'))
   fireEvent.click(screen.getByRole('button', { name: 'Follow preferences' }))
-  expect(await screen.findByText('1 followers')).toBeVisible()
+  expect(await screen.findByText('1 follower')).toBeVisible()
   expect(within(screen.getByRole('dialog')).getByLabelText('Notify me about changes')).toBeChecked()
 })

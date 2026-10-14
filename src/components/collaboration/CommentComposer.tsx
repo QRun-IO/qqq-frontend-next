@@ -254,7 +254,7 @@ export function CommentComposer({
       <div className="flex gap-2">
         <button
           disabled={disabled || saving || !body.trim()}
-          className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+          className="rounded border border-transparent bg-primary px-3 py-2 text-sm text-primary-foreground disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
           data-qqq-id="comment-submit"
         >
           {saving ? 'Saving…' : submitLabel}

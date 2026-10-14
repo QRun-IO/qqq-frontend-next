@@ -26,6 +26,17 @@ import {
   useCreateTag,
 } from '@/lib/hooks/use-collaboration-record'
 
+/** Keeps a chip control at its drawn size on touch screens, where the global rule lifts every
+ * button to 44 px and turned each chip into a tall pill; a transparent overlay of at least
+ * 44 x 44 px keeps the touch target. That rule is unlayered, so it outranks any utility class
+ * and only the important modifier resets it.
+ * @param classes - The control's own classes.
+ * @returns Classes with the compact size and the enlarged hit area.
+ */
+function compactTouchTarget(classes: string) {
+  return `${classes} relative min-h-0! min-w-0! after:absolute after:left-1/2 after:top-1/2 after:min-h-11 after:min-w-11 after:h-full after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] pointer-fine:after:hidden`
+}
+
 /** Applied chips and tag combobox; pending suggestions are never applied.
  * @param props - Parent and effective tag policy.
  * @returns Wrapping tags.
@@ -68,16 +79,16 @@ export function TagChips({
         {tags.data?.items.map((tag) => (
           <span
             key={tag.id}
-            className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-muted px-2 py-1 text-xs"
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs leading-5"
           >
-            <span className="break-words">{tag.label}</span>
+            <span className="min-w-0 break-words">{tag.label}</span>
             {canTag && (
               <button
                 type="button"
                 disabled={busy}
                 aria-label={`Remove tag ${tag.label}`}
                 data-qqq-id={`tag-remove-${tag.id}`}
-                className="rounded-full p-1 hover:bg-accent"
+                className={compactTouchTarget('rounded-full p-0.5 hover:bg-accent')}
                 onClick={() => update.mutate({ remove: [tag.id] })}
               >
                 <X className="h-3 w-3" aria-hidden="true" />
@@ -89,7 +100,9 @@ export function TagChips({
           <button
             type="button"
             aria-expanded={open}
-            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-xs"
+            className={compactTouchTarget(
+              'inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs leading-5'
+            )}
             data-qqq-id="tag-add"
             onClick={() => setOpen(!open)}
           >

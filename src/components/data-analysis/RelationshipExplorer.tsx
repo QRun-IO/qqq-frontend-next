@@ -34,6 +34,8 @@ import {
   type ExploreLayout,
   type RelationshipView,
 } from '@/lib/utils/data-analysis-explore'
+import { AnalysisActions } from './AnalysisActions'
+import type { AnalysisDefinition } from '@/types/data-analysis'
 import { FilterBuilder } from '@/components/query/FilterBuilder'
 import { controlClass, ProfileError, ProfileLoading } from './ProfileParts'
 import {
@@ -58,6 +60,7 @@ export default function RelationshipExplorer({
   onBack,
   savedViews,
   unavailableReason,
+  sqlAvailable = false,
 }: {
   view: RelationshipView
   tableName: string
@@ -68,6 +71,7 @@ export default function RelationshipExplorer({
   onRun: (layout: ExploreLayout) => void
   onBack: () => void
   savedViews?: SavedView[]
+  sqlAvailable?: boolean
   unavailableReason?: string
 }) {
   let initial: ExploreLayout | null = null,
@@ -163,6 +167,39 @@ export default function RelationshipExplorer({
     retry: false,
     refetchOnWindowFocus: false,
   })
+  const definition: AnalysisDefinition | null = !initial
+    ? null
+    : view === 'compare'
+      ? {
+          kind: 'COMPARE',
+          request: {
+            fields: initial.fields!,
+            labelA: initial.labelA,
+            labelB: initial.labelB,
+            filterA: requestFilter,
+            filterB: initial.sideB === 'whole' ? null : analysisFilter(initial.filterB!),
+          },
+        }
+      : view === 'correlation'
+        ? { kind: 'CORRELATION', request: { fields: initial.fields!, filter: requestFilter } }
+        : view === 'crosstab'
+          ? {
+              kind: 'CROSSTAB',
+              request: {
+                rowField: initial.rowField!,
+                columnField: initial.columnField!,
+                filter: requestFilter,
+              },
+            }
+          : {
+              kind: 'SHIFT',
+              request: {
+                field: initial.field!,
+                dateField: initial.dateField!,
+                bucket: initial.bucket,
+                filter: requestFilter,
+              },
+            }
   const select = (
     label: string,
     key: 'field' | 'dateField' | 'rowField' | 'columnField',
@@ -422,6 +459,22 @@ export default function RelationshipExplorer({
         <ProfileLoading />
       ) : result.data ? (
         <>
+          {definition && (
+            <AnalysisActions
+              definition={definition}
+              tableName={tableName}
+              sqlAvailable={sqlAvailable}
+              chartKind={
+                view === 'shift'
+                  ? result.data.shift?.chart?.kind
+                  : view === 'compare'
+                    ? result.data.compare?.fields?.find((f) => f?.chart)?.chart?.kind
+                    : view === 'correlation'
+                      ? 'HEATMAP'
+                      : null
+              }
+            />
+          )}
           {result.data.compare && <CompareResult result={result.data.compare} fields={fields} />}{' '}
           {result.data.correlation && (
             <CorrelationResult

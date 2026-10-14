@@ -17,6 +17,12 @@
 /** @file Typed calls to the data-analysis v1 UI API extension. */
 
 import type {
+  DataAnalysisSavedRequestV1,
+  DataAnalysisSavedResultV1,
+  DataAnalysisSavedListV1,
+  DataAnalysisSqlV1,
+  DataAnalysisStarV1,
+  DataAnalysisWatchPreviewV1,
   DataAnalysisCompareRequestV1,
   DataAnalysisCompareV1,
   DataAnalysisCorrelationRequestV1,
@@ -215,4 +221,65 @@ export async function shift(
   request: DataAnalysisShiftRequestV1
 ): Promise<DataAnalysisShiftV1> {
   return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/shift`, request)
+}
+
+/** Lists visible saved analyses and the viewer's stars.
+ * @returns Saved library entries.
+ */
+export async function listSavedAnalyses(): Promise<DataAnalysisSavedListV1> {
+  return apiClient.get(`${ROOT}/saved`)
+}
+/** Re-runs a saved analysis with current viewer permissions.
+ * @param id - Saved record id.
+ * @returns Typed result and warnings.
+ */
+export async function runSavedAnalysis(id: string): Promise<DataAnalysisSavedResultV1> {
+  return apiClient.post(`${ROOT}/saved/${encodeURIComponent(id)}/run`, {})
+}
+/** Updates the viewer's star idempotently.
+ * @param id - Saved record id.
+ * @param starred - Desired state.
+ * @returns Confirmed state.
+ */
+export async function starAnalysis(id: string, starred: boolean): Promise<DataAnalysisStarV1> {
+  return starred
+    ? apiClient.put(`${ROOT}/saved/${encodeURIComponent(id)}/star`, {})
+    : apiClient.delete(`${ROOT}/saved/${encodeURIComponent(id)}/star`)
+}
+/** Downloads an ad hoc result through the authenticated binary API client.
+ * @param request - Current typed analysis and format.
+ * @returns File contents.
+ */
+export async function exportAnalysis(request: DataAnalysisSavedRequestV1): Promise<Blob> {
+  return apiClient.post(`${ROOT}/export`, request, { responseType: 'blob', timeout: 300000 })
+}
+/** Downloads a saved analysis as the current viewer.
+ * @param id - Saved record id.
+ * @param format - File format.
+ * @returns File contents.
+ */
+export async function exportSavedAnalysis(id: string, format: 'csv' | 'xlsx'): Promise<Blob> {
+  return apiClient.get(`${ROOT}/saved/${encodeURIComponent(id)}/export`, {
+    params: { format },
+    responseType: 'blob',
+    timeout: 300000,
+  })
+}
+/** Gets the permitted aggregate SQL without executing it in the workbench.
+ * @param table - Source table.
+ * @param request - Typed analysis.
+ * @returns SQL or an explanation of unavailability.
+ */
+export async function analysisSql(
+  table: string,
+  request: DataAnalysisSavedRequestV1
+): Promise<DataAnalysisSqlV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/sql`, request)
+}
+/** Evaluates a persisted watch without altering its alert state.
+ * @param id - Watch record id.
+ * @returns Series, baseline and verdict.
+ */
+export async function previewWatch(id: string): Promise<DataAnalysisWatchPreviewV1> {
+  return apiClient.post(`${ROOT}/watches/${encodeURIComponent(id)}/preview`, {})
 }

@@ -680,6 +680,8 @@ export const FilterValueInput = React.memo(function FilterValueInput({ field, va
     )
   }
 
+  if (values.some((value) => isFilterExpression(value) && value.type === 'CurrentUser')) return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`filter-value-${depth}-${index}-expression`}>Me</span>
+
   const valueId = `filter-value-${depth}-${index}`
   const setValue = (v: CriteriaValue) => onChange([v])
   if (hasPossibleValues) {
@@ -794,6 +796,7 @@ function SingleValueInput({ field, value, onChange, placeholder, ariaLabel, data
   const presets = isDate && (
     <RelativeDateMenu fieldType={field.type} fieldLabel={field.label} onSelect={onChange} onCustom={() => setCustomOpen(true)} dataId={dataId} />
   )
+  if (isFilterExpression(value) && value.type === 'CurrentUser') return <span className="rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm" data-qqq-id={`${dataId}-expression`}>Me</span>
   if (isDate && isFilterExpression(value)) {
     return (
       <span className="flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-1 text-sm text-primary" data-qqq-id={`${dataId}-expression`}>
@@ -860,7 +863,7 @@ function ExpressionEditor({ fieldType, fieldLabel, expression, onApply, dataId, 
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = controlledOpen ?? uncontrolledOpen
   const setOpen = onOpenChange ?? setUncontrolledOpen
-  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' ? expression.type : 'NowWithOffset'
+  const initialKind: ExpressionKind = expression && expression.type !== 'FilterVariableExpression' && expression.type !== 'StartOfPeriod' && expression.type !== 'CurrentUser' ? expression.type : 'NowWithOffset'
   const [kind, setKind] = useState<ExpressionKind>(initialKind)
   const [amount, setAmount] = useState(expression?.type === 'NowWithOffset' ? expression.amount : 1)
   const [offsetUnit, setOffsetUnit] = useState<ExpressionTimeUnit>(expression?.type === 'NowWithOffset' ? expression.timeUnit : 'DAYS')
