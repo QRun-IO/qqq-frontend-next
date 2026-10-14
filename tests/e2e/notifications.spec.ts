@@ -91,6 +91,7 @@ async function mockInbox(page: Page, installed = true): Promise<InboxMock> {
   let banners = [BANNER]
   const json = (route: Route, body: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) })
   await setupApiMocks(page)
+  await page.route('**/qqq/v1/version', (route) => json(route, { apiVersion: '1.1.0', features: [], extensions: installed ? [{ name: 'alerts', version: '1.0.0' }] : [] }))
   if (installed) {
     await page.route(/\/qqq\/v1\/metaData(\?|$)/, (route) => json(route, { ...METADATA, apps: { ...METADATA.apps, alerts: { name: 'alerts', label: 'Alerts', children: [] } } }))
   }

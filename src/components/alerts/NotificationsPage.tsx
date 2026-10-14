@@ -31,13 +31,12 @@ import { Loader2 } from 'lucide-react'
 import { getAlertsInbox } from '@/lib/api/alerts'
 import { useQContext } from '@/lib/context/q-context'
 import { useInboxActions } from '@/lib/hooks/use-inbox-actions'
-import { useMetaData } from '@/lib/hooks/use-metadata'
 import { queryKeys } from '@/lib/query-client'
 import type { InboxFilter, InboxItem } from '@/types/alerts'
 import { NOTIFICATION_CATEGORIES, NOTIFICATION_SEVERITIES } from '@/types/alerts'
 import { BUTTON_CLASS } from '@/components/ui/controls'
 import { MarkdownView } from '@/components/sql-workbench/MarkdownView'
-import { isAlertsInstalled } from './AlertsBell'
+import { useAlertsInstalled } from './AlertsBell'
 import { ItemActions, SeverityIcon, itemMeta, linkKind, readRequest, severityLabel } from './NotificationParts'
 
 /** Items per page. */
@@ -108,9 +107,8 @@ function Loading() {
 export function NotificationsPage() {
   const { setPageHeader } = useQContext()
   useEffect(() => setPageHeader('Notifications'), [setPageHeader])
-  const { data: metaData, isLoading } = useMetaData()
-  if (isLoading) return <Loading />
-  if (!isAlertsInstalled(metaData)) {
+  const installed = useAlertsInstalled()
+  if (!installed) {
     return (
       <p className="p-6 text-sm text-muted-foreground" data-qqq-id="notifications-unavailable">
         Notifications are not available.
