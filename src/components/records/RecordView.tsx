@@ -26,6 +26,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Loader2, AlertCircle, RefreshCw, ShieldX, FileQuestion, ArrowLeft } from 'lucide-react'
 import type { QFieldMetaData, QInstance, QTableMetaData, QRecord, QWidgetMetaData, QProcessMetaData, QAssociation, QTableSection } from '@/types'
 import type { AuditSource } from '@/lib/api/audits'
+import { LazyRecordCollaborationLayout } from '@/components/collaboration/LazyRecordCollaboration'
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
@@ -584,7 +585,7 @@ function RecordViewContent({
 
           <div className={cn(hasSidebar && 'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6')}>
             {hasSidebar && <RecordViewSidebar sections={orderedSections} onNavigate={navigateToSection} />}
-            <div className="min-w-0 space-y-5">
+            <LazyRecordCollaborationLayout table={tableMetaData} pk={String(parentPk)}>
 
           {/* Record header — avatar + name + T1 fields + view-mode toggle + actions */}
           {tableMetaData.name === 'data_analysis_saved' && typeof record.values.table_name === 'string' && record.values.id != null && (
@@ -739,7 +740,7 @@ function RecordViewContent({
             </div>
           )}
 
-            </div>
+            </LazyRecordCollaborationLayout>
           </div>
         </div>
         </div>

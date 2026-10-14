@@ -43,7 +43,6 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
     'GET /assistant/turns/{}/events', 'POST /assistant/turns/{}/cancel', 'POST /assistant/messages/{}/feedback',
     'GET /assistant/actions/{}', 'POST /assistant/actions/{}/confirm', 'POST /assistant/actions/{}/reject',
   ].map((c) => call(c, 'qbit-assistant'))),
-  ...(['GET /esb/overview', 'GET /esb/table/{}', 'GET /esb/process/{}', 'GET /esb/messages/{}', 'GET /esb/deadLetters/{}'].map((c) => call(c, 'qqq-esb'))),
   ...([
     'GET /sql-workbench/capabilities', 'GET /sql-workbench/schema/{}', 'POST /sql-workbench/execute', 'POST /sql-workbench/explain',
     'GET /sql-workbench/executions/{}/rows', 'POST /sql-workbench/executions/{}/cancel', 'GET /sql-workbench/executions/{}/export',
@@ -63,6 +62,14 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
 ]
 
 /**
+ * The most off-spec calls allowed (QRun-IO/qqq-frontend-next#107). Lower it whenever an owner moves
+ * calls onto spec'd operations; never raise it. A feature that needs new backend calls lands in this
+ * order: the qbit or module ships its UI API extension, its document is vendored into
+ * `extensions/`, then the UI calls it - so new calls never need this list.
+ */
+export const OFF_SPEC_CEILING = 45
+
+/**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the
  * first argument as written) to the calls it can make.
  */
@@ -77,6 +84,7 @@ export const DYNAMIC_CALL_SITES: Record<string, string[]> = {
 /** Path helper functions used inside call templates (`${helper(...)}/rest`), to their paths. */
 export const PATH_HELPERS: Record<string, string> = {
   developerPath: '/table/{}/{}/developer',
+  recordPath: '/qbit/collaboration/records/{}/{}',
 }
 
 /**
