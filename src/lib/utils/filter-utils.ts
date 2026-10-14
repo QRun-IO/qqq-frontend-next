@@ -22,6 +22,7 @@
  * `FilterCriteriaRow.getOperatorOptions`, so filters built in either UI mean the same thing.
  */
 
+import { allowedOperators } from './secured-data'
 import type {
   QQueryFilter,
   QFilterCriteria,
@@ -294,7 +295,9 @@ function weekdayOptionsFor(fieldType: 'DATE' | 'DATE_TIME', settings: OperatorOp
  * @param settings - Weekday criteria settings; without them the plain Material list is returned.
  * @returns Ordered operator options.
  */
-export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>, settings: OperatorOptionSettings = {}): OperatorOption[] {
+export function getOperatorOptions(field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName' | 'accessTier' | 'allowedFilterOperators'>, settings: OperatorOptionSettings = {}): OperatorOption[] {
+  const allowed = allowedOperators(field)
+  if (allowed) return [option('EQUALS', 'equals', 'single'), option('IN', 'is any of', 'multi')].filter((item) => allowed.includes(item.operator))
   if (field.possibleValueSourceName) {
     return [
       option('EQUALS', 'equals', 'single'),
@@ -498,7 +501,7 @@ export function getDefaultOperatorForFieldType(fieldType: QFieldType): QCriteria
  * @param field - Field metadata.
  * @returns A new, not yet complete criterion (unless the option implies values).
  */
-export function newCriterionForField(fieldName: string, field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName'>): QFilterCriteria {
+export function newCriterionForField(fieldName: string, field: Pick<QFieldMetaData, 'type' | 'possibleValueSourceName' | 'accessTier' | 'allowedFilterOperators'>): QFilterCriteria {
   const first = getOperatorOptions(field)[0] ?? option('EQUALS', 'equals', 'single')
   return { fieldName, operator: first.operator, values: first.implicitValues ? [...first.implicitValues] : [] }
 }

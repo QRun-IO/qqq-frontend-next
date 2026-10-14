@@ -23,6 +23,7 @@
 
 'use client'
 
+import { isRestricted } from '@/lib/utils/secured-data'
 import React, { useMemo, useRef, useState } from 'react'
 import { Globe } from 'lucide-react'
 
@@ -59,6 +60,7 @@ const inputClass = 'rounded border border-input bg-background px-2 py-1.5 text-s
 
 /** The part of a filter field the date controls need. */
 export interface DateField {
+  accessTier?: 'FULL' | 'MASKED' | 'REVEALABLE'
   /** Name used in criteria. */
   name: string
   /** Label shown. */
@@ -75,8 +77,8 @@ export interface DateField {
  * @param field - The field.
  * @returns True for DATE and DATE_TIME fields.
  */
-export function isDateField(field: Pick<DateField, 'type'> | undefined): boolean {
-  return field?.type === 'DATE' || field?.type === 'DATE_TIME'
+export function isDateField(field: Pick<DateField, 'type' | 'accessTier'> | undefined): boolean {
+  return !isRestricted(field) && (field?.type === 'DATE' || field?.type === 'DATE_TIME')
 }
 
 interface RowState {

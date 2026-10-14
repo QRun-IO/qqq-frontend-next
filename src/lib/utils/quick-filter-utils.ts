@@ -20,6 +20,7 @@
  * as quick filters, and the edits a quick filter makes to the filter.
  */
 
+import { allowedOperators } from './secured-data'
 import type { QFieldMetaData, QFilterCriteria, QQueryFilter, QTableMetaData } from '@/types'
 import { criteriaToDateCondition, defaultDateContext } from './date-range-utils'
 import {
@@ -60,7 +61,7 @@ export function getDefaultQuickFilterFieldNames(table: QTableMetaData): string[]
   const names = configured.length > 0
     ? configured
     : (table.sections ?? []).filter((section) => section.tier === 'T1').flatMap((section) => section.fieldNames ?? [])
-  return [...new Set(names)].filter((name) => resolveField(table, name) !== undefined)
+  return [...new Set(names)].filter((name) => { const field = resolveField(table, name)?.field; return field && allowedOperators(field)?.length !== 0 })
 }
 
 /**

@@ -20,6 +20,7 @@
 
 'use client'
 
+import { isRestricted } from '@/lib/utils/secured-data'
 import React, { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ExternalLink, X } from 'lucide-react'
@@ -225,7 +226,7 @@ export function AssociatedRecords({
                             className="whitespace-nowrap px-3 py-2 text-sm"
                             data-qqq-id={`grid-cell-${field.name}`}
                           >
-                            {fieldIdx <= 1 && recordHref && !hasFilePreview(field) ? (
+                            {fieldIdx <= 1 && recordHref && !isRestricted(field) && !hasFilePreview(field) ? (
                               <RecordHoverCard
                                 tableName={joinTableMetaData.name}
                                 primaryKey={childPk}
@@ -241,7 +242,7 @@ export function AssociatedRecords({
                                 </Link>
                               </RecordHoverCard>
                             ) : (
-                              <FieldValue field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
+                              <FieldValue tableMetaData={joinTableMetaData} field={field} record={childRecord} allTables={allTables} navigateFrom={navigateFrom} />
                             )}
                           </td>
                         ))}

@@ -224,3 +224,26 @@ describe('Record form regressions (#649)', () => {
     expect((patch.mock.calls[0][1] as FormData).get('flag')).toBe('')
   })
 })
+
+
+describe('secured field payloads', () => {
+  beforeEach(() => vi.restoreAllMocks())
+  it.each([false, true])('omits restricted fields on insert/edit (edit=%s)', async (edit) => {
+    const restricted = { ...table, fields: { ...table.fields,
+      owner: { ...table.fields.owner, accessTier: 'REVEALABLE' as const, isEditable: false },
+      flag: { ...table.fields.flag, accessTier: 'MASKED' as const, isEditable: false },
+    } }
+    const write = vi.spyOn(apiClient, edit ? 'patch' : 'post').mockResolvedValue({ record: { tableName: 'lab', values: { id: 7 } } })
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><EntityForm tableMetaData={restricted} record={edit ? stored : undefined} /></QueryClientProvider>)
+    fireEvent.change(screen.getByLabelText(/^Title/), { target: { value: 'New' } })
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toBeEnabled()
+    fireEvent.click(save)
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1))
+    const body = write.mock.calls[0][1] as FormData
+    expect(body.has('owner')).toBe(false)
+    expect(body.has('flag')).toBe(false)
+    expect(body.get('title')).toBe('New')
+  })
+})

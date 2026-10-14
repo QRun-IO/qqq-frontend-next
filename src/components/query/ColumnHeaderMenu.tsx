@@ -22,6 +22,7 @@
 
 'use client'
 
+import { allowedOperators, canSortField, isRestricted } from '@/lib/utils/secured-data'
 import React from 'react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { MoreVertical } from 'lucide-react'
@@ -109,13 +110,13 @@ export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilt
         >
           {column.isQueryCriteria && (
             <>
-              <DropdownMenuPrimitive.Item className={itemClass} disabled={sort?.isAscending === true} onSelect={() => onSort(column.name, true)} data-qqq-id={id('sort-asc')}>
+              <DropdownMenuPrimitive.Item className={itemClass} disabled={!canSortField(column.field) || sort?.isAscending === true} onSelect={() => onSort(column.name, true)} data-qqq-id={id('sort-asc')}>
                 Sort ascending
               </DropdownMenuPrimitive.Item>
-              <DropdownMenuPrimitive.Item className={itemClass} disabled={sort?.isAscending === false} onSelect={() => onSort(column.name, false)} data-qqq-id={id('sort-desc')}>
+              <DropdownMenuPrimitive.Item className={itemClass} disabled={!canSortField(column.field) || sort?.isAscending === false} onSelect={() => onSort(column.name, false)} data-qqq-id={id('sort-desc')}>
                 Sort descending
               </DropdownMenuPrimitive.Item>
-              {onFilter && (
+              {onFilter && allowedOperators(column.field)?.length !== 0 && (
                 <DropdownMenuPrimitive.Item className={itemClass} onSelect={() => onFilter(column.name)} data-qqq-id={id('filter')}>
                   Filter
                 </DropdownMenuPrimitive.Item>
@@ -151,7 +152,7 @@ export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilt
           {onAnalyze && analyzeFields?.includes(column.name) && (
             <DropdownMenuPrimitive.Item className={itemClass} onSelect={() => onAnalyze(column.name, column.label)} data-qqq-id="column-menu-analyze">Analyze</DropdownMenuPrimitive.Item>
           )}
-          {onColumnStats && (
+          {onColumnStats && !isRestricted(column.field) && (
             <DropdownMenuPrimitive.Item className={itemClass} onSelect={() => onColumnStats(column.name, column.label)} data-qqq-id={id('stats')}>
               Column statistics
             </DropdownMenuPrimitive.Item>

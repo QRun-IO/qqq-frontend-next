@@ -24,6 +24,8 @@
 // Used by DynamicForm to render each field in a metadata-driven form
 // Includes help tooltip support via field.helpContents
 
+import { isRestricted } from '@/lib/utils/secured-data'
+import { MaskedValue } from '@/components/secured-data/MaskedValue'
 import React from 'react'
 import { Controller } from 'react-hook-form'
 import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
@@ -281,6 +283,7 @@ export function DynamicFormField({
 }: DynamicFormFieldProps) {
   const helpHelpActive = useHelpHelpActive()
   if (field.isHidden) return null
+  if (isRestricted(field)) return <div className="space-y-1" data-qqq-id={`readonly-${field.name}`}><span className="block text-sm font-medium">{field.label}</span><MaskedValue tier={field.accessTier === 'MASKED' ? 'MASKED' : 'REVEALABLE'} value={record?.displayValues?.[field.name] ?? record?.values[field.name]} /></div>
   if (!field.isEditable && !disabled && !showReadOnly) return null
 
   const fieldId = `${idPrefix ? `${idPrefix}-` : ''}field-${field.name}`

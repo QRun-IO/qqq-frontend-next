@@ -327,6 +327,8 @@ export interface QRelatedRecordPicker {
 }
 
 export interface QTableMetaData {
+  /** Whether any visible field has restricted access. */
+  hasRestrictedFields?: boolean
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */
@@ -429,6 +431,12 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  /** Effective server access; absent means FULL. HIDDEN fields are never sent. */
+  accessTier?: 'FULL' | 'REVEALABLE' | 'MASKED'
+  /** Allowed criteria operators for a restricted field. */
+  allowedFilterOperators?: string[]
+  /** False disables sorting. */
+  isSortable?: boolean
   /** Backend name for this field (used as the key in record value maps). */
   name: string
   /** Human-readable label shown as the column header or form label. */

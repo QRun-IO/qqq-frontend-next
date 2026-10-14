@@ -50,6 +50,22 @@ function Harness({ initial, tableMetaData = table }: { initial: QQueryFilter; ta
 }
 
 describe('FilterBuilder', () => {
+  it('omits MASKED fields, restricts operators and caps REVEALABLE IN at 25 values', async () => {
+    const secured: QTableMetaData = { ...table, fields: { ...table.fields,
+      name: { ...table.fields.name, accessTier: 'REVEALABLE', allowedFilterOperators: ['EQUALS', 'IN'] },
+      active: { ...table.fields.active, accessTier: 'MASKED', allowedFilterOperators: [] },
+    } }
+    render(<Harness tableMetaData={secured} initial={{ ...emptyFilter(), criteria: [{ fieldName: 'name', operator: 'EQUALS', values: [] }] }} />)
+    expect(screen.queryByRole('option', { name: 'Active' })).toBeNull()
+    expect(Array.from(screen.getByLabelText('Filter operator').querySelectorAll('option')).map((option) => option.textContent)).toEqual(['equals', 'is any of'])
+    expect(screen.getByText('Exact match only. Searches are audited.')).toBeVisible()
+    await userEvent.selectOptions(screen.getByLabelText('Filter operator'), 'IN')
+    const user = userEvent.setup()
+    await user.click(screen.getByLabelText('Filter values for Name'))
+    await user.paste(Array.from({ length: 26 }, (_, index) => `known-${index}`).join(','))
+    expect(latest.criteria[0].values).toHaveLength(25)
+  })
+
   it('offers base and exposed-join fields, sorted by label within their table', () => {
     expect(buildFilterFields(table).map((f) => `${f.name}:${f.label}`)).toEqual([
       'active:Active', 'name:Name', 'when:When', 'person.firstName:Owner: First Name',

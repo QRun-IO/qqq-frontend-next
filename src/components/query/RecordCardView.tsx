@@ -244,7 +244,7 @@ export function RecordCardView({
                       </dt>
                       <dd className="min-w-0 break-words text-card-foreground">
                         {/* Formatted exactly like the grid cell (dates, money, possible-value links) */}
-                        <DataCell field={field} value={record.values[field.name]} displayValue={record.displayValues?.[field.name]} record={record} />
+                        <DataCell tableMetaData={tableMetaData} field={field} value={record.values[field.name]} displayValue={record.displayValues?.[field.name]} record={record} />
                       </dd>
                     </div>
                   )

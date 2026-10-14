@@ -810,6 +810,27 @@
      "type": {
       "description": "Data-type for this field",
       "type": "string"
+     },
+     "accessTier": {
+      "description": "Effective field access: FULL, REVEALABLE, MASKED, or HIDDEN. Omitted means FULL. Restricted values are strings, regardless of field type.",
+      "enum": [
+       "FULL",
+       "REVEALABLE",
+       "MASKED",
+       "HIDDEN"
+      ],
+      "type": "string"
+     },
+     "allowedFilterOperators": {
+      "description": "Allowed filter operators when restricted: EQUALS and IN for REVEALABLE when exact match is enabled, otherwise empty. Omitted means unrestricted.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "isSortable": {
+      "description": "False for restricted fields; omitted means sortable.",
+      "type": "boolean"
      }
     },
     "type": "object"
@@ -3064,6 +3085,10 @@
       },
       "description": "Virtual fields in this table",
       "type": "object"
+     },
+     "hasRestrictedFields": {
+      "description": "True when any field has REVEALABLE, MASKED, or HIDDEN access for the current session.",
+      "type": "boolean"
      }
     },
     "type": "object"

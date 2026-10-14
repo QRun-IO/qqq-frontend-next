@@ -22,6 +22,7 @@
 
 'use client'
 
+import { canSortField } from '@/lib/utils/secured-data'
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -530,7 +531,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
           onChange={(event) => rq.filter.setSort([{ fieldName: event.target.value, isAscending: rq.filter.sortOrder[0]?.isAscending ?? false }])}
           className="min-h-8 [@media(any-pointer:coarse)]:min-h-11 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           data-qqq-id="query-sort-field">
-          {availableFilterFields.map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
+          {availableFilterFields.filter(canSortField).map((field) => <option key={field.name} value={field.name}>{field.label}</option>)}
         </select>
         <button type="button" aria-label={rq.filter.sortOrder[0]?.isAscending ? 'Sort descending' : 'Sort ascending'}
           onClick={() => rq.filter.setSort([{ fieldName: rq.filter.sortOrder[0]?.fieldName ?? tableMetaData.primaryKeyField, isAscending: !rq.filter.sortOrder[0]?.isAscending }])}
