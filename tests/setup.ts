@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom'
 import { configureAxe, toHaveNoViolations } from 'jest-axe'
 import { vi, beforeAll, afterEach, afterAll, expect } from 'vitest'
+import { resetPreferencesMock } from '@/mocks/handlers/preferences'
 import { resetUiApiExtensions } from '@/lib/api/ui-api-extensions'
 import { server } from '@/mocks/node'
 
@@ -27,6 +28,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
 afterEach(() => {
   server.resetHandlers()
   resetUiApiExtensions()
+  resetPreferencesMock()
 })
 
 // Clean up after all tests are done

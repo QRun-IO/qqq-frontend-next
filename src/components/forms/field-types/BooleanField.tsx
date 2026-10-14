@@ -57,6 +57,8 @@ interface BooleanFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the toggle button for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help or read-only text describing the control. */
+  describedBy?: string
 }
 
 /**
@@ -108,6 +110,7 @@ export function BooleanField({
   disabled = false,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: BooleanFieldProps) {
   // Cycle logic depends on whether the field is required
   /**
@@ -148,7 +151,7 @@ export function BooleanField({
                 aria-checked={ariaVal}
                 aria-required={required}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
+                aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
                 disabled={disabled}
                 data-qqq-id={dataQqqId}
                 onClick={() => {

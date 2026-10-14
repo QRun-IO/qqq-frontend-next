@@ -204,4 +204,26 @@ describe('NotificationsPage', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Notice 9')).toBeInTheDocument()
   })
+
+  it('opens notification preferences from the page header and restores focus to its gear', async () => {
+    serveInbox({ items: [], total: 0 })
+    renderPage()
+    const user = userEvent.setup()
+    const gear = await screen.findByRole('button', { name: 'Notification settings' })
+    await user.click(gear)
+    const drawer = await screen.findByRole('dialog', { name: 'Notifications' }, { timeout: 5000 })
+    await within(drawer).findByRole('checkbox', { name: 'Email alerts' })
+    expect(within(drawer).getByRole('link', { name: 'Manage all preferences' })).toHaveAttribute('href', '/app/preferences?section=notifications')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(gear).toHaveFocus())
+  })
+
+  it('hides the header gear when its summary section is not installed', async () => {
+    serveInbox({ items: [], total: 0 })
+    server.use(http.get('/qqq/v1/preferences', () => HttpResponse.json({ sections: [] })))
+    renderPage()
+    await screen.findByText('You have no notifications.')
+    expect(screen.queryByRole('button', { name: 'Notification settings' })).not.toBeInTheDocument()
+  })
+
 })
