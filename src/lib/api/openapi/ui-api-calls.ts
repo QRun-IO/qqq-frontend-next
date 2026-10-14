@@ -48,8 +48,6 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
   call('GET /apis.json', 'qqq-middleware-api discovery'),
   call('GET {}versions.json', 'qqq-middleware-api discovery'),
   call('GET {}', 'qqq-middleware-api table spec URL'),
-  // core uploads, not in the vendored document yet: remove once it is re-vendored after QRun-IO/qqq#1181 ships
-  call('POST /uploads', 'qqq core uploads (QRun-IO/qqq#1181)'),
 ]
 
 /**
@@ -58,8 +56,7 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
  * order: the qbit or module ships its UI API extension, its document is vendored into
  * `extensions/`, then the UI calls it - so new calls never need this list.
  */
-// 46 while POST /uploads waits: vendor once QRun-IO/qqq#1181 ships in an RC, then lower to 45
-export const OFF_SPEC_CEILING = 21
+export const OFF_SPEC_CEILING = 20
 
 /**
  * Call sites whose path is computed rather than written as a literal: `file#expression` (the

@@ -36,7 +36,7 @@ test('record collaboration: mention, edit, resolve, file, tags, follow and activ
   await page.locator('[data-qqq-id="comment-preview"]').click()
   await expect(
     page.locator('[data-qqq-id="comment-preview-body"] [data-qqq-id="mention-chip"]')
-  ).toHaveText('Sam Parker')
+  ).toHaveText('@Sam Parker')
   await page.locator('[data-qqq-id="comment-submit"]').click()
   const posted = page.locator('article').filter({ hasText: 'Please review' }).first()
   await expect(posted).toBeVisible()
@@ -52,7 +52,7 @@ test('record collaboration: mention, edit, resolve, file, tags, follow and activ
   await expect(page.getByRole('heading', { name: 'Edit history' })).toBeVisible()
   await page.locator('[data-qqq-id="comment-history-close"]').click()
   await edited.getByRole('button', { name: 'Resolve', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Resolved thread · Show' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Show resolved thread' })).toBeVisible()
   await page.getByRole('button', { name: 'Reopen', exact: true }).click()
   await expect(page.getByText('Updated review', { exact: false })).toBeVisible()
 
@@ -127,6 +127,9 @@ for (const width of [390, 1440])
         })
       }
       await shot('record-page')
+      // Tag chips stay compact inline chips at every width, touch screens included.
+      const chip = page.locator('[data-qqq-id="record-tags"] span.rounded-full').first()
+      expect((await chip.boundingBox())!.height).toBeLessThan(36)
       const panel = page.locator('[data-qqq-id="record-collaboration-panel"]')
       for (const tab of ['comments', 'files', 'activity']) {
         await page.locator(`[data-qqq-id="collaboration-tab-${tab}"]`).click()

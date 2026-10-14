@@ -32,6 +32,9 @@ import {
 import { CommentComposer } from './CommentComposer'
 import { CollaborationMarkdown } from './CollaborationMarkdown'
 
+/** Thread actions that change state read as links in the primary text color. */
+const actionClass = 'font-medium text-primary underline-offset-2 hover:underline disabled:opacity-60'
+
 /** One comment with actions authorized by server capabilities.
  * @param props - Comment, parent and capabilities.
  * @returns Comment and optional reply editor.
@@ -57,6 +60,22 @@ function Comment({
   const resolve = useResolveComment(record)
   const history = useCommentHistory(comment.id, historyOpen)
   const collapsed = root && comment.resolved && !expanded
+  // Resolve and Reopen are ordinary actions beside Edit, Delete and Reply; the primary text token
+  // is lightened on dark surfaces, so it keeps AA contrast on the card in both themes.
+  const resolveButton = root && canComment && (
+    <button
+      type="button"
+      className={actionClass}
+      disabled={resolve.isPending}
+      data-qqq-id={`comment-resolve-${comment.id}`}
+      onClick={() => {
+        setExpanded(false)
+        resolve.mutate({ id: comment.id, resolved: !comment.resolved })
+      }}
+    >
+      {comment.resolved ? 'Reopen' : 'Resolve'}
+    </button>
+  )
   return (
     <article
       className="min-w-0 space-y-2 rounded-lg border border-border p-3"
@@ -113,13 +132,19 @@ function Comment({
         )}
       </div>
       {collapsed ? (
-        <button
-          className="text-sm"
-          data-qqq-id={`comment-expand-${comment.id}`}
-          onClick={() => setExpanded(true)}
-        >
-          Resolved thread · Show
-        </button>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">Resolved thread</span>
+          <button
+            type="button"
+            className={actionClass}
+            aria-label="Show resolved thread"
+            data-qqq-id={`comment-expand-${comment.id}`}
+            onClick={() => setExpanded(true)}
+          >
+            Show
+          </button>
+          {resolveButton}
+        </div>
       ) : (
         <>
           {editing ? (
@@ -138,14 +163,14 @@ function Comment({
               body={comment.deleted ? 'Comment deleted' : (comment.body ?? '')}
             />
           )}
-          {!comment.deleted && (
-            <div className="flex flex-wrap gap-3 text-xs">
-              {comment.canEdit && !editing && (
+          {(!comment.deleted || resolveButton) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              {!comment.deleted && comment.canEdit && !editing && (
                 <button data-qqq-id={`comment-edit-${comment.id}`} onClick={() => setEditing(true)}>
                   Edit
                 </button>
               )}
-              {comment.canDelete && (
+              {!comment.deleted && comment.canDelete && (
                 <button
                   data-qqq-id={`comment-delete-${comment.id}`}
                   disabled={actions.remove.isPending}
@@ -156,7 +181,7 @@ function Comment({
                   Delete
                 </button>
               )}
-              {root && canComment && (
+              {!comment.deleted && root && canComment && (
                 <button
                   data-qqq-id={`comment-reply-${comment.id}`}
                   onClick={() => setReplying(!replying)}
@@ -164,6 +189,7 @@ function Comment({
                   Reply
                 </button>
               )}
+              {resolveButton}
             </div>
           )}
           {comment.replies.map((reply) => (
@@ -187,19 +213,6 @@ function Comment({
             />
           )}
         </>
-      )}
-      {root && canComment && (
-        <button
-          className="text-xs font-medium text-primary"
-          disabled={resolve.isPending}
-          data-qqq-id={`comment-resolve-${comment.id}`}
-          onClick={() => {
-            setExpanded(false)
-            resolve.mutate({ id: comment.id, resolved: !comment.resolved })
-          }}
-        >
-          {comment.resolved ? 'Reopen' : 'Resolve'}
-        </button>
       )}
       {(actions.remove.isError || resolve.isError) && (
         <p role="alert" className="text-sm text-destructive">

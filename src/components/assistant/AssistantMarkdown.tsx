@@ -104,7 +104,8 @@ const COMPONENTS: Components = {
 const COMMENT_COMPONENTS: Components = {
   ...COMPONENTS,
   a: ({ href, children }) => {
-    if (href?.startsWith('user:')) return <span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-medium text-primary" data-qqq-id="mention-chip">{children}</span>
+    // One unbreakable "@Name" chip; CollaborationMarkdown drops the token's leading "@".
+    if (href?.startsWith('user:')) return <span className="whitespace-nowrap rounded-full bg-primary/10 px-1.5 py-0.5 font-medium text-primary" data-qqq-id="mention-chip">@{children}</span>
     const match = href?.match(/^record:([^/]+)\/(.+)$/)
     const internal = internalAppHref(match ? `/app/${encodeURIComponent(match[1])}/${encodeURIComponent(match[2])}` : href)
     return internal ? <Link href={internal} className="text-primary underline" data-qqq-id="comment-record-link">{children}</Link> : <span>{children}</span>
