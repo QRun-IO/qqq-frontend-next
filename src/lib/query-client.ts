@@ -179,6 +179,11 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  ediAvailable: () => ['edi', 'available'] as const,
+  ediMap: (id: number) => ['edi', 'map', id] as const,
+  ediTarget: (id: number) => ['edi', 'target', id] as const,
+  ediGuide: (id: number) => ['edi', 'guide', id] as const,
+  ediSamples: (id: number) => ['edi', 'samples', id] as const,
   collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
   collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
   collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,

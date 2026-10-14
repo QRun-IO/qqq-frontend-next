@@ -1,0 +1,911 @@
+{
+  "components": {
+    "schemas": {
+      "EdiAckV1": {
+        "description": "Concatenated acknowledgement previews; type is 997, 999, TA1, CONTRL, NONE or MIXED. text is null for PHI.",
+        "properties": {
+          "text": {
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiAssociationV1": {
+        "description": "Direct QQQ association and its target fields.",
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EdiFieldV1"
+            },
+            "type": "array"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "table": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiDiffV1": {
+        "description": "Only differing records are returned. Both lists are empty for PHI.",
+        "properties": {
+          "againstExpected": {
+            "items": {
+              "$ref": "#/components/schemas/EdiDifferenceV1"
+            },
+            "type": "array"
+          },
+          "againstPreviousRevision": {
+            "items": {
+              "$ref": "#/components/schemas/EdiDifferenceV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiDifferenceV1": {
+        "description": "One document comparison; documentIndex is zero based.",
+        "properties": {
+          "after": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          },
+          "before": {
+            "description": "Expected JSON or a previous mapped record.",
+            "nullable": true
+          },
+          "documentIndex": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "EdiElementV1": {
+        "description": "Element or composite component; codes contain at most 200 active codes in lexical order.",
+        "properties": {
+          "codeListId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "codes": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "component": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "maxLength": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "minLength": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "position": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "type": {
+            "nullable": true,
+            "type": "string"
+          },
+          "usage": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiErrorV1": {
+        "description": "Core middleware error body.",
+        "properties": {
+          "error": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiFieldV1": {
+        "description": "QQQ target field metadata.",
+        "properties": {
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "possibleValueSourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "type": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiFindingV1": {
+        "description": "Value-free diagnostic. PHI messages are generic; only positions and codes are retained.",
+        "properties": {
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "elementPosition": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "loopId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "segmentId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "segmentPosition": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "severity": {
+            "nullable": true,
+            "type": "string"
+          },
+          "snipLevel": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "EdiGuideTreeV1": {
+        "description": "Ordered guide tree. Root segments are outside loops; nested loops retain parent scope.",
+        "properties": {
+          "loops": {
+            "items": {
+              "$ref": "#/components/schemas/EdiLoopV1"
+            },
+            "type": "array"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/EdiSegmentV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiLoopV1": {
+        "description": "Guide loop, nested within its parent; repeat is the maximum occurrence count.",
+        "properties": {
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "loops": {
+            "items": {
+              "$ref": "#/components/schemas/EdiLoopV1"
+            },
+            "type": "array"
+          },
+          "repeat": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/EdiSegmentV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiParseV1": {
+        "description": "Counts of wire interchanges, groups and documents.",
+        "properties": {
+          "documents": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "groups": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "interchanges": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "EdiPreviewRequestV1": {
+        "description": "mapId is required. Supply exactly one of sampleId or sampleBase64. Uploads are at most 5 MiB decoded, stored encrypted. ruleOverrides replaces the whole rule set in memory. CURRENT (default) uses the newest active guide in the pinned guide family; ORIGINAL uses the pinned guide.",
+        "properties": {
+          "guideRevision": {
+            "enum": [
+              "CURRENT",
+              "ORIGINAL"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "mapId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "ruleOverrides": {
+            "items": {
+              "$ref": "#/components/schemas/EdiRuleV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "sampleBase64": {
+            "format": "byte",
+            "maxLength": 6990508,
+            "nullable": true,
+            "type": "string"
+          },
+          "sampleId": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "sampleName": {
+            "maxLength": 255,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiPreviewV1": {
+        "description": "Parse, validate, acknowledge and map without target writes. PHI suppresses result, ack text, and both diffs.",
+        "properties": {
+          "ack": {
+            "$ref": "#/components/schemas/EdiAckV1"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/EdiDiffV1"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/EdiFindingV1"
+            },
+            "type": "array"
+          },
+          "parse": {
+            "$ref": "#/components/schemas/EdiParseV1"
+          },
+          "phiSuppressed": {
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/EdiResultV1",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "EdiRecordV1": {
+        "description": "Field values and recursively associated records. Values use the target table field types.",
+        "properties": {
+          "associations": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/EdiRecordV1"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "values": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "EdiResultV1": {
+        "description": "Mapped records in document order; no target writes.",
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/EdiRecordV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiRuleErrorsV1": {
+        "description": "Correlate errors using zero-based index, optional id and sequence.",
+        "properties": {
+          "errors": {
+            "items": {
+              "nullable": true,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "index": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "sequence": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "EdiRuleV1": {
+        "description": "Map rule. id is optional for unsaved rules. transformArgs is a JSON object encoded as a string, as in core table CRUD.",
+        "properties": {
+          "condition": {
+            "nullable": true,
+            "type": "string"
+          },
+          "defaultValue": {
+            "nullable": true,
+            "type": "string"
+          },
+          "ediPath": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "qqqPath": {
+            "nullable": true,
+            "type": "string"
+          },
+          "required": {
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sequence": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "transform": {
+            "nullable": true,
+            "type": "string"
+          },
+          "transformArgs": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiSegmentV1": {
+        "description": "Segment definition in guide sequence order.",
+        "properties": {
+          "elements": {
+            "items": {
+              "$ref": "#/components/schemas/EdiElementV1"
+            },
+            "type": "array"
+          },
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "max": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "min": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "position": {
+            "nullable": true,
+            "type": "string"
+          },
+          "usage": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiTargetV1": {
+        "description": "Target metadata visible to the caller, current rules and registered transforms.",
+        "properties": {
+          "associations": {
+            "items": {
+              "$ref": "#/components/schemas/EdiAssociationV1"
+            },
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EdiFieldV1"
+            },
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/EdiRuleV1"
+            },
+            "type": "array"
+          },
+          "table": {
+            "nullable": true,
+            "type": "string"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/EdiTransformV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiTransformV1": {
+        "description": "Registered transform and JSON Schema describing its string-valued arguments.",
+        "properties": {
+          "argumentSchema": {
+            "additionalProperties": true,
+            "description": "JSON Schema: type, properties, required and additionalProperties. All transform arguments are strings.",
+            "type": "object"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EdiValidateRequestV1": {
+        "description": "rules is required and may be empty; rules are never persisted.",
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/EdiRuleV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "EdiValidationV1": {
+        "description": "One result per submitted rule, including rules with no errors.",
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/EdiRuleErrorsV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "sessionUuidCookie": {
+        "in": "cookie",
+        "name": "sessionUUID",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "contact@kingsrook.com"
+    },
+    "description": "EDI sandbox and mapper, using the signed-in user's permissions.",
+    "title": "QQQ Middleware API extension: edi",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/qqq/v1/qbit/edi/guides/{guideId}/tree": {
+      "get": {
+        "description": "Read the guide tree. Uses the caller session and table read permissions. Preview also requires edi.map.preview. Rule writes use core table CRUD.",
+        "parameters": [
+          {
+            "description": "Positive record identifier.",
+            "in": "path",
+            "name": "guideId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Invalid request or sample exceeds 5 MiB"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Sign in required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Missing or invisible record"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiGuideTreeV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Host HTTP request size limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Read the guide tree"
+      }
+    },
+    "/qqq/v1/qbit/edi/maps/{mapId}/target": {
+      "get": {
+        "description": "Read target metadata and map rules. Uses the caller session and table read permissions. Preview also requires edi.map.preview. Rule writes use core table CRUD.",
+        "parameters": [
+          {
+            "description": "Positive record identifier.",
+            "in": "path",
+            "name": "mapId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Invalid request or sample exceeds 5 MiB"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Sign in required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Missing or invisible record"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiTargetV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Host HTTP request size limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Read target metadata and map rules"
+      }
+    },
+    "/qqq/v1/qbit/edi/sandbox/preview": {
+      "post": {
+        "description": "Preview an encrypted sample with optional unsaved rules. Uses the caller session and table read permissions. Preview also requires edi.map.preview. Rule writes use core table CRUD.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdiPreviewRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Invalid request or sample exceeds 5 MiB"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Sign in required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Missing or invisible record"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiPreviewV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Host HTTP request size limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Preview an encrypted sample with optional unsaved rules"
+      }
+    },
+    "/qqq/v1/qbit/edi/maps/{mapId}/validate": {
+      "post": {
+        "description": "Validate unsaved map rules. Uses the caller session and table read permissions. Preview also requires edi.map.preview. Rule writes use core table CRUD.",
+        "parameters": [
+          {
+            "description": "Positive record identifier.",
+            "in": "path",
+            "name": "mapId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdiValidateRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Invalid request or sample exceeds 5 MiB"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Sign in required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Missing or invisible record"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiValidationV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdiErrorV1"
+                }
+              }
+            },
+            "description": "Host HTTP request size limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Validate unsaved map rules"
+      }
+    }
+  }
+}
