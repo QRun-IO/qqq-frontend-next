@@ -20,7 +20,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import { server } from '@/mocks/node'
-import { getAlertsInbox, getAlertsInboxSummary, getAlertsRecordPanel, normalizeInboxItem, postInboxAction, watchAlertsRecord } from './alerts'
+import { getAlertsInbox, getAlertsInboxSummary, getAlertsRecordPanel, normalizeInboxItem, postInboxAction } from './alerts'
 
 describe('getAlertsInboxSummary', () => {
   it('returns the summary, with defaults filled in', async () => {
@@ -97,33 +97,24 @@ describe('getAlertsInbox', () => {
   })
 })
 
-describe('postInboxAction and watchAlertsRecord', () => {
+describe('postInboxAction', () => {
   it('posts JSON bodies and returns the counts', async () => {
     const bodies: unknown[] = []
     server.use(
       http.post('/qqq/v1/alerts/inbox/:action', async ({ request, params }) => {
         bodies.push([params.action, await request.json()])
         return HttpResponse.json({ updated: 3 })
-      }),
-      http.post('/qqq/v1/alerts/record-panel/watch', async ({ request }) => {
-        bodies.push(await request.json())
-        return HttpResponse.json({ created: true })
       })
     )
     await expect(postInboxAction('read', { all: true })).resolves.toBe(3)
     await expect(postInboxAction('unread', { id: 4 })).resolves.toBe(3)
     await expect(postInboxAction('dismiss', { ids: [4, 5] })).resolves.toBe(3)
-    await expect(watchAlertsRecord('blog_post', 5)).resolves.toBe(true)
-    expect(bodies).toEqual([['read', { all: true }], ['unread', { id: 4 }], ['dismiss', { ids: [4, 5] }], { tableName: 'blog_post', recordId: 5 }])
+    expect(bodies).toEqual([['read', { all: true }], ['unread', { id: 4 }], ['dismiss', { ids: [4, 5] }]])
   })
 
-  it('treats odd bodies as zero / false', async () => {
-    server.use(
-      http.post('/qqq/v1/alerts/inbox/read', () => HttpResponse.json({})),
-      http.post('/qqq/v1/alerts/record-panel/watch', () => HttpResponse.json({ created: false }))
-    )
+  it('treats odd bodies as zero', async () => {
+    server.use(http.post('/qqq/v1/alerts/inbox/read', () => HttpResponse.json({})))
     await expect(postInboxAction('read', { alertId: 1 })).resolves.toBe(0)
-    await expect(watchAlertsRecord('blog_post', 5)).resolves.toBe(false)
   })
 })
 

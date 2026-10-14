@@ -147,7 +147,7 @@ export function CorrelationResult({
     return (
       <button
         type="button"
-        className="min-w-0 rounded p-1 text-xs tabular-nums focus-visible:outline-2 focus-visible:outline-ring"
+        className="min-w-0 rounded border border-border p-1 text-xs tabular-nums text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         style={correlationColor(c?.r)}
         disabled={!c?.scatter}
         aria-label={`${label(y)} and ${label(x)}: r = ${c?.r?.toFixed(2) ?? 'unavailable'}`}
@@ -219,7 +219,7 @@ export function CorrelationResult({
           ))}
           {names.map((y) => (
             <div key={y} className="contents">
-              <span className="min-w-0 break-words text-xs">{label(y)}</span>
+              <span className="min-w-0 self-center break-words text-xs">{label(y)}</span>
               {names.map((x) => (
                 <div className="grid min-w-0" key={x}>
                   {cell(x, y)}
