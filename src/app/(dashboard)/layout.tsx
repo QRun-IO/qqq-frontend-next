@@ -39,6 +39,7 @@ import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
+import dynamic from 'next/dynamic'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -53,6 +54,10 @@ import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderBut
 import { AssistantMount } from '@/components/assistant/AssistantMount'
 import { AlertsBell, isAlertsInstalled } from '@/components/alerts/AlertsBell'
 import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
+
+// The favorites menu checks for collaboration and loads after hydration, so neither it nor the
+// collaboration hooks are in the dashboard's first load (the slot stays empty until then).
+const LazyFavoritesMenu = dynamic(() => import('@/components/collaboration/FavoritesMenuSlot').then((module) => module.LazyFavoritesMenu), { ssr: false })
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -333,6 +338,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             navTargets={navTargets}
             searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
+            favoritesButton={isAuthenticated ? <LazyFavoritesMenu /> : null}
             notificationsButton={isAuthenticated && isAlertsInstalled(metaData) ? <AlertsBell metaData={metaData} /> : null}
           />
 
