@@ -52,7 +52,7 @@ test('record collaboration: mention, edit, resolve, file, tags, follow and activ
   await expect(page.getByRole('heading', { name: 'Edit history' })).toBeVisible()
   await page.locator('[data-qqq-id="comment-history-close"]').click()
   await edited.getByRole('button', { name: 'Resolve', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Resolved thread · Show' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Show resolved thread' })).toBeVisible()
   await page.getByRole('button', { name: 'Reopen', exact: true }).click()
   await expect(page.getByText('Updated review', { exact: false })).toBeVisible()
 
