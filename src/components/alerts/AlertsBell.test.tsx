@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Tests for the Alerts record panel: metadata gating (no request without the qbit's app) and the
+// Tests for the Alerts record panel: extension gating (no request without the extension) and the
 // panel's hidden / open / watch states. The bell, popover and banners are in
 // NotificationCenter.test.tsx.
 
@@ -25,10 +25,10 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'jest-axe'
 
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { server } from '@/mocks/node'
 import type { AlertsRecordPanel } from '@/types/alerts'
 import type { QInstance } from '@/types/metadata'
-import { isAlertsInstalled } from './AlertsBell'
 import { AlertsRecordPanelSlot } from './AlertsRecordPanelSlot'
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }))
@@ -44,10 +44,10 @@ const SUMMARY = { unreadCount: 0, highestUnreadSeverity: null, notificationsHref
 const PANEL: AlertsRecordPanel = {
   visible: true,
   openCount: 1,
-  open: [{ alertId: 9, title: 'Post has no excerpt', severity: 'WARNING', status: 'OPEN', group: 'Content', age: '1 d', href: '/app/alerts_alert/9' }],
+  open: [{ alertId: 9, title: 'Post has no excerpt', severity: 'WARNING', status: 'OPEN', group: 'Content', age: '1 d', href: '/app/alerts_alert/9', actions: [{ name: 'ack', label: 'Acknowledge', href: '/app/customAck?record=9' }, { name: 'later', label: 'Snooze', href: '/app/customSnooze/9' }, { name: 'api', label: 'API only', operationId: 'customOperation' }] }],
   resolvedLast30Days: 2,
   viewAllHref: '/app/alerts_alert?filter=x',
-  canManage: true,
+  canManage: false,
   watching: false,
 }
 
@@ -68,16 +68,11 @@ function renderWithClient(ui: React.ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
-describe('isAlertsInstalled', () => {
-  it('is true only when the metadata lists the alerts app', () => {
-    expect(isAlertsInstalled(WITH_ALERTS)).toBe(true)
-    expect(isAlertsInstalled(WITHOUT_ALERTS)).toBe(false)
-    expect(isAlertsInstalled(undefined)).toBe(false)
-  })
-})
+beforeEach(() => server.use(uiApiVersionHandler('alerts')))
 
 describe('AlertsRecordPanelSlot', () => {
-  it('sends no request when the metadata does not announce Alerts', async () => {
+  it('sends no request when the version does not announce Alerts', async () => {
+    server.use(uiApiVersionHandler())
     let calls = 0
     server.use(
       http.get('/qqq/v1/alerts/inbox/summary', () => {
@@ -137,8 +132,9 @@ describe('AlertsRecordPanelSlot', () => {
     const section = await screen.findByRole('region', { name: 'Open alerts (1)' })
     expect(await axe(section)).toHaveNoViolations()
     expect(within(section).getByRole('link', { name: 'Post has no excerpt' })).toHaveAttribute('href', '/app/alerts_alert/9')
-    expect(within(section).getByRole('link', { name: 'Acknowledge' })).toHaveAttribute('href', '/app/alertsAcknowledge?recordsParam=recordIds&recordIds=9&tableName=alerts_alert')
-    expect(within(section).getByRole('link', { name: 'Snooze' })).toBeInTheDocument()
+    expect(within(section).getByRole('link', { name: 'Acknowledge' })).toHaveAttribute('href', '/app/customAck?record=9')
+    expect(within(section).getByRole('link', { name: 'Snooze' })).toHaveAttribute('href', '/app/customSnooze/9')
+    expect(within(section).queryByRole('link', { name: 'API only' })).not.toBeInTheDocument()
     expect(within(section).getByText('2 resolved in the last 30 days')).toBeInTheDocument()
 
     // the alerts extension (1.0.0) removed the watch operation: no button, only the legacy state
@@ -146,8 +142,10 @@ describe('AlertsRecordPanelSlot', () => {
     expect(within(section).queryByText("You watch this record's alerts")).not.toBeInTheDocument()
     view.unmount()
 
-    panel = { ...PANEL, watching: true }
+    panel = { ...PANEL, watching: true, open: PANEL.open.map(({ actions: _actions, ...alert }) => alert) }
     renderWithClient(<AlertsRecordPanelSlot metaData={WITH_ALERTS} tableName="blog_post" recordId="5" />)
     expect(await screen.findByText("You watch this record's alerts")).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Acknowledge' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Snooze' })).not.toBeInTheDocument()
   })
 })

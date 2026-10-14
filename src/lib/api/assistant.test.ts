@@ -17,9 +17,10 @@
 // Tests for the assistant API client: probe, conversations, feedback and the SSE turn stream
 
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AssistantStreamEvent } from '@/types/assistant'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { server } from '@/mocks/node'
 import apiClient from './client'
 import {
@@ -73,6 +74,16 @@ const DELTA_B = ['text.delta', { seq: 3, messageId: 11, text: ' world' }] as [st
 const END = ['message.end', { seq: 4, messageId: 11, status: 'COMPLETE' }] as [string, Record<string, unknown>]
 
 describe('getAssistantConfig', () => {
+  beforeEach(() => server.use(uiApiVersionHandler('assistant')))
+
+  it('does not probe config without the extension', async () => {
+    server.use(uiApiVersionHandler())
+    const probe = vi.fn(() => HttpResponse.json({ enabled: true }))
+    server.use(http.get(`${BASE}/config`, probe))
+    await expect(getAssistantConfig()).resolves.toBeNull()
+    expect(probe).not.toHaveBeenCalled()
+  })
+
   it('returns the config', async () => {
     server.use(http.get(`${BASE}/config`, () => HttpResponse.json({ enabled: true, shortcut: 'mod+j' })))
     await expect(getAssistantConfig()).resolves.toEqual({ enabled: true, shortcut: 'mod+j' })

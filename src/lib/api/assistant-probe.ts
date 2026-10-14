@@ -23,6 +23,7 @@
 import type { AssistantConfig, AssistantConversation, AssistantConversationStatus } from '@/types/assistant'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
+import { isUiApiExtensionInstalled, UI_API_EXTENSION } from './ui-api-extensions'
 
 /**
  * Loads the assistant configuration, the feature probe for the whole UI. Like the ESB probe,
@@ -33,6 +34,7 @@ import apiClient from './client'
  * @throws The request error for any other failure.
  */
 export async function getAssistantConfig(): Promise<AssistantConfig | null> {
+  if (!(await isUiApiExtensionInstalled(UI_API_EXTENSION.assistant))) return null
   let data: unknown
   try {
     data = await apiClient.get<unknown>('/assistant/config')

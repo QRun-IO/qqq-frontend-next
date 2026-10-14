@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Tests for the notifications page: metadata gating, filters and paging in the URL, the inbox
+// Tests for the notifications page: extension gating, filters and paging in the URL, the inbox
 // query, safe markdown bodies, actions, and empty and error states.
 
 import React from 'react'
@@ -25,6 +25,7 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'jest-axe'
 
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { server } from '@/mocks/node'
 
 const nav = vi.hoisted(() => ({ params: new URLSearchParams(), push: vi.fn(), replace: vi.fn() }))
@@ -34,8 +35,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => nav.params,
 }))
 vi.mock('@/lib/context/q-context', () => ({ useQContext: () => ({ setPageHeader: vi.fn() }) }))
-const meta = vi.hoisted(() => ({ apps: { alerts: { name: 'alerts', label: 'Alerts' } } as Record<string, unknown> }))
-vi.mock('@/lib/api/metadata', () => ({ loadMetaData: vi.fn(async () => ({ apps: meta.apps, tables: {}, processes: {} })) }))
 
 import { NotificationsPage, filterFromParams } from './NotificationsPage'
 
@@ -82,14 +81,14 @@ describe('filterFromParams', () => {
 
 describe('NotificationsPage', () => {
   beforeEach(() => {
+    server.use(uiApiVersionHandler('alerts'))
     nav.params = new URLSearchParams()
     nav.push.mockReset()
     nav.replace.mockReset()
-    meta.apps = { alerts: { name: 'alerts', label: 'Alerts' } }
   })
 
-  it('sends no inbox request without the Alerts app', async () => {
-    meta.apps = {}
+  it('sends no inbox request without the Alerts extension', async () => {
+    server.use(uiApiVersionHandler())
     const queries = serveInbox({ items: [], total: 0 })
     renderPage()
     expect(await screen.findByText('Notifications are not available.')).toBeInTheDocument()
