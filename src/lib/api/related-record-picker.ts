@@ -68,9 +68,6 @@ export interface RelatedPickerAddResponse {
   warnings?: string[]
 }
 
-const path = (tableName: string, pickerName: string, operation: string) =>
-  `/table/${encodeURIComponent(tableName)}/relatedRecordPicker/${encodeURIComponent(pickerName)}/${operation}`
-
 /**
  * One page of the records a picker offers.
  *
@@ -80,7 +77,7 @@ const path = (tableName: string, pickerName: string, operation: string) =>
  * @returns The page, whether more follow, and the already-linked ids.
  */
 export async function queryRelatedPicker(tableName: string, pickerName: string, request: RelatedPickerQueryRequest): Promise<RelatedPickerQueryResponse> {
-  const response = await apiClient.post<Partial<RelatedPickerQueryResponse>>(path(tableName, pickerName, 'query'), request)
+  const response = await apiClient.post<Partial<RelatedPickerQueryResponse>>(`/table/${encodeURIComponent(tableName)}/relatedRecordPicker/${encodeURIComponent(pickerName)}/query`, request)
   return { records: response?.records ?? [], hasMore: response?.hasMore === true, linkedIds: response?.linkedIds, resolvedDefaultFilter: response?.resolvedDefaultFilter }
 }
 
@@ -94,7 +91,7 @@ export async function queryRelatedPicker(tableName: string, pickerName: string, 
  * @returns The rows and the fields to review.
  */
 export async function prepareRelatedPicker(tableName: string, pickerName: string, primaryKey: string | number, targetIds: Array<string | number>): Promise<RelatedPickerPrepareResponse> {
-  const response = await apiClient.post<Partial<RelatedPickerPrepareResponse>>(path(tableName, pickerName, 'prepare'), { primaryKey, targetIds })
+  const response = await apiClient.post<Partial<RelatedPickerPrepareResponse>>(`/table/${encodeURIComponent(tableName)}/relatedRecordPicker/${encodeURIComponent(pickerName)}/prepare`, { primaryKey, targetIds })
   return { records: response?.records ?? [], reviewFieldNames: response?.reviewFieldNames ?? [] }
 }
 
@@ -109,7 +106,7 @@ export async function prepareRelatedPicker(tableName: string, pickerName: string
  */
 export async function addRelatedPicker(tableName: string, pickerName: string, primaryKey: string | number, rows: { targetIds: Array<string | number> } | { records: Array<Record<string, unknown>> }): Promise<RelatedPickerAddResponse> {
   const body = 'targetIds' in rows ? { primaryKey, targetIds: rows.targetIds } : { primaryKey, records: rows.records.map((values) => ({ values })) }
-  const response = await apiClient.post<Partial<RelatedPickerAddResponse>>(path(tableName, pickerName, 'add'), body)
+  const response = await apiClient.post<Partial<RelatedPickerAddResponse>>(`/table/${encodeURIComponent(tableName)}/relatedRecordPicker/${encodeURIComponent(pickerName)}/add`, body)
   return { records: response?.records ?? [], warnings: response?.warnings }
 }
 
@@ -123,6 +120,6 @@ export async function addRelatedPicker(tableName: string, pickerName: string, pr
  * @returns How many links were removed.
  */
 export async function removeRelatedPicker(tableName: string, pickerName: string, primaryKey: string | number, targetIds: Array<string | number>): Promise<number> {
-  const response = await apiClient.post<{ deletedCount?: number }>(path(tableName, pickerName, 'remove'), { primaryKey, targetIds })
+  const response = await apiClient.post<{ deletedCount?: number }>(`/table/${encodeURIComponent(tableName)}/relatedRecordPicker/${encodeURIComponent(pickerName)}/remove`, { primaryKey, targetIds })
   return response?.deletedCount ?? 0
 }
