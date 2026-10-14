@@ -30,6 +30,7 @@ import { Controller } from 'react-hook-form'
 import { Minus } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
 
 /**
  * Props for the {@link BooleanField} component.
@@ -54,6 +55,8 @@ interface BooleanFieldProps {
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the toggle button for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help or read-only text describing the control. */
+  describedBy?: string
 }
 
 /**
@@ -104,6 +107,7 @@ export function BooleanField({
   disabled = false,
   required = false,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: BooleanFieldProps) {
   // Cycle logic depends on whether the field is required
   /**
@@ -127,7 +131,7 @@ export function BooleanField({
   )
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <Controller
           name={name}
@@ -144,7 +148,7 @@ export function BooleanField({
                 aria-checked={ariaVal}
                 aria-required={required}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
+                aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
                 disabled={disabled}
                 data-qqq-id={dataQqqId}
                 onClick={() => {
@@ -195,14 +199,10 @@ export function BooleanField({
           data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
         >
           {label}
-          {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
         </label>
       </div>
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} />
     </div>
   )
 }

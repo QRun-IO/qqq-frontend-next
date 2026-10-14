@@ -23,6 +23,12 @@
  * `fr` column widths, a sticky header, column-header help, paging (10 rows unless the
  * payload says otherwise) with numbered pages or a jump-to-page input and an optional
  * entries-per-page select, and in a multi-table widget an export button and footer per table.
+ *
+ * Readable at any width: the content stops growing at `defaultValues.tableMaxWidth` (96rem by
+ * default) so columns stay close on ultra-wide screens, and where the widget is narrower than
+ * 30rem, or than its declared column widths need, each row renders as a stacked card of
+ * `label: value` lines (`data-qqq-table-layout="cards"`, styled in `globals.css`) instead of
+ * a table that scrolls sideways.
  */
 'use client'
 
@@ -31,7 +37,9 @@ import { ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 import type { QHelpContent, QWidgetHelpContent, QWidgetMetaData } from '@/types'
 import { useHelpHelpActive } from '@/lib/context/q-context'
+import { useContainerWidth } from '@/lib/hooks/use-container-width'
 import { cn } from '@/lib/utils/cn'
+import { cssMaxWidth } from '@/lib/utils/responsive-grid'
 import { selectSlotHelpContent, WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
 import { HelpContent } from '@/components/records/HelpContent'
 import type { QqqCompositeData, WidgetComponentProps } from './widget-types'
@@ -43,7 +51,8 @@ import { WidgetLink } from './QqqStatisticsWidgets'
 import { QqqComposite } from './blocks/QqqComposite'
 import { downloadText, widgetCsvToString, widgetExportFileName } from './widget-utils'
 import {
-  DEFAULT_TABLE_PAGE_SIZE, HIDDEN_COLUMN_TYPE, MAX_NUMBERED_PAGES, minTableWidth, pageSizeOptions, resolveColumnWidths, tableExportCsv,
+  DEFAULT_TABLE_MAX_WIDTH, DEFAULT_TABLE_PAGE_SIZE, HIDDEN_COLUMN_TYPE, MAX_NUMBERED_PAGES, minTableWidth, pageSizeOptions, resolveColumnWidths, tableCardBreakpointPx,
+  tableExportCsv,
 } from './table-widget-utils'
 import type { TableWidgetColumn } from './table-widget-utils'
 
@@ -152,6 +161,16 @@ function CellContent({ column, row, widgetMetaData, qqqId }: { column: TableWidg
   return <>{typeof value === 'number' && value !== 0 ? value.toLocaleString() : String(value)}</>
 }
 
+/**
+ * The text a column's values are labelled with in card layout: its header, else its accessor.
+ *
+ * @param column - Column metadata.
+ * @returns The label.
+ */
+function columnLabel(column: TableWidgetColumn): string {
+  return String(column.header ?? column.accessor ?? '')
+}
+
 /** Props for the table body renderer. */
 interface TableBodyProps {
   widgetMetaData: QWidgetMetaData
@@ -180,6 +199,9 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
   const [pageDraft, setPageDraft] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [exportMessage, setExportMessage] = useState<string | null>(null)
+  const [measureRef, width] = useContainerWidth()
+  const maxWidth = cssMaxWidth(widgetMetaData.defaultValues?.tableMaxWidth, DEFAULT_TABLE_MAX_WIDTH)
+  const rootStyle = maxWidth ? { maxWidth } : undefined
   if (!allColumns || !rows || allColumns.some((column) => !isPlainObject(column)) || rows.some((row) => !isPlainObject(row))) {
     return <WidgetPayloadNotice widgetName={name} message={payloadProblem('table', 'columns/rows')} />
   }
@@ -222,7 +244,7 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
 
   if (rows.length === 0) {
     return (
-      <div data-qqq-id={qqqId}>
+      <div data-qqq-id={qqqId} style={rootStyle}>
         {header}
         {exportStatus}
         {table.noRowsFoundHTML
@@ -238,6 +260,8 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
   // the 60px expander column (Material) is one of the fixed widths the fr columns share around
   const declaredWidths = [...columns.map((column) => column.width), ...(hasSubRows ? ['60px'] : [])]
   const widths = resolveColumnWidths(declaredWidths)
+  // width 0 = not measured (no ResizeObserver): keep the table
+  const cards = width > 0 && width < tableCardBreakpointPx(declaredWidths, Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
   const stickyLast = table.fixedStickyLastRow === true && rows.length > 1
   const bodyRows = stickyLast ? rows.slice(0, -1) : rows
   const perPage = pageSize ?? (table.rowsPerPage && table.rowsPerPage > 0 ? table.rowsPerPage : DEFAULT_TABLE_PAGE_SIZE)
@@ -276,7 +300,7 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
           data-depth={depth}
         >
           {columns.map((column, index) => (
-            <td key={index} className={cellClass(column)}>
+            <td key={index} className={cellClass(column)} data-label={columnLabel(column)}>
               <CellContent column={column} row={row} widgetMetaData={widgetMetaData} qqqId={`table-cell-${rowId}-${index}`} />
             </td>
           ))}
@@ -309,7 +333,7 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
   }
 
   return (
-    <div data-qqq-id={qqqId}>
+    <div ref={measureRef} data-qqq-id={qqqId} data-qqq-table-layout={cards ? 'cards' : 'table'} style={rootStyle}>
       {header}
       {exportStatus}
       {showPageSize && (
@@ -329,13 +353,13 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
           <span aria-hidden="true">entries per page</span>
         </div>
       )}
-      <div className="overflow-auto" style={table.fixedHeight ? { maxHeight: table.fixedHeight } : undefined}>
+      <div className={cards ? 'overflow-y-auto overflow-x-hidden' : 'overflow-auto'} style={table.fixedHeight ? { maxHeight: table.fixedHeight } : undefined}>
         <table
-          className={cn('w-full border-collapse text-sm', widths && 'table-fixed')}
-          style={widths ? { minWidth: minTableWidth(declaredWidths) } : undefined}
+          className={cn('qqq-table-widget-table w-full border-collapse text-sm', widths && !cards && 'table-fixed')}
+          style={widths && !cards ? { minWidth: minTableWidth(declaredWidths) } : undefined}
           aria-label={table.label ?? widgetMetaData.label}
         >
-          {widths && (
+          {widths && !cards && (
             <colgroup>
               {widths.map((width, index) => <col key={index} style={{ width }} />)}
             </colgroup>
@@ -365,7 +389,7 @@ function QqqTable({ widgetMetaData, table, suffix = '', ownChrome = false }: Tab
             <tfoot>
               <tr className="sticky bottom-0 border-t-2 border-border bg-card font-semibold" data-qqq-id={`table-total-row-${name}${suffix}`}>
                 {columns.map((column, index) => (
-                  <td key={index} className={cellClass(column)}>
+                  <td key={index} className={cellClass(column)} data-label={columnLabel(column)}>
                     <CellContent column={column} row={rows[rows.length - 1]} widgetMetaData={widgetMetaData} qqqId={`table-total-cell-${name}${suffix}-${index}`} />
                   </td>
                 ))}

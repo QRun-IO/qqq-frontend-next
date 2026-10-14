@@ -28,7 +28,7 @@ import type { QFieldMetaData, QRecord } from '@/types'
 import type { FilePreviewItem } from '@/lib/utils/file-preview'
 import { filePreviewItems } from '@/lib/utils/file-preview'
 
-const FilePreviewLightbox = lazy(() => import('./FilePreviewLightbox'))
+import { FilePreviewLightbox } from './FilePreviewLightboxLazy'
 
 /** What a thumbnail asks of the gallery around it. */
 interface FilePreviewGalleryContextValue {

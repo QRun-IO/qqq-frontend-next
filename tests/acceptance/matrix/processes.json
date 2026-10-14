@@ -1166,6 +1166,44 @@
         "QRun-IO/qqq#728"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-067",
+      "feature": "AUTHENTIK_POLICY_EDITOR widget (qbit-authentik) edits a policy matrix on a process step and submits the generated document",
+      "source": [
+        "src/components/authentik/AuthentikPolicyEditorWidget.tsx",
+        "src/components/authentik/policy-document.ts",
+        "src/components/process/WidgetComponent.tsx"
+      ],
+      "fixture": "prcPolicyEditor / prcPolicyEditorWidget",
+      "scenarios": [
+        "The stored document opens in the matrix; row, app and search controls select permissions; the live preview is the canonical document; Submit stores exactly that document, verified in SQL",
+        "Clear all submits an empty document"
+      ],
+      "negative": [
+        "A resource the app does not define is listed and removed rather than silently dropped; no horizontal page scroll at phone width"
+      ],
+      "issues": [
+        "QRun-IO/qbit-authentik#13"
+      ],
+      "required": true
+    },
+    {
+      "id": "PRC-068",
+      "feature": "Process contingent selections use screen metadata, cascade and submit",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: placeAddress / placeAddressPick; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Process contingent selections use screen metadata, cascade and submit"
+      ],
+      "negative": [
+        "Missing or incompatible parent input cannot silently preserve an invalid selection"
+      ],
+      "issues": [],
+      "required": true
     }
   ]
 }

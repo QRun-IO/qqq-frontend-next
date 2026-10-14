@@ -52,6 +52,8 @@ const LABEL_BATCH_SIZE = 250
  * Props for FilterValuePaster.
  */
 interface FilterValuePasterProps {
+  /** Dependency inputs from the current filter. */
+  formValues?: Record<string, unknown>
   /** How values are checked. */
   kind: PasterKind
   /** Field label (for the button's name). */
@@ -82,13 +84,14 @@ interface ReviewedValue {
  * @param tableName - Table that owns the field.
  * @param fieldName - The field.
  * @param labels - Distinct pasted labels.
+ * @param formValues - Dependency inputs from the current filter.
  * @returns Each matched label (lower case) mapped to its id.
  */
-async function lookUpLabels(tableName: string, fieldName: string, labels: string[]): Promise<Map<string, string>> {
+async function lookUpLabels(tableName: string, fieldName: string, labels: string[], formValues?: Record<string, unknown>): Promise<Map<string, string>> {
   const found = new Map<string, string>()
   for (let i = 0; i < labels.length; i += LABEL_BATCH_SIZE) {
     const batch = labels.slice(i, i + LABEL_BATCH_SIZE)
-    const options = await fetchTablePossibleValues(tableName, fieldName, { labelList: batch, useCase: 'filter' })
+    const options = await fetchTablePossibleValues(tableName, fieldName, { labelList: batch, useCase: 'filter', ...(formValues ? { formValues } : {}) })
     for (const option of options) {
       const key = option.label.toLowerCase()
       if (!found.has(key)) found.set(key, String(option.id))
@@ -103,7 +106,7 @@ async function lookUpLabels(tableName: string, fieldName: string, labels: string
  * @param root0 - Component properties.
  * @returns The button and dialog.
  */
-export function FilterValuePaster({ kind, fieldLabel, tableName, fieldName, onAdd, dataId }: FilterValuePasterProps) {
+export function FilterValuePaster({ formValues, kind, fieldLabel, tableName, fieldName, onAdd, dataId }: FilterValuePasterProps) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [separator, setSeparator] = useState<PasteSeparator>('Detect Automatically')
@@ -117,18 +120,20 @@ export function FilterValuePaster({ kind, fieldLabel, tableName, fieldName, onAd
 
   const values = useMemo(() => splitPastedValues(text, separator, custom), [text, separator, custom])
   const distinct = useMemo(() => [...new Set(values)], [values])
-  const lookupKey = kind === 'pvs' ? JSON.stringify(distinct) : ''
+  const lookupKey = kind === 'pvs' ? JSON.stringify([distinct, formValues]) : ''
 
   // possible values: look the pasted labels up (debounced, as Material does)
   useEffect(() => {
     if (kind !== 'pvs' || !open || distinct.length === 0) return
     let cancelled = false
     const timer = setTimeout(() => {
-      lookUpLabels(tableName, fieldName, distinct)
+      lookUpLabels(tableName, fieldName, distinct, formValues)
         .then((found) => { if (!cancelled) { setLookupError(null); setLookup({ key: lookupKey, found }) } })
         .catch((e: unknown) => { if (!cancelled) setLookupError(e instanceof Error ? e.message : String(e)) })
     }, 500)
     return () => { cancelled = true; clearTimeout(timer) }
+    // lookupKey includes the serialized dependency values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, open, distinct, lookupKey, tableName, fieldName])
 
   const loading = kind === 'pvs' && distinct.length > 0 && lookup?.key !== lookupKey && !lookupError

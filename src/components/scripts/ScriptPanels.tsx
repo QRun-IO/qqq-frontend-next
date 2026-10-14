@@ -28,26 +28,14 @@ import { Loader2 } from 'lucide-react'
 import type { QFieldMetaData, QRecord } from '@/types'
 import { testScript } from '@/lib/api/developer'
 import { HANDLES_OWN_ERRORS } from '@/lib/query-client'
-import { cn } from '@/lib/utils/cn'
 import { getErrorMessage } from '@/lib/utils/error-utils'
 import { CodeBlock } from './HighlightedCode'
 import { dateTimeText, domId, text } from './script-utils'
 import { DateTimeText } from '@/components/ui/DateTimeText'
+import { ALERT_CLASS, BUTTON_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/controls'
 
-export const BUTTON_CLASS = cn(
-  'inline-flex items-center justify-center gap-2 rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground',
-  'hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-  'disabled:cursor-not-allowed disabled:opacity-50'
-)
-export const PRIMARY_BUTTON_CLASS = cn(
-  'inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground',
-  'hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-  'disabled:cursor-not-allowed disabled:opacity-50'
-)
-export const INPUT_CLASS =
-  'w-full rounded border border-input bg-background px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring'
-export const ALERT_CLASS =
-  'whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+// The shared control styles moved to the design-system module; re-exported for existing imports.
+export { ALERT_CLASS, BUTTON_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS }
 
 /** Tester input and output fields of a script type. */
 export interface ScriptTestFields {

@@ -29,6 +29,8 @@ import { COMBOBOX_DEBOUNCE_MS } from '@/lib/constants'
  * Configuration options for {@link useAsyncCombobox}.
  */
 interface UseAsyncComboboxOptions {
+  /** Dependency values derived from the query filter. */
+  formValues?: Record<string, unknown>
   /** The QQQ table name whose possible values should be fetched. */
   tableName: string
   /** The field name within the table whose possible values should be fetched. */
@@ -79,6 +81,7 @@ export interface UseAsyncComboboxResult {
 export function useAsyncCombobox({
   tableName,
   fieldName,
+  formValues,
   onOptionsFetched,
 }: UseAsyncComboboxOptions): UseAsyncComboboxResult {
   const [isOpen, setIsOpen] = useState(false)
@@ -95,6 +98,8 @@ export function useAsyncCombobox({
   useEffect(() => {
     onOptionsFetchedRef.current = onOptionsFetched
   }, [onOptionsFetched])
+
+  const valuesKey = JSON.stringify(formValues)
 
   /**
    * Fetches possible values for the configured table/field, filtered by the given search term.
@@ -117,6 +122,8 @@ export function useAsyncCombobox({
       try {
         const results = await fetchTablePossibleValues(tableName, fieldName, {
           searchTerm: term || undefined,
+          useCase: 'filter',
+          ...(formValues ? { formValues } : {}),
         })
         if (!controller.signal.aborted) {
           setOptions(results)
@@ -132,7 +139,9 @@ export function useAsyncCombobox({
         }
       }
     },
-    [tableName, fieldName]
+    // The serialized values avoid reloading for a freshly allocated equivalent map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tableName, fieldName, valuesKey]
   )
 
   /**
@@ -152,13 +161,20 @@ export function useAsyncCombobox({
     [fetchOptions]
   )
 
+  // Dependency changes invalidate choices even while closed and cancel an older search timer.
+  useEffect(() => {
+    abortControllerRef.current?.abort()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setOptions([])
+  }, [valuesKey])
+
   // Fetch on open
   useEffect(() => {
     if (isOpen) {
       fetchOptions(searchTerm)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  }, [isOpen, valuesKey])
 
   // Close on outside click
   useEffect(() => {

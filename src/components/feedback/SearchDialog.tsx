@@ -15,29 +15,31 @@
  */
 
 /**
- * @file SearchDialog — "/" key search dialog over pages and recently viewed records, plus
- * records found by the backend record search when the metadata advertises searchable tables.
+ * @file SearchDialog — "/" key (and mobile header) search dialog: search-as-you-type over
+ * pages, recently viewed records and recent searches, plus records found by the backend
+ * record search when the metadata advertises searchable tables.
  */
 
 'use client'
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import React, { useEffect, useCallback, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { Search, ArrowRight, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 
 import type { NavTarget } from '@/lib/hooks/use-routes'
-import { useRecordSearch } from '@/lib/hooks/use-record-search'
-import { getRecentRecords } from '@/lib/utils/recent-records'
-import type { RecentRecord } from '@/lib/utils/recent-records'
-import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
 import type { SearchableTable } from '@/lib/utils/record-search'
-import { NavigationSearchResults } from '@/components/layout/NavigationSearchResults'
+import { searchPagePath } from '@/lib/search/search-url'
+import type { QuickSearchPanelController } from '@/components/search/QuickSearchPanel'
 
-/** Records shown per table in the dialog. */
-const DIALOG_RECORDS_PER_TABLE = 5
+/** The results panel, loaded when the dialog first opens. */
+const QuickSearchPanel = dynamic(() => import('@/components/search/QuickSearchPanel').then((module) => module.QuickSearchPanel), { ssr: false })
 
 /** Stable empty default for `searchTables`. */
 const NO_SEARCH_TABLES: SearchableTable[] = []
+
+/** DOM id of the results listbox. */
+const LISTBOX_ID = 'search-dialog-results'
 
 /**
  * Props for the SearchDialog component.
@@ -54,13 +56,11 @@ interface SearchDialogProps {
 }
 
 /**
- * Modal search dialog triggered by the `/` keyboard shortcut.
+ * Modal search dialog triggered by the `/` keyboard shortcut and the mobile header button.
  *
- * Lists recently viewed records until the user types, then matching pages
- * (apps, tables, processes, reports by label), records found by record search
- * (when available) and matching recent records.
- * ArrowUp/Down move the selection, Enter opens it (or the search page when
- * nothing is selected), Escape closes.
+ * Lists recent searches and recently viewed records until the user types, then grouped
+ * results (top hits, pages, records per table, recently viewed). ↑/↓ move the selection,
+ * Enter opens it, Ctrl/⌘+Enter opens it in a new tab, Escape closes.
  *
  * @param props - Component properties.
  * @returns The dialog overlay, or `null` when closed.
@@ -70,78 +70,48 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
+  const handleNavigate = useCallback((path: string) => {
+    onClose()
+    router.push(path)
+  }, [router, onClose])
 
-  // Load recent records when the dialog opens; reset state
-  useEffect(() => {
-    if (open) {
-      const returnTo = document.activeElement
-      setRecentRecords(getRecentRecords().slice(0, 10))
-      setSearchTerm('')
-      setSelectedIndex(-1)
-      const frame = requestAnimationFrame(() => {
-        if (!dialogRef.current?.contains(document.activeElement)) inputRef.current?.focus()
-      })
-      return () => {
-        cancelAnimationFrame(frame)
-        if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus()
-      }
+  const [term, setTerm] = useState('')
+  const controllerRef = useRef<QuickSearchPanelController | null>(null)
+  const [activeDescendant, setActiveDescendant] = useState<string>()
+  const recordSearchAvailable = searchTables.length > 0
+
+  const handleController = useCallback((controller: QuickSearchPanelController | null) => {
+    controllerRef.current = controller
+    setActiveDescendant(controller?.activeDescendant)
+  }, [])
+
+  /**
+   * Defers ↑↓, Enter and Ctrl/⌘+Enter to the results panel (Enter searches everything while it loads).
+   *
+   * @param event - The input's keydown event.
+   */
+  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (controllerRef.current) {
+      controllerRef.current.onInputKeyDown(event)
+    } else if (event.key === 'Enter' && term.trim()) {
+      event.preventDefault()
+      handleNavigate(searchPagePath({ q: term }))
     }
-  }, [open])
+  }
 
-  const recordSearch = useRecordSearch(open ? searchTerm : '', searchTables, DIALOG_RECORDS_PER_TABLE)
-  const items = useMemo(
-    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm, 8, recordSearch.results),
-    [navTargets, recentRecords, searchTerm, recordSearch.results]
-  )
-
+  // Reset and focus on open; give focus back on close
   useEffect(() => {
-    setSelectedIndex(-1)
-  }, [items])
-
-  /**
-   * Closes the dialog and navigates to the given path.
-   *
-   * @param path - The URL path to navigate to.
-   */
-  const handleNavigate = useCallback(
-    (path: string) => {
-      onClose()
-      router.push(path)
-    },
-    [router, onClose]
-  )
-
-  /**
-   * Handles keyboard navigation within the result list.
-   *
-   * @param e - The synthetic keyboard event from the search input.
-   */
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault()
-          setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : prev))
-          break
-        case 'ArrowUp':
-          e.preventDefault()
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
-          break
-        case 'Enter':
-          e.preventDefault()
-          if (selectedIndex >= 0 && selectedIndex < items.length) {
-            handleNavigate(items[selectedIndex].path)
-          } else if (searchTerm.trim()) {
-            handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)
-          }
-          break
-      }
-    },
-    [selectedIndex, items, searchTerm, handleNavigate]
-  )
+    if (!open) return
+    const returnTo = document.activeElement
+    setTerm('')
+    const frame = requestAnimationFrame(() => {
+      if (!dialogRef.current?.contains(document.activeElement)) inputRef.current?.focus()
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus()
+    }
+  }, [open, setTerm])
 
   /**
    * Handles dismissal from every control and keeps keyboard focus inside the modal.
@@ -168,104 +138,82 @@ export function SearchDialog({ open, onClose, navTargets, searchTables = NO_SEAR
 
   if (!open) return null
 
-  const hasTerm = searchTerm.trim().length > 0
-
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-start justify-center pt-[10vh] sm:pt-[15vh]"
-      data-qqq-id="search-dialog-backdrop"
-    >
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <div className="fixed inset-0 z-[2000] flex items-start justify-center px-2 pt-[6vh] sm:px-4 sm:pt-[12vh]" data-qqq-id="search-dialog-backdrop">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       <div
         ref={dialogRef}
-        className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card shadow-lg overflow-hidden"
+        className="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg sm:max-h-[76vh]"
         data-qqq-id="search-dialog"
         role="dialog"
         aria-label="Search"
         aria-modal="true"
         onKeyDown={handleDialogKeyDown}
       >
-        {/* Search input */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={recordSearch.available ? 'Search pages and records...' : 'Jump to a page or recent record...'}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-            aria-label={recordSearch.available ? 'Search pages and records' : 'Search pages and recent records'}
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            onKeyDown={handleInputKeyDown}
+            placeholder={recordSearchAvailable ? 'Search pages and records…' : 'Jump to a page or recent record…'}
+            className="min-w-0 flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm"
+            aria-label={recordSearchAvailable ? 'Search pages and records' : 'Search pages and recent records'}
             aria-expanded={true}
-            aria-controls="search-dialog-results"
+            aria-controls={LISTBOX_ID}
+            aria-activedescendant={activeDescendant}
             aria-haspopup="listbox"
             aria-autocomplete="list"
             role="combobox"
+            autoComplete="off"
+            spellCheck={false}
             data-qqq-id="search-dialog-input"
           />
-          {searchTerm && (
+          {term && (
             <button
               type="button"
               onClick={() => {
                 inputRef.current?.focus()
-                setSearchTerm('')
+                setTerm('')
               }}
-              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              className="rounded p-1 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+            aria-label="Close search"
+          >
             esc
-          </kbd>
+          </button>
         </div>
 
-        {/* Results */}
-        {hasTerm || items.length > 0 ? (
-          <NavigationSearchResults
-            id="search-dialog-results"
-            items={items}
-            term={searchTerm}
-            selectedIndex={selectedIndex}
-            onSelect={handleNavigate}
-            onHover={setSelectedIndex}
-            recordSearch={recordSearch}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <QuickSearchPanel
+            listboxId={LISTBOX_ID}
+            open={open}
+            term={term}
+            setTerm={setTerm}
+            navTargets={navTargets}
+            searchTables={searchTables}
+            onNavigate={handleNavigate}
+            onController={handleController}
+            listClassName="min-h-0 flex-1"
           />
-        ) : (
-          <div id="search-dialog-results" className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {recordSearch.available ? 'Type to find an app, table, process or record...' : 'Type to find an app, table, process or recent record...'}
-          </div>
-        )}
+        </div>
 
-        {/* Footer */}
-        <div className="border-t border-border px-4 py-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex gap-4">
-              <span>
-                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↑↓</kbd>{' '}navigate
-              </span>
-              <span>
-                <kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd>{' '}open
-              </span>
-            </div>
-            {hasTerm && (
-              <button
-                type="button"
-                onClick={() => handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent hover:text-foreground transition-colors"
-              >
-                <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                Show all matches
-              </button>
-            )}
-          </div>
+        <div className="hidden items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground sm:flex" aria-hidden="true">
+          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">↑↓</kbd> navigate</span>
+          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">↵</kbd> open</span>
+          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">Ctrl/⌘ ↵</kbd> new tab</span>
+          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono">⇧ ↵</kbd> all results</span>
         </div>
       </div>
     </div>

@@ -92,6 +92,33 @@ function renderScreen(props: Partial<ProcessStepScreenProps> = {}) {
 describe('ProcessStepScreen', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it.each([
+    [{ durableJobEligible: true }, later, {}, true],
+    [{ durableJobAlways: true }, later, {}, true],
+    [{}, later, {}, false],
+    [{ durableJobEligible: true, hasPermission: false }, later, {}, false],
+    [{ durableJobEligible: true }, done, {}, false],
+    [{ durableJobEligible: true }, later, { noMoreSteps: true }, false],
+    [{ durableJobEligible: true }, later, { durableJobId: 42 }, false],
+    [{ durableJobEligible: true }, { ...later, format: 'scanner' }, {}, false],
+  ] as const)('background action visibility %#', (metadata, step, values, visible) => {
+    renderScreen({ processMetaData: { ...process, ...metadata }, step, values, onRunInBackground: vi.fn() })
+    expect(Boolean(screen.queryByRole('button', { name: 'Run in background' }))).toBe(visible)
+  })
+
+  it('validates and supplies the same screen payload to either submit action', async () => {
+    const onRunInBackground = vi.fn()
+    const { onSubmit } = renderScreen({ processMetaData: { ...process, durableJobEligible: true }, onRunInBackground })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Run in background' }))
+    expect(onRunInBackground).not.toHaveBeenCalled()
+    await user.type(screen.getByLabelText(/Lab Name/), 'Collected input')
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: 'Run in background' }))
+    await waitFor(() => expect(onRunInBackground).toHaveBeenCalledWith(...onSubmit.mock.calls[0]))
+  })
+
   it('renders every declared component in order (#645)', async () => {
     renderScreen()
     const form = screen.getByRole('form', { name: 'Mixed' })

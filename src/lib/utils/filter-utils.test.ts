@@ -111,7 +111,9 @@ describe('operator options (Material parity)', () => {
   })
 
   it('covers every backend operator in OPERATOR_CONFIG', () => {
-    expect(Object.keys(OPERATOR_CONFIG)).toHaveLength(24)
+    // the 25 operators of the UI API FilterCriteria enum (CONTAINS_ALL is for virtual tag fields)
+    expect(Object.keys(OPERATOR_CONFIG)).toHaveLength(25)
+    expect(OPERATOR_CONFIG.CONTAINS_ALL.valueCount).toBe('multiple')
     expect(OPERATOR_CONFIG.BETWEEN.valueCount).toBe('range')
     expect(OPERATOR_CONFIG.TRUE.valueCount).toBe('none')
   })
@@ -289,4 +291,11 @@ describe('expressions', () => {
     expect(formatCriterionDisplay(criterion, () => 'Name')).toBe('Name contains Widget')
     expect(formatCriterionDisplay({ fieldName: 'name', operator: 'IS_BLANK', values: [] })).toBe('name is empty')
   })
+})
+
+it('offers tag set operators only on declared fields or collaboration vocabulary', () => {
+  expect(getOperatorOptions({ type: 'STRING', possibleValueSourceName: 'collaboration_tag' }).map((option) => option.operator)).toEqual(['IN', 'NOT_IN', 'CONTAINS_ALL', 'IS_BLANK', 'IS_NOT_BLANK'])
+  expect(getOperatorOptions({ type: 'STRING' }).map((option) => option.operator)).not.toContain('CONTAINS_ALL')
+  expect(getOperatorOptions({ type: 'STRING', possibleValueSourceName: 'person' }).map((option) => option.operator)).not.toContain('CONTAINS_ALL')
+  expect(getOperatorOptions({ type: 'STRING', supportedOperators: ['CONTAINS_ALL'] }).find((option) => option.operator === 'CONTAINS_ALL')?.label).toBe('has all of')
 })

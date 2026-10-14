@@ -21,6 +21,7 @@
 // QQQ Metadata Types - ported from qqq-frontend-core
 
 import type { QFieldType, Capability, QComponentType, QAppNodeType, AdornmentType } from './enums'
+import type { QQueryFilter } from './query'
 
 /**
  * Top-level QQQ instance descriptor returned by the `/metaData/instance` endpoint.
@@ -54,8 +55,9 @@ export interface QInstance {
    */
   environmentValues?: Record<string, string>
   /**
-   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen) and
-   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}).
+   * Allow-listed supplemental metadata: `materialDashboard` (processes for every screen),
+   * `materialDashboardTheme` (the application theme, {@link QThemeMetaData}) and `assistant`
+   * (present when qbit-assistant is installed; the UI then probes `/assistant/config`).
    */
   supplementalInstanceMetaData?: Record<string, unknown>
   /** Optional theme overrides for colors and display mode. */
@@ -279,7 +281,58 @@ export interface QThemeMetaData {
  * Drives all rendering of record query, view, create, and edit pages, including
  * field display, permissions, sections layout, and join relationships.
  */
+/**
+ * A related-record picker of a table (QQQ `docs/RELATED-RECORD-PICKER.md`): a modal for choosing
+ * records of `targetTableName` for a foreign-key field (`SINGLE`), to add as child rows through an
+ * association with a review step (`MULTI_CHILD`), or to link and unlink through a join table (`LINK`).
+ * Served by `POST /table/{table}/relatedRecordPicker/{name}/query|prepare|add|remove`.
+ */
+export interface QRelatedRecordPicker {
+  /** Picker name (the route's path segment). */
+  name: string
+  /** Dialog title and the label of the button that opens it. */
+  label: string
+  /** Which relationship the picker serves. */
+  mode: 'SINGLE' | 'MULTI_CHILD' | 'LINK'
+  /** The foreign-key field it sets (SINGLE). */
+  fieldName?: string
+  /** The association whose rows it adds (MULTI_CHILD, LINK). */
+  associationName?: string
+  /** The table records are picked from. */
+  targetTableName: string
+  /** The child or join table (MULTI_CHILD, LINK). */
+  childTableName?: string
+  /** The child field holding the picked record's key (MULTI_CHILD, LINK). */
+  childTargetFieldName?: string
+  /** Filter the server always applies (shown as a note; may contain `${input.x}`). */
+  filter?: Partial<QQueryFilter>
+  /** Initial, user-editable filter (the query route returns it resolved). */
+  defaultFilter?: Partial<QQueryFilter>
+  /** Result columns (target fields). */
+  columns?: string[]
+  /** Preview fields (target fields). */
+  previewFields?: string[]
+  /** Image URL field of the target, for thumbnails. */
+  thumbnailField?: string
+  /** Child fields filled per row before saving (MULTI_CHILD); empty skips the review. */
+  reviewFieldNames?: string[]
+  /** Most records one add or link may pick. */
+  maxSelections?: number
+  /** The user may quick-create a target record. */
+  canCreateTarget?: boolean
+  /** The user may add child or join rows. */
+  canAddChildren?: boolean
+  /** The user may unlink (LINK). */
+  canRemoveChildren?: boolean
+}
+
 export interface QTableMetaData {
+  /** Effective collaboration features and session capabilities from core. */
+  recordFeatures?: import('./collaboration').RecordFeaturesV1
+  /** Optional backend version column; empty disables optimistic checks. */
+  recordVersionField?: string
+  /** Server-supplied views; expression values are resolved by the backend. */
+  builtInViews?: Array<{ name: string; label: string; filter: Partial<QQueryFilter> }>
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */
@@ -308,6 +361,10 @@ export interface QTableMetaData {
   capabilities: Capability[]
   /** Whether the current user may read records from this table. */
   readPermission: boolean
+  /** Related-record pickers whose target the user may read. */
+  relatedRecordPickers?: QRelatedRecordPicker[]
+  /** Section whose editable fields a quick-create form shows (else the required, editable fields). */
+  quickCreateSectionName?: string
   /**
    * Fields that record search (`POST /search`) matches for this table. Present only
    * when the backend supports record search, the table declares search fields and
@@ -378,6 +435,8 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  /** Explicitly supported virtual-field criteria operators. */
+  supportedOperators?: import('./enums').QCriteriaOperator[]
   /** Backend name for this field (used as the key in record value maps). */
   name: string
   /** Human-readable label shown as the column header or form label. */
@@ -399,11 +458,24 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /** Input field names required by this field's possible-value source (UI API 1.2.0). */
+  possibleValueSourceDependsOn?: string[]
+  /** Missing-input behavior; unknown values are treated as DISABLE_UNTIL_SET. */
+  possibleValueSourceDependencyBehavior?: 'DISABLE_UNTIL_SET' | 'SHOW_ALL_UNTIL_SET'
+  /** Legacy possible-value filter, used to discover input dependencies on older servers. */
+  possibleValueSourceFilter?: Partial<QQueryFilter>
   /**
    * Possible values declared inline on the field (an ENUM source on the field itself; never
    * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
    */
   inlinePossibleValueSource?: { enumValues?: Array<{ id: string | number; label: string }> }
+  /**
+   * The record picker declared by the field's possible value source (sources over large tables,
+   * e.g. 100,000+ media): forms offer a searchable, filterable, paged picker dialog.
+   */
+  picker?: QPossibleValuePicker
+  /** The table the picker reads (its field labels and types describe the picker's fields). */
+  pickerTableName?: string
   /** A printf-style or date-format string used when rendering the field value. */
   displayFormat?: string
   /** Maximum character length enforced during validation (for STRING/TEXT fields). */
@@ -430,6 +502,34 @@ export interface QFieldMetaData {
 }
 
 /**
+ * A record picker declared on a table possible value source (backend `QPossibleValuePicker`).
+ * Every field named here belongs to {@link QFieldMetaData.pickerTableName}; the possible-values API
+ * filters, sorts and returns values only for these fields.
+ */
+export interface QPossibleValuePicker {
+  /** Image URL field shown for each option and the selection. */
+  thumbnailField?: string
+  /** Larger image URL field for the preview pane (else the thumbnail). */
+  previewField?: string
+  /** Short secondary text under each option label. */
+  subtitleFields?: string[]
+  /** Fields listed in the preview pane (e.g. dimensions, size, alt text). */
+  detailFields?: string[]
+  /** Fields offered as filters. */
+  filterFields?: string[]
+  /** Fields matched by the search box (CONTAINS). */
+  searchFields?: string[]
+  /** Offered orderings; the first is the default. A primary-key sort pages by keyset. */
+  sorts?: Array<{ label: string; fieldName: string; isAscending: boolean }>
+  /** Options per page. */
+  pageSize?: number
+  /** A process the picker can run to add a record (e.g. upload an image). */
+  uploadProcessName?: string
+  /** The output value of that process holding the new record's id, which is then selected. */
+  uploadResultIdField?: string
+}
+
+/**
  * A virtual (computed, not stored) field of a table (v1 `VirtualFieldMetaData`).
  */
 export interface QVirtualFieldMetaData extends QFieldMetaData {
@@ -447,6 +547,10 @@ export interface QVirtualFieldMetaData extends QFieldMetaData {
  * list of frontend steps to render.
  */
 export interface QProcessMetaData {
+  /** Whether this process may be submitted as a durable background job. */
+  durableJobEligible?: boolean
+  /** Whether this process always executes as a durable background job. */
+  durableJobAlways?: boolean
   /** Unique backend name for this process (used in API calls). */
   name: string
   /** Human-readable label shown in navigation and page headings. */

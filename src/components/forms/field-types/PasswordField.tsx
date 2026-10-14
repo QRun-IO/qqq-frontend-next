@@ -25,6 +25,7 @@ import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
 import { transformInputValue } from '@/lib/utils/form-layout'
 
 /**
@@ -87,14 +88,14 @@ export function PasswordField({
     : registration.onChange
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
       </label>
       <div className="relative">
         <input
@@ -140,11 +141,7 @@ export function PasswordField({
           )}
         </button>
       </div>
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} />
     </div>
   )
 }

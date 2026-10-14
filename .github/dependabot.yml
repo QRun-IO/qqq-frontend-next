@@ -1,5 +1,6 @@
 # Weekly, grouped dependency updates. Minor and patch updates arrive as one PR per ecosystem;
-# major updates stay separate so each gets its own review. Security updates are enabled in the
+# major updates stay separate so each gets its own review. At most three version-update PRs per
+# ecosystem are open at once, so their real-backend acceptance runs do not starve release PRs of runners. Security updates are enabled in the
 # repository settings and are not limited by this schedule.
 version: 2
 updates:
@@ -7,7 +8,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -16,6 +17,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 3
     groups:
       github-actions:
         patterns: ['*']
@@ -24,6 +26,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 3
     groups:
       maven-minor-and-patch:
         update-types: [minor, patch]

@@ -86,6 +86,24 @@ describe('widgetColumnClasses', () => {
     expect(widgetColumnClasses(6, undefined, 'table')).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
     expect(widgetColumnClasses(6, undefined, 'statistics')).toBe('col-span-12 @min-[40rem]:col-span-6 min-w-0')
   })
+
+  it('honors a widget-declared minimum width (defaultValues.gridMinWidth) over its type profile', () => {
+    expect(widgetColumnClasses(6, { gridMinWidth: 28 }, 'html')).toBe('col-span-12 @min-[57.5rem]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, { gridMinWidth: '448px' }, 'table')).toBe('col-span-12 @min-[57.5rem]:col-span-6 min-w-0')
+    // an unusable value falls back to the type profile
+    expect(widgetColumnClasses(6, { gridMinWidth: 'wide' }, 'table')).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+  })
+
+  it('honors a widget-declared profile (defaultValues.gridProfile)', () => {
+    expect(widgetColumnClasses(6, { gridProfile: 'table' }, 'html')).toBe('col-span-12 @min-[66rem]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, { gridProfile: 'widgets' }, 'table')).toBe('col-span-12 @min-[40rem]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, { gridProfile: 'fields' })).toBe('col-span-12 @min-[30rem]:col-span-6 min-w-0')
+  })
+
+  it('lets Material per-breakpoint sizes win over the hints, and gridMinWidth over gridProfile', () => {
+    expect(widgetColumnClasses(6, { 'gridCols:sizeClass:md': 6, gridMinWidth: 28 })).toBe('col-span-12 min-[768px]:col-span-6 min-[1400px]:col-span-6 min-w-0')
+    expect(widgetColumnClasses(6, { gridMinWidth: 16, gridProfile: 'table' })).toBe('col-span-12 @min-[33.5rem]:col-span-6 min-w-0')
+  })
 })
 
 describe('plainText', () => {

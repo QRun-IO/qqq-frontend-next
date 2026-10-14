@@ -23,6 +23,7 @@
 
 import type { QFieldMetaData, QFieldType, QFilterCriteria } from '@/types'
 import { formatDateTime, fromLocalDateTimeInput } from './datetime-utils'
+import { browserTimeZone, evaluateStartOfPeriod, startOfDayMs } from './date-range-utils'
 import {
   describeExpression,
   getOperatorOptions,
@@ -30,6 +31,7 @@ import {
   isFilterVariableExpression,
   isNowExpression,
   isNowWithOffsetExpression,
+  isStartOfPeriodExpression,
   isThisOrLastPeriodExpression,
   isWeekdayFunction,
   selectedOperatorOption,
@@ -139,6 +141,11 @@ export function evaluateExpression(now: Date, expression: FilterExpression): Dat
       case 'YEARS': result.setFullYear(result.getFullYear() + amount); break
     }
     return result
+  }
+  if (isStartOfPeriodExpression(expression)) {
+    // the first moment of that day in the browser's zone (the zone the backend is told to use)
+    const zone = expression.timeZoneId || browserTimeZone()
+    return new Date(startOfDayMs(evaluateStartOfPeriod(expression, now, zone), zone))
   }
   if (isThisOrLastPeriodExpression(expression)) {
     const last = expression.operator === 'LAST' ? 1 : 0

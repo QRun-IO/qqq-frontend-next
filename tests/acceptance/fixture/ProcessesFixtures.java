@@ -50,6 +50,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryOutput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetOutput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.CompositeWidgetData;
+import com.kingsrook.qqq.backend.core.model.dashboard.widgets.QWidgetData;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.RawHTML;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.WidgetType;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.blocks.AbstractBlockWidgetData;
@@ -118,6 +119,8 @@ public final class ProcessesFixtures
    static final String TABLE_UPLOADS       = "prcUploadArchive";
    static final String WIDGET_HTML         = "prcHtmlWidget";
    static final String WIDGET_COMPOSITE    = "prcCompositeWidget";
+   static final String WIDGET_POLICY       = "prcPolicyEditorWidget";
+   static final String PROCESS_POLICY      = "prcPolicyEditor";
    static final String PROCESS_COMPONENTS  = "prcComponents";
    static final String PROCESS_WIZARD      = "prcWizard";
    static final String PROCESS_PROGRESS    = "prcProgress";
@@ -208,6 +211,14 @@ public final class ProcessesFixtures
          .withType(WidgetType.COMPOSITE.getType())
          .withCodeReference(new QCodeReference(CompositeWidgetRenderer.class)));
 
+      instance.addWidget(new QWidgetMetaData()
+         .withName(WIDGET_POLICY)
+         .withLabel("Group Policy")
+         .withType("AUTHENTIK_POLICY_EDITOR")
+         .withIsCard(false)
+         .withCodeReference(new QCodeReference(PolicyEditorWidgetRenderer.class)));
+      instance.addProcess(definePolicyEditor());
+
       instance.addProcess(defineComponents());
       instance.addProcess(defineWizard());
       instance.addProcess(defineProgress());
@@ -277,6 +288,9 @@ public final class ProcessesFixtures
          statement.execute("DROP TABLE IF EXISTS saved_bulk_load_profile");
          statement.execute("CREATE TABLE saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, label VARCHAR(250), table_name VARCHAR(250), user_id VARCHAR(250), mapping_json TEXT, is_bulk_edit BOOLEAN)");
          statement.execute("CREATE TABLE shared_saved_bulk_load_profile (id INTEGER AUTO_INCREMENT PRIMARY KEY, create_date TIMESTAMP, modify_date TIMESTAMP, saved_bulk_load_profile_id INTEGER, user_id VARCHAR(250), scope VARCHAR(30), UNIQUE(saved_bulk_load_profile_id, user_id))");
+
+         statement.execute("DROP TABLE IF EXISTS prc_policy_log");
+         statement.execute("CREATE TABLE prc_policy_log (id INT AUTO_INCREMENT PRIMARY KEY, reason VARCHAR(200), document TEXT)");
 
          for(String table : List.of("prc_lab_run", "prc_route_log", "prc_progress_log", "prc_cancel_log", "prc_decision_log", "prc_drive_log", "prc_pick_log"))
          {
@@ -846,6 +860,117 @@ public final class ProcessesFixtures
             .withComponent(component(QComponentType.VIEW_FORM))
             .withViewField(new QFieldMetaData("upperCode", type).withLabel("Upper Code"))
             .withViewField(new QFieldMetaData("lowerCode", type).withLabel("Lower Code")));
+   }
+
+
+
+   /*******************************************************************************
+    ** The qbit-authentik policy editor (AUTHENTIK_POLICY_EDITOR) on a process step:
+    ** the widget hands the generated document to the step as policyDocument.
+    *******************************************************************************/
+   private static QProcessMetaData definePolicyEditor()
+   {
+      return new QProcessMetaData().withName(PROCESS_POLICY).withLabel("Policy Editor Lab")
+         .withStep(new QFrontendStepMetaData().withName("edit").withLabel("Edit Policy")
+            .withComponent(component(QComponentType.WIDGET).withValue("widgetName", WIDGET_POLICY))
+            .withComponent(component(QComponentType.EDIT_FORM))
+            .withFormField(new QFieldMetaData("reason", QFieldType.STRING).withLabel("Reason").withIsRequired(true)))
+         .withStep(backend("store", StorePolicyStep.class))
+         .withStep(new QFrontendStepMetaData().withName("done").withLabel("Saved Policy")
+            .withComponent(component(QComponentType.VIEW_FORM))
+            .withViewField(new QFieldMetaData("policyDocument", QFieldType.TEXT).withLabel("Policy Document")));
+   }
+
+
+
+   public static class StorePolicyStep implements BackendStep
+   {
+      @Override
+      public void run(RunBackendStepInput input, RunBackendStepOutput output) throws QException
+      {
+         insert("INSERT INTO prc_policy_log (reason, document) VALUES (?, ?)", input.getValueString("reason"), input.getValueString("policyDocument"));
+         output.addValue("policyDocument", input.getValueString("policyDocument"));
+      }
+   }
+
+
+
+   /*******************************************************************************
+    ** The policy editor's payload, as qbit-authentik's PolicyEditorWidget.Data.
+    *******************************************************************************/
+   public static class PolicyEditorWidgetData extends QWidgetData
+   {
+      @Override
+      public String getType()
+      {
+         return "AUTHENTIK_POLICY_EDITOR";
+      }
+
+
+
+      public String getSpec()
+      {
+         return "qqq-iam";
+      }
+
+
+
+      public String getVersion()
+      {
+         return "1.0.0";
+      }
+
+
+
+      public String getGroupLabel()
+      {
+         return "editors";
+      }
+
+
+
+      public String getOutputFieldName()
+      {
+         return "policyDocument";
+      }
+
+
+
+      public String getDocument()
+      {
+         return "{\"PolicySpec\":\"qqq-iam\",\"PolicyVersion\":\"1.0.0\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"read\"],\"Resource\":[\"cms_page\",\"gone_table\"]}]}";
+      }
+
+
+
+      public List<Map<String, Object>> getCatalog()
+      {
+         return List.of(
+            Map.of("app", "content", "label", "Content", "resources", List.of(
+               resource("content", "Content", "APP", List.of("hasAccess")),
+               resource("cms_page", "Pages", "TABLE", List.of("read", "insert", "edit", "delete")),
+               resource("publishPage", "Publish Page (Pages action)", "PROCESS", List.of("hasAccess")))),
+            Map.of("app", "audit", "label", "Audit", "resources", List.of(
+               resource("cms_audit", "Audit Log", "TABLE", List.of("read")))));
+      }
+
+
+
+      private static Map<String, Object> resource(String name, String label, String kind, List<String> actions)
+      {
+         return Map.of("name", name, "label", label, "kind", kind, "actions", actions);
+      }
+   }
+
+
+
+   public static class PolicyEditorWidgetRenderer extends AbstractWidgetRenderer
+   {
+      @Override
+      public RenderWidgetOutput render(RenderWidgetInput input)
+      {
+         return new RenderWidgetOutput(new PolicyEditorWidgetData());
+      }
    }
 
 

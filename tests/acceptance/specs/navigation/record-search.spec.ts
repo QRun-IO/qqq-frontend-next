@@ -46,9 +46,26 @@ async function openSearchDialog(page: Page): Promise<Locator> {
   return dialog
 }
 
-/** The found-record options (the "Records" group) of a results listbox or dialog. */
+/** The found-record options of a results listbox or dialog ("Top hits" and the per-table groups). */
 function foundRecords(scope: Locator): Locator {
-  return scope.getByRole('group', { name: 'Records' }).getByRole('option')
+  return scope.locator('[data-qqq-id="search-option-record"]')
+}
+
+/** The labels of the found records, sorted (top hits are promoted, so order is checked elsewhere). */
+async function foundLabels(scope: Locator): Promise<string[]> {
+  return (await foundRecords(scope).locator('span.text-sm.font-medium').allTextContents()).sort()
+}
+
+/**
+ * Asserts a found record's table: shown on the option in "Top hits", else its group is the table.
+ *
+ * @param option - A found-record option.
+ * @param tableLabel - The table's label.
+ */
+async function expectFromTable(option: Locator, tableLabel: string) {
+  const group = option.locator('xpath=ancestor::*[@role="group"][1]')
+  if ((await group.getAttribute('data-qqq-id')) === 'search-group-top') await expect(option).toContainText(tableLabel)
+  else await expect(group).toHaveAccessibleName(new RegExp(`^${tableLabel}\\b`))
 }
 
 /** The label line of a result option (the table label is the second line). */
@@ -77,9 +94,9 @@ test.describe('record search results', () => {
     const records = foundRecords(dialog)
     await expect(records).toHaveCount(1)
     await expect(optionLabel(records.first())).toHaveText(pets[0].name!)
-    await expect(records.first()).toContainText(tables.pet.label)
+    await expectFromTable(records.first(), tables.pet.label)
 
-    await page.keyboard.press('ArrowDown')
+    // an exact label match is the top hit, preselected: Enter opens it
     await expect(records.first()).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Enter')
     await expect(dialog).toHaveCount(0)
@@ -91,7 +108,7 @@ test.describe('record search results', () => {
     for (const call of searches) {
       expect(call.status).toBe(200)
       expect([...(call.body.tableNames ?? [])].sort()).toEqual(['person', 'pet', 'savedView'])
-      expect(call.body.limitPerTable).toBe(5)
+      expect(call.body.limitPerTable).toBe(6)
     }
     expect(searches.map((call) => call.body.searchTerm)).toContain('COCO')
   })
@@ -100,7 +117,8 @@ test.describe('record search results', () => {
     void diagnostics
     const searches = watchSearches(page)
     const personLabel = (await v1MetaData(backend)).tables.person.label
-    const dropdownPeople = await expectedPeople(backend, 'sample', 5)
+    const dropdownPeople = await expectedPeople(backend, 'sample', 6)
+    const overviewPeople = await expectedPeople(backend, 'sample', 8)
     const pagePeople = await expectedPeople(backend, 'sample', 25)
     expect(dropdownPeople.length).toBeGreaterThan(1)
     expect(await backend.sql("select name from pet where lower(name) like '%sample%'")).toEqual([])
@@ -112,26 +130,37 @@ test.describe('record search results', () => {
     await header.fill('Sample')
     const results = page.getByRole('listbox', { name: 'Search results' })
     const records = foundRecords(results)
-    await expect(records.locator('span.text-sm.font-medium')).toHaveText(dropdownPeople)
-    for (const option of await records.all()) await expect(option).toContainText(personLabel)
-    // groups keep their order: pages (if any match), then found records
-    const groups = await results.getByRole('group').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')))
-    expect(groups.filter((name) => name !== 'Pages')).toEqual(['Records'])
+    // a full page of people (top hits plus the People group, which links to the rest)
+    await expect(records.first()).toBeVisible()
+    await expect(results).toHaveAttribute('aria-busy', 'false')
+    const shown = await foundLabels(results)
+    for (const label of shown) expect(dropdownPeople).toContain(label)
+    // with more than a group's worth, the People group links to the rest instead of listing them
+    if (dropdownPeople.length <= 5) expect(shown).toEqual([...dropdownPeople].sort())
+    else expect(shown.length).toBeGreaterThanOrEqual(5)
+    for (const option of await records.all()) await expectFromTable(option, personLabel)
+    await expect(results.getByRole('group', { name: new RegExp(`^${personLabel}\\b`) })).toBeVisible()
 
-    // Enter with nothing selected opens the search page, with every match up to its limit
+    // ArrowUp above the preselected top hit leaves nothing selected; Enter opens the search page
     await page.mouse.move(1, 1)
+    await expect(results.getByRole('option', { selected: true })).toHaveCount(1)
+    await page.keyboard.press('ArrowUp')
     await expect(results.getByRole('option', { selected: true })).toHaveCount(0)
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/app\/search\/?\?q=Sample$/)
+    const cardLabels = async () => (await page.locator('[data-qqq-id="search-result-link"]').allTextContents()).sort()
     for (const attempt of ['navigate', 'reload']) {
       if (attempt === 'reload') await page.reload()
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Search results for “Sample”')
-      const links = page.getByRole('region', { name: 'Records' }).getByRole('link')
-      await expect(links.locator('span.font-medium')).toHaveText(pagePeople)
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Results for “Sample”')
+      await expect(page.getByRole('region', { name: personLabel })).toBeVisible()
+      await expect.poll(cardLabels).toEqual([...overviewPeople].sort())
     }
-    await page.getByRole('region', { name: 'Records' }).getByRole('link').first().click()
-    const [first] = await backend.sql("select id from person where lower(first_name) like '%sample%' or lower(last_name) like '%sample%' or lower(email) like '%sample%' order by id")
-    await expect(page).toHaveURL(new RegExp(`/app/person/${first.id}/?$`))
+    // the table's filter lists every match up to the per-table page size, by URL
+    await page.getByRole('navigation', { name: 'Filter results' }).getByRole('link', { name: new RegExp(`^${personLabel}\\b`) }).click()
+    await expect(page).toHaveURL(/\/app\/search\/?\?q=Sample&tables=person$/)
+    await expect.poll(cardLabels).toEqual([...pagePeople].sort())
+    await page.locator('[data-qqq-id="search-result-link"]').first().click()
+    await expect(page).toHaveURL(/\/app\/person\/\d+\/?$/)
     expect(searches.filter((call) => call.status !== 200)).toEqual([])
     expect(searches.some((call) => call.body.limitPerTable === 25)).toBe(true)
   })
@@ -148,14 +177,15 @@ test.describe('record search permissions', () => {
       const pets = await backend.sql("select name from pet where lower(name) like '%ey%' order by id")
       expect(pets.length).toBeGreaterThan(0)
       const people = await expectedPeople(backend, 'ey', 5)
+      const shownPeople = await expectedPeople(backend, 'ey', 6)
       expect(people.length).toBeGreaterThan(0)
 
       await open(page, '/app')
       await waitForShell(page)
       const dialog = await openSearchDialog(page)
       await dialog.getByRole('combobox', { name: 'Search pages and records' }).fill('ey')
-      const records = foundRecords(dialog)
-      await expect(records.locator('span.text-sm.font-medium')).toHaveText(people)
+      await expect(foundRecords(dialog).first()).toBeVisible()
+      for (const label of await foundLabels(dialog)) expect(shownPeople).toContain(label)
       for (const pet of pets) await expect(dialog.getByRole('option', { name: new RegExp(pet.name!) })).toHaveCount(0)
       for (const call of searches) expect(call.body.tableNames).not.toContain('pet')
 
@@ -188,9 +218,9 @@ test.describe('record search permissions', () => {
     const records = foundRecords(dialog)
     await expect(records).toHaveCount(1)
     await expect(optionLabel(records.first())).toHaveText(view.label!)
-    await expect(records.first()).toContainText(savedViewLabel)
+    await expectFromTable(records.first(), savedViewLabel)
     expect(await apiSearch(backend, { searchTerm: 'people view', tableNames: ['savedView'] })).toEqual([
-      { tableName: 'savedView', tableLabel: savedViewLabel, recordId: view.id, recordLabel: view.label },
+      expect.objectContaining({ tableName: 'savedView', tableLabel: savedViewLabel, recordId: view.id, recordLabel: view.label }),
     ])
   })
 
