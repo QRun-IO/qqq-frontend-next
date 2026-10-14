@@ -179,6 +179,10 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  /** The server's UI API version and registered extensions.
+   * @returns The version query key tuple.
+   */
+  uiApiVersion: () => [...queryKeys.all(), 'ui-api-version'] as const,
   collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
   collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
   collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,

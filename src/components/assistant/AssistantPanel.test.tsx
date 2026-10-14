@@ -26,6 +26,7 @@ import { axe } from 'jest-axe'
 
 import type { QInstance } from '@/types'
 import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { AssistantProvider, useAssistantController } from './AssistantProvider'
 import { AssistantHeaderButton } from './AssistantHeaderButton'
 import { AssistantMount } from './AssistantMount'
@@ -124,6 +125,7 @@ function renderShell(metaData?: QInstance) {
 function mockAssistant(config: Record<string, unknown> | number = { enabled: true }) {
   persisted.messages = []
   server.use(
+    uiApiVersionHandler('assistant'),
     http.get(`${BASE}/config`, () => (typeof config === 'number' ? HttpResponse.json({ error: 'x' }, { status: config }) : HttpResponse.json(config))),
     http.get(`${BASE}/conversations`, () => HttpResponse.json({ conversations: [] })),
     http.post(`${BASE}/conversations`, () => HttpResponse.json(CONVERSATION, { status: 201 })),

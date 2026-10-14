@@ -55,9 +55,6 @@ export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordP
   })
   if (!data || !data.visible) return null
 
-  const actionHref = (processName: string, alertId: number) =>
-    `/app/${processName}?recordsParam=recordIds&recordIds=${alertId}&tableName=alerts_alert`
-
   return (
     <section
       aria-labelledby="alerts-record-panel-title"
@@ -85,12 +82,11 @@ export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordP
                 <span className="block text-xs text-muted-foreground">
                   {alert.status.charAt(0) + alert.status.slice(1).toLowerCase()} · {alert.age === 'just now' ? 'just now' : `${alert.age} old`}
                 </span>
-                {data.canManage && alert.status !== 'RESOLVED' && (
+                {alert.actions?.some((action) => action.href) && (
                   <span className="mt-1 flex flex-wrap gap-3 text-xs">
-                    {alert.status === 'OPEN' && (
-                      <Link href={actionHref('alertsAcknowledge', alert.alertId)} className="text-primary hover:underline">Acknowledge</Link>
-                    )}
-                    <Link href={actionHref('alertsSnooze', alert.alertId)} className="text-primary hover:underline">Snooze</Link>
+                    {alert.actions.map((action) => action.href ? (
+                      <Link key={action.name} href={action.href} className="text-primary hover:underline">{action.label}</Link>
+                    ) : null)}
                   </span>
                 )}
               </span>

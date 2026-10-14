@@ -52,7 +52,7 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
-import { AlertsBell, isAlertsInstalled } from '@/components/alerts/AlertsBell'
+import { AlertsBell, useAlertsInstalled } from '@/components/alerts/AlertsBell'
 import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
 
 // The favorites menu checks for collaboration and loads after hydration, so neither it nor the
@@ -109,6 +109,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // QQQ Assistant (qbit-assistant): hidden and inert unless its /assistant/config probe enables it
+  const alertsInstalled = useAlertsInstalled()
   const assistant = useAssistantController(metaData, isAuthenticated)
   const { enabled: assistantEnabled, toggle: toggleAssistant } = assistant
 
@@ -339,7 +340,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
             favoritesButton={isAuthenticated ? <LazyFavoritesMenu /> : null}
-            notificationsButton={isAuthenticated && isAlertsInstalled(metaData) ? <AlertsBell metaData={metaData} /> : null}
+            notificationsButton={isAuthenticated && alertsInstalled ? <AlertsBell metaData={metaData} /> : null}
           />
 
           {/* Page content */}
