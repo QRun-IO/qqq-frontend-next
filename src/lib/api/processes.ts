@@ -29,6 +29,7 @@
 import { AxiosError } from 'axios'
 
 import type { ProcessMetaDataAdjustment, QRecord } from '@/types'
+import type { PreferenceSecret } from '@/types/preferences'
 import apiClient, { apiUrl } from './client'
 
 /** Files to upload with a process request, keyed by the form field name (e.g. `theFile`). */
@@ -87,6 +88,8 @@ export interface ProcessCompleteResponse {
   nextStep?: string
   backStep?: string
   processMetaDataAdjustment?: ProcessMetaDataAdjustment
+  /** Synchronous init/step only; extract before storing the response. */
+  oneTimeSecrets?: PreferenceSecret[]
 }
 
 /** The request continued as an async job, to be polled via {@link processStatus}. */
@@ -243,6 +246,7 @@ export function normalizeProcessResponse(raw: unknown): ProcessResponse {
       nextStep: typeof data.nextStep === 'string' ? data.nextStep : undefined,
       backStep: typeof data.backStep === 'string' ? data.backStep : undefined,
       processMetaDataAdjustment,
+      ...(Array.isArray(data.oneTimeSecrets) ? { oneTimeSecrets: data.oneTimeSecrets as PreferenceSecret[] } : {}),
     }
   }
   const jobStatus = data.jobStatus && typeof data.jobStatus === 'object' ? data.jobStatus as Record<string, unknown> : null
