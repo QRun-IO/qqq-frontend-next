@@ -28,6 +28,12 @@ vi.mock('./client', () => ({ default: { get: vi.fn(), patch: vi.fn(), post: vi.f
 beforeEach(() => vi.clearAllMocks())
 
 describe('preferences API', () => {
+  it('skips the call on a server without the preferences feature', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ apiVersion: '1.2.0', features: [], extensions: [] })
+    expect(await getPreferences()).toEqual({ sections: [] })
+    expect(apiClient.get).toHaveBeenCalledTimes(1)
+    expect(apiClient.get).toHaveBeenCalledWith('/version')
+  })
   it('POSTs encoded action names and the exact row/input body', async () => {
     const result = { section: preferencesFixture.sections[0], secrets: [] }
     const body = { rowKey: 'row:1', values: { description: 'Script' } }
@@ -38,7 +44,8 @@ describe('preferences API', () => {
     expect(apiClient.post).toHaveBeenLastCalledWith('/preferences/tokens/actions/refresh', {})
   })
   it('loads the section index through the shared client', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue(preferencesFixture)
+    vi.mocked(apiClient.get).mockImplementation(async (path: string) =>
+      path === '/version' ? { apiVersion: '1.2.0', features: ['preferences'], extensions: [] } : preferencesFixture)
     expect(await getPreferences()).toBe(preferencesFixture)
     expect(apiClient.get).toHaveBeenCalledWith('/preferences')
   })

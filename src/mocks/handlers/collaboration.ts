@@ -114,6 +114,7 @@ export const collaborationHandlers = [
       apiVersion: '1.0.0',
       basePath: '/qqq/v1',
       supportedMajorVersions: [1],
+      features: ['preferences'],
       extensions: [{ name: 'collaboration', version: '1.0.0' }],
     })
   ),

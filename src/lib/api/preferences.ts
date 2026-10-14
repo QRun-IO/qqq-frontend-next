@@ -23,11 +23,34 @@ import type {
   PreferenceActionResponse,
 } from '@/types/preferences'
 import apiClient from './client'
+import { getUiApiVersion } from './ui-api-version'
 
-/** Loads every visible preference section.
+let supported: Promise<boolean> | null = null
+
+/** Whether the server lists the core `preferences` feature (`GET /version`), asked once per page load.
+ * Older servers have no preferences operations, so the UI must not call them there.
+ * @returns True when the server supports preferences.
+ */
+export function arePreferencesSupported(): Promise<boolean> {
+  supported ??= getUiApiVersion()
+    .then((info) => info.features.includes('preferences'))
+    .catch(() => {
+      supported = null
+      return false
+    })
+  return supported
+}
+
+/** Forgets the cached feature check (tests, and after signing in to another server). */
+export function resetPreferencesSupport(): void {
+  supported = null
+}
+
+/** Loads every visible preference section; none on a server without the preferences feature.
  * @returns Ordered sections with metadata and values.
  */
-export function getPreferences(): Promise<PreferencesResponse> {
+export async function getPreferences(): Promise<PreferencesResponse> {
+  if (!(await arePreferencesSupported())) return { sections: [] }
   return apiClient.get<PreferencesResponse>('/preferences')
 }
 
