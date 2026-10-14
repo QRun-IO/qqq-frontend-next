@@ -295,10 +295,9 @@ test.describe('SQL Workbench', () => {
     await expectWorkbenchContrast(page)
     const light = await editorColors(page)
 
-    // switch to dark mode through the user preferences, without reloading
+    // switch to dark mode from the user menu, without leaving the page
     await page.locator('[data-qqq-id="sidebar-user-button"]').click()
-    await page.locator('[data-qqq-id="menu-item-preferences"]').click()
-    await page.locator('[data-qqq-id="pref-appearance-dark"]').check()
+    await page.locator('[data-qqq-id="menu-item-dark-mode"]').click()
     await page.keyboard.press('Escape')
     await expect(page.locator('html')).toHaveClass(/dark/)
 

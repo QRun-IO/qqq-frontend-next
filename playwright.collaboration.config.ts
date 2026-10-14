@@ -10,7 +10,7 @@ const port = Number(process.env.QQQ_E2E_PORT || 3107)
 const baseURL = `http://localhost:${port}`
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'collaboration-favorites.spec.ts',
+  testMatch: ['collaboration-favorites.spec.ts', 'collaboration-record-panel.spec.ts', 'collaboration-presence-share-tasks.spec.ts'],
   outputDir: './test-results/collaboration/artifacts',
   fullyParallel: false,
   workers: 1,

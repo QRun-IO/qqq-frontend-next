@@ -135,6 +135,17 @@ describe('Quiet record form validation', () => {
     expect(screen.queryByText(/Error:/)).toBeNull()
   })
 
+  it('places an invalid contingent choice message beside B even when the parent label is longer', async () => {
+    const message = 'City [7] is not a valid choice for the selected State / province'
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: {}, errors: [{ message }] } })
+    renderForm([field('city', 'City'), field('state', 'State / province')])
+    await userEvent.type(screen.getByLabelText(/^City/), '7')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText(message)).toBeVisible()
+    expect(screen.getByLabelText(/^City/)).toHaveAccessibleDescription(message)
+    expect(screen.getByLabelText(/^State/)).not.toHaveAttribute('aria-invalid', 'true')
+  })
+
   it('keeps a message that names no field as the form\'s general error', async () => {
     const user = userEvent.setup()
     vi.spyOn(apiClient, 'post').mockResolvedValue({ record: { tableName: 'company', values: {}, errors: ['Something else went wrong'] } })

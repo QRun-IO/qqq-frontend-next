@@ -100,3 +100,10 @@ describe('validMatches', () => {
     expect(validMatches('abc', null)).toEqual([])
   })
 })
+
+
+it('passes a palette tag search to the backend without stripping its hash prefix', async () => {
+  vi.mocked(apiClient.post).mockResolvedValue({ results: [] })
+  await searchRecords('#priority:high', { tableNames: ['person'] })
+  expect(apiClient.post).toHaveBeenLastCalledWith('/search', { searchTerm: '#priority:high', tableNames: ['person'] })
+})

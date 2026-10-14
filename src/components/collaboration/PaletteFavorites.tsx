@@ -82,8 +82,9 @@ export function PaletteFavorites({ search, pathname, hash, metaData, recentRecor
     () => (available.data === true ? paletteRecents(true, recents.data?.items ?? [], recentRecords, metaData) : null),
     [available.data, recents.data, recentRecords, metaData]
   )
-  const firstValue = (visibleFavorites[0] && `favorite:${visibleFavorites[0].href}`) || (showStarAction ? 'action:favorite' : undefined)
-  const hasEntries = visibleFavorites.length > 0 || showStarAction
+  const showWork = available.data === true && (!search || commandMatches('Go to My work', search))
+  const firstValue = (visibleFavorites[0] && `favorite:${visibleFavorites[0].href}`) || (showStarAction ? 'action:favorite' : showWork ? 'page:my-work' : undefined)
+  const hasEntries = visibleFavorites.length > 0 || showStarAction || showWork
 
   useEffect(() => {
     onState({ hasEntries, firstValue, history })
@@ -113,6 +114,11 @@ export function PaletteFavorites({ search, pathname, hash, metaData, recentRecor
             <Star className="h-4 w-4" aria-hidden="true" />
             <span className="font-medium">{starAction}</span>
           </Command.Item>
+        </Command.Group>
+      )}
+      {showWork && (
+        <Command.Group heading={<GroupHeading>Work</GroupHeading>} data-qqq-id="command-group-work">
+          <Command.Item value="page:my-work" onSelect={() => onSelect('/app/my-work')} className={ITEM_CLASS} data-qqq-id="command-my-work">Go to My work</Command.Item>
         </Command.Group>
       )}
     </>

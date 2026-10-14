@@ -65,6 +65,7 @@ export interface QFilterCriteria {
     | string
     | number
     | boolean
+    | { type: 'CurrentUser' }
     | FilterVariableExpression
     | NowExpression
     | NowWithOffsetExpression

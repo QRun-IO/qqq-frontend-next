@@ -91,6 +91,13 @@ describe('QqqChartWidget', () => {
     expect(within(container.querySelector('[data-qqq-id="chart-data-SampleBarChartWidget"]') as HTMLElement).getByRole('columnheader', { name: 'One' })).toBeInTheDocument()
   })
 
+  it('hides the data table inside an sr-only wrapper, so the table cannot widen the page', () => {
+    const { container } = draw('bar', sampleBar, 'SampleBarChartWidget')
+    const table = container.querySelector('[data-qqq-id="chart-data-SampleBarChartWidget"]') as HTMLElement
+    expect(table).not.toHaveClass('sr-only')
+    expect(table.parentElement).toHaveClass('sr-only')
+  })
+
   it('draws an untyped chart output (PersonsByCreateDateBarChart) including a zero month', () => {
     const { container } = draw('bar', {
       title: 'Persons created per Month',

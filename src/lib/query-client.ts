@@ -179,6 +179,26 @@ export const queryClient = new QueryClient({
  * - `['qqq', 'esb', ...]` — ESB publications, triggers and counters
  */
 export const queryKeys = {
+  /** All current-user preference queries.
+   * @returns The preferences namespace.
+   */
+  preferences: () => [...queryKeys.all(), 'preferences'] as const,
+  /** Visible preference sections.
+   * @returns The section index key.
+   */
+  preferencesIndex: () => [...queryKeys.preferences(), 'index'] as const,
+  /** One preference section.
+   * @param name - Section name.
+   * @returns The section key.
+   */
+  preferenceSection: (name: string) => [...queryKeys.preferences(), 'section', name] as const,
+  collaborationRecord: (table: string, pk: string) => ['qqq', 'collaboration', 'record', table, pk] as const,
+  collaborationResource: (table: string, pk: string, resource: string) => [...queryKeys.collaborationRecord(table, pk), resource] as const,
+  collaborationVocabularyRoot: (table: string) => ['qqq', 'collaboration', 'tags', table] as const,
+  collaborationVocabulary: (table: string, q: string) => [...queryKeys.collaborationVocabularyRoot(table), q] as const,
+  collaborationMentions: (table: string, pk: string, q: string) => [...queryKeys.collaborationRecord(table, pk), 'mentions', q] as const,
+  collaborationHistory: (id: number) => ['qqq', 'collaboration', 'history', id] as const,
+
   collaborationAvailable: () => ['qqq', 'collaboration', 'available'] as const,
   collaborationFavorites: () => ['qqq', 'collaboration', 'favorites'] as const,
   collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
@@ -446,6 +466,11 @@ export const queryKeys = {
    * @returns The developer panels query key tuple.
    */
   recordDeveloperPanels: (tableName: string, primaryKey: string | number) => [...queryKeys.all(), 'developerPanels', tableName, String(primaryKey)] as const,
+
+  /** Personal task and assignment summary.
+   * @returns Work key.
+   */
+  collaborationMyWork: () => ['qqq', 'collaboration', 'my-work'] as const,
 
   // Alerts
   /**

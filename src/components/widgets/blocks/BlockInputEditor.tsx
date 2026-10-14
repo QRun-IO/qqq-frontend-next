@@ -43,6 +43,8 @@ export function needsBlockInputEditor(field: Partial<QFieldMetaData>): boolean {
 /** Shared editor configuration; the host owns its form and submission. */
 interface BlockInputEditorProps {
   field: QFieldMetaData
+  /** Complete metadata from the hosting process screen. */
+  fieldsByName?: Record<string, QFieldMetaData>
   widgetName: string
   form: UseFormReturn<Record<string, unknown>>
   disabled?: boolean
@@ -58,7 +60,7 @@ interface BlockInputEditorProps {
  * @param props - Field metadata, hosting form and Enter behavior.
  * @returns The field editor.
  */
-export function BlockInputEditor({ field, widgetName, form, disabled = false, autoFocus, placeholder, contextValues, possibleValueContext, onEnter }: BlockInputEditorProps) {
+export function BlockInputEditor({ fieldsByName, field, widgetName, form, disabled = false, autoFocus, placeholder, contextValues, possibleValueContext, onEnter }: BlockInputEditorProps) {
   const root = useRef<HTMLDivElement>(null)
   const readOnly = disabled || field.isEditable === false
   useEffect(() => {
@@ -71,7 +73,7 @@ export function BlockInputEditor({ field, widgetName, form, disabled = false, au
     event.preventDefault()
     onEnter(event.target.value.trim())
   }}>
-    <DynamicFormField field={{ ...field, label: field.label || field.name, isEditable: field.isEditable !== false }}
+    <DynamicFormField formMethods={form} fieldsByName={fieldsByName} field={{ ...field, label: field.label || field.name, isEditable: field.isEditable !== false }}
       idPrefix={`block-${widgetName}`} register={form.register} control={form.control} errors={form.formState.errors}
       contextValues={contextValues} disabled={readOnly} possibleValueContext={possibleValueContext} placeholder={placeholder} />
   </div>

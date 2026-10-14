@@ -24,11 +24,11 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 
-import { getAlertsRecordPanel, watchAlertsRecord } from '@/lib/api/alerts'
+import { getAlertsRecordPanel } from '@/lib/api/alerts'
 import { queryKeys } from '@/lib/query-client'
 import { SeverityDot } from './SeverityDot'
 
@@ -47,8 +47,6 @@ export interface AlertsRecordPanelProps {
  * @returns The panel, or null when there is nothing to show.
  */
 export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordPanelProps) {
-  const queryClient = useQueryClient()
-  const [watchError, setWatchError] = useState<string | null>(null)
   const { data } = useQuery({
     queryKey: queryKeys.alertsRecordPanel(tableName, recordId),
     queryFn: () => getAlertsRecordPanel(tableName, recordId),
@@ -56,9 +54,6 @@ export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordP
     staleTime: 30_000,
   })
   if (!data || !data.visible) return null
-
-  const actionHref = (processName: string, alertId: number) =>
-    `/app/${processName}?recordsParam=recordIds&recordIds=${alertId}&tableName=alerts_alert`
 
   return (
     <section
@@ -70,28 +65,12 @@ export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordP
         <h2 id="alerts-record-panel-title" className="text-sm font-semibold text-foreground">
           {data.openCount > 0 ? `Open alerts (${data.openCount})` : 'Alerts'}
         </h2>
-        {data.watching ? (
+        {/* Watching is the Alerts qbit's deprecated record subscription (read-only since alerts 1.0.0);
+            following a record belongs to the collaboration panel. */}
+        {data.watching && (
           <span className="text-xs text-muted-foreground" data-qqq-id="alerts-record-watching">You watch this record&apos;s alerts</span>
-        ) : (
-          <button
-            type="button"
-            onClick={async () => {
-              setWatchError(null)
-              try {
-                await watchAlertsRecord(tableName, recordId)
-                await queryClient.invalidateQueries({ queryKey: queryKeys.alertsRecordPanel(tableName, recordId) })
-              } catch {
-                setWatchError('Could not subscribe. Try again.')
-              }
-            }}
-            className="rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            data-qqq-id="alerts-record-watch"
-          >
-            Watch alerts for this record
-          </button>
         )}
       </div>
-      {watchError && <p role="alert" className="mt-2 text-xs text-destructive">{watchError}</p>}
 
       {data.open.length > 0 && (
         <ul className="mt-3 divide-y divide-border">
@@ -103,12 +82,11 @@ export default function AlertsRecordPanel({ tableName, recordId }: AlertsRecordP
                 <span className="block text-xs text-muted-foreground">
                   {alert.status.charAt(0) + alert.status.slice(1).toLowerCase()} · {alert.age === 'just now' ? 'just now' : `${alert.age} old`}
                 </span>
-                {data.canManage && alert.status !== 'RESOLVED' && (
+                {alert.actions?.some((action) => action.href) && (
                   <span className="mt-1 flex flex-wrap gap-3 text-xs">
-                    {alert.status === 'OPEN' && (
-                      <Link href={actionHref('alertsAcknowledge', alert.alertId)} className="text-primary hover:underline">Acknowledge</Link>
-                    )}
-                    <Link href={actionHref('alertsSnooze', alert.alertId)} className="text-primary hover:underline">Snooze</Link>
+                    {alert.actions.map((action) => action.href ? (
+                      <Link key={action.name} href={action.href} className="text-primary hover:underline">{action.label}</Link>
+                    ) : null)}
                   </span>
                 )}
               </span>

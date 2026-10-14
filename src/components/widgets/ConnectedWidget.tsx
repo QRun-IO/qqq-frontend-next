@@ -160,7 +160,7 @@ export function ConnectedWidget({
     return merged
   }, [params, selections])
 
-  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } = useWidget(widgetMetaData.name, requestParams, { enabled: permitted, initialData })
+  const { data, isLoading, isFetching, isError, error, refetch, dataUpdatedAt } = useWidget(widgetMetaData.name, requestParams, { enabled: permitted, initialData, refreshSeconds: widgetMetaData.defaultValues?.refreshSeconds })
   const payload = data as (WidgetData & DropdownPayload) | undefined
 
   // Apply backend default selections, and drop persisted choices that are no longer offered.
@@ -309,15 +309,21 @@ interface SeededWidgetProps {
 export function SeededWidget({ widgetMetaData, data, params, recordContext, className }: SeededWidgetProps) {
   const [reloaded, setReloaded] = useState(false)
   const [exportMessage, setExportMessage] = useState<string | null>(null)
-  const query = useWidget(widgetMetaData.name, params, { enabled: reloaded && canViewWidget(widgetMetaData) })
-  const payload = (reloaded && query.data ? query.data : data) as (WidgetData & DropdownPayload) | undefined
+  const refreshSeconds = widgetMetaData.defaultValues?.refreshSeconds
+  const autoRefresh = typeof refreshSeconds === 'number' && Number.isFinite(refreshSeconds)
+  const query = useWidget(widgetMetaData.name, params, {
+    enabled: (reloaded || autoRefresh) && canViewWidget(widgetMetaData),
+    initialData: autoRefresh ? data as WidgetData : undefined,
+    refreshSeconds,
+  })
+  const payload = ((reloaded || autoRefresh) && query.data ? query.data : data) as (WidgetData & DropdownPayload) | undefined
   const childExportInHeader = (widgetMetaData.type ?? payload?.type) === 'childRecordList'
   const { refetch } = query
 
   const handleReload = useCallback(() => {
-    if (reloaded) void refetch()
+    if (reloaded || autoRefresh) void refetch()
     else setReloaded(true)
-  }, [reloaded, refetch])
+  }, [reloaded, autoRefresh, refetch])
 
   const handleExport = useCallback(() => {
     const csv = exportCsv(payload)
