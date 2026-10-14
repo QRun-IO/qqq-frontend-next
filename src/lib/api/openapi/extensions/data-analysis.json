@@ -804,6 +804,272 @@
         },
         "type": "object"
       },
+      "DataAnalysisPivotCellV1": {
+        "properties": {
+          "rowIndex": {
+            "description": "Zero-based index in rowHeaders.",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "description": "Zero-based index in columnHeaders.",
+            "type": "integer"
+          },
+          "values": {
+            "description": "Metrics in requested measure order; suppressed metrics have no value or drill.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisPivotDimensionV1": {
+        "properties": {
+          "field": {
+            "description": "FULL field name, optionally joinTable.field through an exposed join.",
+            "type": "string"
+          },
+          "dateBucket": {
+            "description": "Optional calendar or cyclic bucket in the session timezone.",
+            "enum": [
+              "YEAR",
+              "QUARTER",
+              "MONTH",
+              "WEEK",
+              "DAY",
+              "HOUR",
+              "DAY_OF_WEEK",
+              "HOUR_OF_DAY"
+            ],
+            "type": "string"
+          },
+          "numericBins": {
+            "$ref": "#/components/schemas/DataAnalysisPivotNumericBinsV1",
+            "description": "Optional equal-width numeric bins; mutually exclusive with dateBucket."
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisPivotHeaderV1": {
+        "properties": {
+          "value": {
+            "description": "Typed group key; null for a blank group or Other.",
+            "nullable": true
+          },
+          "label": {
+            "description": "Display label, including Other (k groups).",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisPivotMeasureInfoV1": {
+        "properties": {
+          "key": {
+            "description": "Stable measure key by request position.",
+            "type": "string"
+          },
+          "label": {
+            "description": "Display label.",
+            "type": "string"
+          },
+          "valueType": {
+            "description": "Semantic metric type.",
+            "enum": [
+              "COUNT",
+              "DECIMAL",
+              "PERCENT",
+              "DATE",
+              "DATE_TIME",
+              "DURATION",
+              "TEXT"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisPivotMeasureV1": {
+        "properties": {
+          "operator": {
+            "description": "Aggregate operator. COUNT counts records, including null values.",
+            "enum": [
+              "COUNT",
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "COUNT_DISTINCT",
+              "PERCENTILE"
+            ],
+            "type": "string"
+          },
+          "field": {
+            "description": "FULL field to aggregate; optional for COUNT.",
+            "type": "string"
+          },
+          "percentile": {
+            "description": "PERCENTILE only: percentile_cont fraction from 0 to 1.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "operator"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisPivotNumericBinsV1": {
+        "properties": {
+          "count": {
+            "description": "Number of bins, 1–200; defaults to 20.",
+            "type": "integer"
+          },
+          "min": {
+            "description": "Optional explicit lower bound; otherwise a nice enclosing edge.",
+            "type": "number"
+          },
+          "max": {
+            "description": "Optional explicit upper bound; final interior bin includes this value.",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisPivotRequestV1": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "User query filter, passed through for core enforcement."
+          },
+          "rows": {
+            "description": "One to three row dimensions.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotDimensionV1"
+            },
+            "type": "array"
+          },
+          "columns": {
+            "description": "Zero to two column dimensions; defaults to empty.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotDimensionV1"
+            },
+            "type": "array"
+          },
+          "values": {
+            "description": "One to six measures.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotMeasureV1"
+            },
+            "type": "array"
+          },
+          "showTotals": {
+            "description": "Include row, column and grand totals; defaults to true.",
+            "type": "boolean"
+          },
+          "limitGroups": {
+            "description": "Kept groups per dimension; default 50, maximum 200.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "values"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisPivotV1": {
+        "properties": {
+          "rowHeaders": {
+            "description": "Row header tuples in cell-index order.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/DataAnalysisPivotHeaderV1"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "columnHeaders": {
+            "description": "Column header tuples; an empty tuple represents no column dimensions.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/DataAnalysisPivotHeaderV1"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "measures": {
+            "description": "Measure metadata in request order.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotMeasureInfoV1"
+            },
+            "type": "array"
+          },
+          "cells": {
+            "description": "Sparse cells; absent combinations are not materialized.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotCellV1"
+            },
+            "type": "array"
+          },
+          "rowTotals": {
+            "description": "Metric tuples aligned with rowHeaders; empty when totals disabled.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/DataAnalysisMetricV1"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "columnTotals": {
+            "description": "Metric tuples aligned with columnHeaders; empty when totals disabled.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/DataAnalysisMetricV1"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "grandTotals": {
+            "description": "Grand-total metrics; empty when totals disabled.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "type": "array"
+          },
+          "truncatedRows": {
+            "description": "Row groups were merged into Other.",
+            "type": "boolean"
+          },
+          "truncatedColumns": {
+            "description": "Column groups were merged into Other.",
+            "type": "boolean"
+          },
+          "estimate": {
+            "description": "True when bounded streamed fallback produced a partial result.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Privacy, partial-result and joined-drill limitations.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "asOf": {
+            "description": "UTC timestamp of computation.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "DataAnalysisPointV1": {
         "nullable": true,
         "properties": {
@@ -1241,9 +1507,9 @@
     "contact": {
       "email": "contact@kingsrook.com"
     },
-    "description": "Profiles, distinct values, duplicate groups and exact analysis runs as the signed-in user.",
+    "description": "Profiles, pivots, distinct values, duplicate groups and exact analysis runs as the signed-in user.",
     "title": "QQQ Middleware API extension: data-analysis",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -1373,6 +1639,52 @@
           }
         ],
         "summary": "List distinct column values"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/pivot": {
+      "post": {
+        "description": "Group records by up to 3 row and 2 column fields (with date or numeric buckets) and compute counts, sums, averages, min/max, distinct counts or percentiles per cell; every cell has a drill-through filter.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisPivotRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisPivotV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Explore a pivot table"
       }
     },
     "/qqq/v1/qbit/data-analysis/tables/{table}/table-profile": {

@@ -29,12 +29,26 @@ import type {
   DataAnalysisStartRunRequestV1,
   DataAnalysisRunStartedV1,
   DataAnalysisRunStatusV1,
+  DataAnalysisPivotRequestV1,
+  DataAnalysisPivotV1,
 } from '@/types/data-analysis'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
 import { getUiApiVersion } from './ui-api-version'
 
 const ROOT = '/qbit/data-analysis'
+
+/** Computes a pivot for the current filtered population.
+ * @param table - Metadata table name.
+ * @param request - Dimensions, measures and query filter.
+ * @returns Sparse pivot cells and totals.
+ */
+export async function pivot(
+  table: string,
+  request: DataAnalysisPivotRequestV1
+): Promise<DataAnalysisPivotV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/pivot`, request)
+}
 
 /** Detects availability without changing the legacy query UI.
  * @param table - Metadata table name.
@@ -44,7 +58,9 @@ export async function getCapabilities(table: string): Promise<DataAnalysisCapabi
   // ask only servers that register the extension, so apps without the qbit see no failed request
   if (!(await isDataAnalysisInstalled())) return null
   try {
-    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(`${ROOT}/tables/${encodeURIComponent(table)}/capabilities`)
+    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(
+      `${ROOT}/tables/${encodeURIComponent(table)}/capabilities`
+    )
     return data && typeof data.canAnalyze === 'boolean' ? data : null
   } catch (error) {
     if ([403, 404].includes(getErrorStatusCode(error) ?? 0)) return null

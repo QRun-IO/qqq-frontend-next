@@ -34,6 +34,8 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
 import type { DataAnalysisDrillV1 } from '@/types/data-analysis'
 import { getCapabilities } from '@/lib/api/data-analysis'
+import { encodePivot, type PivotLayout } from '@/lib/utils/data-analysis-pivot'
+import { deserializeFilter } from '@/lib/utils/filter-utils'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
 import { useRecordQuery, hasCapability } from '@/lib/hooks/use-record-query'
 import type { PageSize } from '@/lib/hooks/use-record-query'
@@ -75,8 +77,9 @@ import { ColumnStatsDialog, COLUMN_STATS_PROCESS } from './ColumnStatsDialog'
 import { QuickSavedViews } from './QuickSavedViews'
 
 const ColumnProfilePanel = dynamic(() => import('@/components/data-analysis/ColumnProfilePanel'), { ssr: false })
-import { AnalysisDrillContext } from '@/components/data-analysis/ProfileParts'
+import { AnalysisDrillContext, ProfileError, ProfileLoading, controlClass } from '@/components/data-analysis/ProfileParts'
 const TableProfilePanel = dynamic(() => import('@/components/data-analysis/TableProfilePanel'), { ssr: false })
+const PivotExplorer = dynamic(() => import('@/components/data-analysis/PivotExplorer'), { ssr: false })
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
 type ViewMode = 'grid' | 'card'
@@ -142,7 +145,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const savedViewQuery = useSavedView(tableName, savedViewId, savedViews.isAvailable)
   const currentView: SavedView | null = savedViewId !== undefined ? savedViewQuery.data ?? null : null
   const [viewWarnings, setViewWarnings] = useState<string[]>([])
-  const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize'].some((key) => searchParams.has(key)))
+  const hadUrlStateRef = useRef(['filter', 'q', 'page', 'pageSize', 'view'].some((key) => searchParams.has(key)))
   const appliedViewRef = useRef<string | null>(null)
   const viewLoading = savedViewId !== undefined && savedViews.isAvailable && savedViewQuery.isLoading
 
@@ -309,11 +312,34 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const openAnalysis = (field?: { name: string; label: string }) => setAnalysis({ field, filter: rq.filter.baseFilter, returnFocus: field ? document.querySelector<HTMLElement>(`[data-qqq-id="grid-column-menu-${CSS.escape(field.name)}"]`) : document.activeElement instanceof HTMLElement ? document.activeElement : null })
   const closeAnalysis = () => { const target = analysis?.returnFocus; setAnalysis(null); requestAnimationFrame(() => target?.focus()) }
   const canAnalyze = capabilities.data?.canAnalyze === true
+  const pivotOpen = searchParams.get('view') === 'pivot'
+  const { setUserFilter: restorePivotFilter, setQuickSearch: restorePivotSearch } = rq.filter
+  useEffect(() => {
+    const restore = () => {
+      const params = new URLSearchParams(window.location.search)
+      if (!pivotOpen && params.get('view') !== 'pivot') return
+      restorePivotFilter(deserializeFilter(params.get('filter') ?? '', rq.viewState.pageSize))
+      restorePivotSearch(params.get('q') ?? '')
+      setLocalSearchTerm(params.get('q') ?? '')
+    }
+    window.addEventListener('popstate', restore)
+    return () => window.removeEventListener('popstate', restore)
+  }, [pivotOpen, restorePivotFilter, restorePivotSearch, rq.viewState.pageSize])
+  const updatePivotUrl = (open: boolean, request?: PivotLayout) => {
+    const url = new URL(window.location.href)
+    if (open) url.searchParams.set('view', 'pivot')
+    else { url.searchParams.delete('view'); url.searchParams.delete('pivot') }
+    if (request) url.searchParams.set('pivot', encodePivot(request))
+    if (open && !pivotOpen) window.history.pushState(null, '', url)
+    else window.history.replaceState(null, '', url)
+  }
   // A drill on this table applies its filter here: this page reads the URL only on mount.
   const applyAnalysisDrill = (drill: DataAnalysisDrillV1) => {
     if (!drill || drill.tableName !== tableName || !drill.filter) return false
     const filter = normalizeFilter(drill.filter, rq.viewState.pageSize)
     rq.filter.setUserFilter({ ...filter, orderBys: [] })
+    rq.filter.setQuickSearch('')
+    setLocalSearchTerm('')
     return true
   }
   const analysisUnavailableReason = tableMetaData.usesVariants ? 'Analysis is not available for table variants in this API version.' : undefined
@@ -562,6 +588,19 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     </>
   )
 
+  if (pivotOpen) return (
+    <div className="w-full min-w-0 max-w-full">
+      {capabilities.isPending ? <ProfileLoading /> : !canAnalyze ? <>
+        <button className={controlClass} onClick={() => updatePivotUrl(false)} data-qqq-id="pivot-back">Back to records</button>
+        <ProfileError error={capabilities.error ?? new Error("You don't have permission to analyze this table")} />
+      </> : <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
+        <PivotExplorer key={`${tableName}:${searchParams.get('pivot') ?? ''}`} tableName={tableName} tableLabel={tableMetaData.label}
+          fields={capabilities.data?.fields ?? []} filter={rq.filter.baseFilter} encoded={searchParams.get('pivot')}
+          onRun={request => updatePivotUrl(true, request)} onBack={() => updatePivotUrl(false)} unavailableReason={analysisUnavailableReason} />
+      </AnalysisDrillContext.Provider>}
+    </div>
+  )
+
   return (
     <FilterSettingsProvider value={filterSettings}>
     <div className="flex flex-col space-y-6" data-qqq-id={`record-query-${tableName}`} data-view-mode={viewModeReady ? viewMode : undefined}>
@@ -613,6 +652,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       )}
 
       <RecordQueryToolbar
+        onPivot={canAnalyze ? () => updatePivotUrl(true) : undefined}
         onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
         tableName={tableName}
         tableMetaData={tableMetaData}

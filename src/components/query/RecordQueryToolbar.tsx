@@ -187,6 +187,8 @@ function ViewModeToggle({
 export interface RecordQueryToolbarProps {
   /** Opens table analysis when capabilities permit it. */
   onAnalyzeTable?: () => void
+  /** Opens the pivot explorer under the same analysis capability. */
+  onPivot?: () => void
   /** The backend table name used in API calls and URL routing. */
   tableName: string
   /** Full table metadata from the QQQ backend. */
@@ -325,6 +327,7 @@ export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, 
  */
 export function RecordQueryToolbar({
   onAnalyzeTable,
+  onPivot,
   tableName,
   tableMetaData,
   processes,
@@ -453,6 +456,7 @@ export function RecordQueryToolbar({
       )}
 
       {onAnalyzeTable && <button type="button" onClick={onAnalyzeTable} data-qqq-id="query-analyze-table" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">Analyze table</button>}
+      {onPivot && <button type="button" onClick={onPivot} data-qqq-id="query-pivot" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">Pivot</button>}
       {/* Quick search */}
       <div className="relative flex-1 min-w-[200px] max-w-md">
         <label htmlFor="quick-search" className="sr-only">
