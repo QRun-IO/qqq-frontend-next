@@ -28,11 +28,11 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Eye, MoreHorizontal, PanelLeft, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, Eye, MoreHorizontal, PanelLeft, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantAttachment, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import type { AssistantAttachment, AssistantConcurrency, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
 import { uploadFile } from '@/lib/api/uploads'
 import {
   deleteAssistantConversation,
@@ -47,6 +47,7 @@ import { assistantPageInfo, type AssistantPageInfo } from '@/lib/utils/assistant
 import { getRecentRecords } from '@/lib/utils/recent-records'
 import { cn } from '@/lib/utils/cn'
 import { ASSISTANT_DOCKED_MEDIA_QUERY, assistantKeys, useAssistant, type AssistantController } from './assistant-context'
+import { AssistantElapsed } from './AssistantRunStatus'
 import { AssistantComposer } from './AssistantComposer'
 import { AssistantMessageView } from './AssistantMessageView'
 import { ConversationRail, conversationTitle } from './ConversationRail'
@@ -145,6 +146,16 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const queryClient = useQueryClient()
   const { activeConversationId, setActiveConversationId, pendingRequest, consumeRequest, metaData } = assistant
   const pathname = usePathname()
+  // STAND-IN(core=QRun-IO/qbit-assistant#21, removeBy=RC.9): move to core Preferences
+  const [concurrency, setConcurrency] = useState<AssistantConcurrency>(() => {
+    try { return localStorage.getItem('qqq.assistant.concurrency') === 'concurrent' ? 'concurrent' : 'supersede' }
+    catch { return 'supersede' }
+  })
+  const changeConcurrency = (value: string) => {
+    const next = value === 'concurrent' ? 'concurrent' : 'supersede'
+    setConcurrency(next)
+    try { localStorage.setItem('qqq.assistant.concurrency', next) } catch { /* Storage is optional. */ }
+  }
   const [railOpen, setRailOpen] = useState(false)
   const [railStatus, setRailStatus] = useState<AssistantConversationStatus>('ACTIVE')
   const [renaming, setRenaming] = useState(false)
@@ -187,7 +198,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     queryFn: () => listAssistantConversations(railStatus),
     staleTime: 1000 * 60,
   })
-  const run = activeConversationId !== null ? engine.runs[activeConversationId] : undefined
+  const run = activeConversationId !== null ? engine.runs[activeConversationId]?.[0] : undefined
   const detailQuery = useQuery({
     queryKey: assistantKeys.conversation(activeConversationId ?? 0),
     queryFn: () => getAssistantConversation(activeConversationId as number),
@@ -210,9 +221,9 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
 
   // A reply still streaming on the server (another tab, a reload): follow it
   useEffect(() => {
-    if (activeConversationId === null || run) return
-    const streaming = messages.find((message) => message.role === 'ASSISTANT' && message.status === 'STREAMING' && message.id > 0 && message.turnId !== null)
-    if (streaming) engine.attach(activeConversationId, streaming)
+    if (activeConversationId === null) return
+    const streaming = messages.filter((message) => message.role === 'ASSISTANT' && message.status === 'STREAMING' && message.id > 0 && message.turnId !== null)
+    streaming.forEach((message) => engine.attach(activeConversationId, message))
   }, [activeConversationId, messages, run, engine])
 
   // Hand-overs: the command palette sends at once, the deep link only pre-fills
@@ -226,8 +237,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
       return
     }
     const context = pendingRequest.context === undefined ? readPageInfo(metaData)?.context ?? null : pendingRequest.context
-    void engine.send(pendingRequest.prompt, null, context)
-  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine])
+    void engine.send(pendingRequest.prompt, null, context, concurrency)
+  }, [pendingRequest, consumeRequest, setActiveConversationId, metaData, engine, concurrency])
 
   // Keep the newest message in view while the user has not scrolled up
   useLayoutEffect(() => {
@@ -250,7 +261,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
     const pageContext = info && dismissedRoute !== info.context.route ? info.context : null
     const context = attachments.length ? { ...(pageContext ?? {}), attachments } : pageContext
     stickToBottom.current = true
-    void engine.send(text, activeConversationId, context)
+    void engine.send(text, activeConversationId, context, concurrency)
   }
 
   /**
@@ -290,6 +301,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const title = activeConversationId === null ? assistantName : conversationTitle(conversation)
   const iconButton = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-11'
   const menuItem = 'flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-accent pointer-coarse:min-h-11'
+  const textButton = 'inline-flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-xs font-medium text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11'
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -364,6 +376,12 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content align="end" sideOffset={4} className="z-[2100] min-w-44 rounded-lg border border-border bg-popover p-1 shadow-lg" data-qqq-id="assistant-conversation-menu-content">
+                <DropdownMenu.Label className="px-2 py-1 text-xs text-muted-foreground">When I ask during an answer</DropdownMenu.Label>
+                <DropdownMenu.RadioGroup value={concurrency} onValueChange={changeConcurrency}>
+                  <DropdownMenu.RadioItem value="supersede" className={menuItem} data-qqq-id="assistant-concurrency-supersede"><span className="flex h-4 w-4 items-center justify-center"><DropdownMenu.ItemIndicator><Check className="h-4 w-4" aria-hidden="true" /></DropdownMenu.ItemIndicator></span>Replace it</DropdownMenu.RadioItem>
+                  <DropdownMenu.RadioItem value="concurrent" className={menuItem} data-qqq-id="assistant-concurrency-concurrent"><span className="flex h-4 w-4 items-center justify-center"><DropdownMenu.ItemIndicator><Check className="h-4 w-4" aria-hidden="true" /></DropdownMenu.ItemIndicator></span>Answer both</DropdownMenu.RadioItem>
+                </DropdownMenu.RadioGroup>
+                <DropdownMenu.Separator className="my-1 h-px bg-border" />
                 <DropdownMenu.Item className={menuItem} onSelect={() => setRenaming(true)} data-qqq-id="assistant-rename">
                   <Pencil className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Rename
                 </DropdownMenu.Item>
@@ -404,6 +422,17 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
         </button>
       </div>
 
+      {Object.entries(engine.runs).filter(([id]) => (Number(id) !== activeConversationId || !showMessages)).map(([id, runs]) => {
+        const other = queryClient.getQueryData<AssistantConversationDetail>(assistantKeys.conversation(Number(id)))?.conversation
+        return (
+          <div key={id} className="flex items-center gap-2 border-b border-border px-3 py-2 text-xs" data-qqq-id="assistant-background-run">
+            <span className="min-w-0 flex-1">Answering in {conversationTitle(other)} - <AssistantElapsed startedAt={runs[0].startedAt} /></span>
+            <button type="button" className={textButton} onClick={() => { setActiveConversationId(Number(id)); setRailOpen(false) }} data-qqq-id="assistant-background-open">Open</button>
+            <button type="button" className={textButton} onClick={() => engine.cancel(Number(id))} data-qqq-id="assistant-background-stop">Stop</button>
+          </div>
+        )
+      })}
+      {engine.lostConversations.length > 0 && <button type="button" className="px-3 py-2 text-left text-xs text-primary hover:underline" onClick={() => void engine.reconcile()} data-qqq-id="assistant-retry-check">Retry check</button>}
       <div className="flex min-h-0 flex-1">
         {railOpen && (
           <div id={listId} className={cn('flex min-h-0', wide ? 'w-52 shrink-0 border-r border-border' : 'min-w-0 flex-1')}>
@@ -448,7 +477,6 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
                           <button
                             type="button"
                             onClick={() => send(prompt)}
-                            disabled={Boolean(run)}
                             className="max-w-full rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                           >
                             {prompt}
@@ -463,7 +491,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               {activeConversationId !== null && detailQuery.isError && (
                 <p className="text-xs text-destructive" role="alert">{getErrorMessage(detailQuery.error, 'Could not load the conversation.')}</p>
               )}
-              {messages.map((message) => <AssistantMessageView key={message.id} message={message} onSend={send} sending={Boolean(run)} />)}
+              {messages.map((message) => <AssistantMessageView key={message.id} message={message} onSend={send} run={activeConversationId === null ? undefined : engine.runs[activeConversationId]?.find((entry) => entry.assistantMessageId === message.id)} />)}
             </div>
             <AssistantComposer
               ref={composerRef}
@@ -471,8 +499,9 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               contextDismissed={contextDismissed}
               onDismissContext={() => setDismissedRoute(pageInfo?.context.route ?? null)}
               onRefreshContext={() => setPageInfo(readPageInfo(metaData))}
+              concurrency={concurrency}
               streaming={Boolean(run)}
-              stopping={run?.status === 'cancelling'}
+              stopping={Boolean(run) && engine.runs[activeConversationId as number]?.every((entry) => entry.status === 'cancelling')}
               onSend={send}
               onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
               prefill={prefill}
@@ -626,6 +655,9 @@ export default function AssistantPanel() {
   const assistant = useAssistant()
   const docked = useMediaQuery(ASSISTANT_DOCKED_MEDIA_QUERY)
   const engine = useAssistantEngine()
+  const reconcile = engine.reconcile
+  const open = assistant?.open
+  useEffect(() => { if (open) void reconcile() }, [open, reconcile])
   if (!assistant) return null
   if (docked) return assistant.open ? <DockedPanel assistant={assistant} engine={engine} /> : null
   return <SheetPanel assistant={assistant} engine={engine} />

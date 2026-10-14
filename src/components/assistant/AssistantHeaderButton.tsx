@@ -22,9 +22,10 @@
 'use client'
 
 import React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
-import { useAssistant } from './assistant-context'
+import { assistantKeys, useAssistant } from './assistant-context'
 
 /**
  * Toggles the assistant panel; the badge counts unread replies.
@@ -33,6 +34,7 @@ import { useAssistant } from './assistant-context'
  */
 export function AssistantHeaderButton() {
   const assistant = useAssistant()
+  const { data: busy = false } = useQuery({ queryKey: assistantKeys.busy(), queryFn: () => false, enabled: false })
   if (!assistant?.enabled) return null
   const { open, unreadCount, toggle, triggerRef } = assistant
   const label = unreadCount > 0 ? `Assistant, ${unreadCount} unread (Ctrl+J or ⌘J)` : 'Assistant (Ctrl+J or ⌘J)'
@@ -51,6 +53,7 @@ export function AssistantHeaderButton() {
       data-qqq-id="button-assistant"
     >
       <Sparkles className="h-5 w-5 text-foreground/60" aria-hidden="true" />
+      {busy && <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-primary motion-safe:animate-pulse" role="status" aria-label="Assistant is answering" data-qqq-id="assistant-busy" />}
       {unreadCount > 0 && (
         <span
           className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
