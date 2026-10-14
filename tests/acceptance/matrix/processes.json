@@ -1187,6 +1187,23 @@
         "QRun-IO/qbit-authentik#13"
       ],
       "required": true
+    },
+    {
+      "id": "PRC-068",
+      "feature": "Process contingent selections use screen metadata, cascade and submit",
+      "source": [
+        "src/components/forms/PossibleValueSelect.tsx",
+        "src/lib/utils/contingent-fields.ts"
+      ],
+      "fixture": "Core sample ContingentPlaceMetaData: addressBook / addressBookPickPlace; USA and Canada, four states, eight cities",
+      "scenarios": [
+        "Process contingent selections use screen metadata, cascade and submit"
+      ],
+      "negative": [
+        "Missing or incompatible parent input cannot silently preserve an invalid selection"
+      ],
+      "issues": [],
+      "required": true
     }
   ]
 }

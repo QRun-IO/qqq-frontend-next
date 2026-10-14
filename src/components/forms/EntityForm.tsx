@@ -1013,6 +1013,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
 
       {/* Fields */}
       <DynamicForm
+        formMethods={form}
         register={register}
         control={control}
         errors={errors}

@@ -90,7 +90,7 @@ function CopyGroups({ node, onChange }: { node: CopyNode; onChange: (path: strin
  */
 function CopyChild({ node, onChange }: { node: CopyNode; onChange: (path: string, values: Record<string, unknown>) => void }) {
   const schema = useMemo(() => zodSchemaFromTableMetadata(node.table, node.fields, true), [node])
-  const { register, control, watch, formState: { errors } } = useForm<Record<string, unknown>>({
+  const { register, control, watch, getValues, setValue, formState: { errors } } = useForm<Record<string, unknown>>({
     defaultValues: node.values, resolver: zodResolver(schema), mode: 'onChange',
   })
   useEffect(() => {
@@ -100,7 +100,7 @@ function CopyChild({ node, onChange }: { node: CopyNode; onChange: (path: string
   const id = `copy-node-${encodeURIComponent(node.path)}`
   return <fieldset className="my-4 min-w-0 space-y-4 rounded-lg border p-4" data-qqq-id={id}>
     <legend className="px-2 font-medium">{node.table.label}</legend>
-    <div className="grid gap-4 sm:grid-cols-2">{node.fields.map(name => <DynamicFormField key={name} idPrefix={id}
+    <div className="grid gap-4 sm:grid-cols-2">{node.fields.map(name => <DynamicFormField formMethods={{ getValues, setValue }} fieldsByName={node.table.fields} key={name} idPrefix={id}
       field={node.table.fields[name]} register={register} control={control} errors={errors}
       possibleValueContext={{ type: 'table', tableName: node.table.name }} />)}</div>
     <CopyGroups node={node} onChange={onChange} />

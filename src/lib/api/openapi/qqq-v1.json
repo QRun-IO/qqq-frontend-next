@@ -375,6 +375,60 @@
     },
     "type": "object"
    },
+   "BuiltInViewV1": {
+    "properties": {
+     "filter": {
+      "properties": {
+       "booleanOperator": {
+        "enum": [
+         "OR"
+        ],
+        "type": "string"
+       },
+       "criteria": {
+        "items": {
+         "properties": {
+          "fieldName": {
+           "type": "string"
+          },
+          "operator": {
+           "enum": [
+            "EQUALS"
+           ],
+           "type": "string"
+          },
+          "values": {
+           "items": {
+            "description": "The executing session's user id. Display as Me. A missing user matches nothing.",
+            "properties": {
+             "type": {
+              "enum": [
+               "CurrentUser"
+              ],
+              "type": "string"
+             }
+            },
+            "type": "object"
+           },
+           "type": "array"
+          }
+         },
+         "type": "object"
+        },
+        "type": "array"
+       }
+      },
+      "type": "object"
+     },
+     "label": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
    "ExposedJoin": {
     "properties": {
      "isMany": {
@@ -798,6 +852,21 @@
      "pickerTableName": {
       "description": "When this field has a picker, the table its possible value source reads, whose metadata describes the picker's fields.",
       "type": "string"
+     },
+     "possibleValueSourceDependencyBehavior": {
+      "description": "DISABLE_UNTIL_SET disables a contingent field until its dependencies are set (default). SHOW_ALL_UNTIL_SET keeps it enabled and omits criteria with missing inputs in form searches. Absent for non-contingent fields.",
+      "enum": [
+       "DISABLE_UNTIL_SET",
+       "SHOW_ALL_UNTIL_SET"
+      ],
+      "type": "string"
+     },
+     "possibleValueSourceDependsOn": {
+      "description": "Names of fields controlling this field's choices, including explicit and filter dependencies. Absent for non-contingent fields.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
      },
      "possibleValueSourceName": {
       "description": "If this field's values should come from a possible value source, then that PVS is named here.",
@@ -2015,6 +2084,169 @@
     },
     "type": "object"
    },
+   "RealtimeChannelRevokedEventV1": {
+    "properties": {
+     "channel": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeEventV1": {
+    "properties": {
+     "channel": {
+      "type": "string"
+     },
+     "data": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "event": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeHelloEventV1": {
+    "properties": {
+     "connectionId": {
+      "type": "string"
+     },
+     "heartbeatSeconds": {
+      "type": "integer"
+     },
+     "metaDataGeneration": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeMetaDataChangedEventV1": {
+    "properties": {
+     "generation": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeRecordChangedEventV1": {
+    "properties": {
+     "changedBy": {
+      "type": "string"
+     },
+     "fields": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "pk": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "table": {
+      "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeRecordDeletedEventV1": {
+    "properties": {
+     "pk": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "table": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeResyncEventV1": {
+    "type": "object"
+   },
+   "RealtimeSessionEndedEventV1": {
+    "type": "object"
+   },
+   "RealtimeSubscriptionRequestV1": {
+    "properties": {
+     "add": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "connectionId": {
+      "type": "string"
+     },
+     "remove": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeSubscriptionResponseV1": {
+    "properties": {
+     "active": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "refused": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeTableChangedEventV1": {
+    "properties": {
+     "table": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
    "RecordAssociatedScriptLogsResponseV1": {
     "properties": {
      "scriptLogRecords": {
@@ -2044,6 +2276,59 @@
      "scriptRevisionSequenceNo": {
       "description": "Sequence number of the new revision within the script (1 for its first revision).",
       "type": "number"
+     }
+    },
+    "type": "object"
+   },
+   "RecordConflictV1": {
+    "properties": {
+     "changedFields": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "currentVersion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "modifiedAt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "modifiedByUserId": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
      }
     },
     "type": "object"
@@ -2289,6 +2574,17 @@
        "type": "string"
       },
       "type": "array"
+     },
+     "ownership": {
+      "properties": {
+       "assigneeFieldName": {
+        "type": "string"
+       },
+       "ownerFieldName": {
+        "type": "string"
+       }
+      },
+      "type": "object"
      },
      "settings": {
       "additionalProperties": {
@@ -2918,6 +3214,13 @@
       },
       "type": "array"
      },
+     "builtInViews": {
+      "description": "Built-in views; evaluate their filters in the current session without persisting the resolved user id.",
+      "items": {
+       "$ref": "#/components/schemas/BuiltInViewV1"
+      },
+      "type": "array"
+     },
      "capabilities": {
       "description": "List of strings describing actions that are supported by the backend application for the table.",
       "items": {
@@ -3141,6 +3444,13 @@
       "description": "Named record associations and their joins, without child record access",
       "items": {
        "$ref": "#/components/schemas/Association"
+      },
+      "type": "array"
+     },
+     "builtInViews": {
+      "description": "Built-in views; evaluate their filters in the current session without persisting the resolved user id.",
+      "items": {
+       "$ref": "#/components/schemas/BuiltInViewV1"
       },
       "type": "array"
      },
@@ -3759,6 +4069,21 @@
       "description": "When this field has a picker, the table its possible value source reads, whose metadata describes the picker's fields.",
       "type": "string"
      },
+     "possibleValueSourceDependencyBehavior": {
+      "description": "DISABLE_UNTIL_SET disables a contingent field until its dependencies are set (default). SHOW_ALL_UNTIL_SET keeps it enabled and omits criteria with missing inputs in form searches. Absent for non-contingent fields.",
+      "enum": [
+       "DISABLE_UNTIL_SET",
+       "SHOW_ALL_UNTIL_SET"
+      ],
+      "type": "string"
+     },
+     "possibleValueSourceDependsOn": {
+      "description": "Names of fields controlling this field's choices, including explicit and filter dependencies. Absent for non-contingent fields.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
      "possibleValueSourceName": {
       "description": "If this field's values should come from a possible value source, then that PVS is named here.",
       "type": "string"
@@ -4248,6 +4573,21 @@
            "pickerTableName": {
             "description": "When this field has a picker, the table its possible value source reads, whose metadata describes the picker's fields.",
             "type": "string"
+           },
+           "possibleValueSourceDependencyBehavior": {
+            "description": "DISABLE_UNTIL_SET disables a contingent field until its dependencies are set (default). SHOW_ALL_UNTIL_SET keeps it enabled and omits criteria with missing inputs in form searches. Absent for non-contingent fields.",
+            "enum": [
+             "DISABLE_UNTIL_SET",
+             "SHOW_ALL_UNTIL_SET"
+            ],
+            "type": "string"
+           },
+           "possibleValueSourceDependsOn": {
+            "description": "Names of fields controlling this field's choices, including explicit and filter dependencies. Absent for non-contingent fields.",
+            "items": {
+             "type": "string"
+            },
+            "type": "array"
            },
            "possibleValueSourceName": {
             "description": "If this field's values should come from a possible value source, then that PVS is named here.",
@@ -8517,6 +8857,120 @@
     ]
    }
   },
+  "/qqq/v1/realtime/stream": {
+   "get": {
+    "description": "SSE invalidation hints. Each event has id <connectionId>:<sequence>, an event name and JSON data. hello identifies the connection; comment pings maintain it. Last-Event-ID replays retained events on the same pod and session, otherwise resync asks clients to refetch. Core event payloads use the Realtime*EventV1 components. Qbits publish through RealtimeBus with their own event names, such as presence.changed and comment.added, described by RealtimeEventV1. Subscriptions require a separate POST; session-ended closes the stream and channel-revoked removes a subscription.",
+    "parameters": [
+     {
+      "description": "Last received <connectionId>:<sequence> cursor.",
+      "in": "header",
+      "name": "Last-Event-ID",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "text/event-stream": {
+        "schema": {
+         "$ref": "#/components/schemas/RealtimeEventV1"
+        }
+       }
+      },
+      "description": "Realtime named events and comment heartbeats."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Open the realtime event stream",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/realtime/subscriptions": {
+   "post": {
+    "description": "Add or remove record:{table}:{pk}, table:{table}, user:me, or instance channels. Records require a permission-checked GetAction and tables require READ. Refusals give no reason. The connection must belong to the authenticated session; otherwise 404. Active user channels are returned as user:me. Channel limits apply.",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "add": {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "connectionId": {
+          "type": "string"
+         },
+         "remove": {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RealtimeSubscriptionResponseV1"
+        }
+       }
+      },
+      "description": "Current subscriptions and refused additions."
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Malformed subscription request."
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Connection not found."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Change realtime subscriptions",
+    "tags": [
+     "General"
+    ]
+   }
+  },
   "/qqq/v1/reports/{reportName}": {
    "get": {
     "description": "Run a report and stream the generated file in the requested format.  The report's input fields are given as\nquery parameters named for the fields; a missing required input is a 400.  Requires permission to run the report.",
@@ -9693,6 +10147,15 @@
     "description": "Update an existing record in a table, identified by its primary key. The request body should contain the field values to update.",
     "parameters": [
      {
+      "description": "Optional optimistic version from the last read, encoded as a string in the version field's format (ISO-8601 for modify dates). A mismatch returns 409 RecordConflictV1 and leaves the record unchanged. Omit for an unconditional update. Tables with recordVersionField set to an empty string opt out.",
+      "in": "query",
+      "name": "expectedVersion",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
       "description": "Name of the table containing the record to update.",
       "example": "person",
       "in": "path",
@@ -9776,6 +10239,16 @@
        }
       },
       "description": "The record that was updated"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecordConflictV1"
+        }
+       }
+      },
+      "description": "The record changed since it was read."
      }
     },
     "security": [
