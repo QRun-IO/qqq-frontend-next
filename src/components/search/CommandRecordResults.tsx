@@ -28,6 +28,8 @@ import { Command } from 'cmdk'
 import { AlertTriangle, ArrowRight, Loader2 } from 'lucide-react'
 
 import { useRecordSearch } from '@/lib/hooks/use-record-search'
+import { QUICK_SEARCH_RECORDS_PER_TABLE } from '@/lib/hooks/use-quick-search'
+import { UI_API_EXTENSION, useUiApiExtensionInstalled } from '@/lib/api/ui-api-extensions'
 import { recordSearchResultPath, type SearchableTable } from '@/lib/utils/record-search'
 import { groupResultsByTable, tableCountLabel, tableHasMore } from '@/lib/search/search-model'
 import { searchPagePath } from '@/lib/search/search-url'
@@ -71,7 +73,8 @@ export interface CommandRecordResultsProps {
 export function CommandRecordResults(props: CommandRecordResultsProps) {
   const { search, open, tables, selectedValue, setSelectedValue, firstValueBefore, firstValueAfter, onSelect, onState, itemClassName, heading } = props
   const trimmed = search.trim()
-  const recordSearch = useRecordSearch(open ? search : '', tables, PALETTE_RECORDS_PER_TABLE)
+  const suggest = useUiApiExtensionInstalled(UI_API_EXTENSION.quickSearch, open)
+  const recordSearch = useRecordSearch(open ? search : '', tables, suggest ? QUICK_SEARCH_RECORDS_PER_TABLE : PALETTE_RECORDS_PER_TABLE, { suggest })
   const groups = useMemo(
     () => groupResultsByTable(recordSearch.results, recordSearch.summaries, tables, trimmed),
     [recordSearch.results, recordSearch.summaries, tables, trimmed]
