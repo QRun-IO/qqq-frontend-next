@@ -24,7 +24,7 @@ import { CommentComposer } from './CommentComposer'
 import { CollaborationMarkdown } from './CollaborationMarkdown'
 import { FilesTab } from './FilesTab'
 import { TagChips } from './TagChips'
-import { ActivityTab } from './ActivityTab'
+import { ActivityTab, activitySummary } from './ActivityTab'
 import { FollowBell } from './FollowBell'
 
 vi.mock('@/lib/api/collaboration', () => ({
@@ -198,6 +198,32 @@ it('pages activity with the returned cursor and shows audit details', async () =
   await screen.findByText('Uploaded file')
   expect(api.listTimeline).toHaveBeenLastCalledWith(record, 'older')
   expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
+})
+it('hides empty audit details and words old audit summaries in sentence case', async () => {
+  vi.mocked(api.listTimeline).mockResolvedValue({
+    items: [
+      {
+        kind: 'AUDIT',
+        id: 1,
+        summary: 'Record was Edited',
+        details: [{ fieldName: null, message: '  ', oldValue: null, newValue: null }],
+      },
+      { kind: 'AUDIT', id: 2, summary: 'Record was Inserted', details: [] },
+      { kind: 'ACTIVITY', id: 3, summary: 'Thread resolved' },
+    ],
+    nextCursor: null,
+  })
+  mount(<ActivityTab record={record} />)
+  expect(await screen.findByText('Edited')).toBeVisible()
+  expect(screen.getByText('Created')).toBeVisible()
+  expect(screen.getByText('Thread resolved')).toBeVisible()
+  expect(screen.queryByText('Details')).toBeNull()
+})
+it('maps only the old audit summary shape', () => {
+  expect(activitySummary('Record was Deleted')).toBe('Deleted')
+  expect(activitySummary('record was updated.')).toBe('Edited')
+  expect(activitySummary('Edited Email and Phone')).toBe('Edited Email and Phone')
+  expect(activitySummary(null)).toBe('')
 })
 it.each(['FREE', 'APPROVED_ONLY'])(
   'handles tag mode %s without applying pending suggestions',
