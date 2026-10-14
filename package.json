@@ -96,7 +96,7 @@
     "eslint-plugin-jsdoc": "^62.7.1",
     "jest-axe": "^10.0.0",
     "jsdom": "^26.1.0",
-    "msw": "^2.12.10",
+    "msw": "^2.15.0",
     "postcss": "^8.5.28",
     "prettier": "^3.8.1",
     "storybook": "10.6.0",
