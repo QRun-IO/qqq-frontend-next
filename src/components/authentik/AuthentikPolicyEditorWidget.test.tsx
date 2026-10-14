@@ -53,6 +53,20 @@ const payload = (overrides: Partial<PolicyEditorPayload> = {}): PolicyEditorPayl
   ...overrides,
 })
 
+const featurePayload = (overrides: Partial<PolicyEditorPayload> = {}): PolicyEditorPayload => payload({
+  catalog: [{ app: 'content', label: 'Content', resources: [
+    { name: 'person', label: 'People', kind: 'TABLE', actions: ['hasAccess', 'read', 'insert', 'edit', 'delete'], features: [
+      { name: 'analyze', label: 'Analyze data' }, { name: 'comment', label: 'Comment' }, { name: 'attach', label: 'Attach files' },
+    ] },
+    { name: 'article', label: 'Articles', kind: 'TABLE', actions: ['read'], features: [{ name: 'write', label: 'Write' }] },
+  ] }],
+  ...overrides,
+})
+
+const documentFor = (actions: string[], resources = ['person']) => JSON.stringify({
+  PolicySpec: 'qqq-iam', PolicyVersion: '1.0.0', Statement: [{ Effect: 'Allow', Action: actions, Resource: resources }],
+})
+
 /**
  * Render the editor and capture what it hands the step.
  * @param data - Payload.
@@ -66,6 +80,104 @@ function setup(data: PolicyEditorPayload) {
 }
 
 describe('AuthentikPolicyEditorWidget', () => {
+  it('opens saved features, round-trips, and toggles explicit feature statements', async () => {
+    const user = userEvent.setup()
+    const { last } = setup(featurePayload({ document: documentFor(['analyze', 'comment']) }))
+    expect(screen.getByLabelText('Analyze data: People')).toBeChecked()
+    expect(screen.getByLabelText('Comment: People')).toBeChecked()
+    expect(screen.getByText('2 statements; checked')).toBeInTheDocument()
+    expect(JSON.parse(last()).Statement).toEqual([
+      { Effect: 'Allow', Action: ['analyze'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['comment'], Resource: ['person'] },
+    ])
+    await user.click(screen.getByLabelText('Attach files: People'))
+    await user.click(screen.getByLabelText('Write: Articles'))
+    await user.click(screen.getByLabelText('Comment: People'))
+    expect(JSON.parse(last()).Statement).toEqual([
+      { Effect: 'Allow', Action: ['analyze'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['attach'], Resource: ['person'] },
+      { Effect: 'Allow', Action: ['write'], Resource: ['article'] },
+    ])
+  })
+
+  it('excludes features from wildcard grants and includes them in row and app selection', async () => {
+    const user = userEvent.setup()
+    setup(featurePayload({ document: documentFor(['*'], ['person', 'article']) }))
+    expect(screen.getByLabelText('Read: People')).toBeChecked()
+    expect(screen.getByLabelText('Analyze data: People')).not.toBeChecked()
+    expect(screen.getByLabelText('Write: Articles')).not.toBeChecked()
+    expect(screen.getByLabelText('All actions: People')).toHaveAttribute('aria-checked', 'mixed')
+    await user.click(screen.getByLabelText('All actions: People'))
+    expect(screen.getByLabelText('Analyze data: People')).toBeChecked()
+    expect(screen.getByLabelText('Everything in Content')).toHaveAttribute('aria-checked', 'mixed')
+    await user.click(screen.getByLabelText('Everything in Content'))
+    expect(screen.getByLabelText('Write: Articles')).toBeChecked()
+    expect(screen.getByLabelText('Everything in Content')).toBeChecked()
+    await user.click(screen.getByLabelText('Everything in Content'))
+    expect(screen.getByLabelText('Analyze data: People')).not.toBeChecked()
+    expect(screen.getByLabelText('Write: Articles')).not.toBeChecked()
+  })
+
+  it('searches feature labels and preserves actions unknown for a particular resource', async () => {
+    const user = userEvent.setup()
+    const { last } = setup(featurePayload({ document: documentFor(['analyze', 'retiredFeature'], ['article', 'person']) }))
+    const unknown = screen.getByRole('region', { name: 'Not in this app (3)' })
+    expect(within(unknown).getByText('article.analyze')).toBeInTheDocument()
+    expect(within(unknown).getByText('person.retiredFeature')).toBeInTheDocument()
+    expect(last()).toContain('retiredFeature')
+    await user.type(screen.getByLabelText('Find a resource'), 'Attach files')
+    expect(screen.getByLabelText('Read: People')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Read: Articles')).not.toBeInTheDocument()
+    await user.click(within(unknown).getByRole('button', { name: 'Remove all' }))
+    expect(JSON.parse(last()).Statement).toEqual([{ Effect: 'Allow', Action: ['analyze'], Resource: ['person'] }])
+  })
+
+  it('previews the union with base permissions and differences against the saved policy', async () => {
+    const user = userEvent.setup()
+    const { container } = setup(featurePayload({ document: documentFor(['read', 'comment']), members: [
+      { username: 'sam', label: 'Sam Example', viaGroups: ['Editors'], basePermissions: ['person.read', 'person.read', 'authentik.users.manage'] },
+      { username: 'lee', label: 'Lee Example', viaGroups: [], basePermissions: ['person.comment', 'person.analyze'] },
+    ], membersTruncated: true }))
+    const preview = screen.getByRole('region', { name: 'Preview for a member' })
+    expect(within(preview).getByText(/Only the first 200/)).toBeInTheDocument()
+    expect(within(preview).queryByRole('list')).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Member'), 'sam')
+    expect(await within(preview).findByText('3 effective permissions')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Read: People'))
+    await user.click(screen.getByLabelText('Comment: People'))
+    await user.click(screen.getByLabelText('Analyze data: People'))
+    expect(within(preview).getByText('3 effective permissions')).toBeInTheDocument()
+    expect(within(preview).getByText('People: Analyze data').parentElement).toHaveTextContent('added by this edit')
+    expect(within(preview).getByText('People: Comment').parentElement).toHaveTextContent('removed by this edit')
+    expect(within(preview).getByText('People: Read').parentElement).not.toHaveTextContent('removed by this edit')
+    expect(within(preview).getByText('authentik.users.manage')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Member'), 'lee')
+    expect(await within(preview).findByText('2 effective permissions')).toBeInTheDocument()
+    expect(within(preview).queryByText('added by this edit')).not.toBeInTheDocument()
+    expect(within(preview).getByText('People: Read').parentElement).toHaveTextContent('removed by this edit')
+    expect(await axe(container)).toHaveNoViolations()
+  })
+
+  it.each([undefined, []])('handles absent or empty members (%s) and mapper off', (members) => {
+    setup(featurePayload({ members, mapperEnabled: false }))
+    expect(screen.getByText('No members to preview')).toBeInTheDocument()
+    expect(screen.getByText('Policies are not applied at sign-in on this instance (mapper off)')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Member' })).not.toBeInTheDocument()
+  })
+
+  it('renders long member permission lists in batches', async () => {
+    const user = userEvent.setup()
+    setup(featurePayload({ members: [{ username: 'sam', label: 'Sam Example', viaGroups: [], basePermissions: Array.from({ length: 125 }, (_, i) => `resource_${String(i).padStart(3, '0')}.read`) }] }))
+    await user.selectOptions(screen.getByLabelText('Member'), 'sam')
+    const preview = screen.getByRole('region', { name: 'Preview for a member' })
+    expect(await within(preview).findByText('125 effective permissions')).toBeInTheDocument()
+    expect(within(preview).queryByText('resource_124: Read')).not.toBeInTheDocument()
+    await user.click(within(preview).getByRole('button', { name: 'Show more permissions' }))
+    await user.click(within(preview).getByRole('button', { name: 'Show more permissions' }))
+    expect(within(preview).getByText('resource_124: Read')).toBeInTheDocument()
+    expect(within(preview).queryByRole('button', { name: 'Show more permissions' })).not.toBeInTheDocument()
+  })
+
   it('starts from the existing document and hands the canonical JSON to the step', async () => {
     const { last } = setup(payload({ document: '{"PolicySpec":"qqq-iam","PolicyVersion":"1.0.0","Statement":[{"Effect":"Allow","Action":["*"],"Resource":["cms_page"]}]}' }))
     expect(screen.getByLabelText('Read: Pages')).toBeChecked()
