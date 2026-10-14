@@ -485,6 +485,19 @@ describe('Sidebar', () => {
     expect(screen.getByRole('menuitem', { name: 'Preferences' })).toHaveAttribute('href', '/app/preferences')
   })
 
+  it('switches dark mode from the user menu without leaving the page', async () => {
+    const user = userEvent.setup()
+    render(<Sidebar routes={leafRoutes} userName="Alice" />)
+    await user.click(screen.getByRole('button', { name: 'Alice' }))
+    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Dark mode' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await user.click(toggle)
+    expect(document.documentElement).toHaveClass('dark')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Dark mode' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Dark mode' }))
+    expect(document.documentElement).not.toHaveClass('dark')
+  })
+
   it('names a user without a name "Anonymous" and shows the initial without a Gravatar setting', () => {
     render(<Sidebar routes={leafRoutes} branding={{ companyName: '', companyUrl: '', appName: 'QQQ' }} userEmail="ann@example.com" logout={vi.fn()} />)
     expect(document.querySelector('[data-qqq-id="sidebar-user-name"]')).toHaveTextContent('Anonymous')
