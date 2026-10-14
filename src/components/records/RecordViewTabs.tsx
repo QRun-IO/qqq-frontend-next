@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils/cn'
 import { recordSectionGridSpan } from '@/lib/utils/record-layout-utils'
 
 import { RecordViewSection } from './RecordViewSection'
+import { RecordSectionTabs } from './RecordSectionTabs'
 import { RecordViewAssociated } from './RecordViewAssociated'
 
 /**
@@ -179,58 +180,11 @@ export function RecordViewTabs({
   }
   const panelFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-  /**
-   * Moves focus without loading another section; Enter or Space activates the button.
-   * @param event - Keyboard event from a tab.
-   * @param index - Focused tab index.
-   */
-  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number | undefined
-    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
-    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
-    else if (event.key === 'Home') next = 0
-    else if (event.key === 'End') next = tabs.length - 1
-    if (next === undefined) return
-    event.preventDefault()
-    document.getElementById(`${tabId}-${tabs[next].id}`)?.focus()
-  }
   if (!isPhone) {
     return (
       <>
-        {/* Desktop layout: pill-style tab bar (md and wider) — MED-18 */}
-        {/* Tab bar — pill-style */}
-        {/* Many or long section labels scroll inside the bar instead of widening the page (tablets) */}
-        <div data-qqq-id="record-tabs-container">
-          <div
-            className="flex overflow-x-auto rounded-xl border border-border bg-muted/50 p-1"
-            role="tablist"
-            aria-label={`${tableMetaData.label} sections`}
-            data-qqq-id="record-view-tabs"
-          >
-            {tabs.map((tab, index) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                id={`${tabId}-${tab.id}`}
-                aria-controls={`${tabId}-panel`}
-                tabIndex={activeTab === tab.id ? 0 : -1}
-                onKeyDown={(event) => handleTabKey(event, index)}
-                aria-selected={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'sidebar-section is-visible flex-[1_0_auto] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-                  activeTab === tab.id
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                data-qqq-id={`record-tab-${tab.id}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <RecordSectionTabs tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab}
+          tabId={tabId} label={`${tableMetaData.label} sections`} />
 
         {/* Tab content: Overview — Material's 12-column card widths, applied by the panel's own
             width (container queries) so cards sit side by side only when each is readable; cards
