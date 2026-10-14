@@ -54,6 +54,7 @@ import {
   resumeSession,
   type SessionResponse,
 } from '@/lib/api/auth'
+import { checkUiApiCompatibility } from '@/lib/api/ui-api-version'
 import apiClient from '@/lib/api/client'
 import { analytics } from '@/lib/analytics/analytics'
 import { queryClient } from '@/lib/query-client'
@@ -298,6 +299,14 @@ export function AuthProvider({ children, onAuthError }: AuthProviderProps) {
      */
     async function initAuth() {
       try {
+        // a server outside the UI API range this build supports stops here with a clear message
+        const compatibility = await checkUiApiCompatibility()
+        if (cancelled) return
+        if (!compatibility.compatible) {
+          setAuthError(compatibility.message ?? 'This app does not support the UI API version of the server.')
+          applySession(null)
+          return
+        }
         const metadata = await loadMetadata()
         if (cancelled) return
         // The provider callback (/token, /callback) establishes the session itself.

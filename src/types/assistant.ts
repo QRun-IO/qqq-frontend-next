@@ -30,7 +30,9 @@ export interface AssistantConfig {
   shortcut?: string
   model?: string
   limits?: { maxTurnSeconds?: number; maxToolCallsPerTurn?: number }
-  features?: { writes?: boolean; pendingActions?: boolean }
+  features?: { writes?: boolean; pendingActions?: boolean; writeMode?: boolean; autoConfirm?: boolean }
+  /** The user's own preferences. */
+  preferences?: { defaultWriteMode?: boolean; autoConfirmLowRisk?: boolean }
   /** The assistant's persona (admin-configured profile); text only, it never changes access. */
   profile?: AssistantProfile
 }
@@ -56,6 +58,8 @@ export interface AssistantConversation {
   lastMessageAt: string | null
   unreadCount: number
   createDate: string
+  /** Write mode (Read-only when false or absent): the assistant's write tools exist only in Write mode. */
+  writeMode?: boolean
 }
 
 /** Page the user is on, sent as a hint with a turn (never trusted by the server). */
@@ -233,6 +237,7 @@ export interface AssistantConversationUpdate {
   title?: string
   pinned?: boolean
   status?: AssistantConversationStatus
+  writeMode?: boolean
 }
 
 /** Body of `POST /assistant/messages/{id}/feedback`. */

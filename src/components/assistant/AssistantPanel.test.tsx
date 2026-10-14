@@ -254,6 +254,32 @@ describe('asking a question', () => {
     act(() => stream.close())
   })
 
+  it('switches a conversation between Read-only and Write', async () => {
+    mockAssistant({ enabled: true, features: { writeMode: true } })
+    const stream = controllableStream()
+    let patched: unknown
+    server.use(
+      http.post(`${BASE}/conversations`, () => HttpResponse.json({ ...CONVERSATION, writeMode: false }, { status: 201 })),
+      http.get(`${BASE}/conversations/4`, () => HttpResponse.json({ conversation: { ...CONVERSATION, writeMode: false }, messages: [] })),
+      http.post(`${BASE}/conversations/4/turns`, () => stream.response()),
+      http.patch(`${BASE}/conversations/4`, async ({ request }) => {
+        patched = await request.json()
+        return HttpResponse.json({ ...CONVERSATION, writeMode: true })
+      })
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'hi{Enter}')
+    act(() => stream.close())
+    const toggle = await within(panel).findByRole('switch', { name: /read-only/i })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await user.click(toggle)
+    await waitFor(() => expect(patched).toEqual({ writeMode: true }))
+    expect(await within(panel).findByRole('switch', { name: /write/i })).toHaveAttribute('aria-checked', 'true')
+  })
+
   it('stops a reply through the cancel endpoint', async () => {
     mockAssistant()
     const stream = controllableStream()

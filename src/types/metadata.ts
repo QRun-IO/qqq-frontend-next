@@ -21,6 +21,7 @@
 // QQQ Metadata Types - ported from qqq-frontend-core
 
 import type { QFieldType, Capability, QComponentType, QAppNodeType, AdornmentType } from './enums'
+import type { QQueryFilter } from './query'
 
 /**
  * Top-level QQQ instance descriptor returned by the `/metaData/instance` endpoint.
@@ -280,6 +281,51 @@ export interface QThemeMetaData {
  * Drives all rendering of record query, view, create, and edit pages, including
  * field display, permissions, sections layout, and join relationships.
  */
+/**
+ * A related-record picker of a table (QQQ `docs/RELATED-RECORD-PICKER.md`): a modal for choosing
+ * records of `targetTableName` for a foreign-key field (`SINGLE`), to add as child rows through an
+ * association with a review step (`MULTI_CHILD`), or to link and unlink through a join table (`LINK`).
+ * Served by `POST /table/{table}/relatedRecordPicker/{name}/query|prepare|add|remove`.
+ */
+export interface QRelatedRecordPicker {
+  /** Picker name (the route's path segment). */
+  name: string
+  /** Dialog title and the label of the button that opens it. */
+  label: string
+  /** Which relationship the picker serves. */
+  mode: 'SINGLE' | 'MULTI_CHILD' | 'LINK'
+  /** The foreign-key field it sets (SINGLE). */
+  fieldName?: string
+  /** The association whose rows it adds (MULTI_CHILD, LINK). */
+  associationName?: string
+  /** The table records are picked from. */
+  targetTableName: string
+  /** The child or join table (MULTI_CHILD, LINK). */
+  childTableName?: string
+  /** The child field holding the picked record's key (MULTI_CHILD, LINK). */
+  childTargetFieldName?: string
+  /** Filter the server always applies (shown as a note; may contain `${input.x}`). */
+  filter?: Partial<QQueryFilter>
+  /** Initial, user-editable filter (the query route returns it resolved). */
+  defaultFilter?: Partial<QQueryFilter>
+  /** Result columns (target fields). */
+  columns?: string[]
+  /** Preview fields (target fields). */
+  previewFields?: string[]
+  /** Image URL field of the target, for thumbnails. */
+  thumbnailField?: string
+  /** Child fields filled per row before saving (MULTI_CHILD); empty skips the review. */
+  reviewFieldNames?: string[]
+  /** Most records one add or link may pick. */
+  maxSelections?: number
+  /** The user may quick-create a target record. */
+  canCreateTarget?: boolean
+  /** The user may add child or join rows. */
+  canAddChildren?: boolean
+  /** The user may unlink (LINK). */
+  canRemoveChildren?: boolean
+}
+
 export interface QTableMetaData {
   /** Effective collaboration features and session capabilities from core. */
   recordFeatures?: import('./collaboration').RecordFeaturesV1
@@ -311,6 +357,10 @@ export interface QTableMetaData {
   capabilities: Capability[]
   /** Whether the current user may read records from this table. */
   readPermission: boolean
+  /** Related-record pickers whose target the user may read. */
+  relatedRecordPickers?: QRelatedRecordPicker[]
+  /** Section whose editable fields a quick-create form shows (else the required, editable fields). */
+  quickCreateSectionName?: string
   /**
    * Fields that record search (`POST /search`) matches for this table. Present only
    * when the backend supports record search, the table declares search fields and

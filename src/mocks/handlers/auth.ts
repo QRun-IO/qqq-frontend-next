@@ -24,6 +24,11 @@ import { authMetadata } from '../fixtures/auth-metadata'
 const BASE = '/qqq/v1'
 
 export const authHandlers = [
+  // GET /version
+  http.get(`${BASE}/version`, () => {
+    return HttpResponse.json({ apiVersion: '1.1.0', basePath: BASE, supportedMajorVersions: [1], features: [], extensions: [] })
+  }),
+
   // GET /metaData/authentication
   http.get(`${BASE}/metaData/authentication`, () => {
     return HttpResponse.json(authMetadata)
