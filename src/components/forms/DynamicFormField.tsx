@@ -24,9 +24,11 @@
 // Used by DynamicForm to render each field in a metadata-driven form
 // Includes help tooltip support via field.helpContents
 
-import React from 'react'
+import React, { useContext, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
 import { Controller } from 'react-hook-form'
-import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
+import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
 
@@ -60,6 +62,12 @@ import { WidgetAdornmentField } from './WidgetAdornmentField'
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Read/clear dependent selections through the owning form. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** Complete sibling metadata for dependency hints. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit's enabled fields; disabled inputs do not supply dependencies. */
+  enabledFields?: Record<string, boolean>
   /** Surrounding values available to a field widget without making them editable. */
   contextValues?: Record<string, unknown>
   /** Optional hint supplied by an input block. */
@@ -228,16 +236,24 @@ function FieldWithHelp({
  * @returns The children optionally wrapped in a dirty-field accent container.
  */
 function DirtyWrapper({
+  fieldName,
   isDirty,
   children,
 }: {
+  fieldName: string
   isDirty: boolean
   children: React.ReactNode
 }) {
+  const names = useContext(FormPresenceContext)[fieldName]
+  const root = useRef<HTMLDivElement>(null)
+  const [label, setLabel] = useState<HTMLLabelElement | null>(null)
+  useEffect(() => { setLabel(root.current?.querySelector('label') ?? null) }, [fieldName])
+  const chip = names?.length ? <span className="ml-2 inline-block rounded bg-violet-500/15 px-2 py-1 text-xs font-normal text-foreground" role="status">{names.join(', ')} editing</span> : null
   // Always the same element: switching between a fragment and a wrapper would remount
   // the control on the first keystroke and drop keyboard focus mid-typing.
   return (
-    <div className={cn(isDirty && 'border-l-2 border-primary pl-2')} data-dirty={isDirty || undefined}>
+    <div ref={root} className={cn(isDirty && 'border-l-2 border-primary pl-2', names?.length && 'rounded-md ring-2 ring-violet-500 p-1')} data-dirty={isDirty || undefined} data-presence-field={fieldName}>
+      {label ? createPortal(chip, label) : chip}
       {children}
     </div>
   )
@@ -265,6 +281,9 @@ export function DynamicFormField({
   placeholder,
   contextValues,
   idPrefix,
+  formMethods,
+  fieldsByName,
+  enabledFields,
   register,
   control,
   errors,
@@ -322,9 +341,12 @@ export function DynamicFormField({
   if (field.possibleValueSourceName || inlineOptions) {
     const pvContext: PossibleValueContext = possibleValueContext ?? { type: 'standalone' }
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <PossibleValueSelect
+            formMethods={formMethods}
+            fieldsByName={fieldsByName}
+            enabledFields={enabledFields}
             id={fieldId}
             label={field.label}
             name={field.name}
@@ -354,7 +376,7 @@ export function DynamicFormField({
   const hasFileUpload = field.adornments?.some((a) => a.type === 'FILE_UPLOAD')
   if (hasFileUpload || field.type === 'BLOB') {
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <FileUploadField
             id={fieldId}
@@ -378,7 +400,7 @@ export function DynamicFormField({
   if (codeEditor && (field.type === 'STRING' || field.type === 'TEXT')) {
     const mode = typeof codeEditor.values?.languageMode === 'string' ? codeEditor.values.languageMode : 'text'
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <Controller
             name={field.name}
@@ -404,7 +426,7 @@ export function DynamicFormField({
   switch (field.type) {
     case 'STRING':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               placeholder={placeholder}
@@ -427,7 +449,7 @@ export function DynamicFormField({
 
     case 'TEXT': {
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextAreaField
               placeholder={placeholder}
@@ -451,7 +473,7 @@ export function DynamicFormField({
 
     case 'HTML':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
@@ -490,7 +512,7 @@ export function DynamicFormField({
     case 'INTEGER':
     case 'LONG':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               placeholder={placeholder}
@@ -514,7 +536,7 @@ export function DynamicFormField({
 
     case 'DECIMAL':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               placeholder={placeholder}
@@ -538,7 +560,7 @@ export function DynamicFormField({
 
     case 'BOOLEAN':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <BooleanField
               id={fieldId}
@@ -557,7 +579,7 @@ export function DynamicFormField({
 
     case 'DATE':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateField
               id={fieldId}
@@ -576,7 +598,7 @@ export function DynamicFormField({
 
     case 'DATE_TIME':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateTimeField
               id={fieldId}
@@ -595,7 +617,7 @@ export function DynamicFormField({
 
     case 'TIME':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
@@ -637,7 +659,7 @@ export function DynamicFormField({
 
     case 'PASSWORD':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <PasswordField
               id={fieldId}
@@ -659,7 +681,7 @@ export function DynamicFormField({
 
     default:
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               placeholder={placeholder}

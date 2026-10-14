@@ -133,3 +133,14 @@ describe('SavedViewsMenu', () => {
     expect(hook).toContainElement(screen.getByRole('button', { name: 'Saved views' }))
   })
 })
+
+
+it('offers built-in views even without saved-view processes and passes CurrentUser through', async () => {
+  const builtIn = { name: 'my-records', label: 'My records', filter: { booleanOperator: 'OR' as const, criteria: [{ fieldName: 'owner', operator: 'EQUALS' as const, values: [{ type: 'CurrentUser' as const }] }] } }
+  const select = vi.fn()
+  render(<SavedViewsMenu savedViews={makeViews({ isAvailable: false })} currentView={null} viewDiffs={[]} onSelectView={noop} onNewView={noop} onStore={vi.fn()} onDelete={vi.fn()} builtInViews={[builtIn]} onBuiltInView={select} />)
+  await userEvent.click(screen.getByRole('button', { name: 'Saved views' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'My records' }))
+  expect(select).toHaveBeenCalledWith(builtIn)
+  expect(builtIn.filter.criteria[0].values).toEqual([{ type: 'CurrentUser' }])
+})

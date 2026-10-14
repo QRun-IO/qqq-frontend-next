@@ -117,6 +117,7 @@ export async function getAlertsInboxSummary(): Promise<AlertsInboxSummary | null
     items: normalizeItems(summary.items),
     banners: normalizeItems(summary.banners),
     notificationsHref: href && href.startsWith('/app/') ? href : NOTIFICATIONS_PATH,
+    preferencesSection: str(summary.preferencesSection),
     pollSeconds: num(summary.pollSeconds),
   }
 }
@@ -144,7 +145,11 @@ export async function getAlertsInbox(filter: InboxFilter): Promise<InboxPage> {
  * @returns How many items changed.
  */
 export async function postInboxAction(action: 'read' | 'unread' | 'dismiss', target: InboxTarget): Promise<number> {
-  const data = await apiClient.post<{ updated?: number }>(`/alerts/inbox/${action}`, target)
+  // One literal path per action, so each call matches its operation in the alerts extension document.
+  let data: { updated?: number } | undefined
+  if (action === 'read') data = await apiClient.post<{ updated?: number }>('/alerts/inbox/read', target)
+  else if (action === 'unread') data = await apiClient.post<{ updated?: number }>('/alerts/inbox/unread', target)
+  else data = await apiClient.post<{ updated?: number }>('/alerts/inbox/dismiss', target)
   return typeof data?.updated === 'number' ? data.updated : 0
 }
 
@@ -169,14 +174,3 @@ export async function getAlertsRecordPanel(tableName: string, recordId: string |
   return data as AlertsRecordPanel
 }
 
-/**
- * "Watch alerts for this record": subscribes the user to the record's alerts.
- *
- * @param tableName - The record's table.
- * @param recordId - The record's primary key.
- * @returns Whether a new subscription was created (false when already watching).
- */
-export async function watchAlertsRecord(tableName: string, recordId: string | number): Promise<boolean> {
-  const data = await apiClient.post<{ created?: boolean }>('/alerts/record-panel/watch', { tableName, recordId })
-  return data?.created === true
-}

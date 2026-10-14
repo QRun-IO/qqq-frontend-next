@@ -327,6 +327,12 @@ export interface QRelatedRecordPicker {
 }
 
 export interface QTableMetaData {
+  /** Effective collaboration features and session capabilities from core. */
+  recordFeatures?: import('./collaboration').RecordFeaturesV1
+  /** Optional backend version column; empty disables optimistic checks. */
+  recordVersionField?: string
+  /** Server-supplied views; expression values are resolved by the backend. */
+  builtInViews?: Array<{ name: string; label: string; filter: Partial<QQueryFilter> }>
   /** Unique backend name for this table (used in API calls). */
   name: string
   /** Named record groups, present only in full table metadata. */
@@ -429,6 +435,8 @@ export interface QTableMenuItem {
  * across query, view, and edit contexts.
  */
 export interface QFieldMetaData {
+  /** Explicitly supported virtual-field criteria operators. */
+  supportedOperators?: import('./enums').QCriteriaOperator[]
   /** Backend name for this field (used as the key in record value maps). */
   name: string
   /** Human-readable label shown as the column header or form label. */
@@ -450,6 +458,12 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /** Input field names required by this field's possible-value source (UI API 1.2.0). */
+  possibleValueSourceDependsOn?: string[]
+  /** Missing-input behavior; unknown values are treated as DISABLE_UNTIL_SET. */
+  possibleValueSourceDependencyBehavior?: 'DISABLE_UNTIL_SET' | 'SHOW_ALL_UNTIL_SET'
+  /** Legacy possible-value filter, used to discover input dependencies on older servers. */
+  possibleValueSourceFilter?: Partial<QQueryFilter>
   /**
    * Possible values declared inline on the field (an ENUM source on the field itself; never
    * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.
@@ -533,6 +547,10 @@ export interface QVirtualFieldMetaData extends QFieldMetaData {
  * list of frontend steps to render.
  */
 export interface QProcessMetaData {
+  /** Whether this process may be submitted as a durable background job. */
+  durableJobEligible?: boolean
+  /** Whether this process always executes as a durable background job. */
+  durableJobAlways?: boolean
   /** Unique backend name for this process (used in API calls). */
   name: string
   /** Human-readable label shown in navigation and page headings. */

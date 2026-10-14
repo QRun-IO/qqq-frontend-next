@@ -22,8 +22,9 @@
 'use client'
 
 import React, { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { MapPin, SendHorizontal, Square, X } from 'lucide-react'
+import { FileText, Loader2, MapPin, Paperclip, SendHorizontal, Square, X } from 'lucide-react'
 
+import type { AssistantAttachment } from '@/types/assistant'
 import type { AssistantPageInfo } from '@/lib/utils/assistant-links'
 
 /** Props of {@link AssistantComposer}. */
@@ -50,7 +51,26 @@ interface AssistantComposerProps {
   onStop: () => void
   /** Text to put in the box (not sent); a new `id` replaces the current text. */
   prefill?: { id: number; text: string } | null
+  /** Files attached to this conversation (sent with each message). */
+  attachments?: AssistantAttachment[]
+  /**
+   * Uploads and attaches a file; when absent, the attach button is not shown.
+   *
+   * @param file - The picked file.
+   */
+  onAttach?: (file: File) => void
+  /**
+   * Removes an attachment.
+   *
+   * @param uploadRef - Its upload ref.
+   */
+  onRemoveAttachment?: (uploadRef: string) => void
+  /** Whether an upload is in progress. */
+  attaching?: boolean
 }
+
+/** File types the attach button offers (bulk load files). */
+const ATTACH_ACCEPT = '.csv,.tsv,.txt,.xlsx'
 
 /** Tallest the textarea grows before it scrolls, in pixels. */
 const MAX_TEXTAREA_HEIGHT = 160
@@ -63,13 +83,14 @@ const MAX_TEXTAREA_HEIGHT = 160
  * @returns The composer form.
  */
 function AssistantComposerInner(
-  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, onSend, onStop, prefill }: AssistantComposerProps,
+  { pageInfo, contextDismissed, onDismissContext, onRefreshContext, streaming, stopping, onSend, onStop, prefill, attachments = [], onAttach, onRemoveAttachment, attaching = false }: AssistantComposerProps,
   ref: React.ForwardedRef<HTMLTextAreaElement>
 ) {
   const [text, setText] = useState('')
   const inputId = useId()
   const hintId = useId()
   const localRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
   // A deep link pre-fills the box; the user reviews and sends it
   useEffect(() => {
@@ -124,7 +145,63 @@ function AssistantComposerInner(
           </span>
         </div>
       )}
+      {(attachments.length > 0 || attaching) && (
+        <ul className="mb-2 flex min-w-0 flex-wrap gap-1.5" aria-label="Attached files" data-qqq-id="assistant-attachments">
+          {attachments.map((attachment) => (
+            <li key={attachment.uploadRef} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted py-0.5 pl-2 pr-0.5 text-xs text-muted-foreground" data-qqq-id="assistant-attachment-chip">
+              <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{attachment.fileName ?? 'Attached file'}</span>
+              {onRemoveAttachment && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveAttachment(attachment.uploadRef)}
+                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-8 pointer-coarse:w-8"
+                  aria-label={`Remove ${attachment.fileName ?? 'the attached file'}`}
+                  data-qqq-id="assistant-attachment-remove"
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              )}
+            </li>
+          ))}
+          {attaching && (
+            <li className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-2 text-xs text-muted-foreground" role="status" data-qqq-id="assistant-attaching">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              Uploading...
+            </li>
+          )}
+        </ul>
+      )}
       <div className="flex items-end gap-2 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
+        {onAttach && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ATTACH_ACCEPT}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) onAttach(file)
+              }}
+              data-qqq-id="assistant-attach-input"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={attaching}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+              aria-label="Attach a file"
+              title="Attach a file (CSV or Excel) for a bulk load"
+              data-qqq-id="assistant-attach"
+            >
+              <Paperclip className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </>
+        )}
         <label htmlFor={inputId} className="sr-only">Message the assistant</label>
         <textarea
           id={inputId}

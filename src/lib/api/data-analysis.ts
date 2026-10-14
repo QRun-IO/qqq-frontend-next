@@ -17,6 +17,22 @@
 /** @file Typed calls to the data-analysis v1 UI API extension. */
 
 import type {
+  DataAnalysisSavedRequestV1,
+  DataAnalysisSavedResultV1,
+  DataAnalysisSavedListV1,
+  DataAnalysisSqlV1,
+  DataAnalysisStarV1,
+  DataAnalysisWatchPreviewV1,
+  DataAnalysisCompareRequestV1,
+  DataAnalysisCompareV1,
+  DataAnalysisCorrelationRequestV1,
+  DataAnalysisCorrelationV1,
+  DataAnalysisCrosstabRequestV1,
+  DataAnalysisCrosstabV1,
+  DataAnalysisScatterRequestV1,
+  DataAnalysisScatterV1,
+  DataAnalysisShiftRequestV1,
+  DataAnalysisShiftV1,
   DataAnalysisCapabilitiesV1,
   DataAnalysisColumnProfileRequestV1,
   DataAnalysisColumnProfileV1,
@@ -29,12 +45,26 @@ import type {
   DataAnalysisStartRunRequestV1,
   DataAnalysisRunStartedV1,
   DataAnalysisRunStatusV1,
+  DataAnalysisPivotRequestV1,
+  DataAnalysisPivotV1,
 } from '@/types/data-analysis'
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 import apiClient from './client'
-import { getUiApiVersion } from './ui-api-version'
+import { isUiApiExtensionInstalled, resetUiApiExtensions, UI_API_EXTENSION } from './ui-api-extensions'
 
 const ROOT = '/qbit/data-analysis'
+
+/** Computes a pivot for the current filtered population.
+ * @param table - Metadata table name.
+ * @param request - Dimensions, measures and query filter.
+ * @returns Sparse pivot cells and totals.
+ */
+export async function pivot(
+  table: string,
+  request: DataAnalysisPivotRequestV1
+): Promise<DataAnalysisPivotV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/pivot`, request)
+}
 
 /** Detects availability without changing the legacy query UI.
  * @param table - Metadata table name.
@@ -44,7 +74,9 @@ export async function getCapabilities(table: string): Promise<DataAnalysisCapabi
   // ask only servers that register the extension, so apps without the qbit see no failed request
   if (!(await isDataAnalysisInstalled())) return null
   try {
-    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(`${ROOT}/tables/${encodeURIComponent(table)}/capabilities`)
+    const data = await apiClient.get<DataAnalysisCapabilitiesV1>(
+      `${ROOT}/tables/${encodeURIComponent(table)}/capabilities`
+    )
     return data && typeof data.canAnalyze === 'boolean' ? data : null
   } catch (error) {
     if ([403, 404].includes(getErrorStatusCode(error) ?? 0)) return null
@@ -52,25 +84,17 @@ export async function getCapabilities(table: string): Promise<DataAnalysisCapabi
   }
 }
 
-let installed: Promise<boolean> | null = null
-
 /** Whether the server registers the `data-analysis` UI API extension (`GET /version`), asked once per page load.
  * @returns True when the extension is registered.
  */
 export function isDataAnalysisInstalled(): Promise<boolean> {
-  installed ??= getUiApiVersion()
-    .then((info) => info.extensions.some((extension) => extension?.name === 'data-analysis'))
-    .catch(() => {
-      installed = null
-      return false
-    })
-  return installed
+  return isUiApiExtensionInstalled(UI_API_EXTENSION.dataAnalysis)
 }
 
 /** Forgets the cached extension check (tests, and after signing in to another server).
  */
 export function resetDataAnalysisInstalled(): void {
-  installed = null
+  resetUiApiExtensions()
 }
 
 /** Profiles one readable field.
@@ -137,4 +161,125 @@ export async function startRun(
  */
 export async function getRun(runId: string): Promise<DataAnalysisRunStatusV1> {
   return apiClient.get(`${ROOT}/runs/${encodeURIComponent(runId)}`)
+}
+
+/** Computes compare for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function compare(
+  table: string,
+  request: DataAnalysisCompareRequestV1
+): Promise<DataAnalysisCompareV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/compare`, request)
+}
+
+/** Computes correlation for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function correlation(
+  table: string,
+  request: DataAnalysisCorrelationRequestV1
+): Promise<DataAnalysisCorrelationV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/correlation`, request)
+}
+
+/** Computes crosstab for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function crosstab(
+  table: string,
+  request: DataAnalysisCrosstabRequestV1
+): Promise<DataAnalysisCrosstabV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/crosstab`, request)
+}
+
+/** Computes scatter for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function scatter(
+  table: string,
+  request: DataAnalysisScatterRequestV1
+): Promise<DataAnalysisScatterV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/scatter`, request)
+}
+
+/** Computes shift for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function shift(
+  table: string,
+  request: DataAnalysisShiftRequestV1
+): Promise<DataAnalysisShiftV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/shift`, request)
+}
+
+/** Lists visible saved analyses and the viewer's stars.
+ * @returns Saved library entries.
+ */
+export async function listSavedAnalyses(): Promise<DataAnalysisSavedListV1> {
+  return apiClient.get(`${ROOT}/saved`)
+}
+/** Re-runs a saved analysis with current viewer permissions.
+ * @param id - Saved record id.
+ * @returns Typed result and warnings.
+ */
+export async function runSavedAnalysis(id: string): Promise<DataAnalysisSavedResultV1> {
+  return apiClient.post(`${ROOT}/saved/${encodeURIComponent(id)}/run`, {})
+}
+/** Updates the viewer's star idempotently.
+ * @param id - Saved record id.
+ * @param starred - Desired state.
+ * @returns Confirmed state.
+ */
+export async function starAnalysis(id: string, starred: boolean): Promise<DataAnalysisStarV1> {
+  return starred
+    ? apiClient.put(`${ROOT}/saved/${encodeURIComponent(id)}/star`, {})
+    : apiClient.delete(`${ROOT}/saved/${encodeURIComponent(id)}/star`)
+}
+/** Downloads an ad hoc result through the authenticated binary API client.
+ * @param request - Current typed analysis and format.
+ * @returns File contents.
+ */
+export async function exportAnalysis(request: DataAnalysisSavedRequestV1): Promise<Blob> {
+  return apiClient.post(`${ROOT}/export`, request, { responseType: 'blob', timeout: 300000 })
+}
+/** Downloads a saved analysis as the current viewer.
+ * @param id - Saved record id.
+ * @param format - File format.
+ * @returns File contents.
+ */
+export async function exportSavedAnalysis(id: string, format: 'csv' | 'xlsx'): Promise<Blob> {
+  return apiClient.get(`${ROOT}/saved/${encodeURIComponent(id)}/export`, {
+    params: { format },
+    responseType: 'blob',
+    timeout: 300000,
+  })
+}
+/** Gets the permitted aggregate SQL without executing it in the workbench.
+ * @param table - Source table.
+ * @param request - Typed analysis.
+ * @returns SQL or an explanation of unavailability.
+ */
+export async function analysisSql(
+  table: string,
+  request: DataAnalysisSavedRequestV1
+): Promise<DataAnalysisSqlV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/sql`, request)
+}
+/** Evaluates a persisted watch without altering its alert state.
+ * @param id - Watch record id.
+ * @returns Series, baseline and verdict.
+ */
+export async function previewWatch(id: string): Promise<DataAnalysisWatchPreviewV1> {
+  return apiClient.post(`${ROOT}/watches/${encodeURIComponent(id)}/preview`, {})
 }

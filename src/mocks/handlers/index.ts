@@ -27,8 +27,12 @@ import { processHandlers } from './processes'
 import { widgetHandlers } from './widgets'
 import { esbHandlers } from './esb'
 import { sqlWorkbenchHandlers } from './sql-workbench'
+import { preferencesHandlers } from './preferences'
+import { alertsHandlers } from './alerts'
 
 export const handlers = [
+  ...preferencesHandlers,
+  ...alertsHandlers,
   ...collaborationHandlers,
   ...authHandlers,
   ...metadataHandlers,

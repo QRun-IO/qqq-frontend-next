@@ -99,6 +99,7 @@ async function mockAssistant(page: Page, options: { reply?: string; hold?: boole
   const mock: AssistantMock = { turns: [], cancels: 0 }
   let stored: unknown[] = []
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+  await page.route('**/qqq/v1/version', (route) => json(route, { apiVersion: '1.1.0', features: [], extensions: [{ name: 'assistant', version: '1.0.0' }] }))
   // the instance announces the qbit, so the UI probes /assistant/config
   await page.route(/\/qqq\/v1\/metaData(\?|$)/, (route) => json(route, { ...METADATA, supplementalInstanceMetaData: { assistant: {} } }))
   await page.route('**/qqq/v1/assistant/**', async (route) => {
