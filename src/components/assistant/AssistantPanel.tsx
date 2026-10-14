@@ -437,7 +437,7 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               {activeConversationId !== null && detailQuery.isError && (
                 <p className="text-xs text-destructive" role="alert">{getErrorMessage(detailQuery.error, 'Could not load the conversation.')}</p>
               )}
-              {messages.map((message) => <AssistantMessageView key={message.id} message={message} />)}
+              {messages.map((message) => <AssistantMessageView key={message.id} message={message} onSend={send} sending={Boolean(run)} />)}
             </div>
             <AssistantComposer
               ref={composerRef}

@@ -1,0 +1,1542 @@
+{
+  "components": {
+    "schemas": {
+      "DataAnalysisAxisV1": {
+        "nullable": true,
+        "properties": {
+          "field": {
+            "description": "Field.",
+            "nullable": true,
+            "type": "string"
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "valueType": {
+            "description": "Value type.",
+            "enum": [
+              "COUNT",
+              "DECIMAL",
+              "PERCENT",
+              "DATE",
+              "DATE_TIME",
+              "DURATION",
+              "TEXT"
+            ],
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCandidateKeyV1": {
+        "nullable": true,
+        "properties": {
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "rowCount": {
+            "description": "Row count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "description": "Open the matching records using this table and QueryFilter; null when suppressed.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCapabilitiesV1": {
+        "nullable": true,
+        "properties": {
+          "canAnalyze": {
+            "description": "Whether this session may analyze the table; false responses expose no fields.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "tableLabel": {
+            "description": "Table label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisCapabilityFieldV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DataAnalysisLimitsV1",
+            "description": "Limits.",
+            "nullable": true
+          },
+          "backendCapabilities": {
+            "description": "Backend capabilities.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "sqlWorkbenchAvailable": {
+            "description": "Whether SQL Workbench metadata is installed in this instance.",
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCapabilityFieldV1": {
+        "nullable": true,
+        "properties": {
+          "name": {
+            "description": "Name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "description": "Type.",
+            "nullable": true,
+            "type": "string"
+          },
+          "kind": {
+            "description": "Semantic field kind: NUMERIC, DATE, DATE_TIME, TEXT, BOOLEAN or CATEGORY.",
+            "nullable": true,
+            "type": "string"
+          },
+          "defaultChartKind": {
+            "description": "Default chart kind.",
+            "enum": [
+              "HISTOGRAM",
+              "BOX",
+              "BAR",
+              "PARETO",
+              "TIME_SERIES",
+              "SCATTER",
+              "HEATMAP"
+            ],
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisChartV1": {
+        "nullable": true,
+        "properties": {
+          "kind": {
+            "description": "Semantic field kind: NUMERIC, DATE, DATE_TIME, TEXT, BOOLEAN or CATEGORY.",
+            "enum": [
+              "HISTOGRAM",
+              "BOX",
+              "BAR",
+              "PARETO",
+              "TIME_SERIES",
+              "SCATTER",
+              "HEATMAP"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "alternatives": {
+            "description": "Alternatives.",
+            "items": {
+              "enum": [
+                "HISTOGRAM",
+                "BOX",
+                "BAR",
+                "PARETO",
+                "TIME_SERIES",
+                "SCATTER",
+                "HEATMAP"
+              ],
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "x": {
+            "$ref": "#/components/schemas/DataAnalysisAxisV1",
+            "description": "X.",
+            "nullable": true
+          },
+          "y": {
+            "$ref": "#/components/schemas/DataAnalysisAxisV1",
+            "description": "Y.",
+            "nullable": true
+          },
+          "series": {
+            "description": "Series.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisSeriesV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "annotations": {
+            "description": "Annotations.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisColumnProfileRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints."
+          },
+          "exact": {
+            "description": "Request exact computation instead of the configured estimate.",
+            "type": "boolean"
+          },
+          "fieldName": {
+            "description": "Readable field name to profile or enumerate.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisColumnProfileV1": {
+        "nullable": true,
+        "properties": {
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints.",
+            "nullable": true
+          },
+          "estimate": {
+            "description": "True when statistics describe a sample rather than the entire filtered population.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "True when the row limit prevented a complete scan.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "rowsScanned": {
+            "description": "Number of source rows included in computation.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "asOf": {
+            "description": "As of.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "dataVersion": {
+            "description": "Data version.",
+            "nullable": true,
+            "type": "string"
+          },
+          "warnings": {
+            "description": "Warnings.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "fieldName": {
+            "description": "Readable field name to profile or enumerate.",
+            "nullable": true,
+            "type": "string"
+          },
+          "fieldLabel": {
+            "description": "Field label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "fieldType": {
+            "description": "Field type.",
+            "nullable": true,
+            "type": "string"
+          },
+          "counts": {
+            "description": "Counts.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "numeric": {
+            "$ref": "#/components/schemas/DataAnalysisNumericProfileV1",
+            "description": "Numeric.",
+            "nullable": true
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DataAnalysisDateProfileV1",
+            "description": "Dates.",
+            "nullable": true
+          },
+          "text": {
+            "$ref": "#/components/schemas/DataAnalysisTextProfileV1",
+            "description": "Text.",
+            "nullable": true
+          },
+          "booleans": {
+            "description": "Booleans.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "topValues": {
+            "description": "Top values.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Chart.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisDateProfileV1": {
+        "nullable": true,
+        "properties": {
+          "metrics": {
+            "description": "Metrics.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "unit": {
+            "description": "Unit.",
+            "nullable": true,
+            "type": "string"
+          },
+          "buckets": {
+            "description": "Buckets.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "gaps": {
+            "description": "Gaps.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "dayOfWeek": {
+            "description": "Day of week.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "hourOfDay": {
+            "description": "Hour of day.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisDistinctValuesPageV1": {
+        "nullable": true,
+        "properties": {
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints.",
+            "nullable": true
+          },
+          "estimate": {
+            "description": "True when statistics describe a sample rather than the entire filtered population.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "True when the row limit prevented a complete scan.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "rowsScanned": {
+            "description": "Number of source rows included in computation.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "asOf": {
+            "description": "As of.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "dataVersion": {
+            "description": "Data version.",
+            "nullable": true,
+            "type": "string"
+          },
+          "warnings": {
+            "description": "Warnings.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "fieldName": {
+            "description": "Readable field name to profile or enumerate.",
+            "nullable": true,
+            "type": "string"
+          },
+          "page": {
+            "description": "Zero-based page number.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "Maximum values per page, from 1 to 500.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "hasMore": {
+            "description": "Has more.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "totalDistinct": {
+            "description": "Total distinct.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "values": {
+            "description": "Values.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisDistinctValuesRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints."
+          },
+          "fieldName": {
+            "description": "Readable field name to profile or enumerate.",
+            "type": "string"
+          },
+          "page": {
+            "description": "Zero-based page number.",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "Maximum values per page, from 1 to 500.",
+            "type": "integer"
+          },
+          "search": {
+            "description": "Optional search text applied to stored values.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisDrillV1": {
+        "nullable": true,
+        "properties": {
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisDuplicatesRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints."
+          },
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "description": "Maximum duplicate groups to return, from 1 to 500; default 50.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisDuplicatesResultV1": {
+        "nullable": true,
+        "properties": {
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints.",
+            "nullable": true
+          },
+          "estimate": {
+            "description": "True when statistics describe a sample rather than the entire filtered population.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "True when the row limit prevented a complete scan.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "rowsScanned": {
+            "description": "Number of source rows included in computation.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "asOf": {
+            "description": "As of.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "dataVersion": {
+            "description": "Data version.",
+            "nullable": true,
+            "type": "string"
+          },
+          "warnings": {
+            "description": "Warnings.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "groups": {
+            "description": "Groups.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisFieldSummaryV1": {
+        "nullable": true,
+        "properties": {
+          "field": {
+            "description": "Field.",
+            "nullable": true,
+            "type": "string"
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "description": "Type.",
+            "nullable": true,
+            "type": "string"
+          },
+          "completeness": {
+            "description": "Non-empty share as a 0..1 ratio rounded to six decimals.",
+            "nullable": true,
+            "type": "number"
+          },
+          "distinct": {
+            "description": "Distinct.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "uniqueness": {
+            "description": "Distinct share as a 0..1 ratio rounded to six decimals.",
+            "nullable": true,
+            "type": "number"
+          },
+          "constant": {
+            "description": "Constant.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "empty": {
+            "description": "Empty.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "nulls": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Nulls.",
+            "nullable": true
+          },
+          "blanks": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Blanks.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisLimitsV1": {
+        "nullable": true,
+        "properties": {
+          "maxRows": {
+            "description": "Max rows.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sampleThresholdRows": {
+            "description": "Sample threshold rows.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "minGroupSize": {
+            "description": "Min group size.",
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisMetricV1": {
+        "nullable": true,
+        "properties": {
+          "key": {
+            "description": "Key.",
+            "nullable": true,
+            "type": "string"
+          },
+          "label": {
+            "description": "Plain-English metric label, ready to display.",
+            "nullable": true,
+            "type": "string"
+          },
+          "value": {
+            "description": "Raw numeric or temporal value. PERCENT is a 0..1 ratio rounded to six decimals; DECIMAL field statistics have ten significant digits. DATE_TIME is an ISO instant.",
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "nullable": true,
+                "type": "object"
+              }
+            ]
+          },
+          "valueType": {
+            "description": "Value type.",
+            "enum": [
+              "COUNT",
+              "DECIMAL",
+              "PERCENT",
+              "DATE",
+              "DATE_TIME",
+              "DURATION",
+              "TEXT"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "estimate": {
+            "description": "Whether this metric is estimated; the population rows metric remains exact.",
+            "type": "boolean"
+          },
+          "formatted": {
+            "description": "Display-ready value, including grouping, field display formats, percent signs and session-zone dates; null when absent or suppressed.",
+            "nullable": true,
+            "type": "string"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "description": "Open the matching records using this table and QueryFilter; null when suppressed.",
+            "nullable": true
+          },
+          "suppressed": {
+            "description": "Suppressed.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "suppressedReason": {
+            "description": "Suppressed reason.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisNumericProfileV1": {
+        "nullable": true,
+        "properties": {
+          "metrics": {
+            "description": "Metrics.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "histogram": {
+            "description": "Histogram.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "outliers": {
+            "description": "Outliers.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisPointV1": {
+        "nullable": true,
+        "properties": {
+          "x": {
+            "description": "X.",
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "nullable": true,
+                "type": "object"
+              }
+            ]
+          },
+          "y": {
+            "description": "Y.",
+            "nullable": true,
+            "type": "number"
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "description": "Open the matching records using this table and QueryFilter; null when suppressed.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisRunStartedV1": {
+        "nullable": true,
+        "properties": {
+          "runId": {
+            "description": "Run id.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "Status.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisRunStatusV1": {
+        "nullable": true,
+        "properties": {
+          "runId": {
+            "description": "Run id.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "Status.",
+            "nullable": true,
+            "type": "string"
+          },
+          "error": {
+            "description": "Error.",
+            "nullable": true,
+            "type": "string"
+          },
+          "columnProfile": {
+            "$ref": "#/components/schemas/DataAnalysisColumnProfileV1",
+            "description": "Completed column result; null for other operations or unfinished runs.",
+            "nullable": true
+          },
+          "tableProfile": {
+            "$ref": "#/components/schemas/DataAnalysisTableProfileV1",
+            "description": "Completed table result; null for other operations or unfinished runs.",
+            "nullable": true
+          },
+          "startedAt": {
+            "description": "Started at.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "finishedAt": {
+            "description": "Finished at.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisSeriesV1": {
+        "nullable": true,
+        "properties": {
+          "name": {
+            "description": "Name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "points": {
+            "description": "Points.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPointV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisStartRunRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "description": "COLUMN_PROFILE or TABLE_PROFILE.",
+            "enum": [
+              "COLUMN_PROFILE",
+              "TABLE_PROFILE"
+            ],
+            "type": "string"
+          },
+          "tableName": {
+            "description": "Table name.",
+            "type": "string"
+          },
+          "request": {
+            "description": "Profile parameters for the selected operation, without tableName.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DataAnalysisColumnProfileRequestV1"
+              },
+              {
+                "$ref": "#/components/schemas/DataAnalysisTableProfileRequestV1"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operation",
+          "tableName",
+          "request"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisTableProfileRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints."
+          },
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisTableProfileV1": {
+        "nullable": true,
+        "properties": {
+          "tableName": {
+            "description": "Table name.",
+            "nullable": true,
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Core QueryFilter JSON, identical to the table query and count endpoints.",
+            "nullable": true
+          },
+          "estimate": {
+            "description": "True when statistics describe a sample rather than the entire filtered population.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "True when the row limit prevented a complete scan.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "rowsScanned": {
+            "description": "Number of source rows included in computation.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "asOf": {
+            "description": "As of.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "dataVersion": {
+            "description": "Data version.",
+            "nullable": true,
+            "type": "string"
+          },
+          "warnings": {
+            "description": "Warnings.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "rowCount": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Row count.",
+            "nullable": true
+          },
+          "fields": {
+            "description": "Readable fields to include; omit for all analyzable fields on a table profile.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisFieldSummaryV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "heatmap": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Heatmap.",
+            "nullable": true
+          },
+          "candidateKeys": {
+            "description": "Candidate keys.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisCandidateKeyV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisTextProfileV1": {
+        "nullable": true,
+        "properties": {
+          "metrics": {
+            "description": "Metrics.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "histogram": {
+            "description": "Histogram.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "patterns": {
+            "description": "Patterns.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisValueCountV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "sampleRows": {
+            "description": "Actual number of rows in the sample, not an extrapolated count.",
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisValueCountV1": {
+        "nullable": true,
+        "properties": {
+          "value": {
+            "description": "Value.",
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "nullable": true,
+                "type": "object"
+              }
+            ]
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "count": {
+            "description": "Count.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "share": {
+            "description": "Share as a 0..1 ratio rounded to six decimals.",
+            "nullable": true,
+            "type": "number"
+          },
+          "drill": {
+            "$ref": "#/components/schemas/DataAnalysisDrillV1",
+            "description": "Open the matching records using this table and QueryFilter; null when suppressed.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "FilterCriteria": {
+        "properties": {
+          "fieldName": {
+            "description": "Field name that this criteria applies to",
+            "type": "string"
+          },
+          "operator": {
+            "description": "Logical operator that applies to this criteria",
+            "enum": [
+              "EQUALS",
+              "NOT_EQUALS",
+              "NOT_EQUALS_OR_IS_NULL",
+              "IN",
+              "NOT_IN",
+              "IS_NULL_OR_IN",
+              "LIKE",
+              "NOT_LIKE",
+              "STARTS_WITH",
+              "ENDS_WITH",
+              "CONTAINS",
+              "NOT_STARTS_WITH",
+              "NOT_ENDS_WITH",
+              "NOT_CONTAINS",
+              "LESS_THAN",
+              "LESS_THAN_OR_EQUALS",
+              "GREATER_THAN",
+              "GREATER_THAN_OR_EQUALS",
+              "IS_BLANK",
+              "IS_NOT_BLANK",
+              "BETWEEN",
+              "NOT_BETWEEN",
+              "TRUE",
+              "FALSE"
+            ],
+            "type": "string"
+          },
+          "values": {
+            "description": "Values to apply via the operator to the field",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "OrderBy": {
+        "properties": {
+          "fieldName": {
+            "description": "Field name that this order-by applies to",
+            "type": "string"
+          },
+          "isAscending": {
+            "description": "Whether this order-by is ascending or descending",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "QueryFilter": {
+        "properties": {
+          "booleanOperator": {
+            "description": "Boolean operator to apply between criteria",
+            "enum": [
+              "AND",
+              "OR"
+            ],
+            "type": "string"
+          },
+          "criteria": {
+            "description": "Field level criteria that make up the query filter",
+            "items": {
+              "$ref": "#/components/schemas/FilterCriteria"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "description": "Maximum number of results to return.",
+            "type": "number"
+          },
+          "orderBys": {
+            "description": "How the query's results should be ordered (sorted).",
+            "items": {
+              "$ref": "#/components/schemas/OrderBy"
+            },
+            "type": "array"
+          },
+          "skip": {
+            "description": "Records to skip (e.g., to implement pagination)",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "sessionUuidCookie": {
+        "in": "cookie",
+        "name": "sessionUUID",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "contact@kingsrook.com"
+    },
+    "description": "Profiles, distinct values, duplicate groups and exact analysis runs as the signed-in user.",
+    "title": "QQQ Middleware API extension: data-analysis",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/qqq/v1/qbit/data-analysis/tables/{table}/capabilities": {
+      "get": {
+        "description": "Discover whether the current user can analyze this table, readable fields, chart defaults, limits and backend capabilities.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisCapabilitiesV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Check analysis availability"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/column-profile": {
+      "post": {
+        "description": "Profile one column of a table under a filter: counts, nulls, distinct values, top values, numeric statistics and histogram, date patterns; every number has a drill-through filter unless privacy suppresses it.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisColumnProfileRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisColumnProfileV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Profile one column"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/distinct-values": {
+      "post": {
+        "description": "Page through distinct stored values with display labels, counts and drill-through filters; search narrows stored values.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisDistinctValuesRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisDistinctValuesPageV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "List distinct column values"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/table-profile": {
+      "post": {
+        "description": "Profile readable fields under a filter for completeness, uniqueness, constant or empty columns and candidate keys.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisTableProfileRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisTableProfileV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Profile table completeness and keys"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/duplicates": {
+      "post": {
+        "description": "Group matching records by the selected readable fields and return repeated tuples with counts and drill-through filters.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisDuplicatesRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisDuplicatesResultV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Find duplicate groups"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/runs": {
+      "post": {
+        "description": "Start an owner-scoped exact column or table profile. Poll the returned runId until COMPLETE or FAILED; results honor the current session permissions.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisStartRunRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisRunStartedV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Start an exact profile run"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/runs/{runId}": {
+      "get": {
+        "description": "Read status, timestamps and the typed columnProfile or tableProfile result of an owner-scoped run. Completed results are rechecked against current permissions.",
+        "parameters": [
+          {
+            "description": "Owner-scoped analysis run id.",
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisRunStatusV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Get an exact profile run"
+      }
+    }
+  }
+}

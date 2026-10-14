@@ -44,6 +44,10 @@ export interface ColumnMenuActions {
   onCopyPageValues: (columnName: string) => void
   /** Copies the column's values for the full query result. */
   onCopyFullQueryValues: (columnName: string) => void
+  /** Fields allowed by the analysis capabilities response. */
+  analyzeFields?: readonly string[]
+  /** Opens a readable column profile when analysis is permitted. */
+  onAnalyze?: (columnName: string, columnLabel: string) => void
   /** Opens column statistics. */
   onColumnStats?: (columnName: string, columnLabel: string) => void
 }
@@ -71,7 +75,7 @@ const itemClass = cn(
  * @param props - Component properties.
  * @returns The menu.
  */
-export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilter, onHide, onPin, onCopyPageValues, onCopyFullQueryValues, onColumnStats }: ColumnHeaderMenuProps) {
+export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilter, onHide, onPin, onCopyPageValues, onCopyFullQueryValues, onColumnStats, onAnalyze, analyzeFields }: ColumnHeaderMenuProps) {
   const [open, setOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const noRows = hasRows ? undefined : 'There are no rows to copy from'
@@ -144,6 +148,9 @@ export function ColumnHeaderMenu({ column, sort, pinned, hasRows, onSort, onFilt
           <DropdownMenuPrimitive.Item className={itemClass} disabled={!hasRows} title={noRows} onSelect={() => onCopyFullQueryValues(column.name)} data-qqq-id={id('copy-full')}>
             Copy full query values
           </DropdownMenuPrimitive.Item>
+          {onAnalyze && analyzeFields?.includes(column.name) && (
+            <DropdownMenuPrimitive.Item className={itemClass} onSelect={() => onAnalyze(column.name, column.label)} data-qqq-id="column-menu-analyze">Analyze</DropdownMenuPrimitive.Item>
+          )}
           {onColumnStats && (
             <DropdownMenuPrimitive.Item className={itemClass} onSelect={() => onColumnStats(column.name, column.label)} data-qqq-id={id('stats')}>
               Column statistics

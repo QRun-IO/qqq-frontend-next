@@ -521,6 +521,12 @@ export const queryKeys = {
   esbMessages: (kind: 'destination' | 'deadLetters', name: string, offset: number) =>
     [...queryKeys.esb(), 'messages', kind, name, offset] as const,
 
+  /** Analysis namespace for a table.
+   * @param table - Metadata table name.
+   * @returns The query key.
+   */
+  dataAnalysis: (table: string) => [...queryKeys.all(), 'data-analysis', table] as const,
+
   // SQL Workbench
   /**
    * Key for all SQL Workbench queries.
