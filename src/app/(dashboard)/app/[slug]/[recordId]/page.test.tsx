@@ -17,7 +17,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { deserializeFilter } from '@/lib/utils/filter-utils'
 import apiClient from '@/lib/api/client'
@@ -61,6 +61,12 @@ function renderPage() {
 }
 
 describe('RecordViewPage independent association loading', () => {
+  beforeAll(async () => {
+    // Keep cold compilation of the lazy RecordView outside the first assertion's deadline,
+    // so any case passes alone (-t) and under load.
+    await import('@/components/records/RecordView')
+  }, 30_000)
+
   beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); navigation.search = 'tab=related' })
 
   it('keeps the base and child Add, and requests no expansion, when the child table is listed without read permission (QRun-IO/qqq#671)', async () => {
