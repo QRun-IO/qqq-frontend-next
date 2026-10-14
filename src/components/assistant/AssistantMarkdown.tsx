@@ -134,13 +134,7 @@ const PROSE = [
 export function AssistantMarkdown({ text, mentions = false }: { text: string; mentions?: boolean }) {
   return (
     <div className={PROSE} data-qqq-id="assistant-markdown">
-<<<<<<< HEAD
-      <ReactMarkdown skipHtml rehypePlugins={[[rehypeSanitize, mentions ? COMMENT_SCHEMA : SCHEMA]]} components={mentions ? COMMENT_COMPONENTS : COMPONENTS} urlTransform={(url) => mentions && /^(user|record):/.test(url) ? url : defaultUrlTransform(url)}>
-||||||| 14ec5cc
-      <ReactMarkdown skipHtml rehypePlugins={[[rehypeSanitize, SCHEMA]]} components={COMPONENTS}>
-=======
-      <ReactMarkdown skipHtml remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeSanitize, SCHEMA]]} components={COMPONENTS}>
->>>>>>> origin/main
+      <ReactMarkdown skipHtml remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[[rehypeSanitize, mentions ? COMMENT_SCHEMA : SCHEMA]]} components={mentions ? COMMENT_COMPONENTS : COMPONENTS} urlTransform={(url) => mentions && /^(user|record):/.test(url) ? url : defaultUrlTransform(url)}>
         {text}
       </ReactMarkdown>
     </div>
