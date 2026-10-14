@@ -17,7 +17,6 @@
 /** @file Shared discovery of registered UI API extensions. */
 
 import { useQuery } from '@tanstack/react-query'
-import { queryKeys } from '@/lib/query-client'
 import { getUiApiVersion, type UiApiVersionInfo } from './ui-api-version'
 
 /** Extension names published by the UI API contract. */
@@ -29,6 +28,13 @@ export const UI_API_EXTENSION = {
   collaboration: 'collaboration',
   dataAnalysis: 'data-analysis',
 } as const
+
+/**
+ * Query key of the shared version query (`['qqq', 'ui-api-version']`). Kept here rather than in
+ * `queryKeys` so the test setup can reset discovery without importing the query client, whose
+ * toast import injects styles into every test document.
+ */
+export const UI_API_VERSION_QUERY_KEY = ['qqq', 'ui-api-version'] as const
 
 let version: Promise<UiApiVersionInfo> | null = null
 
@@ -70,7 +76,7 @@ export function resetUiApiExtensions(): void {
  */
 export function useUiApiExtensionInstalled(name: string, enabled = true): boolean {
   const { data, isError } = useQuery({
-    queryKey: queryKeys.uiApiVersion(),
+    queryKey: UI_API_VERSION_QUERY_KEY,
     queryFn: loadVersion,
     enabled,
     staleTime: Infinity,
