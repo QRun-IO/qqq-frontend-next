@@ -240,6 +240,7 @@ export default function DashboardPage() {
               <Link
                 key={target.key}
                 href={`${target.path}/create`}
+                prefetch={false}
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 data-qqq-id={`dashboard-create-${target.key}`}
               >

@@ -18,6 +18,7 @@
 
 import React from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { QWidgetMetaData } from '@/types'
@@ -163,23 +164,37 @@ describe('QqqTableWidget column-header help', () => {
   const data: QqqTablePayload = { columns: [{ header: 'Name', accessor: 'name' }, { header: 'Plain', accessor: 'plain' }], rows: [{ name: 'A', plain: 'B' }] }
   const helpful = meta({ helpContent: { 'columnHeader=name': [{ content: 'Owned <b>column</b> help', format: 'HTML', roles: ['ALL_SCREENS'] }] } })
 
-  it('shows the columnHeader slot help as a tooltip on that header', () => {
+  it('shows the columnHeader slot summary as a tooltip on hover and focus', async () => {
+    const user = userEvent.setup()
     render(<QqqTableWidget widgetMetaData={helpful} data={data} />)
     const [name, plain] = screen.getAllByRole('columnheader')
-    const tip = within(name).getByRole('tooltip', { hidden: true })
-    expect(tip.querySelector('b')?.textContent).toBe('column')
-    expect(within(plain).queryByRole('tooltip', { hidden: true })).toBeNull()
+    const button = within(name).getByRole('button', { name: 'Help for Name' })
+    expect(within(plain).queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    await user.hover(button)
+    const tip = await screen.findByRole('tooltip')
+    expect(tip).toHaveTextContent('Owned column help')
+    expect(tip.querySelector('b')).toBeNull()
+    await user.unhover(button)
+    fireEvent.focus(button)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Owned column help')
+    fireEvent.keyDown(button, { key: 'Escape' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
-  it('shows every slot key in help-authoring mode', () => {
+  it('shows every slot key in help-authoring mode', async () => {
     render(
       <QContext.Provider value={{ helpHelpActive: true } as QContextType}>
         <QqqTableWidget widgetMetaData={helpful} data={data} />
       </QContext.Provider>,
     )
     const [name, plain] = screen.getAllByRole('columnheader')
-    expect(within(name).getByRole('tooltip', { hidden: true }).textContent).toBe('Owned column help [widget:tbl;slot:columnHeader=name]')
-    expect(within(plain).getByRole('tooltip', { hidden: true }).textContent).toBe('[widget:tbl;slot:columnHeader=plain]')
+    const nameHelp = within(name).getByRole('button', { name: 'Help for Name' })
+    fireEvent.focus(nameHelp)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Owned column help [widget:tbl;slot:columnHeader=name]')
+    fireEvent.blur(nameHelp)
+    fireEvent.focus(within(plain).getByRole('button', { name: 'Help for Plain' }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('[widget:tbl;slot:columnHeader=plain]')
   })
 })
 

@@ -27,23 +27,22 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
-import { Controller } from 'react-hook-form'
-import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
-import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import { HelpCircle } from 'lucide-react'
 
-import type { QFieldMetaData, QHelpContent, QRecord } from '@/types'
-import { useFocusSafeTooltip } from '@/lib/hooks/use-focus-safe-tooltip'
+import { Controller } from 'react-hook-form'
+
+import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
+import type { QFieldMetaData, QRecord } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
+
+import { selectSlotHelpContent } from '@/lib/utils/help-utils'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
 import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
-import { selectSlotHelpContent } from '@/lib/utils/help-utils'
 import { tooLongPolicy } from '@/lib/utils/field-validation'
 import { useHelpHelpActive } from '@/lib/context/q-context'
-import { HelpContent } from '@/components/records/HelpContent'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { TextField } from './field-types/TextField'
 import { TextAreaField } from './field-types/TextAreaField'
 import { FieldFooter } from './FieldFooter'
@@ -106,90 +105,6 @@ interface DynamicFormFieldProps {
   onFieldBlur?: (fieldName: string, value: unknown) => void
   /** Possible-value labels to show for values the form set (form adjusters), by field name. */
   displayValueOverrides?: Record<string, string>
-}
-
-/**
- * Renders help for a field: a hover tooltip on desktop (`sm` and wider) and
- * inline text on mobile (below the field, hidden on `sm` and wider).
- *
- * On mobile the `?` icon button is hidden (`hidden sm:inline-flex`) so that
- * hover-only affordances are not the sole way to access help content.
- * Instead a short inline paragraph is shown (`sm:hidden`) which satisfies
- * the ≥ 44 px touch-target requirement for mobile by requiring no interaction.
- *
- * @param props - Component properties.
- * @returns The rendered help tooltip (desktop) and inline text (mobile), or null when no help content is defined.
- */
-function FieldHelpTooltip({ field, helpContent, helpId: suppliedHelpId }: { field: QFieldMetaData; helpContent?: QHelpContent; helpId?: string }) {
-  const tooltipState = useFocusSafeTooltip()
-  if (!helpContent?.content) return null
-
-  const helpId = suppliedHelpId ?? `field-help-content-${field.name}`
-
-  return (
-    <>
-      {/* Desktop: hover tooltip — hidden on mobile */}
-      <span className="hidden sm:inline-flex">
-        <TooltipPrimitive.Provider delayDuration={300}>
-          <TooltipPrimitive.Root open={tooltipState.open} onOpenChange={tooltipState.onOpenChange}>
-            <TooltipPrimitive.Trigger asChild onFocus={tooltipState.onFocus} onBlur={tooltipState.onBlur} onKeyDown={tooltipState.onKeyDown}
-              onPointerDown={tooltipState.onPointerDown} onClick={tooltipState.onClick}>
-              <button
-                type="button"
-                tabIndex={0}
-                data-qqq-id={`field-help-${field.name}`}
-                aria-label={`Help for ${field.label}`}
-                className={cn(
-                  'ml-1 inline-flex items-center rounded-full p-0.5',
-                  'text-muted-foreground hover:text-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-ring'
-                )}
-              >
-                <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </TooltipPrimitive.Trigger>
-            <TooltipPrimitive.Portal>
-              <TooltipPrimitive.Content
-                data-qqq-id={`field-help-tooltip-${field.name}`}
-                side="top"
-                sideOffset={4}
-                className={cn(
-                  'z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-sm shadow-md',
-                  'text-popover-foreground',
-                  'animate-in fade-in-0 zoom-in-95'
-                )}
-              >
-                {helpContent.title && (
-                  <p className="mb-1 font-semibold">{helpContent.title}</p>
-                )}
-                <p><HelpContent helpContent={helpContent} /></p>
-                {helpContent.links && helpContent.links.length > 0 && (
-                  <div className="mt-1 space-y-0.5">
-                    {helpContent.links.map((link, idx) => (
-                      <a
-                        key={idx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-xs text-primary hover:underline"
-                      >
-                        {link.label}
-                      </a>
-                    ))}
-                  </div>
-                )}
-                <TooltipPrimitive.Arrow className="fill-border" />
-              </TooltipPrimitive.Content>
-            </TooltipPrimitive.Portal>
-          </TooltipPrimitive.Root>
-        </TooltipPrimitive.Provider>
-      </span>
-      {/* Mobile: inline text below the field — hidden on desktop */}
-      <p id={helpId} className="mt-0.5 text-xs text-muted-foreground sm:hidden" data-qqq-id={`field-help-text-${field.name}`}>
-        <HelpContent helpContent={helpContent} />
-      </p>
-    </>
-  )
 }
 
 /**
@@ -316,6 +231,7 @@ export function DynamicFormField({
   const helpContent = selectSlotHelpContent(field.helpContents, roles, helpKey ?? `field:${field.name}`, helpHelpActive)
   const hasHelp = Boolean(helpContent)
   const helpDescribedBy = hasHelp ? `${idPrefix ? `${idPrefix}-` : ''}field-help-content-${field.name}` : undefined
+  const helpIcon = helpContent && <HelpIcon label={field.label} helpContents={field.helpContents} helpKey={helpKey ?? `field:${field.name}`} roles={roles} descriptionId={helpDescribedBy} data-qqq-id={`field-help-${field.name}`} />
   // Text-like inputs: a form adjuster runs when the input loses focus (Material's blur handler).
   const registration = () => register(field.name, onFieldBlur
     ? { onBlur: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onFieldBlur(field.name, event.target.value) }
@@ -326,8 +242,7 @@ export function DynamicFormField({
     if (hasAdornment(field, 'WIDGET')) return null
     return (
       <FieldWithHelp field={field} helpId={helpDescribedBy}>
-        <ReadOnlyFormField field={field} fieldId={fieldId} record={record} helpDescribedBy={helpDescribedBy} />
-        {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
+        <ReadOnlyFormField field={field} fieldId={fieldId} record={record} helpDescribedBy={helpDescribedBy} labelExtra={helpIcon} />
       </FieldWithHelp>
     )
   }
@@ -349,6 +264,7 @@ export function DynamicFormField({
             enabledFields={enabledFields}
             id={fieldId}
             label={field.label}
+            labelExtra={helpIcon}
             name={field.name}
             control={control as Control<Record<string, unknown>>}
             fieldName={field.name}
@@ -366,7 +282,6 @@ export function DynamicFormField({
             required={field.isRequired}
             data-qqq-id={dataQqqId}
           />
-          {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
         </FieldWithHelp>
       </DirtyWrapper>
     )
@@ -381,6 +296,7 @@ export function DynamicFormField({
           <FileUploadField
             id={fieldId}
             label={field.label}
+            labelExtra={helpIcon}
             name={field.name}
             control={control as Control<Record<string, unknown>>}
             error={fieldError}
@@ -390,7 +306,6 @@ export function DynamicFormField({
             currentFile={currentFile(field, record)}
             data-qqq-id={dataQqqId}
           />
-          {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
         </FieldWithHelp>
       </DirtyWrapper>
     )
@@ -409,6 +324,7 @@ export function DynamicFormField({
               <ScriptEditor
                 id={fieldId}
                 label={field.isRequired ? `${field.label} *` : field.label}
+                labelExtra={helpIcon}
                 value={typeof controllerField.value === 'string' ? controllerField.value : ''}
                 onChange={controllerField.onChange}
                 language={scriptEditorLanguage(mode)}
@@ -417,7 +333,6 @@ export function DynamicFormField({
               />
             )}
           />
-          {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
         </FieldWithHelp>
       </DirtyWrapper>
     )
@@ -432,6 +347,7 @@ export function DynamicFormField({
               placeholder={placeholder}
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -442,7 +358,6 @@ export function DynamicFormField({
               transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -455,6 +370,7 @@ export function DynamicFormField({
               placeholder={placeholder}
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -464,7 +380,6 @@ export function DynamicFormField({
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
-              labelExtra={helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
             />
           </FieldWithHelp>
         </DirtyWrapper>
@@ -487,7 +402,7 @@ export function DynamicFormField({
                     <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
-                {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
+                {helpIcon}
               </div>
               <Controller
                 name={field.name}
@@ -518,6 +433,7 @@ export function DynamicFormField({
               placeholder={placeholder}
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -529,7 +445,6 @@ export function DynamicFormField({
               {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -542,6 +457,7 @@ export function DynamicFormField({
               placeholder={placeholder}
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -553,7 +469,6 @@ export function DynamicFormField({
               {...numberAdornments(field)}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -565,6 +480,7 @@ export function DynamicFormField({
             <BooleanField
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               name={field.name}
               control={control as Control<Record<string, unknown>>}
               error={fieldError}
@@ -572,7 +488,6 @@ export function DynamicFormField({
               required={field.isRequired}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -584,6 +499,7 @@ export function DynamicFormField({
             <DateField
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -591,7 +507,6 @@ export function DynamicFormField({
               describedBy={helpDescribedBy}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -603,6 +518,7 @@ export function DynamicFormField({
             <DateTimeField
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -610,7 +526,6 @@ export function DynamicFormField({
               describedBy={helpDescribedBy}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -631,7 +546,7 @@ export function DynamicFormField({
                     <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
-                {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
+                {helpIcon}
               </div>
               <input
                 id={fieldId}
@@ -664,6 +579,7 @@ export function DynamicFormField({
             <PasswordField
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -674,7 +590,6 @@ export function DynamicFormField({
               transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -687,6 +602,7 @@ export function DynamicFormField({
               placeholder={placeholder}
               id={fieldId}
               label={field.label}
+              labelExtra={helpIcon}
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
@@ -697,7 +613,6 @@ export function DynamicFormField({
               transform={caseTransform(field)}
               data-qqq-id={dataQqqId}
             />
-            {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -736,8 +651,8 @@ function currentFile(field: QFieldMetaData, record: QRecord | undefined): { name
  * @param props.helpDescribedBy - Help element id, if any.
  * @returns The read-only control.
  */
-function ReadOnlyFormField({ field, fieldId, record, helpDescribedBy }: {
-  field: QFieldMetaData; fieldId: string; record?: QRecord; helpDescribedBy?: string
+function ReadOnlyFormField({ field, fieldId, record, helpDescribedBy, labelExtra }: {
+  field: QFieldMetaData; fieldId: string; record?: QRecord; helpDescribedBy?: string; labelExtra?: React.ReactNode
 }) {
   const raw = record?.values[field.name]
   const display = record?.displayValues?.[field.name]
@@ -747,8 +662,9 @@ function ReadOnlyFormField({ field, fieldId, record, helpDescribedBy }: {
       : (display ?? (raw == null ? '' : String(raw)))
   return (
     <dl className="flex flex-col gap-1" aria-describedby={helpDescribedBy}>
-      <dt id={`${fieldId}-label`} className="text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
-        {field.label}
+      <dt id={`${fieldId}-label`} className="flex items-center text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
+        <span>{field.label}</span>
+        {labelExtra}
       </dt>
       <dd id={fieldId} className="min-h-5 whitespace-pre-wrap break-words text-sm text-foreground" data-qqq-id={field.name}>
         {text || <span className="text-muted-foreground" aria-label="No value">{'\u2014'}</span>}

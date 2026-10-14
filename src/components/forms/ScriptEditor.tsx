@@ -45,6 +45,8 @@ export interface ScriptEditorProps {
   id: string
   /** Human-readable label displayed above the editor. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** Current script content value (controlled). */
   value: string
   /**
@@ -113,6 +115,7 @@ function countLines(value: string): number {
 export function ScriptEditor({
   id,
   label,
+  labelExtra,
   value,
   onChange,
   language = 'text',
@@ -125,9 +128,12 @@ export function ScriptEditor({
 
   return (
     <div className="space-y-1" data-qqq-id={`script-editor-${id}`}>
-      <label htmlFor={id} className="block text-sm font-medium text-foreground">
-        {label}
-      </label>
+      <div className="flex items-center">
+        <label htmlFor={id} className="block text-sm font-medium text-foreground">
+          {label}
+        </label>
+        {labelExtra}
+      </div>
 
       <div className={cn(readOnly ? 'opacity-75' : '')}>
         <div

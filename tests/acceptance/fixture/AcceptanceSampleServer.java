@@ -114,6 +114,7 @@ public class AcceptanceSampleServer
             ProcessesFixtures.define(defined);
             WidgetsFixtures.define(defined);
             ApiVersionFixtures.define(defined);
+            HelpFixtures.define(defined);
             QContext.setQInstance(defined);
             apiAwareVersion.addVersion(ApiVersionFixtures.NAME, new com.kingsrook.qqq.api.model.APIVersion(ApiVersionFixtures.VERSION));
             PerformanceFixtures.define(defined);
@@ -277,6 +278,7 @@ public class AcceptanceSampleServer
          QueryFixtures.prime(connection);
          ProcessesFixtures.prime(connection);
          WidgetsFixtures.prime(connection);
+         HelpFixtures.prime(connection);
          /////////////////////////////////////////////////////////////////////
          // after WidgetsFixtures.prime, which recreates the scripts tables //
          /////////////////////////////////////////////////////////////////////

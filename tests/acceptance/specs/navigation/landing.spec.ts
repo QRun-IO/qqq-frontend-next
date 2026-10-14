@@ -53,8 +53,9 @@ test.describe('dashboard landing page', () => {
     // Pet Species is navigable but enumeration-backed, so the backend offers no insert for it
     expect(tables.map((node) => node.name)).toContain('petSpecies')
     expect(meta.tables.petSpecies.insertPermission).toBe(false)
-    expect(expected).toEqual(['Create Carrier', 'Create Field Lab', 'Create Nav Deep Item', 'Create Person', 'Create Pet', 'Create Pet Note',
-      'Sleep Interactive', 'Simple Throw', 'Greet Interactive', 'Clone People'])
+    // the Help Lab fixture app (HelpFixtures) is navigable, so its table and process lead the lists
+    expect(expected).toEqual(['Create Help Topic', 'Create Carrier', 'Create Field Lab', 'Create Nav Deep Item', 'Create Person', 'Create Pet',
+      'Help Guide', 'Sleep Interactive', 'Simple Throw', 'Greet Interactive'])
     await expect(actions).toHaveText(expected)
     await expect(page.getByRole('link', { name: 'Create Pet Species' })).toHaveCount(0)
     // Regression: internal processes and table-bulk processes were offered

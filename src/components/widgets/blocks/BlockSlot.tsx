@@ -21,13 +21,17 @@
 
 import React, { createContext, useContext, useId } from 'react'
 import Link from 'next/link'
+
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 
 import type { QHelpContent } from '@/types'
+import type { QqqBlockData, QqqBlockLink, QqqBlockTooltip, QqqCompositeData } from '../widget-types'
+
 import { useHelpHelpActive } from '@/lib/context/q-context'
 import { WIDGET_HELP_ROLES } from '@/lib/utils/help-utils'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { HelpContent } from '@/components/records/HelpContent'
-import type { QqqBlockData, QqqBlockLink, QqqBlockTooltip, QqqCompositeData } from '../widget-types'
 import { isPlainObject } from '../widget-types'
 import { TOUCH_LINK, widgetSlotHelp } from '../widget-utils'
 import { WidgetMetaDataContext } from '../widget-context'
@@ -144,6 +148,7 @@ export function BlockSlot({ block, slot, children, linkClassName }: BlockSlotPro
 
   return (
     <>
+      {helpHelpActive && slot && widgetMetaData && <HelpIcon label={widgetMetaData.label} helpContent={widgetSlotHelp(widgetMetaData, blockHelpSlot(block, slot))} roles={WIDGET_HELP_ROLES} helpKey={`widget:${widgetMetaData.name};slot:${blockHelpSlot(block, slot)}`} data-qqq-id={`block-slot-author-${blockHelpSlot(block, slot)}`} />}
       {title && <span id={descriptionId} hidden>{title}</span>}
       {!title && help && <span id={descriptionId} hidden><HelpContent helpContent={help} /></span>}
       <TooltipPrimitive.Provider delayDuration={200}>

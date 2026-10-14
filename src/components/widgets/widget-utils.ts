@@ -19,6 +19,7 @@
  */
 
 import type { QHelpContent, QWidgetDropdown, QWidgetHelpContent, QWidgetMetaData } from '@/types'
+
 import { WIDGET_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
 import { containerSpanClasses, gridMinWidthRem, gridProfileOf, minWidthSpanClasses } from '@/lib/utils/responsive-grid'
 
@@ -380,7 +381,7 @@ export function widgetSlotHelp(
   const helpContent = widgetMetaData.helpContent
   let entries: QWidgetHelpContent[] | undefined
   if (helpContent && 'content' in helpContent && typeof helpContent.content === 'string') {
-    entries = slot === 'label' ? [{ content: helpContent.content, format: 'TEXT' }] : undefined
+    entries = slot === 'label' ? [helpContent as QHelpContent] : undefined
   } else if (helpContent) {
     const slotEntries = (helpContent as Record<string, QWidgetHelpContent[]>)[slot]
     entries = Array.isArray(slotEntries) ? slotEntries : undefined

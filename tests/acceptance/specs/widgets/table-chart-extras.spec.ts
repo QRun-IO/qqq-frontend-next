@@ -7,6 +7,7 @@
 
 // Material table and chart widget extras (QRun-IO/qqq#728): WidgetTableChartFixtures widgetTableCharts.
 import type { Locator, Page } from '@playwright/test'
+
 import { expectedDownloadFilename, nextDownloadAttribute } from '../../support/downloads'
 import { expect, open, test } from '../../support/fixtures'
 import { expectTouchReady } from '../../support/touch'
@@ -83,11 +84,11 @@ test.describe('table and chart extras', () => {
 
       // the columnHeader=name help slot on the Name header
       const help = byId(page, 'table-header-help-accTableCells-name')
-      await expect(help).toBeHidden()
-      await showTooltip(page, headers.nth(0).locator('[data-tooltip-trigger]'))
-      await expect(help).toBeVisible()
-      await expect(help).toHaveText('Owned name column help')
-      await expect(help.locator('b')).toHaveText('name')
+      await help.focus()
+      await expect(page.getByRole('tooltip').filter({ hasText: 'Owned name column help' })).toBeVisible()
+      await help.press('Enter')
+      await expect(page.locator('[data-qqq-id="help-panel-content"] b')).toHaveText('name')
+      await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')
       await expect(headers.nth(1).getByRole('tooltip', { includeHidden: true })).toHaveCount(0)
     }

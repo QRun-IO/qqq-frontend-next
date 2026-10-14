@@ -24,6 +24,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+
 import { useQuery } from '@tanstack/react-query'
 
 import { useAuth } from '@/lib/auth/use-auth'
@@ -40,6 +41,7 @@ import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
 import dynamic from 'next/dynamic'
+
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -49,6 +51,7 @@ import { buildBreadcrumbs, buildDocumentTitle } from '@/components/layout/Breadc
 import { CommandMenu } from '@/components/feedback/CommandMenu'
 import { SearchDialog } from '@/components/feedback/SearchDialog'
 import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcutsDialog'
+import { HelpPanelProvider } from '@/components/help/HelpPanelProvider'
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
@@ -281,6 +284,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // cannot clip it, and one near the end of a long page (the company footer's "opens in a new
   // tab") makes the document taller than the window, a second scrollbar beside main's.
   return (
+    <HelpPanelProvider instance={metaData}>
     <AssistantProvider value={assistant}>
     <div className="relative flex h-screen flex-col overflow-hidden bg-background" data-qqq-id="app-shell">
       {/* Top-of-site banner spans the whole window, above the sidebar */}
@@ -385,6 +389,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <KeyboardShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpButtonRef} assistantEnabled={assistantEnabled} />
     </div>
     </AssistantProvider>
+    </HelpPanelProvider>
   )
 }
 

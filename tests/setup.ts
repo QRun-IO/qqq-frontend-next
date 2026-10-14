@@ -7,6 +7,13 @@ import { resetPreferencesMock } from '@/mocks/handlers/preferences'
 import { resetUiApiExtensions } from '@/lib/api/ui-api-extensions'
 import { server } from '@/mocks/node'
 
+// jsdom has no layout observer; Radix tooltip positioning requires the browser API.
+vi.stubGlobal('ResizeObserver', class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+})
+
 // Extend Vitest's expect with jest-axe accessibility matchers
 expect.extend(toHaveNoViolations)
 
