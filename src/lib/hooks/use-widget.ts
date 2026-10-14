@@ -19,6 +19,7 @@
  */
 'use client'
 
+import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import type { WidgetData } from '@/types'
@@ -29,6 +30,8 @@ const WIDGET_STALE_TIME = 1000 * 60 * 5 // 5 minutes
 
 /** Options for {@link useWidget}. */
 export interface UseWidgetOptions {
+  /** Metadata refresh interval in seconds; finite numbers are clamped to at least two. */
+  refreshSeconds?: unknown
   /** When false the query does not run (e.g. a denied widget). Defaults to true. */
   enabled?: boolean
   /**
@@ -46,6 +49,8 @@ export interface UseWidgetOptions {
  * arrives, so header controls derived from it do not disappear. Failures are not
  * retried and do not raise the global error toast: widgets render their own
  * error state with a retry button, as the Material dashboard does.
+ * A numeric metadata refresh interval polls only while the document is visible;
+ * background fetches keep the cached payload and do not re-enter initial loading.
  *
  * @param widgetName - Backend-registered widget name as declared in the QInstance metadata.
  *   The query is disabled when this is an empty string.
@@ -61,11 +66,21 @@ export function useWidget(
   params?: Record<string, string | number | boolean>,
   options: UseWidgetOptions = {}
 ) {
+  const [visible, setVisible] = useState(() => typeof document === 'undefined' || document.visibilityState !== 'hidden')
+  useEffect(() => {
+    const updateVisibility = () => setVisible(document.visibilityState !== 'hidden')
+    document.addEventListener('visibilitychange', updateVisibility)
+    return () => document.removeEventListener('visibilitychange', updateVisibility)
+  }, [])
+  const refreshSeconds = options.refreshSeconds
+  const refreshInterval = typeof refreshSeconds === 'number' && Number.isFinite(refreshSeconds)
+    ? Math.max(2, refreshSeconds) * 1000 : false
   return useQuery<WidgetData, Error>({
     queryKey: queryKeys.widgetData(widgetName, params),
     queryFn: () => fetchWidgetData(widgetName, params),
     staleTime: options.initialData ? Infinity : WIDGET_STALE_TIME,
     enabled: Boolean(widgetName) && options.enabled !== false,
+    refetchInterval: visible ? refreshInterval : false,
     ...(options.initialData ? { initialData: options.initialData } : { placeholderData: keepPreviousData }),
     retry: false,
     meta: HANDLES_OWN_ERRORS,

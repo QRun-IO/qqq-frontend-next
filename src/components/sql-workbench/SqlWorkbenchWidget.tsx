@@ -24,7 +24,7 @@
 
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { QWidgetMetaData, SqlHistoryEntry } from '@/types'
@@ -38,6 +38,10 @@ import { getErrorMessage } from '@/lib/utils/error-utils'
 import { formatDuration } from '@/lib/utils/sql-workbench'
 import { cn } from '@/lib/utils/cn'
 import { NotebookEditor, type InsertCellRequest } from './NotebookEditor'
+import { WorkbenchTabs } from './WorkbenchTabs'
+import { CheckCircle2, Loader2, Plus, XCircle } from 'lucide-react'
+import { DateTimeText } from '@/components/ui/DateTimeText'
+import { ALERT_CLASS, buttonClass } from '@/components/ui/controls'
 
 /**
  * The notebook id in the page URL.
@@ -48,6 +52,25 @@ function notebookFromUrl(): number | null {
   if (typeof window === 'undefined') return null
   const id = Number(new URLSearchParams(window.location.search).get('notebook'))
   return Number.isInteger(id) && id > 0 ? id : null
+}
+
+/**
+ * SQL to open from the page URL (`?sql=...&backend=...`, e.g. from a record's developer view):
+ * read once and removed from the URL, so a reload does not insert it again. It is only put in the
+ * editor as a new cell, never run.
+ *
+ * @returns The SQL and backend name (empty to use the first backend), or null.
+ */
+function sqlFromUrl(): { sql: string; backendName: string } | null {
+  if (typeof window === 'undefined') return null
+  const url = new URL(window.location.href)
+  const sql = url.searchParams.get('sql')
+  if (!sql) return null
+  const backendName = url.searchParams.get('backend') ?? ''
+  url.searchParams.delete('sql')
+  url.searchParams.delete('backend')
+  window.history.replaceState(window.history.state, '', url)
+  return { sql, backendName }
 }
 
 /**
@@ -64,8 +87,10 @@ export default function SqlWorkbenchWidget({
 }) {
   const [notebookId, setNotebookId] = useState<number | null>(notebookFromUrl)
   const [scope, setScope] = useState<'mine' | 'shared'>('mine')
+  const [urlSql] = useState(sqlFromUrl)
   const [insertRequest, setInsertRequest] = useState<InsertCellRequest | null>(null)
   const clearInsertRequest = useCallback(() => setInsertRequest(null), [])
+  const libraryId = React.useId()
 
   const {
     data: capabilities,
@@ -93,6 +118,16 @@ export default function SqlWorkbenchWidget({
     meta: HANDLES_OWN_ERRORS,
   })
 
+  // SQL from the URL goes into the editor once the backends are known (default: the first one)
+  const firstBackend = capabilities?.backends[0]?.name
+  useEffect(() => {
+    if (!urlSql || !firstBackend) return
+    const backends = capabilities?.backends.map((backend) => backend.name) ?? []
+    setInsertRequest({ sql: urlSql.sql, backendName: backends.includes(urlSql.backendName) ? urlSql.backendName : firstBackend, nonce: Date.now() })
+    // only the first load of the backends inserts the SQL
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSql, firstBackend])
+
   const select = (id: number | null) => {
     setNotebookId(id)
     const url = new URL(window.location.href)
@@ -103,14 +138,15 @@ export default function SqlWorkbenchWidget({
 
   if (isLoading) {
     return (
-      <p className="text-sm text-muted-foreground" role="status">
+      <p className="inline-flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         Loading SQL Workbench…
       </p>
     )
   }
   if (error) {
     return (
-      <p className="text-sm text-destructive" role="alert">
+      <p className={ALERT_CLASS} role="alert">
         Failed to load the SQL Workbench: {getErrorMessage(error)}
       </p>
     )
@@ -133,112 +169,144 @@ export default function SqlWorkbenchWidget({
   const openFromHistory = (entry: SqlHistoryEntry) =>
     setInsertRequest({ sql: entry.sqlText, backendName: entry.backendName, nonce: Date.now() })
 
+  // One column until the widget is wide enough for a readable notebook beside the library (a
+  // container query, so the app sidebar and the surrounding layout count): the library, then the
+  // notebook, then the recent runs.
   return (
-    <div
-      className="grid gap-4 lg:grid-cols-[16rem_1fr]"
-      data-qqq-id={`widget-${widgetMetaData.name}`}
-    >
-      <div className="space-y-4">
-        <nav aria-label="Notebooks" className="space-y-2">
-          <div className="flex gap-1 text-xs" role="group" aria-label="Notebook library">
-            {(['mine', 'shared'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={scope === s}
-                className={cn(
-                  'rounded px-2 py-1',
-                  scope === s ? 'bg-muted font-medium' : 'text-muted-foreground'
-                )}
-                onClick={() => setScope(s)}
-                data-qqq-id={`tab-sql-notebooks-${s}`}
-              >
-                {s === 'mine' ? 'My notebooks' : 'Shared library'}
-              </button>
-            ))}
-          </div>
+    <div className="@container" data-qqq-id={`widget-${widgetMetaData.name}`}>
+      <div className="grid items-start gap-6 [grid-template-areas:'library'_'notebook'_'history'] @5xl:grid-cols-[17rem_minmax(0,1fr)] @5xl:grid-rows-[auto_1fr] @5xl:[grid-template-areas:'library_notebook'_'history_notebook']">
+        <nav aria-label="Notebooks" className="min-w-0 space-y-3 [grid-area:library]">
+          <WorkbenchTabs
+            label="Notebook library"
+            idBase={libraryId}
+            value={scope}
+            onChange={setScope}
+            tabs={[
+              { value: 'mine', label: 'My notebooks', qqqId: 'tab-sql-notebooks-mine' },
+              { value: 'shared', label: 'Shared library', qqqId: 'tab-sql-notebooks-shared' },
+            ]}
+          />
           <button
             type="button"
-            className="w-full rounded border px-2 py-1 text-left text-sm"
+            className={cn(buttonClass('secondary', 'md'), 'w-full')}
             onClick={() => select(null)}
             data-qqq-id="button-sql-new-notebook"
           >
-            + New notebook
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New notebook
           </button>
-          {notebooksLoading ? (
-            <p className="text-xs text-muted-foreground">Loading…</p>
-          ) : notebooksError ? (
-            <p className="text-xs text-destructive" role="alert">
-              Could not load notebooks: {getErrorMessage(notebooksError)}
-            </p>
-          ) : notebooks.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              {scope === 'mine' ? 'No notebooks yet.' : 'Nothing has been shared yet.'}
-            </p>
+          <div
+            role="tabpanel"
+            id={`${libraryId}-panel`}
+            aria-labelledby={`${libraryId}-tab-${scope}`}
+          >
+            {notebooksLoading ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                Loading notebooks…
+              </p>
+            ) : notebooksError ? (
+              <p className={ALERT_CLASS} role="alert">
+                Could not load notebooks: {getErrorMessage(notebooksError)}
+              </p>
+            ) : notebooks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {scope === 'mine' ? 'No notebooks yet.' : 'Nothing has been shared yet.'}
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {notebooks.map((n) => (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        'block w-full rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        n.id === notebookId ? 'bg-primary/10 font-medium' : 'hover:bg-accent'
+                      )}
+                      onClick={() => select(n.id)}
+                      aria-current={n.id === notebookId ? 'page' : undefined}
+                      title={n.description ?? n.title}
+                      data-qqq-id={`button-sql-notebook-${n.id}`}
+                    >
+                      <span className="block break-words">{n.title}</span>
+                      {n.visibility === 'SHARED' && scope === 'mine' && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          Shared
+                        </span>
+                      )}
+                      {scope === 'shared' && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {n.ownerName}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </nav>
+        <div className="min-w-0 [grid-area:notebook]">
+          <NotebookEditor
+            notebookId={notebookId}
+            capabilities={capabilities}
+            insertRequest={insertRequest}
+            onInsertConsumed={clearInsertRequest}
+            onSelect={select}
+          />
+        </div>
+        <section
+          aria-labelledby="sql-history-heading"
+          className="min-w-0 space-y-2 [grid-area:history]"
+        >
+          <h3 id="sql-history-heading" className="text-sm font-semibold text-foreground">
+            Recent runs
+          </h3>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No runs yet.</p>
           ) : (
-            <ul className="space-y-0.5 text-sm">
-              {notebooks.map((n) => (
-                <li key={n.id}>
+            <ul className="space-y-1">
+              {history.map((h) => (
+                <li key={h.executionUuid}>
                   <button
                     type="button"
-                    className={cn(
-                      'w-full truncate rounded px-2 py-1 text-left hover:bg-muted',
-                      n.id === notebookId && 'bg-muted font-medium'
-                    )}
-                    onClick={() => select(n.id)}
-                    aria-current={n.id === notebookId ? 'page' : undefined}
-                    title={n.description ?? n.title}
-                    data-qqq-id={`button-sql-notebook-${n.id}`}
+                    className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => openFromHistory(h)}
+                    title="Add as a new cell"
+                    data-qqq-id={`button-sql-history-${h.executionUuid}`}
                   >
-                    {n.title}
-                    {n.visibility === 'SHARED' && scope === 'mine' && (
-                      <span className="ml-1 text-xs text-muted-foreground">(shared)</span>
+                    {h.status === 'SUCCEEDED' ? (
+                      <CheckCircle2
+                        className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400"
+                        aria-label="Succeeded"
+                      />
+                    ) : (
+                      <XCircle
+                        className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                        aria-label="Failed"
+                      />
                     )}
-                    {scope === 'shared' && (
-                      <span className="block text-xs text-muted-foreground">{n.ownerName}</span>
-                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 break-all font-mono text-xs text-foreground">
+                        {h.sqlText}
+                      </span>
+                      <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                        {h.startTime && (
+                          <DateTimeText
+                            value={h.startTime}
+                            type="DATE_TIME"
+                            relative
+                            className="text-xs text-muted-foreground"
+                          />
+                        )}
+                        <span>{formatDuration(h.durationMs)}</span>
+                      </span>
+                    </span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
-        </nav>
-        <section aria-label="History" className="space-y-1">
-          <h3 className="text-xs font-medium text-muted-foreground">Recent runs</h3>
-          <ul className="space-y-0.5 text-xs">
-            {history.map((h) => (
-              <li key={h.executionUuid}>
-                <button
-                  type="button"
-                  className="w-full rounded px-1 py-0.5 text-left hover:bg-muted"
-                  onClick={() => openFromHistory(h)}
-                  title={`${h.mode} ${h.status} — add as a new cell`}
-                  data-qqq-id={`button-sql-history-${h.executionUuid}`}
-                >
-                  <span
-                    className={cn(
-                      'mr-1',
-                      h.status === 'SUCCEEDED' ? 'text-emerald-600' : 'text-destructive'
-                    )}
-                  >
-                    {h.status === 'SUCCEEDED' ? '✓' : '✗'}
-                  </span>
-                  <span className="font-mono">{h.sqlText.slice(0, 60)}</span>
-                  <span className="ml-1 text-muted-foreground">{formatDuration(h.durationMs)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
         </section>
-      </div>
-      <div className="min-w-0">
-        <NotebookEditor
-          notebookId={notebookId}
-          capabilities={capabilities}
-          insertRequest={insertRequest}
-          onInsertConsumed={clearInsertRequest}
-          onSelect={select}
-        />
       </div>
     </div>
   )

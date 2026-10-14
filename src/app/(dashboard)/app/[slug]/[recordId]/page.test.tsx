@@ -17,7 +17,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { deserializeFilter } from '@/lib/utils/filter-utils'
 import apiClient from '@/lib/api/client'
@@ -61,6 +61,12 @@ function renderPage() {
 }
 
 describe('RecordViewPage independent association loading', () => {
+  beforeAll(async () => {
+    // Keep cold compilation of the lazy RecordView outside the first assertion's deadline,
+    // so any case passes alone (-t) and under load.
+    await import('@/components/records/RecordView')
+  }, 30_000)
+
   beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); navigation.search = 'tab=related' })
 
   it('keeps the base and child Add, and requests no expansion, when the child table is listed without read permission (QRun-IO/qqq#671)', async () => {
@@ -228,9 +234,9 @@ describe('RecordViewPage independent association loading', () => {
     expect(within(dialog).queryByLabelText('Person')).not.toBeInTheDocument()
     fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: 'Created child' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
-    await waitFor(() => expect(post).toHaveBeenCalled())
-    expect(post.mock.calls[0][0]).toBe('/table/pet')
-    const values = post.mock.calls[0][1] as FormData
+    // the record view also records a recent view (collaboration) through POST; find the insert
+    await waitFor(() => expect(post.mock.calls.some((call) => call[0] === '/table/pet')).toBe(true))
+    const values = post.mock.calls.find((call) => call[0] === '/table/pet')![1] as FormData
     expect(values.get('personId')).toBe('2')
     expect(values.get('birthDate')).toBe('1990-01-15')
     expect(values.get('name')).toBe('Created child')

@@ -15,31 +15,44 @@
  */
 
 /**
- * @file GlobalSearch — header search over apps, tables, processes, reports and recently
- * viewed records (matched locally), plus records found by the backend record search when
- * the metadata advertises searchable tables. Without searchable tables no search request is made.
+ * @file GlobalSearch — header search-as-you-type over apps, tables, processes, reports and
+ * recently viewed records (matched locally), plus records found by the backend record
+ * search when the metadata advertises searchable tables (without them no search request
+ * is made). The input is part of every page; the results panel loads on first focus.
  */
 
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { Search, ArrowRight } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 
 import type { NavTarget } from '@/lib/hooks/use-routes'
-import { useRecordSearch } from '@/lib/hooks/use-record-search'
 import { cn } from '@/lib/utils/cn'
-import { getRecentRecords } from '@/lib/utils/recent-records'
-import type { RecentRecord } from '@/lib/utils/recent-records'
-import { buildNavigationSearchItems } from '@/lib/utils/navigation-search'
 import type { SearchableTable } from '@/lib/utils/record-search'
-import { NavigationSearchResults } from './NavigationSearchResults'
+import { searchPagePath } from '@/lib/search/search-url'
+import type { QuickSearchPanelController } from '@/components/search/QuickSearchPanel'
 
-/** Records shown per table in the dropdown. */
-const DROPDOWN_RECORDS_PER_TABLE = 5
+/** The results panel, loaded when the search first opens. */
+const QuickSearchPanel = dynamic(() => import('@/components/search/QuickSearchPanel').then((module) => module.QuickSearchPanel), { ssr: false })
 
 /** Stable empty default for `searchTables`. */
 const NO_SEARCH_TABLES: SearchableTable[] = []
+
+/** DOM id of the results listbox. */
+const LISTBOX_ID = 'header-search-results'
+
+/** Keyboard hints under the results. */
+const FOOTER = (
+  <div className="hidden items-center gap-4 border-t border-border px-3 py-1.5 text-[0.7rem] text-muted-foreground sm:flex" aria-hidden="true">
+    <span><kbd className="rounded border border-border px-1 font-mono">↑↓</kbd> navigate</span>
+    <span><kbd className="rounded border border-border px-1 font-mono">↵</kbd> open</span>
+    <span><kbd className="rounded border border-border px-1 font-mono">Ctrl/⌘ ↵</kbd> new tab</span>
+    <span><kbd className="rounded border border-border px-1 font-mono">⇧ ↵</kbd> all results</span>
+    <span><kbd className="rounded border border-border px-1 font-mono">esc</kbd> close</span>
+  </div>
+)
 
 /**
  * Props for the GlobalSearch component.
@@ -54,41 +67,46 @@ export interface GlobalSearchProps {
 }
 
 /**
- * Inline header search with a dropdown of matching pages (apps, tables,
- * processes, reports by label), records found by record search (when available)
- * and recently viewed records.
+ * Inline header search with a dropdown of grouped results: top hits, pages, records per
+ * table (with counts and "see all" links), recently viewed records and recent searches.
  *
- * - With no text, the dropdown lists recently viewed records.
- * - ArrowUp/ArrowDown move the selection; Enter opens the selected result, or
- *   the search page (`/app/search?q=…`) when nothing is selected; Escape closes.
+ * Keyboard: ↓/↑ move the selection (the first result is selected while typing), Enter
+ * opens it, Ctrl/⌘+Enter opens it in a new tab, Escape closes (and then clears).
+ * "Search everything" (or Enter before results load) opens the search page.
  *
  * @param props - Component properties.
- * @returns A `<div>` containing the search combobox and, when open, a listbox dropdown.
+ * @returns A `<div>` containing the search combobox and, when open, its results.
  */
 export function GlobalSearch({ navTargets, searchTables = NO_SEARCH_TABLES, className }: GlobalSearchProps) {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
   const [isOpen, setIsOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([])
+  // mounted once opened, so the panel keeps its state (recents, cache) between openings
+  const [panelMounted, setPanelMounted] = useState(false)
+  const [term, setTerm] = useState('')
+  const controllerRef = useRef<QuickSearchPanelController | null>(null)
+  const [activeDescendant, setActiveDescendant] = useState<string>()
+  const [hasContent, setHasContent] = useState(false)
+  const recordSearchAvailable = searchTables.length > 0
 
-  // Load recent records when the dropdown opens
   useEffect(() => {
-    if (isOpen) {
-      setRecentRecords(getRecentRecords().slice(0, 10))
-    }
+    if (isOpen) setPanelMounted(true)
   }, [isOpen])
 
-  const recordSearch = useRecordSearch(isOpen ? searchTerm : '', searchTables, DROPDOWN_RECORDS_PER_TABLE)
-  const items = useMemo(
-    () => buildNavigationSearchItems(navTargets, recentRecords, searchTerm, 8, recordSearch.results),
-    [navTargets, recentRecords, searchTerm, recordSearch.results]
-  )
+  const handleNavigate = useCallback((path: string) => {
+    setIsOpen(false)
+    inputRef.current?.blur()
+    router.push(path)
+  }, [router])
 
-  // Close dropdown on outside click
+  const handleController = useCallback((controller: QuickSearchPanelController | null) => {
+    controllerRef.current = controller
+    setActiveDescendant(controller?.activeDescendant)
+    setHasContent(controller?.hasContent ?? false)
+  }, [])
+
+  // Close on outside click
   useEffect(() => {
     /**
      * Closes the dropdown when the user clicks outside the search container.
@@ -97,130 +115,105 @@ export function GlobalSearch({ navTargets, searchTables = NO_SEARCH_TABLES, clas
      */
     function handleClickOutside(event: MouseEvent) {
       if (!(event.target instanceof Node)) return
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false)
-      }
+      if (containerRef.current && !containerRef.current.contains(event.target)) setIsOpen(false)
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Reset selection when the result list changes
-  useEffect(() => {
-    setSelectedIndex(-1)
-  }, [items])
-
   /**
-   * Navigates to the given path, closes the dropdown, and clears the search term.
+   * Keyboard handling: opens the dropdown, closes it on Escape (a second Escape clears the
+   * text), and otherwise defers to the results panel (↑↓, Enter, Ctrl/⌘+Enter).
    *
-   * @param path - The URL path to navigate to.
+   * @param event - The input's keydown event.
    */
-  const handleNavigate = useCallback(
-    (path: string) => {
-      setIsOpen(false)
-      setSearchTerm('')
-      router.push(path)
-    },
-    [router]
-  )
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      if (isOpen) setIsOpen(false)
+      else if (term) setTerm('')
+      else inputRef.current?.blur()
+      return
+    }
+    if (!isOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault()
+      setIsOpen(true)
+      return
+    }
+    if (controllerRef.current && isOpen) {
+      controllerRef.current.onInputKeyDown(event)
+    } else if (event.key === 'Enter' && term.trim()) {
+      // the panel is closed or still loading: Enter searches everything (never a hidden option)
+      event.preventDefault()
+      setTerm('')
+      handleNavigate(searchPagePath({ q: term }))
+    }
+  }
 
-  /**
-   * Handles keyboard navigation within the search dropdown.
-   *
-   * @param e - The synthetic keyboard event from the text input.
-   */
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (!isOpen) {
-        if (e.key === 'ArrowDown' || e.key === 'Enter') {
-          setIsOpen(true)
-        }
-        return
-      }
-
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault()
-          setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : prev))
-          break
-        case 'ArrowUp':
-          e.preventDefault()
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
-          break
-        case 'Enter':
-          e.preventDefault()
-          if (selectedIndex >= 0 && selectedIndex < items.length) {
-            handleNavigate(items[selectedIndex].path)
-          } else if (searchTerm.trim()) {
-            handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)
-          }
-          break
-        case 'Escape':
-          e.preventDefault()
-          setIsOpen(false)
-          inputRef.current?.blur()
-          break
-      }
-    },
-    [isOpen, selectedIndex, items, searchTerm, handleNavigate]
-  )
-
-  const hasTerm = searchTerm.trim().length > 0
-  const showDropdown = isOpen && (hasTerm || items.length > 0)
+  const showDropdown = isOpen && (term.trim().length > 0 || hasContent)
 
   return (
     <div ref={containerRef} className={cn('relative', className)} data-qqq-id="header-search">
-      {/* Search input */}
       <div className="flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-        <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
           ref={inputRef}
           type="text"
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value)
+          value={term}
+          onChange={(event) => {
+            setTerm(event.target.value)
             setIsOpen(true)
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={recordSearch.available ? 'Search...' : 'Jump to...'}
-          className="w-36 bg-transparent text-foreground placeholder:text-muted-foreground outline-none"
-          aria-label={recordSearch.available ? 'Search pages and records' : 'Search pages and recent records'}
+          placeholder={recordSearchAvailable ? 'Search…' : 'Jump to…'}
+          className="w-36 bg-transparent text-foreground outline-none placeholder:text-muted-foreground lg:w-48 2xl:w-64"
+          aria-label={recordSearchAvailable ? 'Search pages and records' : 'Search pages and recent records'}
           aria-expanded={showDropdown}
-          aria-controls="header-search-results"
+          aria-controls={LISTBOX_ID}
+          aria-activedescendant={showDropdown ? activeDescendant : undefined}
           aria-haspopup="listbox"
           aria-autocomplete="list"
           role="combobox"
+          autoComplete="off"
+          spellCheck={false}
           data-qqq-id="input-header-search"
         />
+        {term && (
+          <button
+            type="button"
+            onClick={() => {
+              setTerm('')
+              inputRef.current?.focus()
+            }}
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Clear search"
+            data-qqq-id="button-header-search-clear"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
-      {/* Dropdown */}
-      {showDropdown && (
-        <div className="absolute top-full right-0 mt-2 w-[22rem] max-w-[80vw] overflow-hidden rounded-xl border border-border bg-card shadow-lg z-50">
-          <NavigationSearchResults
-            id="header-search-results"
-            items={items}
-            term={searchTerm}
-            selectedIndex={selectedIndex}
-            onSelect={handleNavigate}
-            onHover={setSelectedIndex}
-            recordSearch={recordSearch}
+      {panelMounted && (
+        <div
+          hidden={!showDropdown}
+          className="absolute right-0 top-full z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          data-qqq-id="header-search-dropdown"
+        >
+          <QuickSearchPanel
+            listboxId={LISTBOX_ID}
+            open={isOpen}
+            term={term}
+            setTerm={setTerm}
+            navTargets={navTargets}
+            searchTables={searchTables}
+            onNavigate={handleNavigate}
+            onController={handleController}
+            listClassName="max-h-[min(70vh,32rem)]"
+            footer={FOOTER}
+            hideWhenEmpty
           />
-          {hasTerm && (
-            <div className="border-t border-border px-3 py-2">
-              <button
-                type="button"
-                onClick={() => handleNavigate(`/app/search?q=${encodeURIComponent(searchTerm.trim())}`)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                data-qqq-id="button-header-search-all"
-              >
-                <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                Show all matches
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

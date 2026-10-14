@@ -30,12 +30,24 @@ vi.mock('@/lib/api/possible-values', () => ({
   fetchTablePossibleValues: vi.fn(),
   fetchProcessPossibleValues: vi.fn(),
   fetchPossibleValues: vi.fn(),
+  fetchPossibleValuesPage: vi.fn(),
+}))
+
+// the lazily loaded picker dialog: confirms option 7 when its button is pressed
+vi.mock('./RecordPickerDialog', () => ({
+  default: ({ onConfirm, selectedIds, label }: { onConfirm: (options: QPossibleValue[]) => void; selectedIds: Array<string | number>; label: string }) => (
+    <div role="dialog" aria-label={`Choose ${label}`}>
+      <span data-testid="picker-selected">{selectedIds.join(',')}</span>
+      <button type="button" onClick={() => onConfirm([{ id: 7, label: 'Lighthouse', values: { thumbnailUrl: '/t/7.jpg' } }])}>Pick Lighthouse</button>
+    </div>
+  ),
 }))
 
 import {
   fetchTablePossibleValues,
   fetchProcessPossibleValues,
   fetchPossibleValues,
+  fetchPossibleValuesPage,
 } from '@/lib/api/possible-values'
 
 const mockFetchTable = vi.mocked(fetchTablePossibleValues)
@@ -661,5 +673,81 @@ describe('PossibleValueSelect inline possible values and chips (QRun-IO/qqq#721)
     render(<InlineWrapper />)
     await user.click(screen.getByRole('combobox'))
     expect(screen.getByRole('option', { name: 'Low' }).querySelector('[data-chip-color]')).toBeNull()
+  })
+})
+
+
+describe('PossibleValueSelect with a record picker', () => {
+  const PICKER = { thumbnailField: 'thumbnailUrl', previewField: 'galleryUrl', subtitleFields: ['mimeType'] }
+  const HARBOR: QPossibleValue = { id: 3, label: 'Harbor', values: { thumbnailUrl: '/t/3.jpg', galleryUrl: '/g/3.jpg', mimeType: 'image/jpeg' } }
+  const mockPage = vi.mocked(fetchPossibleValuesPage)
+
+  /**
+   * A form with an image field whose source declares a picker.
+   * @param props - The held value, and its display label.
+   * @returns The field and a readout of the form value.
+   */
+  function PickerWrapper({ defaultValue, initialLabel }: { defaultValue?: unknown; initialLabel?: string }) {
+    const { control, watch } = useForm<Record<string, unknown>>({ defaultValues: { featuredMediaId: defaultValue ?? null } })
+    return (
+      <>
+        <PossibleValueSelect
+          id="image"
+          label="Featured Image"
+          name="featuredMediaId"
+          control={control}
+          fieldName="featuredMediaId"
+          context={{ type: 'table', tableName: 'blog_post' }}
+          initialLabel={initialLabel}
+          picker={PICKER}
+          pickerTableName="media"
+        />
+        <output data-testid="form-value">{String(watch('featuredMediaId'))}</output>
+      </>
+    )
+  }
+
+  beforeEach(() => {
+    mockPage.mockResolvedValue({ options: [HARBOR], hasMore: false })
+  })
+
+  it('shows thumbnails and subtitles in the typeahead, from a limited server-side page', async () => {
+    const user = userEvent.setup()
+    render(<PickerWrapper />)
+    await user.click(screen.getByRole('combobox'))
+    const option = await screen.findByRole('option', { name: /Harbor/ })
+    expect(option.querySelector('img')).toHaveAttribute('src', '/t/3.jpg')
+    expect(option).toHaveTextContent('image/jpeg')
+    expect(mockPage).toHaveBeenCalledWith({ type: 'table', tableName: 'blog_post' }, 'featuredMediaId', undefined, expect.objectContaining({ picker: { limit: 20 } }))
+    expect(mockFetchTable).not.toHaveBeenCalled()
+  })
+
+  it('shows the selected thumbnail with Change, Preview and View, even when the record gave its label', async () => {
+    render(<PickerWrapper defaultValue={3} initialLabel="Harbor" />)
+    await waitFor(() => expect(screen.getByRole('combobox').querySelector('img')).toHaveAttribute('src', '/t/3.jpg'))
+    expect(mockPage).toHaveBeenCalledWith(expect.anything(), 'featuredMediaId', undefined, expect.objectContaining({ ids: '3', picker: {} }))
+    expect(screen.getByRole('button', { name: 'Change…' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute('href', '/app/media/3')
+  })
+
+  it('opens the picker dialog and sets the field to the chosen record', async () => {
+    const user = userEvent.setup()
+    render(<PickerWrapper defaultValue={3} initialLabel="Harbor" />)
+    await user.click(screen.getByRole('button', { name: 'Change…' }))
+    expect(await screen.findByRole('dialog', { name: 'Choose Featured Image' })).toBeInTheDocument()
+    expect(screen.getByTestId('picker-selected')).toHaveTextContent('3')
+    await user.click(screen.getByRole('button', { name: 'Pick Lighthouse' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByTestId('form-value')).toHaveTextContent('7')
+    expect(screen.getByRole('combobox')).toHaveTextContent('Lighthouse')
+    expect(screen.getByRole('combobox').querySelector('img')).toHaveAttribute('src', '/t/7.jpg')
+  })
+
+  it('offers Browse (and no Preview or View) when nothing is selected', async () => {
+    render(<PickerWrapper />)
+    expect(screen.getByRole('button', { name: 'Browse…' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
   })
 })

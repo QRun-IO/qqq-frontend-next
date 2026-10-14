@@ -35,6 +35,56 @@
   }
 }
 
+/* QqqTableWidget card layout: a table widget narrower than 30rem (or than its declared column
+   widths need) shows each row as a card of "label: value" lines, never a sideways scroll.
+   Unlayered, so it wins over the table's utility classes. */
+[data-qqq-table-layout="cards"] .qqq-table-widget-table,
+[data-qqq-table-layout="cards"] .qqq-table-widget-table :is(tbody, tfoot, tr) {
+  display: block;
+  width: 100%;
+}
+/* headers stay in the accessibility tree (screen-reader only); each value is labelled visually */
+[data-qqq-table-layout="cards"] .qqq-table-widget-table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+[data-qqq-table-layout="cards"] .qqq-table-widget-table tr {
+  position: static;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+[data-qqq-table-layout="cards"] .qqq-table-widget-table td {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.25rem 0.75rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+[data-qqq-table-layout="cards"] .qqq-table-widget-table td::before {
+  content: attr(data-label);
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+/* the expand/collapse control has no label: it sits at the card's end */
+[data-qqq-table-layout="cards"] .qqq-table-widget-table td:not([data-label]) {
+  display: flex;
+  justify-content: flex-end;
+}
+[data-qqq-table-layout="cards"] .qqq-table-widget-table td:not([data-label])::before {
+  content: none;
+}
+[data-qqq-table-layout="cards"] .qqq-table-widget-table td:empty {
+  display: none;
+}
+
 /* Register semantic colors with Tailwind v4's utility system */
 @theme {
   /* Surface colors */

@@ -46,7 +46,7 @@ import { NotFoundState } from '@/components/layout/NotFoundState'
 
 // Metadata selects one screen. Keep the other three screens out of this route's first load.
 const RecordQuery = lazy(() => import('@/components/query/RecordQuery').then((module) => ({ default: module.RecordQuery })))
-const ProcessRun = lazy(() => import('@/components/process/ProcessRun').then((module) => ({ default: module.ProcessRun })))
+import { ProcessRun } from '@/components/process/ProcessRunLazy'
 const AppHome = lazy(() => import('@/components/widgets/AppHome').then((module) => ({ default: module.AppHome })))
 const ReportRun = lazy(() => import('@/components/reports/ReportRun').then((module) => ({ default: module.ReportRun })))
 

@@ -20,8 +20,8 @@
  * a table is searchable only when its metadata lists `searchFields`.
  */
 
-import type { QInstance } from '@/types'
-import type { RecordSearchResult } from '@/lib/api/tables'
+import type { QIcon, QInstance } from '@/types'
+import type { RecordSearchResult } from '@/lib/api/record-search'
 
 /** Shortest term sent to record search (shorter terms still match pages locally). */
 export const MIN_RECORD_SEARCH_LENGTH = 2
@@ -32,6 +32,8 @@ export interface SearchableTable {
   name: string
   /** Metadata label. */
   label: string
+  /** Table icon from metadata. */
+  icon?: QIcon
 }
 
 /**
@@ -46,7 +48,7 @@ export interface SearchableTable {
 export function searchableTables(metaData: QInstance | undefined): SearchableTable[] {
   return Object.values(metaData?.tables ?? {})
     .filter((table) => (table.searchFields?.length ?? 0) > 0 && table.readPermission !== false && table.isHidden !== true)
-    .map((table) => ({ name: table.name, label: table.label }))
+    .map((table) => ({ name: table.name, label: table.label, icon: table.icon }))
 }
 
 /**

@@ -24,6 +24,7 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
 import type { QPossibleValue } from '@/types'
 
 /**
@@ -48,6 +49,8 @@ interface SelectFieldProps {
   placeholder?: string
   /** `data-qqq-id` attribute forwarded to the select element for CSS customization. */
   'data-qqq-id'?: string
+  /** Id of help or read-only text describing the control. */
+  describedBy?: string
 }
 
 /**
@@ -73,16 +76,17 @@ export function SelectField({
   required = false,
   placeholder,
   'data-qqq-id': dataQqqId,
+  describedBy,
 }: SelectFieldProps) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
       </label>
       <select
         id={id}
@@ -90,7 +94,7 @@ export function SelectField({
         disabled={disabled}
         aria-required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={[error ? `${id}-error` : undefined, describedBy].filter(Boolean).join(' ') || undefined}
         data-qqq-id={dataQqqId}
         className={cn(
           'w-full rounded-md border px-3 py-2 text-sm text-foreground',
@@ -114,11 +118,7 @@ export function SelectField({
           </option>
         ))}
       </select>
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} />
     </div>
   )
 }

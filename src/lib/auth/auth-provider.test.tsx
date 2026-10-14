@@ -20,6 +20,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
+// the UI API version check (a real request otherwise) is covered in ui-api-version.test.ts
+vi.mock('@/lib/api/ui-api-version', () => ({ checkUiApiCompatibility: vi.fn(async () => ({ compatible: true, info: { apiVersion: '1.1.0', features: [], extensions: [], preSemver: false } })) }))
 vi.mock('@/lib/api/auth', () => ({
   getAuthenticationMetaData: vi.fn(async () => ({ name: 'mock', type: 'MOCK' })),
   manageSession: vi.fn(),
@@ -28,13 +30,14 @@ vi.mock('@/lib/api/auth', () => ({
 }))
 
 import { manageSession } from '@/lib/api/auth'
+import { checkUiApiCompatibility } from '@/lib/api/ui-api-version'
 import { AuthProvider } from './auth-provider'
 import { useAuth } from './use-auth'
 
 /** Shows the resolved user. */
 function Who() {
-  const { user, isAuthenticated } = useAuth()
-  return <p>{isAuthenticated ? `${user?.name} <${user?.email}>` : 'signed out'}</p>
+  const { user, isAuthenticated, authError } = useAuth()
+  return <p>{isAuthenticated ? `${user?.name} <${user?.email}>` : authError ?? 'signed out'}</p>
 }
 
 describe('AuthProvider with mock authentication', () => {
@@ -50,5 +53,16 @@ describe('AuthProvider with mock authentication', () => {
     vi.mocked(manageSession).mockResolvedValue({ uuid: 'u', values: {} })
     render(<AuthProvider><Who /></AuthProvider>)
     expect(await screen.findByText('Anonymous <anonymous@localhost>')).toBeInTheDocument()
+  })
+
+  it('stops with the version message when the server UI API is outside the supported range', async () => {
+    vi.mocked(checkUiApiCompatibility).mockResolvedValueOnce({
+      compatible: false,
+      info: { apiVersion: '2.0.0', features: [], extensions: [], preSemver: false },
+      message: 'The server runs UI API 2.0.0, which is newer than this app supports.',
+    })
+    render(<AuthProvider><Who /></AuthProvider>)
+    expect(await screen.findByText('The server runs UI API 2.0.0, which is newer than this app supports.')).toBeInTheDocument()
+    expect(manageSession).not.toHaveBeenCalled()
   })
 })

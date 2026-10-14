@@ -38,16 +38,18 @@ function Harness() {
 describe('SearchDialog keyboard access', () => {
   beforeEach(() => localStorage.clear())
 
-  it('keeps both Tab directions in an empty dialog', async () => {
+  it('keeps both Tab directions inside an empty dialog (input and the close button)', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
     const input = screen.getByRole('combobox')
     await waitFor(() => expect(input).toHaveFocus())
     await user.tab()
+    expect(screen.getByRole('button', { name: 'Close search' })).toHaveFocus()
+    await user.tab()
     expect(input).toHaveFocus()
     await user.tab({ shift: true })
-    expect(input).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Close search' })).toHaveFocus()
   })
 
   it('wraps between the first and last controls when the query adds buttons', async () => {
@@ -57,13 +59,13 @@ describe('SearchDialog keyboard access', () => {
     const input = screen.getByRole('combobox')
     await user.type(input, 'no matches')
     await user.tab({ shift: true })
-    expect(screen.getByRole('button', { name: 'Show all matches' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Close search' })).toHaveFocus()
     await user.tab()
     expect(input).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Clear search' })).toHaveFocus()
     await user.tab()
-    expect(screen.getByRole('button', { name: 'Show all matches' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Close search' })).toHaveFocus()
   })
 
   it('dismisses with Escape from a button and returns focus to the opener', async () => {
@@ -90,7 +92,7 @@ describe('SearchDialog keyboard access', () => {
     expect(input).toHaveValue('')
     expect(input).toHaveFocus()
     await user.tab()
-    expect(input).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Close search' })).toHaveFocus()
     await user.tab({ shift: true })
     expect(input).toHaveFocus()
   })

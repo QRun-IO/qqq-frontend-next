@@ -143,12 +143,18 @@ test.describe('sample widgets dashboard', () => {
     const total = payload.rows.at(-1)
     await expect(page.locator('[data-qqq-id="table-total-row-SampleTableWidget"]')).toHaveText(accessors.map((key: string) => total[key]).join(''))
     await expect(table.locator('tbody tr').first().locator('td').nth(1)).toHaveClass(/text-right/)
-    // a table wider than its card scrolls inside the card, never the page
+    // the table never scrolls the page: a narrow widget shows its rows as cards (no sideways
+    // scroll at all), a wider one keeps the table, which scrolls inside the card if it must
     await expectNoHorizontalScroll(page)
     const card = await widget(page, 'SampleTableWidget').boundingBox()
     const scroller = await table.locator('xpath=..').boundingBox()
     expect(scroller!.x + scroller!.width).toBeLessThanOrEqual(card!.x + card!.width + 1)
-    expect(await table.locator('xpath=..').evaluate((node) => getComputedStyle(node).overflowX)).toBe('auto')
+    const layout = await page.locator('[data-qqq-id="table-widget-SampleTableWidget"]').getAttribute('data-qqq-table-layout')
+    expect(await table.locator('xpath=..').evaluate((node) => getComputedStyle(node).overflowX)).toBe(layout === 'cards' ? 'hidden' : 'auto')
+    if (layout === 'cards') {
+      expect(await table.locator('xpath=..').evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+      expect(await table.locator('tbody td').first().getAttribute('data-label')).toBe(payload.columns[0].header)
+    }
   })
 
   test('[WID-017] stacked bar chart stacks each dataset with its colors and legend @mobile', async ({ page, backend, diagnostics }) => {
