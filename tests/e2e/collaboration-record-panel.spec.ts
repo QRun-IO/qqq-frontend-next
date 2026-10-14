@@ -36,7 +36,7 @@ test('record collaboration: mention, edit, resolve, file, tags, follow and activ
   await page.locator('[data-qqq-id="comment-preview"]').click()
   await expect(
     page.locator('[data-qqq-id="comment-preview-body"] [data-qqq-id="mention-chip"]')
-  ).toHaveText('Sam Parker')
+  ).toHaveText('@Sam Parker')
   await page.locator('[data-qqq-id="comment-submit"]').click()
   const posted = page.locator('article').filter({ hasText: 'Please review' }).first()
   await expect(posted).toBeVisible()
