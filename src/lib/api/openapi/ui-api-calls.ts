@@ -58,6 +58,8 @@ export const OFF_SPEC_CALLS: OffSpecCall[] = [
   call('GET /apis.json', 'qqq-middleware-api discovery'),
   call('GET {}versions.json', 'qqq-middleware-api discovery'),
   call('GET {}', 'qqq-middleware-api table spec URL'),
+  // core uploads, not in the vendored document yet: remove once it is re-vendored after QRun-IO/qqq#1181 ships
+  call('POST /uploads', 'qqq core uploads (QRun-IO/qqq#1181)'),
 ]
 
 /**
