@@ -92,7 +92,6 @@ export function PaletteFavorites({ search, pathname, hash, metaData, recentRecor
 
   return (
     <>
-      {showWork && <Command.Group heading={<GroupHeading>Work</GroupHeading>}><Command.Item value="page:my-work" onSelect={() => onSelect('/app/my-work')} className={ITEM_CLASS} data-qqq-id="command-my-work">Go to My work</Command.Item></Command.Group>}
       {visibleFavorites.length > 0 && (
         <Command.Group heading={<GroupHeading>Favorites</GroupHeading>} data-qqq-id="command-group-favorites">
           {visibleFavorites.map((item, index) => (
@@ -115,6 +114,11 @@ export function PaletteFavorites({ search, pathname, hash, metaData, recentRecor
             <Star className="h-4 w-4" aria-hidden="true" />
             <span className="font-medium">{starAction}</span>
           </Command.Item>
+        </Command.Group>
+      )}
+      {showWork && (
+        <Command.Group heading={<GroupHeading>Work</GroupHeading>} data-qqq-id="command-group-work">
+          <Command.Item value="page:my-work" onSelect={() => onSelect('/app/my-work')} className={ITEM_CLASS} data-qqq-id="command-my-work">Go to My work</Command.Item>
         </Command.Group>
       )}
     </>
