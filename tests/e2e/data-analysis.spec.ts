@@ -17,6 +17,9 @@ const PANEL = '[data-qqq-id="data-analysis-panel"]'
 /** Installs only the contracted extension operations. */
 async function mockAnalysis(page: Page) {
   await setupApiMocks(page)
+  await page.route('**/qqq/v1/version', (route) =>
+    route.fulfill({ json: { apiVersion: '1.1.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.0.0', pathPrefix: '/qbit/data-analysis' }] } })
+  )
   await page.route(`${ROOT}/tables/*/capabilities`, (route) =>
     route.fulfill({ json: capabilities })
   )
@@ -158,14 +161,17 @@ for (const width of [390, 768, 1024]) {
   })
 }
 
-test('an unavailable extension leaves Analyze hidden', async ({ page }) => {
+test('an unavailable extension leaves Analyze hidden and asks nothing', async ({ page }) => {
   await setupApiMocks(page)
-  await page.route(`${ROOT}/tables/*/capabilities`, (route) =>
-    route.fulfill({ status: 404, json: {} })
-  )
+  let asked = false
+  await page.route(`${ROOT}/tables/*/capabilities`, (route) => {
+    asked = true
+    return route.fulfill({ status: 404, json: {} })
+  })
   await page.addInitScript(() => localStorage.setItem('qqq-person-view-mode', 'grid'))
   await page.goto('/app/person')
   await page.locator('[data-qqq-id="grid-column-menu-status"]').click()
   await expect(page.locator('[data-qqq-id="column-menu-analyze"]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Analyze table' })).toHaveCount(0)
+  expect(asked).toBe(false)
 })

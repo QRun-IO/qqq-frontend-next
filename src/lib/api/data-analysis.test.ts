@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
 import {
@@ -30,11 +30,37 @@ import {
   duplicates,
   getCapabilities,
   getRun,
+  isDataAnalysisInstalled,
+  resetDataAnalysisInstalled,
   startRun,
   tableProfile,
 } from './data-analysis'
 
 const ROOT = '/qqq/v1/qbit/data-analysis'
+const version = (extensions: { name: string }[]) =>
+  http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.1.0', basePath: '/qqq/v1', features: [], extensions }))
+
+beforeEach(() => {
+  resetDataAnalysisInstalled()
+  server.use(version([{ name: 'data-analysis' }]))
+})
+
+describe('data-analysis installation', () => {
+  it('asks capabilities only when the server registers the extension', async () => {
+    server.use(version([{ name: 'alerts' }]))
+    let asked = false
+    server.use(http.get(`${ROOT}/tables/:table/capabilities`, () => { asked = true; return HttpResponse.json(capabilities) }))
+    expect(await isDataAnalysisInstalled()).toBe(false)
+    expect(await getCapabilities('person')).toBeNull()
+    expect(asked).toBe(false)
+  })
+  it('treats a failed version check as not installed and retries later', async () => {
+    server.use(http.get('/qqq/v1/version', () => new HttpResponse(null, { status: 500 })))
+    expect(await isDataAnalysisInstalled()).toBe(false)
+    server.use(version([{ name: 'data-analysis' }]))
+    expect(await isDataAnalysisInstalled()).toBe(true)
+  })
+})
 
 describe('data-analysis capabilities', () => {
   it('returns the declared capability, including an explicit denial', async () => {
