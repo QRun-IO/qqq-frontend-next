@@ -584,6 +584,8 @@ export function publishCollaborationEvent(event: string, data: Record<string, un
   }
 }
 const people = [
+  // The mock session's own directory entry; the share picker leaves it out.
+  { userId: 'me', displayName: 'Anonymous', email: 'anonymous@localhost' },
   { userId: 'alex', displayName: 'Alex Rivera' },
   { userId: 'sam', displayName: 'Sam Parker' },
   { userId: 'unknown', displayName: 'Taylor Chen' },

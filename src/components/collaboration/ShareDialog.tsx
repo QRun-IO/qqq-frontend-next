@@ -88,7 +88,7 @@ export function ShareDialog({
       {link.isError && <p role="alert">Could not load the link.</p>}
       {canShare && !send.isSuccess && (
         <>
-          <PeoplePicker record={record} selected={selected} onChange={setSelected} />
+          <PeoplePicker record={record} selected={selected} onChange={setSelected} excludeSelf />
           <label className="block text-sm">
             Message
             <textarea

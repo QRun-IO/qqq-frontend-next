@@ -51,11 +51,12 @@ export function CollaborationDialog({
             event.preventDefault()
             if (returnFocus.current?.isConnected) returnFocus.current.focus()
           }}
-          className="fixed left-1/2 top-1/2 z-[171] max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-xl border border-border bg-card p-5 text-foreground shadow-xl"
+          className="fixed left-1/2 top-1/2 z-[171] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-xl"
           aria-describedby={undefined}
           data-qqq-id="collaboration-dialog"
         >
-          <div className="flex items-start justify-between gap-3">
+          {/* The title bar stays put; only the body scrolls, and only when it does not fit. */}
+          <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-5">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
             <Dialog.Close
               className={collaborationButton}
@@ -65,7 +66,12 @@ export function CollaborationDialog({
               Close
             </Dialog.Close>
           </div>
-          {children}
+          <div
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-5"
+            data-qqq-id="collaboration-dialog-body"
+          >
+            {children}
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

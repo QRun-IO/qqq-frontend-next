@@ -129,6 +129,20 @@ it('previews inaccessible and unknown recipients, then reports notified and offe
   expect(await screen.findByText('Sam Parker: Offered access')).toBeVisible()
   expect(screen.getByText('alex: Notified')).toBeVisible()
 })
+it('leaves the signed-in user out of share recipients even when the service returns them', async () => {
+  vi.mocked(api.searchPeople).mockResolvedValueOnce({
+    items: [
+      { userId: 'ME', displayName: 'Me Myself' },
+      { userId: 'x9', displayName: 'Mail Match', email: 'Me' },
+      { userId: 'alex', displayName: 'Alex Rivera' },
+    ],
+    nextCursor: null,
+  })
+  mount(<ShareDialog record={record} canShare onClose={vi.fn()} />)
+  expect(await screen.findByLabelText(/Alex Rivera/)).toBeVisible()
+  expect(screen.queryByLabelText(/Me Myself/)).toBeNull()
+  expect(screen.queryByLabelText(/Mail Match/)).toBeNull()
+})
 it('uses identical non-disclosing access copy even when the server reports missing record', async () => {
   vi.mocked(api.requestAccess).mockRejectedValue(
     new Error('Record does not exist: sensitive detail')

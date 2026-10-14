@@ -16,13 +16,25 @@
 
 /** @file Directory picker with a record-specific access preview. */
 'use client'
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { CollaborationRecord } from '@/types/collaboration'
+import type { CollaborationPersonV1, CollaborationRecord } from '@/types/collaboration'
+import { QContext } from '@/lib/context/q-context'
 import { searchPeople, previewShares } from '@/lib/api/collaboration'
 import { useMentionCandidates } from '@/lib/hooks/use-collaboration-record'
 import { queryKeys } from '@/lib/query-client'
 import { collaborationInput } from './CollaborationDialog'
+/** Whether a directory entry is the signed-in user; the app's user id is the session email, so it
+ * is compared (case-insensitively) with the entry's user id and email.
+ * @param person - Directory entry.
+ * @param userId - The signed-in user's id, if known.
+ * @returns True for the caller's own entry.
+ */
+export function isCurrentUser(person: CollaborationPersonV1, userId: string | undefined) {
+  const mine = userId?.toLowerCase()
+  return !!mine && [person.userId, person.email].some((value) => value?.toLowerCase() === mine)
+}
+
 /** Searchable people with fail-closed assignment checks.
  * @param props - Parent, selection and whether reading is required.
  * @returns Picker and preview badges.
@@ -32,15 +44,19 @@ export function PeoplePicker({
   selected,
   onChange,
   requireRead = false,
+  excludeSelf = false,
   label = 'People',
 }: {
   record: CollaborationRecord
   selected: string[]
   onChange: (ids: string[]) => void
   requireRead?: boolean
+  /** Leave the signed-in user out of the results (sharing with yourself is meaningless). */
+  excludeSelf?: boolean
   label?: string
 }) {
   const [q, setQ] = useState('')
+  const userId = useContext(QContext)?.userId
   // The read-only candidate endpoint checks access without requiring permission to share.
   const candidates = useMentionCandidates(record, requireRead ? q : null)
   const people = useQuery({
@@ -48,7 +64,11 @@ export function PeoplePicker({
     queryFn: () => searchPeople(q),
     enabled: !requireRead,
   })
-  const ids = (people.data?.items ?? []).flatMap((p) => (p.userId ? [p.userId] : []))
+  // The service also leaves the caller out; this guards older services.
+  const found = (people.data?.items ?? []).filter(
+    (person) => !(excludeSelf && isCurrentUser(person, userId))
+  )
+  const ids = found.flatMap((p) => (p.userId ? [p.userId] : []))
   const preview = useQuery({
     queryKey: [...queryKeys.collaborationResource(record.table, record.pk, 'share-preview'), ids],
     queryFn: () => previewShares(record, ids),
@@ -57,7 +77,7 @@ export function PeoplePicker({
   const candidateItems = candidates.data?.pages.flatMap((page) => page.items) ?? []
   const entries = requireRead
     ? candidateItems.map((candidate) => candidate.person)
-    : people.data?.items
+    : found
   return (
     <fieldset className="min-w-0 space-y-2">
       <legend className="text-sm font-medium">{label}</legend>
