@@ -326,10 +326,11 @@ export function rowErrors(fields: QFieldMetaData[], values: Record<string, unkno
  *
  * @param rowNumber - The row's position, from 1.
  * @param errors - The row's errors from {@link rowErrors}.
+ * @param labels - Field labels by name, so a short message such as "Required" still says which field.
  * @returns One message per invalid field.
  */
-export function rowErrorMessages(rowNumber: number, errors: Record<string, string>): string[] {
-  return Object.values(errors).map((message) => `Row ${rowNumber}: ${message}`)
+export function rowErrorMessages(rowNumber: number, errors: Record<string, string>, labels: Record<string, string> = {}): string[] {
+  return Object.entries(errors).map(([name, message]) => `Row ${rowNumber}: ${labels[name] ? `${labels[name]}: ` : ''}${message}`)
 }
 
 /**

@@ -37,6 +37,27 @@ const record = { tableName: 'lab', values: { id: 1, title: 'Visible title' } } a
 
 afterEach(() => window.localStorage.clear())
 
+describe('RecordViewSection widget headings', () => {
+  it('leaves the heading to the widget card when the card has the same label', () => {
+    const section = { name: 'progress', label: 'Live Progress', fieldNames: [], widgetName: 'progressWidget', isHidden: false } as QTableSection
+    const widget = { name: 'progressWidget', label: 'Live Progress', hasPermission: true } as QWidgetMetaData
+    render(<RecordViewSection section={section} tableMetaData={table} record={record} widgetMetaDataMap={{ progressWidget: widget }} />)
+    expect(screen.queryByRole('heading', { name: 'Live Progress' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Live Progress' })).toBeInTheDocument()
+  })
+
+  it('keeps the section heading when the label differs or the widget is not a card', () => {
+    const section = { name: 'audit', label: 'History', fieldNames: [], widgetName: 'auditWidget', isHidden: false } as QTableSection
+    const widget = { name: 'auditWidget', label: 'Changes', hasPermission: true } as QWidgetMetaData
+    const { unmount } = render(<RecordViewSection section={section} tableMetaData={table} record={record} widgetMetaDataMap={{ auditWidget: widget }} />)
+    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
+    unmount()
+    const plain = { ...widget, label: 'History', isCard: false } as QWidgetMetaData
+    render(<RecordViewSection section={section} tableMetaData={table} record={record} widgetMetaDataMap={{ auditWidget: plain }} />)
+    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
+  })
+})
+
 describe('RecordViewSection collapse metadata', () => {
   it('restores and persists a field section open state', async () => {
     const section = { name: 'details', label: 'Details', fieldNames: ['title'], isHidden: false,

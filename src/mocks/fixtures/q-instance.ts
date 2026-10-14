@@ -62,6 +62,10 @@ function field(
 // ─── person table ─────────────────────────────────────────────────────────────
 
 const personTable: QTableMetaData = {
+  recordVersionField: 'modifyDate',
+  builtInViews: [{ name: 'my-records', label: 'My records', filter: { booleanOperator: 'OR', criteria: [{ fieldName: 'collaborationOwner', operator: 'EQUALS', values: [{ type: 'CurrentUser' }] }, { fieldName: 'collaborationAssignee', operator: 'EQUALS', values: [{ type: 'CurrentUser' }] }] } }],
+  recordFeatures: { features: ['COMMENTS', 'ATTACHMENTS', 'TIMELINE', 'TAGS', 'FOLLOW', 'FAVORITES', 'RECENTS', 'PRESENCE', 'SHARING', 'TASKS', 'ASSIGNMENT'], settings: { TAGS: { mode: 'FREE' }, ATTACHMENTS: { maxBytes: 10485760 } }, capabilities: { comment: true, attach: true, tag: true, createTag: true, share: true, task: true, assign: true } },
+  virtualFields: { collaborationOwner: { ...field('collaborationOwner', 'Owner', 'STRING'), isQueryCriteria: true, isQuerySelectable: true }, collaborationAssignee: { ...field('collaborationAssignee', 'Assignee', 'STRING'), isQueryCriteria: true, isQuerySelectable: true }, collaborationTags: { ...field('collaborationTags', 'Tags', 'STRING', { possibleValueSourceName: 'collaboration_tag' }), isQueryCriteria: true, isQuerySelectable: true } },
   name: 'person',
   label: 'People',
   isHidden: false,
@@ -905,6 +909,20 @@ export const qInstance: QInstance = {
   },
   appTree: [crmTreeNode, inventoryTreeNode, cmsTreeNode],
   tables: {
+    collaboration_favorite: {
+      ...personTable, name: 'collaboration_favorite', label: 'My Favorites',
+      recordFeatures: undefined, virtualFields: {},
+      fields: {
+        id: field('id', 'ID', 'INTEGER', { isEditable: false }),
+        label: field('label', 'Favorite', 'STRING', { isEditable: false }),
+        targetType: field('targetType', 'Type', 'STRING', { isEditable: false }),
+        folder: field('folder', 'Folder', 'STRING'),
+        sortOrder: field('sortOrder', 'Position', 'INTEGER'),
+      },
+      sections: [{ name: 'favorite', label: 'Favorite', tier: 'T1', fieldNames: ['label', 'targetType', 'folder', 'sortOrder'], isHidden: false }],
+      capabilities: ['TABLE_QUERY', 'TABLE_COUNT', 'TABLE_GET', 'TABLE_UPDATE', 'TABLE_DELETE'],
+      insertPermission: false,
+    },
     person: personTable,
     company: companyTable,
     order: orderTable,

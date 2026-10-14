@@ -19,6 +19,7 @@
  */
 
 import { authHandlers } from './auth'
+import { collaborationHandlers } from './collaboration'
 import { metadataHandlers } from './metadata'
 import { tableHandlers } from './tables'
 import { possibleValuesHandlers } from './possible-values'
@@ -26,8 +27,13 @@ import { processHandlers } from './processes'
 import { widgetHandlers } from './widgets'
 import { esbHandlers } from './esb'
 import { sqlWorkbenchHandlers } from './sql-workbench'
+import { preferencesHandlers } from './preferences'
+import { alertsHandlers } from './alerts'
 
 export const handlers = [
+  ...preferencesHandlers,
+  ...alertsHandlers,
+  ...collaborationHandlers,
   ...authHandlers,
   ...metadataHandlers,
   // Possible values must come before table handlers to avoid route conflicts

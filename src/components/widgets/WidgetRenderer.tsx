@@ -78,6 +78,7 @@ const PieChartWidget = lazy(() => import('./PieChartWidget').then((m) => ({ defa
 const FilterAndColumnsSetupWidget = lazy(() => import('./FilterAndColumnsSetupWidget').then((m) => ({ default: m.FilterAndColumnsSetupWidget })))
 const PivotTableSetupWidget = lazy(() => import('./PivotTableSetupWidget').then((m) => ({ default: m.PivotTableSetupWidget })))
 const SqlWorkbenchWidget = lazy(() => import('@/components/sql-workbench/SqlWorkbenchWidget'))
+const AuthentikPolicyEditorWidget = lazy(() => import('@/components/authentik/AuthentikPolicyEditorWidget'))
 const RowBuilderWidget = lazy(() => import('./RowBuilderWidget').then((m) => ({ default: m.RowBuilderWidget })))
 
 /** Fallback while a lazy chart chunk loads; matches the default chart height. */
@@ -218,6 +219,8 @@ export function WidgetRenderer({ widgetMetaData, data, recordContext, formContex
       return <EsbOverviewWidget widgetMetaData={widgetMetaData} />
     case 'SQL_WORKBENCH':
       return <Suspense fallback={SetupFallback}><SqlWorkbenchWidget widgetMetaData={widgetMetaData} /></Suspense>
+    case 'AUTHENTIK_POLICY_EDITOR':
+      return <Suspense fallback={SetupFallback}><AuthentikPolicyEditorWidget {...common} data={data} /></Suspense>
     case 'recordGrid':
       return <RecordGridWidget data={data as unknown as RecordGridWidgetPayload} widgetName={name} />
     case 'quickLinks':

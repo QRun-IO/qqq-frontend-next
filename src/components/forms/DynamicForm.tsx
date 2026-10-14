@@ -22,7 +22,7 @@
 
 import React from 'react'
 import { Controller } from 'react-hook-form'
-import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
+import type { UseFormReturn, Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
 import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
@@ -48,6 +48,12 @@ import { HelpContent } from '@/components/records/HelpContent'
  * `fieldNamesToInclude` for fine-grained field filtering.
  */
 export interface DynamicFormProps {
+  /** Read/clear dependent selections through the owning form. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** Complete sibling metadata for dependency hints. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit's enabled fields; disabled inputs do not supply dependencies. */
+  enabledFields?: Record<string, boolean>
   /** React Hook Form register function from the parent `useForm` instance. */
   register: UseFormRegister<Record<string, unknown>>
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -252,6 +258,9 @@ export function renderableFormSections(tableMetaData: QTableMetaData, options: R
  *   renderable fields exist after applying visibility and include-list filters.
  */
 export function DynamicForm({
+  formMethods,
+  fieldsByName,
+  enabledFields,
   register,
   control,
   errors,
@@ -278,6 +287,7 @@ export function DynamicForm({
   helpKeyPrefix = '',
 }: DynamicFormProps) {
   const helpHelpActive = useHelpHelpActive()
+  const siblingFields = fieldsByName ?? tableMetaData?.fields ?? Object.fromEntries((fields ?? []).map((field) => [field.name, field]))
   // Determine the set of fields to render
   const resolvedFields: QFieldMetaData[] = []
 
@@ -425,6 +435,9 @@ export function DynamicForm({
                       data-qqq-id={formFieldQqqId(f)}
                     >
                       <DynamicFormField
+                        formMethods={formMethods}
+                        fieldsByName={siblingFields}
+                        enabledFields={enabledFields}
                         field={f}
                         register={register}
                         control={control}
@@ -468,6 +481,9 @@ export function DynamicForm({
             data-qqq-id={formFieldQqqId(f)}
           >
             <DynamicFormField
+              formMethods={formMethods}
+              fieldsByName={siblingFields}
+              enabledFields={enabledFields}
               field={f}
               register={register}
               control={control}

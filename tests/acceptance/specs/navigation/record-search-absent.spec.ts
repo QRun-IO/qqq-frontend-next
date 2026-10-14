@@ -51,21 +51,25 @@ test('[NAV-032] without searchable tables the header box, "/" dialog and search 
     await header.fill(person.first_name!)
     await expect(page.getByRole('listbox', { name: 'Search results' })).toContainText(`No pages or recent records match “${person.first_name}”`)
     await expect(page.getByRole('combobox', { name: 'Search pages and records' })).toHaveCount(0)
+    // Escape closes the dropdown and keeps focus in the box (a combobox); leave it to use "/"
     await header.press('Escape')
+    await expect(page.getByRole('listbox', { name: 'Search results' })).toHaveCount(0)
+    await header.blur()
     await page.locator('body').press('/')
   }
 
-  // the dialog: pages still match, no Records group
+  // the dialog: pages still match (the "Person" table is the top hit), and no record is listed
   await dialog.getByRole('combobox', { name: 'Search pages and recent records' }).fill('person')
-  await expect(dialog.getByRole('group', { name: 'Pages' }).getByRole('option').first()).toContainText('Person')
-  await expect(dialog.getByRole('group', { name: 'Records' })).toHaveCount(0)
+  await expect(dialog.getByRole('group', { name: 'Top hits' }).getByRole('option').first()).toContainText('Person')
+  await expect(dialog.locator('[data-qqq-id="search-option-record"]')).toHaveCount(0)
   await page.keyboard.press('Escape')
 
-  // search page: no Records region
+  // search page: no record results, no sort (nothing to order)
   await open(page, `/app/search?q=${encodeURIComponent(person.first_name!)}`)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Search results for “${person.first_name}”`)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Results for “${person.first_name}”`)
   await expect(page.getByText(`No pages or recent records match “${person.first_name}”.`)).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Records' })).toHaveCount(0)
+  await expect(page.locator('[data-qqq-id="search-result-card"]')).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Sort' })).toHaveCount(0)
 
   // outlast the search debounce before asserting that nothing was requested
   await page.waitForTimeout(1_000)

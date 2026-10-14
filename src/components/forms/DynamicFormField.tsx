@@ -24,9 +24,11 @@
 // Used by DynamicForm to render each field in a metadata-driven form
 // Includes help tooltip support via field.helpContents
 
-import React from 'react'
+import React, { useContext, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { FormPresenceContext } from '@/components/collaboration/FormPresenceContext'
 import { Controller } from 'react-hook-form'
-import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
+import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
 
@@ -36,12 +38,15 @@ import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import { cn } from '@/lib/utils/cn'
 import { fileDownload, findAdornment, hasAdornment } from '@/lib/utils/adornment-utils'
 import { formatDateTime } from '@/lib/utils/datetime-utils'
-import { caseTransform, numberAdornments, transformInputValue } from '@/lib/utils/form-layout'
+import { caseTransform, numberAdornments } from '@/lib/utils/form-layout'
 import { selectSlotHelpContent } from '@/lib/utils/help-utils'
+import { tooLongPolicy } from '@/lib/utils/field-validation'
 import { useHelpHelpActive } from '@/lib/context/q-context'
 import { HelpContent } from '@/components/records/HelpContent'
 
 import { TextField } from './field-types/TextField'
+import { TextAreaField } from './field-types/TextAreaField'
+import { FieldFooter } from './FieldFooter'
 import { NumberField } from './field-types/NumberField'
 import { BooleanField } from './field-types/BooleanField'
 import { DateField } from './field-types/DateField'
@@ -57,6 +62,12 @@ import { WidgetAdornmentField } from './WidgetAdornmentField'
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Read/clear dependent selections through the owning form. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** Complete sibling metadata for dependency hints. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit's enabled fields; disabled inputs do not supply dependencies. */
+  enabledFields?: Record<string, boolean>
   /** Surrounding values available to a field widget without making them editable. */
   contextValues?: Record<string, unknown>
   /** Optional hint supplied by an input block. */
@@ -225,16 +236,24 @@ function FieldWithHelp({
  * @returns The children optionally wrapped in a dirty-field accent container.
  */
 function DirtyWrapper({
+  fieldName,
   isDirty,
   children,
 }: {
+  fieldName: string
   isDirty: boolean
   children: React.ReactNode
 }) {
+  const names = useContext(FormPresenceContext)[fieldName]
+  const root = useRef<HTMLDivElement>(null)
+  const [label, setLabel] = useState<HTMLLabelElement | null>(null)
+  useEffect(() => { setLabel(root.current?.querySelector('label') ?? null) }, [fieldName])
+  const chip = names?.length ? <span className="ml-2 inline-block rounded bg-violet-500/15 px-2 py-1 text-xs font-normal text-foreground" role="status">{names.join(', ')} editing</span> : null
   // Always the same element: switching between a fragment and a wrapper would remount
   // the control on the first keystroke and drop keyboard focus mid-typing.
   return (
-    <div className={cn(isDirty && 'border-l-2 border-primary pl-2')} data-dirty={isDirty || undefined}>
+    <div ref={root} className={cn(isDirty && 'border-l-2 border-primary pl-2', names?.length && 'rounded-md ring-2 ring-violet-500 p-1')} data-dirty={isDirty || undefined} data-presence-field={fieldName}>
+      {label ? createPortal(chip, label) : chip}
       {children}
     </div>
   )
@@ -262,6 +281,9 @@ export function DynamicFormField({
   placeholder,
   contextValues,
   idPrefix,
+  formMethods,
+  fieldsByName,
+  enabledFields,
   register,
   control,
   errors,
@@ -284,6 +306,11 @@ export function DynamicFormField({
   const fieldError = errors[field.name] as FieldError | undefined
   const isDisabled = disabled || !field.isEditable
   const dataQqqId = field.name
+  // Typing stops at the limit only for a field that refuses over-long values (ERROR); otherwise
+  // the counter and the server's policy handle it.
+  const policy = enforceMaxLength ? 'error' : tooLongPolicy(field)
+  const capLength = field.maxLength && policy === 'error' ? field.maxLength : undefined
+  const lengthLimit = field.maxLength ? { control, name: field.name, max: field.maxLength, policy } : undefined
 
   const roles = helpRoles ?? (possibleValueContext?.type === 'process' ? PROCESS_SCREEN_ROLES : ALL_SCREEN_ROLES)
   const helpContent = selectSlotHelpContent(field.helpContents, roles, helpKey ?? `field:${field.name}`, helpHelpActive)
@@ -314,9 +341,12 @@ export function DynamicFormField({
   if (field.possibleValueSourceName || inlineOptions) {
     const pvContext: PossibleValueContext = possibleValueContext ?? { type: 'standalone' }
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <PossibleValueSelect
+            formMethods={formMethods}
+            fieldsByName={fieldsByName}
+            enabledFields={enabledFields}
             id={fieldId}
             label={field.label}
             name={field.name}
@@ -327,6 +357,9 @@ export function DynamicFormField({
             initialLabel={displayValueOverrides?.[field.name] ?? record?.displayValues?.[field.name]}
             inlineOptions={inlineOptions}
             chipField={field}
+            picker={field.picker}
+            pickerTableName={field.pickerTableName}
+            relatedPickerTableName={pvContext.type === 'table' ? pvContext.tableName : undefined}
             context={pvContext}
             error={fieldError}
             disabled={isDisabled}
@@ -343,7 +376,7 @@ export function DynamicFormField({
   const hasFileUpload = field.adornments?.some((a) => a.type === 'FILE_UPLOAD')
   if (hasFileUpload || field.type === 'BLOB') {
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <FileUploadField
             id={fieldId}
@@ -367,7 +400,7 @@ export function DynamicFormField({
   if (codeEditor && (field.type === 'STRING' || field.type === 'TEXT')) {
     const mode = typeof codeEditor.values?.languageMode === 'string' ? codeEditor.values.languageMode : 'text'
     return (
-      <DirtyWrapper isDirty={isDirty}>
+      <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <Controller
             name={field.name}
@@ -393,7 +426,7 @@ export function DynamicFormField({
   switch (field.type) {
     case 'STRING':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               placeholder={placeholder}
@@ -402,7 +435,8 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
               required={field.isRequired}
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
@@ -414,53 +448,24 @@ export function DynamicFormField({
       )
 
     case 'TEXT': {
-      const textRegistration = registration()
-      const transform = caseTransform(field)
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center">
-                <label
-                  htmlFor={fieldId}
-                  className="text-sm font-medium text-foreground"
-                  data-qqq-id={`field-label-${dataQqqId}`}
-                >
-                  {field.label}
-                  {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
-                  )}
-                </label>
-                {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
-              </div>
-              <textarea
-                placeholder={placeholder}
-                id={fieldId}
-                {...textRegistration}
-                onChange={(event) => {
-                  if (transform) transformInputValue(event.currentTarget, transform)
-                  void textRegistration.onChange(event)
-                }}
-                disabled={isDisabled}
-                aria-required={field.isRequired}
-                aria-invalid={fieldError ? true : undefined}
-                aria-describedby={
-                  [fieldError ? `${fieldId}-error` : undefined, helpDescribedBy]
-                    .filter(Boolean)
-                    .join(' ') || undefined
-                }
-                data-qqq-id={dataQqqId}
-                rows={4}
-                className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:bg-muted transition-colors duration-150 resize-y ${
-                  fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
-                }`}
-              />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
-            </div>
+            <TextAreaField
+              placeholder={placeholder}
+              id={fieldId}
+              label={field.label}
+              registration={registration()}
+              error={fieldError}
+              disabled={isDisabled}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
+              required={field.isRequired}
+              describedBy={helpDescribedBy}
+              transform={caseTransform(field)}
+              data-qqq-id={dataQqqId}
+              labelExtra={helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
+            />
           </FieldWithHelp>
         </DirtyWrapper>
       )
@@ -468,7 +473,7 @@ export function DynamicFormField({
 
     case 'HTML':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
@@ -479,7 +484,7 @@ export function DynamicFormField({
                 >
                   {field.label}
                   {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+                    <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -498,11 +503,7 @@ export function DynamicFormField({
                   />
                 )}
               />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
+              <FieldFooter id={fieldId} error={fieldError?.message} />
             </div>
           </FieldWithHelp>
         </DirtyWrapper>
@@ -511,7 +512,7 @@ export function DynamicFormField({
     case 'INTEGER':
     case 'LONG':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               placeholder={placeholder}
@@ -535,7 +536,7 @@ export function DynamicFormField({
 
     case 'DECIMAL':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <NumberField
               placeholder={placeholder}
@@ -559,7 +560,7 @@ export function DynamicFormField({
 
     case 'BOOLEAN':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <BooleanField
               id={fieldId}
@@ -578,7 +579,7 @@ export function DynamicFormField({
 
     case 'DATE':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateField
               id={fieldId}
@@ -597,7 +598,7 @@ export function DynamicFormField({
 
     case 'DATE_TIME':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <DateTimeField
               id={fieldId}
@@ -616,7 +617,7 @@ export function DynamicFormField({
 
     case 'TIME':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <div className="flex flex-col gap-1">
               <div className="flex items-center">
@@ -627,7 +628,7 @@ export function DynamicFormField({
                 >
                   {field.label}
                   {field.isRequired && (
-                    <span className="ml-1 text-destructive" aria-hidden="true">*</span>
+                    <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>
                   )}
                 </label>
                 {helpContent && <FieldHelpTooltip field={field} helpContent={helpContent} helpId={helpDescribedBy} />}
@@ -650,11 +651,7 @@ export function DynamicFormField({
                   fieldError ? 'border-destructive focus:ring-destructive' : 'border-input'
                 }`}
               />
-              {fieldError && (
-                <p id={`${fieldId}-error`} className="mt-1 text-sm text-destructive" role="alert">
-                  {fieldError.message}
-                </p>
-              )}
+              <FieldFooter id={fieldId} error={fieldError?.message} />
             </div>
           </FieldWithHelp>
         </DirtyWrapper>
@@ -662,7 +659,7 @@ export function DynamicFormField({
 
     case 'PASSWORD':
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <PasswordField
               id={fieldId}
@@ -670,7 +667,7 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
               required={field.isRequired}
               placeholder={record && showReadOnly && !hasAdornment(field, 'REVEAL') ? 'Unchanged — type to replace' : placeholder}
               describedBy={helpDescribedBy}
@@ -684,7 +681,7 @@ export function DynamicFormField({
 
     default:
       return (
-        <DirtyWrapper isDirty={isDirty}>
+        <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
           <FieldWithHelp field={field} helpId={helpDescribedBy}>
             <TextField
               placeholder={placeholder}
@@ -693,7 +690,8 @@ export function DynamicFormField({
               registration={registration()}
               error={fieldError}
               disabled={isDisabled}
-              maxLength={enforceMaxLength ? field.maxLength : undefined}
+              maxLength={capLength}
+              lengthLimit={lengthLimit}
               required={field.isRequired}
               describedBy={helpDescribedBy}
               transform={caseTransform(field)}
@@ -748,21 +746,13 @@ function ReadOnlyFormField({ field, fieldId, record, helpDescribedBy }: {
     : field.type === 'BOOLEAN' && raw != null ? (raw === true || raw === 'true' ? 'Yes' : 'No')
       : (display ?? (raw == null ? '' : String(raw)))
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={fieldId} className="text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
+    <dl className="flex flex-col gap-1" aria-describedby={helpDescribedBy}>
+      <dt id={`${fieldId}-label`} className="text-sm font-medium text-muted-foreground" data-qqq-id={`field-label-${field.name}`}>
         {field.label}
-      </label>
-      <input
-        id={fieldId}
-        type="text"
-        value={text}
-        readOnly
-        disabled
-        aria-readonly="true"
-        aria-describedby={helpDescribedBy}
-        data-qqq-id={field.name}
-        className="w-full cursor-not-allowed rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
-      />
-    </div>
+      </dt>
+      <dd id={fieldId} className="min-h-5 whitespace-pre-wrap break-words text-sm text-foreground" data-qqq-id={field.name}>
+        {text || <span className="text-muted-foreground" aria-label="No value">{'\u2014'}</span>}
+      </dd>
+    </dl>
   )
 }

@@ -29,6 +29,8 @@ import React, { useState } from 'react'
 
 import type { QFieldMetaData, QIcon } from '@/types'
 
+import { getDependencies, missingDependencies } from '@/lib/utils/contingent-fields'
+
 import { DynamicFormField } from '@/components/forms/DynamicFormField'
 import { SectionIcon } from '@/components/layout/MetadataIcon'
 import { useProcessStep, useSubmitContributor } from './ProcessStepContext'
@@ -80,10 +82,21 @@ export function BulkEditFormComponent({ index }: BulkEditFormComponentProps) {
   const { step, form, isWorking, tableMetaData, values, processName } = useProcessStep()
   const [enabled, setEnabled] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
-  const fields = (step.formFields ?? []).filter((field) => !field.isHidden && field.isEditable !== false)
-  const groups = groupBySection(fields, tableMetaData?.sections ?? [])
+  const sourceFields = (step.formFields ?? []).filter((field) => !field.isHidden && field.isEditable !== false)
   const nonDistinct = values.nonDistinctPVSFields && typeof values.nonDistinctPVSFields === 'object'
     ? values.nonDistinctPVSFields as Record<string, string[]> : null
+  // The legacy warning map uses labels, not field names. Resolve only unambiguous labels.
+  const fields = sourceFields.map((field) => {
+    if (field.possibleValueSourceDependsOn !== undefined || getDependencies(field).length) return field
+    const legacyDependencies = Object.entries(nonDistinct ?? {}).filter(([, dependents]) => dependents.includes(field.label))
+      .flatMap(([label]) => {
+        const matches = sourceFields.filter((candidate) => candidate.label === label)
+        return matches.length === 1 ? [matches[0].name] : []
+      })
+    return legacyDependencies.length ? { ...field, possibleValueSourceDependsOn: legacyDependencies } : field
+  })
+  const fieldsByName = Object.fromEntries(fields.map((field) => [field.name, field]))
+  const groups = groupBySection(fields, tableMetaData?.sections ?? [])
 
   useSubmitContributor(`bulkEdit-${index}`, () => {
     const enabledFields = fields.filter((field) => enabled[field.name])
@@ -93,7 +106,13 @@ export function BulkEditFormComponent({ index }: BulkEditFormComponentProps) {
     }
     let valid = true
     const submitted: Record<string, unknown> = {}
+    const available = Object.fromEntries(Object.entries(form.getValues()).filter(([name]) => enabled[name]))
     for (const field of enabledFields) {
+      const missing = missingDependencies(field, available, fieldsByName)
+      if (missing.length) {
+        form.setError(field.name, { type: 'dependency', message: `Choose ${missing.map((dependency) => dependency.label).join(' and ')} first` })
+        valid = false
+      }
       const value = form.getValues(field.name)
       if (field.isRequired && (value === undefined || value === null || value === '')) {
         form.setError(field.name, { type: 'required', message: `${field.label} is required` })
@@ -183,6 +202,9 @@ export function BulkEditFormComponent({ index }: BulkEditFormComponentProps) {
                 </label>
                 <div className="flex-1">
                   <DynamicFormField
+                    formMethods={form}
+                    fieldsByName={fieldsByName}
+                    enabledFields={enabled}
                     field={{ ...field, isRequired: Boolean(enabled[field.name] && field.isRequired) }}
                     register={form.register}
                     control={form.control}

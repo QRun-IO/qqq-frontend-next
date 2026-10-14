@@ -229,7 +229,7 @@ export function RowBuilderEditor({
       const errors = handle
         ? handle.validate(focusFirstError && found.length === 0)
         : rowErrors(fields, rowFormValues(fields, row), enforceMaxLength)
-      found.push(...rowErrorMessages(index + 1, errors))
+      found.push(...rowErrorMessages(index + 1, errors, Object.fromEntries(fields.map((field) => [field.name, field.label]))))
     })
     return found
   }, [enforceMaxLength, fields])

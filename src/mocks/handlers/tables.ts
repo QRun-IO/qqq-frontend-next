@@ -21,7 +21,9 @@
  * and are reset on page reload.
  */
 
+import { publishCollaborationEvent, mockRecordAssignment } from './collaboration'
 import { http, HttpResponse } from 'msw'
+import { mockRecordTags } from './collaboration'
 import type { QRecord } from '@/types'
 import { personRecords } from '../fixtures/records/person'
 import { companyRecords } from '../fixtures/records/company'
@@ -98,11 +100,20 @@ interface QueryFilter {
  * @returns `true` if the record's field value satisfies the criterion.
  */
 function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
-  const rawValue = record.values[criteria.fieldName]
+  const assignment = mockRecordAssignment(record.tableName, String(record.values[getPkField(record.tableName)]))
+  const rawValue = criteria.fieldName === 'collaborationOwner' ? assignment?.ownerUserId : criteria.fieldName === 'collaborationAssignee' ? assignment?.assigneeUserId : record.values[criteria.fieldName]
   const value = rawValue !== undefined && rawValue !== null ? String(rawValue).toLowerCase() : ''
-  const filterValues = criteria.values.map((v) => String(v).toLowerCase())
+  const filterValues = criteria.values.map((v) => typeof v === 'object' && v !== null && 'type' in v && v.type === 'CurrentUser' ? 'me' : String(v).toLowerCase())
   const first = filterValues[0] ?? ''
 
+  if (criteria.fieldName === 'collaborationTags') {
+    const values = Array.isArray(rawValue) ? rawValue.map(String) : []
+    if (criteria.operator === 'IN') return filterValues.some((id) => values.includes(id))
+    if (criteria.operator === 'NOT_IN') return !filterValues.some((id) => values.includes(id))
+    if (criteria.operator === 'CONTAINS_ALL') return filterValues.every((id) => values.includes(id))
+    if (criteria.operator === 'IS_BLANK') return values.length === 0
+    if (criteria.operator === 'IS_NOT_BLANK') return values.length > 0
+  }
   switch (criteria.operator) {
     case 'EQUALS':
       return value === first
@@ -148,7 +159,10 @@ function matchesCriteria(record: QRecord, criteria: FilterCriteria): boolean {
  * @returns A new array containing only the records that match the filter, in sort order.
  */
 function applyFilter(records: QRecord[], filter: QueryFilter): QRecord[] {
-  let result = [...records]
+  let result = records.map((record) => {
+    const tags = mockRecordTags(record.tableName, String(record.values[primaryKeyFields[record.tableName] ?? 'id']))
+    return tags ? { ...record, values: { ...record.values, collaborationTags: tags.map((tag) => tag.id) }, displayValues: { ...record.displayValues, collaborationTags: tags.map((tag) => tag.label).join(', ') } } : record
+  })
 
   if (filter.criteria && filter.criteria.length > 0) {
     const op = filter.booleanOperator ?? 'AND'
@@ -525,9 +539,12 @@ export const tableHandlers = [
     const body = await parseRequestBody(request)
 
     const existing = records[idx]
+    const expected = new URL(request.url).searchParams.get('expectedVersion')
+    if (expected !== null && expected !== String(existing.values.modifyDate)) return HttpResponse.json({ currentVersion: existing.values.modifyDate, changedFields: ['firstName'], modifiedByUserId: 'sam', modifiedAt: existing.values.modifyDate }, { status: 409 })
     const updatedValues: Record<string, unknown> = {
       ...existing.values,
       ...body,
+      ...(expected !== null ? { modifyDate: new Date().toISOString() } : {}),
       [pkField]: existing.values[pkField], // PK is immutable
     }
 
@@ -566,3 +583,13 @@ export const tableHandlers = [
     return HttpResponse.json({ deletedRecordCount: 1 })
   }),
 ]
+
+// Mock-only concurrent edit, reached by collaboration browser acceptance tests.
+tableHandlers.push(http.post('/qqq/v1/mock/collaboration-change', async ({ request }) => {
+  const input = await request.json() as { table: string; pk: string; values: Record<string, unknown> }
+  const record = store[input.table]?.find((r) => String(r.values[getPkField(input.table)]) === input.pk)
+  if (!record) return HttpResponse.json({ error: 'Not found' }, { status: 404 })
+  Object.assign(record.values, input.values, { modifyDate: new Date().toISOString() })
+  publishCollaborationEvent('record.changed', { table: input.table, pk: input.pk, fields: Object.keys(input.values), changedBy: 'sam', version: record.values.modifyDate })
+  return HttpResponse.json({ success: true })
+}))

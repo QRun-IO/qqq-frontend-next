@@ -65,10 +65,12 @@ export interface QFilterCriteria {
     | string
     | number
     | boolean
+    | { type: 'CurrentUser' }
     | FilterVariableExpression
     | NowExpression
     | NowWithOffsetExpression
     | ThisOrLastPeriodExpression
+    | StartOfPeriodExpression
   )[]
   /** When set, compares `fieldName` against another field rather than a literal value. */
   otherFieldName?: string
@@ -181,4 +183,30 @@ export interface ThisOrLastPeriodExpression {
   operator: 'THIS' | 'LAST'
   /** The period granularity. */
   timeUnit: ExpressionTimeUnit
+}
+
+/** The calendar periods a `StartOfPeriod` expression can snap to. */
+export type PeriodUnit = 'DAYS' | 'WEEKS' | 'MONTHS' | 'QUARTERS' | 'YEARS'
+
+/** Day names the backend `StartOfPeriod` expression accepts as a week start (Java `DayOfWeek`). */
+export type WeekStartName = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY'
+
+/**
+ * A filter criteria value expression that resolves to the start of a calendar period in the
+ * user's time zone, moved by whole periods (`offset` 0 is this period, -1 the last, 1 the next).
+ * A DATE_TIME field gets that local midnight as an instant, a DATE field the first day. Two of
+ * them make a half-open range (`>=` start, `<` end), so "Last 7 days" stays relative in a saved
+ * view. Backend class `StartOfPeriod`.
+ */
+export interface StartOfPeriodExpression {
+  /** Discriminant: the backend expression class name. */
+  type: 'StartOfPeriod'
+  /** The period to snap to. */
+  unit: PeriodUnit
+  /** Whole periods to move from the current one (negative for the past). */
+  offset: number
+  /** First day of the week, for `WEEKS`; the backend assumes Sunday when omitted. */
+  weekStart?: WeekStartName
+  /** IANA time zone; when omitted the backend uses the session's (the `X-QQQ-UserTimezone` header), then the instance default. */
+  timeZoneId?: string
 }

@@ -24,6 +24,8 @@ import React from 'react'
 import type { UseFormRegisterReturn, FieldError } from 'react-hook-form'
 
 import { cn } from '@/lib/utils/cn'
+import { FieldFooter } from '../FieldFooter'
+import type { LengthLimit } from '../FieldFooter'
 import { transformInputValue } from '@/lib/utils/form-layout'
 
 /**
@@ -42,8 +44,10 @@ interface TextFieldProps {
   disabled?: boolean
   /** Placeholder text shown when the field is empty. */
   placeholder?: string
-  /** Forwarded to the `<input>` `maxlength` attribute. */
+  /** Forwarded to the `<input>` `maxlength` attribute (set only when the field refuses over-long values). */
   maxLength?: number
+  /** Counts characters against the field's limit; the counter shows only near or past it. */
+  lengthLimit?: LengthLimit
   /** When `true`, an asterisk indicator is shown and `aria-required` is set. */
   required?: boolean
   /** `data-qqq-id` attribute forwarded to the input for CSS customization. */
@@ -71,6 +75,7 @@ export function TextField({
   disabled = false,
   placeholder,
   maxLength,
+  lengthLimit,
   required = false,
   'data-qqq-id': dataQqqId,
   describedBy,
@@ -83,14 +88,14 @@ export function TextField({
       }
     : registration.onChange
   return (
-    <div className="flex flex-col gap-1">
+    <div className="group flex flex-col gap-1">
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
         data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
       >
         {label}
-        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
       </label>
       <input
         id={id}
@@ -116,11 +121,7 @@ export function TextField({
             : 'border-input'
         )}
       />
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      )}
+      <FieldFooter id={id} error={error?.message} limit={lengthLimit} />
     </div>
   )
 }

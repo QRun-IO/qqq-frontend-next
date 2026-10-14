@@ -33,6 +33,13 @@ describe('APIClient', () => {
     expect(typeof apiClient.delete).toBe('function')
   })
 
+  it('sends the browser time zone so the backend evaluates relative dates in it', async () => {
+    const { default: apiClient, userTimeZoneHeader } = await import('./client')
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    expect(userTimeZoneHeader()).toEqual({ 'X-QQQ-UserTimezone': zone })
+    expect(apiClient.getInstance().defaults.headers['X-QQQ-UserTimezone']).toBe(zone)
+  })
+
   it('should expose setUnauthorizedCallback', async () => {
     const { default: apiClient } = await import('./client')
     expect(typeof apiClient.setUnauthorizedCallback).toBe('function')

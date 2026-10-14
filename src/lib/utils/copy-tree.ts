@@ -145,7 +145,11 @@ export function copyTreePayload(root: CopyNode, edits: Record<string, Record<str
   function groups(node: CopyNode, parentValues: Record<string, unknown>): Record<string, QRecordInput[]> {
     return Object.fromEntries(Object.entries(node.groups).map(([name, children]) => [name, children.map(child => {
       const parsed = zodSchemaFromTableMetadata(child.table, child.fields, true).safeParse(edits[child.path] ?? child.values)
-      if (!parsed.success) throw new Error(`${child.table.label}: ${parsed.error.issues[0].message}`)
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0]
+        const field = child.table.fields[String(issue.path[0])]
+        throw new Error(`${child.table.label}: ${field ? `${field.label}: ` : ''}${issue.message}`)
+      }
       validateCopyPasswords(child.table, parsed.data, child.fields)
       const values = { ...child.companions, ...parsed.data }
       const key = child.table.primaryKeyField

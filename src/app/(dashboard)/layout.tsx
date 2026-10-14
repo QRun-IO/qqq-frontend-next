@@ -39,6 +39,7 @@ import { useAnalytics } from '@/lib/analytics/use-analytics'
 import { queryKeys } from '@/lib/query-client'
 import { searchableTables } from '@/lib/utils/record-search'
 import { scrollPageToTop } from '@/lib/utils/scroll-to-top'
+import dynamic from 'next/dynamic'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import BannerComponent from '@/components/layout/Banner'
@@ -51,6 +52,12 @@ import { KeyboardShortcutsDialog } from '@/components/feedback/KeyboardShortcuts
 import { AssistantProvider, useAssistantController } from '@/components/assistant/AssistantProvider'
 import { AssistantHeaderButton } from '@/components/assistant/AssistantHeaderButton'
 import { AssistantMount } from '@/components/assistant/AssistantMount'
+import { AlertsBell, useAlertsInstalled } from '@/components/alerts/AlertsBell'
+import { NotificationBannerSlot } from '@/components/alerts/NotificationBannerSlot'
+
+// The favorites menu checks for collaboration and loads after hydration, so neither it nor the
+// collaboration hooks are in the dashboard's first load (the slot stays empty until then).
+const LazyFavoritesMenu = dynamic(() => import('@/components/collaboration/FavoritesMenuSlot').then((module) => module.LazyFavoritesMenu), { ssr: false })
 
 /**
  * Inner layout that renders the full dashboard chrome.
@@ -102,6 +109,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   })
 
   // QQQ Assistant (qbit-assistant): hidden and inert unless its /assistant/config probe enables it
+  const alertsInstalled = useAlertsInstalled()
   const assistant = useAssistantController(metaData, isAuthenticated)
   const { enabled: assistantEnabled, toggle: toggleAssistant } = assistant
 
@@ -331,6 +339,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             navTargets={navTargets}
             searchTables={searchTables}
             assistantButton={<AssistantHeaderButton />}
+            favoritesButton={isAuthenticated ? <LazyFavoritesMenu /> : null}
+            notificationsButton={isAuthenticated && alertsInstalled ? <AlertsBell metaData={metaData} /> : null}
           />
 
           {/* Page content */}
@@ -347,6 +357,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             ) : (
               <>
                 <BannerComponent banners={metaData?.branding?.banners} slot="QFMD_TOP_OF_BODY" className="mb-4 rounded-lg" />
+                <NotificationBannerSlot metaData={metaData} enabled={isAuthenticated} />
                 {children}
                 <CompanyFooter branding={metaData?.branding} />
               </>
