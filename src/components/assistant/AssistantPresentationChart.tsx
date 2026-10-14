@@ -25,7 +25,11 @@ import type { AssistantPresentationChart as ChartBlock } from '@/types/assistant
 import { internalAppHref } from '@/lib/utils/assistant-links'
 import { PresentationLink } from './AssistantPresentation'
 
-const COLORS = Array.from({ length: 5 }, (_, index) => `var(--color-chart-${index + 1})`)
+/**
+ * The dashboard chart widgets' palette (PieChartWidget): concrete colors, because Tailwind only
+ * emits the `--color-chart-*` theme variables that some class uses, and an unemitted one renders black.
+ */
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316']
 const TICK = { fontSize: 11, fill: 'var(--color-muted-foreground)' }
 
 /**
