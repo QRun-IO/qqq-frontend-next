@@ -24,7 +24,7 @@ import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/node'
 import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { useAlertsInstalled } from '@/components/alerts/AlertsBell'
-import { isUiApiExtensionInstalled, resetUiApiExtensions, useUiApiExtensionInstalled } from './ui-api-extensions'
+import { isUiApiExtensionInstalled, isUiApiFeatureSupported, resetUiApiExtensions, useUiApiExtensionInstalled } from './ui-api-extensions'
 
 /** Gives each hook test an isolated query cache. */
 function wrapper() {
@@ -39,6 +39,15 @@ describe('extension discovery', () => {
     server.use(uiApiVersionHandler('custom-extension'))
     await expect(isUiApiExtensionInstalled('custom-extension')).resolves.toBe(true)
     await expect(isUiApiExtensionInstalled('alerts')).resolves.toBe(false)
+  })
+
+  it('reports core features from the same discovery, false when absent or unreachable', async () => {
+    server.use(http.get('/qqq/v1/version', () => HttpResponse.json({ apiVersion: '1.3.0', features: ['preferences'], extensions: [] })))
+    await expect(isUiApiFeatureSupported('preferences')).resolves.toBe(true)
+    await expect(isUiApiFeatureSupported('realtime')).resolves.toBe(false)
+    resetUiApiExtensions()
+    server.use(http.get('/qqq/v1/version', () => new HttpResponse(null, { status: 500 })))
+    await expect(isUiApiFeatureSupported('preferences')).resolves.toBe(false)
   })
 
   it('treats pre-semver servers as having no extensions', async () => {

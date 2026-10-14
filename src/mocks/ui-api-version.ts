@@ -18,14 +18,14 @@
 
 import { http, HttpResponse } from 'msw'
 
-/** Announces the supplied extension names.
+/** Announces the supplied extension names (and the core preferences feature).
  * @param names - Installed extensions.
  * @returns An MSW version handler.
  */
 export function uiApiVersionHandler(...names: string[]) {
   return http.get('/qqq/v1/version', () => HttpResponse.json({
     apiVersion: '1.1.0',
-    features: [],
+    features: ['preferences'],
     extensions: names.map((name) => ({ name, version: '1.0.0' })),
   }))
 }
