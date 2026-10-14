@@ -21,16 +21,18 @@
 'use client'
 
 import React from 'react'
-import { Controller } from 'react-hook-form'
-import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 
+import { Controller } from 'react-hook-form'
+
+import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 import type { QFieldMetaData, QRecord, QTableSection, QTableMetaData, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
-import { useHelpHelpActive } from '@/lib/context/q-context'
+
 import { cn } from '@/lib/utils/cn'
 import { formFieldColumnClasses } from '@/lib/utils/form-layout'
 import { formFieldQqqId, sanitizeQqqId } from '@/lib/utils/qqq-id'
-import { selectSlotHelpContent } from '@/lib/utils/help-utils'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 
 /** Help roles of a record form section when the form names none. */
 const DEFAULT_FORM_HELP_ROLES = ['WRITE_SCREENS', 'ALL_SCREENS'] as const
@@ -38,7 +40,6 @@ const DEFAULT_FORM_HELP_ROLES = ['WRITE_SCREENS', 'ALL_SCREENS'] as const
 import { CronScheduleEditor } from './CronScheduleEditor'
 import { DynamicFormField } from './DynamicFormField'
 import { SectionIcon } from '@/components/layout/MetadataIcon'
-import { HelpContent } from '@/components/records/HelpContent'
 
 /**
  * Props for the {@link DynamicForm} component.
@@ -277,7 +278,6 @@ export function DynamicForm({
   className,
   helpKeyPrefix = '',
 }: DynamicFormProps) {
-  const helpHelpActive = useHelpHelpActive()
   // Determine the set of fields to render
   const resolvedFields: QFieldMetaData[] = []
 
@@ -354,11 +354,11 @@ export function DynamicForm({
               return (
                 <div key={originalSection.name} id={hideSectionLabels ? undefined : formSectionElementId(originalSection.name)} tabIndex={hideSectionLabels ? undefined : -1} className="scroll-mt-24 space-y-4 focus:outline-none" data-qqq-id={`form-section-${originalSection.name}`}>
                   {originalSection.label && !hideSectionLabels && (
-                    <div className="border-b border-border pb-2">
+                    <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
                       <h4 className="flex items-center text-sm font-medium text-muted-foreground">
                         <SectionIcon section={originalSection} />
                         {originalSection.label}
-                      </h4>
+                    </h4>
                     </div>
                   )}
                   {widgetContent}
@@ -369,7 +369,6 @@ export function DynamicForm({
             if (!entry) return null
             const { section, fields: sectionFields } = entry
             // Section help for the form's screen (Material EntityForm getSectionHelp)
-            const sectionHelp = selectSlotHelpContent(section.helpContents, helpRoles ?? DEFAULT_FORM_HELP_ROLES, `${helpKeyPrefix}section:${section.name}`, helpHelpActive)
             const cron = editScreenCronWidget(section, widgets)
             const cronField = cron && sectionFields.find((f) => f.name === cron.expressionFieldName && f.isEditable)
             const gridFields = cronField ? sectionFields.filter((f) => f !== cronField) : sectionFields
@@ -383,18 +382,15 @@ export function DynamicForm({
                 data-qqq-id={`form-section-${sanitizeQqqId(section.name)}`}
               >
                 {section.label && !hideSectionLabels && (
-                  <div className="border-b border-border pb-2">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
                     <h4 className="flex items-center text-sm font-medium text-muted-foreground" data-qqq-id={`form-section-header-${sanitizeQqqId(section.name)}`}>
                       <SectionIcon section={section} />
                       {section.label}
                     </h4>
+                    <HelpIcon label={section.label} helpContents={section.helpContents} roles={helpRoles ?? DEFAULT_FORM_HELP_ROLES} helpKey={`${helpKeyPrefix}section:${section.name}`} data-qqq-id={`form-section-help-${section.name}`} />
                   </div>
                 )}
-                {sectionHelp && (
-                  <p className="text-sm text-muted-foreground" data-qqq-id={`form-section-help-${section.name}`}>
-                    <HelpContent helpContent={sectionHelp} />
-                  </p>
-                )}
+
                 {cron && cronField && (
                   <Controller
                     name={cronField.name}

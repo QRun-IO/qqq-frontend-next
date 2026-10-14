@@ -26,11 +26,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import type { QAppTreeNode, QInstance, QProcessMetaData } from '@/types'
 import type { ProcessInitRequest } from '@/lib/api/processes'
+
+import { PROCESS_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { loadMetaData } from '@/lib/api/metadata'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
@@ -38,6 +41,7 @@ import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { readStoredTableVariant } from '@/lib/utils/table-variant'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
@@ -218,6 +222,7 @@ export function ProcessRun({
       data-process-phase={boundsMessage ? 'error' : state.phase}
       data-embedded={isEmbedded || undefined}
     >
+      <div className="mb-3 flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold">{processMetaData.label}</h1><HelpIcon label={processMetaData.label} helpContents={processMetaData.helpContents?.help} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`process:${processName};slot:help`} data-qqq-id={`process-help-${processName}`} /></div>
       <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>{children}</div>
       <ProcessCancelDialog open={confirmCancel} onOpenChange={setConfirmCancel} onConfirm={() => { void cancelAndLeave() }} />
     </div>

@@ -22,10 +22,13 @@
 
 import React from 'react'
 import Link from 'next/link'
+
 import { useQuery } from '@tanstack/react-query'
 
 import type { QAppMetaData, QAppSection, QAppTreeNode, QIcon, QInstance, QWidgetMetaData } from '@/types'
 import { useRecordRecentView } from '@/lib/hooks/use-collaboration-core'
+
+import { APP_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { countRecords } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/query-client'
 import { isHiddenNode } from '@/lib/hooks/use-routes'
@@ -36,6 +39,8 @@ import { cssMaxWidth } from '@/lib/utils/responsive-grid'
 import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { useWidgetAnchor } from '@/lib/hooks/use-widget-anchor'
+
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { ConnectedWidget } from './ConnectedWidget'
 import { WIDGET_ANCHOR, widgetColumnClasses } from './widget-utils'
 
@@ -246,12 +251,12 @@ export function AppHome({ appMetaData, instance, widgetRegistry }: AppHomeProps)
       {showLabel ? (
         <div className="flex items-center gap-3">
           <MetadataIcon icon={iconOf(appMetaData)} kind="app" className="h-7 w-7 text-primary" />
-          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground">{label}</h1>
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground">{label}</h1><HelpIcon label={label} helpContents={appMetaData.helpContents?.help} roles={APP_SCREEN_HELP_ROLES} helpKey={`app:${name};slot:help`} data-qqq-id={`app-help-${name}`} />
           <LazyFavoriteToggle target={{ targetType: 'APP', targetName: name }} label={label} href={`/app/${encodeURIComponent(name)}`} />
         </div>
       ) : (
         // the page keeps its name for screen readers when the app hides its label
-        <h1 className="sr-only">{label}</h1>
+        <><h1 className="sr-only">{label}</h1><HelpIcon label={label} helpContents={appMetaData.helpContents?.help} roles={APP_SCREEN_HELP_ROLES} helpKey={`app:${name};slot:help`} data-qqq-id={`app-help-${name}`} /></>
       )}
 
       {/* Widget grid: QQQ sizes widgets in twelfths (gridColumns), full width on small screens */}

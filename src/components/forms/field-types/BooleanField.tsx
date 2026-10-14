@@ -40,6 +40,8 @@ interface BooleanFieldProps {
   id: string
   /** Human-readable field label rendered next to the toggle. */
   label: string
+  /** Content beside the label, outside its click target. */
+  labelExtra?: React.ReactNode
   /** The React Hook Form field name used by the `Controller`. */
   name: string
   /** React Hook Form control object from the parent `useForm` instance. */
@@ -99,6 +101,7 @@ function ariaCheckedValue(state: boolean | null): 'true' | 'false' | 'mixed' {
 export function BooleanField({
   id,
   label,
+  labelExtra,
   name,
   control,
   error,
@@ -187,17 +190,20 @@ export function BooleanField({
             )
           }}
         />
-        <label
-          htmlFor={id}
-          className={cn(
-            'text-sm font-medium text-foreground',
-            disabled && 'opacity-50'
-          )}
-          data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
-        >
-          {label}
-          {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
-        </label>
+        <div className="flex items-center">
+          <label
+            htmlFor={id}
+            className={cn(
+              'text-sm font-medium text-foreground',
+              disabled && 'opacity-50'
+            )}
+            data-qqq-id={dataQqqId ? `field-label-${dataQqqId}` : undefined}
+          >
+            {label}
+            {required && <span className="ml-0.5 text-muted-foreground" aria-hidden="true">*</span>}
+          </label>
+          {labelExtra}
+        </div>
       </div>
       <FieldFooter id={id} error={error?.message} />
     </div>

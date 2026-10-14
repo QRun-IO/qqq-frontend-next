@@ -20,6 +20,7 @@
 
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+
 import { getErrorStatusCode } from '@/lib/utils/error-utils'
 
 /**
@@ -184,6 +185,8 @@ export const queryKeys = {
   collaborationToggle: () => ['qqq', 'collaboration', 'toggle'] as const,
   collaborationRecentsRoot: () => ['qqq', 'collaboration', 'recents'] as const,
   collaborationRecents: (limit: number) => ['qqq', 'collaboration', 'recents', limit] as const,
+  uiApiVersion: () => ['qqq', 'uiApiVersion'] as const,
+  helpSearch: (q: string) => ['qqq', 'helpSearch', q] as const,
   /**
    * Root namespace key shared by all QQQ queries.
    *

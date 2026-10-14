@@ -5,6 +5,13 @@ import { configureAxe, toHaveNoViolations } from 'jest-axe'
 import { vi, beforeAll, afterEach, afterAll, expect } from 'vitest'
 import { server } from '@/mocks/node'
 
+// jsdom has no layout observer; Radix tooltip positioning requires the browser API.
+vi.stubGlobal('ResizeObserver', class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+})
+
 // Extend Vitest's expect with jest-axe accessibility matchers
 expect.extend(toHaveNoViolations)
 

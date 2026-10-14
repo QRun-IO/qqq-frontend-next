@@ -17,6 +17,16 @@
       },
       "type": "array"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the app."
@@ -375,6 +385,60 @@
     },
     "type": "object"
    },
+   "BuiltInViewV1": {
+    "properties": {
+     "filter": {
+      "properties": {
+       "booleanOperator": {
+        "enum": [
+         "OR"
+        ],
+        "type": "string"
+       },
+       "criteria": {
+        "items": {
+         "properties": {
+          "fieldName": {
+           "type": "string"
+          },
+          "operator": {
+           "enum": [
+            "EQUALS"
+           ],
+           "type": "string"
+          },
+          "values": {
+           "items": {
+            "description": "The executing session's user id. Display as Me. A missing user matches nothing.",
+            "properties": {
+             "type": {
+              "enum": [
+               "CurrentUser"
+              ],
+              "type": "string"
+             }
+            },
+            "type": "object"
+           },
+           "type": "array"
+          }
+         },
+         "type": "object"
+        },
+        "type": "array"
+       }
+      },
+      "type": "object"
+     },
+     "label": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
    "ExposedJoin": {
     "properties": {
      "isMany": {
@@ -448,12 +512,20 @@
      "values": {
       "description": "Values associated with this adornment.  Keys and the meanings of their values differ by type; the known\nkeys are listed (each names the type(s) it applies to).  CHIP also uses pattern keys: `color.{fieldValue}`\n(one of default, info, primary, secondary, success, warning, error) and `icon.{fieldValue}` (an icon name),\ngiving the chip colour and icon for a field value.  Clients ignore keys they do not know.",
       "properties": {
-       "altTextField": {
-        "description": "FILE_PREVIEW: field holding alternative text.",
+       "target": {
+        "description": "LINK: where to open the link: _blank for a new window/tab; otherwise the same view.",
         "type": "string"
        },
-       "captionField": {
-        "description": "FILE_PREVIEW: field holding a caption.",
+       "toRecordFromTable": {
+        "description": "LINK: the field value is a primary key of this table; link to that record (a client navigates to the record view).",
+        "type": "string"
+       },
+       "toRecordFromTableDynamic": {
+        "description": "LINK: the target table is per record - read it from the record displayValue `{fieldName}:toRecordFromTableDynamic`.",
+        "type": "boolean"
+       },
+       "fileNameField": {
+        "description": "FILE_DOWNLOAD, FILE_PREVIEW: the field holding the file name to save or show.",
         "type": "string"
        },
        "defaultExtension": {
@@ -464,13 +536,18 @@
         "description": "FILE_DOWNLOAD, FILE_PREVIEW: MIME type to assume when none is known.",
         "type": "string"
        },
+       "supplementalProcessName": {
+        "description": "FILE_DOWNLOAD: process the server runs to produce the file (the client just downloads).",
+        "type": "string"
+       },
+       "supplementalCodeReference": {
+        "additionalProperties": true,
+        "description": "FILE_DOWNLOAD: code the server runs to produce the file (the client just downloads).",
+        "type": "object"
+       },
        "downloadUrlDynamic": {
         "description": "FILE_DOWNLOAD: the download URL is per record - read it from the record displayValue `{fieldName}:downloadUrlDynamic`.",
         "type": "boolean"
-       },
-       "fileNameField": {
-        "description": "FILE_DOWNLOAD, FILE_PREVIEW: the field holding the file name to save or show.",
-        "type": "string"
        },
        "fileNameFormat": {
         "description": "FILE_DOWNLOAD: format (with %s placeholders) for the saved file name.",
@@ -482,75 +559,6 @@
          "type": "string"
         },
         "type": "array"
-       },
-       "format": {
-        "description": "FILE_UPLOAD: accepted file formats (e.g. .csv,.xlsx).",
-        "type": "string"
-       },
-       "fullSizeUrlField": {
-        "description": "FILE_PREVIEW: field holding the full-size file URL.",
-        "type": "string"
-       },
-       "heightField": {
-        "description": "FILE_PREVIEW: field holding the pixel height.",
-        "type": "string"
-       },
-       "languageMode": {
-        "description": "CODE_EDITOR: language of the code (e.g. javascript, sql, json, velocity) - for highlighting; a client without an editor shows it monospaced.",
-        "type": "string"
-       },
-       "mimeTypeField": {
-        "description": "FILE_PREVIEW: field holding the MIME type (decides image, video, PDF or download-only).",
-        "type": "string"
-       },
-       "previewable": {
-        "description": "FILE_PREVIEW: whether the file may be previewed (false: download only).",
-        "type": "boolean"
-       },
-       "sizeBytesField": {
-        "description": "FILE_PREVIEW: field holding the size in bytes.",
-        "type": "string"
-       },
-       "staticText": {
-        "description": "TOOLTIP: the tooltip text.",
-        "type": "string"
-       },
-       "supplementalCodeReference": {
-        "additionalProperties": true,
-        "description": "FILE_DOWNLOAD: code the server runs to produce the file (the client just downloads).",
-        "type": "object"
-       },
-       "supplementalProcessName": {
-        "description": "FILE_DOWNLOAD: process the server runs to produce the file (the client just downloads).",
-        "type": "string"
-       },
-       "target": {
-        "description": "LINK: where to open the link: _blank for a new window/tab; otherwise the same view.",
-        "type": "string"
-       },
-       "thumbnailMaxSize": {
-        "description": "FILE_PREVIEW: largest thumbnail edge in pixels.",
-        "type": "integer"
-       },
-       "thumbnailUrlField": {
-        "description": "FILE_PREVIEW: field holding a thumbnail image URL.",
-        "type": "string"
-       },
-       "toRecordFromTable": {
-        "description": "LINK: the field value is a primary key of this table; link to that record (a client navigates to the record view).",
-        "type": "string"
-       },
-       "toRecordFromTableDynamic": {
-        "description": "LINK: the target table is per record - read it from the record displayValue `{fieldName}:toRecordFromTableDynamic`.",
-        "type": "boolean"
-       },
-       "tooltipDynamic": {
-        "description": "TOOLTIP: the text is per record - read it from the record displayValue `{fieldName}:tooltipDynamic`.",
-        "type": "boolean"
-       },
-       "widgetName": {
-        "description": "WIDGET: the widget that renders this field.",
-        "type": "string"
        },
        "width": {
         "description": "SIZE: display width of the field - one of xsmall, small, medium, medlarge, large, xlarge (semantic widths; each client maps them to its own columns or characters). FILE_UPLOAD: width of the upload control.",
@@ -564,8 +572,64 @@
         ],
         "type": "string"
        },
+       "format": {
+        "description": "FILE_UPLOAD: accepted file formats (e.g. .csv,.xlsx).",
+        "type": "string"
+       },
+       "languageMode": {
+        "description": "CODE_EDITOR: language of the code (e.g. javascript, sql, json, velocity) - for highlighting; a client without an editor shows it monospaced.",
+        "type": "string"
+       },
+       "staticText": {
+        "description": "TOOLTIP: the tooltip text.",
+        "type": "string"
+       },
+       "tooltipDynamic": {
+        "description": "TOOLTIP: the text is per record - read it from the record displayValue `{fieldName}:tooltipDynamic`.",
+        "type": "boolean"
+       },
+       "thumbnailUrlField": {
+        "description": "FILE_PREVIEW: field holding a thumbnail image URL.",
+        "type": "string"
+       },
+       "fullSizeUrlField": {
+        "description": "FILE_PREVIEW: field holding the full-size file URL.",
+        "type": "string"
+       },
+       "mimeTypeField": {
+        "description": "FILE_PREVIEW: field holding the MIME type (decides image, video, PDF or download-only).",
+        "type": "string"
+       },
+       "altTextField": {
+        "description": "FILE_PREVIEW: field holding alternative text.",
+        "type": "string"
+       },
+       "captionField": {
+        "description": "FILE_PREVIEW: field holding a caption.",
+        "type": "string"
+       },
        "widthField": {
         "description": "FILE_PREVIEW: field holding the pixel width.",
+        "type": "string"
+       },
+       "heightField": {
+        "description": "FILE_PREVIEW: field holding the pixel height.",
+        "type": "string"
+       },
+       "sizeBytesField": {
+        "description": "FILE_PREVIEW: field holding the size in bytes.",
+        "type": "string"
+       },
+       "thumbnailMaxSize": {
+        "description": "FILE_PREVIEW: largest thumbnail edge in pixels.",
+        "type": "integer"
+       },
+       "previewable": {
+        "description": "FILE_PREVIEW: whether the file may be previewed (false: download only).",
+        "type": "boolean"
+       },
+       "widgetName": {
+        "description": "WIDGET: the widget that renders this field.",
         "type": "string"
        }
       },
@@ -604,6 +668,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this field.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "inlinePossibleValueSource": {
@@ -629,6 +696,9 @@
        },
        "enumValues": {
         "type": "array"
+       },
+       "helpContent": {
+        "type": "object"
        },
        "idType": {
         "enum": [
@@ -950,6 +1020,9 @@
      },
      "helpContents": {
       "description": "Help content shown on the step/screen.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "label": {
@@ -973,6 +1046,169 @@
        "$ref": "#/components/schemas/FieldMetaData"
       },
       "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpContentV1": {
+    "properties": {
+     "content": {
+      "description": "Long help in the declared format.",
+      "type": "string"
+     },
+     "contentAsHtml": {
+      "description": "Rendered Markdown (raw HTML escaped, unsafe links removed). Explicit HTML is unchanged and clients must sanitize it.",
+      "type": "string"
+     },
+     "format": {
+      "description": "Format of the long help.",
+      "enum": [
+       "TEXT",
+       "HTML",
+       "MARKDOWN"
+      ],
+      "type": "string"
+     },
+     "roles": {
+      "description": "Screen roles covered by this entry.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "summary": {
+      "description": "Optional short plain-text tooltip.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageEntryV1": {
+    "properties": {
+     "hasContent": {
+      "description": "Whether visible help has long content.",
+      "type": "boolean"
+     },
+     "hasSummary": {
+      "description": "Whether visible help has an explicit summary.",
+      "type": "boolean"
+     },
+     "hidden": {
+      "description": "Whether the target is hidden in metadata.",
+      "type": "boolean"
+     },
+     "key": {
+      "description": "Canonical helpContent address.",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "label": {
+      "description": "User-facing target label.",
+      "type": "string"
+     },
+     "parentKey": {
+      "description": "Canonical parent address.",
+      "type": "string"
+     },
+     "roles": {
+      "description": "Screen roles covered by this entry.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageResponseV1": {
+    "properties": {
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/HelpCoverageEntryV1"
+      },
+      "type": "array"
+     },
+     "totals": {
+      "items": {
+       "$ref": "#/components/schemas/HelpCoverageTotalV1"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpCoverageTotalV1": {
+    "properties": {
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "total": {
+      "description": "Number of targets in the selected kind and parent scope.",
+      "type": "number"
+     },
+     "withHelp": {
+      "description": "Targets with a visible summary or long content.",
+      "type": "number"
+     }
+    },
+    "type": "object"
+   },
+   "HelpSearchResponseV1": {
+    "properties": {
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/HelpSearchResultV1"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "HelpSearchResultV1": {
+    "properties": {
+     "contentAsHtml": {
+      "description": "Rendered Markdown (raw HTML escaped, unsafe links removed). Explicit HTML is unchanged and clients must sanitize it.",
+      "type": "string"
+     },
+     "href": {
+      "description": "Application-relative navigation link, when available.",
+      "type": "string"
+     },
+     "key": {
+      "description": "Canonical helpContent address.",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Help target kind.",
+      "type": "string"
+     },
+     "label": {
+      "description": "User-facing target label.",
+      "type": "string"
+     },
+     "name": {
+      "description": "Target metadata name.",
+      "type": "string"
+     },
+     "process": {
+      "description": "Related process name, when applicable.",
+      "type": "string"
+     },
+     "summary": {
+      "description": "Optional short plain-text tooltip.",
+      "type": "string"
+     },
+     "table": {
+      "description": "Related table name, when applicable.",
+      "type": "string"
+     },
+     "text": {
+      "description": "Plain-text help excerpt, at most 600 characters.",
+      "type": "string"
      }
     },
     "type": "object"
@@ -1110,7 +1346,12 @@
       "type": "object"
      },
      "helpContents": {
-      "additionalProperties": true,
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Instance-level help content, by slot name (for example the query screen's bulkAddFilterValues and bulkAddFilterValuesPossibleValueSource slots).  Omitted when the instance defines none.",
       "type": "object"
      },
@@ -1133,6 +1374,16 @@
        "properties": {
         "hasPermission": {
          "description": "Whether the user may run the report.",
+         "type": "object"
+        },
+        "helpContents": {
+         "additionalProperties": {
+          "items": {
+           "$ref": "#/components/schemas/HelpContentV1"
+          },
+          "type": "array"
+         },
+         "description": "Help entries by slot, filtered for the current session.",
          "type": "object"
         },
         "iconName": {
@@ -1237,8 +1488,13 @@
          "type": "object"
         },
         "helpContent": {
-         "additionalProperties": true,
-         "description": "Help content by role.",
+         "additionalProperties": {
+          "items": {
+           "$ref": "#/components/schemas/HelpContentV1"
+          },
+          "type": "array"
+         },
+         "description": "Help content by slot.",
          "type": "object"
         },
         "icon": {
@@ -1403,6 +1659,16 @@
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the process."
@@ -1467,6 +1733,16 @@
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "icon": {
       "$ref": "#/components/schemas/Icon",
       "description": "Icon to display for the process."
@@ -1518,6 +1794,16 @@
      "hasPermission": {
       "description": "Boolean to indicate if the user has permission for the process.",
       "type": "boolean"
+     },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
      },
      "icon": {
       "description": "Icon to display for the process.",
@@ -1637,6 +1923,9 @@
           },
           "helpContents": {
            "description": "Help content shown on the step/screen.",
+           "items": {
+            "$ref": "#/components/schemas/HelpContentV1"
+           },
            "type": "array"
           },
           "label": {
@@ -1775,6 +2064,9 @@
             },
             "helpContents": {
              "description": "Help content shown on the step/screen.",
+             "items": {
+              "$ref": "#/components/schemas/HelpContentV1"
+             },
              "type": "array"
             },
             "label": {
@@ -2015,6 +2307,169 @@
     },
     "type": "object"
    },
+   "RealtimeChannelRevokedEventV1": {
+    "properties": {
+     "channel": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeEventV1": {
+    "properties": {
+     "channel": {
+      "type": "string"
+     },
+     "data": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "event": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeHelloEventV1": {
+    "properties": {
+     "connectionId": {
+      "type": "string"
+     },
+     "heartbeatSeconds": {
+      "type": "integer"
+     },
+     "metaDataGeneration": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeMetaDataChangedEventV1": {
+    "properties": {
+     "generation": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeRecordChangedEventV1": {
+    "properties": {
+     "changedBy": {
+      "type": "string"
+     },
+     "fields": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "pk": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "table": {
+      "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeRecordDeletedEventV1": {
+    "properties": {
+     "pk": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "table": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeResyncEventV1": {
+    "type": "object"
+   },
+   "RealtimeSessionEndedEventV1": {
+    "type": "object"
+   },
+   "RealtimeSubscriptionRequestV1": {
+    "properties": {
+     "add": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "connectionId": {
+      "type": "string"
+     },
+     "remove": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeSubscriptionResponseV1": {
+    "properties": {
+     "active": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "refused": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "RealtimeTableChangedEventV1": {
+    "properties": {
+     "table": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
    "RecordAssociatedScriptLogsResponseV1": {
     "properties": {
      "scriptLogRecords": {
@@ -2044,6 +2499,59 @@
      "scriptRevisionSequenceNo": {
       "description": "Sequence number of the new revision within the script (1 for its first revision).",
       "type": "number"
+     }
+    },
+    "type": "object"
+   },
+   "RecordConflictV1": {
+    "properties": {
+     "changedFields": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "currentVersion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "modifiedAt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
+     },
+     "modifiedByUserId": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "number"
+       },
+       {
+        "type": "boolean"
+       }
+      ],
+      "nullable": true
      }
     },
     "type": "object"
@@ -2190,28 +2698,11 @@
    },
    "RecordFeatureSummaryV1": {
     "properties": {
-     "assignee": {
-      "nullable": true,
+     "tableName": {
       "type": "string"
      },
-     "capabilities": {
-      "additionalProperties": {
-       "type": "boolean"
-      },
-      "type": "object"
-     },
-     "counts": {
-      "additionalProperties": {
-       "type": "integer"
-      },
-      "type": "object"
-     },
-     "extensions": {
-      "additionalProperties": {
-       "additionalProperties": true,
-       "type": "object"
-      },
-      "type": "object"
+     "primaryKey": {
+      "type": "string"
      },
      "features": {
       "items": {
@@ -2233,6 +2724,12 @@
       },
       "type": "array"
      },
+     "capabilities": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "type": "object"
+     },
      "isFavorite": {
       "nullable": true,
       "type": "boolean"
@@ -2241,7 +2738,17 @@
       "nullable": true,
       "type": "boolean"
      },
+     "counts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object"
+     },
      "owner": {
+      "nullable": true,
+      "type": "string"
+     },
+     "assignee": {
       "nullable": true,
       "type": "string"
      },
@@ -2253,11 +2760,12 @@
       "nullable": true,
       "type": "array"
      },
-     "primaryKey": {
-      "type": "string"
-     },
-     "tableName": {
-      "type": "string"
+     "extensions": {
+      "additionalProperties": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "object"
      }
     },
     "type": "object"
@@ -2289,6 +2797,17 @@
        "type": "string"
       },
       "type": "array"
+     },
+     "ownership": {
+      "properties": {
+       "assigneeFieldName": {
+        "type": "string"
+       },
+       "ownerFieldName": {
+        "type": "string"
+       }
+      },
+      "type": "object"
      },
      "settings": {
       "additionalProperties": {
@@ -2693,6 +3212,16 @@
       "description": "Whether the user may run the report.",
       "type": "object"
      },
+     "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
+      "description": "Help entries by slot, filtered for the current session.",
+      "type": "object"
+     },
      "iconName": {
       "description": "Name of the report's icon.",
       "type": "string"
@@ -2918,6 +3447,13 @@
       },
       "type": "array"
      },
+     "builtInViews": {
+      "description": "Built-in views; evaluate their filters in the current session without persisting the resolved user id.",
+      "items": {
+       "$ref": "#/components/schemas/BuiltInViewV1"
+      },
+      "type": "array"
+     },
      "capabilities": {
       "description": "List of strings describing actions that are supported by the backend application for the table.",
       "items": {
@@ -2948,6 +3484,12 @@
       "type": "object"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -3086,6 +3628,12 @@
       "type": "boolean"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -3144,6 +3692,13 @@
       },
       "type": "array"
      },
+     "builtInViews": {
+      "description": "Built-in views; evaluate their filters in the current session without persisting the resolved user id.",
+      "items": {
+       "$ref": "#/components/schemas/BuiltInViewV1"
+      },
+      "type": "array"
+     },
      "capabilities": {
       "description": "List of strings describing actions that are supported by the backend application for the table.",
       "items": {
@@ -3174,6 +3729,12 @@
       "type": "object"
      },
      "helpContents": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/HelpContentV1"
+       },
+       "type": "array"
+      },
       "description": "Help Contents for this table.",
       "type": "object"
      },
@@ -3342,6 +3903,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this section table.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "icon": {
@@ -3556,6 +4120,9 @@
      },
      "helpContents": {
       "description": "Help Contents for this field.",
+      "items": {
+       "$ref": "#/components/schemas/HelpContentV1"
+      },
       "type": "array"
      },
      "inlinePossibleValueSource": {
@@ -3581,6 +4148,9 @@
        },
        "enumValues": {
         "type": "array"
+       },
+       "helpContent": {
+        "type": "object"
        },
        "idType": {
         "enum": [
@@ -4054,6 +4624,9 @@
            },
            "helpContents": {
             "description": "Help Contents for this field.",
+            "items": {
+             "$ref": "#/components/schemas/HelpContentV1"
+            },
             "type": "array"
            },
            "inlinePossibleValueSource": {
@@ -4079,6 +4652,9 @@
              },
              "enumValues": {
               "type": "array"
+             },
+             "helpContent": {
+              "type": "object"
              },
              "idType": {
               "enum": [
@@ -5567,11 +6143,40 @@
     "additionalProperties": true,
     "description": "Data of widget types without a fixed shape (generic, customComponent, dataBagViewer, pivotTableSetup, and scriptViewer): the common properties plus widget-specific ones.",
     "properties": {
-     "csvData": {
-      "description": "Rows (each a list of cells) for exporting the widget as CSV.",
+     "label": {
+      "description": "Title of the widget (overrides the metadata label when present).",
+      "type": "string"
+     },
+     "sublabel": {
+      "description": "Secondary title.",
+      "type": "string"
+     },
+     "footerHTML": {
+      "description": "Footer, as HTML. Non-web clients render it as plain text.",
+      "type": "string"
+     },
+     "hasPermission": {
+      "description": "False when the user may not see this widget's data; show the label and a permission message only.",
+      "type": "boolean"
+     },
+     "dropdownNameList": {
+      "description": "Names of the dropdown filters the widget offers (parallel to the other dropdown lists).",
       "items": {
-       "items": {},
-       "type": "array"
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "dropdownLabelList": {
+      "description": "Labels of the dropdown filters.",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "dropdownDefaultValueList": {
+      "description": "Default value of each dropdown filter.",
+      "items": {
+       "type": "string"
       },
       "type": "array"
      },
@@ -5588,46 +6193,17 @@
       },
       "type": "array"
      },
-     "dropdownDefaultValueList": {
-      "description": "Default value of each dropdown filter.",
-      "items": {
-       "type": "string"
-      },
-      "type": "array"
-     },
-     "dropdownLabelList": {
-      "description": "Labels of the dropdown filters.",
-      "items": {
-       "type": "string"
-      },
-      "type": "array"
-     },
-     "dropdownNameList": {
-      "description": "Names of the dropdown filters the widget offers (parallel to the other dropdown lists).",
-      "items": {
-       "type": "string"
-      },
-      "type": "array"
-     },
      "dropdownNeedsSelectedText": {
       "description": "Message to show until every dropdown has a value.",
       "type": "string"
      },
-     "footerHTML": {
-      "description": "Footer, as HTML. Non-web clients render it as plain text.",
-      "type": "string"
-     },
-     "hasPermission": {
-      "description": "False when the user may not see this widget's data; show the label and a permission message only.",
-      "type": "boolean"
-     },
-     "label": {
-      "description": "Title of the widget (overrides the metadata label when present).",
-      "type": "string"
-     },
-     "sublabel": {
-      "description": "Secondary title.",
-      "type": "string"
+     "csvData": {
+      "description": "Rows (each a list of cells) for exporting the widget as CSV.",
+      "items": {
+       "items": {},
+       "type": "array"
+      },
+      "type": "array"
      },
      "type": {
       "description": "The widget type this data is for.",
@@ -6895,42 +7471,59 @@
  },
  "openapi": "3.0.3",
  "paths": {
-  "/qqq/v1/download/{file}": {
+  "/qqq/v1/version": {
    "get": {
-    "description": "Download a file from server-side storage by file path or storage table reference.",
+    "description": "Describes the semantic version of this UI API (MAJOR.MINOR.PATCH, where MAJOR matches the URL\nversion), the optional core features the server supports, and the extensions (modules and qbits)\nregistered on it, each with its own semantic version.\n\nA client should call this first, before authentication, and stop with a clear message when\napiVersion is outside the range it supports.  Not secured.",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "Server with one extension": {
+          "value": {
+           "apiVersion": "1.1.0",
+           "basePath": "/qqq/v1",
+           "extensions": [
+            {
+             "description": "ESB overview, destinations, messages and dead letters",
+             "name": "esb",
+             "pathPrefix": "/esb",
+             "version": "1.0.0"
+            }
+           ],
+           "features": [
+            "recordSearch",
+            "tableVariants",
+            "version"
+           ],
+           "supportedMajorVersions": [
+            1
+           ]
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/VersionResponseV1"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get the UI API version",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/realtime/stream": {
+   "get": {
+    "description": "SSE invalidation hints. Each event has id <connectionId>:<sequence>, an event name and JSON data. hello identifies the connection; comment pings maintain it. Last-Event-ID replays retained events on the same pod and session, otherwise resync asks clients to refetch. Core event payloads use the Realtime*EventV1 components. Qbits publish through RealtimeBus with their own event names, such as presence.changed and comment.added, described by RealtimeEventV1. Subscriptions require a separate POST; session-ended closes the stream and channel-revoked removes a subscription.",
     "parameters": [
      {
-      "description": "Filename for the download.",
-      "example": "report.csv",
-      "in": "path",
-      "name": "file",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Server-side file path to download from.",
-      "in": "query",
-      "name": "filePath",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the storage table to download from.",
-      "in": "query",
-      "name": "storageTableName",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Storage reference key for the file.",
-      "in": "query",
-      "name": "storageReference",
+      "description": "Last received <connectionId>:<sequence> cursor.",
+      "in": "header",
+      "name": "Last-Event-ID",
       "required": false,
       "schema": {
        "type": "string"
@@ -6940,14 +7533,13 @@
     "responses": {
      "200": {
       "content": {
-       "application/octet-stream": {
+       "text/event-stream": {
         "schema": {
-         "format": "binary",
-         "type": "string"
+         "$ref": "#/components/schemas/RealtimeEventV1"
         }
        }
       },
-      "description": "Binary file content"
+      "description": "Realtime named events and comment heartbeats."
      }
     },
     "security": [
@@ -6957,31 +7549,122 @@
       ]
      }
     ],
-    "summary": "Download a file",
+    "summary": "Open the realtime event stream",
     "tags": [
      "General"
     ]
    }
   },
-  "/qqq/v1/logout": {
+  "/qqq/v1/realtime/subscriptions": {
    "post": {
-    "description": "Invalidates the current session server-side, deleting it from the session store\nand clearing any cached data. The session cookie is also removed.\n\nFrontends should call this endpoint before performing client-side logout\n(clearing localStorage, redirecting to IdP logout, etc.) to ensure the\nsession cannot be resumed.",
+    "description": "Add or remove record:{table}:{pk}, table:{table}, user:me, or instance channels. Records require a permission-checked GetAction and tables require READ. Refusals give no reason. The connection must belong to the authenticated session; otherwise 404. Active user channels are returned as user:me. Channel limits apply.",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "add": {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "connectionId": {
+          "type": "string"
+         },
+         "remove": {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RealtimeSubscriptionResponseV1"
+        }
+       }
+      },
+      "description": "Current subscriptions and refused additions."
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Malformed subscription request."
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "Connection not found."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Change realtime subscriptions",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/metaData/authentication": {
+   "get": {
+    "description": "For a frontend to determine which authentication provider or mechanism to use, it should begin its lifecycle\nby requesting this metaData object, and inspecting the `type` property in the response.\n\nNote that this endpoint is not secured, as its purpose is to be called as part of the workflow that results\nin a user being authenticated.",
     "responses": {
      "200": {
       "content": {
        "application/json": {
         "examples": {
-         "Successful logout": {}
+         "For FULLY_ANONYMOUS type": {
+          "value": {
+           "name": "anonymous",
+           "type": "FULLY_ANONYMOUS"
+          }
+         },
+         "For AUTH_0 type": {
+          "value": {
+           "name": "auth0",
+           "type": "AUTH_0",
+           "values": {
+            "audience": "myapp.mydomain.com",
+            "baseUrl": "https://myapp.auth0.com/",
+            "clientId": "abcdefg1234567"
+           }
+          }
+         }
         },
         "schema": {
-         "$ref": "#/components/schemas/LogoutResponseV1"
+         "$ref": "#/components/schemas/AuthenticationMetaDataResponseV1"
         }
        }
       },
-      "description": "Session has been invalidated"
+      "description": "Successful Response"
      }
     },
-    "summary": "Logout and invalidate session",
+    "summary": "Get authentication metaData",
     "tags": [
      "Authentication"
     ]
@@ -7039,6 +7722,11 @@
       "content": {
        "application/json": {
         "examples": {
+         "With no custom values": {
+          "value": {
+           "uuid": "01234567-89AB-CDEF-0123-456789ABCDEF"
+          }
+         },
          "With custom values": {
           "value": {
            "uuid": "98765432-10FE-DCBA-9876-543210FEDCBA",
@@ -7046,11 +7734,6 @@
             "region": "US",
             "userCategoryId": 47
            }
-          }
-         },
-         "With no custom values": {
-          "value": {
-           "uuid": "01234567-89AB-CDEF-0123-456789ABCDEF"
           }
          }
         },
@@ -7080,6 +7763,54 @@
      }
     },
     "summary": "Create a session",
+    "tags": [
+     "Authentication"
+    ]
+   }
+  },
+  "/qqq/v1/logout": {
+   "post": {
+    "description": "Invalidates the current session server-side, deleting it from the session store\nand clearing any cached data. The session cookie is also removed.\n\nFrontends should call this endpoint before performing client-side logout\n(clearing localStorage, redirecting to IdP logout, etc.) to ensure the\nsession cannot be resumed.",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "Successful logout": {}
+        },
+        "schema": {
+         "$ref": "#/components/schemas/LogoutResponseV1"
+        }
+       }
+      },
+      "description": "Session has been invalidated"
+     }
+    },
+    "summary": "Logout and invalidate session",
+    "tags": [
+     "Authentication"
+    ]
+   }
+  },
+  "/qqq/v1/oidc/backchannel-logout": {
+   "post": {
+    "description": "Receives logout notifications from the Identity Provider (IdP) when a user\nlogs out from the IdP or another application in the SSO ecosystem.\n\nThe IdP sends a POST request with a 'logout_token' JWT parameter containing\neither a 'sub' (subject) or 'sid' (session ID) claim. QQQ validates the RS256\nsignature against the configured OAuth2 provider's discovered JWKS, issuer,\nclient audience, logout event and timestamps before deleting matching sessions\nfrom the configured session table. Both subject and session ID must match when\nboth are present. Invalid tokens or unsupported configuration return HTTP 400.\n\nThis endpoint should be registered with your IdP as the back-channel logout URI.",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "Successful logout": {}
+        },
+        "schema": {
+         "$ref": "#/components/schemas/BackChannelLogoutResponseV1"
+        }
+       }
+      },
+      "description": "Back-channel logout processed successfully"
+     }
+    },
+    "summary": "OIDC Back-Channel Logout",
     "tags": [
      "Authentication"
     ]
@@ -7172,6 +7903,61 @@
             }
            ],
            "apps": {
+            "homeApp": {
+             "childMap": {
+              "person": {
+               "icon": {
+                "name": "person_outline"
+               },
+               "label": "Person",
+               "name": "person",
+               "type": "TABLE"
+              },
+              "childApp": {
+               "icon": {
+                "name": "child_friendly"
+               },
+               "label": "Child App",
+               "name": "childApp",
+               "type": "APP"
+              }
+             },
+             "children": [
+              {
+               "icon": {
+                "name": "child_friendly"
+               },
+               "label": "Child App",
+               "name": "childApp",
+               "type": "APP"
+              },
+              {
+               "icon": {
+                "name": "person_outline"
+               },
+               "label": "Person",
+               "name": "person",
+               "type": "TABLE"
+              }
+             ],
+             "icon": {
+              "name": "home"
+             },
+             "label": "Home App",
+             "name": "homeApp",
+             "sections": [
+              {
+               "icon": {
+                "name": "badge"
+               },
+               "label": "Home App",
+               "name": "homeApp",
+               "tables": [
+                "person"
+               ]
+              }
+             ]
+            },
             "childApp": {
              "childMap": {
               "samplePersonProcess": {
@@ -7210,89 +7996,10 @@
                ]
               }
              ]
-            },
-            "homeApp": {
-             "childMap": {
-              "childApp": {
-               "icon": {
-                "name": "child_friendly"
-               },
-               "label": "Child App",
-               "name": "childApp",
-               "type": "APP"
-              },
-              "person": {
-               "icon": {
-                "name": "person_outline"
-               },
-               "label": "Person",
-               "name": "person",
-               "type": "TABLE"
-              }
-             },
-             "children": [
-              {
-               "icon": {
-                "name": "child_friendly"
-               },
-               "label": "Child App",
-               "name": "childApp",
-               "type": "APP"
-              },
-              {
-               "icon": {
-                "name": "person_outline"
-               },
-               "label": "Person",
-               "name": "person",
-               "type": "TABLE"
-              }
-             ],
-             "icon": {
-              "name": "home"
-             },
-             "label": "Home App",
-             "name": "homeApp",
-             "sections": [
-              {
-               "icon": {
-                "name": "badge"
-               },
-               "label": "Home App",
-               "name": "homeApp",
-               "tables": [
-                "person"
-               ]
-              }
-             ]
             }
            },
            "metaDataGeneration": 0,
            "processes": {
-            "person.bulkDelete": {
-             "hasPermission": true,
-             "isHidden": true,
-             "label": "Person Bulk Delete",
-             "name": "person.bulkDelete",
-             "stepFlow": "LINEAR",
-             "tableName": "person"
-            },
-            "person.bulkEdit": {
-             "hasPermission": true,
-             "isHidden": true,
-             "label": "Person Bulk Edit",
-             "name": "person.bulkEdit",
-             "stepFlow": "LINEAR",
-             "tableName": "person"
-            },
-            "person.bulkEditWithFile": {
-             "hasPermission": true,
-             "isHidden": true,
-             "label": "Person Bulk Edit With File",
-             "name": "person.bulkEditWithFile",
-             "stepFlow": "LINEAR",
-             "tableName": "person"
-            },
             "person.bulkInsert": {
              "hasPermission": true,
              "icon": {
@@ -7305,6 +8012,14 @@
              "stepFlow": "LINEAR",
              "tableName": "person"
             },
+            "person.bulkEdit": {
+             "hasPermission": true,
+             "isHidden": true,
+             "label": "Person Bulk Edit",
+             "name": "person.bulkEdit",
+             "stepFlow": "LINEAR",
+             "tableName": "person"
+            },
             "samplePersonProcess": {
              "hasPermission": true,
              "icon": {
@@ -7314,6 +8029,22 @@
              "isHidden": false,
              "label": "Sample Person Process",
              "name": "samplePersonProcess",
+             "stepFlow": "LINEAR",
+             "tableName": "person"
+            },
+            "person.bulkDelete": {
+             "hasPermission": true,
+             "isHidden": true,
+             "label": "Person Bulk Delete",
+             "name": "person.bulkDelete",
+             "stepFlow": "LINEAR",
+             "tableName": "person"
+            },
+            "person.bulkEditWithFile": {
+             "hasPermission": true,
+             "isHidden": true,
+             "label": "Person Bulk Edit With File",
+             "name": "person.bulkEditWithFile",
              "stepFlow": "LINEAR",
              "tableName": "person"
             }
@@ -7364,91 +8095,6 @@
     "summary": "Get instance metaData",
     "tags": [
      "General"
-    ]
-   }
-  },
-  "/qqq/v1/metaData/authentication": {
-   "get": {
-    "description": "For a frontend to determine which authentication provider or mechanism to use, it should begin its lifecycle\nby requesting this metaData object, and inspecting the `type` property in the response.\n\nNote that this endpoint is not secured, as its purpose is to be called as part of the workflow that results\nin a user being authenticated.",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "For AUTH_0 type": {
-          "value": {
-           "name": "auth0",
-           "type": "AUTH_0",
-           "values": {
-            "audience": "myapp.mydomain.com",
-            "baseUrl": "https://myapp.auth0.com/",
-            "clientId": "abcdefg1234567"
-           }
-          }
-         },
-         "For FULLY_ANONYMOUS type": {
-          "value": {
-           "name": "anonymous",
-           "type": "FULLY_ANONYMOUS"
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/AuthenticationMetaDataResponseV1"
-        }
-       }
-      },
-      "description": "Successful Response"
-     }
-    },
-    "summary": "Get authentication metaData",
-    "tags": [
-     "Authentication"
-    ]
-   }
-  },
-  "/qqq/v1/metaData/process/{processName}": {
-   "get": {
-    "description": "Load the full metadata for a single process, including all screens (aka, frontend steps), which a frontend\nneeds to display to users.",
-    "parameters": [
-     {
-      "description": "Name of the process to load.",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "TODO": {
-          "value": {}
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/ProcessMetaDataResponseV1"
-        }
-       }
-      },
-      "description": "The full process metadata"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Get process metaData",
-    "tags": [
-     "Processes"
     ]
    }
   },
@@ -7549,1532 +8195,6 @@
     ]
    }
   },
-  "/qqq/v1/oidc/backchannel-logout": {
-   "post": {
-    "description": "Receives logout notifications from the Identity Provider (IdP) when a user\nlogs out from the IdP or another application in the SSO ecosystem.\n\nThe IdP sends a POST request with a 'logout_token' JWT parameter containing\neither a 'sub' (subject) or 'sid' (session ID) claim. QQQ validates the RS256\nsignature against the configured OAuth2 provider's discovered JWKS, issuer,\nclient audience, logout event and timestamps before deleting matching sessions\nfrom the configured session table. Both subject and session ID must match when\nboth are present. Invalid tokens or unsupported configuration return HTTP 400.\n\nThis endpoint should be registered with your IdP as the back-channel logout URI.",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "Successful logout": {}
-        },
-        "schema": {
-         "$ref": "#/components/schemas/BackChannelLogoutResponseV1"
-        }
-       }
-      },
-      "description": "Back-channel logout processed successfully"
-     }
-    },
-    "summary": "OIDC Back-Channel Logout",
-    "tags": [
-     "Authentication"
-    ]
-   }
-  },
-  "/qqq/v1/possibleValues/{possibleValueSourceName}": {
-   "post": {
-    "description": "Search for possible values from a standalone possible value source\n(not associated with a specific table or process field).\nReturns a list of id/label pairs that match the given search criteria.",
-    "parameters": [
-     {
-      "description": "Name of the possible value source to search.",
-      "example": "person",
-      "in": "path",
-      "name": "possibleValueSourceName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "filter": {
-          "$ref": "#/components/schemas/QueryFilter",
-          "description": "Optional default filter to apply to the possible value search"
-         },
-         "ids": {
-          "description": "List of specific ids to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "labels": {
-          "description": "List of specific labels to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "picker": {
-          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
-          "properties": {
-           "afterId": {
-            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
-            "type": "string"
-           },
-           "filter": {
-            "$ref": "#/components/schemas/QueryFilter",
-            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
-           },
-           "limit": {
-            "description": "Options per page (default: the picker's pageSize; at most 200)",
-            "type": "integer"
-           },
-           "skip": {
-            "description": "Offset paging, for orderings other than the primary key",
-            "type": "integer"
-           }
-          },
-          "type": "object"
-         },
-         "processValues": {
-          "description": "Map of field values from the current process step, used for filter interpolation",
-          "type": "object"
-         },
-         "searchTerm": {
-          "description": "Text to search for within possible value labels",
-          "type": "string"
-         },
-         "useCase": {
-          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
-          "enum": [
-           "FORM",
-           "FILTER"
-          ],
-          "type": "string"
-         },
-         "values": {
-          "description": "Map of other field values, used for filter interpolation on possible value source filters",
-          "type": "object"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/PossibleValuesResponseV1"
-        }
-       }
-      },
-      "description": "List of possible value options matching the search criteria."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Search a standalone possible value source",
-    "tags": [
-     "General"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/init": {
-   "post": {
-    "description": "For a user to start running a process, this endpoint should be called, to start the process\nand run its first step(s) (any backend steps before the first frontend step).\n\nAdditional process-specific values should posted in a form param named `values`, as JSON object\nwith keys defined by the process in question.\n\nFor a process which needs to operate on a set of records that a user selected, see\n`recordsParam`, and `recordIds` or `filterJSON`.\n\nThe response will include a `processUUID`, to be included in all subsequent requests relevant\nto the process.\n\nNote that this request, if it takes longer than a given threshold* to complete, will return a\na `jobUUID`, which should be sent to the `/processes/{processName}/{processUUID}/status/{jobUUID}`\nendpoint, to poll for a status update.\n\n*This threshold has a default value of 3,000 ms., but can be set per-request via the form\nparameter `stepTimeoutMillis`.\n",
-    "parameters": [
-     {
-      "description": "Name of the process to initialize",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
-      "example": "{\"type\":\"store\",\"id\":\"1\"}",
-      "in": "query",
-      "name": "tableVariant",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "multipart/form-data": {
-       "schema": {
-        "properties": {
-         "file": {
-          "description": "A file upload, for processes which expect to be initialized with an uploaded file.",
-          "format": "binary",
-          "type": "string"
-         },
-         "filterJSON": {
-          "description": "JSON encoded QQueryFilter object, to execute against the table this process is based on, to find input records for the process.  Needs `recordsParam=filterJSON` value to be given as well.",
-          "examples": {
-           "empty filter (all records)": {
-            "value": "{}"
-           },
-           "filter by a condition": {
-            "value": "{\"criteria\":[{\"fieldName\":\"id\",\"operator\":\"LESS_THAN\",\"values\":[10]}],\"booleanOperator\":\"AND\"}"
-           }
-          },
-          "type": "string"
-         },
-         "recordIds": {
-          "description": "Comma-separated list of ids from the table this process is based on, to use as input records for the process.  Needs `recordsParam=recordIds` value to be given as well.",
-          "examples": {
-           "multiple ids": {
-            "value": "42,47"
-           },
-           "one id": {
-            "value": "1701"
-           }
-          },
-          "type": "string"
-         },
-         "recordsParam": {
-          "description": "Specifies which other query-param will contain the indicator of initial records to pass in to the process.",
-          "examples": {
-           "filterJSON": {
-            "value": "recordIds"
-           },
-           "recordIds": {
-            "value": "recordIds"
-           }
-          },
-          "type": "string"
-         },
-         "stepTimeoutMillis": {
-          "description": "Optionally change the time that the server will wait for the job before letting it go asynchronous.  Default value is 3000.",
-          "examples": {
-           "longer timeout": {
-            "value": "60000"
-           },
-           "shorter timeout": {
-            "value": "500"
-           }
-          },
-          "type": "integer"
-         },
-         "tableVariant": {
-          "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).  May also be given as a query parameter.",
-          "example": "{\"type\":\"store\",\"id\":\"1\"}",
-          "type": "string"
-         },
-         "values": {
-          "description": "Process-specific field names and values.",
-          "type": "object"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "COMPLETE": {
-          "value": {
-           "nextStep": "reviewScreen",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "COMPLETE with metaDataAdjustment": {
-          "value": {
-           "nextStep": "inputScreen",
-           "processMetaDataAdjustment": {
-            "updatedFields": {
-             "someField": {
-              "displayFormat": "%s",
-              "isEditable": true,
-              "isHeavy": false,
-              "isHidden": false,
-              "isRequired": true,
-              "name": "someField",
-              "type": "STRING"
-             }
-            },
-            "updatedFrontendStepList": [
-             {
-              "components": [
-               {
-                "type": "EDIT_FORM"
-               }
-              ],
-              "formFields": [
-               {
-                "displayFormat": "%s",
-                "isEditable": true,
-                "isHeavy": false,
-                "isHidden": false,
-                "isRequired": false,
-                "name": "someField",
-                "type": "STRING"
-               }
-              ],
-              "name": "inputScreen"
-             },
-             {
-              "components": [
-               {
-                "type": "PROCESS_SUMMARY_RESULTS"
-               }
-              ],
-              "name": "resultScreen"
-             }
-            ]
-           },
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "ERROR": {
-          "value": {
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "RUNNING"
-          }
-         },
-         "JOB_STARTED": {
-          "value": {
-           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "JOB_STARTED"
-          }
-         },
-         "RUNNING": {
-          "value": {
-           "current": 47,
-           "message": "Processing person records",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "total": 1701,
-           "type": "RUNNING"
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/ProcessStepResponseV1"
-        }
-       }
-      },
-      "description": "State of the initialization of the job, with different fields set, based on the\nstatus of the task."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Initialize a process",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/possibleValues/{fieldName}": {
-   "post": {
-    "description": "Search for possible values associated with an input field on a process.\nReturns a list of id/label pairs that match the given search criteria.",
-    "parameters": [
-     {
-      "description": "Name of the process containing the field.",
-      "example": "greetInteractive",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the field whose possible values should be searched.",
-      "example": "partnerPersonId",
-      "in": "path",
-      "name": "fieldName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "filter": {
-          "$ref": "#/components/schemas/QueryFilter",
-          "description": "Optional default filter to apply to the possible value search"
-         },
-         "ids": {
-          "description": "List of specific ids to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "labels": {
-          "description": "List of specific labels to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "picker": {
-          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
-          "properties": {
-           "afterId": {
-            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
-            "type": "string"
-           },
-           "filter": {
-            "$ref": "#/components/schemas/QueryFilter",
-            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
-           },
-           "limit": {
-            "description": "Options per page (default: the picker's pageSize; at most 200)",
-            "type": "integer"
-           },
-           "skip": {
-            "description": "Offset paging, for orderings other than the primary key",
-            "type": "integer"
-           }
-          },
-          "type": "object"
-         },
-         "processValues": {
-          "description": "Map of field values from the current process step, used for filter interpolation",
-          "type": "object"
-         },
-         "searchTerm": {
-          "description": "Text to search for within possible value labels",
-          "type": "string"
-         },
-         "useCase": {
-          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
-          "enum": [
-           "FORM",
-           "FILTER"
-          ],
-          "type": "string"
-         },
-         "values": {
-          "description": "Map of other field values, used for filter interpolation on possible value source filters",
-          "type": "object"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/PossibleValuesResponseV1"
-        }
-       }
-      },
-      "description": "List of possible value options matching the search criteria."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Search possible values for a process field",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/{processUUID}/cancel": {
-   "post": {
-    "description": "Cancel a running process. If the process defines a cancel step, it will be executed.",
-    "parameters": [
-     {
-      "description": "Name of the process to cancel",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Unique identifier for this run of the process",
-      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
-      "in": "path",
-      "name": "processUUID",
-      "required": true,
-      "schema": {
-       "format": "uuid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
-      "example": "{\"type\":\"store\",\"id\":\"1\"}",
-      "in": "query",
-      "name": "tableVariant",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ProcessCancelResponseV1"
-        }
-       }
-      },
-      "description": "Empty JSON object indicating successful cancellation."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Cancel a running process",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/{processUUID}/records": {
-   "get": {
-    "description": "Retrieve the records associated with a running or completed process, with support\nfor pagination via skip and limit query parameters.",
-    "parameters": [
-     {
-      "description": "Name of the process",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Unique identifier for this run of the process",
-      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
-      "in": "path",
-      "name": "processUUID",
-      "required": true,
-      "schema": {
-       "format": "uuid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "Number of records to skip (default 0)",
-      "example": "0",
-      "in": "query",
-      "name": "skip",
-      "required": false,
-      "schema": {
-       "type": "integer"
-      }
-     },
-     {
-      "description": "Maximum number of records to return (default 20)",
-      "example": "20",
-      "in": "query",
-      "name": "limit",
-      "required": false,
-      "schema": {
-       "type": "integer"
-      }
-     },
-     {
-      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
-      "example": "{\"type\":\"store\",\"id\":\"1\"}",
-      "in": "query",
-      "name": "tableVariant",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/ProcessRecordsResponseV1"
-        }
-       }
-      },
-      "description": "Paginated list of records from the process state."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Get records from a process",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/{processUUID}/status/{jobUUID}": {
-   "get": {
-    "description": "Get the status of a running job for a process.\n\nResponse is the same format as for an init or step call that completed synchronously.\n",
-    "parameters": [
-     {
-      "description": "Name of the process that is being ran",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Unique identifier for this run of the process - as was returned by the `init` call.",
-      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
-      "in": "path",
-      "name": "processUUID",
-      "required": true,
-      "schema": {
-       "format": "uuid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "Unique identifier for the asynchronous job being executed, as returned by an `init` or `step` call that went asynch.",
-      "example": "98765432-10FE-DCBA-9876-543210FEDCBA",
-      "in": "path",
-      "name": "jobUUID",
-      "required": true,
-      "schema": {
-       "format": "uuid",
-       "type": "string"
-      }
-     },
-     {
-      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
-      "example": "{\"type\":\"store\",\"id\":\"1\"}",
-      "in": "query",
-      "name": "tableVariant",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "COMPLETE": {
-          "value": {
-           "nextStep": "reviewScreen",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "COMPLETE with metaDataAdjustment": {
-          "value": {
-           "nextStep": "inputScreen",
-           "processMetaDataAdjustment": {
-            "updatedFields": {
-             "someField": {
-              "displayFormat": "%s",
-              "isEditable": true,
-              "isHeavy": false,
-              "isHidden": false,
-              "isRequired": true,
-              "name": "someField",
-              "type": "STRING"
-             }
-            },
-            "updatedFrontendStepList": [
-             {
-              "components": [
-               {
-                "type": "EDIT_FORM"
-               }
-              ],
-              "formFields": [
-               {
-                "displayFormat": "%s",
-                "isEditable": true,
-                "isHeavy": false,
-                "isHidden": false,
-                "isRequired": false,
-                "name": "someField",
-                "type": "STRING"
-               }
-              ],
-              "name": "inputScreen"
-             },
-             {
-              "components": [
-               {
-                "type": "PROCESS_SUMMARY_RESULTS"
-               }
-              ],
-              "name": "resultScreen"
-             }
-            ]
-           },
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "ERROR": {
-          "value": {
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "RUNNING"
-          }
-         },
-         "JOB_STARTED": {
-          "value": {
-           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "JOB_STARTED"
-          }
-         },
-         "RUNNING": {
-          "value": {
-           "current": 47,
-           "message": "Processing person records",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "total": 1701,
-           "type": "RUNNING"
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/ProcessStepResponseV1"
-        }
-       }
-      },
-      "description": "State of the backend's running of the specified job, with different fields set,\nbased on the status of the job."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Get job status",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/processes/{processName}/{processUUID}/step/{stepName}": {
-   "post": {
-    "description": "To run the next step in a process, this endpoint should be called, with the `processName`\nand existing `processUUID`, as well as the step that was just completed in the frontend,\ngiven as `stepName`.\n\nAdditional process-specific values should posted in a form param named `values`, as JSON object\nwith keys defined by the process in question.\n\nNote that this request, if it takes longer than a given threshold* to complete, will return a\na `jobUUID`, which should be sent to the `/processes/{processName}/{processUUID}/status/{jobUUID}`\nendpoint, to poll for a status update.\n\n*This threshold has a default value of 3,000 ms., but can be set per-request via the form\nparameter `stepTimeoutMillis`.\n",
-    "parameters": [
-     {
-      "description": "Name of the process to perform the step in.",
-      "example": "samplePersonProcess",
-      "in": "path",
-      "name": "processName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Unique identifier for this run of the process - as was returned by the `init` call.",
-      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
-      "in": "path",
-      "name": "processUUID",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the frontend step that the user has just completed.",
-      "example": "inputForm",
-      "in": "path",
-      "name": "stepName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
-      "example": "{\"type\":\"store\",\"id\":\"1\"}",
-      "in": "query",
-      "name": "tableVariant",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "multipart/form-data": {
-       "schema": {
-        "properties": {
-         "file": {
-          "description": "A file upload, for process steps which expect an uploaded file.",
-          "format": "binary",
-          "type": "string"
-         },
-         "stepTimeoutMillis": {
-          "description": "Optionally change the time that the server will wait for the job before letting it go asynchronous.  Default value is 3000.",
-          "examples": {
-           "longer timeout": {
-            "value": "60000"
-           },
-           "shorter timeout": {
-            "value": "500"
-           }
-          },
-          "type": "integer"
-         },
-         "tableVariant": {
-          "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).  May also be given as a query parameter.",
-          "example": "{\"type\":\"store\",\"id\":\"1\"}",
-          "type": "string"
-         },
-         "values": {
-          "description": "Process-specific field names and values.",
-          "type": "object"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "COMPLETE": {
-          "value": {
-           "nextStep": "reviewScreen",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "COMPLETE with metaDataAdjustment": {
-          "value": {
-           "nextStep": "inputScreen",
-           "processMetaDataAdjustment": {
-            "updatedFields": {
-             "someField": {
-              "displayFormat": "%s",
-              "isEditable": true,
-              "isHeavy": false,
-              "isHidden": false,
-              "isRequired": true,
-              "name": "someField",
-              "type": "STRING"
-             }
-            },
-            "updatedFrontendStepList": [
-             {
-              "components": [
-               {
-                "type": "EDIT_FORM"
-               }
-              ],
-              "formFields": [
-               {
-                "displayFormat": "%s",
-                "isEditable": true,
-                "isHeavy": false,
-                "isHidden": false,
-                "isRequired": false,
-                "name": "someField",
-                "type": "STRING"
-               }
-              ],
-              "name": "inputScreen"
-             },
-             {
-              "components": [
-               {
-                "type": "PROCESS_SUMMARY_RESULTS"
-               }
-              ],
-              "name": "resultScreen"
-             }
-            ]
-           },
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "COMPLETE",
-           "values": {
-            "firstLastName": "Aabramson",
-            "totalAge": 32768
-           }
-          }
-         },
-         "ERROR": {
-          "value": {
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "RUNNING"
-          }
-         },
-         "JOB_STARTED": {
-          "value": {
-           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "type": "JOB_STARTED"
-          }
-         },
-         "RUNNING": {
-          "value": {
-           "current": 47,
-           "message": "Processing person records",
-           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
-           "total": 1701,
-           "type": "RUNNING"
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/ProcessStepResponseV1"
-        }
-       }
-      },
-      "description": "State of the backend's running of the next step(s) of the job, with different fields set,\nbased on the status of the job."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Run a step in a process",
-    "tags": [
-     "Processes"
-    ]
-   }
-  },
-  "/qqq/v1/reports/{reportName}": {
-   "get": {
-    "description": "Run a report and stream the generated file in the requested format.  The report's input fields are given as\nquery parameters named for the fields; a missing required input is a 400.  Requires permission to run the report.",
-    "parameters": [
-     {
-      "description": "Name of the report to run.",
-      "example": "personReport",
-      "in": "path",
-      "name": "reportName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Output format: csv, xlsx, json (as for table export).",
-      "example": "csv",
-      "in": "query",
-      "name": "format",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/octet-stream": {
-        "schema": {
-         "format": "binary",
-         "type": "string"
-        }
-       }
-      },
-      "description": "The generated report file, in the requested format"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Run a report and download the file",
-    "tags": [
-     "Reports"
-    ]
-   }
-  },
-  "/qqq/v1/search": {
-   "post": {
-    "description": "Search for records whose search fields (declared per table in its meta-data, and listed as `searchFields` in the\ntable meta-data) match a search term. String fields match when they contain the term, ignoring case; integer\nfields match when they equal a numeric term. Only tables that the user has permission to read are searched,\nrecord security locks apply, and each table returns at most `limitPerTable` records (default 5, maximum 25), after skipping `offset` matches in each table (for paging one table).  An instance may have a record search\nprovider (e.g., a search index) that searches some tables instead; if it fails, those tables are searched with\nthe default search, and the response's `provider` and `tables` say so.\n\nEach result can carry plain-text `highlights` of the fields that match (with the matched spans as character\noffsets - never markup), `details` (other search field values), `updatedAt` and, from a provider, a `score`.\nOnly fields the user may see are used.  All of these, and `tables` and `provider`, are optional: clients must\ntolerate their absence.",
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "limitPerTable": {
-          "description": "Maximum number of records to return from each table.",
-          "type": "number"
-         },
-         "offset": {
-          "description": "Number of matches to skip in each table, for paging (default 0, maximum 1000).  Mainly useful with one table in tableNames.",
-          "type": "number"
-         },
-         "searchTerm": {
-          "description": "Text to search for (required; at most 100 characters after trimming).",
-          "example": "Kelkhoff",
-          "type": "string"
-         },
-         "sort": {
-          "description": "Order of the results within each table: RELEVANCE (default) or RECENT (most recently modified first, for tables with a last-modified field).",
-          "enum": [
-           "RELEVANCE",
-           "RECENT"
-          ],
-          "type": "string"
-         },
-         "tableNames": {
-          "description": "Optional list of table names to search. When omitted or empty, every table with search fields is searched.",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": true
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "Matches in one table": {
-          "value": {
-           "provider": {
-            "status": "OK"
-           },
-           "results": [
-            {
-             "details": [
-              {
-               "displayValue": "Saint Louis",
-               "fieldLabel": "City",
-               "fieldName": "city"
-              }
-             ],
-             "highlights": [
-              {
-               "fieldLabel": "Email",
-               "fieldName": "email",
-               "matches": [
-                {
-                 "end": 14,
-                 "start": 6
-                }
-               ],
-               "text": "darin.kelkhoff@example.com"
-              }
-             ],
-             "recordId": "1",
-             "recordLabel": "Darin Kelkhoff",
-             "score": 7.25,
-             "tableLabel": "Person",
-             "tableName": "person",
-             "updatedAt": "2026-10-01T14:30:00Z"
-            },
-            {
-             "recordId": "2",
-             "recordLabel": "Tim Kelkhoff",
-             "score": 6.5,
-             "tableLabel": "Person",
-             "tableName": "person"
-            }
-           ],
-           "tables": [
-            {
-             "hasMore": true,
-             "resultCount": 2,
-             "source": "PROVIDER",
-             "tableLabel": "Person",
-             "tableName": "person",
-             "totalCount": 14
-            }
-           ]
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/RecordSearchResponseV1"
-        }
-       }
-      },
-      "description": "The records matching the search term"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Search records across tables",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}": {
-   "post": {
-    "description": "Insert a new record into a table. The request body should contain the field values for the new record.",
-    "parameters": [
-     {
-      "description": "Name of the table to insert into.",
-      "example": "person",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "description": "JSON object with field names as keys and field values as values.",
-        "properties": {
-         "fieldName": {
-          "description": "Value for a field in the record. Repeat for each field to set.",
-          "type": "string"
-         }
-        },
-        "type": "object"
-       }
-      },
-      "multipart/form-data": {
-       "schema": {
-        "description": "Form fields named for the record's fields (an empty field clears the value), a file for each blob field to set, and optionally an `associations` field: JSON of association name to a list of associated records.  With the request header `X-QQQ-Association-Format: record-v1`, each associated record is `{\"values\": {...}, \"associations\": {...}}`, nested to any depth, and exactly one `associations` field is required.",
-        "properties": {
-         "associations": {
-          "description": "JSON object of association name to a list of associated records.",
-          "type": "string"
-         },
-         "fieldName": {
-          "description": "Value for a field in the record. Repeat for each field to set.",
-          "type": "string"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "TODO": {
-          "value": {
-           "record": {
-            "displayValues": {
-             "firstName": "New",
-             "id": "47",
-             "lastName": "Person"
-            },
-            "recordLabel": "New Person",
-            "tableName": "person",
-            "values": {
-             "firstName": "New",
-             "id": 47,
-             "lastName": "Person"
-            }
-           }
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/TableInsertResponseV1"
-        }
-       }
-      },
-      "description": "The record that was inserted"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Insert a record into a table",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}/count": {
-   "post": {
-    "description": "Execute a query against a table, returning the number of records that match a filter.",
-    "parameters": [
-     {
-      "description": "Name of the table to count.",
-      "example": "person",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Whether or not to also return the count distinct records from the main table (e.g., in case of a to-many join; by default, do not).",
-      "example": "true",
-      "in": "query",
-      "name": "includeDistinct",
-      "required": true,
-      "schema": {
-       "type": "boolean"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "filter": {
-          "$ref": "#/components/schemas/QueryFilter",
-          "description": "QueryFilter to specify matching records to be returned by the query"
-         },
-         "joins": {
-          "description": "QueryJoin objects to specify tables to be joined into the query",
-          "items": {
-           "$ref": "#/components/schemas/QueryJoin"
-          },
-          "type": "array"
-         },
-         "tableVariant": {
-          "$ref": "#/components/schemas/TableVariant",
-          "description": "For tables that use variant backends, specification of which variant to use."
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "TODO": {
-          "value": {
-           "count": 42
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/TableCountResponseV1"
-        }
-       }
-      },
-      "description": "The number (count) of records matching the query"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Count records in a table",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}/export": {
-   "post": {
-    "description": "Export records from a table as a downloadable file in the specified format (CSV, XLSX, JSON, TSV).",
-    "parameters": [
-     {
-      "description": "Name of the table to export.",
-      "example": "person",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "fieldNames": {
-          "description": "Optional subset of field names to include in the export",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "filename": {
-          "description": "Optional filename for the download. Generated if absent.",
-          "type": "string"
-         },
-         "filter": {
-          "$ref": "#/components/schemas/QueryFilter",
-          "description": "QueryFilter to specify matching records to export"
-         },
-         "format": {
-          "description": "Export format: csv, xlsx, json, tsv",
-          "type": "string"
-         },
-         "includeHeaderRow": {
-          "description": "Whether to include a header row (default true)",
-          "type": "boolean"
-         },
-         "limit": {
-          "description": "Optional maximum number of records to export",
-          "type": "integer"
-         },
-         "tableVariant": {
-          "$ref": "#/components/schemas/TableVariant",
-          "description": "For tables that use variant backends, the variant to export from (the same `type` and `id` as in query requests)."
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/octet-stream": {
-        "schema": {
-         "format": "binary",
-         "type": "string"
-        }
-       }
-      },
-      "description": "Binary file content in the requested export format"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Export records from a table",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}/possibleValues/{fieldName}": {
-   "post": {
-    "description": "Search for possible values associated with a field on a table.\nReturns a list of id/label pairs that match the given search criteria.",
-    "parameters": [
-     {
-      "description": "Name of the table containing the field.",
-      "example": "person",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the field whose possible values should be searched.",
-      "example": "partnerPersonId",
-      "in": "path",
-      "name": "fieldName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "filter": {
-          "$ref": "#/components/schemas/QueryFilter",
-          "description": "Optional default filter to apply to the possible value search"
-         },
-         "ids": {
-          "description": "List of specific ids to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "labels": {
-          "description": "List of specific labels to look up",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         },
-         "picker": {
-          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
-          "properties": {
-           "afterId": {
-            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
-            "type": "string"
-           },
-           "filter": {
-            "$ref": "#/components/schemas/QueryFilter",
-            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
-           },
-           "limit": {
-            "description": "Options per page (default: the picker's pageSize; at most 200)",
-            "type": "integer"
-           },
-           "skip": {
-            "description": "Offset paging, for orderings other than the primary key",
-            "type": "integer"
-           }
-          },
-          "type": "object"
-         },
-         "processValues": {
-          "description": "Map of field values from the current process step, used for filter interpolation",
-          "type": "object"
-         },
-         "searchTerm": {
-          "description": "Text to search for within possible value labels",
-          "type": "string"
-         },
-         "useCase": {
-          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
-          "enum": [
-           "FORM",
-           "FILTER"
-          ],
-          "type": "string"
-         },
-         "values": {
-          "description": "Map of other field values, used for filter interpolation on possible value source filters",
-          "type": "object"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/PossibleValuesResponseV1"
-        }
-       }
-      },
-      "description": "List of possible value options matching the search criteria."
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Search possible values for a table field",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
   "/qqq/v1/table/{tableName}/query": {
    "post": {
     "description": "Execute a query against a table, returning records that match a filter.",
@@ -9164,13 +8284,13 @@
     ]
    }
   },
-  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/add": {
+  "/qqq/v1/table/{tableName}/count": {
    "post": {
-    "description": "Inserts one row per picked target (targetIds) or per reviewed row (records), all or nothing, through the standard insert action: INSERT permission on the child table, record security locks, validation, customizers, automations and audit. Only the picker's review fields are taken from the client; the parent and target keys always come from the server. Every target must be available through the picker's query (else 400). Row errors are a 400 naming each row, and nothing is saved.",
+    "description": "Execute a query against a table, returning the number of records that match a filter.",
     "parameters": [
      {
-      "description": "Name of the table that declares the picker (e.g. the order).",
-      "example": "sales_order",
+      "description": "Name of the table to count.",
+      "example": "person",
       "in": "path",
       "name": "tableName",
       "required": true,
@@ -9179,172 +8299,13 @@
       }
      },
      {
-      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
-      "example": "addSkus",
-      "in": "path",
-      "name": "pickerName",
+      "description": "Whether or not to also return the count distinct records from the main table (e.g., in case of a to-many join; by default, do not).",
+      "example": "true",
+      "in": "query",
+      "name": "includeDistinct",
       "required": true,
       "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "primaryKey": {
-          "description": "Primary key of the parent record. Read with the user's own security.",
-          "type": "string"
-         },
-         "records": {
-          "description": "Reviewed child rows (instead of targetIds), e.g. the prepare route's rows after the user filled the review fields",
-          "items": {
-           "properties": {
-            "values": {
-             "description": "The row's values: the childTargetFieldName (which target) and the picker's reviewFieldNames; other values are ignored, and the parent and target keys always come from the server",
-             "type": "object"
-            }
-           },
-           "type": "object"
-          },
-          "type": "array"
-         },
-         "targetIds": {
-          "description": "Primary keys of the picked target records",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RelatedRecordPickerAddResponseV1"
-        }
-       }
-      },
-      "description": "Add child or join rows for picked records (MULTI_CHILD, LINK): result"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Add child or join rows for picked records (MULTI_CHILD, LINK)",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/prepare": {
-   "post": {
-    "description": "Builds, without saving, one child row per picked target: the picker's child field defaults, values copied from the target, and the parent and target keys. The client shows the reviewFieldNames of each row for the user to fill, then calls add. Needs INSERT on the child table; every target must be available through the picker's query (else 400).",
-    "parameters": [
-     {
-      "description": "Name of the table that declares the picker (e.g. the order).",
-      "example": "sales_order",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
-      "example": "addSkus",
-      "in": "path",
-      "name": "pickerName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "properties": {
-         "primaryKey": {
-          "description": "Primary key of the parent record. Read with the user's own security.",
-          "type": "string"
-         },
-         "targetIds": {
-          "description": "Primary keys of the picked target records",
-          "items": {
-           "type": "string"
-          },
-          "type": "array"
-         }
-        },
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RelatedRecordPickerPrepareResponseV1"
-        }
-       }
-      },
-      "description": "Prepare child rows for picked records (MULTI_CHILD, LINK): result"
-     }
-    },
-    "security": [
-     {
-      "sessionUuidCookie": [
-       "N/A"
-      ]
-     }
-    ],
-    "summary": "Prepare child rows for picked records (MULTI_CHILD, LINK)",
-    "tags": [
-     "Tables"
-    ]
-   }
-  },
-  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/query": {
-   "post": {
-    "description": "Lists one page of the picker's target records as the user may read them: the user's filter (the target table's own filter builder or a saved view), ANDed with the picker's filter (resolved from the parent record or form values) and the search term. Needs READ on the target table; table permissions, record security locks and field security locks apply as on the table query route. Reads limit + 1 rows for hasMore (no count). For MULTI_CHILD and LINK with a primaryKey, linkedIds says which returned records the parent already has rows for.",
-    "parameters": [
-     {
-      "description": "Name of the table that declares the picker (e.g. the order).",
-      "example": "sales_order",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
-      "example": "addSkus",
-      "in": "path",
-      "name": "pickerName",
-      "required": true,
-      "schema": {
-       "type": "string"
+       "type": "boolean"
       }
      }
     ],
@@ -9355,27 +8316,18 @@
         "properties": {
          "filter": {
           "$ref": "#/components/schemas/QueryFilter",
-          "description": "The user's filter on the target table (criteria and orderBys on target fields only); ANDed with the picker's filter"
+          "description": "QueryFilter to specify matching records to be returned by the query"
          },
-         "limit": {
-          "description": "Records per page, 1 to 200 (default 50)",
-          "type": "integer"
+         "joins": {
+          "description": "QueryJoin objects to specify tables to be joined into the query",
+          "items": {
+           "$ref": "#/components/schemas/QueryJoin"
+          },
+          "type": "array"
          },
-         "primaryKey": {
-          "description": "Primary key of the parent record (required for MULTI_CHILD and LINK; for SINGLE, the record being edited, if any). Read with the user's own security.",
-          "type": "string"
-         },
-         "searchTerm": {
-          "description": "Case-insensitive text matched (contains) against the target table's search fields, or its record-label fields",
-          "type": "string"
-         },
-         "skip": {
-          "description": "Records to skip (offset paging)",
-          "type": "integer"
-         },
-         "values": {
-          "description": "Current form values (SINGLE on a create form, when there is no primaryKey), for ${input.fieldName} variables in the picker's filters",
-          "type": "object"
+         "tableVariant": {
+          "$ref": "#/components/schemas/TableVariant",
+          "description": "For tables that use variant backends, specification of which variant to use."
          }
         },
         "type": "object"
@@ -9388,12 +8340,19 @@
      "200": {
       "content": {
        "application/json": {
+        "examples": {
+         "TODO": {
+          "value": {
+           "count": 42
+          }
+         }
+        },
         "schema": {
-         "$ref": "#/components/schemas/RelatedRecordPickerQueryResponseV1"
+         "$ref": "#/components/schemas/TableCountResponseV1"
         }
        }
       },
-      "description": "Query the records a related-record picker offers: result"
+      "description": "The number (count) of records matching the query"
      }
     },
     "security": [
@@ -9403,70 +8362,121 @@
       ]
      }
     ],
-    "summary": "Query the records a related-record picker offers",
+    "summary": "Count records in a table",
     "tags": [
      "Tables"
     ]
    }
   },
-  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/remove": {
+  "/qqq/v1/search": {
    "post": {
-    "description": "Deletes the parent's join rows for the given targets through the standard delete action (DELETE permission on the join table, record security locks, audit). Only for LINK pickers (else 400); child rows of a MULTI_CHILD picker are deleted with the table delete route.",
-    "parameters": [
-     {
-      "description": "Name of the table that declares the picker (e.g. the order).",
-      "example": "sales_order",
-      "in": "path",
-      "name": "tableName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
-      "example": "addSkus",
-      "in": "path",
-      "name": "pickerName",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
+    "description": "Search for records whose search fields (declared per table in its meta-data, and listed as `searchFields` in the\ntable meta-data) match a search term. String fields match when they contain the term, ignoring case; integer\nfields match when they equal a numeric term. Only tables that the user has permission to read are searched,\nrecord security locks apply, and each table returns at most `limitPerTable` records (default 5, maximum 25), after skipping `offset` matches in each table (for paging one table).  An instance may have a record search\nprovider (e.g., a search index) that searches some tables instead; if it fails, those tables are searched with\nthe default search, and the response's `provider` and `tables` say so.\n\nEach result can carry plain-text `highlights` of the fields that match (with the matched spans as character\noffsets - never markup), `details` (other search field values), `updatedAt` and, from a provider, a `score`.\nOnly fields the user may see are used.  All of these, and `tables` and `provider`, are optional: clients must\ntolerate their absence.",
     "requestBody": {
      "content": {
       "application/json": {
        "schema": {
         "properties": {
-         "primaryKey": {
-          "description": "Primary key of the parent record. Read with the user's own security.",
+         "searchTerm": {
+          "description": "Text to search for (required; at most 100 characters after trimming).",
+          "example": "Kelkhoff",
           "type": "string"
          },
-         "targetIds": {
-          "description": "Primary keys of the picked target records",
+         "tableNames": {
+          "description": "Optional list of table names to search. When omitted or empty, every table with search fields is searched.",
           "items": {
            "type": "string"
           },
           "type": "array"
+         },
+         "limitPerTable": {
+          "description": "Maximum number of records to return from each table.",
+          "type": "number"
+         },
+         "offset": {
+          "description": "Number of matches to skip in each table, for paging (default 0, maximum 1000).  Mainly useful with one table in tableNames.",
+          "type": "number"
+         },
+         "sort": {
+          "description": "Order of the results within each table: RELEVANCE (default) or RECENT (most recently modified first, for tables with a last-modified field).",
+          "enum": [
+           "RELEVANCE",
+           "RECENT"
+          ],
+          "type": "string"
          }
         },
         "type": "object"
        }
       }
      },
-     "required": false
+     "required": true
     },
     "responses": {
      "200": {
       "content": {
        "application/json": {
+        "examples": {
+         "Matches in one table": {
+          "value": {
+           "provider": {
+            "status": "OK"
+           },
+           "results": [
+            {
+             "details": [
+              {
+               "displayValue": "Saint Louis",
+               "fieldLabel": "City",
+               "fieldName": "city"
+              }
+             ],
+             "highlights": [
+              {
+               "fieldLabel": "Email",
+               "fieldName": "email",
+               "matches": [
+                {
+                 "end": 14,
+                 "start": 6
+                }
+               ],
+               "text": "darin.kelkhoff@example.com"
+              }
+             ],
+             "recordId": "1",
+             "recordLabel": "Darin Kelkhoff",
+             "score": 7.25,
+             "tableLabel": "Person",
+             "tableName": "person",
+             "updatedAt": "2026-10-01T14:30:00Z"
+            },
+            {
+             "recordId": "2",
+             "recordLabel": "Tim Kelkhoff",
+             "score": 6.5,
+             "tableLabel": "Person",
+             "tableName": "person"
+            }
+           ],
+           "tables": [
+            {
+             "hasMore": true,
+             "resultCount": 2,
+             "source": "PROVIDER",
+             "tableLabel": "Person",
+             "tableName": "person",
+             "totalCount": 14
+            }
+           ]
+          }
+         }
+        },
         "schema": {
-         "$ref": "#/components/schemas/RelatedRecordPickerRemoveResponseV1"
+         "$ref": "#/components/schemas/RecordSearchResponseV1"
         }
        }
       },
-      "description": "Unlink picked records (LINK): result"
+      "description": "The records matching the search term"
      }
     },
     "security": [
@@ -9476,9 +8486,119 @@
       ]
      }
     ],
-    "summary": "Unlink picked records (LINK)",
+    "summary": "Search records across tables",
     "tags": [
      "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/help/search": {
+   "get": {
+    "description": "Search help visible to the session. Label hits weigh 3, summary hits 2 and content hits 1. Stable ties sort by kind and key. Limit defaults to 20 and is capped at 50.",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HelpSearchResponseV1"
+        }
+       }
+      },
+      "description": "Help search results"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Search visible application help",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/help/coverage": {
+   "get": {
+    "description": "Requires INSERT or EDIT permission on helpContent. Includes hidden targets. Totals reflect kind and parent scope before missingOnly is applied.",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "missingOnly",
+      "required": false,
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "parentKey",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HelpCoverageResponseV1"
+        }
+       }
+      },
+      "description": "Help coverage results"
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BasicErrorResponseV1"
+        }
+       }
+      },
+      "description": "No INSERT or EDIT permission on helpContent"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Inspect application help coverage",
+    "tags": [
+     "General"
     ]
    }
   },
@@ -9654,15 +8774,15 @@
           "value": {
            "record": {
             "displayValues": {
-             "firstName": "Darin",
              "id": "1",
+             "firstName": "Darin",
              "lastName": "Kelkhoff"
             },
             "recordLabel": "Darin Kelkhoff",
             "tableName": "person",
             "values": {
-             "firstName": "Darin",
              "id": 1,
+             "firstName": "Darin",
              "lastName": "Kelkhoff"
             }
            }
@@ -9692,6 +8812,15 @@
    "patch": {
     "description": "Update an existing record in a table, identified by its primary key. The request body should contain the field values to update.",
     "parameters": [
+     {
+      "description": "Optional optimistic version from the last read, encoded as a string in the version field's format (ISO-8601 for modify dates). A mismatch returns 409 RecordConflictV1 and leaves the record unchanged. Omit for an unconditional update. Tables with recordVersionField set to an empty string opt out.",
+      "in": "query",
+      "name": "expectedVersion",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
      {
       "description": "Name of the table containing the record to update.",
       "example": "person",
@@ -9731,12 +8860,12 @@
        "schema": {
         "description": "Form fields named for the record's fields (an empty field clears the value), a file for each blob field to set, and optionally an `associations` field: JSON of association name to a list of associated records.  With the request header `X-QQQ-Association-Format: record-v1`, each associated record is `{\"values\": {...}, \"associations\": {...}}`, nested to any depth, and exactly one `associations` field is required.",
         "properties": {
-         "associations": {
-          "description": "JSON object of association name to a list of associated records.",
-          "type": "string"
-         },
          "fieldName": {
           "description": "Value for a field in the record. Repeat for each field to set.",
+          "type": "string"
+         },
+         "associations": {
+          "description": "JSON object of association name to a list of associated records.",
           "type": "string"
          }
         },
@@ -9755,15 +8884,15 @@
           "value": {
            "record": {
             "displayValues": {
-             "firstName": "Darin",
              "id": "1",
+             "firstName": "Darin",
              "lastName": "Kelkhoff"
             },
             "recordLabel": "Darin Kelkhoff",
             "tableName": "person",
             "values": {
-             "firstName": "Darin",
              "id": 1,
+             "firstName": "Darin",
              "lastName": "Kelkhoff"
             }
            }
@@ -9776,6 +8905,16 @@
        }
       },
       "description": "The record that was updated"
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecordConflictV1"
+        }
+       }
+      },
+      "description": "The record changed since it was read."
      }
     },
     "security": [
@@ -9786,6 +8925,463 @@
      }
     ],
     "summary": "Update a record in a table",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/{primaryKey}/features": {
+   "get": {
+    "description": "Features and capabilities for a visible record, with optional summary provider contributions.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "primaryKey",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RecordFeatureSummaryV1"
+        }
+       }
+      },
+      "description": "Record collaboration summary"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Get record collaboration features",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}": {
+   "post": {
+    "description": "Insert a new record into a table. The request body should contain the field values for the new record.",
+    "parameters": [
+     {
+      "description": "Name of the table to insert into.",
+      "example": "person",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "description": "JSON object with field names as keys and field values as values.",
+        "properties": {
+         "fieldName": {
+          "description": "Value for a field in the record. Repeat for each field to set.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "multipart/form-data": {
+       "schema": {
+        "description": "Form fields named for the record's fields (an empty field clears the value), a file for each blob field to set, and optionally an `associations` field: JSON of association name to a list of associated records.  With the request header `X-QQQ-Association-Format: record-v1`, each associated record is `{\"values\": {...}, \"associations\": {...}}`, nested to any depth, and exactly one `associations` field is required.",
+        "properties": {
+         "fieldName": {
+          "description": "Value for a field in the record. Repeat for each field to set.",
+          "type": "string"
+         },
+         "associations": {
+          "description": "JSON object of association name to a list of associated records.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "TODO": {
+          "value": {
+           "record": {
+            "displayValues": {
+             "id": "47",
+             "firstName": "New",
+             "lastName": "Person"
+            },
+            "recordLabel": "New Person",
+            "tableName": "person",
+            "values": {
+             "id": 47,
+             "firstName": "New",
+             "lastName": "Person"
+            }
+           }
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/TableInsertResponseV1"
+        }
+       }
+      },
+      "description": "The record that was inserted"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Insert a record into a table",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/query": {
+   "post": {
+    "description": "Lists one page of the picker's target records as the user may read them: the user's filter (the target table's own filter builder or a saved view), ANDed with the picker's filter (resolved from the parent record or form values) and the search term. Needs READ on the target table; table permissions, record security locks and field security locks apply as on the table query route. Reads limit + 1 rows for hasMore (no count). For MULTI_CHILD and LINK with a primaryKey, linkedIds says which returned records the parent already has rows for.",
+    "parameters": [
+     {
+      "description": "Name of the table that declares the picker (e.g. the order).",
+      "example": "sales_order",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
+      "example": "addSkus",
+      "in": "path",
+      "name": "pickerName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "primaryKey": {
+          "description": "Primary key of the parent record (required for MULTI_CHILD and LINK; for SINGLE, the record being edited, if any). Read with the user's own security.",
+          "type": "string"
+         },
+         "values": {
+          "description": "Current form values (SINGLE on a create form, when there is no primaryKey), for ${input.fieldName} variables in the picker's filters",
+          "type": "object"
+         },
+         "searchTerm": {
+          "description": "Case-insensitive text matched (contains) against the target table's search fields, or its record-label fields",
+          "type": "string"
+         },
+         "filter": {
+          "$ref": "#/components/schemas/QueryFilter",
+          "description": "The user's filter on the target table (criteria and orderBys on target fields only); ANDed with the picker's filter"
+         },
+         "skip": {
+          "description": "Records to skip (offset paging)",
+          "type": "integer"
+         },
+         "limit": {
+          "description": "Records per page, 1 to 200 (default 50)",
+          "type": "integer"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RelatedRecordPickerQueryResponseV1"
+        }
+       }
+      },
+      "description": "Query the records a related-record picker offers: result"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Query the records a related-record picker offers",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/prepare": {
+   "post": {
+    "description": "Builds, without saving, one child row per picked target: the picker's child field defaults, values copied from the target, and the parent and target keys. The client shows the reviewFieldNames of each row for the user to fill, then calls add. Needs INSERT on the child table; every target must be available through the picker's query (else 400).",
+    "parameters": [
+     {
+      "description": "Name of the table that declares the picker (e.g. the order).",
+      "example": "sales_order",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
+      "example": "addSkus",
+      "in": "path",
+      "name": "pickerName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "primaryKey": {
+          "description": "Primary key of the parent record. Read with the user's own security.",
+          "type": "string"
+         },
+         "targetIds": {
+          "description": "Primary keys of the picked target records",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RelatedRecordPickerPrepareResponseV1"
+        }
+       }
+      },
+      "description": "Prepare child rows for picked records (MULTI_CHILD, LINK): result"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Prepare child rows for picked records (MULTI_CHILD, LINK)",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/add": {
+   "post": {
+    "description": "Inserts one row per picked target (targetIds) or per reviewed row (records), all or nothing, through the standard insert action: INSERT permission on the child table, record security locks, validation, customizers, automations and audit. Only the picker's review fields are taken from the client; the parent and target keys always come from the server. Every target must be available through the picker's query (else 400). Row errors are a 400 naming each row, and nothing is saved.",
+    "parameters": [
+     {
+      "description": "Name of the table that declares the picker (e.g. the order).",
+      "example": "sales_order",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
+      "example": "addSkus",
+      "in": "path",
+      "name": "pickerName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "primaryKey": {
+          "description": "Primary key of the parent record. Read with the user's own security.",
+          "type": "string"
+         },
+         "targetIds": {
+          "description": "Primary keys of the picked target records",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "records": {
+          "description": "Reviewed child rows (instead of targetIds), e.g. the prepare route's rows after the user filled the review fields",
+          "items": {
+           "properties": {
+            "values": {
+             "description": "The row's values: the childTargetFieldName (which target) and the picker's reviewFieldNames; other values are ignored, and the parent and target keys always come from the server",
+             "type": "object"
+            }
+           },
+           "type": "object"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RelatedRecordPickerAddResponseV1"
+        }
+       }
+      },
+      "description": "Add child or join rows for picked records (MULTI_CHILD, LINK): result"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Add child or join rows for picked records (MULTI_CHILD, LINK)",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/relatedRecordPicker/{pickerName}/remove": {
+   "post": {
+    "description": "Deletes the parent's join rows for the given targets through the standard delete action (DELETE permission on the join table, record security locks, audit). Only for LINK pickers (else 400); child rows of a MULTI_CHILD picker are deleted with the table delete route.",
+    "parameters": [
+     {
+      "description": "Name of the table that declares the picker (e.g. the order).",
+      "example": "sales_order",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the picker, from the table metadata's relatedRecordPickers.",
+      "example": "addSkus",
+      "in": "path",
+      "name": "pickerName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "primaryKey": {
+          "description": "Primary key of the parent record. Read with the user's own security.",
+          "type": "string"
+         },
+         "targetIds": {
+          "description": "Primary keys of the picked target records",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RelatedRecordPickerRemoveResponseV1"
+        }
+       }
+      },
+      "description": "Unlink picked records (LINK): result"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Unlink picked records (LINK)",
     "tags": [
      "Tables"
     ]
@@ -9833,20 +9429,20 @@
               "recordLabel": "Darin Kelkhoff - Greeting",
               "tableName": "script",
               "values": {
-               "currentScriptRevisionId": 12,
                "id": 7,
                "name": "Darin Kelkhoff - Greeting",
-               "scriptTypeId": 1
+               "scriptTypeId": 1,
+               "currentScriptRevisionId": 12
               }
              },
              "scriptRevisions": [
               {
                "tableName": "scriptRevision",
                "values": {
-                "commitMessage": "Say hello by name",
                 "id": 12,
                 "scriptId": 7,
-                "sequenceNo": 2
+                "sequenceNo": 2,
+                "commitMessage": "Say hello by name"
                }
               }
              ],
@@ -9886,16 +9482,16 @@
            ],
            "record": {
             "displayValues": {
+             "id": "1",
              "firstName": "Darin",
-             "greetingScriptId": "7",
-             "id": "1"
+             "greetingScriptId": "7"
             },
             "recordLabel": "Darin Kelkhoff",
             "tableName": "person",
             "values": {
+             "id": 1,
              "firstName": "Darin",
-             "greetingScriptId": 7,
-             "id": 1
+             "greetingScriptId": 7
             }
            }
           }
@@ -9917,6 +9513,95 @@
      }
     ],
     "summary": "Get a record's associated scripts (developer mode)",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/{primaryKey}/developer/panels": {
+   "get": {
+    "description": "Fetch the panels shown on a record's developer view: one per developer panel provider (built in, or\nregistered by modules and qbits in the instance's developerPanels supplemental meta-data) that is available\nfor this table and record for the current user - for example record security, ESB events, quick search\nindexing, or SQL workbench queries.\n\nRequires permission to read records from the table, and the record must be visible under its record\nsecurity locks.  If the record is not found, a 404 is returned.  A provider that fails yields a panel\nwith an error message rather than failing the request.",
+    "parameters": [
+     {
+      "description": "Name of the table that the record is in.",
+      "example": "person",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Primary key value of the record.",
+      "example": "42",
+      "in": "path",
+      "name": "primaryKey",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "Record security": {
+          "value": {
+           "panels": [
+            {
+             "blocks": [
+              {
+               "columns": [
+                "Security key",
+                "Field",
+                "Scope",
+                "Null values",
+                "This record's value",
+                "Your access"
+               ],
+               "label": "Locks",
+               "rows": [
+                [
+                 "store",
+                 "storeId",
+                 "READ_AND_WRITE",
+                 "DENY",
+                 "42",
+                 "Your session has key value 42"
+                ]
+               ],
+               "type": "TABLE"
+              }
+             ],
+             "id": "recordSecurity",
+             "order": 150,
+             "statusLabel": "1 lock",
+             "statusTone": "SUCCESS",
+             "title": "Record Security"
+            }
+           ]
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/RecordDeveloperPanelsResponseV1"
+        }
+       }
+      },
+      "description": "The record's developer panels"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Get a record's developer panels",
     "tags": [
      "Tables"
     ]
@@ -9962,14 +9647,14 @@
       "application/json": {
        "schema": {
         "properties": {
-         "commitMessage": {
-          "description": "A message describing the change.  If not given, a default message is used.",
-          "example": "Say hello by name",
-          "type": "string"
-         },
          "contents": {
           "description": "The script's new contents (its code).",
           "example": "return (\"Hello, \" + input.getName());",
+          "type": "string"
+         },
+         "commitMessage": {
+          "description": "A message describing the change.  If not given, a default message is used.",
+          "example": "Say hello by name",
           "type": "string"
          }
         },
@@ -10070,21 +9755,21 @@
             {
              "tableName": "scriptLog",
              "values": {
-              "hadError": false,
               "id": 101,
+              "scriptRevisionId": 12,
+              "startTimestamp": "2024-10-21T14:30:00Z",
+              "hadError": false,
               "scriptLogLine": [
                {
                 "tableName": "scriptLogLine",
                 "values": {
                  "id": 1001,
                  "scriptLogId": 101,
-                 "text": "Hello, Darin",
-                 "timestamp": "2024-10-21T14:30:00Z"
+                 "timestamp": "2024-10-21T14:30:00Z",
+                 "text": "Hello, Darin"
                 }
                }
-              ],
-              "scriptRevisionId": 12,
-              "startTimestamp": "2024-10-21T14:30:00Z"
+              ]
              }
             }
            ]
@@ -10112,12 +9797,12 @@
     ]
    }
   },
-  "/qqq/v1/table/{tableName}/{primaryKey}/developer/panels": {
-   "get": {
-    "description": "Fetch the panels shown on a record's developer view: one per developer panel provider (built in, or\nregistered by modules and qbits in the instance's developerPanels supplemental meta-data) that is available\nfor this table and record for the current user - for example record security, ESB events, quick search\nindexing, or SQL workbench queries.\n\nRequires permission to read records from the table, and the record must be visible under its record\nsecurity locks.  If the record is not found, a 404 is returned.  A provider that fails yields a panel\nwith an error message rather than failing the request.",
+  "/qqq/v1/table/{tableName}/possibleValues/{fieldName}": {
+   "post": {
+    "description": "Search for possible values associated with a field on a table.\nReturns a list of id/label pairs that match the given search criteria.",
     "parameters": [
      {
-      "description": "Name of the table that the record is in.",
+      "description": "Name of the table containing the field.",
       "example": "person",
       "in": "path",
       "name": "tableName",
@@ -10127,10 +9812,410 @@
       }
      },
      {
-      "description": "Primary key value of the record.",
-      "example": "42",
+      "description": "Name of the field whose possible values should be searched.",
+      "example": "partnerPersonId",
       "in": "path",
-      "name": "primaryKey",
+      "name": "fieldName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "searchTerm": {
+          "description": "Text to search for within possible value labels",
+          "type": "string"
+         },
+         "ids": {
+          "description": "List of specific ids to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "values": {
+          "description": "Map of other field values, used for filter interpolation on possible value source filters",
+          "type": "object"
+         },
+         "useCase": {
+          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
+          "enum": [
+           "FORM",
+           "FILTER"
+          ],
+          "type": "string"
+         },
+         "labels": {
+          "description": "List of specific labels to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "processValues": {
+          "description": "Map of field values from the current process step, used for filter interpolation",
+          "type": "object"
+         },
+         "filter": {
+          "$ref": "#/components/schemas/QueryFilter",
+          "description": "Optional default filter to apply to the possible value search"
+         },
+         "picker": {
+          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
+          "properties": {
+           "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
+           },
+           "afterId": {
+            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
+            "type": "string"
+           },
+           "skip": {
+            "description": "Offset paging, for orderings other than the primary key",
+            "type": "integer"
+           },
+           "limit": {
+            "description": "Options per page (default: the picker's pageSize; at most 200)",
+            "type": "integer"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PossibleValuesResponseV1"
+        }
+       }
+      },
+      "description": "List of possible value options matching the search criteria."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Search possible values for a table field",
+    "tags": [
+     "Tables"
+    ]
+   }
+  },
+  "/qqq/v1/processes/{processName}/possibleValues/{fieldName}": {
+   "post": {
+    "description": "Search for possible values associated with an input field on a process.\nReturns a list of id/label pairs that match the given search criteria.",
+    "parameters": [
+     {
+      "description": "Name of the process containing the field.",
+      "example": "greetInteractive",
+      "in": "path",
+      "name": "processName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the field whose possible values should be searched.",
+      "example": "partnerPersonId",
+      "in": "path",
+      "name": "fieldName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "searchTerm": {
+          "description": "Text to search for within possible value labels",
+          "type": "string"
+         },
+         "ids": {
+          "description": "List of specific ids to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "values": {
+          "description": "Map of other field values, used for filter interpolation on possible value source filters",
+          "type": "object"
+         },
+         "useCase": {
+          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
+          "enum": [
+           "FORM",
+           "FILTER"
+          ],
+          "type": "string"
+         },
+         "labels": {
+          "description": "List of specific labels to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "processValues": {
+          "description": "Map of field values from the current process step, used for filter interpolation",
+          "type": "object"
+         },
+         "filter": {
+          "$ref": "#/components/schemas/QueryFilter",
+          "description": "Optional default filter to apply to the possible value search"
+         },
+         "picker": {
+          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
+          "properties": {
+           "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
+           },
+           "afterId": {
+            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
+            "type": "string"
+           },
+           "skip": {
+            "description": "Offset paging, for orderings other than the primary key",
+            "type": "integer"
+           },
+           "limit": {
+            "description": "Options per page (default: the picker's pageSize; at most 200)",
+            "type": "integer"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PossibleValuesResponseV1"
+        }
+       }
+      },
+      "description": "List of possible value options matching the search criteria."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Search possible values for a process field",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/possibleValues/{possibleValueSourceName}": {
+   "post": {
+    "description": "Search for possible values from a standalone possible value source\n(not associated with a specific table or process field).\nReturns a list of id/label pairs that match the given search criteria.",
+    "parameters": [
+     {
+      "description": "Name of the possible value source to search.",
+      "example": "person",
+      "in": "path",
+      "name": "possibleValueSourceName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "searchTerm": {
+          "description": "Text to search for within possible value labels",
+          "type": "string"
+         },
+         "ids": {
+          "description": "List of specific ids to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "values": {
+          "description": "Map of other field values, used for filter interpolation on possible value source filters",
+          "type": "object"
+         },
+         "useCase": {
+          "description": "Use case for possible value search filtering. Controls behavior when filter values are missing.",
+          "enum": [
+           "FORM",
+           "FILTER"
+          ],
+          "type": "string"
+         },
+         "labels": {
+          "description": "List of specific labels to look up",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "processValues": {
+          "description": "Map of field values from the current process step, used for filter interpolation",
+          "type": "object"
+         },
+         "filter": {
+          "$ref": "#/components/schemas/QueryFilter",
+          "description": "Optional default filter to apply to the possible value search"
+         },
+         "picker": {
+          "description": "Record picker request, for a possible value source that declares a picker: options carry the picker's display values and the response says whether more follow (no count)",
+          "properties": {
+           "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Criteria (only on the picker's filterFields) and orderBys (only on its sort fields or the primary key)"
+           },
+           "afterId": {
+            "description": "Keyset paging: the last option id of the previous page, when ordered by the primary key alone",
+            "type": "string"
+           },
+           "skip": {
+            "description": "Offset paging, for orderings other than the primary key",
+            "type": "integer"
+           },
+           "limit": {
+            "description": "Options per page (default: the picker's pageSize; at most 200)",
+            "type": "integer"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PossibleValuesResponseV1"
+        }
+       }
+      },
+      "description": "List of possible value options matching the search criteria."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Search a standalone possible value source",
+    "tags": [
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/widget/{widgetName}": {
+   "post": {
+    "description": "Render a widget by name, passing in query parameters as a JSON object in the request body.\nThe response shape varies by widget type.",
+    "parameters": [
+     {
+      "description": "Name of the widget to render.",
+      "example": "myWidget",
+      "in": "path",
+      "name": "widgetName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "description": "Dynamic inputs to pass to the widget renderer (e.g. the record id, dropdown selections).  The same inputs may instead be sent as query parameters; a body value wins over a query parameter of the same name.",
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WidgetData"
+        }
+       }
+      },
+      "description": "The rendered widget data itself (not wrapped): one of the WidgetData shapes, chosen by its `type`."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Render a widget",
+    "tags": [
+     "Widgets"
+    ]
+   }
+  },
+  "/qqq/v1/metaData/process/{processName}": {
+   "get": {
+    "description": "Load the full metadata for a single process, including all screens (aka, frontend steps), which a frontend\nneeds to display to users.",
+    "parameters": [
+     {
+      "description": "Name of the process to load.",
+      "example": "samplePersonProcess",
+      "in": "path",
+      "name": "processName",
       "required": true,
       "schema": {
        "type": "string"
@@ -10142,50 +10227,16 @@
       "content": {
        "application/json": {
         "examples": {
-         "Record security": {
-          "value": {
-           "panels": [
-            {
-             "blocks": [
-              {
-               "columns": [
-                "Security key",
-                "Field",
-                "Scope",
-                "Null values",
-                "This record's value",
-                "Your access"
-               ],
-               "label": "Locks",
-               "rows": [
-                [
-                 "store",
-                 "storeId",
-                 "READ_AND_WRITE",
-                 "DENY",
-                 "42",
-                 "Your session has key value 42"
-                ]
-               ],
-               "type": "TABLE"
-              }
-             ],
-             "id": "recordSecurity",
-             "order": 150,
-             "statusLabel": "1 lock",
-             "statusTone": "SUCCESS",
-             "title": "Record Security"
-            }
-           ]
-          }
+         "TODO": {
+          "value": {}
          }
         },
         "schema": {
-         "$ref": "#/components/schemas/RecordDeveloperPanelsResponseV1"
+         "$ref": "#/components/schemas/ProcessMetaDataResponseV1"
         }
        }
       },
-      "description": "The record's developer panels"
+      "description": "The full process metadata"
      }
     },
     "security": [
@@ -10195,28 +10246,631 @@
       ]
      }
     ],
-    "summary": "Get a record's developer panels",
+    "summary": "Get process metaData",
     "tags": [
-     "Tables"
+     "Processes"
     ]
    }
   },
-  "/qqq/v1/table/{tableName}/{primaryKey}/features": {
-   "get": {
-    "description": "Features and capabilities for a visible record, with optional summary provider contributions.",
+  "/qqq/v1/processes/{processName}/init": {
+   "post": {
+    "description": "For a user to start running a process, this endpoint should be called, to start the process\nand run its first step(s) (any backend steps before the first frontend step).\n\nAdditional process-specific values should posted in a form param named `values`, as JSON object\nwith keys defined by the process in question.\n\nFor a process which needs to operate on a set of records that a user selected, see\n`recordsParam`, and `recordIds` or `filterJSON`.\n\nThe response will include a `processUUID`, to be included in all subsequent requests relevant\nto the process.\n\nNote that this request, if it takes longer than a given threshold* to complete, will return a\na `jobUUID`, which should be sent to the `/processes/{processName}/{processUUID}/status/{jobUUID}`\nendpoint, to poll for a status update.\n\n*This threshold has a default value of 3,000 ms., but can be set per-request via the form\nparameter `stepTimeoutMillis`.\n",
     "parameters": [
      {
+      "description": "Name of the process to initialize",
+      "example": "samplePersonProcess",
       "in": "path",
-      "name": "tableName",
+      "name": "processName",
       "required": true,
       "schema": {
        "type": "string"
       }
      },
      {
+      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
+      "example": "{\"type\":\"store\",\"id\":\"1\"}",
+      "in": "query",
+      "name": "tableVariant",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "properties": {
+         "values": {
+          "description": "Process-specific field names and values.",
+          "type": "object"
+         },
+         "recordsParam": {
+          "description": "Specifies which other query-param will contain the indicator of initial records to pass in to the process.",
+          "examples": {
+           "recordIds": {
+            "value": "recordIds"
+           },
+           "filterJSON": {
+            "value": "recordIds"
+           }
+          },
+          "type": "string"
+         },
+         "recordIds": {
+          "description": "Comma-separated list of ids from the table this process is based on, to use as input records for the process.  Needs `recordsParam=recordIds` value to be given as well.",
+          "examples": {
+           "one id": {
+            "value": "1701"
+           },
+           "multiple ids": {
+            "value": "42,47"
+           }
+          },
+          "type": "string"
+         },
+         "filterJSON": {
+          "description": "JSON encoded QQueryFilter object, to execute against the table this process is based on, to find input records for the process.  Needs `recordsParam=filterJSON` value to be given as well.",
+          "examples": {
+           "empty filter (all records)": {
+            "value": "{}"
+           },
+           "filter by a condition": {
+            "value": "{\"criteria\":[{\"fieldName\":\"id\",\"operator\":\"LESS_THAN\",\"values\":[10]}],\"booleanOperator\":\"AND\"}"
+           }
+          },
+          "type": "string"
+         },
+         "stepTimeoutMillis": {
+          "description": "Optionally change the time that the server will wait for the job before letting it go asynchronous.  Default value is 3000.",
+          "examples": {
+           "shorter timeout": {
+            "value": "500"
+           },
+           "longer timeout": {
+            "value": "60000"
+           }
+          },
+          "type": "integer"
+         },
+         "file": {
+          "description": "A file upload, for processes which expect to be initialized with an uploaded file.",
+          "format": "binary",
+          "type": "string"
+         },
+         "tableVariant": {
+          "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).  May also be given as a query parameter.",
+          "example": "{\"type\":\"store\",\"id\":\"1\"}",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "COMPLETE": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "reviewScreen",
+           "type": "COMPLETE"
+          }
+         },
+         "COMPLETE with metaDataAdjustment": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "inputScreen",
+           "processMetaDataAdjustment": {
+            "updatedFields": {
+             "someField": {
+              "isRequired": true,
+              "isEditable": true,
+              "name": "someField",
+              "displayFormat": "%s",
+              "type": "STRING",
+              "isHeavy": false,
+              "isHidden": false
+             }
+            },
+            "updatedFrontendStepList": [
+             {
+              "components": [
+               {
+                "type": "EDIT_FORM"
+               }
+              ],
+              "name": "inputScreen",
+              "formFields": [
+               {
+                "isRequired": false,
+                "isEditable": true,
+                "name": "someField",
+                "displayFormat": "%s",
+                "type": "STRING",
+                "isHeavy": false,
+                "isHidden": false
+               }
+              ]
+             },
+             {
+              "components": [
+               {
+                "type": "PROCESS_SUMMARY_RESULTS"
+               }
+              ],
+              "name": "resultScreen"
+             }
+            ]
+           },
+           "type": "COMPLETE"
+          }
+         },
+         "JOB_STARTED": {
+          "value": {
+           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "JOB_STARTED"
+          }
+         },
+         "RUNNING": {
+          "value": {
+           "current": 47,
+           "total": 1701,
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING",
+           "message": "Processing person records"
+          }
+         },
+         "ERROR": {
+          "value": {
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING"
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/ProcessStepResponseV1"
+        }
+       }
+      },
+      "description": "State of the initialization of the job, with different fields set, based on the\nstatus of the task."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Initialize a process",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/processes/{processName}/{processUUID}/step/{stepName}": {
+   "post": {
+    "description": "To run the next step in a process, this endpoint should be called, with the `processName`\nand existing `processUUID`, as well as the step that was just completed in the frontend,\ngiven as `stepName`.\n\nAdditional process-specific values should posted in a form param named `values`, as JSON object\nwith keys defined by the process in question.\n\nNote that this request, if it takes longer than a given threshold* to complete, will return a\na `jobUUID`, which should be sent to the `/processes/{processName}/{processUUID}/status/{jobUUID}`\nendpoint, to poll for a status update.\n\n*This threshold has a default value of 3,000 ms., but can be set per-request via the form\nparameter `stepTimeoutMillis`.\n",
+    "parameters": [
+     {
+      "description": "Name of the process to perform the step in.",
+      "example": "samplePersonProcess",
       "in": "path",
-      "name": "primaryKey",
+      "name": "processName",
       "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Unique identifier for this run of the process - as was returned by the `init` call.",
+      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "in": "path",
+      "name": "processUUID",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the frontend step that the user has just completed.",
+      "example": "inputForm",
+      "in": "path",
+      "name": "stepName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
+      "example": "{\"type\":\"store\",\"id\":\"1\"}",
+      "in": "query",
+      "name": "tableVariant",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "properties": {
+         "values": {
+          "description": "Process-specific field names and values.",
+          "type": "object"
+         },
+         "stepTimeoutMillis": {
+          "description": "Optionally change the time that the server will wait for the job before letting it go asynchronous.  Default value is 3000.",
+          "examples": {
+           "shorter timeout": {
+            "value": "500"
+           },
+           "longer timeout": {
+            "value": "60000"
+           }
+          },
+          "type": "integer"
+         },
+         "file": {
+          "description": "A file upload, for process steps which expect an uploaded file.",
+          "format": "binary",
+          "type": "string"
+         },
+         "tableVariant": {
+          "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).  May also be given as a query parameter.",
+          "example": "{\"type\":\"store\",\"id\":\"1\"}",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "COMPLETE": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "reviewScreen",
+           "type": "COMPLETE"
+          }
+         },
+         "COMPLETE with metaDataAdjustment": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "inputScreen",
+           "processMetaDataAdjustment": {
+            "updatedFields": {
+             "someField": {
+              "isRequired": true,
+              "isEditable": true,
+              "name": "someField",
+              "displayFormat": "%s",
+              "type": "STRING",
+              "isHeavy": false,
+              "isHidden": false
+             }
+            },
+            "updatedFrontendStepList": [
+             {
+              "components": [
+               {
+                "type": "EDIT_FORM"
+               }
+              ],
+              "name": "inputScreen",
+              "formFields": [
+               {
+                "isRequired": false,
+                "isEditable": true,
+                "name": "someField",
+                "displayFormat": "%s",
+                "type": "STRING",
+                "isHeavy": false,
+                "isHidden": false
+               }
+              ]
+             },
+             {
+              "components": [
+               {
+                "type": "PROCESS_SUMMARY_RESULTS"
+               }
+              ],
+              "name": "resultScreen"
+             }
+            ]
+           },
+           "type": "COMPLETE"
+          }
+         },
+         "JOB_STARTED": {
+          "value": {
+           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "JOB_STARTED"
+          }
+         },
+         "RUNNING": {
+          "value": {
+           "current": 47,
+           "total": 1701,
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING",
+           "message": "Processing person records"
+          }
+         },
+         "ERROR": {
+          "value": {
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING"
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/ProcessStepResponseV1"
+        }
+       }
+      },
+      "description": "State of the backend's running of the next step(s) of the job, with different fields set,\nbased on the status of the job."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Run a step in a process",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/processes/{processName}/{processUUID}/status/{jobUUID}": {
+   "get": {
+    "description": "Get the status of a running job for a process.\n\nResponse is the same format as for an init or step call that completed synchronously.\n",
+    "parameters": [
+     {
+      "description": "Name of the process that is being ran",
+      "example": "samplePersonProcess",
+      "in": "path",
+      "name": "processName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Unique identifier for this run of the process - as was returned by the `init` call.",
+      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "in": "path",
+      "name": "processUUID",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Unique identifier for the asynchronous job being executed, as returned by an `init` or `step` call that went asynch.",
+      "example": "98765432-10FE-DCBA-9876-543210FEDCBA",
+      "in": "path",
+      "name": "jobUUID",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
+      "example": "{\"type\":\"store\",\"id\":\"1\"}",
+      "in": "query",
+      "name": "tableVariant",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "examples": {
+         "COMPLETE": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "reviewScreen",
+           "type": "COMPLETE"
+          }
+         },
+         "COMPLETE with metaDataAdjustment": {
+          "value": {
+           "values": {
+            "firstLastName": "Aabramson",
+            "totalAge": 32768
+           },
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "nextStep": "inputScreen",
+           "processMetaDataAdjustment": {
+            "updatedFields": {
+             "someField": {
+              "isRequired": true,
+              "isEditable": true,
+              "name": "someField",
+              "displayFormat": "%s",
+              "type": "STRING",
+              "isHeavy": false,
+              "isHidden": false
+             }
+            },
+            "updatedFrontendStepList": [
+             {
+              "components": [
+               {
+                "type": "EDIT_FORM"
+               }
+              ],
+              "name": "inputScreen",
+              "formFields": [
+               {
+                "isRequired": false,
+                "isEditable": true,
+                "name": "someField",
+                "displayFormat": "%s",
+                "type": "STRING",
+                "isHeavy": false,
+                "isHidden": false
+               }
+              ]
+             },
+             {
+              "components": [
+               {
+                "type": "PROCESS_SUMMARY_RESULTS"
+               }
+              ],
+              "name": "resultScreen"
+             }
+            ]
+           },
+           "type": "COMPLETE"
+          }
+         },
+         "JOB_STARTED": {
+          "value": {
+           "jobUUID": "98765432-10FE-DCBA-9876-543210FEDCBA",
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "JOB_STARTED"
+          }
+         },
+         "RUNNING": {
+          "value": {
+           "current": 47,
+           "total": 1701,
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING",
+           "message": "Processing person records"
+          }
+         },
+         "ERROR": {
+          "value": {
+           "processUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+           "type": "RUNNING"
+          }
+         }
+        },
+        "schema": {
+         "$ref": "#/components/schemas/ProcessStepResponseV1"
+        }
+       }
+      },
+      "description": "State of the backend's running of the specified job, with different fields set,\nbased on the status of the job."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Get job status",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/processes/{processName}/{processUUID}/records": {
+   "get": {
+    "description": "Retrieve the records associated with a running or completed process, with support\nfor pagination via skip and limit query parameters.",
+    "parameters": [
+     {
+      "description": "Name of the process",
+      "example": "samplePersonProcess",
+      "in": "path",
+      "name": "processName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Unique identifier for this run of the process",
+      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "in": "path",
+      "name": "processUUID",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Number of records to skip (default 0)",
+      "example": "0",
+      "in": "query",
+      "name": "skip",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "description": "Maximum number of records to return (default 20)",
+      "example": "20",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
+      "example": "{\"type\":\"store\",\"id\":\"1\"}",
+      "in": "query",
+      "name": "tableVariant",
+      "required": false,
       "schema": {
        "type": "string"
       }
@@ -10227,11 +10881,11 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/RecordFeatureSummaryV1"
+         "$ref": "#/components/schemas/ProcessRecordsResponseV1"
         }
        }
       },
-      "description": "Record collaboration summary"
+      "description": "Paginated list of records from the process state."
      }
     },
     "security": [
@@ -10241,7 +10895,152 @@
       ]
      }
     ],
-    "summary": "Get record collaboration features",
+    "summary": "Get records from a process",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/processes/{processName}/{processUUID}/cancel": {
+   "post": {
+    "description": "Cancel a running process. If the process defines a cancel step, it will be executed.",
+    "parameters": [
+     {
+      "description": "Name of the process to cancel",
+      "example": "samplePersonProcess",
+      "in": "path",
+      "name": "processName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Unique identifier for this run of the process",
+      "example": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "in": "path",
+      "name": "processUUID",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "For processes on tables that use variant backends, JSON object naming the variant to use (the same `type` and `id` as in table requests).",
+      "example": "{\"type\":\"store\",\"id\":\"1\"}",
+      "in": "query",
+      "name": "tableVariant",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProcessCancelResponseV1"
+        }
+       }
+      },
+      "description": "Empty JSON object indicating successful cancellation."
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Cancel a running process",
+    "tags": [
+     "Processes"
+    ]
+   }
+  },
+  "/qqq/v1/table/{tableName}/export": {
+   "post": {
+    "description": "Export records from a table as a downloadable file in the specified format (CSV, XLSX, JSON, TSV).",
+    "parameters": [
+     {
+      "description": "Name of the table to export.",
+      "example": "person",
+      "in": "path",
+      "name": "tableName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "properties": {
+         "format": {
+          "description": "Export format: csv, xlsx, json, tsv",
+          "type": "string"
+         },
+         "filename": {
+          "description": "Optional filename for the download. Generated if absent.",
+          "type": "string"
+         },
+         "filter": {
+          "$ref": "#/components/schemas/QueryFilter",
+          "description": "QueryFilter to specify matching records to export"
+         },
+         "fieldNames": {
+          "description": "Optional subset of field names to include in the export",
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         "limit": {
+          "description": "Optional maximum number of records to export",
+          "type": "integer"
+         },
+         "includeHeaderRow": {
+          "description": "Whether to include a header row (default true)",
+          "type": "boolean"
+         },
+         "tableVariant": {
+          "$ref": "#/components/schemas/TableVariant",
+          "description": "For tables that use variant backends, the variant to export from (the same `type` and `id` as in query requests)."
+         }
+        },
+        "type": "object"
+       }
+      }
+     },
+     "required": false
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/octet-stream": {
+        "schema": {
+         "format": "binary",
+         "type": "string"
+        }
+       }
+      },
+      "description": "Binary file content in the requested export format"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Export records from a table",
     "tags": [
      "Tables"
     ]
@@ -10318,90 +11117,59 @@
     ]
    }
   },
-  "/qqq/v1/version": {
+  "/qqq/v1/download/{file}": {
    "get": {
-    "description": "Describes the semantic version of this UI API (MAJOR.MINOR.PATCH, where MAJOR matches the URL\nversion), the optional core features the server supports, and the extensions (modules and qbits)\nregistered on it, each with its own semantic version.\n\nA client should call this first, before authentication, and stop with a clear message when\napiVersion is outside the range it supports.  Not secured.",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "examples": {
-         "Server with one extension": {
-          "value": {
-           "apiVersion": "1.1.0",
-           "basePath": "/qqq/v1",
-           "extensions": [
-            {
-             "description": "ESB overview, destinations, messages and dead letters",
-             "name": "esb",
-             "pathPrefix": "/esb",
-             "version": "1.0.0"
-            }
-           ],
-           "features": [
-            "recordSearch",
-            "tableVariants",
-            "version"
-           ],
-           "supportedMajorVersions": [
-            1
-           ]
-          }
-         }
-        },
-        "schema": {
-         "$ref": "#/components/schemas/VersionResponseV1"
-        }
-       }
-      },
-      "description": "Successful Response"
-     }
-    },
-    "summary": "Get the UI API version",
-    "tags": [
-     "General"
-    ]
-   }
-  },
-  "/qqq/v1/widget/{widgetName}": {
-   "post": {
-    "description": "Render a widget by name, passing in query parameters as a JSON object in the request body.\nThe response shape varies by widget type.",
+    "description": "Download a file from server-side storage by file path or storage table reference.",
     "parameters": [
      {
-      "description": "Name of the widget to render.",
-      "example": "myWidget",
+      "description": "Filename for the download.",
+      "example": "report.csv",
       "in": "path",
-      "name": "widgetName",
+      "name": "file",
       "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Server-side file path to download from.",
+      "in": "query",
+      "name": "filePath",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Name of the storage table to download from.",
+      "in": "query",
+      "name": "storageTableName",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Storage reference key for the file.",
+      "in": "query",
+      "name": "storageReference",
+      "required": false,
       "schema": {
        "type": "string"
       }
      }
     ],
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "additionalProperties": {
-         "type": "string"
-        },
-        "description": "Dynamic inputs to pass to the widget renderer (e.g. the record id, dropdown selections).  The same inputs may instead be sent as query parameters; a body value wins over a query parameter of the same name.",
-        "type": "object"
-       }
-      }
-     },
-     "required": false
-    },
     "responses": {
      "200": {
       "content": {
-       "application/json": {
+       "application/octet-stream": {
         "schema": {
-         "$ref": "#/components/schemas/WidgetData"
+         "format": "binary",
+         "type": "string"
         }
        }
       },
-      "description": "The rendered widget data itself (not wrapped): one of the WidgetData shapes, chosen by its `type`."
+      "description": "Binary file content"
      }
     },
     "security": [
@@ -10411,9 +11179,60 @@
       ]
      }
     ],
-    "summary": "Render a widget",
+    "summary": "Download a file",
     "tags": [
-     "Widgets"
+     "General"
+    ]
+   }
+  },
+  "/qqq/v1/reports/{reportName}": {
+   "get": {
+    "description": "Run a report and stream the generated file in the requested format.  The report's input fields are given as\nquery parameters named for the fields; a missing required input is a 400.  Requires permission to run the report.",
+    "parameters": [
+     {
+      "description": "Name of the report to run.",
+      "example": "personReport",
+      "in": "path",
+      "name": "reportName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Output format: csv, xlsx, json (as for table export).",
+      "example": "csv",
+      "in": "query",
+      "name": "format",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/octet-stream": {
+        "schema": {
+         "format": "binary",
+         "type": "string"
+        }
+       }
+      },
+      "description": "The generated report file, in the requested format"
+     }
+    },
+    "security": [
+     {
+      "sessionUuidCookie": [
+       "N/A"
+      ]
+     }
+    ],
+    "summary": "Run a report and download the file",
+    "tags": [
+     "Reports"
     ]
    }
   }

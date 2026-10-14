@@ -1,0 +1,133 @@
+{
+  "area": "help",
+  "prefixes": [
+    "HLP"
+  ],
+  "description": "Contextual help, help search and authoring",
+  "rows": [
+    {
+      "id": "HLP-001",
+      "feature": "App and widget help",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "summary tooltip",
+        "keyboard panel",
+        "sanitized long markdown",
+        "focus restoration",
+        "light and dark; desktop and mobile"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "HLP-002",
+      "feature": "Table, field and section help",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "view screen",
+        "edit screen",
+        "create screen",
+        "role selection"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "HLP-003",
+      "feature": "Query columns and table action help",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "column summary",
+        "query table header",
+        "action is not invoked by help"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "HLP-004",
+      "feature": "Process, step and record action help",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "process header",
+        "step header",
+        "record menu keyboard control"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "HLP-005",
+      "feature": "Help search",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "static Search help command",
+        "debounced help query",
+        "result summary and panel",
+        "Go to link"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    },
+    {
+      "id": "HLP-006",
+      "feature": "Help author affordance",
+      "source": [
+        "src/components/help/HelpIcon.tsx",
+        "src/components/help/HelpPanel.tsx",
+        "src/components/help/HelpSearchResults.tsx"
+      ],
+      "fixture": "HelpFixtures.java",
+      "scenarios": [
+        "key and specific role URL presets",
+        "standard create form",
+        "read-only users cannot author"
+      ],
+      "negative": [
+        "Strict diagnostics; no off-spec API calls"
+      ],
+      "issues": [],
+      "required": true
+    }
+  ]
+}

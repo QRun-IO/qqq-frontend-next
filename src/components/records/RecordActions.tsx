@@ -23,16 +23,19 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
+
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { ChevronDown, ChevronRight, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 
 import type { QTableMetaData, QRecord, QTableMenu } from '@/types'
+
 import { cn } from '@/lib/utils/cn'
 import { MATERIAL_BUTTON_VARIANTS, sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
 import { recordAdditionalMenus, hasMenuItems, type RecordMenuAction, type RecordMenuEntry } from '@/lib/utils/record-menu-utils'
-import { MetadataIcon } from '@/components/layout/MetadataIcon'
 
+import { ProcessActionHelp } from '@/components/help/ProcessActionHelp'
+import { MetadataIcon } from '@/components/layout/MetadataIcon'
 import { RecordMenuIcon } from './RecordMenuIcon'
 
 /** Props for {@link RecordActions}. */
@@ -112,16 +115,18 @@ export function RecordMenuItems({ entries, onAction }: { entries: RecordMenuEntr
           )
         }
         return (
+          <div key={entry.key} className="flex items-center" role="none">
           <DropdownMenuPrimitive.Item
-            key={entry.key}
             disabled={entry.disabled}
             onSelect={() => onAction(entry.action)}
             data-qqq-id={`menu-item-${sanitizeQqqId(entry.id)}`}
-            className={cn(ITEM_CLASSES, entry.action.type === 'delete' && 'text-destructive data-[highlighted]:bg-destructive/10')}
+            className={cn(ITEM_CLASSES, 'flex-1', entry.action.type === 'delete' && 'text-destructive data-[highlighted]:bg-destructive/10')}
           >
             <RecordMenuIcon entry={entry} />
             {entry.label}
           </DropdownMenuPrimitive.Item>
+          {entry.action.type === 'runProcess' && <ProcessActionHelp process={entry.action.process} menuItem />}
+          </div>
         )
       })}
     </>

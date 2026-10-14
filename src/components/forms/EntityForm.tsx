@@ -22,18 +22,21 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+
 import { useForm } from 'react-hook-form'
-import type { FieldErrors, Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
 import { AlertTriangle, Loader2, Save, X } from 'lucide-react'
 
+import type { FieldErrors, Resolver } from 'react-hook-form'
 import type { QFieldMetaData, QTableMetaData, QTableSection, QRecord, QRecordInput, QWidgetMetaData } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
+import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
+import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
+
 import { insertRecord, updateRecord } from '@/lib/api/tables'
 import { runFormAdjuster } from '@/lib/api/form-adjuster'
-import type { FormAdjusterOutput } from '@/lib/api/form-adjuster'
 import { recordAnalytics } from '@/lib/analytics'
 import { HANDLES_OWN_ERRORS, queryKeys } from '@/lib/query-client'
 import {
@@ -51,8 +54,8 @@ import { isImplicitSubmitKey } from '@/lib/utils/form-layout'
 import { firstRecordWarning, isWarningMessage, rememberSaveWarning } from '@/lib/utils/save-warning'
 import { toast } from '@/lib/hooks/use-toast'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { HoverTooltip } from '@/components/widgets/HoverTooltip'
-import type { WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { DynamicForm } from './DynamicForm'
 import { FormErrorSummary } from './FormErrorSummary'
 import { FormWidgetSection, isEditableFormWidget } from './FormWidgetSection'
@@ -948,11 +951,12 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {/* Compact page heading; sections stay together in the form below. */}
       {!isModal && (
         <div className="contents" data-qqq-id={`record-${formMode}-header-${tableNameForId}`}>
-          <div className="border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4" data-qqq-id={`form-header-${formMode}`}>
             <h2 className="text-xl font-semibold text-foreground" aria-label={recordLabel && (isEdit || isCopy) ? `${heading}: ${recordLabel}` : undefined}
               data-qqq-id={`record-${formMode}-title-${tableNameForId}`}>
               {heading}
             </h2>
+            <HelpIcon label={tableMetaData.label} helpContents={tableMetaData.helpContents?.help} roles={isEdit ? EDIT_SCREEN_HELP_ROLES : INSERT_SCREEN_HELP_ROLES} helpKey={`table:${tableMetaData.name};slot:help`} data-qqq-id={`table-help-${tableMetaData.name}`} />
           </div>
         </div>
       )}

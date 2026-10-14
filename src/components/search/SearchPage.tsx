@@ -34,6 +34,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AlertTriangle, Clock, History, Loader2, RotateCw, Search, X } from 'lucide-react'
@@ -61,6 +62,8 @@ import {
   type SearchPageState,
 } from '@/lib/search/search-model'
 import { cn } from '@/lib/utils/cn'
+
+import { HelpSearchResults } from '@/components/help/HelpSearchResults'
 import { MetadataIcon, type MetadataIconKind } from '@/components/layout/MetadataIcon'
 import { HighlightedText } from './HighlightedText'
 import { SearchResultCard } from './SearchResultCard'
@@ -508,6 +511,7 @@ export function SearchPage() {
         <div className={cn(showSplit && 'grid grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] items-start gap-6')}>
         {/* delegated click: remembers the search when a result link is followed; ↑/↓ move between results */}
         <div className="min-w-0 space-y-5" onClick={rememberOnOpen} onKeyDown={handleResultsKeyDown}>
+          <HelpSearchResults search={term} />
           {view !== 'pages' && !singleTable && pages.length > 0 && (
             <PagesSection pages={pages.slice(0, OVERVIEW_PAGES)} term={term} moreHref={pages.length > OVERVIEW_PAGES ? filterHref({ view: 'pages' }) : undefined} total={pages.length} />
           )}

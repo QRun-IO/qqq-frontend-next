@@ -24,6 +24,7 @@
 'use client'
 
 import React, { useCallback, useMemo, useRef, useState } from 'react'
+
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,14 +32,14 @@ import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
 import type { ProcessFiles } from '@/lib/api/processes'
+
+import { PROCESS_SCREEN_HELP_ROLES } from '@/lib/utils/help-utils'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
 import { MATERIAL_BUTTON_VARIANTS } from '@/lib/utils/qqq-id'
-import { PROCESS_SCREEN_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
-import { useHelpHelpActive } from '@/lib/context/q-context'
-import { HelpContent } from '@/components/records/HelpContent'
 
+import { HelpIcon } from '@/components/help/HelpIcon'
 import { WidgetFormHostContext, type WidgetFormHost } from '@/components/widgets/widget-form-host'
 import { ProcessComponent } from './ProcessComponent'
 import { ProcessCompositeHost, inputFieldsOfBlocks, readBlocks } from './ProcessBlocks'
@@ -154,13 +155,7 @@ function sameFields(a: QFieldMetaData[], b: QFieldMetaData[]): boolean {
  * @returns The help element, or `null`.
  */
 function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processName: string }) {
-  const help = selectSlotHelpContent(step.helpContents, PROCESS_SCREEN_HELP_ROLES, `process:${processName};step:${step.name}`, useHelpHelpActive())
-  if (!help) return null
-  return (
-    <p className="text-sm text-muted-foreground" data-qqq-id="process-step-help">
-      <HelpContent helpContent={help} />
-    </p>
-  )
+  return <HelpIcon label={step.label} helpContents={step.helpContents} roles={PROCESS_SCREEN_HELP_ROLES} helpKey={`process:${processName};step:${step.name}`} data-qqq-id="process-step-help" />
 }
 
 /**
@@ -322,15 +317,15 @@ export function ProcessStepScreen({
         data-qqq-id={`process-step-${step.name}`}
       >
         <div className={isScanner || compactReportInputs ? 'sr-only' : 'border-b border-border px-6 py-4'}>
-          <h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
+          <div className="flex flex-wrap items-center gap-2"><h3 id={`process-step-heading-${step.name}`} tabIndex={-1} className="text-base font-semibold text-foreground outline-none" data-qqq-id="process-step-heading">
             {stepLabel ?? step.label}
-          </h3>
+          </h3>{!isScanner && !compactReportInputs && <StepHelp step={step} processName={processName} />}</div>
           {!compactReportInputs && isLinear && steps.length > 1 && index >= 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">{`Step ${index + 1} of ${steps.length}`}</p>
           )}
         </div>
         <div className={compactReportInputs ? 'space-y-4' : 'space-y-6 p-6'}>
-          <StepHelp step={step} processName={processName} />
+          {(isScanner || compactReportInputs) && <StepHelp step={step} processName={processName} />}
           <ProcessCompositeHost>
             {components.map((component, componentIndex) => (
               <div key={componentIndex} data-qqq-id={`process-component-${componentIndex}`} data-component-type={component.type}>
