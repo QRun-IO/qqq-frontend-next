@@ -17,6 +17,16 @@
 /** @file Typed calls to the data-analysis v1 UI API extension. */
 
 import type {
+  DataAnalysisCompareRequestV1,
+  DataAnalysisCompareV1,
+  DataAnalysisCorrelationRequestV1,
+  DataAnalysisCorrelationV1,
+  DataAnalysisCrosstabRequestV1,
+  DataAnalysisCrosstabV1,
+  DataAnalysisScatterRequestV1,
+  DataAnalysisScatterV1,
+  DataAnalysisShiftRequestV1,
+  DataAnalysisShiftV1,
   DataAnalysisCapabilitiesV1,
   DataAnalysisColumnProfileRequestV1,
   DataAnalysisColumnProfileV1,
@@ -153,4 +163,64 @@ export async function startRun(
  */
 export async function getRun(runId: string): Promise<DataAnalysisRunStatusV1> {
   return apiClient.get(`${ROOT}/runs/${encodeURIComponent(runId)}`)
+}
+
+/** Computes compare for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function compare(
+  table: string,
+  request: DataAnalysisCompareRequestV1
+): Promise<DataAnalysisCompareV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/compare`, request)
+}
+
+/** Computes correlation for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function correlation(
+  table: string,
+  request: DataAnalysisCorrelationRequestV1
+): Promise<DataAnalysisCorrelationV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/correlation`, request)
+}
+
+/** Computes crosstab for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function crosstab(
+  table: string,
+  request: DataAnalysisCrosstabRequestV1
+): Promise<DataAnalysisCrosstabV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/crosstab`, request)
+}
+
+/** Computes scatter for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function scatter(
+  table: string,
+  request: DataAnalysisScatterRequestV1
+): Promise<DataAnalysisScatterV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/scatter`, request)
+}
+
+/** Computes shift for permitted records.
+ * @param table - Metadata table name.
+ * @param request - Analysis parameters and population filters.
+ * @returns The typed analysis result.
+ */
+export async function shift(
+  table: string,
+  request: DataAnalysisShiftRequestV1
+): Promise<DataAnalysisShiftV1> {
+  return apiClient.post(`${ROOT}/tables/${encodeURIComponent(table)}/shift`, request)
 }

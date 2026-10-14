@@ -145,6 +145,11 @@
       "DataAnalysisChartV1": {
         "nullable": true,
         "properties": {
+          "stacked": {
+            "description": "Stack category series to a total share of one when true.",
+            "nullable": true,
+            "type": "boolean"
+          },
           "kind": {
             "description": "Semantic field kind: NUMERIC, DATE, DATE_TIME, TEXT, BOOLEAN or CATEGORY.",
             "enum": [
@@ -335,6 +340,275 @@
           "chart": {
             "$ref": "#/components/schemas/DataAnalysisChartV1",
             "description": "Chart.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCompareRequestV1": {
+        "properties": {
+          "filterA": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Population A filter; null selects the whole permitted table.",
+            "nullable": true
+          },
+          "filterB": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Population B filter; null selects the whole permitted table.",
+            "nullable": true
+          },
+          "labelA": {
+            "description": "Display name of population A; default A.",
+            "type": "string"
+          },
+          "labelB": {
+            "description": "Display name of population B; default B.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisCompareV1": {
+        "properties": {
+          "fields": {
+            "description": "Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisFieldComparisonV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisComparisonSideV1": {
+        "properties": {
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "metrics": {
+            "description": "Typed metrics with exact population drills unless privacy suppresses them.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisComparisonValueV1": {
+        "properties": {
+          "value": {
+            "description": "Value.",
+            "nullable": true
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "sideA": {
+            "$ref": "#/components/schemas/DataAnalysisComparisonSideV1",
+            "description": "Side a.",
+            "nullable": true
+          },
+          "sideB": {
+            "$ref": "#/components/schemas/DataAnalysisComparisonSideV1",
+            "description": "Side b.",
+            "nullable": true
+          },
+          "delta": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "B minus A, in original units (share differences are fractions).",
+            "nullable": true
+          },
+          "percentDelta": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "(B minus A) divided by absolute A, a fraction; null at a zero baseline.",
+            "nullable": true
+          },
+          "significance": {
+            "$ref": "#/components/schemas/DataAnalysisSignificanceV1",
+            "description": "Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCorrelationCellV1": {
+        "properties": {
+          "xField": {
+            "description": "FULL numeric field on the x axis.",
+            "nullable": true,
+            "type": "string"
+          },
+          "yField": {
+            "description": "FULL numeric field on the y axis.",
+            "nullable": true,
+            "type": "string"
+          },
+          "n": {
+            "description": "Pairwise non-null population count; null when privacy suppresses it.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "r": {
+            "description": "Pearson correlation; null for insufficient data, zero variance or privacy suppression.",
+            "nullable": true,
+            "type": "number"
+          },
+          "scatter": {
+            "$ref": "#/components/schemas/DataAnalysisScatterRequestV1",
+            "description": "POST the included parameters to the table scatter endpoint.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCorrelationRequestV1": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Current-user query filter; record locks and core field rules apply.",
+            "nullable": true
+          },
+          "fields": {
+            "description": "Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisCorrelationV1": {
+        "properties": {
+          "fields": {
+            "description": "Distinct FULL fields to analyze; correlation requires 2 to 12 numeric fields.",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "cells": {
+            "description": "Cells.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisCorrelationCellV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Semantic series; category comparisons are grouped and category time series are stacked.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCrosstabCellV1": {
+        "properties": {
+          "rowIndex": {
+            "description": "Row index.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "columnIndex": {
+            "description": "Column index.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "count": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Cell count with its exact drill, or a suppressed metric.",
+            "nullable": true
+          },
+          "rowShare": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Cell count divided by row total; suppressed if it could disclose a hidden cell.",
+            "nullable": true
+          },
+          "columnShare": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Cell count divided by column total; suppressed if it could disclose a hidden cell.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisCrosstabRequestV1": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Current-user query filter; record locks and core field rules apply.",
+            "nullable": true
+          },
+          "rowField": {
+            "description": "FULL field defining crosstab rows.",
+            "type": "string"
+          },
+          "columnField": {
+            "description": "FULL field defining crosstab columns.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum sample points (1 to 2000, default 2000) or kept crosstab categories per axis (1 to 20, default 20).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rowField",
+          "columnField"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisCrosstabV1": {
+        "properties": {
+          "rows": {
+            "description": "Rows.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotHeaderV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "columns": {
+            "description": "Columns.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPivotHeaderV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "cells": {
+            "description": "Cells.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisCrosstabCellV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "significance": {
+            "$ref": "#/components/schemas/DataAnalysisSignificanceV1",
+            "description": "Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion.",
             "nullable": true
           }
         },
@@ -615,6 +889,34 @@
             },
             "nullable": true,
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisFieldComparisonV1": {
+        "properties": {
+          "field": {
+            "description": "FULL field whose distribution is compared over time.",
+            "nullable": true,
+            "type": "string"
+          },
+          "values": {
+            "description": "Values.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisComparisonValueV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "significance": {
+            "$ref": "#/components/schemas/DataAnalysisSignificanceV1",
+            "description": "Test assumptions, two-sided p-value, degrees of freedom and plain-language conclusion.",
+            "nullable": true
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Semantic series; category comparisons are grouped and category time series are stacked.",
+            "nullable": true
           }
         },
         "type": "object"
@@ -1169,6 +1471,80 @@
         },
         "type": "object"
       },
+      "DataAnalysisScatterRequestV1": {
+        "properties": {
+          "tableName": {
+            "description": "Table for the scatter link; route parameter takes precedence.",
+            "nullable": true,
+            "type": "string"
+          },
+          "exact": {
+            "description": "Compatibility flag; scatter always returns the bounded sample.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Current-user query filter; record locks and core field rules apply.",
+            "nullable": true
+          },
+          "xField": {
+            "description": "FULL numeric field on the x axis.",
+            "type": "string"
+          },
+          "yField": {
+            "description": "FULL numeric field on the y axis.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum sample points (1 to 2000, default 2000) or kept crosstab categories per axis (1 to 20, default 20).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "xField",
+          "yField"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisScatterV1": {
+        "properties": {
+          "n": {
+            "description": "Pairwise non-null population count; null when privacy suppresses it.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sampleSize": {
+            "description": "Number of displayed paired records.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sampling": {
+            "description": "Sampling method; core query currently uses a deterministic primary-key prefix.",
+            "nullable": true,
+            "type": "string"
+          },
+          "points": {
+            "description": "Points.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisPointV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "trend": {
+            "$ref": "#/components/schemas/DataAnalysisTrendLineV1",
+            "description": "Least-squares slope, intercept and r fitted to the displayed sample.",
+            "nullable": true
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Semantic series; category comparisons are grouped and category time series are stacked.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
       "DataAnalysisSeriesV1": {
         "nullable": true,
         "properties": {
@@ -1184,6 +1560,127 @@
             },
             "nullable": true,
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisShiftBucketV1": {
+        "properties": {
+          "value": {
+            "description": "Value.",
+            "nullable": true
+          },
+          "label": {
+            "description": "Label.",
+            "nullable": true,
+            "type": "string"
+          },
+          "complete": {
+            "description": "True when the calendar bucket end has passed in the session timezone.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "metrics": {
+            "description": "Typed metrics with exact population drills unless privacy suppresses them.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisMetricV1"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisShiftRequestV1": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/QueryFilter",
+            "description": "Current-user query filter; record locks and core field rules apply.",
+            "nullable": true
+          },
+          "field": {
+            "description": "FULL field whose distribution is compared over time.",
+            "type": "string"
+          },
+          "dateField": {
+            "description": "FULL DATE or DATE_TIME field for session-timezone calendar buckets.",
+            "type": "string"
+          },
+          "bucket": {
+            "description": "Calendar unit: HOUR, DAY, WEEK, MONTH, QUARTER or YEAR; default MONTH.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "dateField"
+        ],
+        "type": "object"
+      },
+      "DataAnalysisShiftV1": {
+        "properties": {
+          "buckets": {
+            "description": "Buckets.",
+            "items": {
+              "$ref": "#/components/schemas/DataAnalysisShiftBucketV1"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "psi": {
+            "$ref": "#/components/schemas/DataAnalysisMetricV1",
+            "description": "Population stability index, null when inapplicable; zero shares are floored at 0.000001.",
+            "nullable": true
+          },
+          "sentence": {
+            "description": "Plain-language result or reason the statistic is not applicable.",
+            "nullable": true,
+            "type": "string"
+          },
+          "chart": {
+            "$ref": "#/components/schemas/DataAnalysisChartV1",
+            "description": "Semantic series; category comparisons are grouped and category time series are stacked.",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DataAnalysisSignificanceV1": {
+        "properties": {
+          "test": {
+            "description": "Test.",
+            "nullable": true,
+            "type": "string"
+          },
+          "statistic": {
+            "description": "Statistic.",
+            "nullable": true,
+            "type": "number"
+          },
+          "df": {
+            "description": "Degrees of freedom; null when undefined.",
+            "nullable": true,
+            "type": "number"
+          },
+          "pValue": {
+            "description": "Two-sided p-value; p >= 0.05 is never significant.",
+            "nullable": true,
+            "type": "number"
+          },
+          "applicable": {
+            "description": "Whether all test validity and privacy requirements hold.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sentence": {
+            "description": "Plain-language result or reason the statistic is not applicable.",
+            "nullable": true,
+            "type": "string"
+          },
+          "cramersV": {
+            "description": "Cramer association strength computed on the pooled contingency table; null when invalid.",
+            "nullable": true,
+            "type": "number"
           }
         },
         "type": "object"
@@ -1355,6 +1852,26 @@
         },
         "type": "object"
       },
+      "DataAnalysisTrendLineV1": {
+        "properties": {
+          "slope": {
+            "description": "Slope.",
+            "nullable": true,
+            "type": "number"
+          },
+          "intercept": {
+            "description": "Intercept.",
+            "nullable": true,
+            "type": "number"
+          },
+          "r": {
+            "description": "Pearson correlation; null for insufficient data, zero variance or privacy suppression.",
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "DataAnalysisValueCountV1": {
         "nullable": true,
         "properties": {
@@ -1508,9 +2025,9 @@
     "contact": {
       "email": "contact@kingsrook.com"
     },
-    "description": "Profiles, pivots, distinct values, duplicate groups and exact analysis runs as the signed-in user.",
+    "description": "Profiles, pivots, comparisons, distribution shifts, correlations, scatter samples and crosstabs as the signed-in user.",
     "title": "QQQ Middleware API extension: data-analysis",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -1640,6 +2157,236 @@
           }
         ],
         "summary": "List distinct column values"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/compare": {
+      "post": {
+        "description": "Compare filtered A with filtered B (null means the whole permitted table). Return means, medians or category shares, B-minus-A deltas, valid significance tests and count-equivalent drills. Only FULL fields are accepted.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisCompareRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisCompareV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Compare two populations"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/shift": {
+      "post": {
+        "description": "Compare category shares or numeric quartiles across session-timezone calendar buckets. Compute descriptive PSI between the first and last complete nonempty buckets using fixed categories or baseline quartile bins.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisShiftRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisShiftV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Measure distribution shift over time"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/correlation": {
+      "post": {
+        "description": "Compute a Pearson correlation matrix for 2 to 12 distinct FULL numeric fields, using paired non-null records. Every cell includes n and parameters for the scatter endpoint; core pushes down CORR or uses bounded streaming.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisCorrelationRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisCorrelationV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Find numeric relationships"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/scatter": {
+      "post": {
+        "description": "Return at most 2000 paired numeric points as the user, ordered by primary key when core query sampling is unavailable, plus a least-squares line fitted to the sample. Privacy disables individual drills and suppresses small populations.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisScatterRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisScatterV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Inspect a numeric relationship"
+      }
+    },
+    "/qqq/v1/qbit/data-analysis/tables/{table}/crosstab": {
+      "post": {
+        "description": "Count combinations of two FULL fields with row and column shares, up to 20 categories per axis plus Other. Test independence using chi-square and Cramer V after pooling low expected counts; privacy suppresses small cells and their drills.",
+        "parameters": [
+          {
+            "description": "QQQ table name to analyze.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataAnalysisCrosstabRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataAnalysisCrosstabV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "sessionUuidCookie": [
+              "N/A"
+            ]
+          }
+        ],
+        "summary": "Cross-tabulate two fields"
       }
     },
     "/qqq/v1/qbit/data-analysis/tables/{table}/pivot": {

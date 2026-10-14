@@ -54,7 +54,8 @@ async function mockPivot(page: Page) {
 }
 
 async function buildPivot(page: Page) {
-  await page.getByRole('button', { name: 'Pivot', exact: true }).click()
+  await page.getByRole('button', { name: 'Explore', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Pivot', exact: true }).click()
   const explorer = page.locator(EXPLORER)
   await explorer.getByLabel('Rows 1 field').selectOption('status')
   await explorer.getByRole('button', { name: 'Add column', exact: true }).click()
@@ -101,7 +102,7 @@ test('builds, reloads, drills in place and returns to records with a shareable p
   await expect(explorer).toHaveCount(0)
   expect(new URL(page.url()).searchParams.has('view')).toBe(false)
   expect(new URL(page.url()).searchParams.has('pivot')).toBe(false)
-  await expect(page.getByRole('button', { name: 'Pivot', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeVisible()
   await page.goto(sharedUrl)
   await expect(page.locator(EXPLORER).getByRole('link', { name: '14', exact: true })).toBeVisible()
 })
@@ -172,6 +173,6 @@ test('does not offer Pivot without the analysis capability', async ({ page }) =>
     route.fulfill({ json: { canAnalyze: false, fields: [] } })
   )
   await page.goto('/app/person')
-  await expect(page.getByRole('button', { name: 'Pivot', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Analyze table', exact: true })).toHaveCount(0)
 })

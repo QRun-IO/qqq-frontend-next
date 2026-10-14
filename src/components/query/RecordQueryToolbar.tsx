@@ -188,8 +188,8 @@ function ViewModeToggle({
 export interface RecordQueryToolbarProps {
   /** Opens table analysis when capabilities permit it. */
   onAnalyzeTable?: () => void
-  /** Opens the pivot explorer under the same analysis capability. */
-  onPivot?: () => void
+  /** Opens an explorer under the table's analysis capability. */
+  onExplore?: (view: 'pivot' | 'compare' | 'correlation' | 'crosstab' | 'shift') => void
   /** The backend table name used in API calls and URL routing. */
   tableName: string
   /** Full table metadata from the QQQ backend. */
@@ -328,7 +328,7 @@ export function columnConfigPosition(button: Pick<DOMRect, 'bottom' | 'right'>, 
  */
 export function RecordQueryToolbar({
   onAnalyzeTable,
-  onPivot,
+  onExplore,
   tableName,
   tableMetaData,
   processes,
@@ -458,7 +458,24 @@ export function RecordQueryToolbar({
       )}
 
       {onAnalyzeTable && <button type="button" onClick={onAnalyzeTable} data-qqq-id="query-analyze-table" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">Analyze table</button>}
-      {onPivot && <button type="button" onClick={onPivot} data-qqq-id="query-pivot" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">Pivot</button>}
+      {onExplore && (
+        <DropdownMenuPrimitive.Root modal={false}>
+          <DropdownMenuPrimitive.Trigger asChild>
+            <button type="button" data-qqq-id="query-explore" className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
+              Explore
+            </button>
+          </DropdownMenuPrimitive.Trigger>
+          <DropdownMenuPrimitive.Portal>
+            <DropdownMenuPrimitive.Content align="start" sideOffset={4} className="z-[200] min-w-44 rounded border border-border bg-popover p-1 text-popover-foreground shadow-md">
+              {(['pivot', 'compare', 'correlation', 'crosstab', 'shift'] as const).map(view => (
+                <DropdownMenuPrimitive.Item key={view} onSelect={() => onExplore(view)} className="cursor-pointer rounded px-3 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground" data-qqq-id={`explore-${view}`}>
+                  {view === 'shift' ? 'Shift over time' : view[0].toUpperCase() + view.slice(1)}
+                </DropdownMenuPrimitive.Item>
+              ))}
+            </DropdownMenuPrimitive.Content>
+          </DropdownMenuPrimitive.Portal>
+        </DropdownMenuPrimitive.Root>
+      )}
       {/* Quick search */}
       <div className="relative flex-1 min-w-[200px] max-w-md">
         <label htmlFor="quick-search" className="sr-only">

@@ -34,6 +34,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import type { QTableMetaData, QProcessMetaData, QInstance, QQueryFilter } from '@/types'
 import type { DataAnalysisDrillV1 } from '@/types/data-analysis'
 import { getCapabilities } from '@/lib/api/data-analysis'
+import { encodeExplore, EXPLORE_VIEWS, type RelationshipView, type ExploreLayout } from '@/lib/utils/data-analysis-explore'
 import { encodePivot, type PivotLayout } from '@/lib/utils/data-analysis-pivot'
 import { deserializeFilter } from '@/lib/utils/filter-utils'
 import { queryRecords, type TableVariant } from '@/lib/api/tables'
@@ -80,6 +81,7 @@ import { QuickSavedViews } from './QuickSavedViews'
 const ColumnProfilePanel = dynamic(() => import('@/components/data-analysis/ColumnProfilePanel'), { ssr: false })
 import { AnalysisDrillContext, ProfileError, ProfileLoading, controlClass } from '@/components/data-analysis/ProfileParts'
 const TableProfilePanel = dynamic(() => import('@/components/data-analysis/TableProfilePanel'), { ssr: false })
+const RelationshipExplorer = dynamic(() => import('@/components/data-analysis/RelationshipExplorer'), { ssr: false })
 const PivotExplorer = dynamic(() => import('@/components/data-analysis/PivotExplorer'), { ssr: false })
 
 /** Display mode for the record list — either a tabular grid or a card layout. */
@@ -315,24 +317,34 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const closeAnalysis = () => { const target = analysis?.returnFocus; setAnalysis(null); requestAnimationFrame(() => target?.focus()) }
   const canAnalyze = capabilities.data?.canAnalyze === true
   const pivotOpen = searchParams.get('view') === 'pivot'
+  const relationshipView = EXPLORE_VIEWS.find(v => v !== 'pivot' && v === searchParams.get('view')) as RelationshipView | undefined
+  const explorerOpen = pivotOpen || Boolean(relationshipView)
   const { setUserFilter: restorePivotFilter, setQuickSearch: restorePivotSearch } = rq.filter
   useEffect(() => {
     const restore = () => {
       const params = new URLSearchParams(window.location.search)
-      if (!pivotOpen && params.get('view') !== 'pivot') return
+      if (!explorerOpen && !EXPLORE_VIEWS.some(v => v === params.get('view'))) return
       restorePivotFilter(deserializeFilter(params.get('filter') ?? '', rq.viewState.pageSize))
       restorePivotSearch(params.get('q') ?? '')
       setLocalSearchTerm(params.get('q') ?? '')
     }
     window.addEventListener('popstate', restore)
     return () => window.removeEventListener('popstate', restore)
-  }, [pivotOpen, restorePivotFilter, restorePivotSearch, rq.viewState.pageSize])
+  }, [explorerOpen, restorePivotFilter, restorePivotSearch, rq.viewState.pageSize])
   const updatePivotUrl = (open: boolean, request?: PivotLayout) => {
     const url = new URL(window.location.href)
     if (open) url.searchParams.set('view', 'pivot')
     else { url.searchParams.delete('view'); url.searchParams.delete('pivot') }
     if (request) url.searchParams.set('pivot', encodePivot(request))
     if (open && !pivotOpen) window.history.pushState(null, '', url)
+    else window.history.replaceState(null, '', url)
+  }
+  const updateExploreUrl = (view?: RelationshipView, layout?: ExploreLayout) => {
+    const url = new URL(window.location.href)
+    if (view) url.searchParams.set('view', view)
+    else { url.searchParams.delete('view'); EXPLORE_VIEWS.forEach(v => url.searchParams.delete(v)) }
+    if (view && layout) url.searchParams.set(view, encodeExplore(view, layout))
+    if (view && !explorerOpen) window.history.pushState(null, '', url)
     else window.history.replaceState(null, '', url)
   }
   // A drill on this table applies its filter here: this page reads the URL only on mount.
@@ -590,6 +602,24 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
     </>
   )
 
+  if (relationshipView) return (
+    <FilterSettingsProvider value={filterSettings}>
+      <div className="w-full min-w-0 max-w-full">
+        {capabilities.isPending ? <ProfileLoading /> : !canAnalyze ? <>
+          <button className={controlClass} onClick={() => updateExploreUrl()} data-qqq-id="explore-back">Back to records</button>
+          <ProfileError error={capabilities.error ?? new Error("You don't have permission to analyze this table")} />
+        </> : <AnalysisDrillContext.Provider value={applyAnalysisDrill}>
+          <RelationshipExplorer key={`${tableName}:${relationshipView}:${searchParams.get(relationshipView) ?? ''}`}
+            view={relationshipView} tableName={tableName} tableMetaData={tableMetaData} fields={capabilities.data?.fields ?? []}
+            filter={rq.filter.baseFilter} encoded={searchParams.get(relationshipView)}
+            onRun={layout => updateExploreUrl(relationshipView, layout)} onBack={() => updateExploreUrl()}
+            savedViews={savedViews.isAvailable ? [...savedViews.yourViews, ...savedViews.sharedViews] : undefined}
+            unavailableReason={analysisUnavailableReason} />
+        </AnalysisDrillContext.Provider>}
+      </div>
+    </FilterSettingsProvider>
+  )
+
   if (pivotOpen) return (
     <div className="w-full min-w-0 max-w-full">
       {capabilities.isPending ? <ProfileLoading /> : !canAnalyze ? <>
@@ -654,7 +684,7 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
       )}
 
       <RecordQueryToolbar
-        onPivot={canAnalyze ? () => updatePivotUrl(true) : undefined}
+        onExplore={canAnalyze ? view => view === 'pivot' ? updatePivotUrl(true) : updateExploreUrl(view) : undefined}
         onAnalyzeTable={canAnalyze ? () => openAnalysis() : undefined}
         tableName={tableName}
         tableMetaData={tableMetaData}
