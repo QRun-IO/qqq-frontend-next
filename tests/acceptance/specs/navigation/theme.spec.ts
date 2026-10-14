@@ -103,7 +103,7 @@ async function openPreferences(page: Page) {
   await appNavigation(page)
   await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
   await page.getByRole('menuitem', { name: 'Preferences', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Preferences', exact: true })
+  const dialog = page.locator('[data-qqq-id="preferences-page"]')
   await expect(dialog).toBeVisible()
   return dialog
 }
@@ -126,12 +126,11 @@ test('[NAV-056] appearance preferences apply immediately and survive a reload @m
     await dialog.evaluate(async element => {
       await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})))
     })
-    const results = await new AxeBuilder({ page }).include('[data-qqq-id="dialog-user-preferences"]')
+    const results = await new AxeBuilder({ page }).include('[data-qqq-id="preferences-page"]')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     expect(results.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])
   }
   await dialog.getByRole('radio', { name: 'Dark', exact: true }).check()
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click()
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   dialog = await openPreferences(page)
@@ -181,11 +180,13 @@ for (const mode of ['light', 'dark'] as const) {
     }
     await settlePalette()
     await testInfo.attach(`api-playground-${mode}`, { body: await page.screenshot(), contentType: 'image/png' })
-    const dialog = await openPreferences(page)
-    const oppositeMode = mode === 'dark' ? 'Light' : 'Dark'
-    await dialog.getByRole('radio', { name: oppositeMode, exact: true }).check()
-    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(docs).toHaveJSProperty('theme', oppositeMode.toLowerCase())
+    // flip the theme live from the user menu, staying on the playground
+    const oppositeMode = mode === 'dark' ? 'light' : 'dark'
+    await appNavigation(page)
+    await page.locator('[data-qqq-id="sidebar"]:visible [data-qqq-id="sidebar-user-button"]').click()
+    await page.getByRole('menuitemcheckbox', { name: 'Dark mode', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await expect(docs).toHaveJSProperty('theme', oppositeMode)
     await settlePalette()
     const changed = await new AxeBuilder({ page }).include('rapi-doc').withRules(['color-contrast']).analyze()
     expect(changed.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }))).toEqual([])

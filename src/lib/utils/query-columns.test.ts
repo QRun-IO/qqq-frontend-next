@@ -74,3 +74,9 @@ describe('withReadableExposedJoins', () => {
     expect(joined.exposedJoins).toHaveLength(2)
   })
 })
+
+
+it('exposes collaboration tags as a selectable virtual column', () => {
+  const columns = getQueryColumns({ ...table, virtualFields: { collaborationTags: { ...table.fields.alpha, name: 'collaborationTags', label: 'Tags', possibleValueSourceName: 'collaboration_tag', isQueryCriteria: true, isQuerySelectable: true } } })
+  expect(columns.find((column) => column.name === 'collaborationTags')).toMatchObject({ label: 'Tags', isVirtual: true, isQueryCriteria: true, field: { possibleValueSourceName: 'collaboration_tag' } })
+})

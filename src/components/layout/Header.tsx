@@ -20,8 +20,8 @@
 
 'use client'
 
-import React, { useRef, useState } from 'react'
-import { Bell, Command, Menu, Search, HelpCircle } from 'lucide-react'
+import React, { useRef } from 'react'
+import { Command, Menu, Search, HelpCircle } from 'lucide-react'
 
 import { GlobalSearch } from '@/components/layout/GlobalSearch'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
@@ -61,6 +61,10 @@ export interface HeaderProps {
   searchTables?: SearchableTable[]
   /** The assistant toggle, shown before the help button when the assistant is available. */
   assistantButton?: React.ReactNode
+  /** The notifications bell (the Alerts qbit's), shown last when Alerts is available. */
+  notificationsButton?: React.ReactNode
+  /** Personal favorites menu when collaboration is installed. */
+  favoritesButton?: React.ReactNode
 }
 
 /**
@@ -79,8 +83,7 @@ export interface HeaderProps {
  *   {@link GlobalSearch} + notifications bell on the right. The hamburger and
  *   GlobalSearch are each conditionally visible based on the `md` breakpoint.
  */
-export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton }: HeaderProps) {
-  const [notificationCount] = useState(0)
+export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, onSearchOpen, onCommandOpen, onHelpOpen, helpButtonRef, pathToLabelMap = {}, ancestorAppMap = {}, homePath, navTargets = [], searchTables, assistantButton, notificationsButton, favoritesButton }: HeaderProps) {
   // toasts appear below the header, never over its controls
   const headerRef = useRef<HTMLElement>(null)
   useToastTopBelow(headerRef)
@@ -143,6 +146,7 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
           </button>
         )}
 
+        {favoritesButton}
         {assistantButton}
 
         {/* Keyboard shortcuts hint */}
@@ -157,17 +161,8 @@ export default function Header({ onMenuOpen, menuOpen = false, menuButtonRef, on
           <HelpCircle className="h-5 w-5 text-foreground/60" aria-hidden="true" />
         </button>
 
-        {/* Notifications bell */}
-        <button
-          className="relative rounded-lg p-2 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={notificationCount > 0 ? `${notificationCount} notifications` : 'No notifications'}
-          data-qqq-id="button-notifications"
-        >
-          <Bell className="h-5 w-5 text-foreground/60" aria-hidden="true" />
-          {notificationCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-destructive" />
-          )}
-        </button>
+        {/* Notifications bell (the Alerts qbit's; renders nothing when Alerts is not available) */}
+        {notificationsButton}
       </div>
     </header>
   )

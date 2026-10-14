@@ -26,6 +26,7 @@ import { axe } from 'jest-axe'
 
 import type { QInstance } from '@/types'
 import { server } from '@/mocks/node'
+import { uiApiVersionHandler } from '@/mocks/ui-api-version'
 import { AssistantProvider, useAssistantController } from './AssistantProvider'
 import { AssistantHeaderButton } from './AssistantHeaderButton'
 import { AssistantMount } from './AssistantMount'
@@ -124,6 +125,7 @@ function renderShell(metaData?: QInstance) {
 function mockAssistant(config: Record<string, unknown> | number = { enabled: true }) {
   persisted.messages = []
   server.use(
+    uiApiVersionHandler('assistant'),
     http.get(`${BASE}/config`, () => (typeof config === 'number' ? HttpResponse.json({ error: 'x' }, { status: config }) : HttpResponse.json(config))),
     http.get(`${BASE}/conversations`, () => HttpResponse.json({ conversations: [] })),
     http.post(`${BASE}/conversations`, () => HttpResponse.json(CONVERSATION, { status: 201 })),
@@ -184,6 +186,27 @@ describe('assistant gating', () => {
 })
 
 describe('asking a question', () => {
+  it('sends a presentation prompt through the same engine and context as the composer', async () => {
+    mockAssistant()
+    const reply = { type: 'presentation', summary: 'Images found.', markdown: 'Images found.', blocks: [{ kind: 'actions', items: [{ label: 'Show PNG', prompt: 'Show me PNG files' }] }] }
+    const requests: unknown[] = []
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      const body = await request.json() as { text: string }
+      requests.push(body)
+      persisted.messages = storedTurn(body.text, [reply])
+      return new HttpResponse(sse(START, ['presentation', { seq: 2, messageId: 11, part: reply }], ['message.end', { seq: 3, messageId: 11, status: 'COMPLETE' }]), { headers: { 'Content-Type': 'text/event-stream' } })
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const composer = await screen.findByRole('textbox', { name: 'Message the assistant' })
+    await user.type(composer, 'Count images{Enter}')
+    const action = await screen.findByRole('button', { name: 'Show PNG' })
+    await waitFor(() => expect(action).toBeEnabled())
+    await user.click(action)
+    await waitFor(() => expect(requests[1]).toEqual({ text: 'Show me PNG files', pageContext: { route: '/app/person', tableName: 'person' } }))
+  })
+
   it('streams the reply with a tool step and record chip, follows navigation, and passes axe', async () => {
     mockAssistant()
     const stream = controllableStream()
@@ -233,6 +256,51 @@ describe('asking a question', () => {
     expect(await within(panel).findByRole('button', { name: 'Good response' })).toBeInTheDocument()
     expect(within(panel).getByText('active')).toBeInTheDocument()
     expect(await axe(panel)).toHaveNoViolations()
+  })
+
+  it('shows the configured persona: name, greeting and starter prompts that send', async () => {
+    mockAssistant({ enabled: true, profile: { displayName: 'Ada', icon: 'school', greeting: 'Hi, I am Ada.', starterPrompts: ['How many posts?'] } })
+    const stream = controllableStream()
+    let turnBody: unknown
+    server.use(http.post(`${BASE}/conversations/4/turns`, async ({ request }) => {
+      turnBody = await request.json()
+      return stream.response()
+    }))
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    expect(within(panel).getAllByText('Ada').length).toBeGreaterThan(0)
+    expect(within(panel).getByText('Hi, I am Ada.')).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: 'How many posts?' }))
+    await waitFor(() => expect(turnBody).toMatchObject({ text: 'How many posts?' }))
+    act(() => stream.close())
+  })
+
+  it('switches a conversation between Read-only and Write', async () => {
+    mockAssistant({ enabled: true, features: { writeMode: true } })
+    const stream = controllableStream()
+    let patched: unknown
+    server.use(
+      http.post(`${BASE}/conversations`, () => HttpResponse.json({ ...CONVERSATION, writeMode: false }, { status: 201 })),
+      http.get(`${BASE}/conversations/4`, () => HttpResponse.json({ conversation: { ...CONVERSATION, writeMode: false }, messages: [] })),
+      http.post(`${BASE}/conversations/4/turns`, () => stream.response()),
+      http.patch(`${BASE}/conversations/4`, async ({ request }) => {
+        patched = await request.json()
+        return HttpResponse.json({ ...CONVERSATION, writeMode: true })
+      })
+    )
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(await screen.findByRole('button', { name: /^Assistant/ }))
+    const panel = await screen.findByRole('dialog', {}, { timeout: 10_000 })
+    await user.type(within(panel).getByRole('textbox', { name: 'Message the assistant' }), 'hi{Enter}')
+    act(() => stream.close())
+    const toggle = await within(panel).findByRole('switch', { name: /read-only/i })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await user.click(toggle)
+    await waitFor(() => expect(patched).toEqual({ writeMode: true }))
+    expect(await within(panel).findByRole('switch', { name: /write/i })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('stops a reply through the cancel endpoint', async () => {

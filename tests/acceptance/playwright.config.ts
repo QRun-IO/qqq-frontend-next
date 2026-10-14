@@ -6,6 +6,7 @@
  */
 
 import { defineConfig, devices } from '@playwright/test'
+import path from 'node:path'
 import { ACCEPTANCE_BACKEND_PORT, ACCEPTANCE_FRONTEND_PORT, ACCEPTANCE_MODE, ACCEPTANCE_UI_URL } from './support/ports'
 
 /**
@@ -17,6 +18,7 @@ const browsers = (process.env.QQQ_ACCEPTANCE_BROWSERS ?? 'chromium').split(',')
 const MOBILE_TAG = /@mobile\b/
 // The tablet runs the phone scenarios too (WebKit touch, as on an iPad) plus tablet-layout tests.
 const TABLET_TAG = /@(mobile|tablet)\b/
+const quarantineOnly = process.env.QQQ_ACCEPTANCE_QUARANTINE === 'only'
 const deviceFor: Record<string, (typeof devices)[string]> = {
   chromium: devices['Desktop Chrome'],
   firefox: devices['Desktop Firefox'],
@@ -33,9 +35,13 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   forbidOnly: true,
+  grepInvert: quarantineOnly ? undefined : /@quarantine\b/,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  reporter: [
+  reporter: process.env.QQQ_ACCEPTANCE_BLOB === '1' ? [
+    ['list'],
+    ['blob', { outputDir: path.resolve('test-results/acceptance/blob-report'), fileName: process.env.QQQ_ACCEPTANCE_BLOB_NAME }],
+  ] : [
     ['list'],
     ['json', { outputFile: '../../test-results/acceptance/report.json' }],
     ['html', { outputFolder: '../../test-results/acceptance/html', open: 'never' }],
@@ -51,7 +57,13 @@ export default defineConfig({
   // the tablet project (iPad, WebKit, touch) runs those and the @tablet specs. The desktop
   // projects run everything; desktop-only layouts (grid columns, resizing, grid keyboard
   // navigation) are not phone scenarios. See docs/acceptance/browser-matrix.md.
-  projects: browsers.map((name) => ({ name, use: { ...deviceFor[name] }, ...(grepFor[name] ? { grep: grepFor[name] } : {}) })),
+  projects: browsers.map((name) => ({
+    name, use: { ...deviceFor[name] },
+    // Lookaheads intersect quarantine and touch tags; neither may override the other.
+    grep: quarantineOnly
+      ? new RegExp(`(?=.*@quarantine\\b)${grepFor[name] ? `(?=.*${grepFor[name].source})` : ''}`)
+      : grepFor[name],
+  })),
   webServer: [
     {
       command: 'node scripts/acceptance-backend.mjs',

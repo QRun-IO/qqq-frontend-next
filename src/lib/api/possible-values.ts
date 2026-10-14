@@ -20,8 +20,33 @@
 
 import { z } from 'zod'
 
-import type { QPossibleValue } from '@/types'
+import type { QPossibleValue, QQueryFilter } from '@/types'
+import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 import apiClient from './client'
+
+/**
+ * A record picker page request (the v1 body's `picker` object), for a field whose possible value
+ * source declares a picker. The server allows criteria only on the picker's filter fields and
+ * orderings only on its sort fields (or the primary key).
+ */
+export interface PickerPageRequest {
+  /** Criteria (`AND`ed with the field's own filter) and the ordering; `skip`/`limit` are ignored. */
+  filter?: Pick<QQueryFilter, 'criteria' | 'orderBys'> & { booleanOperator?: 'AND' | 'OR' }
+  /** Keyset paging: the last option id of the previous page (ordering by the primary key alone). */
+  afterId?: string | number
+  /** Offset paging, for other orderings. */
+  skip?: number
+  /** Options per page (default: the picker's page size). */
+  limit?: number
+}
+
+/** A page of picker options and whether another follows (the picker never counts). */
+export interface PossibleValuesPage {
+  /** The options, each with its picker display values. */
+  options: QPossibleValue[]
+  /** Whether another page follows. */
+  hasMore: boolean
+}
 
 /**
  * Common request parameters accepted by all possible-values endpoints.
@@ -64,20 +89,34 @@ export interface PossibleValuesRequest {
    * Distinct from `values`/`ids`, which look choices up by identity.
    */
   formValues?: Record<string, unknown>
+  /** A record picker request: options carry display values and the response says whether more follow. */
+  picker?: PickerPageRequest
 }
 
-/** Validate the native envelope before exposing options to a picker. */
-const possibleValuesResponse = z.union([z.object({
-  options: z.array(z.object({ id: z.union([z.string(), z.number().finite()]), label: z.string() }).passthrough()),
-}), z.object({}).strict().transform(() => ({ options: [] }))])
+/**
+ * Validate the native envelope before exposing options to a picker. Jackson omits an empty
+ * `options` list, so `{}` (or `{ hasMore: false }` for a picker request) means no options.
+ */
+const possibleValuesResponse = z.union([
+  z.object({
+    options: z.array(z.object({
+      id: z.union([z.string(), z.number().finite()]),
+      label: z.string(),
+      values: z.record(z.unknown()).optional(),
+      displayValues: z.record(z.string()).optional(),
+    }).passthrough()),
+    hasMore: z.boolean().optional(),
+  }),
+  z.object({ hasMore: z.boolean().optional() }).strict().transform((empty) => ({ options: [], hasMore: empty.hasMore })),
+])
 
 /**
  * Search a possible-value source through its v1 route (`POST`, JSON body).
  * @param url - v1 route relative to the API base URL.
  * @param request - Search text, identifiers, form values and field context.
- * @returns Validated native options; rejects HTTP and response-format failures.
+ * @returns Validated native options and whether more follow; rejects HTTP and response-format failures.
  */
-async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
+async function loadPossibleValuesPage(url: string, request: PossibleValuesRequest): Promise<PossibleValuesPage> {
   const { searchTerm, useCase } = request
   const ids = request.ids ?? request.values
   const body: Record<string, unknown> = {}
@@ -87,8 +126,50 @@ async function loadPossibleValues(url: string, request: PossibleValuesRequest): 
   else if (request.labels) body.labels = request.labels.split(',')
   if (useCase) body.useCase = useCase
   if (request.formValues) body.values = request.formValues
+  if (request.picker) body.picker = request.picker
   const result = await apiClient.post<unknown>(url, body)
-  return possibleValuesResponse.parse(result).options
+  const page = possibleValuesResponse.parse(result)
+  return { options: page.options as QPossibleValue[], hasMore: page.hasMore ?? false }
+}
+
+/**
+ * Search a possible-value source through its v1 route, returning the options only.
+ * @param url - v1 route relative to the API base URL.
+ * @param request - Search text, identifiers, form values and field context.
+ * @returns Validated native options.
+ */
+async function loadPossibleValues(url: string, request: PossibleValuesRequest): Promise<QPossibleValue[]> {
+  return (await loadPossibleValuesPage(url, request)).options
+}
+
+/**
+ * The v1 possible-values route of a field: a table or process field, or a standalone source.
+ * @param context - Where the field is (table, process or standalone).
+ * @param fieldName - Exact field identifier.
+ * @param possibleValueSourceName - Source name for a standalone lookup (defaults to the field name).
+ * @returns The route relative to the API base URL.
+ */
+export function possibleValuesUrl(context: PossibleValueContext, fieldName: string, possibleValueSourceName?: string): string {
+  if (context.type === 'table') return `/table/${encodeURIComponent(context.tableName)}/possibleValues/${encodeURIComponent(fieldName)}`
+  if (context.type === 'process') return `/processes/${encodeURIComponent(context.processName)}/possibleValues/${encodeURIComponent(fieldName)}`
+  return `/possibleValues/${encodeURIComponent(possibleValueSourceName ?? fieldName)}`
+}
+
+/**
+ * Load a page of a field's choices with the record picker (options with display values).
+ * @param context - Where the field is (table, process or standalone).
+ * @param fieldName - Exact field identifier.
+ * @param possibleValueSourceName - Source name for a standalone lookup.
+ * @param request - Search, ids, form values and the picker page request.
+ * @returns The options and whether another page follows.
+ */
+export async function fetchPossibleValuesPage(
+  context: PossibleValueContext,
+  fieldName: string,
+  possibleValueSourceName: string | undefined,
+  request: PossibleValuesRequest & { picker: PickerPageRequest }
+): Promise<PossibleValuesPage> {
+  return loadPossibleValuesPage(possibleValuesUrl(context, fieldName, possibleValueSourceName), request)
 }
 
 /**

@@ -31,6 +31,7 @@ import { ArrowLeft, Check, ChevronRight, Loader2, X } from 'lucide-react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QInstance, QProcessMetaData, QTableMetaData } from '@/types'
 import type { ProcessFiles } from '@/lib/api/processes'
+import { canAccessProcess } from '@/lib/auth/permissions'
 import { zodFieldFromMetadata } from '@/lib/utils/zod-from-metadata'
 import { cn } from '@/lib/utils/cn'
 import { fromLocalDateTimeInput } from '@/lib/utils/datetime-utils'
@@ -73,6 +74,8 @@ export interface ProcessStepScreenProps {
   /** Compact presentation for a report process screen containing only report inputs. */
   compactReportInputs?: boolean
   onSubmit: (values: Record<string, unknown>, files?: ProcessFiles) => void
+  /** Submit the same validated screen payload as a durable job. */
+  onRunInBackground?: (values: Record<string, unknown>, files?: ProcessFiles) => void
   onBack: () => void
   onCancel: () => void
   onReturn: () => void
@@ -171,7 +174,7 @@ function StepHelp({ step, processName }: { step: QFrontendStepMetaData; processN
 export function ProcessStepScreen({
   processName, processMetaData, processUUID, step, steps, values, backStep, isWorking, tableVariant,
   tableMetaData, sourceTableMetaData, previewTableMetaData, instance, isEmbedded = false, compactReportInputs = false,
-  onSubmit, onBack, onCancel, onReturn,
+  onSubmit, onRunInBackground, onBack, onCancel, onReturn,
 }: ProcessStepScreenProps) {
   const [overrideOnLastStep, setOverrideOnLastStep] = useState<boolean | null>(null)
   const [stepLabel, setStepLabel] = useState<string | null>(null)
@@ -240,8 +243,9 @@ export function ProcessStepScreen({
   /**
    * Build the screen payload and submit it.
    * @param formValues - Validated form values.
+   * @param background - Whether to submit as a durable job.
    */
-  const submitValues = useCallback((formValues: Record<string, unknown>) => {
+  const submitValues = useCallback((formValues: Record<string, unknown>, background = false) => {
     const payload: Record<string, unknown> = {}
     const files: ProcessFiles = {}
     if (!isBulkEdit) {
@@ -271,13 +275,14 @@ export function ProcessStepScreen({
       if (field.type === 'DATE_TIME' && typeof value === 'string') payload[field.name] = fromLocalDateTimeInput(value, values[field.name])
     }
     extraValuesRef.current = {}
-    onSubmit(payload, Object.keys(files).length > 0 ? files : undefined)
-  }, [fields, hasValidationReview, isBulkEdit, onSubmit, values])
+    const submit = background ? onRunInBackground : onSubmit
+    submit?.(payload, Object.keys(files).length > 0 ? files : undefined)
+  }, [fields, hasValidationReview, isBulkEdit, onSubmit, onRunInBackground, values])
 
   const requestSubmit = useCallback((extraValues?: Record<string, unknown>) => {
     if (isWorking) return
     extraValuesRef.current = extraValues ?? {}
-    void form.handleSubmit(submitValues)()
+    void form.handleSubmit((formValues) => submitValues(formValues))()
   }, [form, isWorking, submitValues])
 
   const widgetFormHost = useMemo<WidgetFormHost>(() => ({
@@ -362,6 +367,17 @@ export function ProcessStepScreen({
                 </button>
               )}
               {!compactReportInputs && nextButton}
+              {onRunInBackground && canAccessProcess(processMetaData) && (processMetaData.durableJobEligible || processMetaData.durableJobAlways) && typeof values.durableJobId !== 'number' && (
+                <button
+                  type="button"
+                  disabled={isWorking}
+                  className={secondaryButton}
+                  data-qqq-id="button-run-in-background"
+                  onClick={() => { if (!isWorking) void form.handleSubmit((formValues) => submitValues(formValues, true))() }}
+                >
+                  Run in background
+                </button>
+              )}
             </>
           )}
         </div>}

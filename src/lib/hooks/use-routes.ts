@@ -101,6 +101,7 @@ const STATIC_PAGE_LABELS: Record<string, string> = {
   '/app': 'Dashboard',
   '/app/developer': 'Developer',
   '/app/search': 'Search',
+  '/app/notifications': 'Notifications',
 }
 
 /**

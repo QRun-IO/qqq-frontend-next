@@ -28,11 +28,12 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, MoreHorizontal, PanelLeft, Pencil, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Eye, MoreHorizontal, PanelLeft, Pencil, PencilLine, Pin, PinOff, SquarePen, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { QInstance } from '@/types'
-import type { AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import type { AssistantAttachment, AssistantConversation, AssistantConversationDetail, AssistantConversationStatus, AssistantConversationUpdate } from '@/types/assistant'
+import { uploadFile } from '@/lib/api/uploads'
 import {
   deleteAssistantConversation,
   getAssistantConversation,
@@ -151,6 +152,30 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   const [dismissedRoute, setDismissedRoute] = useState<string | null>(null)
   const [pageInfo, setPageInfo] = useState(() => readPageInfo(metaData))
   const [prefill, setPrefill] = useState<{ id: number; text: string } | null>(null)
+  const [attachments, setAttachments] = useState<AssistantAttachment[]>([])
+  const [attaching, setAttaching] = useState(false)
+  // attaching is offered where saved bulk load profiles are (the bulk-load tools use the files)
+  const canAttach = Boolean(metaData?.processes?.storeSavedBulkLoadProfile)
+
+  // attachments belong to one conversation
+  useEffect(() => setAttachments([]), [activeConversationId])
+
+  /**
+   * Uploads a picked file (POST /uploads, as the user) and attaches its ref.
+   *
+   * @param file - The file.
+   */
+  const attach = async (file: File) => {
+    setAttaching(true)
+    try {
+      const uploaded = await uploadFile(file)
+      setAttachments((current) => [...current.filter((a) => a.uploadRef !== uploaded.ref), { uploadRef: uploaded.ref, fileName: uploaded.fileName }].slice(-5))
+    } catch (error) {
+      toast.error(`Could not attach ${file.name}: ${getErrorMessage(error)}`)
+    } finally {
+      setAttaching(false)
+    }
+  }
   const listId = useId()
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -222,7 +247,8 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
    */
   const send = (text: string) => {
     const info = readPageInfo(metaData)
-    const context = info && dismissedRoute !== info.context.route ? info.context : null
+    const pageContext = info && dismissedRoute !== info.context.route ? info.context : null
+    const context = attachments.length ? { ...(pageContext ?? {}), attachments } : pageContext
     stickToBottom.current = true
     void engine.send(text, activeConversationId, context)
   }
@@ -259,7 +285,9 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
   }
 
   const showMessages = wide || !railOpen
-  const title = activeConversationId === null ? 'Assistant' : conversationTitle(conversation)
+  const profile = assistant.config?.profile
+  const assistantName = profile?.displayName?.trim() || 'Assistant'
+  const title = activeConversationId === null ? assistantName : conversationTitle(conversation)
   const iconButton = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-11'
   const menuItem = 'flex cursor-pointer select-none items-center gap-2 rounded px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-accent pointer-coarse:min-h-11'
 
@@ -307,6 +335,25 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
           </form>
         ) : (
           <h2 id={titleId} className="min-w-0 flex-1 truncate px-1 text-sm font-semibold text-foreground" data-qqq-id="assistant-title">{title}</h2>
+        )}
+        {conversation && activeConversationId !== null && assistant.config?.features?.writeMode && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(conversation.writeMode)}
+            onClick={() => void updateConversation({ writeMode: !conversation.writeMode })}
+            title={conversation.writeMode
+              ? 'Write mode: the assistant may propose changes, which you confirm. It acts only with your own permissions.'
+              : 'Read-only: the assistant cannot change anything. Switch to Write to let it propose changes you confirm.'}
+            className={cn(
+              'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-medium pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              conversation.writeMode ? 'border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'border-border text-muted-foreground hover:bg-accent'
+            )}
+            data-qqq-id="assistant-write-mode"
+          >
+            {conversation.writeMode ? <PencilLine className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+            {conversation.writeMode ? 'Write' : 'Read-only'}
+          </button>
         )}
         {conversation && activeConversationId !== null && (
           <DropdownMenu.Root>
@@ -392,15 +439,31 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
             >
               {activeConversationId === null && (
                 <div className="py-6 text-center text-sm text-muted-foreground" data-qqq-id="assistant-empty">
-                  <p className="font-medium text-foreground">Ask about your data</p>
-                  <p className="mt-1">Find records, count and explain them, or ask to be taken to a screen. The assistant sees only what you can see.</p>
+                  <p className="font-medium text-foreground">{profile?.greeting?.trim() || 'Ask about your data'}</p>
+                  <p className="mt-1">Find records, count and explain them, or ask to be taken to a screen. {assistantName} sees and does only what you can, through the same API as these screens.</p>
+                  {(profile?.starterPrompts?.length ?? 0) > 0 && (
+                    <ul className="mt-4 flex flex-wrap justify-center gap-2" aria-label="Suggested questions" data-qqq-id="assistant-starters">
+                      {profile?.starterPrompts?.map((prompt) => (
+                        <li key={prompt} className="max-w-full">
+                          <button
+                            type="button"
+                            onClick={() => send(prompt)}
+                            disabled={Boolean(run)}
+                            className="max-w-full rounded-full border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent pointer-coarse:min-h-11 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                          >
+                            {prompt}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
               {activeConversationId !== null && detailQuery.isLoading && <p className="text-xs text-muted-foreground" role="status">Loading conversation...</p>}
               {activeConversationId !== null && detailQuery.isError && (
                 <p className="text-xs text-destructive" role="alert">{getErrorMessage(detailQuery.error, 'Could not load the conversation.')}</p>
               )}
-              {messages.map((message) => <AssistantMessageView key={message.id} message={message} />)}
+              {messages.map((message) => <AssistantMessageView key={message.id} message={message} onSend={send} sending={Boolean(run)} />)}
             </div>
             <AssistantComposer
               ref={composerRef}
@@ -413,6 +476,10 @@ function PanelBody({ assistant, engine, wide, titleId, composerRef }: PanelBodyP
               onSend={send}
               onStop={() => activeConversationId !== null && engine.cancel(activeConversationId)}
               prefill={prefill}
+              attachments={attachments}
+              onAttach={canAttach ? (file) => void attach(file) : undefined}
+              onRemoveAttachment={(uploadRef) => setAttachments((current) => current.filter((a) => a.uploadRef !== uploadRef))}
+              attaching={attaching}
             />
           </div>
         )}

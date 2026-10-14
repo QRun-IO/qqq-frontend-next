@@ -39,6 +39,7 @@ import { sendAssistantFeedback } from '@/lib/api/assistant'
 import { internalAppHref } from '@/lib/utils/assistant-links'
 import { cn } from '@/lib/utils/cn'
 import { AssistantMarkdown } from './AssistantMarkdown'
+import { AssistantPresentation, type AssistantPresentationActions } from './AssistantPresentation'
 import { AssistantRenderView, RecordChips } from './AssistantRenders'
 import Link from 'next/link'
 
@@ -140,12 +141,13 @@ function NavigateView({ part }: { part: AssistantNavigatePart }) {
 }
 
 /** Renders one part type. */
-type PartRenderer<T extends AssistantPart> = (props: { part: T }) => React.ReactNode
+type PartRenderer<T extends AssistantPart> = (props: { part: T } & AssistantPresentationActions) => React.ReactNode
 
 /**
  * Renderers by part type. Phase 2 adds `approval` here; anything without a renderer is skipped.
  */
 export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extract<AssistantPart, { type: K }>> } = {
+  presentation: ({ part, onSend, sending }) => <AssistantPresentation part={part} onSend={onSend} sending={sending} />,
   text: ({ part }: { part: AssistantTextPart }) => (part.text ? <AssistantMarkdown text={part.text} /> : null),
   tool: ({ part }: { part: AssistantToolPart }) => <ToolStep part={part} />,
   record_refs: ({ part }: { part: AssistantRecordRefsPart }) => <RecordChips refs={part.refs} />,
@@ -160,9 +162,9 @@ export const PART_RENDERERS: { [K in AssistantPart['type']]: PartRenderer<Extrac
  * @param props.part - Any part, including types this version does not know.
  * @returns The rendered part, or null.
  */
-function PartView({ part }: { part: AssistantPart }) {
+function PartView({ part, onSend, sending }: { part: AssistantPart } & AssistantPresentationActions) {
   const render = (PART_RENDERERS as Record<string, PartRenderer<AssistantPart> | undefined>)[part.type]
-  return render ? <>{render({ part })}</> : null
+  return render ? <>{render({ part, onSend, sending })}</> : null
 }
 
 /**
@@ -235,7 +237,7 @@ function FeedbackButtons({ messageId }: { messageId: number }) {
  * @param props.message - The message.
  * @returns The message article.
  */
-export function AssistantMessageView({ message }: { message: AssistantMessage }) {
+export function AssistantMessageView({ message, onSend, sending }: { message: AssistantMessage } & AssistantPresentationActions) {
   if (message.role === 'USER') {
     const text = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
     return (
@@ -254,7 +256,7 @@ export function AssistantMessageView({ message }: { message: AssistantMessage })
   const streaming = message.status === 'STREAMING'
   return (
     <article className="min-w-0 space-y-2" aria-label="Assistant" aria-busy={streaming} data-qqq-id="assistant-message" data-role="assistant" data-status={message.status}>
-      {message.parts.map((part, index) => <PartView key={part.type === 'tool' ? part.toolCallId : index} part={part} />)}
+      {message.parts.map((part, index) => <PartView key={part.type === 'tool' ? part.toolCallId : index} part={part} onSend={onSend} sending={sending || streaming} />)}
       {streaming && message.parts.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-qqq-id="assistant-thinking">
           <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />

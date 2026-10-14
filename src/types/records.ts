@@ -56,6 +56,10 @@ export interface QPossibleValue {
   id: number | string
   /** Human-readable text displayed to the user in autocomplete and select controls. */
   label: string
+  /** For a record picker request: the option's picker display values (thumbnail, subtitle, details), raw. */
+  values?: Record<string, unknown>
+  /** For a record picker request: formatted or translated values, where they differ from the raw ones. */
+  displayValues?: Record<string, string>
 }
 
 /** A single field change within an audit entry */
