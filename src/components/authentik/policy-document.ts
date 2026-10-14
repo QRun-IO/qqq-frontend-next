@@ -23,6 +23,9 @@
 /** The actions a statement can grant, in canonical statement order. */
 export const POLICY_ACTIONS = ['hasAccess', 'read', 'insert', 'edit', 'delete'] as const
 
+/** Symbolic full access; never expand this into today's catalog or treat it as an unknown resource. */
+export const FULL_ACCESS_PERMISSION = '*.*'
+
 /** One policy action. */
 export type PolicyAction = (typeof POLICY_ACTIONS)[number]
 
@@ -145,11 +148,18 @@ export function parsePolicy(document: unknown, format: PolicyFormat): PolicyPars
     const resourceNames = strings(s.Resource, `Statement ${n}: Resource`)
     if (!Array.isArray(resourceNames)) return { ok: false, error: resourceNames.error }
     for (const resource of resourceNames) {
+      if (resource === '*') {
+        if (actionNames.length !== 1 || actionNames[0] !== '*') return { ok: false, error: `Statement ${n}: Resource "*" requires Action ["*"]` }
+        permissions.add(FULL_ACCESS_PERMISSION)
+        continue
+      }
       if (!RESOURCE_PATTERN.test(resource)) return { ok: false, error: `Statement ${n}: resource "${resource}" must match [A-Za-z0-9_]+` }
       if (!resources.includes(resource)) resources.push(resource)
       actions.forEach((action) => permissions.add(permissionName(resource, action)))
     }
   }
+  // Validate every statement before discarding grants made redundant by full access.
+  if (permissions.has(FULL_ACCESS_PERMISSION)) return { ok: true, permissions: new Set([FULL_ACCESS_PERMISSION]), resources: ['*'] }
   return { ok: true, permissions, resources }
 }
 
@@ -176,14 +186,17 @@ function compareJava(a: string, b: string): number {
 /**
  * The canonical document for a set of permissions: one Allow statement per granted action in
  * the order hasAccess, read, insert, edit, delete, then named actions sorted alphabetically;
- * resources sorted; no `*`. Unknown named actions are preserved for explicit removal.
- * @param permissions - `{resource}.{action}` names; others are ignored.
+ * resources sorted. Full access replaces all grants with one wildcard statement.
+ * Unknown named actions are preserved for explicit removal.
+ * @param permissions - `{resource}.{action}` names or the full-access sentinel; others are ignored.
  * @param format - Spec and version to write.
  * @returns The document, compact and pretty.
  */
 export function generatePolicy(permissions: Iterable<string>, format: PolicyFormat): GeneratedPolicy {
   const byAction = new Map<string, Set<string>>(POLICY_ACTIONS.map((action) => [action, new Set<string>()]))
+  let fullAccess = false
   for (const permission of permissions) {
+    if (permission === FULL_ACCESS_PERMISSION) fullAccess = true
     const parts = splitPermission(permission)
     if (parts) {
       if (!byAction.has(parts.action)) byAction.set(parts.action, new Set())
@@ -191,7 +204,7 @@ export function generatePolicy(permissions: Iterable<string>, format: PolicyForm
     }
   }
   const actions = [...POLICY_ACTIONS, ...[...byAction.keys()].filter((action) => !isPolicyAction(action)).sort(compareJava)]
-  const statements = actions
+  const statements = fullAccess ? [{ action: '*', resources: ['*'] }] : actions
     .map((action) => ({ action, resources: [...(byAction.get(action) ?? [])].sort(compareJava) }))
     .filter((statement) => statement.resources.length > 0)
 

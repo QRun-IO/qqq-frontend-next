@@ -31,7 +31,7 @@ import { asList, isPlainObject } from '@/components/widgets/widget-types'
 import { ALERT_CLASS, INPUT_CLASS, WARNING_CLASS, buttonClass } from '@/components/ui/controls'
 import { cn } from '@/lib/utils/cn'
 import type { PolicyAction, PolicyFormat } from './policy-document'
-import { ACTION_LABELS, POLICY_ACTIONS, generatePolicy, parsePolicy, permissionName, roundTrips, splitPermission } from './policy-document'
+import { ACTION_LABELS, FULL_ACCESS_PERMISSION, POLICY_ACTIONS, generatePolicy, parsePolicy, permissionName, roundTrips, splitPermission } from './policy-document'
 
 /** One grantable resource in the catalog. */
 export interface PolicyCatalogResource {
@@ -67,6 +67,8 @@ export interface PolicyEditorPayload {
   catalog: PolicyCatalogGroup[]
   /** The group's current document (JSON text), or empty for none. */
   document?: string
+  /** Whether the current document grants full access; older servers omit this. */
+  fullAccess?: boolean
   /** Why the current document in Authentik does not parse, if it does not. */
   documentProblem?: string
   /** The document in Authentik differs from the last save made in QQQ. */
@@ -140,6 +142,8 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
   const format: PolicyFormat = useMemo(() => ({ spec: String(payload.spec ?? ''), version: String(payload.version ?? '') }), [payload.spec, payload.version])
   const outputFieldName = typeof payload.outputFieldName === 'string' && payload.outputFieldName ? payload.outputFieldName : 'policyDocument'
   const searchId = useId()
+  const fullAccessId = useId()
+  const fullAccessDescriptionId = useId()
   const memberId = useId()
   const previewTitleId = useId()
 
@@ -157,18 +161,22 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
   }, [catalog])
 
   const initial = useMemo(() => {
-    if (!payload.document || payload.document.trim() === '') return { permissions: new Set<string>(), problem: payload.documentProblem ?? null }
-    const parsed = parsePolicy(payload.document, format)
-    return parsed.ok ? { permissions: parsed.permissions, problem: payload.documentProblem ?? null } : { permissions: new Set<string>(), problem: payload.documentProblem ?? parsed.error }
-  }, [format, payload.document, payload.documentProblem])
+    const parsed = payload.document?.trim()
+      ? parsePolicy(payload.document, format)
+      : { ok: true as const, permissions: new Set<string>() }
+    if (!parsed.ok) return { permissions: new Set<string>(), problem: payload.documentProblem ?? parsed.error }
+    const fullAccess = payload.fullAccess ?? parsed.permissions.has(FULL_ACCESS_PERMISSION)
+    return { permissions: fullAccess ? new Set([FULL_ACCESS_PERMISSION]) : parsed.permissions, problem: payload.documentProblem ?? null }
+  }, [format, payload.document, payload.documentProblem, payload.fullAccess])
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initial.permissions))
+  const fullAccess = selected.has(FULL_ACCESS_PERMISSION)
   const [search, setSearch] = useState('')
   const [memberUsername, setMemberUsername] = useState('')
   const member = payload.members?.find((candidate) => candidate.username === memberUsername)
 
   const generated = useMemo(() => generatePolicy(selected, format), [format, selected])
-  const unknown = useMemo(() => [...selected].filter((permission) => !known.has(permission)).sort(), [known, selected])
+  const unknown = useMemo(() => fullAccess ? [] : [...selected].filter((permission) => !known.has(permission)).sort(), [fullAccess, known, selected])
   const valid = useMemo(() => roundTrips(selected, format), [format, selected])
 
   useEffect(() => {
@@ -201,6 +209,19 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
 
   return (
     <div className="@container flex min-w-0 flex-col gap-4" data-qqq-id={`policy-editor-${widgetMetaData.name}`}>
+      <div className="rounded-md border border-primary bg-primary/5 p-3">
+        <label htmlFor={fullAccessId} className="flex items-center gap-2 font-semibold text-foreground">
+          <input id={fullAccessId} type="checkbox" className="size-4 shrink-0 cursor-pointer accent-[var(--color-primary)]"
+            checked={fullAccess} aria-describedby={fullAccessDescriptionId}
+            onChange={(event) => setSelected(new Set(event.target.checked ? [FULL_ACCESS_PERMISSION] : []))}
+            data-qqq-id="policy-editor-full-access" />
+          Full access (all current and future resources)
+        </label>
+        <div id={fullAccessDescriptionId} className="mt-1 text-sm text-muted-foreground">
+          <p>Everything this app has now and anything added later, including table features. Use for administrators.</p>
+          <p>Turning this off clears all selections.</p>
+        </div>
+      </div>
       {payload.changedInAuthentik && (
         <p className={WARNING_CLASS} role="status" data-qqq-id="policy-editor-changed">
           This policy was changed in Authentik since it was last saved here. The editor shows what Authentik holds now.
@@ -212,35 +233,43 @@ export function AuthentikPolicyEditorWidget({ widgetMetaData, data, onWidgetData
         </p>
       )}
 
-      <div className="flex flex-col gap-2 @xl:flex-row @xl:items-end @xl:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor={searchId} className="text-sm font-medium text-foreground">Find a resource</label>
-          <input
-            id={searchId}
-            type="search"
-            className={cn(INPUT_CLASS, '@xl:max-w-sm')}
-            placeholder="App, table, process or report"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            data-qqq-id="policy-editor-search"
-          />
+      <fieldset disabled={fullAccess} aria-disabled={fullAccess} hidden={fullAccess} className="min-w-0">
+        <div className="flex flex-col gap-2 @xl:flex-row @xl:items-end @xl:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label htmlFor={searchId} className="text-sm font-medium text-foreground">Find a resource</label>
+            <input
+              id={searchId}
+              type="search"
+              className={cn(INPUT_CLASS, '@xl:max-w-sm')}
+              placeholder="App, table, process or report"
+              value={search}
+              aria-disabled={fullAccess}
+              onChange={(event) => setSearch(event.target.value)}
+              data-qqq-id="policy-editor-search"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span data-qqq-id="policy-editor-count">{`${selected.size} permission${selected.size === 1 ? '' : 's'} selected`}</span>
+            <button type="button" className={buttonClass('secondary', 'sm')} onClick={() => setSelected(new Set())} disabled={selected.size === 0} data-qqq-id="policy-editor-clear">
+              Clear all
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span data-qqq-id="policy-editor-count">{`${selected.size} permission${selected.size === 1 ? '' : 's'} selected`}</span>
-          <button type="button" className={buttonClass('secondary', 'sm')} onClick={() => setSelected(new Set())} disabled={selected.size === 0} data-qqq-id="policy-editor-clear">
-            Clear all
-          </button>
-        </div>
-      </div>
+      </fieldset>
 
       <div className="grid min-w-0 gap-4 @7xl:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)]">
-        <div className="flex min-w-0 flex-col gap-3">
-          {resourceCount === 0 && <p className="text-sm text-muted-foreground">This app has no resources that a policy can grant.</p>}
-          {resourceCount > 0 && visibleGroups.length === 0 && <p className="text-sm text-muted-foreground" role="status">No resource matches the search.</p>}
-          {visibleGroups.map((group) => (
-            <PolicyGroupSection key={group.app ?? '(other)'} group={group} selected={selected} onSet={set} />
-          ))}
-        </div>
+        <fieldset disabled={fullAccess} aria-disabled={fullAccess} aria-label="Resource permissions" className="min-w-0" data-qqq-id="policy-editor-matrix">
+          {fullAccess && <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Individual resource selection is disabled while full access is on.</p>}
+          <div hidden={fullAccess}>
+            <div className="flex min-w-0 flex-col gap-3">
+              {resourceCount === 0 && <p className="text-sm text-muted-foreground">This app has no resources that a policy can grant.</p>}
+              {resourceCount > 0 && visibleGroups.length === 0 && <p className="text-sm text-muted-foreground" role="status">No resource matches the search.</p>}
+              {visibleGroups.map((group) => (
+                <PolicyGroupSection key={group.app ?? '(other)'} group={group} selected={selected} onSet={set} />
+              ))}
+            </div>
+          </div>
+        </fieldset>
 
         <div className="flex min-w-0 flex-col gap-3">
           {unknown.length > 0 && (
