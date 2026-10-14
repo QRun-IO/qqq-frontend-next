@@ -35,7 +35,7 @@ const meta = {
   decorators: [
     (Story) => (
       <QueryClientProvider client={queryClient}>
-        <div className="@container w-[400px] space-y-4 bg-card p-3">
+        <div className="@container w-full max-w-[390px] space-y-4 bg-card p-3">
           <Story />
         </div>
       </QueryClientProvider>
@@ -107,5 +107,36 @@ export const DeniedAndError: Story = {
         { type: 'notice', level: 'error', text: 'The daily assistant budget was reached.' },
       ],
     } as AssistantMessage,
+  },
+}
+
+const mediaHref = (type: string) => `/app/media?filter=${encodeURIComponent(JSON.stringify({ criteria: [{ fieldName: 'mimeType', operator: 'EQUALS', values: [type] }], booleanOperator: 'AND' }))}`
+const jpegHref = mediaHref('image/jpeg')
+const pngHref = mediaHref('image/png')
+
+/** The owner's media answer, in a phone-width panel. Switch Storybook's theme to verify dark mode. */
+export const MediaPresentation: Story = {
+  args: {
+    onSend: (prompt) => window.alert(`Follow-up: ${prompt}`),
+    message: {
+      ...BASE, id: 14, role: 'ASSISTANT', status: 'COMPLETE',
+      parts: [{
+        type: 'presentation',
+        summary: '101 media files are images: 81 JPEG and 20 PNG.',
+        markdown: '101 media files are images: 81 JPEG and 20 PNG.',
+        blocks: [
+          { kind: 'table', title: 'Media by type',
+            columns: [{ key: 'type', label: 'Type' }, { key: 'count', label: 'Count', align: 'right' }, { key: 'share', label: 'Share', align: 'right' }],
+            rows: [
+              { cells: { type: 'JPEG (image/jpeg)', count: 81, share: 0.802 }, display: { share: '80.2%' }, href: jpegHref },
+              { cells: { type: 'PNG (image/png)', count: 20, share: 0.198 }, display: { share: '19.8%' }, href: pngHref },
+            ],
+          },
+          { kind: 'chart', chartType: 'pie', title: 'Share by type', points: [{ label: 'JPEG', value: 81, href: jpegHref }, { label: 'PNG', value: 20, href: pngHref }] },
+          { kind: 'filterLinks', items: [{ label: 'Open JPEG media (81)', tableName: 'media', href: jpegHref }, { label: 'Open PNG media (20)', tableName: 'media', href: pngHref }] },
+          { kind: 'actions', items: [{ label: 'Show the PNG files', prompt: 'Show me the PNG media files' }] },
+        ],
+      }],
+    },
   },
 }
