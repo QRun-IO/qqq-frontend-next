@@ -42,7 +42,7 @@ vi.mock('@/lib/api/possible-values', () => ({
 
 import { fetchWidgetData } from '@/lib/api/widgets'
 import { loadTableMetaData } from '@/lib/api/metadata'
-import { fetchPossibleValues } from '@/lib/api/possible-values'
+import { fetchPossibleValues, fetchTablePossibleValues } from '@/lib/api/possible-values'
 import { ProcessStepScreen } from './ProcessStepScreen'
 
 /**
@@ -145,6 +145,23 @@ describe('process screens: fields and chrome (#725)', () => {
     await user.click(within(sidebar).getByRole('link', { name: 'Work' }))
     expect(scrollIntoView).toHaveBeenCalled()
     expect(screen.getByRole('region', { name: 'Work' })).toHaveFocus()
+  })
+
+  it('bulk edit gates B on an enabled parent and submits both values', async () => {
+    const parent = field('country', 'Country')
+    const dependent = { ...field('state', 'State'), possibleValueSourceName: 'states', possibleValueSourceDependsOn: ['country'] }
+    const metadata = { name: 'address', label: 'Address', primaryKeyField: 'id', fields: { country: parent, state: dependent }, sections: [] } as unknown as QTableMetaData
+    vi.mocked(fetchTablePossibleValues).mockResolvedValue([{ id: 7, label: 'Valid state' }])
+    const { onSubmit } = renderStep({ name: 'edit', label: 'Edit', components: [{ type: 'BULK_EDIT_FORM' }], formFields: [parent, dependent] }, { country: 'USA' }, { tableMetaData: metadata })
+    await userEvent.click(screen.getByRole('switch', { name: 'Edit State' }))
+    expect(screen.getByRole('combobox', { name: 'State' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('Choose Country first')).toBeVisible()
+    await userEvent.click(screen.getByRole('switch', { name: 'Edit Country' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'State' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Valid state' }))
+    expect(fetchTablePossibleValues).toHaveBeenCalledWith('address', 'state', expect.objectContaining({ formValues: expect.objectContaining({ country: 'USA' }) }))
+    await userEvent.click(screen.getByRole('button', { name: /Next|Submit/ }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ country: 'USA', state: 7, bulkEditEnabledFields: 'country,state' }), undefined))
   })
 
   it('previews the associated child records of a table-layout preview', async () => {

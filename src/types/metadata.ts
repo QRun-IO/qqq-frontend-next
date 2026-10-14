@@ -458,6 +458,12 @@ export interface QFieldMetaData {
   defaultValue?: unknown
   /** Name of the possible-value source used to populate autocomplete options. */
   possibleValueSourceName?: string
+  /** Input field names required by this field's possible-value source (UI API 1.2.0). */
+  possibleValueSourceDependsOn?: string[]
+  /** Missing-input behavior; unknown values are treated as DISABLE_UNTIL_SET. */
+  possibleValueSourceDependencyBehavior?: 'DISABLE_UNTIL_SET' | 'SHOW_ALL_UNTIL_SET'
+  /** Legacy possible-value filter, used to discover input dependencies on older servers. */
+  possibleValueSourceFilter?: Partial<QQueryFilter>
   /**
    * Possible values declared inline on the field (an ENUM source on the field itself; never
    * combined with `possibleValueSourceName`). Searched client-side by label prefix, as in Material.

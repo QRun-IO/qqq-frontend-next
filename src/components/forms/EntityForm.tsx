@@ -1063,6 +1063,7 @@ function EntityFormBody(props: EntityFormProps & { prepared: PreparedForm }) {
       {/* Fields */}
       <FormPresenceContext.Provider value={fieldEditors}>
       <DynamicForm
+        formMethods={form}
         register={register}
         control={control}
         errors={errors}

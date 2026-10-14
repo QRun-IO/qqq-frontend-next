@@ -30,7 +30,7 @@ import { FormPresenceContext } from '@/components/collaboration/FormPresenceCont
 
 import { Controller } from 'react-hook-form'
 
-import type { Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
+import type { UseFormReturn, Control, UseFormRegister, FieldError, FieldErrors } from 'react-hook-form'
 import type { QFieldMetaData, QRecord } from '@/types'
 import type { PossibleValueContext } from '@/lib/hooks/use-possible-values'
 
@@ -61,6 +61,12 @@ import { WidgetAdornmentField } from './WidgetAdornmentField'
  * Props for the {@link DynamicFormField} component.
  */
 interface DynamicFormFieldProps {
+  /** Read/clear dependent selections through the owning form. */
+  formMethods?: Pick<UseFormReturn<Record<string, unknown>>, 'getValues' | 'setValue'>
+  /** Complete sibling metadata for dependency hints. */
+  fieldsByName?: Record<string, QFieldMetaData>
+  /** Bulk edit's enabled fields; disabled inputs do not supply dependencies. */
+  enabledFields?: Record<string, boolean>
   /** Surrounding values available to a field widget without making them editable. */
   contextValues?: Record<string, unknown>
   /** Optional hint supplied by an input block. */
@@ -190,6 +196,9 @@ export function DynamicFormField({
   placeholder,
   contextValues,
   idPrefix,
+  formMethods,
+  fieldsByName,
+  enabledFields,
   register,
   control,
   errors,
@@ -250,6 +259,9 @@ export function DynamicFormField({
       <DirtyWrapper isDirty={isDirty} fieldName={field.name}>
         <FieldWithHelp field={field} helpId={helpDescribedBy}>
           <PossibleValueSelect
+            formMethods={formMethods}
+            fieldsByName={fieldsByName}
+            enabledFields={enabledFields}
             id={fieldId}
             label={field.label}
             labelExtra={helpIcon}

@@ -34,11 +34,9 @@ test('[PRC-051] a process screen narrows Specimen choices to its Category and re
   const specimen = page.getByRole('combobox', { name: 'Specimen' })
   const specimens = page.getByRole('listbox', { name: 'Specimen options' })
 
-  // No Category yet: ${input.category} is unset, and for a form the backend offers nothing.
-  await specimen.click()
-  await expect(specimens).toContainText('No options found')
-  await expect(specimens.getByRole('option')).toHaveCount(0)
-  await specimen.click()
+  // The screen metadata declares Category as the required input for Specimen.
+  await expect(specimen).toHaveAttribute('aria-disabled', 'true')
+  await expect(specimen).toHaveAccessibleDescription('Choose Category first')
 
   await choosePossibleValue(page, 'Category', 'Mineral')
   await specimen.click()
@@ -54,9 +52,8 @@ test('[PRC-051] a process screen narrows Specimen choices to its Category and re
   await expect(specimen).toHaveText(/^Delta/)
 
   // Each search posted the screen's values.
-  expect(searches.length).toBeGreaterThanOrEqual(3)
+  expect(searches.length).toBeGreaterThanOrEqual(2)
   expect(searches.map((request) => request.method())).toEqual(searches.map(() => 'POST'))
-  expect(postedValues(searches[0]).category).toBe('') // an empty screen field is sent as '', which the backend treats as unset
   expect(searches.map((request) => postedValues(request).category)).toEqual(expect.arrayContaining(['Mineral', 'Plant']))
 
   await advance(page, 'Submit')
