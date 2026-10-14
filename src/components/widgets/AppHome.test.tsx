@@ -17,14 +17,18 @@
 // Tests for AppHome: v1 app shapes (arrays omitted when empty), labels, groups, hidden entries, child apps, counts
 
 import React from 'react'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 
 import { server } from '@/mocks/node'
-import type { QAppMetaData, QInstance, QTableMetaData, QProcessMetaData } from '@/types'
+import type { QAppMetaData, QInstance, QTableMetaData, QProcessMetaData, QWidgetMetaData } from '@/types'
 import { AppHome } from './AppHome'
+
+vi.mock('./ConnectedWidget', () => ({
+  ConnectedWidget: () => <div>App navigation widget</div>,
+}))
 
 function table(name: string, label: string, extra: Partial<QTableMetaData> = {}): QTableMetaData {
   return { name, label, isHidden: false, readPermission: true, capabilities: ['TABLE_COUNT', 'TABLE_QUERY'], ...extra } as QTableMetaData
@@ -48,11 +52,11 @@ const instance = {
   widgets: {},
 } as unknown as QInstance
 
-function renderHome(app: QAppMetaData, meta: QInstance = instance) {
+function renderHome(app: QAppMetaData, meta: QInstance = instance, widgetRegistry: Record<string, QWidgetMetaData> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <AppHome appMetaData={app} instance={meta} widgetRegistry={{}} />
+      <AppHome appMetaData={app} instance={meta} widgetRegistry={widgetRegistry} />
     </QueryClientProvider>
   )
 }
@@ -60,6 +64,42 @@ function renderHome(app: QAppMetaData, meta: QInstance = instance) {
 describe('AppHome', () => {
   beforeEach(() => {
     server.use(http.post('*/table/carrier/count', () => HttpResponse.json({ count: 11 })))
+  })
+
+  it.each([
+    { widgets: ['navigation'], hint: undefined, visible: false },
+    { widgets: undefined, hint: undefined, visible: true },
+    { widgets: [], hint: undefined, visible: true },
+    { widgets: ['navigation'], hint: true, visible: true },
+    { widgets: [], hint: false, visible: false },
+    { widgets: ['navigation'], hint: 'true', visible: false },
+    { widgets: [], hint: 'false', visible: true },
+  ])('sets both automatic grids to $visible for widgets=$widgets and hint=$hint', ({ widgets, hint, visible }) => {
+    renderHome({
+      name: 'parent', label: 'Parent', widgets,
+      children: [{ name: 'childApp', label: 'Child App', type: 'APP' }],
+      sections: [{ name: 'data', label: 'App Data', tables: ['uncountable'], processes: ['runIt'] }],
+      supplementalAppMetaData: { nextUi: { showChildGrid: hint } },
+    }, instance, { navigation: { name: 'navigation', label: 'Navigation', hasPermission: true } })
+
+    for (const region of ['Apps', 'App Data']) {
+      expect(Boolean(screen.queryByRole('region', { name: region }))).toBe(visible)
+    }
+    expect(Boolean(screen.queryByText('App navigation widget'))).toBe(Boolean(widgets?.length))
+    expect(Boolean(screen.queryByText('No dashboard content configured for this app'))).toBe(!visible && !widgets?.length)
+  })
+
+  it('hides automatic grids for declared widgets absent from the registry, including leaf-child sections', () => {
+    renderHome({
+      name: 'parent', label: 'Parent', widgets: ['unavailable'],
+      children: [
+        { name: 'childApp', label: 'Child App', type: 'APP' },
+        { name: 'uncountable', label: 'Uncountable', type: 'TABLE' },
+      ],
+    })
+    expect(screen.queryByRole('region', { name: 'Apps' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Parent' })).not.toBeInTheDocument()
+    expect(screen.getByText('No dashboard content configured for this app')).toBeInTheDocument()
   })
 
   it('caps the page at supplementalAppMetaData.dashboardLayout.maxContentWidth, and is uncapped by default', () => {

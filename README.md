@@ -63,6 +63,17 @@ To upgrade between RCs, change only the `qqq-frontend-next` version and check th
 
 Served from the jar there is nothing to configure in the frontend: it calls the API on the same origin at `/qqq/v1`, and the Javalin server sends the security headers and Content-Security-Policy. External embeds (for example QuickSight frames) need an allowed CSP source, not a disabled policy. The build-time variables under [Environment Variables](#environment-variables) apply only to frontend development and the standalone container image.
 
+### App home navigation grids
+
+App homes show automatic child-app ("Apps") and section ("Actions", "Reports", "Data")
+card grids only when the app declares no widgets (`widgets` is omitted or empty).
+Declaring one or more widgets hides both grids, even if a declared widget is unavailable
+to the current user, so widget-based navigation is not duplicated.
+
+Set `supplementalAppMetaData.nextUi.showChildGrid` on the app to override this default:
+`true` shows both grids alongside widgets; `false` hides both grids even without widgets.
+Only boolean values override the default. Existing visibility and permission rules still apply.
+
 ### Known limitations
 
 - Release candidates only; final 1.0 is held for application soak and owner approval ([#712](https://github.com/QRun-IO/qqq/issues/712), tracker [#713](https://github.com/QRun-IO/qqq/issues/713)).
