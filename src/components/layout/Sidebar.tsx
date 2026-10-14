@@ -22,6 +22,9 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { getPreferences } from '@/lib/api/preferences'
+import { queryKeys } from '@/lib/query-client'
 import { usePathname } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
@@ -31,16 +34,19 @@ import {
   X,
   Settings,
   LogOut,
+  Moon,
 } from 'lucide-react'
 
 import type { QBrandingMetaData } from '@/types'
 import type { SidebarRoute } from '@/lib/hooks/use-routes'
 import { cn } from '@/lib/utils/cn'
+import { useTheme } from '@/lib/theme/theme-provider'
 import { navItemQqqId } from '@/lib/utils/qqq-id'
 import { gravatarUrl } from '@/lib/utils/gravatar'
-import { UserPreferencesDialog } from './UserPreferencesDialog'
+import { NAV_WIDTH_CSS } from '@/lib/utils/nav-width'
 import BannerComponent from './Banner'
 import { MetadataIcon, type MetadataIconKind } from './MetadataIcon'
+import { NavResizeHandle } from './NavResizeHandle'
 
 /** Fallback icon kind for each app-tree node type. */
 const ICON_KIND: Record<string, MetadataIconKind> = { APP: 'app', TABLE: 'table', PROCESS: 'process', REPORT: 'report' }
@@ -179,8 +185,8 @@ function SidebarBranding({ branding, href }: { branding?: QBrandingMetaData; hre
  *
  * @param props - Component properties.
  * @returns On desktop: a `hidden md:flex` wrapper containing the `<aside>`
- *   column. In mobile-drawer mode (when `open` prop is provided): a Radix
- *   dialog whose content (the `<aside>` panel) is mounted only while `open`.
+ *   column and its resize handle (the width persists per browser). In
+ *   mobile-drawer mode (when `open` prop is provided): a Radix dialog whose content (the `<aside>` panel) is mounted only while `open`.
  */
 export default function Sidebar({
   routes,
@@ -232,7 +238,8 @@ export default function Sidebar({
 
   const asideEl = (
     <aside
-      className="flex h-full w-64 flex-col overflow-hidden border-r border-border bg-sidebar text-foreground"
+      id={isMobileDrawer ? undefined : 'qqq-desktop-nav'}
+      className={cn('flex h-full flex-col overflow-hidden border-r border-border bg-sidebar text-foreground', isMobileDrawer ? 'w-64' : 'w-full')}
       onMouseEnter={!isMobileDrawer ? onMouseEnter : undefined}
       onMouseLeave={!isMobileDrawer ? onMouseLeave : undefined}
       data-qqq-id="sidebar"
@@ -331,10 +338,11 @@ export default function Sidebar({
     )
   }
 
-  // Desktop: render as a static sidebar
+  // Desktop: a static column whose width the user sets with the handle on its right edge
   return (
-    <div className="hidden md:flex h-full flex-shrink-0" data-qqq-id="sidebar-desktop">
+    <div className="relative hidden md:flex h-full flex-shrink-0" style={{ width: NAV_WIDTH_CSS }} data-qqq-id="sidebar-desktop">
       {asideEl}
+      <NavResizeHandle controls="qqq-desktop-nav" />
     </div>
   )
 }
@@ -518,8 +526,8 @@ function SidebarLinkItem({ route, isActive }: SidebarLinkItemProps) {
  *
  * @param props - Component properties.
  * @returns A React fragment containing a `<div>` with the popover menu (above
- *   the user bar) and the user-info `<button>`, followed by a
- *   {@link UserPreferencesDialog} portal. The popover is dismissed on outside
+ *   the user bar) and the user-info `<button>`. Preferences links to its page.
+ *   The popover is dismissed on outside
  *   click or Escape and re-mounts cleanly each time it opens.
  */
 function UserFooter({
@@ -534,14 +542,19 @@ function UserFooter({
   gravatarDefault?: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { theme, isDarkMode, setDarkMode } = useTheme()
+  const preferences = useQuery({
+    queryKey: queryKeys.preferencesIndex(),
+    queryFn: getPreferences,
+    enabled: menuOpen,
+    retry: false,
+  })
   // Material shows the user's Gravatar; here only when the branding declares gravatarDefault, so
   // no email hash goes to a third party unless the application opts in. A failed image keeps the initial.
   const avatarUrl = gravatarDefault ? gravatarUrl(userEmail, gravatarDefault) : undefined
   const [avatarFailed, setAvatarFailed] = useState(false)
   // Material names a user without a name "Anonymous"
   const displayName = userName || 'Anonymous'
-  const userButtonRef = useRef<HTMLButtonElement>(null)
-  const [prefsOpen, setPrefsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close menu on outside click
@@ -580,12 +593,11 @@ function UserFooter({
             data-qqq-id="sidebar-user-menu"
           >
             <div className="py-1">
-              <button
-                type="button"
+              <Link
+                href="/app/preferences"
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false)
-                  setPrefsOpen(true)
                 }}
                 className={cn(
                   'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
@@ -596,7 +608,48 @@ function UserFooter({
               >
                 <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 Preferences
+              </Link>
+              {/* Applies immediately, without leaving the page; full display settings live on the Preferences page. */}
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={isDarkMode}
+                disabled={Boolean(theme)}
+                title={theme ? 'This application theme requires light mode.' : undefined}
+                onClick={() => setDarkMode(!isDarkMode)}
+                className={cn(
+                  'flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground',
+                  'hover:bg-accent transition-colors focus:outline-none focus:bg-accent',
+                  'disabled:cursor-not-allowed disabled:opacity-60'
+                )}
+                data-qqq-id="menu-item-dark-mode"
+              >
+                <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1 text-left">Dark mode</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    isDarkMode ? 'bg-primary' : 'bg-muted-foreground/30'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform',
+                      isDarkMode ? 'translate-x-4' : 'translate-x-0.5'
+                    )}
+                  />
+                </span>
               </button>
+              {preferences.data?.sections.filter((section) => section.showInUserMenu).map((section) => (
+                <Link key={section.name} href={`/app/preferences?section=${encodeURIComponent(section.name)}`} role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent focus:outline-none focus:bg-accent"
+                  data-qqq-id={`menu-item-preferences-${section.name}`}>
+                  <MetadataIcon icon={section.icon} kind="section" className="h-4 w-4 text-muted-foreground" />
+                  {section.label}
+                </Link>
+              ))}
               {logout && (
                 <button
                   type="button"
@@ -630,7 +683,6 @@ function UserFooter({
           )}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          ref={userButtonRef}
           data-qqq-id="sidebar-user-button"
           data-qqq-sidenav-item-type="user-profile"
         >
@@ -671,9 +723,6 @@ function UserFooter({
           )}
         </button>
       </div>
-
-      {/* Preferences dialog */}
-      <UserPreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} returnFocusRef={userButtonRef} />
     </>
   )
 }

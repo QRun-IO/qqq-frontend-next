@@ -111,11 +111,13 @@ test.describe('filter operators', () => {
     await open(page, '/app/qryItem')
     await showTable(page)
     await openFilter(page)
-    const row = await addCondition(page, 'Received Date', 'equals')
+    // Date-first: dates are compared as whole days ("is on", "is not on"); exact values and relative
+    // expressions stay available through "is relative to today" below.
+    const row = await addCondition(page, 'Received Date', 'is on')
     const input = row.getByLabel('Filter value for Received Date')
     const fixed: [string, string][] = [
-      ['equals', "received_date = DATE '2021-01-01'"],
-      ['does not equal', "(received_date is null or received_date <> DATE '2021-01-01')"],
+      ['is on', "received_date = DATE '2021-01-01'"],
+      ['is not on', "(received_date is null or received_date <> DATE '2021-01-01')"],
       ['is after', "received_date > DATE '2021-01-01'"],
       ['is on or after', "received_date >= DATE '2021-01-01'"],
       ['is before', "received_date < DATE '2021-01-01'"],
@@ -137,8 +139,8 @@ test.describe('filter operators', () => {
     await setOperator(row, 'is not between')
     await expectColumn(page, 'name', await names(backend, "received_date not between DATE '2020-01-01' and DATE '2021-01-01'"))
 
-    // Relative: "is after 10 days ago" (Material's NowWithOffset)
-    await setOperator(row, 'is after')
+    // Relative: "is after 10 days ago" (Material's NowWithOffset); "is relative to today" switches the row to exact values
+    await setOperator(row, 'is relative to today')
     const sent = nextQuery(page, 'qryItem')
     await row.getByRole('button', { name: 'Relative date for Received Date' }).click()
     const editor = page.getByRole('dialog', { name: 'Custom date filter condition' })
@@ -180,6 +182,8 @@ test.describe('filter operators', () => {
     await showTable(page)
       await openFilter(page)
       const row = await addCondition(page, 'Checked At', 'is before')
+      // "Include time" switches the row from whole days to exact date-times
+      await row.getByLabel('Include time for Checked At').check()
       const sent = nextQuery(page, 'qryItem')
       // 03:00 in Chicago on 2021-01-01 is 09:00 UTC, so the 08:30 UTC row matches
       await row.getByLabel('Filter value for Checked At').fill('2021-01-01T03:00')

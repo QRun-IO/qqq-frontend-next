@@ -99,13 +99,13 @@ describe('SqlWorkbenchWidget', () => {
     expect(screen.getByText('month')).toBeInTheDocument()
     expect(screen.getByText(':since')).toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: 'My notebooks' })).toHaveAttribute(
-      'aria-pressed',
+    expect(screen.getByRole('tab', { name: 'My notebooks' })).toHaveAttribute(
+      'aria-selected',
       'true'
     )
-    await user.click(screen.getByRole('button', { name: 'Shared library' }))
-    expect(screen.getByRole('button', { name: 'Shared library' })).toHaveAttribute(
-      'aria-pressed',
+    await user.click(screen.getByRole('tab', { name: 'Shared library' }))
+    expect(screen.getByRole('tab', { name: 'Shared library' })).toHaveAttribute(
+      'aria-selected',
       'true'
     )
     expect(await screen.findByRole('button', { name: /Orphan media/ })).toBeInTheDocument()
@@ -127,10 +127,18 @@ describe('SqlWorkbenchWidget', () => {
     expect(screen.getAllByLabelText(/^SQL for cell/)).toHaveLength(before + 1)
 
     // Switching notebooks must not inject the old request into the other notebook.
-    await user.click(screen.getByRole('button', { name: '+ New notebook' }))
+    await user.click(screen.getByRole('button', { name: 'New notebook' }))
     expect(await screen.findByDisplayValue('Untitled notebook')).toBeInTheDocument()
     expect(screen.getAllByLabelText(/^SQL for cell/)).toHaveLength(1)
     expect(screen.getByLabelText('SQL for cell 1')).toHaveValue('')
+  })
+
+  it('opens SQL from the URL (a record developer view link) as a cell, without running it, once', async () => {
+    window.history.replaceState(null, '', '/?sql=SELECT%20id%20FROM%20person%20WHERE%20id%20%3D%207')
+    renderWithClient(<SqlWorkbenchWidget widgetMetaData={widgetMetaData} />)
+    await waitFor(() => expect(screen.getAllByLabelText(/^SQL for cell/).map((cell) => (cell as HTMLTextAreaElement).value)).toContain('SELECT id FROM person WHERE id = 7'))
+    expect(window.location.search).toBe('')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
   it('shows an error when the notebook list fails to load', async () => {
@@ -186,16 +194,19 @@ describe('SqlWorkbenchWidget', () => {
     expect(sent!.params).toEqual({ since: '2026-01-01' })
     expect(sent!.cellKey).toBe('c1')
     expect(sent!.executionUuid).toMatch(/[0-9a-f-]{36}/)
-    expect(screen.getByRole('link', { name: /CSV/ })).toHaveAttribute(
+    expect(screen.getByText(/Succeeded · .* · 3 rows/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    expect(await screen.findByRole('menuitem', { name: 'CSV' })).toHaveAttribute(
       'href',
       '/qqq/v1/sql-workbench/executions/exec-1/export?format=csv'
     )
+    await user.keyboard('{Escape}')
 
     await user.click(screen.getByRole('button', { name: 'Next' }))
     expect(await within(table).findByText('Tim')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Chart' }))
-    expect(screen.getByLabelText('Chart')).toBeInTheDocument()
+    expect(screen.getByLabelText('Chart type')).toBeInTheDocument()
   })
 
   it('shows SQL errors as results', async () => {
@@ -227,7 +238,7 @@ describe('SqlWorkbenchWidget', () => {
     await user.click(screen.getByRole('button', { name: 'Preview write' }))
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText(/1204 rows affected/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/1,204 rows affected/)).toBeInTheDocument()
     const commit = within(dialog).getByRole('button', { name: 'Commit write' })
     expect(commit).toBeDisabled()
     await user.type(within(dialog).getByLabelText(/Type postgres to confirm/), 'postgres')
@@ -243,7 +254,7 @@ describe('SqlWorkbenchWidget', () => {
       confirmToken: 'token-1',
       acknowledgeRowGuard: true,
     })
-    expect(await screen.findByText(/1204 rows affected/)).toBeInTheDocument()
+    expect(await screen.findByText(/1,204 rows affected/)).toBeInTheDocument()
   })
 
   it('explains a statement as a plan tree', async () => {
@@ -253,7 +264,7 @@ describe('SqlWorkbenchWidget', () => {
     await user.click(screen.getByRole('button', { name: 'Explain' }))
     const plan = await screen.findByRole('list', { name: 'Query plan' })
     expect(within(plan).getByText('Seq Scan')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Raw' }))
+    await user.click(screen.getByRole('button', { name: 'Raw text' }))
     expect(screen.getByText('[{"Plan": {}}]')).toBeInTheDocument()
   })
 
@@ -263,7 +274,7 @@ describe('SqlWorkbenchWidget', () => {
     const title = await screen.findByLabelText('Notebook title')
     await user.clear(title)
     await user.type(title, 'Fresh')
-    await user.click(screen.getByRole('button', { name: '+ Markdown cell' }))
+    await user.click(screen.getByRole('button', { name: 'Add notes cell' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(window.location.search).toBe('?notebook=9'))
   })
@@ -290,7 +301,7 @@ describe('SqlWorkbenchWidget', () => {
     const { container } = renderWithClient(
       <WidgetRenderer widgetMetaData={widgetMetaData} data={{}} />
     )
-    await screen.findByRole('button', { name: '+ New notebook' })
+    await screen.findByRole('button', { name: 'New notebook' })
     expect(await axe(container)).toHaveNoViolations()
   })
 })

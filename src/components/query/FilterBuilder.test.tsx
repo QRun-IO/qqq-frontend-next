@@ -76,6 +76,7 @@ describe('FilterBuilder', () => {
 
   it('stores relative date expressions in the backend class format', async () => {
     render(<Harness initial={{ ...emptyFilter(), criteria: [{ fieldName: 'when', operator: 'GREATER_THAN', values: [] }] }} />)
+    await userEvent.selectOptions(screen.getByLabelText('Filter operator'), 'is relative to today')
     await userEvent.click(screen.getByRole('button', { name: 'Relative date for When' }))
     await userEvent.clear(screen.getByLabelText('Amount'))
     await userEvent.type(screen.getByLabelText('Amount'), '7')
@@ -118,4 +119,11 @@ describe('FilterBuilder', () => {
     expect(screen.getByRole('textbox', { name: 'Filter value for Name' })).toHaveValue('ABC')
     expect(latest.criteria[0].values).toEqual(['ABC'])
   })
+})
+
+
+it('includes the collaboration tag virtual field with its possible-value source', () => {
+  const tags = { ...field('collaborationTags', 'Tags', 'STRING'), possibleValueSourceName: 'collaboration_tag', isQueryCriteria: true, isQuerySelectable: true }
+  const fields = buildFilterFields({ ...table, virtualFields: { collaborationTags: tags } })
+  expect(fields.find((entry) => entry.name === 'collaborationTags')?.possibleValueSourceName).toBe('collaboration_tag')
 })

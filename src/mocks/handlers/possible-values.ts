@@ -26,6 +26,7 @@ const BASE = '/qqq/v1'
 // ─── Static possible value sources ───────────────────────────────────────────
 
 const possibleValueSources: Record<string, QPossibleValue[]> = {
+  collaboration_tag: [{ id: 1, label: 'Priority' }, { id: 2, label: 'Customer' }, { id: 3, label: 'Needs review' }],
   personStatus: [
     { id: 'Active', label: 'Active' },
     { id: 'Inactive', label: 'Inactive' },
@@ -150,7 +151,7 @@ function makePossibleValuesHandler(urlPattern: string) {
     const ids = Array.isArray(body.ids) ? body.ids.map((id) => String(id).trim()).filter(Boolean) : []
 
     // Check static sources first
-    const staticSource = possibleValueSources[fieldName]
+    const staticSource = possibleValueSources[fieldName === 'collaborationTags' ? 'collaboration_tag' : fieldName]
     if (staticSource) {
       let results = staticSource
       if (ids.length > 0) {

@@ -68,23 +68,29 @@ test.describe('table and chart extras', () => {
     // a zero total shows no total (Material ImageCell)
     await expect(table.locator('[data-qqq-id="table-row-accTableCells-1"] td').nth(3)).toHaveText('Owned product')
 
-    // fr widths share what the fixed 180px column (and the 60px expander) leave: Name (2fr) is twice Count (1fr)
-    const headers = table.locator('thead th')
-    const widths = await headers.evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width))
-    expect(Math.abs(widths[0] - 2 * widths[1])).toBeLessThanOrEqual(2)
-    expect(Math.abs(widths[1] - widths[2])).toBeLessThanOrEqual(1)
-    expect(Math.abs(widths[3] - 180)).toBeLessThanOrEqual(1)
-    expect(Math.abs(widths[5] - 60)).toBeLessThanOrEqual(1)
+    // a widget narrower than its declared columns need (180px + 60px + 4 x 6rem) shows rows as
+    // labelled cards: no column widths or hover header help there, each value carries its label
+    if (await card.locator('[data-qqq-table-layout="cards"]').count()) {
+      expect(await first.evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-label')))).toEqual(['Name', 'Count', 'Status', 'Product', 'Detail', null])
+    } else {
+      // fr widths share what the fixed 180px column (and the 60px expander) leave: Name (2fr) is twice Count (1fr)
+      const headers = table.locator('thead th')
+      const widths = await headers.evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width))
+      expect(Math.abs(widths[0] - 2 * widths[1])).toBeLessThanOrEqual(2)
+      expect(Math.abs(widths[1] - widths[2])).toBeLessThanOrEqual(1)
+      expect(Math.abs(widths[3] - 180)).toBeLessThanOrEqual(1)
+      expect(Math.abs(widths[5] - 60)).toBeLessThanOrEqual(1)
 
-    // the columnHeader=name help slot on the Name header
-    const help = byId(page, 'table-header-help-accTableCells-name')
-    await expect(help).toBeHidden()
-    await showTooltip(page, headers.nth(0).locator('[data-tooltip-trigger]'))
-    await expect(help).toBeVisible()
-    await expect(help).toHaveText('Owned name column help')
-    await expect(help.locator('b')).toHaveText('name')
-    await page.keyboard.press('Escape')
-    await expect(headers.nth(1).getByRole('tooltip', { includeHidden: true })).toHaveCount(0)
+      // the columnHeader=name help slot on the Name header
+      const help = byId(page, 'table-header-help-accTableCells-name')
+      await expect(help).toBeHidden()
+      await showTooltip(page, headers.nth(0).locator('[data-tooltip-trigger]'))
+      await expect(help).toBeVisible()
+      await expect(help).toHaveText('Owned name column help')
+      await expect(help.locator('b')).toHaveText('name')
+      await page.keyboard.press('Escape')
+      await expect(headers.nth(1).getByRole('tooltip', { includeHidden: true })).toHaveCount(0)
+    }
 
     // sub-rows expand and collapse, nested rows are shaded
     expect((await bodyRows(table)).map((row) => row[0])).toEqual(['Owned parent↗', 'Owned second'])
@@ -140,13 +146,19 @@ test.describe('table and chart extras', () => {
     await size.selectOption('25')
     expect(await names()).toEqual(range(1, 25))
 
-    // the header stays at the top while the fixed-height body scrolls
+    // the fixed-height body scrolls; in table layout the header stays at its top, in the
+    // narrow-widget card layout each value carries its own label instead
     const scroller = table.locator('xpath=..')
     await scroller.evaluate((node) => { node.scrollTop = 300 })
     await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(200)
-    const header = await table.locator('thead th').first().boundingBox()
-    const box = await scroller.boundingBox()
-    expect(Math.abs(header!.y - box!.y)).toBeLessThanOrEqual(1)
+    if (await card.locator('[data-qqq-table-layout="cards"]').count()) {
+      await expect(table.locator('tbody td').first()).toHaveAttribute('data-label', 'Row')
+      expect(await scroller.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+    } else {
+      const header = await table.locator('thead th').first().boundingBox()
+      const box = await scroller.boundingBox()
+      expect(Math.abs(header!.y - box!.y)).toBeLessThanOrEqual(1)
+    }
     await expectTouchReady(page, card)
   })
 

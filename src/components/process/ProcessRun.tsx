@@ -30,18 +30,23 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import type { QAppTreeNode, QInstance, QProcessMetaData } from '@/types'
-import type { ProcessInitRequest } from '@/lib/api/processes'
+import { processJob, type ProcessFiles, type ProcessInitRequest, type ProcessJobRequest } from '@/lib/api/processes'
 import { loadMetaData } from '@/lib/api/metadata'
+import { canAccessProcess } from '@/lib/auth/permissions'
 import { useTableMetaData } from '@/lib/hooks/use-metadata'
 import { useProcess } from '@/lib/hooks/use-process'
 import { queryKeys } from '@/lib/query-client'
 import { cn } from '@/lib/utils/cn'
 import { readStoredTableVariant } from '@/lib/utils/table-variant'
+import { pickerRecordPath } from '@/lib/utils/record-picker'
+import { getErrorMessage } from '@/lib/utils/error-utils'
+import BannerComponent from '@/components/layout/Banner'
 
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
 import { ProcessResultStep } from './ProcessResultStep'
+import { ProcessSummaryLines, readSummaryLines } from './ProcessSummaryLines'
 import { ProcessStepScreen } from './ProcessStepScreen'
 
 /**
@@ -63,6 +68,8 @@ export interface ProcessRunProps {
    * stepper, no Cancel or Close, and Return starts a fresh run in place instead of leaving the page.
    */
   isEmbedded?: boolean
+  /** Called once, with the process's final values, when the run completes (e.g. a picker selects an uploaded record). */
+  onComplete?: (values: Record<string, unknown>) => void
   /** Additional CSS class names applied to the root container. */
   className?: string
 }
@@ -149,6 +156,7 @@ export function ProcessRun({
   initialRequest,
   returnTo,
   isEmbedded = false,
+  onComplete,
   className,
 }: ProcessRunProps) {
   const router = useRouter()
@@ -163,6 +171,9 @@ export function ProcessRun({
 
   const { state, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [jobSubmitting, setJobSubmitting] = useState(false)
+  const [jobError, setJobError] = useState<string | null>(null)
+  const jobSubmittingRef = useRef(false)
   const startedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -177,6 +188,13 @@ export function ProcessRun({
     startedRef.current = true
     start()
   }, [boundsMessage, start])
+
+  const completedRef = useRef(false)
+  useEffect(() => {
+    if (state.phase !== 'complete' || completedRef.current) return
+    completedRef.current = true
+    onComplete?.(state.values)
+  }, [state.phase, state.values, onComplete])
 
   //////////////////////////////////////////////////////////////////
   // move focus to the new screen's heading (WCAG 2.4.3), not on  //
@@ -200,6 +218,40 @@ export function ProcessRun({
     leave()
   }
 
+  /**
+   * Continue the current screen as a durable job, retaining its launch selection.
+   * @param values - The validated payload the normal next action would send.
+   * @param files - New files selected on this screen (not yet uploaded).
+   */
+  const runInBackground = async (values: Record<string, unknown>, files?: ProcessFiles) => {
+    if (jobSubmittingRef.current || !state.currentStep || !canAccessProcess(processMetaData)) return
+    setJobError(null)
+    if (files && Object.keys(files).length > 0) {
+      setJobError('Submit the upload step first, then run in background from the next screen.')
+      return
+    }
+    jobSubmittingRef.current = true
+    setJobSubmitting(true)
+    try {
+      const selection: Pick<ProcessJobRequest, 'filter' | 'recordIds'> = request.recordsParam === 'filterJSON'
+        ? { filter: JSON.parse(request.filterJSON ?? '{}') }
+        : request.recordsParam === 'recordIds'
+          ? { recordIds: (request.recordIds ?? '').split(',').map((id) => id.trim()).filter(Boolean) }
+          : {}
+      const job = await processJob(processName, {
+        values: { ...request.values, ...state.values, ...values, ...(request.tableVariant ? { tableVariant: request.tableVariant } : {}) },
+        ...selection,
+        startAfterStep: state.currentStep.name,
+        label: processMetaData.label,
+      })
+      router.push(pickerRecordPath('jobs_job', job.jobId))
+    } catch (error) {
+      setJobError(getErrorMessage(error, 'Could not start the background job.'))
+      jobSubmittingRef.current = false
+      setJobSubmitting(false)
+    }
+  }
+
   const container = (children: React.ReactNode) => (
     <div
       ref={containerRef}
@@ -208,7 +260,16 @@ export function ProcessRun({
       data-process-phase={boundsMessage ? 'error' : state.phase}
       data-embedded={isEmbedded || undefined}
     >
-      <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>{children}</div>
+      <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>
+        {typeof state.values.durableJobId === 'number' && (
+          <BannerComponent slot="QFMD_TOP_OF_BODY" banners={{ QFMD_TOP_OF_BODY: {
+            severity: 'INFO',
+            messageHTML: `Running as a background job <a data-qqq-id="link-open-job" class="underline" href="${pickerRecordPath('jobs_job', state.values.durableJobId)}">Open job</a>`,
+          } }} />
+        )}
+        {jobError && <p role="alert" className="p-4 text-sm text-destructive" data-qqq-id="process-job-error">{jobError}</p>}
+        {children}
+      </div>
       <ProcessCancelDialog open={confirmCancel} onOpenChange={setConfirmCancel} onConfirm={() => { void cancelAndLeave() }} />
     </div>
   )
@@ -244,6 +305,9 @@ export function ProcessRun({
           </div>
         )}
         <div className="p-8">
+          {typeof state.values.durableJobId === 'number' && (
+            <ProcessSummaryLines lines={readSummaryLines(state.values.processResults)} table={sourceTableMetaData ?? tableMetaData} isResultScreen />
+          )}
           <ProcessResultStep
             processMetaData={processMetaData}
             resultValues={state.values}
@@ -335,15 +399,16 @@ export function ProcessRun({
         steps={steps}
         values={state.values}
         backStep={state.backStep}
-        isWorking={false}
+        isWorking={jobSubmitting}
         tableVariant={request.tableVariant}
         tableMetaData={tableMetaData}
         sourceTableMetaData={sourceTableMetaData}
         previewTableMetaData={previewTableMetaData}
         instance={instance}
         isEmbedded={isEmbedded}
-        onSubmit={submit}
-        onBack={back}
+        onSubmit={(values, files) => { setJobError(null); submit(values, files) }}
+        onRunInBackground={(values, files) => { void runInBackground(values, files) }}
+        onBack={() => { setJobError(null); back() }}
         onCancel={() => setConfirmCancel(true)}
         onReturn={leave}
       />

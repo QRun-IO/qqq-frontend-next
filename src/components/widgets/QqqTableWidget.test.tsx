@@ -200,3 +200,74 @@ describe('QqqMultiTableWidget', () => {
     expect(downloads.map((download) => download.fileName)).toEqual([expect.stringMatching(/^First \d{4}-\d\d-\d\d \d{4}\.csv$/), expect.stringMatching(/^Second /)])
   })
 })
+
+/**
+ * Stubs ResizeObserver so every observed element reports `width` px.
+ *
+ * @param width - The reported content width.
+ */
+function observeWidth(width: number) {
+  vi.stubGlobal('ResizeObserver', class {
+    private readonly callback: ResizeObserverCallback
+    constructor(callback: ResizeObserverCallback) { this.callback = callback }
+    observe(target: Element) { this.callback([{ target, contentRect: { width } } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver) }
+    unobserve() {}
+    disconnect() {}
+  })
+}
+
+describe('QqqTableWidget readable widths', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const data: QqqTablePayload = {
+    columns: [
+      { header: 'Name', accessor: 'name', width: '1fr' },
+      { header: 'Notes', accessor: 'notes', width: '600px' },
+    ],
+    rows: [{ name: 'Alpha', notes: 'First' }, { name: 'Beta' }],
+  }
+
+  it('caps the content width at 96rem by default, or at defaultValues.tableMaxWidth, or not at all', () => {
+    const { unmount } = render(<QqqTableWidget widgetMetaData={meta()} data={data} />)
+    expect((document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement).style.maxWidth).toBe('96rem')
+    unmount()
+    const second = render(<QqqTableWidget widgetMetaData={meta({ defaultValues: { tableMaxWidth: 120 } })} data={data} />)
+    expect((document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement).style.maxWidth).toBe('120rem')
+    second.unmount()
+    render(<QqqTableWidget widgetMetaData={meta({ defaultValues: { tableMaxWidth: 'none' } })} data={data} />)
+    expect((document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement).style.maxWidth).toBe('')
+  })
+
+  it('keeps the table (with its declared min width) when the widget is wide enough', () => {
+    observeWidth(1200)
+    render(<QqqTableWidget widgetMetaData={meta()} data={data} />)
+    const root = document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement
+    expect(root.dataset.qqqTableLayout).toBe('table')
+    expect(screen.getByRole('table').style.minWidth).toBe('calc(6rem + 600px)')
+    expect(document.querySelector('colgroup')).not.toBeNull()
+  })
+
+  it('renders rows as labelled cards when the widget is narrower than its declared columns need', () => {
+    // 600px + 6rem = 696px > 650px, although 650px is wider than 30rem
+    observeWidth(650)
+    render(<QqqTableWidget widgetMetaData={meta()} data={data} />)
+    const root = document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement
+    expect(root.dataset.qqqTableLayout).toBe('cards')
+    const table = screen.getByRole('table')
+    // no forced min width or fixed column widths, so nothing can overflow sideways
+    expect(table.style.minWidth).toBe('')
+    expect(table.className).not.toContain('table-fixed')
+    expect(document.querySelector('colgroup')).toBeNull()
+    const cells = within(table).getAllByRole('cell')
+    expect(cells.map((cell) => cell.dataset.label)).toEqual(['Name', 'Notes', 'Name', 'Notes'])
+    expect(table.parentElement?.className).toContain('overflow-x-hidden')
+  })
+
+  it('renders cards below 30rem even without declared widths', () => {
+    observeWidth(400)
+    render(<QqqTableWidget widgetMetaData={meta()} data={{ columns: [{ header: 'Name', accessor: 'name' }], rows: [{ name: 'Alpha' }] }} />)
+    expect((document.querySelector('[data-qqq-id="table-widget-tbl"]') as HTMLElement).dataset.qqqTableLayout).toBe('cards')
+  })
+})

@@ -30,6 +30,7 @@ import type { RecordViewActionsPlacement } from '@/lib/utils/record-layout-utils
 import { cn } from '@/lib/utils/cn'
 import { sanitizeQqqId } from '@/lib/utils/qqq-id'
 import { canDeleteRecords, canEditRecords, canInsertRecords } from '@/lib/auth/permissions'
+import { useRecordRecentView } from '@/lib/hooks/use-collaboration-core'
 import { usePageShortcuts } from '@/lib/hooks/use-page-shortcuts'
 import { useLocationHash } from '@/lib/hooks/use-location-hash'
 import { queryKeys } from '@/lib/query-client'
@@ -37,6 +38,9 @@ import { processRunHref, recordHashAction, type HashFormPresets } from '@/lib/ut
 import { getRecordActionProcesses, launchTableName } from '@/lib/utils/process-utils'
 import { recordActionsMenu, recordAdditionalMenus, resolveRecordMenu, hasMenuItems, tidyDividers, type RecordMenuAction, type RecordMenuEntry, type RecordMenuContext } from '@/lib/utils/record-menu-utils'
 import { recordFieldFile, deliverRecordFieldFile } from '@/lib/utils/record-download'
+
+import { LazyRecordTags, LazyRecordFollow, LazyCollaborationHeader } from '@/components/collaboration/LazyRecordCollaboration'
+import { LazyFavoriteToggle } from '@/components/collaboration/LazyFavoriteToggle'
 
 import { RecordActions } from './RecordActions'
 import { RecordMenuIcon } from './RecordMenuIcon'
@@ -135,6 +139,8 @@ interface RecordViewHeaderProps {
   widgetMetaDataMap?: Record<string, QWidgetMetaData>
   /** Reloads the record and its children (after a child is created from a link). */
   onRecordChanged?: () => void
+  /** Shows the card/list view-mode toggle (default true; screens without sections hide it). */
+  showViewModeToggle?: boolean
 }
 
 /**
@@ -166,6 +172,7 @@ export function RecordViewHeader({
   auditSource = null,
   widgetMetaDataMap,
   onRecordChanged,
+  showViewModeToggle = true,
 }: RecordViewHeaderProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -212,6 +219,7 @@ export function RecordViewHeader({
   }, [mobileActionsOpen])
 
   const primaryKey = record.values[tableMetaData.primaryKeyField] as string | number
+  useRecordRecentView({ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) })
 
   /**
    * Copies the record's primary key value to the clipboard.
@@ -321,6 +329,8 @@ export function RecordViewHeader({
           <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-foreground md:text-3xl" data-qqq-id={`record-view-title-${sanitizeQqqId(tableMetaData.name)}`}>
             {record.recordLabel || `${tableMetaData.label} #${record.values[tableMetaData.primaryKeyField]}`}
           </h1>
+          <LazyFavoriteToggle target={{ targetType: 'RECORD', targetName: tableMetaData.name, recordId: String(primaryKey) }} label={record.recordLabel || tableMetaData.label} href={recordPath} />
+          <LazyRecordFollow table={tableMetaData} pk={String(primaryKey)} />
           {/* D-V-5: Copy record ID to clipboard */}
           <button
             type="button"
@@ -341,7 +351,11 @@ export function RecordViewHeader({
             }
           </button>
           {actionsPlacement === 'INLINE_WITH_PAGE_TITLE' && desktopActions}
+          {/* Presence, owner/assignee and Share take their own full-width row, so they never strand
+              the copy button (or the inline actions) on a line of its own */}
+          <LazyCollaborationHeader table={tableMetaData} record={record} />
         </div>
+        <LazyRecordTags table={tableMetaData} pk={String(primaryKey)} />
         {/* T1 fields in a row under the name, each as wide as its value (up to 32rem), wrapping as the header narrows */}
         {t1Fields.length > 0 && (
           <dl
@@ -365,7 +379,7 @@ export function RecordViewHeader({
       </div>
       <div className="flex w-full flex-wrap items-center gap-2 md:w-auto" data-qqq-id="record-view-controls">
         {/* View mode toggle */}
-        <div
+        {showViewModeToggle && <div
           className="flex rounded-lg border border-border bg-muted/50 p-0.5"
           role="radiogroup"
           aria-label="View mode"
@@ -399,7 +413,7 @@ export function RecordViewHeader({
           >
             <List className="h-4 w-4" aria-hidden="true" />
           </button>
-        </div>
+        </div>}
 
         {/* Go To another record of this table by its key (tables with Material gotoFieldNames) */}
         <GotoRecordButton

@@ -20,7 +20,7 @@
 
 import type { QHelpContent, QWidgetDropdown, QWidgetHelpContent, QWidgetMetaData } from '@/types'
 import { WIDGET_HELP_ROLES, selectSlotHelpContent } from '@/lib/utils/help-utils'
-import { containerSpanClasses } from '@/lib/utils/responsive-grid'
+import { containerSpanClasses, gridMinWidthRem, gridProfileOf, minWidthSpanClasses } from '@/lib/utils/responsive-grid'
 
 /** Root of the local-storage keys that persist widget dropdown selections (shared with Material). */
 export const WIDGET_DROPDOWN_STORAGE_ROOT = 'qqq.widgets.dropdownData'
@@ -327,6 +327,15 @@ function columnSpan(value: unknown): number | undefined {
  * `defaultValues`) is sized as Material sizes it: each declared breakpoint (Material's widths)
  * applies from its width up, `xs` defaults to 12 and `xxl` to `gridColumns`.
  *
+ * Otherwise a widget may say how narrow it can get, in its `defaultValues`:
+ * - `gridMinWidth`: its minimum width (rem as a number, or `"28rem"` / `"448px"`); it shares a
+ *   row only when the grid gives it, and a neighbour of the same minimum, at least that much
+ *   (see `minWidthSpanClasses`).
+ * - `gridProfile`: `widgets` (charts, statistics), `cards` or `table` (tables), or `fields`
+ *   (small tiles), choosing one of the `responsive-grid` ladders instead of the type default.
+ *
+ * `gridCols:sizeClass:*` wins over `gridMinWidth`, which wins over `gridProfile`.
+ *
  * @param gridColumns - Widget metadata grid columns.
  * @param defaultValues - Widget metadata default values (per-breakpoint overrides).
  * @param widgetType - Widget type, so table widgets get card-sized room.
@@ -340,7 +349,10 @@ export function widgetColumnClasses(gridColumns?: number, defaultValues?: Record
     const classes = SIZE_CLASSES.flatMap((size) => (sizes[size] ? [SIZE_CLASS_SPANS[size][sizes[size]]] : []))
     return `${classes.join(' ')} min-w-0`
   }
-  return containerSpanClasses(columnSpan(gridColumns) ?? 12, widgetType && TABLE_WIDGET_TYPES.has(widgetType) ? 'cards' : 'widgets')
+  const minWidth = gridMinWidthRem(defaultValues?.gridMinWidth)
+  if (minWidth !== undefined) return minWidthSpanClasses(columnSpan(gridColumns), minWidth)
+  const profile = gridProfileOf(defaultValues?.gridProfile) ?? (widgetType && TABLE_WIDGET_TYPES.has(widgetType) ? 'cards' : 'widgets')
+  return containerSpanClasses(columnSpan(gridColumns) ?? 12, profile)
 }
 
 /** Classes for a dashboard grid item: an in-page anchor target (`#widgetName`) clear of the header. */

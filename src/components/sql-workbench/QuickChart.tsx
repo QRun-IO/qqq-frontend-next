@@ -16,7 +16,8 @@
 
 /**
  * @file QuickChart — a bar, line or pie chart of a result's current rows: pick the category
- * column and the value columns. Uses Recharts, as the dashboard chart widgets do.
+ * column and the value columns. Uses Recharts, as the dashboard chart widgets do, with the
+ * theme's chart palette and surfaces so it reads in light and dark mode.
  */
 
 'use client'
@@ -40,17 +41,27 @@ import {
 
 import type { SqlColumn, SqlValue } from '@/types'
 import { numericColumnIndexes, toChartRows } from '@/lib/utils/sql-workbench'
+import { CHECKBOX_CLASS, SELECT_CLASS } from '@/components/ui/controls'
 
-const COLORS = [
-  '#6366f1',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#06b6d4',
-  '#8b5cf6',
-  '#84cc16',
-  '#ec4899',
-]
+/**
+ * Series colors: the theme's chart palette tokens, which the dark theme redefines, so the chart
+ * follows light and dark mode (Recharts writes them as SVG presentation values).
+ */
+export const CHART_COLORS = Array.from({ length: 10 }, (_, i) => `var(--color-chart-${i + 1})`)
+
+/** Axis ticks and legend text: the muted text color of the surrounding card. */
+const TICK = { fontSize: 12, fill: 'currentColor' }
+
+/** Tooltip box on the popover surface. */
+const TOOLTIP_STYLE: React.CSSProperties = {
+  backgroundColor: 'var(--color-popover)',
+  border: '1px solid var(--color-border)',
+  borderRadius: '0.5rem',
+  color: 'var(--color-popover-foreground)',
+  fontSize: '12px',
+}
+const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: 'var(--color-popover-foreground)' }
+const TOOLTIP_CURSOR = { fill: 'var(--color-muted)', opacity: 0.6 }
 
 /**
  * Renders the chart builder.
@@ -82,11 +93,11 @@ export function QuickChart({ columns, rows }: { columns: SqlColumn[]; rows: SqlV
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <label className="inline-flex items-center gap-1">
-          Chart
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-foreground">
+        <label className="inline-flex items-center gap-2">
+          Chart type
           <select
-            className="rounded border px-1 py-0.5"
+            className={SELECT_CLASS}
             value={type}
             onChange={(e) => setType(e.target.value as 'bar' | 'line' | 'pie')}
             data-qqq-id="select-sql-chart-type"
@@ -96,10 +107,10 @@ export function QuickChart({ columns, rows }: { columns: SqlColumn[]; rows: SqlV
             <option value="pie">Pie</option>
           </select>
         </label>
-        <label className="inline-flex items-center gap-1">
+        <label className="inline-flex min-w-0 items-center gap-2">
           Category
           <select
-            className="rounded border px-1 py-0.5"
+            className={SELECT_CLASS}
             value={xIndex}
             onChange={(e) => setXIndex(Number(e.target.value))}
             data-qqq-id="select-sql-chart-x"
@@ -111,12 +122,13 @@ export function QuickChart({ columns, rows }: { columns: SqlColumn[]; rows: SqlV
             ))}
           </select>
         </label>
-        <fieldset className="inline-flex flex-wrap items-center gap-2">
+        <fieldset className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
           <legend className="sr-only">Values</legend>
-          <span>Values</span>
+          <span aria-hidden="true">Values</span>
           {numeric.map((i) => (
-            <label key={i} className="inline-flex items-center gap-1">
+            <label key={i} className="inline-flex cursor-pointer items-center gap-1.5">
               <input
+                className={CHECKBOX_CLASS}
                 type={type === 'pie' ? 'radio' : 'checkbox'}
                 name="sql-chart-y"
                 checked={yIndexes.includes(i)}
@@ -137,47 +149,68 @@ export function QuickChart({ columns, rows }: { columns: SqlColumn[]; rows: SqlV
         </fieldset>
       </div>
       <div
-        className="h-72 w-full"
+        className="h-80 w-full text-muted-foreground"
         role="img"
         aria-label={`${type} chart of ${series.join(', ') || 'no values'} by ${columns[xIndex]?.label}`}
       >
         <ResponsiveContainer width="100%" height="100%">
           {type === 'pie' ? (
             <PieChart>
-              <Pie data={data} dataKey={series[0] ?? ''} nameKey="x" outerRadius="80%" label>
+              <Pie
+                data={data}
+                dataKey={series[0] ?? ''}
+                nameKey="x"
+                outerRadius="75%"
+                label={TICK}
+                stroke="var(--color-card)"
+              >
                 {data.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
             </PieChart>
           ) : type === 'line' ? (
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="x" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.15} />
+              <XAxis dataKey="x" tick={TICK} stroke="currentColor" strokeOpacity={0.4} />
+              <YAxis tick={TICK} stroke="currentColor" strokeOpacity={0.4} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                cursor={{ stroke: 'currentColor', strokeOpacity: 0.3 }}
+              />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
               {series.map((s, i) => (
                 <Line
                   key={s}
                   type="monotone"
                   dataKey={s}
-                  stroke={COLORS[i % COLORS.length]}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2}
                   dot={false}
                 />
               ))}
             </LineChart>
           ) : (
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="x" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.15} />
+              <XAxis dataKey="x" tick={TICK} stroke="currentColor" strokeOpacity={0.4} />
+              <YAxis tick={TICK} stroke="currentColor" strokeOpacity={0.4} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                cursor={TOOLTIP_CURSOR}
+              />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
               {series.map((s, i) => (
-                <Bar key={s} dataKey={s} fill={COLORS[i % COLORS.length]} />
+                <Bar
+                  key={s}
+                  dataKey={s}
+                  fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  radius={[3, 3, 0, 0]}
+                />
               ))}
             </BarChart>
           )}
