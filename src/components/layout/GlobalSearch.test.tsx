@@ -300,7 +300,8 @@ describe('GlobalSearch', () => {
       await user.type(recordInput(), 'zed')
       expect(await findOption(/Zed Zulu/)).toHaveTextContent('Springfield office')
       expect(screen.getByRole('group', { name: /^Pet/ })).toHaveTextContent('Zed’s dog')
-      expect(selected()).toHaveTextContent('Zed Zulu')
+      // The first record becomes selected once the suggestion list settles (async under a loaded runner).
+      await vi.waitFor(() => expect(selected()).toHaveTextContent('Zed Zulu'))
       expect(recordInput()).toHaveAttribute('aria-controls', screen.getByRole('listbox').id)
       await vi.waitFor(() => expect(recordInput()).toHaveAttribute('aria-activedescendant', selected()!.id))
       expect(recordInput()).toHaveAttribute('aria-expanded', 'true')

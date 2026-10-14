@@ -48,7 +48,7 @@ import { emptyFilter, isCriterionComplete, MISSING_FILTER_VARIABLE_MESSAGE, norm
 import { withTrailingSlash } from '@/lib/utils/material-links'
 import { countFilterConditions } from '@/lib/utils/date-range-utils'
 import { canFilterWorkAsBasic } from '@/lib/utils/quick-filter-utils'
-import { getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
+import { defaultColumnVisibility, getQueryColumns, orderColumns, pinColumn, withReadableExposedJoins } from '@/lib/utils/query-columns'
 import { buildViewJson, diffViews, isColumnVisible, reconcileView, viewToState, type SavedView, type ViewState } from '@/lib/utils/saved-view-utils'
 import { AD_HOC_VIEW_IDENTITY, clearStoredQueryState, readCurrentSavedViewId, readStoredQueryView, savedViewIdentity, writeCurrentSavedViewId, writeStoredQueryView } from '@/lib/utils/query-view-storage'
 import { isSafeRedirectPath } from '@/lib/utils/string-utils'
@@ -201,12 +201,12 @@ export function RecordQuery({ tableName, tableMetaData: sourceTableMetaData, all
   const defaultViewState = useMemo<ViewState>(() => ({
     userFilter: emptyFilter(preferences.tableDefaultPageSize),
     sortOrder: rq.filter.defaultSort,
-    columnVisibility: {},
+    columnVisibility: defaultColumnVisibility(tableMetaData),
     columnOrder: [],
     columnWidths: {},
     pageSize: preferences.tableDefaultPageSize,
     filterMode: 'basic',
-  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort])
+  }), [preferences.tableDefaultPageSize, rq.filter.defaultSort, tableMetaData])
   const currentViewJson = useMemo(() => buildViewJson(tableMetaData, rq.viewState), [tableMetaData, rq.viewState])
   const reportHref = useMemo(() => {
     if (!canInsertRecords(metaData?.tables?.savedReport)) return undefined
