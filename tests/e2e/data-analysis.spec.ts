@@ -18,7 +18,7 @@ const PANEL = '[data-qqq-id="data-analysis-panel"]'
 async function mockAnalysis(page: Page) {
   await setupApiMocks(page)
   await page.route('**/qqq/v1/version', (route) =>
-    route.fulfill({ json: { apiVersion: '1.3.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.0.0', pathPrefix: '/qbit/data-analysis' }] } })
+    route.fulfill({ json: { apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.0.0', pathPrefix: '/qbit/data-analysis' }] } })
   )
   await page.route(`${ROOT}/tables/*/capabilities`, (route) =>
     route.fulfill({ json: capabilities })

@@ -55,8 +55,8 @@ describe('parseSemver / compareSemver', () => {
 
 describe('evaluateCompatibility', () => {
   it('accepts any 1.x at or above the minimum', () => {
-    expect(evaluateCompatibility(info('1.3.0')).compatible).toBe(true)
-    expect(evaluateCompatibility(info('1.2.9')).compatible).toBe(false)
+    expect(evaluateCompatibility(info('1.4.0')).compatible).toBe(true)
+    expect(evaluateCompatibility(info('1.3.9')).compatible).toBe(false)
     expect(evaluateCompatibility(info('1.7.2')).compatible).toBe(true)
   })
 

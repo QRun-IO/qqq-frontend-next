@@ -14,7 +14,7 @@ const baseFilter = {
 async function mockPivot(page: Page) {
   await setupApiMocks(page)
   await page.route('**/qqq/v1/version', (route) =>
-    route.fulfill({ json: { apiVersion: '1.3.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.1.0', pathPrefix: '/qbit/data-analysis' }] } })
+    route.fulfill({ json: { apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.1.0', pathPrefix: '/qbit/data-analysis' }] } })
   )
   const person = {
     ...METADATA.tables.person,
@@ -167,7 +167,7 @@ for (const width of [390, 768, 1440]) {
 test('does not offer Pivot without the analysis capability', async ({ page }) => {
   await setupApiMocks(page)
   await page.route('**/qqq/v1/version', (route) =>
-    route.fulfill({ json: { apiVersion: '1.3.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.1.0', pathPrefix: '/qbit/data-analysis' }] } })
+    route.fulfill({ json: { apiVersion: '1.4.0', basePath: '/qqq/v1', supportedMajorVersions: [1], features: [], extensions: [{ name: 'data-analysis', version: '1.1.0', pathPrefix: '/qbit/data-analysis' }] } })
   )
   await page.route(`${ROOT}/tables/*/capabilities`, (route) =>
     route.fulfill({ json: { canAnalyze: false, fields: [] } })

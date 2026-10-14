@@ -30,7 +30,7 @@ import apiClient from './client'
  */
 export const SUPPORTED_UI_API = {
   /** Lowest server version this build runs against. */
-  minimum: '1.3.0',
+  minimum: '1.4.0',
   /** First major version this build does not support. */
   belowMajor: 2,
 } as const
