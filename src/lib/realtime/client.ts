@@ -61,6 +61,7 @@ export class RealtimeClient {
   private refused = new Set<string>()
   private syncing = false
   private delay = 1000
+  private hide?: () => void
 
   constructor(scope: string, options: Options = {}) {
     this.id = options.id ?? crypto.randomUUID()
@@ -91,6 +92,23 @@ export class RealtimeClient {
           this.elect()
         }
       }
+    if (typeof window !== 'undefined') {
+      // A closing (or bfcache-frozen) tab never runs React cleanups, so the leader hands over
+      // at once instead of after the lease expires. Its interval re-elects if it comes back.
+      this.hide = () => {
+        if (this.ended) return
+        this.bus?.postMessage({ from: this.id, kind: 'bye' } satisfies BusMessage)
+        this.disconnect()
+        this.leader = false
+      }
+      window.addEventListener('pagehide', this.hide)
+    }
+  }
+  /** Whether the session ended or the client was disposed; such a client never reconnects.
+   * @returns True once ended.
+   */
+  get isEnded() {
+    return this.ended
   }
   /** Retains a channel until the returned release function runs.
    * @param channel - Permission-checked subscription.
@@ -136,11 +154,15 @@ export class RealtimeClient {
   close() {
     this.ended = true
     this.idle()
+    if (this.hide) window.removeEventListener('pagehide', this.hide)
     this.bus?.close()
+    this.bus = null
     this.listeners.clear()
   }
   /** Announces tab interest; the smallest live interested tab is leader. */
   private announce() {
+    // An ended tab must not keep claiming leadership for channels it will never serve.
+    if (this.ended) return
     this.bus?.postMessage({
       from: this.id,
       kind: 'lease',
@@ -265,13 +287,14 @@ export class RealtimeClient {
   }
 }
 let singleton: { scope: string; client: RealtimeClient } | undefined
-/** Returns the session's lazy singleton and disposes previous-session state.
+/** Returns the session's lazy singleton and disposes previous-session state. A client whose
+ * session ended is replaced on the next subscription (after sign-in), never reconnected.
  * @param userId - Session user identity.
  * @returns Tab client.
  */
 export function realtimeClient(userId: string) {
   const scope = `${process.env.NEXT_PUBLIC_API_BASE_URL || '/qqq/v1'}:${userId}`
-  if (singleton?.scope !== scope) {
+  if (singleton?.scope !== scope || singleton.client.isEnded) {
     singleton?.client.close()
     singleton = { scope, client: new RealtimeClient(scope) }
   }
