@@ -373,7 +373,11 @@ export async function uploadAttachment(
  * @returns Safe URL envelope, never persisted.
  */
 export async function attachmentUrl(id: number, mode: 'preview' | 'download') {
-  const data = object(await apiClient.get(`${BASE}/attachments/${id}/${mode}`))
+  const data = object(
+    await (mode === 'preview'
+      ? apiClient.get(`${BASE}/attachments/${id}/preview`)
+      : apiClient.get(`${BASE}/attachments/${id}/download`))
+  )
   const url = string(data.url)
   if (!url || !/^(https?:\/\/|\/(?!\/))/.test(url) || /[\\\u0000-\u0020]/.test(url))
     throw new Error('Invalid attachment URL')
@@ -495,7 +499,9 @@ export async function deleteComment(id: number) {
  */
 export async function resolveComment(id: number, resolved: boolean) {
   return acknowledgement(
-    await apiClient.post(`${BASE}/comments/${id}/${resolved ? 'resolve' : 'reopen'}`)
+    await (resolved
+      ? apiClient.post(`${BASE}/comments/${id}/resolve`)
+      : apiClient.post(`${BASE}/comments/${id}/reopen`))
   )
 }
 /** Reads previous bodies.
