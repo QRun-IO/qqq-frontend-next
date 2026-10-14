@@ -26,6 +26,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
@@ -41,8 +42,13 @@ import { readStoredTableVariant } from '@/lib/utils/table-variant'
 import { StepWizard } from './StepWizard'
 import { ProcessCancelDialog } from './ProcessCancelDialog'
 import { ProcessErrorState } from './ProcessErrorState'
-import { ProcessResultStep } from './ProcessResultStep'
+import { ProcessResultStep, ProcessSecretNotice } from './ProcessResultStep'
 import { ProcessStepScreen } from './ProcessStepScreen'
+
+const OneTimeSecretDialog = dynamic(
+  () => import('@/components/preferences/PreferenceActions').then((module) => module.OneTimeSecretDialog),
+  { ssr: false }
+)
 
 /**
  * Props for the {@link ProcessRun} component.
@@ -164,7 +170,7 @@ export function ProcessRun({
   }), [initialRequest, initialValues, processMetaData.tableName])
   const boundsMessage = useMemo(() => inputRecordBoundsMessage(processMetaData, request), [processMetaData, request])
 
-  const { state, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
+  const { state, oneTimeSecrets, clearOneTimeSecrets, start, submit, back, cancel } = useProcess(processName, processMetaData, request)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const startedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -220,6 +226,13 @@ export function ProcessRun({
     >
       <div className={isEmbedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card shadow-sm'}>{children}</div>
       <ProcessCancelDialog open={confirmCancel} onOpenChange={setConfirmCancel} onConfirm={() => { void cancelAndLeave() }} />
+      {(state.phase === 'complete' || state.phase === 'step') && oneTimeSecrets.length > 0 && (
+        <OneTimeSecretDialog
+          secrets={oneTimeSecrets}
+          onClose={clearOneTimeSecrets}
+          onReturnFocus={() => containerRef.current?.querySelector<HTMLElement>('[data-qqq-id="process-result-heading"], [data-qqq-id="process-step-heading"]')?.focus()}
+        />
+      )}
     </div>
   )
 
@@ -357,6 +370,7 @@ export function ProcessRun({
         onCancel={() => setConfirmCancel(true)}
         onReturn={leave}
       />
+      <ProcessSecretNotice values={state.values} />
     </>
   )
 }

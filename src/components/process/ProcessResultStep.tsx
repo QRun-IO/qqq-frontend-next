@@ -46,6 +46,25 @@ export interface ProcessResultStepProps {
   actions?: React.ReactNode
 }
 
+/** Render only the retained masked placeholders on final or metadata-defined result screens.
+ * @param props - Safe process values.
+ * @returns An accessible notice, or nothing when no placeholders exist.
+ */
+export function ProcessSecretNotice({ values }: { values: Record<string, unknown> }) {
+  const maskedSecrets = Array.isArray(values.oneTimeSecretsMasked)
+    ? values.oneTimeSecretsMasked.filter((value): value is string => typeof value === 'string')
+    : []
+  if (!maskedSecrets.length) return null
+  return (
+    <section aria-label="One-time secrets" role="status" className="rounded-lg border border-border bg-muted p-4 text-left text-sm text-foreground">
+      <p>Shown once. It can&apos;t be displayed again.</p>
+      <ul className="mt-2 space-y-1">
+        {maskedSecrets.map((masked, index) => <li key={index} className="break-all font-mono">{masked}</li>)}
+      </ul>
+    </section>
+  )
+}
+
 /** A single numeric stat entry to display in the completion summary. */
 interface ResultStat {
   /** Human-readable label for the stat (e.g. "Records Inserted"). */
@@ -153,11 +172,13 @@ export function ProcessResultStep({
 
       {/* Success heading */}
       <div>
-        <h3 className="text-xl font-semibold text-foreground">
+        <h3 className="text-xl font-semibold text-foreground" tabIndex={-1} data-qqq-id="process-result-heading">
           {processMetaData?.label ?? 'Process'} Complete
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">{successMessage}</p>
       </div>
+
+      <ProcessSecretNotice values={resultValues} />
 
       {/* Result stats */}
       {stats.length > 0 && (

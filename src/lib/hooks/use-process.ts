@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { QFieldMetaData, QFrontendStepMetaData, QProcessMetaData } from '@/types'
+import type { PreferenceSecret } from '@/types/preferences'
 import {
   processCancel,
   processInit,
@@ -92,6 +93,10 @@ export interface ProcessState {
 /** Result of {@link useProcess}. */
 export interface UseProcessReturn {
   state: ProcessState
+  /** Ephemeral dialog data, separate from the stored process state. */
+  oneTimeSecrets: PreferenceSecret[]
+  /** Discard the one-time values on dialog dismissal. */
+  clearOneTimeSecrets: () => void
   /** Start (or restart, for Retry) the process with the original init request. */
   start: () => void
   /** Submit the current screen's values (and uploads) and continue. */
@@ -135,6 +140,8 @@ export function useProcess(
   processMetaData: QProcessMetaData,
   initialRequest: ProcessInitRequest
 ): UseProcessReturn {
+  const [oneTimeSecrets, setOneTimeSecrets] = useState<PreferenceSecret[]>([])
+  const clearOneTimeSecrets = useCallback(() => setOneTimeSecrets([]), [])
   const [state, setState] = useState<ProcessState>(() => ({
     phase: 'idle',
     processUUID: null,
@@ -178,6 +185,7 @@ export function useProcess(
   }, [])
 
   const fail = useCallback((message: string, isUserFacing: boolean) => {
+    setOneTimeSecrets([])
     clearPoll()
     setState((previous) => ({ ...previous, phase: 'error', jobUUID: null, progress: null, error: { message, isUserFacing } }))
   }, [clearPoll])
@@ -263,6 +271,14 @@ export function useProcess(
           fail('Unexpected server response.', false)
           return
         }
+        if (response.type === 'COMPLETE') {
+          // a step that went async hands its one-time secrets to the first
+          // completed status poll (QRun-IO/qqq#1174); same isolation as run()
+          const { oneTimeSecrets: secrets, ...safeResponse } = response
+          if (secrets?.length) setOneTimeSecrets(secrets)
+          handle(safeResponse, generation)
+          return
+        }
         handle(response, generation)
       } catch (error) {
         if (generation !== generationRef.current) return
@@ -289,7 +305,17 @@ export function useProcess(
    */
   const run = useCallback(async (request: () => Promise<ProcessResponse>, generation: number) => {
     try {
-      handle(await request(), generation)
+      const response = await request()
+      if (generation !== generationRef.current || !mountedRef.current) return
+      if (response.type === 'COMPLETE') {
+        // Only the dialog state receives secrets. State updater closures receive
+        // the sanitized response, never the original synchronous response.
+        const { oneTimeSecrets: secrets, ...safeResponse } = response
+        if (secrets?.length) setOneTimeSecrets(secrets)
+        handle(safeResponse, generation)
+      } else {
+        handle(response, generation)
+      }
     } catch (error) {
       if (generation !== generationRef.current) return
       if (getErrorStatusCode(error) === 401) return
@@ -298,6 +324,7 @@ export function useProcess(
   }, [fail, handle])
 
   const start = useCallback(() => {
+    setOneTimeSecrets([])
     generationRef.current += 1
     const generation = generationRef.current
     clearPoll()
@@ -327,6 +354,7 @@ export function useProcess(
   }, [processName, run])
 
   const cancel = useCallback(async () => {
+    setOneTimeSecrets([])
     const { processUUID } = stateRef.current
     generationRef.current += 1
     clearPoll()
@@ -341,5 +369,5 @@ export function useProcess(
     }
   }, [clearPoll, processName])
 
-  return { state, start, submit, back, cancel }
+  return { state, oneTimeSecrets, clearOneTimeSecrets, start, submit, back, cancel }
 }

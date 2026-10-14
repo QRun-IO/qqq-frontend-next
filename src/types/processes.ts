@@ -21,6 +21,7 @@
 // QQQ Process Job Types - ported from qqq-frontend-core
 
 import type { QFrontendStepMetaData, QFieldMetaData } from './metadata'
+import type { PreferenceSecret } from '@/types/preferences'
 
 /**
  * Initial response returned when a process job is successfully submitted.
@@ -59,6 +60,8 @@ export interface QJobRunning {
  * the wizard (next / back step names), and any runtime metadata adjustments.
  */
 export interface QJobComplete {
+  /** Synchronous init/step only; never retain in process state or caches. */
+  oneTimeSecrets?: PreferenceSecret[]
   /** UUID of the process instance that finished. */
   processUUID: string
   /** Key/value map of output values produced by the completed step. */

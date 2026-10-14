@@ -29,10 +29,10 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/lib/api/metadata', () => ({ loadMetaData: vi.fn().mockResolvedValue({ apps: {}, appTree: [] }) }))
 vi.mock('@/lib/hooks/use-metadata', () => ({ useTableMetaData: () => ({ data: undefined }) }))
 vi.mock('@/lib/hooks/use-process', () => ({
-  useProcess: () => ({ state: processState.current, start: vi.fn(), submit: vi.fn(), back: vi.fn(), cancel: vi.fn() }),
+  useProcess: () => ({ state: processState.current, oneTimeSecrets: [], clearOneTimeSecrets: vi.fn(), start: vi.fn(), submit: vi.fn(), back: vi.fn(), cancel: vi.fn() }),
 }))
 vi.mock('./ProcessStepScreen', () => ({ ProcessStepScreen: () => <p>step</p> }))
-vi.mock('./ProcessResultStep', () => ({ ProcessResultStep: () => <p>done</p> }))
+vi.mock('./ProcessResultStep', () => ({ ProcessResultStep: () => <p>done</p>, ProcessSecretNotice: () => null }))
 
 import { ProcessRun } from './ProcessRun'
 
