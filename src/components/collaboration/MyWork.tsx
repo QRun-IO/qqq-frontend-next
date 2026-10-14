@@ -95,7 +95,7 @@ export function MyWork() {
   const openTasks = tasks.data?.pages.flatMap((page) => page.items) ?? work.data?.tasks ?? []
   useRealtimeChannel('user:me', undefined, available.data === true)
   return (
-    <main className="mx-auto min-w-0 max-w-5xl space-y-5 p-4" data-qqq-id="my-work">
+    <main className="mx-auto min-w-0 max-w-5xl space-y-5 py-4 sm:px-4" data-qqq-id="my-work">
       <h1 className="text-2xl font-semibold">My work</h1>
       {available.data === false && <p>My work is unavailable.</p>}
       {available.isError || work.isError ? (

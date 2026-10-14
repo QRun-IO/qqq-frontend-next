@@ -63,6 +63,7 @@ export function PeoplePicker({
       <legend className="text-sm font-medium">{label}</legend>
       <input
         aria-label={`Search ${label.toLowerCase()}`}
+        placeholder="Search by name"
         className={collaborationInput}
         value={q}
         onChange={(e) => setQ(e.target.value)}

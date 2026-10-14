@@ -83,28 +83,49 @@ export function RecordCollaborationHeader({
     : summary.data?.assignee
   const capabilities = summary.data?.capabilities ?? features?.capabilities
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <PresenceAvatars viewers={presence.viewers} />
-      {owner != null && <span>Owner: {String(owner)}</span>}
-      {assignee != null && <span>Assignee: {String(assignee)}</span>}
-      {available && capabilities?.assign === true && (
-        <button
-          className={collaborationButton}
-          onClick={() => setAssign(true)}
-          data-qqq-id="record-assign"
-        >
-          Assign
-        </button>
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+      data-qqq-id="record-collaboration-header"
+    >
+      {presence.viewers.length > 0 && <PresenceAvatars viewers={presence.viewers} />}
+      {(owner != null || assignee != null) && (
+        <dl className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {owner != null && (
+            <div className="flex gap-1">
+              <dt className="text-muted-foreground">Owner</dt>
+              <dd className="break-words">{String(owner)}</dd>
+            </div>
+          )}
+          {assignee != null && (
+            <div className="flex gap-1">
+              <dt className="text-muted-foreground">Assignee</dt>
+              <dd className="break-words">{String(assignee)}</dd>
+            </div>
+          )}
+        </dl>
       )}
-      {available && features?.features?.includes('SHARING') && (
-        <button
-          className={collaborationButton}
-          onClick={() => setShare(true)}
-          data-qqq-id="record-share"
-        >
-          Share
-        </button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {available && capabilities?.assign === true && (
+          <button
+            type="button"
+            className={collaborationButton}
+            onClick={() => setAssign(true)}
+            data-qqq-id="record-assign"
+          >
+            Assign
+          </button>
+        )}
+        {available && features?.features?.includes('SHARING') && (
+          <button
+            type="button"
+            className={collaborationButton}
+            onClick={() => setShare(true)}
+            data-qqq-id="record-share"
+          >
+            Share
+          </button>
+        )}
+      </div>
       {share && (
         <Share
           record={target}
