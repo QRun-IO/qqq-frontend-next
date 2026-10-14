@@ -28,12 +28,13 @@ import {
 
 /** Keeps a chip control at its drawn size on touch screens, where the global rule lifts every
  * button to 44 px and turned each chip into a tall pill; a transparent overlay of at least
- * 44 x 44 px keeps the touch target.
+ * 44 x 44 px keeps the touch target. That rule is unlayered, so it outranks any utility class
+ * and only the important modifier resets it.
  * @param classes - The control's own classes.
  * @returns Classes with the compact size and the enlarged hit area.
  */
 function compactTouchTarget(classes: string) {
-  return `${classes} relative min-h-0 min-w-0 after:absolute after:left-1/2 after:top-1/2 after:min-h-11 after:min-w-11 after:h-full after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] pointer-fine:after:hidden`
+  return `${classes} relative min-h-0! min-w-0! after:absolute after:left-1/2 after:top-1/2 after:min-h-11 after:min-w-11 after:h-full after:w-full after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] pointer-fine:after:hidden`
 }
 
 /** Applied chips and tag combobox; pending suggestions are never applied.

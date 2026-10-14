@@ -127,6 +127,9 @@ for (const width of [390, 1440])
         })
       }
       await shot('record-page')
+      // Tag chips stay compact inline chips at every width, touch screens included.
+      const chip = page.locator('[data-qqq-id="record-tags"] span.rounded-full').first()
+      expect((await chip.boundingBox())!.height).toBeLessThan(36)
       const panel = page.locator('[data-qqq-id="record-collaboration-panel"]')
       for (const tab of ['comments', 'files', 'activity']) {
         await page.locator(`[data-qqq-id="collaboration-tab-${tab}"]`).click()
